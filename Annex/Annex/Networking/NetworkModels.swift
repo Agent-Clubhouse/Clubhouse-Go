@@ -33,6 +33,7 @@ struct SnapshotPayload: Codable, Sendable {
     let theme: ThemeColors
     let orchestrators: [String: OrchestratorEntry]
     let pendingPermissions: [PermissionRequest]?
+    let lastSeq: Int?
 }
 
 struct PtyDataPayload: Codable, Sendable {
@@ -113,6 +114,7 @@ struct WakeAgentResponse: Codable, Sendable {
     let kind: String?
     let color: String?
     let status: String
+    let message: String?
     let branch: String?
     let model: String?
     let orchestrator: String?
@@ -136,6 +138,7 @@ struct SendMessageResponse: Codable, Sendable {
 
 struct AgentSpawnedPayload: Codable, Sendable {
     let id: String
+    let name: String?
     let kind: String
     let status: String
     let prompt: String?
@@ -177,12 +180,15 @@ struct AgentWokenPayload: Codable, Sendable {
 // MARK: - Permission Models
 
 struct PermissionRequest: Identifiable, Codable, Sendable, Hashable {
-    let id: String          // requestId
+    let requestId: String
     let agentId: String
     let toolName: String
     let toolInput: JSONValue?
     let message: String?
-    let deadline: Int       // Unix timestamp (ms) when permission expires
+    let timeout: Int?       // Duration in ms (e.g. 120000)
+    let deadline: Int?      // Unix timestamp (ms) when permission expires
+
+    var id: String { requestId }
 }
 
 struct PermissionRequestPayload: Codable, Sendable {
@@ -191,7 +197,8 @@ struct PermissionRequestPayload: Codable, Sendable {
     let toolName: String
     let toolInput: JSONValue?
     let message: String?
-    let deadline: Int
+    let timeout: Int?
+    let deadline: Int?
 }
 
 struct PermissionResponseRequest: Codable, Sendable {
@@ -200,9 +207,68 @@ struct PermissionResponseRequest: Codable, Sendable {
 }
 
 struct PermissionResponseResponse: Codable, Sendable {
+    let ok: Bool
     let requestId: String
     let decision: String
-    let delivered: Bool
+}
+
+struct PermissionResponsePayload: Codable, Sendable {
+    let requestId: String
+    let decision: String
+}
+
+// MARK: - Structured Permission (spec §3.9)
+
+struct StructuredPermissionRequest: Codable, Sendable {
+    let requestId: String
+    let approved: Bool
+    let reason: String?
+}
+
+struct StructuredPermissionResponse: Codable, Sendable {
+    let ok: Bool
+    let requestId: String
+    let approved: Bool
+}
+
+// MARK: - Structured Events (spec §4.3 structured:event)
+
+struct StructuredEventPayload: Codable, Sendable {
+    let agentId: String
+    let event: StructuredEvent
+}
+
+struct StructuredEvent: Codable, Sendable {
+    let type: String
+    let timestamp: Int?
+    let data: JSONValue?
+}
+
+// MARK: - WebSocket Envelope with seq (spec §4.2)
+
+struct WSEnvelope: Codable, Sendable {
+    let type: String
+    let payload: JSONValue?
+    let seq: Int?
+    let replayed: Bool?
+}
+
+// MARK: - Replay Messages (spec §4.4)
+
+struct ReplayRequest: Codable, Sendable {
+    let type: String  // "replay"
+    let since: Int
+}
+
+struct ReplayGapPayload: Codable, Sendable {
+    let oldestAvailable: Int
+    let lastSeq: Int
+}
+
+struct ReplayStartPayload: Codable, Sendable {
+    let fromSeq: Int
+    let toSeq: Int
+    let count: Int
 }
 
 // MARK: - Flexible JSON type for arbitrary payloads

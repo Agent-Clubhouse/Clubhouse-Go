@@ -42,6 +42,9 @@ enum ConnectionState: Sendable {
     var connectionState: ConnectionState = .disconnected
     var lastError: String?
 
+    /// Structured event streams per agent, keyed by agentId.
+    var structuredEventsByAgent: [String: [StructuredEvent]] = [:]
+
     // MARK: - Networking
 
     private(set) var apiClient: AnnexAPIClient?
@@ -49,6 +52,8 @@ enum ConnectionState: Sendable {
     private var wsStreamTask: Task<Void, Never>?
     private var token: String?
     private var reconnectAttempt = 0
+    private var lastSeq: Int?
+    private var isReplaying = false
     private static let maxReconnectAttempts = 10
 
     // MARK: - Queries
@@ -108,10 +113,22 @@ enum ConnectionState: Sendable {
         activityByAgent[agentId] ?? []
     }
 
+    func structuredEvents(for agentId: String) -> [StructuredEvent] {
+        structuredEventsByAgent[agentId] ?? []
+    }
+
+    /// Look up a durable agent by ID across all projects.
+    func durableAgent(byId agentId: String) -> DurableAgent? {
+        for agents in agentsByProject.values {
+            if let agent = agents.first(where: { $0.id == agentId }) { return agent }
+        }
+        return nil
+    }
+
     func pendingPermission(for agentId: String) -> PermissionRequest? {
         let now = Int(Date().timeIntervalSince1970 * 1000)
         return pendingPermissions.values
-            .first { $0.agentId == agentId && $0.deadline > now }
+            .first { $0.agentId == agentId && ($0.deadline ?? Int.max) > now }
     }
 
     func ptyBuffer(for agentId: String) -> String {
@@ -204,12 +221,25 @@ enum ConnectionState: Sendable {
         self.webSocket = ws
 
         let stream = ws.connect()
+        let previousSeq = lastSeq
         reconnectAttempt = 0
+        isReplaying = false
 
         wsStreamTask = Task {
-            for await event in stream {
-                await handleWSEvent(event)
+            for await seqEvent in stream {
+                // Track seq for replay
+                if let seq = seqEvent.seq {
+                    self.lastSeq = seq
+                }
+                await handleWSEvent(seqEvent.event)
             }
+        }
+
+        // If we had a previous seq, request replay of missed events
+        if let since = previousSeq {
+            let replayReq = ReplayRequest(type: "replay", since: since)
+            ws.send(replayReq)
+            print("[Annex] Sent replay request since seq=\(since)")
         }
     }
 
@@ -224,6 +254,11 @@ enum ConnectionState: Sendable {
             orchestrators = payload.orchestrators
             activityByAgent = [:]
             ptyBufferByAgent = [:]
+            structuredEventsByAgent = [:]
+            // Track lastSeq from snapshot for reconnection replay
+            if let seq = payload.lastSeq {
+                lastSeq = seq
+            }
             // Populate pending permissions from snapshot
             pendingPermissions = [:]
             if let perms = payload.pendingPermissions {
@@ -258,6 +293,27 @@ enum ConnectionState: Sendable {
         case .themeChanged(let newTheme):
             theme = newTheme
 
+        case .structuredEvent(let payload):
+            print("[Annex] Structured event: agent=\(payload.agentId) type=\(payload.event.type)")
+            var events = structuredEventsByAgent[payload.agentId] ?? []
+            events.append(payload.event)
+            structuredEventsByAgent[payload.agentId] = events
+
+        case .replayGap(let payload):
+            print("[Annex] Replay gap: oldest=\(payload.oldestAvailable) last=\(payload.lastSeq)")
+            // Our seq is too old — the snapshot we already received is our fresh state.
+            // Update lastSeq to the server's current value.
+            lastSeq = payload.lastSeq
+            isReplaying = false
+
+        case .replayStart(let payload):
+            print("[Annex] Replay start: from=\(payload.fromSeq) to=\(payload.toSeq) count=\(payload.count)")
+            isReplaying = true
+
+        case .replayEnd:
+            print("[Annex] Replay end")
+            isReplaying = false
+
         case .agentSpawned(let payload):
             print("[Annex] Agent spawned: \(payload.id) in project \(payload.projectId)")
             // Skip if optimistic update already added this agent
@@ -265,7 +321,7 @@ enum ConnectionState: Sendable {
                existing.contains(where: { $0.id == payload.id }) { break }
             let qa = QuickAgent(
                 id: payload.id,
-                name: nil,
+                name: payload.name,
                 kind: payload.kind,
                 status: AgentStatus(rawValue: payload.status),
                 mission: payload.prompt,
@@ -318,14 +374,23 @@ enum ConnectionState: Sendable {
         case .permissionRequest(let payload):
             print("[Annex] Permission request: agent=\(payload.agentId) tool=\(payload.toolName) requestId=\(payload.requestId)")
             let perm = PermissionRequest(
-                id: payload.requestId,
+                requestId: payload.requestId,
                 agentId: payload.agentId,
                 toolName: payload.toolName,
                 toolInput: payload.toolInput,
                 message: payload.message,
+                timeout: payload.timeout,
                 deadline: payload.deadline
             )
+            // Remove any stale permission for this agent before adding new one
+            for (key, existing) in pendingPermissions where existing.agentId == payload.agentId {
+                pendingPermissions.removeValue(forKey: key)
+            }
             pendingPermissions[perm.id] = perm
+
+        case .permissionResponse(let payload):
+            print("[Annex][WS] permission:response — requestId=\(payload.requestId) decision=\(payload.decision)")
+            pendingPermissions.removeValue(forKey: payload.requestId)
 
         case .disconnected(let error):
             print("[Annex] WS disconnected: \(String(describing: error))")
@@ -475,12 +540,35 @@ enum ConnectionState: Sendable {
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {
-        guard let apiClient, let token else { return }
-        let request = PermissionResponseRequest(
-            requestId: requestId,
-            decision: allow ? "allow" : "deny"
-        )
-        _ = try await apiClient.respondToPermission(agentId: agentId, request: request, token: token)
+        print("[Annex][Perm] respondToPermission — agent=\(agentId) requestId=\(requestId) allow=\(allow)")
+        guard let apiClient, let token else {
+            print("[Annex][Perm] ❌ BAIL: apiClient=\(apiClient != nil) token=\(token != nil)")
+            return
+        }
+
+        // Route to the correct endpoint based on agent's execution mode
+        let agent = durableAgent(byId: agentId)
+        let isStructured = agent?.executionMode == "structured"
+
+        if isStructured {
+            let request = StructuredPermissionRequest(
+                requestId: requestId,
+                approved: allow,
+                reason: nil
+            )
+            print("[Annex][Perm] POST /api/v1/agents/\(agentId)/structured-permission …")
+            let response = try await apiClient.respondToStructuredPermission(agentId: agentId, request: request, token: token)
+            print("[Annex][Perm] ✅ Structured response: ok=\(response.ok) approved=\(response.approved)")
+        } else {
+            let request = PermissionResponseRequest(
+                requestId: requestId,
+                decision: allow ? "allow" : "deny"
+            )
+            print("[Annex][Perm] POST /api/v1/agents/\(agentId)/permission-response …")
+            let response = try await apiClient.respondToPermission(agentId: agentId, request: request, token: token)
+            print("[Annex][Perm] ✅ Response: ok=\(response.ok)")
+        }
+
         // Remove from pending after successful response
         pendingPermissions.removeValue(forKey: requestId)
     }
@@ -554,6 +642,7 @@ enum ConnectionState: Sendable {
         agentsByProject = [:]
         quickAgentsByProject = [:]
         activityByAgent = [:]
+        structuredEventsByAgent = [:]
         pendingPermissions = [:]
         ptyBufferByAgent = [:]
         agentIcons = [:]
@@ -563,6 +652,8 @@ enum ConnectionState: Sendable {
         token = nil
         apiClient = nil
         reconnectAttempt = 0
+        lastSeq = nil
+        isReplaying = false
     }
 
     // MARK: - Mock Data (for previews)

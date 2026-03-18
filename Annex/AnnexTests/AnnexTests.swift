@@ -55,7 +55,7 @@ struct ModelDecodingTests {
 
     @Test func decodeDurableAgent() throws {
         let json = """
-        {"id":"durable_1737000000000_abc123","name":"faithful-urchin","kind":"durable","color":"emerald","branch":"faithful-urchin/standby","model":"claude-opus-4-5","orchestrator":"claude-code","freeAgentMode":false,"icon":null}
+        {"id":"durable_1737000000000_abc123","name":"faithful-urchin","kind":"durable","color":"emerald","branch":"faithful-urchin/standby","model":"claude-opus-4-5","orchestrator":"claude-code","freeAgentMode":false,"icon":null,"executionMode":"pty"}
         """
         let agent = try JSONDecoder().decode(DurableAgent.self, from: Data(json.utf8))
         #expect(agent.id == "durable_1737000000000_abc123")
@@ -63,6 +63,23 @@ struct ModelDecodingTests {
         #expect(agent.kind == "durable")
         #expect(agent.freeAgentMode == false)
         #expect(agent.orchestrator == "claude-code")
+        #expect(agent.executionMode == "pty")
+    }
+
+    @Test func decodeDurableAgentWithoutExecutionMode() throws {
+        let json = """
+        {"id":"durable_001","name":"test-agent","kind":"durable","color":null,"branch":null,"model":null,"orchestrator":null,"freeAgentMode":null,"icon":null}
+        """
+        let agent = try JSONDecoder().decode(DurableAgent.self, from: Data(json.utf8))
+        #expect(agent.executionMode == nil)
+    }
+
+    @Test func decodeDurableAgentStructuredMode() throws {
+        let json = """
+        {"id":"durable_002","name":"structured-agent","kind":"durable","color":"cyan","branch":null,"model":"claude-opus","orchestrator":"claude-code","freeAgentMode":false,"icon":null,"executionMode":"structured"}
+        """
+        let agent = try JSONDecoder().decode(DurableAgent.self, from: Data(json.utf8))
+        #expect(agent.executionMode == "structured")
     }
 
     @Test func decodeOrchestratorEntry() throws {
@@ -83,6 +100,22 @@ struct ModelDecodingTests {
         #expect(theme.base == "#1e1e2e")
         #expect(theme.accent == "#89b4fa")
         #expect(theme.isDark == true)
+        // Optional new fields should be nil when absent
+        #expect(theme.warning == nil)
+        #expect(theme.error == nil)
+        #expect(theme.info == nil)
+        #expect(theme.success == nil)
+    }
+
+    @Test func decodeThemeColorsWithAllFields() throws {
+        let json = """
+        {"base":"#1e1e2e","mantle":"#181825","crust":"#11111b","text":"#cdd6f4","subtext0":"#a6adc8","subtext1":"#bac2de","surface0":"#313244","surface1":"#45475a","surface2":"#585b70","accent":"#cba6f7","link":"#89b4fa","warning":"#f9e2af","error":"#f38ba8","info":"#89dceb","success":"#a6e3a1"}
+        """
+        let theme = try JSONDecoder().decode(ThemeColors.self, from: Data(json.utf8))
+        #expect(theme.warning == "#f9e2af")
+        #expect(theme.error == "#f38ba8")
+        #expect(theme.info == "#89dceb")
+        #expect(theme.success == "#a6e3a1")
     }
 }
 
@@ -818,18 +851,19 @@ struct AllAgentsTests {
             model: nil,
             orchestrator: nil,
             freeAgentMode: nil,
-            icon: nil
+            icon: nil,
+            executionMode: nil
         )
         let project = store.project(for: unknown)
         #expect(project == nil)
     }
 
     @Test func statusSortOrder() {
-        let running = DurableAgent(id: "1", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, status: .running)
-        let sleeping = DurableAgent(id: "2", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, status: .sleeping)
-        let errored = DurableAgent(id: "3", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, status: .error)
-        let completed = DurableAgent(id: "4", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, status: .completed)
-        let noStatus = DurableAgent(id: "5", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil)
+        let running = DurableAgent(id: "1", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, executionMode: nil, status: .running)
+        let sleeping = DurableAgent(id: "2", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, executionMode: nil, status: .sleeping)
+        let errored = DurableAgent(id: "3", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, executionMode: nil, status: .error)
+        let completed = DurableAgent(id: "4", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, executionMode: nil, status: .completed)
+        let noStatus = DurableAgent(id: "5", name: nil, kind: nil, color: nil, branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil, icon: nil, executionMode: nil)
 
         #expect(running.statusSortOrder < errored.statusSortOrder)
         #expect(errored.statusSortOrder < sleeping.statusSortOrder)
@@ -886,7 +920,7 @@ struct AgentColorTests {
 struct PermissionModelTests {
     @Test func decodePermissionRequest() throws {
         let json = """
-        {"id":"perm_001","agentId":"durable_001","toolName":"Bash","toolInput":{"command":"rm -rf /tmp/test"},"message":"Run shell command","deadline":1737000120000}
+        {"requestId":"perm_001","agentId":"durable_001","toolName":"Bash","toolInput":{"command":"rm -rf /tmp/test"},"message":"Run shell command","deadline":1737000120000}
         """
         let perm = try JSONDecoder().decode(PermissionRequest.self, from: Data(json.utf8))
         #expect(perm.id == "perm_001")
@@ -904,7 +938,7 @@ struct PermissionModelTests {
 
     @Test func decodePermissionRequestMinimal() throws {
         let json = """
-        {"id":"perm_002","agentId":"durable_001","toolName":"Edit","deadline":1737000120000}
+        {"requestId":"perm_002","agentId":"durable_001","toolName":"Edit","deadline":1737000120000}
         """
         let perm = try JSONDecoder().decode(PermissionRequest.self, from: Data(json.utf8))
         #expect(perm.id == "perm_002")
@@ -944,29 +978,31 @@ struct PermissionModelTests {
 
     @Test func decodePermissionResponseResponse() throws {
         let json = """
-        {"requestId":"perm_001","decision":"allow","delivered":true}
+        {"ok":true,"requestId":"perm_001","decision":"allow"}
         """
         let response = try JSONDecoder().decode(PermissionResponseResponse.self, from: Data(json.utf8))
+        #expect(response.ok == true)
         #expect(response.requestId == "perm_001")
         #expect(response.decision == "allow")
-        #expect(response.delivered == true)
     }
 
     @Test func permissionRequestIdentifiable() {
         let perm = PermissionRequest(
-            id: "perm_001",
+            requestId: "perm_001",
             agentId: "agent_1",
             toolName: "Bash",
             toolInput: nil,
             message: nil,
+            timeout: 120000,
             deadline: 1737000120000
         )
         #expect(perm.id == "perm_001")
+        #expect(perm.timeout == 120000)
     }
 
     @Test func permissionRequestHashable() {
-        let perm1 = PermissionRequest(id: "perm_001", agentId: "a1", toolName: "Bash", toolInput: nil, message: nil, deadline: 100)
-        let perm2 = PermissionRequest(id: "perm_002", agentId: "a1", toolName: "Edit", toolInput: nil, message: nil, deadline: 200)
+        let perm1 = PermissionRequest(requestId: "perm_001", agentId: "a1", toolName: "Bash", toolInput: nil, message: nil, timeout: nil, deadline: 100)
+        let perm2 = PermissionRequest(requestId: "perm_002", agentId: "a1", toolName: "Edit", toolInput: nil, message: nil, timeout: nil, deadline: 200)
         let set: Set<PermissionRequest> = [perm1, perm2]
         #expect(set.count == 2)
     }
@@ -998,7 +1034,7 @@ struct PermissionWSTests {
                 "theme": {"base":"#1e1e2e","mantle":"#181825","crust":"#11111b","text":"#cdd6f4","subtext0":"#a6adc8","subtext1":"#bac2de","surface0":"#313244","surface1":"#45475a","surface2":"#585b70","accent":"#89b4fa","link":"#89b4fa"},
                 "orchestrators": {},
                 "pendingPermissions": [
-                    {"id":"perm_001","agentId":"agent_1","toolName":"Bash","message":"Run npm test","deadline":1737000120000}
+                    {"requestId":"perm_001","agentId":"agent_1","toolName":"Bash","message":"Run npm test","deadline":1737000120000}
                 ]
             }
         }
@@ -1041,11 +1077,12 @@ struct AppStorePermissionTests {
         let store = AppStore()
         let futureDeadline = Int(Date().timeIntervalSince1970 * 1000) + 60_000
         let perm = PermissionRequest(
-            id: "perm_001",
+            requestId: "perm_001",
             agentId: "agent_1",
             toolName: "Bash",
             toolInput: nil,
             message: "Run tests",
+            timeout: 120000,
             deadline: futureDeadline
         )
         store.pendingPermissions["perm_001"] = perm
@@ -1059,11 +1096,12 @@ struct AppStorePermissionTests {
         let store = AppStore()
         let futureDeadline = Int(Date().timeIntervalSince1970 * 1000) + 60_000
         let perm = PermissionRequest(
-            id: "perm_001",
+            requestId: "perm_001",
             agentId: "agent_1",
             toolName: "Bash",
             toolInput: nil,
             message: nil,
+            timeout: nil,
             deadline: futureDeadline
         )
         store.pendingPermissions["perm_001"] = perm
@@ -1076,11 +1114,12 @@ struct AppStorePermissionTests {
         let store = AppStore()
         let pastDeadline = Int(Date().timeIntervalSince1970 * 1000) - 1000
         let perm = PermissionRequest(
-            id: "perm_expired",
+            requestId: "perm_expired",
             agentId: "agent_1",
             toolName: "Bash",
             toolInput: nil,
             message: nil,
+            timeout: nil,
             deadline: pastDeadline
         )
         store.pendingPermissions["perm_expired"] = perm
@@ -1093,16 +1132,343 @@ struct AppStorePermissionTests {
         let store = AppStore()
         store.loadMockData()
         let perm = PermissionRequest(
-            id: "perm_001",
+            requestId: "perm_001",
             agentId: "agent_1",
             toolName: "Bash",
             toolInput: nil,
             message: nil,
+            timeout: nil,
             deadline: 9999999999999
         )
         store.pendingPermissions["perm_001"] = perm
         #expect(!store.pendingPermissions.isEmpty)
         store.disconnect()
         #expect(store.pendingPermissions.isEmpty)
+    }
+
+    @Test func disconnectClearsStructuredEvents() {
+        let store = AppStore()
+        store.structuredEventsByAgent["agent_1"] = [
+            StructuredEvent(type: "tool_start", timestamp: 1000, data: nil)
+        ]
+        #expect(!store.structuredEventsByAgent.isEmpty)
+        store.disconnect()
+        #expect(store.structuredEventsByAgent.isEmpty)
+    }
+
+    @Test func durableAgentLookupById() {
+        let store = AppStore()
+        store.loadMockData()
+        let found = store.durableAgent(byId: "durable_1737000000000_abc123")
+        #expect(found != nil)
+        #expect(found?.name == "faithful-urchin")
+        #expect(found?.executionMode == "pty")
+
+        let structuredAgent = store.durableAgent(byId: "durable_1737000000002_srv001")
+        #expect(structuredAgent?.executionMode == "structured")
+
+        let notFound = store.durableAgent(byId: "nonexistent")
+        #expect(notFound == nil)
+    }
+}
+
+// MARK: - Structured Event Tests
+
+struct StructuredEventTests {
+    @Test func decodeStructuredEventPayload() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_123","event":{"type":"tool_start","timestamp":1742000000,"data":{"id":"tool_call_1","name":"bash","displayVerb":"Running","input":{"command":"npm test"}}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.agentId == "agent_123")
+        #expect(msg.payload.event.type == "tool_start")
+        #expect(msg.payload.event.timestamp == 1742000000)
+        if case .object(let data) = msg.payload.event.data,
+           case .string(let name) = data["name"] {
+            #expect(name == "bash")
+        } else {
+            Issue.record("Expected object data with name field")
+        }
+    }
+
+    @Test func decodeStructuredEventTextDelta() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"text_delta","timestamp":1742000000,"data":{"text":"Hello "}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "text_delta")
+    }
+
+    @Test func decodeStructuredEventToolEnd() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"tool_end","timestamp":1742000000,"data":{"id":"tc1","name":"bash","result":"ok","durationMs":1500,"status":"success"}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "tool_end")
+        if case .object(let data) = msg.payload.event.data,
+           case .string(let status) = data["status"] {
+            #expect(status == "success")
+        } else {
+            Issue.record("Expected status field")
+        }
+    }
+
+    @Test func decodeStructuredEventFileDiff() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"file_diff","timestamp":1742000000,"data":{"path":"src/main.ts","changeType":"modify","diff":"+added line\\n-removed line"}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "file_diff")
+    }
+
+    @Test func decodeStructuredEventEnd() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"end","timestamp":1742000000,"data":{"reason":"complete","summary":"Task finished"}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "end")
+        if case .object(let data) = msg.payload.event.data,
+           case .string(let reason) = data["reason"] {
+            #expect(reason == "complete")
+        } else {
+            Issue.record("Expected reason field")
+        }
+    }
+
+    @Test func decodeStructuredEventPermissionRequest() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"permission_request","timestamp":1742000000,"data":{"id":"req_1","toolName":"bash","toolInput":{"command":"rm -rf /"},"description":"Dangerous command"}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "permission_request")
+    }
+
+    @Test func decodeStructuredEventUsage() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"usage","timestamp":null,"data":{"inputTokens":1000,"outputTokens":500,"costUsd":0.05}}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.type == "usage")
+        #expect(msg.payload.event.timestamp == nil)
+    }
+
+    @Test func decodeStructuredEventNullData() throws {
+        let json = """
+        {"type":"structured:event","payload":{"agentId":"agent_1","event":{"type":"error","timestamp":1742000000,"data":null}}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<StructuredEventPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.event.data == nil)
+    }
+}
+
+// MARK: - Structured Permission Tests
+
+struct StructuredPermissionTests {
+    @Test func encodeStructuredPermissionRequest() throws {
+        let request = StructuredPermissionRequest(requestId: "req_001", approved: true, reason: "User approved via iOS")
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(StructuredPermissionRequest.self, from: data)
+        #expect(decoded.requestId == "req_001")
+        #expect(decoded.approved == true)
+        #expect(decoded.reason == "User approved via iOS")
+    }
+
+    @Test func encodeStructuredPermissionRequestNoReason() throws {
+        let request = StructuredPermissionRequest(requestId: "req_002", approved: false, reason: nil)
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(StructuredPermissionRequest.self, from: data)
+        #expect(decoded.requestId == "req_002")
+        #expect(decoded.approved == false)
+        #expect(decoded.reason == nil)
+    }
+
+    @Test func decodeStructuredPermissionResponse() throws {
+        let json = """
+        {"ok":true,"requestId":"req_001","approved":true}
+        """
+        let response = try JSONDecoder().decode(StructuredPermissionResponse.self, from: Data(json.utf8))
+        #expect(response.ok == true)
+        #expect(response.requestId == "req_001")
+        #expect(response.approved == true)
+    }
+}
+
+// MARK: - Replay Model Tests
+
+struct ReplayModelTests {
+    @Test func encodeReplayRequest() throws {
+        let request = ReplayRequest(type: "replay", since: 42)
+        let data = try JSONEncoder().encode(request)
+        let decoded = try JSONDecoder().decode(ReplayRequest.self, from: data)
+        #expect(decoded.type == "replay")
+        #expect(decoded.since == 42)
+    }
+
+    @Test func decodeReplayGap() throws {
+        let json = """
+        {"type":"replay:gap","payload":{"oldestAvailable":100,"lastSeq":500}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<ReplayGapPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.oldestAvailable == 100)
+        #expect(msg.payload.lastSeq == 500)
+    }
+
+    @Test func decodeReplayStart() throws {
+        let json = """
+        {"type":"replay:start","payload":{"fromSeq":43,"toSeq":100,"count":58}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<ReplayStartPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.fromSeq == 43)
+        #expect(msg.payload.toSeq == 100)
+        #expect(msg.payload.count == 58)
+    }
+}
+
+// MARK: - WS Envelope Tests
+
+struct WSEnvelopeTests {
+    @Test func decodeEnvelopeWithSeq() throws {
+        let json = """
+        {"type":"pty:data","payload":{"agentId":"a1","data":"hello"},"seq":42,"replayed":false}
+        """
+        let envelope = try JSONDecoder().decode(WSEnvelope.self, from: Data(json.utf8))
+        #expect(envelope.type == "pty:data")
+        #expect(envelope.seq == 42)
+        #expect(envelope.replayed == false)
+    }
+
+    @Test func decodeEnvelopeWithoutSeq() throws {
+        let json = """
+        {"type":"snapshot","payload":{}}
+        """
+        let envelope = try JSONDecoder().decode(WSEnvelope.self, from: Data(json.utf8))
+        #expect(envelope.type == "snapshot")
+        #expect(envelope.seq == nil)
+        #expect(envelope.replayed == nil)
+    }
+
+    @Test func decodeEnvelopeReplayed() throws {
+        let json = """
+        {"type":"hook:event","payload":{},"seq":100,"replayed":true}
+        """
+        let envelope = try JSONDecoder().decode(WSEnvelope.self, from: Data(json.utf8))
+        #expect(envelope.seq == 100)
+        #expect(envelope.replayed == true)
+    }
+}
+
+// MARK: - Snapshot with lastSeq Tests
+
+struct SnapshotLastSeqTests {
+    @Test func decodeSnapshotWithLastSeq() throws {
+        let json = """
+        {
+            "type": "snapshot",
+            "payload": {
+                "projects": [],
+                "agents": {},
+                "theme": {"base":"#1e1e2e","mantle":"#181825","crust":"#11111b","text":"#cdd6f4","subtext0":"#a6adc8","subtext1":"#bac2de","surface0":"#313244","surface1":"#45475a","surface2":"#585b70","accent":"#89b4fa","link":"#89b4fa"},
+                "orchestrators": {},
+                "lastSeq": 42
+            }
+        }
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let snapshot = try JSONDecoder().decode(PayloadExtractor<SnapshotPayload>.self, from: Data(json.utf8))
+        #expect(snapshot.payload.lastSeq == 42)
+    }
+
+    @Test func decodeSnapshotWithoutLastSeq() throws {
+        let json = """
+        {
+            "type": "snapshot",
+            "payload": {
+                "projects": [],
+                "agents": {},
+                "theme": {"base":"#1e1e2e","mantle":"#181825","crust":"#11111b","text":"#cdd6f4","subtext0":"#a6adc8","subtext1":"#bac2de","surface0":"#313244","surface1":"#45475a","surface2":"#585b70","accent":"#89b4fa","link":"#89b4fa"},
+                "orchestrators": {}
+            }
+        }
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let snapshot = try JSONDecoder().decode(PayloadExtractor<SnapshotPayload>.self, from: Data(json.utf8))
+        #expect(snapshot.payload.lastSeq == nil)
+    }
+}
+
+// MARK: - AgentSpawned with name Tests
+
+struct AgentSpawnedNameTests {
+    @Test func decodeAgentSpawnedWithName() throws {
+        let json = """
+        {"type":"agent:spawned","payload":{"id":"quick_001","name":"swift-fox","kind":"quick","status":"starting","prompt":"Fix tests","model":"claude-opus","orchestrator":"claude-code","freeAgentMode":false,"parentAgentId":null,"projectId":"proj_abc"}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<AgentSpawnedPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.name == "swift-fox")
+        #expect(msg.payload.id == "quick_001")
+    }
+
+    @Test func decodeAgentSpawnedWithoutName() throws {
+        let json = """
+        {"type":"agent:spawned","payload":{"id":"quick_002","kind":"quick","status":"starting","prompt":"Fix bug","projectId":"proj_abc"}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<AgentSpawnedPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.name == nil)
+    }
+}
+
+// MARK: - WakeAgentResponse with message Tests
+
+struct WakeAgentResponseMessageTests {
+    @Test func decodeWakeResponseWithMessage() throws {
+        let json = """
+        {"id":"agent_123","name":"CodeBot","kind":"durable","color":"indigo","status":"starting","message":"Rebase on main and fix conflicts","branch":"agent/codebot","model":"claude-opus","orchestrator":"claude-code","freeAgentMode":false,"icon":null,"detailedStatus":null}
+        """
+        let response = try JSONDecoder().decode(WakeAgentResponse.self, from: Data(json.utf8))
+        #expect(response.id == "agent_123")
+        #expect(response.message == "Rebase on main and fix conflicts")
+    }
+
+    @Test func decodeWakeResponseWithoutMessage() throws {
+        let json = """
+        {"id":"agent_123","name":"CodeBot","kind":"durable","status":"starting"}
+        """
+        let response = try JSONDecoder().decode(WakeAgentResponse.self, from: Data(json.utf8))
+        #expect(response.message == nil)
+    }
+}
+
+// MARK: - Permission with timeout Tests
+
+struct PermissionTimeoutTests {
+    @Test func decodePermissionRequestWithTimeout() throws {
+        let json = """
+        {"requestId":"uuid","agentId":"agent_123","toolName":"bash","toolInput":{"command":"rm -rf node_modules"},"message":null,"timeout":120000,"deadline":1742000120000}
+        """
+        let perm = try JSONDecoder().decode(PermissionRequest.self, from: Data(json.utf8))
+        #expect(perm.timeout == 120000)
+        #expect(perm.deadline == 1742000120000)
+    }
+
+    @Test func decodePermissionRequestPayloadWithTimeout() throws {
+        let json = """
+        {"type":"permission:request","payload":{"requestId":"uuid","agentId":"agent_1","toolName":"bash","toolInput":null,"message":null,"timeout":120000,"deadline":1742000120000}}
+        """
+        struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
+        let msg = try JSONDecoder().decode(PayloadExtractor<PermissionRequestPayload>.self, from: Data(json.utf8))
+        #expect(msg.payload.timeout == 120000)
+        #expect(msg.payload.deadline == 1742000120000)
     }
 }

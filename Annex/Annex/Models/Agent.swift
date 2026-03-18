@@ -1,6 +1,6 @@
 import Foundation
 
-// Matches spec §5.3 — the fields that come from the server
+// Matches spec §3.3 — the fields that come from the server
 struct DurableAgent: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let name: String?
@@ -11,6 +11,7 @@ struct DurableAgent: Identifiable, Hashable, Codable, Sendable {
     let orchestrator: String?
     let freeAgentMode: Bool?
     let icon: String?
+    let executionMode: String?     // "pty" | "headless" | "structured" | null
 
     // Client-side state derived from hook events / snapshot
     var status: AgentStatus?

@@ -12,7 +12,14 @@ enum APIError: Error, Sendable {
     case agentNotRunning
     case missingPrompt
     case missingMessage
+    case missingRequestId
+    case invalidDecision
+    case missingApproved
+    case requestNotFound
+    case noStructuredSession
     case invalidOrchestrator
+    case spawnFailed
+    case wakeFailed
     case serverError(String)
     case networkError(Error)
     case decodingError(Error)
@@ -30,7 +37,14 @@ enum APIError: Error, Sendable {
         case .agentNotRunning: return "Agent is not running"
         case .missingPrompt: return "Prompt is required"
         case .missingMessage: return "Message is required"
+        case .missingRequestId: return "Missing request ID"
+        case .invalidDecision: return "Invalid decision"
+        case .missingApproved: return "Missing approval value"
+        case .requestNotFound: return "Permission request not found or expired"
+        case .noStructuredSession: return "Agent is not in structured mode"
         case .invalidOrchestrator: return "Invalid orchestrator"
+        case .spawnFailed: return "Failed to start agent"
+        case .wakeFailed: return "Failed to wake agent"
         case .serverError(let msg): return msg
         case .networkError: return "Cannot reach server"
         case .decodingError: return "Unexpected server response"
@@ -219,6 +233,24 @@ final class AnnexAPIClient: Sendable {
         return try decode(PermissionResponseResponse.self, from: data)
     }
 
+    // MARK: - POST /api/v1/agents/{agentId}/structured-permission
+
+    func respondToStructuredPermission(
+        agentId: String,
+        request: StructuredPermissionRequest,
+        token: String
+    ) async throws(APIError) -> StructuredPermissionResponse {
+        let url = try makeURL("/api/v1/agents/\(agentId)/structured-permission")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONEncoder().encode(request)
+
+        let data = try await perform(req)
+        return try decode(StructuredPermissionResponse.self, from: data)
+    }
+
     // MARK: - GET /api/v1/icons/agent/{agentId}
 
     func fetchAgentIcon(agentId: String, token: String) async -> Data? {
@@ -287,6 +319,10 @@ final class AnnexAPIClient: Sendable {
                 switch errResp.error {
                 case "missing_prompt": throw .missingPrompt
                 case "missing_message": throw .missingMessage
+                case "missing_request_id": throw .missingRequestId
+                case "invalid_decision": throw .invalidDecision
+                case "missing_approved": throw .missingApproved
+                case "invalid_json": throw .invalidJSON
                 case "invalid_orchestrator": throw .invalidOrchestrator
                 default: break
                 }
@@ -297,6 +333,9 @@ final class AnnexAPIClient: Sendable {
                 switch errResp.error {
                 case "project_not_found": throw .projectNotFound
                 case "agent_not_found": throw .agentNotFound
+                case "icon_not_found": throw .notFound
+                case "request_not_found": throw .requestNotFound
+                case "no_structured_session": throw .noStructuredSession
                 default: break
                 }
             }
@@ -310,6 +349,15 @@ final class AnnexAPIClient: Sendable {
                 }
             }
             throw .serverError("Conflict")
+        case 500:
+            if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                switch errResp.error {
+                case "spawn_failed": throw .spawnFailed
+                case "wake_failed": throw .wakeFailed
+                default: throw .serverError(errResp.error)
+                }
+            }
+            throw .serverError("HTTP 500")
         default:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                 throw .serverError(errResp.error)

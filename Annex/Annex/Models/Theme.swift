@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Matches spec §5.4
+// Matches spec §4.3 theme:changed
 struct ThemeColors: Hashable, Codable, Sendable {
     let base: String
     let mantle: String
@@ -13,6 +13,10 @@ struct ThemeColors: Hashable, Codable, Sendable {
     let surface2: String
     let accent: String
     let link: String
+    let warning: String?
+    let error: String?
+    let info: String?
+    let success: String?
 }
 
 extension ThemeColors {
@@ -27,6 +31,10 @@ extension ThemeColors {
     var surface2Color: Color { Color(hex: surface2) }
     var accentColor: Color { Color(hex: accent) }
     var linkColor: Color { Color(hex: link) }
+    var warningColor: Color { Color(hex: warning ?? "#f9e2af") }
+    var errorColor: Color { Color(hex: error ?? "#f38ba8") }
+    var infoColor: Color { Color(hex: info ?? "#89dceb") }
+    var successColor: Color { Color(hex: success ?? "#a6e3a1") }
 
     var isDark: Bool {
         let stripped = base.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
@@ -43,7 +51,8 @@ extension ThemeColors {
         base: "#1e1e2e", mantle: "#181825", crust: "#11111b",
         text: "#cdd6f4", subtext0: "#a6adc8", subtext1: "#bac2de",
         surface0: "#313244", surface1: "#45475a", surface2: "#585b70",
-        accent: "#89b4fa", link: "#89b4fa"
+        accent: "#89b4fa", link: "#89b4fa",
+        warning: "#f9e2af", error: "#f38ba8", info: "#89dceb", success: "#a6e3a1"
     )
 }
 
