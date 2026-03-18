@@ -24,6 +24,7 @@ enum MockData {
                 orchestrator: "claude-code",
                 freeAgentMode: false,
                 icon: nil,
+                executionMode: "pty",
                 status: .running,
                 mission: nil,
                 detailedStatus: AgentDetailedStatus(
@@ -64,6 +65,7 @@ enum MockData {
                 orchestrator: "claude-code",
                 freeAgentMode: false,
                 icon: nil,
+                executionMode: nil,
                 status: .sleeping,
                 mission: "Implement OAuth2 login flow",
                 detailedStatus: nil,
@@ -81,6 +83,7 @@ enum MockData {
                 orchestrator: "copilot-cli",
                 freeAgentMode: false,
                 icon: nil,
+                executionMode: "structured",
                 status: .running,
                 mission: "Add rate limiting middleware",
                 detailedStatus: AgentDetailedStatus(
@@ -121,6 +124,7 @@ enum MockData {
                 orchestrator: "claude-code",
                 freeAgentMode: true,
                 icon: nil,
+                executionMode: "headless",
                 status: .error,
                 mission: "Database schema migration",
                 detailedStatus: AgentDetailedStatus(
@@ -143,6 +147,7 @@ enum MockData {
                 orchestrator: "claude-code",
                 freeAgentMode: false,
                 icon: nil,
+                executionMode: "pty",
                 status: .running,
                 mission: "Build button component library",
                 detailedStatus: AgentDetailedStatus(
