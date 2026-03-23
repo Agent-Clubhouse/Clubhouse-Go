@@ -411,6 +411,47 @@ enum ConnectionState: Sendable {
         UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
     }
 
+    // MARK: - Test Server (E2E)
+
+    func connectToTestServer(_ hostPort: String, pin: String?, mockSnapshot: Bool = false) async {
+        let parts = hostPort.split(separator: ":")
+        guard parts.count == 2,
+              let port = UInt16(parts[1]) else {
+            print("[Go] Invalid --test-server format, expected host:port, got: \(hostPort)")
+            return
+        }
+        let host = String(parts[0])
+
+        if let pin {
+            let server = DiscoveredServer(
+                id: "test-server",
+                name: "Test Server",
+                host: host,
+                port: port,
+                protocolVersion: .v1,
+                pairingPort: nil,
+                fingerprint: nil
+            )
+            do {
+                try await pair(server: server, pin: pin)
+                print("[Go] Test server paired successfully at \(host):\(port)")
+
+                // If mock snapshot requested, load mock data into the connected instance
+                if mockSnapshot, let inst = instances.first {
+                    inst.loadTestSnapshot()
+                    print("[Go] Loaded mock snapshot into test instance")
+                }
+            } catch {
+                print("[Go] Test server pairing failed: \(error)")
+                lastTestServerError = error.localizedDescription
+            }
+        } else {
+            print("[Go] Test server configured at \(host):\(port), waiting for manual pairing")
+        }
+    }
+
+    var lastTestServerError: String?
+
     // MARK: - Mock Data
 
     func loadMockData() {

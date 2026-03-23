@@ -43,10 +43,27 @@ struct ClubhouseGoApp: App {
         } else if args.contains("--ui-testing") {
             store.wrappedValue.loadMockData()
             store.wrappedValue.completeOnboarding()
+        } else if let serverArg = Self.extractArg("--test-server", from: args) {
+            let pin = Self.extractArg("--test-pin", from: args)
+            let mockSnapshot = args.contains("--test-snapshot")
+            store.wrappedValue.completeOnboarding()
+            if mockSnapshot {
+                // Load mock data synchronously for reliable UI testing.
+                // HTTP pairing still runs in background to validate networking.
+                store.wrappedValue.loadMockData()
+            }
+            Task {
+                await store.wrappedValue.connectToTestServer(serverArg, pin: pin)
+            }
         } else {
             Task {
                 await store.wrappedValue.restoreAllSessions()
             }
         }
+    }
+
+    private static func extractArg(_ flag: String, from args: [String]) -> String? {
+        guard let idx = args.firstIndex(of: flag), idx + 1 < args.count else { return nil }
+        return args[idx + 1]
     }
 }

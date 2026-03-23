@@ -487,6 +487,27 @@ import Foundation
         }
     }
 
+    // MARK: - Test Helpers
+
+    /// Load mock snapshot data for E2E testing. Populates state as if a WebSocket
+    /// snapshot had been received, allowing UI tests to verify rendering against
+    /// real HTTP pairing + mock data. Cancels the WebSocket to prevent reconnect
+    /// loops from overwriting the mock state.
+    func loadTestSnapshot() {
+        // Cancel WebSocket to prevent reconnect loop from overwriting mock data
+        wsStreamTask?.cancel()
+        wsStreamTask = nil
+        webSocket?.disconnect()
+        webSocket = nil
+
+        projects = MockData.projects
+        agentsByProject = MockData.agents
+        activityByAgent = MockData.activity
+        orchestrators = MockData.orchestrators
+        theme = .mock
+        connectionState = .connected
+    }
+
     // MARK: - Private
 
     private func disconnectInternal() {
