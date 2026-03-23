@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Combine
 
 struct PermissionCard: View {
@@ -157,6 +158,7 @@ struct PermissionCard: View {
                 }
                 .onEnded { value in
                     if value.translation.width > 120 {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         withAnimation(.easeOut(duration: 0.3)) {
                             offset = CGSize(width: 500, height: 0)
                         }
@@ -164,6 +166,7 @@ struct PermissionCard: View {
                             onDecision(true)
                         }
                     } else if value.translation.width < -120 {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         withAnimation(.easeOut(duration: 0.3)) {
                             offset = CGSize(width: -500, height: 0)
                         }
