@@ -36,7 +36,7 @@ struct PairingPlaceholderView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 } else {
-                    Text("Enter the PIN shown in Clubhouse desktop app under Settings > Annex")
+                    Text("Enter the PIN shown in Clubhouse desktop app under Settings > Go")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

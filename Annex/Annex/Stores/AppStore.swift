@@ -142,7 +142,12 @@ enum ConnectionState: Sendable {
     }
 
     var pendingPermissions: [String: PermissionRequest] {
-        activeInstance?.pendingPermissions ?? [:]
+        // Merge from all instances so cross-instance permission lookups work
+        var merged: [String: PermissionRequest] = [:]
+        for inst in connectedInstances {
+            merged.merge(inst.pendingPermissions) { _, new in new }
+        }
+        return merged
     }
 
     var allAgents: [DurableAgent] {

@@ -48,7 +48,7 @@ final class WebSocketClient: Sendable {
             let wsTask = session.webSocketTask(with: url)
             self.task = wsTask
             self.isConnected = true
-            print("[Annex] WS connecting to \(url)")
+            print("[Go] WS connecting to \(url)")
             wsTask.resume()
 
             Task {
@@ -73,7 +73,7 @@ final class WebSocketClient: Sendable {
               let text = String(data: data, encoding: .utf8) else { return }
         task?.send(.string(text)) { error in
             if let error {
-                print("[Annex] WS send error: \(error)")
+                print("[Go] WS send error: \(error)")
             }
         }
     }
@@ -96,7 +96,7 @@ final class WebSocketClient: Sendable {
                     break
                 }
             } catch {
-                print("[Annex] WS receive error: \(error)")
+                print("[Go] WS receive error: \(error)")
                 if isConnected {
                     continuation.yield(SeqWSEvent(event: .disconnected(error), seq: nil, replayed: false))
                 }
@@ -113,14 +113,14 @@ final class WebSocketClient: Sendable {
 
         // Decode the envelope to get type, seq, and replayed
         guard let envelope = try? decoder.decode(WSEnvelope.self, from: data) else {
-            print("[Annex] WS failed to decode envelope: \(text.prefix(200))")
+            print("[Go] WS failed to decode envelope: \(text.prefix(200))")
             return nil
         }
 
         let seq = envelope.seq
         let replayed = envelope.replayed ?? false
 
-        print("[Annex] WS received type=\(envelope.type) seq=\(seq.map(String.init) ?? "nil") replayed=\(replayed)")
+        print("[Go] WS received type=\(envelope.type) seq=\(seq.map(String.init) ?? "nil") replayed=\(replayed)")
 
         // Re-decode payload section based on type
         struct PayloadExtractor<T: Decodable>: Decodable {
@@ -131,7 +131,7 @@ final class WebSocketClient: Sendable {
             do {
                 return try decoder.decode(PayloadExtractor<T>.self, from: data).payload
             } catch {
-                print("[Annex] WS decode error for \(envelope.type): \(error)")
+                print("[Go] WS decode error for \(envelope.type): \(error)")
                 return nil
             }
         }
@@ -201,7 +201,7 @@ final class WebSocketClient: Sendable {
             return wrap(.replayEnd)
 
         default:
-            print("[Annex] WS unknown message type: \(envelope.type)")
+            print("[Go] WS unknown message type: \(envelope.type)")
             return nil
         }
     }

@@ -4,6 +4,10 @@ import SwiftUI
 struct ClubhouseGoApp: App {
     @State private var store = AppStore()
 
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    }
+
     var body: some Scene {
         WindowGroup {
             if !store.hasCompletedOnboarding {
@@ -31,8 +35,18 @@ struct ClubhouseGoApp: App {
 
     init() {
         let store = _store
-        Task {
-            await store.wrappedValue.restoreAllSessions()
+        let args = ProcessInfo.processInfo.arguments
+
+        if args.contains("--reset-onboarding") {
+            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            store.wrappedValue = AppStore()
+        } else if args.contains("--ui-testing") {
+            store.wrappedValue.loadMockData()
+            store.wrappedValue.completeOnboarding()
+        } else {
+            Task {
+                await store.wrappedValue.restoreAllSessions()
+            }
         }
     }
 }
