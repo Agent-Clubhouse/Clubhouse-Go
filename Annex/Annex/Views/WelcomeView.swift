@@ -41,11 +41,11 @@ struct WelcomeView: View {
 
                 // Title and tagline
                 VStack(spacing: 12) {
-                    Text("Clubhouse Annex")
+                    Text("Clubhouse Go")
                         .font(.largeTitle.weight(.bold))
                         .foregroundStyle(.primary)
 
-                    Text("Stay in touch with your BFFs on the go")
+                    Text("Your agents, everywhere")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)

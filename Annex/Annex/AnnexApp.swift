@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct AnnexApp: App {
+struct ClubhouseGoApp: App {
     @State private var store = AppStore()
 
     var body: some Scene {
