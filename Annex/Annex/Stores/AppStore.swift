@@ -379,6 +379,14 @@ enum ConnectionState: Sendable {
         }
     }
 
+    // MARK: - Reconnect
+
+    func reconnect(instanceId: ServerInstanceID) async {
+        guard let inst = instanceByID(instanceId),
+              let saved = KeychainHelper.loadInstance(id: instanceId) else { return }
+        await inst.connect(token: saved.token)
+    }
+
     // MARK: - Disconnect & Reset
 
     func disconnect(instanceId: ServerInstanceID) {

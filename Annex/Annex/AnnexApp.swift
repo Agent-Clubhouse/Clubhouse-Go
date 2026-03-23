@@ -19,7 +19,8 @@ struct ClubhouseGoApp: App {
                 .environment(store)
                 .tint(store.theme.accentColor)
                 .preferredColorScheme(store.theme.isDark ? .dark : .light)
-            } else if store.hasConnectedInstance {
+            } else if !store.instances.isEmpty {
+                // Show main app if we have instances (even if some are disconnected)
                 RootNavigationView()
                     .environment(store)
                     .tint(store.theme.accentColor)
