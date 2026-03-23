@@ -65,6 +65,20 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Debug") {
+                    NavigationLink {
+                        LogViewerView()
+                    } label: {
+                        HStack {
+                            Label("Logs", systemImage: "doc.text.magnifyingglass")
+                            Spacer()
+                            Text("\(AppLog.shared.entries.count)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 Section {
                     Button(role: .destructive) {
                         store.disconnectAll()

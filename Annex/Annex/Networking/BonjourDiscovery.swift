@@ -129,6 +129,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
         if txtRecords["v"] == "2",
            let ppStr = txtRecords["pairingPort"],
            let pp = UInt16(ppStr) {
+            AppLog.shared.info("Bonjour", "v2 server: \(serviceName) pairingPort=\(pp) fingerprint=\(txtRecords["fingerprint"] ?? "?")")
             protoVersion = .v2
             pairingPort = pp
             fingerprint = txtRecords["fingerprint"]

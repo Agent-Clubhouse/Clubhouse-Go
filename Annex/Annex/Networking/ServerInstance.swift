@@ -138,8 +138,10 @@ import Foundation
         let client: AnnexAPIClient
         switch protocolConfig {
         case .v1(let host, let port):
+            AppLog.shared.info("Connect", "Connecting to v1 server \(host):\(port)")
             client = AnnexAPIClient.v1(host: host, port: port)
         case .v2(let host, let mainPort, _, _):
+            AppLog.shared.info("Connect", "Connecting to v2 server \(host):\(mainPort) (TLS)")
             let delegate = TLSSessionDelegate()
             client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         }
@@ -150,10 +152,12 @@ import Foundation
             let status = try await client.getStatus(token: token)
             serverName = status.deviceName
             connectionState = .connected
+            AppLog.shared.info("Connect", "Connected: \(status.deviceName) (\(status.agentCount) agents)")
             await connectWebSocket()
         } catch {
             connectionState = .disconnected
             lastError = "Failed to connect"
+            AppLog.shared.error("Connect", "Failed to connect: \(error)")
         }
     }
 
@@ -166,7 +170,11 @@ import Foundation
         wsStreamTask?.cancel()
         webSocket?.disconnect()
 
-        guard let url = try? apiClient.webSocketURL(token: token) else { return }
+        guard let url = try? apiClient.webSocketURL(token: token) else {
+            AppLog.shared.error("WS", "Failed to construct WebSocket URL")
+            return
+        }
+        AppLog.shared.info("WS", "Connecting to \(url.absoluteString.prefix(80))...")
         let ws = WebSocketClient(url: url, session: apiClient.urlSession)
         self.webSocket = ws
 
@@ -193,6 +201,9 @@ import Foundation
     private func handleWSEvent(_ event: WSEvent) async {
         switch event {
         case .snapshot(let payload):
+            let agentCount = payload.agents.values.flatMap { $0 }.count
+            let permCount = payload.pendingPermissions?.count ?? 0
+            AppLog.shared.info("WS", "Snapshot: \(payload.projects.count) projects, \(agentCount) agents, \(permCount) pending permissions, seq=\(payload.lastSeq ?? -1)")
             projects = payload.projects
             agentsByProject = payload.agents
             quickAgentsByProject = payload.quickAgents ?? [:]
@@ -300,6 +311,7 @@ import Foundation
             }
 
         case .permissionRequest(let payload):
+            AppLog.shared.info("Perm", "Permission request: agent=\(payload.agentId) tool=\(payload.toolName) requestId=\(payload.requestId)")
             let perm = PermissionRequest(
                 requestId: payload.requestId,
                 agentId: payload.agentId,
@@ -318,6 +330,7 @@ import Foundation
             pendingPermissions.removeValue(forKey: payload.requestId)
 
         case .disconnected:
+            AppLog.shared.warn("WS", "WebSocket disconnected")
             if connectionState.isConnected || isReconnecting {
                 await attemptReconnect()
             }
@@ -338,6 +351,7 @@ import Foundation
 
         reconnectAttempt += 1
         connectionState = .reconnecting(attempt: reconnectAttempt)
+        AppLog.shared.warn("Connect", "Reconnecting (attempt \(reconnectAttempt)/\(Self.maxReconnectAttempts))")
 
         let delay = min(pow(2.0, Double(reconnectAttempt - 1)), 30.0)
         try? await Task.sleep(for: .seconds(delay))

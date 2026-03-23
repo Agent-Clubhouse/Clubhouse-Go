@@ -315,8 +315,10 @@ enum ConnectionState: Sendable {
     }
 
     private func pairV1(server: DiscoveredServer, pin: String) async throws {
+        AppLog.shared.info("Pairing", "v1 pairing with \(server.host):\(server.port)")
         let client = AnnexAPIClient.v1(host: server.host, port: server.port)
         let response = try await client.pair(pin: pin)
+        AppLog.shared.info("Pairing", "v1 paired successfully, token=\(response.token.prefix(8))...")
 
         let instanceId = ServerInstanceID(value: UUID().uuidString)
         let config = ServerProtocol.v1(host: server.host, port: server.port)
@@ -333,10 +335,12 @@ enum ConnectionState: Sendable {
 
     private func pairV2(server: DiscoveredServer, pin: String) async throws {
         guard let pairingPort = server.pairingPort else {
+            AppLog.shared.error("Pairing", "v2 server missing pairingPort")
             throw APIError.invalidURL
         }
 
         let identity = CryptoIdentity.loadOrCreate()
+        AppLog.shared.info("Pairing", "v2 pairing with \(server.host) pairingPort=\(pairingPort) fingerprint=\(identity.fingerprint)")
         let client = AnnexAPIClient.v2Pairing(host: server.host, pairingPort: pairingPort)
 
         let response = try await client.pairV2(
@@ -347,6 +351,7 @@ enum ConnectionState: Sendable {
             color: "blue"
         )
 
+        AppLog.shared.info("Pairing", "v2 paired: server=\(response.alias) fingerprint=\(response.fingerprint)")
         let instanceId = ServerInstanceID(value: response.fingerprint)
         let config = ServerProtocol.v2(
             host: server.host, mainPort: server.port,
