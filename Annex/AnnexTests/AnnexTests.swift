@@ -498,12 +498,12 @@ struct AgentWSPayloadTests {
 
 struct APIClientTests {
     @Test func urlConstruction() throws {
-        let client = AnnexAPIClient(host: "192.168.1.100", port: 8080)
+        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 8080)
         #expect(client.baseURL == "http://192.168.1.100:8080")
     }
 
     @Test func webSocketURLConstruction() throws {
-        let client = AnnexAPIClient(host: "192.168.1.100", port: 8080)
+        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 8080)
         let url = try client.webSocketURL(token: "test-token-123")
         #expect(url.absoluteString == "ws://192.168.1.100:8080/ws?token=test-token-123")
     }
@@ -526,9 +526,9 @@ struct AppStoreTests {
         let store = AppStore()
         store.loadMockData()
         #expect(store.isPaired == true)
-        #expect(store.projects.count == 3)
+        #expect(store.instances.count == 2)
         #expect(store.totalAgentCount == 5)
-        #expect(store.serverName == "Clubhouse on Mason's Mac")
+        #expect(store.serverName == "Mason's Desktop")
         #expect(store.connectionState.isConnected == true)
     }
 
@@ -536,7 +536,7 @@ struct AppStoreTests {
         let store = AppStore()
         store.loadMockData()
         store.completeOnboarding()
-        store.disconnect()
+        store.disconnectAll()
         #expect(store.isPaired == false)
         #expect(store.projects.isEmpty)
         #expect(store.agentsByProject.isEmpty)
@@ -604,9 +604,9 @@ struct AppStoreTests {
         store.loadMockData()
         let proj = store.projects[0]
 
-        // Add the same quick agent to standalone list
+        // Add the same quick agent to standalone list (via the active instance)
         let qa = QuickAgent(id: "quick_1737000100000_def456", name: "quick-agent-1", kind: "quick", status: .running, mission: nil, prompt: "Fix bug", model: nil, detailedStatus: nil, orchestrator: nil, parentAgentId: nil, projectId: "proj_001", freeAgentMode: nil)
-        store.quickAgentsByProject["proj_001"] = [qa]
+        store.activeInstance?.quickAgentsByProject["proj_001"] = [qa]
 
         let all = store.allQuickAgents(for: proj)
         // Should deduplicate — only one entry for the same ID
@@ -619,17 +619,18 @@ struct AppStoreTests {
         let store = AppStore()
         store.loadMockData()
         let qa = QuickAgent(id: "q1", name: nil, kind: "quick", status: .running, mission: nil, prompt: "test", model: nil, detailedStatus: nil, orchestrator: nil, parentAgentId: nil, projectId: "proj_001", freeAgentMode: nil)
-        store.quickAgentsByProject["proj_001"] = [qa]
+        store.activeInstance?.quickAgentsByProject["proj_001"] = [qa]
         #expect(!store.quickAgentsByProject.isEmpty)
-        store.disconnect()
+        store.disconnectAll()
         #expect(store.quickAgentsByProject.isEmpty)
     }
 
     @Test func removeQuickAgent() {
         let store = AppStore()
+        store.loadMockData()
         let qa1 = QuickAgent(id: "q1", name: nil, kind: "quick", status: .completed, mission: nil, prompt: "task 1", model: nil, detailedStatus: nil, orchestrator: nil, parentAgentId: nil, projectId: "proj_001", freeAgentMode: nil)
         let qa2 = QuickAgent(id: "q2", name: nil, kind: "quick", status: .running, mission: nil, prompt: "task 2", model: nil, detailedStatus: nil, orchestrator: nil, parentAgentId: nil, projectId: "proj_001", freeAgentMode: nil)
-        store.quickAgentsByProject["proj_001"] = [qa1, qa2]
+        store.activeInstance?.quickAgentsByProject["proj_001"] = [qa1, qa2]
 
         store.removeQuickAgent(agentId: "q1")
         #expect(store.quickAgentsByProject["proj_001"]?.count == 1)
@@ -638,8 +639,9 @@ struct AppStoreTests {
 
     @Test func removeQuickAgentNonexistent() {
         let store = AppStore()
+        store.loadMockData()
         let qa = QuickAgent(id: "q1", name: nil, kind: "quick", status: .running, mission: nil, prompt: "test", model: nil, detailedStatus: nil, orchestrator: nil, parentAgentId: nil, projectId: "proj_001", freeAgentMode: nil)
-        store.quickAgentsByProject["proj_001"] = [qa]
+        store.activeInstance?.quickAgentsByProject["proj_001"] = [qa]
 
         store.removeQuickAgent(agentId: "nonexistent")
         #expect(store.quickAgentsByProject["proj_001"]?.count == 1)
@@ -661,11 +663,11 @@ struct AppStoreTests {
         let agentProject = store.project(for: agent)
         #expect(agentProject != nil)
 
-        // Simulate storing icon data for that project
+        // Simulate storing icon data for that project (via instance)
         let fakeIconData = Data([0x89, 0x50, 0x4E, 0x47]) // PNG magic bytes
-        store.projectIcons[agentProject!.id] = fakeIconData
+        store.activeInstance?.projectIcons[agentProject!.id] = fakeIconData
 
-        // Verify icon data is retrievable by the same project ID
+        // Verify icon data is retrievable via aggregated property
         let iconData = store.projectIcons[agentProject!.id]
         #expect(iconData != nil)
         #expect(iconData == fakeIconData)
@@ -1085,7 +1087,8 @@ struct AppStorePermissionTests {
             timeout: 120000,
             deadline: futureDeadline
         )
-        store.pendingPermissions["perm_001"] = perm
+        store.loadMockData()
+        store.activeInstance?.pendingPermissions["perm_001"] = perm
 
         let found = store.pendingPermission(for: "agent_1")
         #expect(found != nil)
@@ -1094,6 +1097,7 @@ struct AppStorePermissionTests {
 
     @Test func pendingPermissionReturnsNilForWrongAgent() {
         let store = AppStore()
+        store.loadMockData()
         let futureDeadline = Int(Date().timeIntervalSince1970 * 1000) + 60_000
         let perm = PermissionRequest(
             requestId: "perm_001",
@@ -1104,7 +1108,7 @@ struct AppStorePermissionTests {
             timeout: nil,
             deadline: futureDeadline
         )
-        store.pendingPermissions["perm_001"] = perm
+        store.activeInstance?.pendingPermissions["perm_001"] = perm
 
         let found = store.pendingPermission(for: "agent_2")
         #expect(found == nil)
@@ -1112,6 +1116,7 @@ struct AppStorePermissionTests {
 
     @Test func expiredPermissionNotReturned() {
         let store = AppStore()
+        store.loadMockData()
         let pastDeadline = Int(Date().timeIntervalSince1970 * 1000) - 1000
         let perm = PermissionRequest(
             requestId: "perm_expired",
@@ -1122,7 +1127,7 @@ struct AppStorePermissionTests {
             timeout: nil,
             deadline: pastDeadline
         )
-        store.pendingPermissions["perm_expired"] = perm
+        store.activeInstance?.pendingPermissions["perm_expired"] = perm
 
         let found = store.pendingPermission(for: "agent_1")
         #expect(found == nil)
@@ -1140,20 +1145,21 @@ struct AppStorePermissionTests {
             timeout: nil,
             deadline: 9999999999999
         )
-        store.pendingPermissions["perm_001"] = perm
+        store.activeInstance?.pendingPermissions["perm_001"] = perm
         #expect(!store.pendingPermissions.isEmpty)
-        store.disconnect()
+        store.disconnectAll()
         #expect(store.pendingPermissions.isEmpty)
     }
 
     @Test func disconnectClearsStructuredEvents() {
         let store = AppStore()
-        store.structuredEventsByAgent["agent_1"] = [
+        store.loadMockData()
+        store.activeInstance?.structuredEventsByAgent["agent_1"] = [
             StructuredEvent(type: "tool_start", timestamp: 1000, data: nil)
         ]
-        #expect(!store.structuredEventsByAgent.isEmpty)
-        store.disconnect()
-        #expect(store.structuredEventsByAgent.isEmpty)
+        #expect(!store.activeInstance!.structuredEventsByAgent.isEmpty)
+        store.disconnectAll()
+        #expect(store.instances.isEmpty)
     }
 
     @Test func durableAgentLookupById() {

@@ -1,39 +1,28 @@
 import SwiftUI
 
 enum RootTab {
+    case dashboard
     case agents
-    case projects
+    case instances
 }
 
 struct RootNavigationView: View {
     @Environment(AppStore.self) private var store
-    @State private var selectedTab: RootTab = .agents
-    @State private var selectedProject: Project?
+    @State private var selectedTab: RootTab = .dashboard
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            Tab("Dashboard", systemImage: "house.fill", value: .dashboard) {
+                DashboardView()
+            }
+            .badge(store.allPendingPermissions.count)
+
             Tab("Agents", systemImage: "person.3.fill", value: .agents) {
                 AllAgentsView()
             }
 
-            Tab("Projects", systemImage: "folder.fill", value: .projects) {
-                NavigationSplitView {
-                    ProjectListView(selectedProject: $selectedProject)
-                } detail: {
-                    if let project = selectedProject {
-                        NavigationStack {
-                            AgentListView(project: project)
-                        }
-                    } else {
-                        ContentUnavailableView(
-                            "Select a Project",
-                            systemImage: "folder",
-                            description: Text("Choose a project from the sidebar to view its agents.")
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(store.theme.baseColor)
-                    }
-                }
+            Tab("Instances", systemImage: "desktopcomputer", value: .instances) {
+                InstancesView()
             }
         }
     }

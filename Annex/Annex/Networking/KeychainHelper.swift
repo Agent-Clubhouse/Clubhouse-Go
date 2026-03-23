@@ -3,52 +3,109 @@ import Security
 
 enum KeychainHelper {
     private static let service = "com.Agent-Clubhouse.Annex"
-    private static let tokenAccount = "session-token"
-    private static let hostAccount = "server-host"
-    private static let portAccount = "server-port"
 
-    // MARK: - Token
+    // MARK: - Per-Instance Storage
 
-    static func saveToken(_ token: String) {
-        save(account: tokenAccount, data: Data(token.utf8))
+    struct SavedInstance: Codable {
+        let id: ServerInstanceID
+        let token: String
+        let protocolConfig: ServerProtocol
+        let serverPublicKey: String?
     }
 
-    static func loadToken() -> String? {
-        guard let data = load(account: tokenAccount) else { return nil }
-        return String(data: data, encoding: .utf8)
+    static func saveInstance(
+        id: ServerInstanceID,
+        token: String,
+        protocolConfig: ServerProtocol,
+        serverPublicKey: String? = nil
+    ) {
+        let saved = SavedInstance(
+            id: id, token: token,
+            protocolConfig: protocolConfig,
+            serverPublicKey: serverPublicKey
+        )
+        guard let data = try? JSONEncoder().encode(saved) else { return }
+        save(account: "instance-\(id.value)", data: data)
+
+        var ids = loadInstanceIDs()
+        if !ids.contains(id) { ids.append(id) }
+        guard let indexData = try? JSONEncoder().encode(ids) else { return }
+        save(account: "instance-index", data: indexData)
     }
 
-    static func deleteToken() {
-        delete(account: tokenAccount)
+    static func loadAllInstances() -> [SavedInstance] {
+        loadInstanceIDs().compactMap { loadInstance(id: $0) }
     }
 
-    // MARK: - Server Connection Info
-
-    static func saveServer(host: String, port: UInt16) {
-        save(account: hostAccount, data: Data(host.utf8))
-        save(account: portAccount, data: Data(String(port).utf8))
+    static func loadInstance(id: ServerInstanceID) -> SavedInstance? {
+        guard let data = load(account: "instance-\(id.value)") else { return nil }
+        return try? JSONDecoder().decode(SavedInstance.self, from: data)
     }
 
-    static func loadServer() -> (host: String, port: UInt16)? {
-        guard let hostData = load(account: hostAccount),
-              let host = String(data: hostData, encoding: .utf8),
-              let portData = load(account: portAccount),
-              let portStr = String(data: portData, encoding: .utf8),
-              let port = UInt16(portStr) else { return nil }
-        return (host, port)
-    }
-
-    static func deleteServer() {
-        delete(account: hostAccount)
-        delete(account: portAccount)
+    static func deleteInstance(id: ServerInstanceID) {
+        delete(account: "instance-\(id.value)")
+        var ids = loadInstanceIDs()
+        ids.removeAll { $0 == id }
+        if ids.isEmpty {
+            delete(account: "instance-index")
+        } else {
+            if let data = try? JSONEncoder().encode(ids) {
+                save(account: "instance-index", data: data)
+            }
+        }
     }
 
     static func clearAll() {
-        deleteToken()
-        deleteServer()
+        let ids = loadInstanceIDs()
+        for id in ids {
+            delete(account: "instance-\(id.value)")
+        }
+        delete(account: "instance-index")
+        // Legacy cleanup
+        delete(account: "session-token")
+        delete(account: "server-host")
+        delete(account: "server-port")
     }
 
-    // MARK: - Generic Keychain Operations
+    // MARK: - Ed25519 Identity (app-global)
+
+    static func saveEd25519PrivateKey(_ keyData: Data) {
+        save(account: "ed25519-private-key", data: keyData)
+    }
+
+    static func loadEd25519PrivateKey() -> Data? {
+        load(account: "ed25519-private-key")
+    }
+
+    // MARK: - Migration from Legacy Single-Instance Format
+
+    static func migrateIfNeeded() {
+        guard let tokenData = load(account: "session-token"),
+              let token = String(data: tokenData, encoding: .utf8),
+              let hostData = load(account: "server-host"),
+              let host = String(data: hostData, encoding: .utf8),
+              let portData = load(account: "server-port"),
+              let portStr = String(data: portData, encoding: .utf8),
+              let port = UInt16(portStr) else { return }
+
+        // Already migrated?
+        if !loadInstanceIDs().isEmpty { return }
+
+        let id = ServerInstanceID(value: UUID().uuidString)
+        let config = ServerProtocol.v1(host: host, port: port)
+        saveInstance(id: id, token: token, protocolConfig: config)
+
+        delete(account: "session-token")
+        delete(account: "server-host")
+        delete(account: "server-port")
+    }
+
+    // MARK: - Internal
+
+    private static func loadInstanceIDs() -> [ServerInstanceID] {
+        guard let data = load(account: "instance-index") else { return [] }
+        return (try? JSONDecoder().decode([ServerInstanceID].self, from: data)) ?? []
+    }
 
     private static func save(account: String, data: Data) {
         delete(account: account)

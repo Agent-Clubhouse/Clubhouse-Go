@@ -30,7 +30,7 @@ struct PermissionRequestSheet: View {
 
     private var timeRemaining: String {
         let now = Int(Date().timeIntervalSince1970 * 1000)
-        let remainingMs = max(0, permission.deadline - now)
+        let remainingMs = max(0, (permission.deadline ?? 0) - now)
         let seconds = remainingMs / 1000
         if seconds <= 0 { return "Expired" }
         if seconds < 60 { return "\(seconds)s remaining" }
