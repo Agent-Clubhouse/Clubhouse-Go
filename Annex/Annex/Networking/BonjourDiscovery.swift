@@ -92,20 +92,18 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
 
     private func parseTXTRecords(from metadata: NWBrowser.Result.Metadata?) -> [String: String] {
         guard case .bonjour(let txtRecord) = metadata else { return [:] }
-        // Parse TXT record raw data: series of length-prefixed "key=value" strings
-        let data = txtRecord.rawValue
         var records: [String: String] = [:]
-        var offset = 0
-        while offset < data.count {
-            let length = Int(data[offset])
-            offset += 1
-            guard offset + length <= data.count else { break }
-            let entry = data[offset..<(offset + length)]
-            offset += length
-            if let str = String(data: entry, encoding: .utf8) {
-                let parts = str.split(separator: "=", maxSplits: 1)
-                if parts.count == 2 {
-                    records[String(parts[0])] = String(parts[1])
+        for key in ["v", "pairingPort", "fingerprint"] {
+            if let entry = txtRecord.getEntry(for: key) {
+                switch entry {
+                case .string(let value):
+                    records[key] = value
+                case .data(let data):
+                    if let value = String(data: data, encoding: .utf8) {
+                        records[key] = value
+                    }
+                default:
+                    break
                 }
             }
         }
