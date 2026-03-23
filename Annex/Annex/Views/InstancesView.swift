@@ -156,11 +156,28 @@ struct InstanceDetailView: View {
                 }
             }
 
+            if !instance.connectionState.isConnected {
+                Section {
+                    Button {
+                        Task { await store.reconnect(instanceId: instance.id) }
+                    } label: {
+                        Label("Reconnect", systemImage: "arrow.clockwise")
+                    }
+                }
+            }
+
+            if let error = instance.lastError {
+                Section {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section {
                 Button(role: .destructive) {
                     store.disconnect(instanceId: instance.id)
                 } label: {
-                    Label("Disconnect", systemImage: "wifi.slash")
+                    Label("Disconnect & Remove", systemImage: "wifi.slash")
                 }
             }
         }

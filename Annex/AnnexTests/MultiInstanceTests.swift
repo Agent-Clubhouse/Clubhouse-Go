@@ -449,6 +449,44 @@ struct AppStoreMultiInstanceTests {
         #expect(store.instances.isEmpty)
         #expect(store.hasCompletedOnboarding == false)
     }
+
+    @Test func instancesExistButDisconnected() {
+        let store = makeStoreWithMockData()
+        // Simulate all instances going offline
+        for inst in store.instances {
+            inst.disconnect()
+        }
+        // Instances still exist even when disconnected
+        #expect(store.instances.count == 2)
+        #expect(store.connectedInstances.isEmpty)
+        #expect(store.hasConnectedInstance == false)
+        // isPaired is false (backward compat: no connected instance)
+        #expect(store.isPaired == false)
+        // But instances array is not empty — app should show main UI
+        #expect(!store.instances.isEmpty)
+    }
+
+    @Test func pendingPermissionsMergedFromAllInstances() {
+        let store = makeStoreWithMockData()
+        let futureDeadline = Int(Date().timeIntervalSince1970 * 1000) + 60_000
+        // Add a permission on the desktop instance too
+        store.instances[0].pendingPermissions["perm_desktop"] = PermissionRequest(
+            requestId: "perm_desktop", agentId: "durable_1737000000000_abc123",
+            toolName: "Edit", toolInput: nil, message: "Edit file",
+            timeout: nil, deadline: futureDeadline
+        )
+        // Should find permissions from both instances
+        let allPerms = store.pendingPermissions
+        #expect(allPerms.count >= 2) // At least 1 from mock + 1 we added
+    }
+
+    @Test func codexOrchestratorInMockData() {
+        let store = makeStoreWithMockData()
+        let orchestrators = store.orchestrators
+        #expect(orchestrators.keys.contains("codex"))
+        #expect(orchestrators["codex"]?.displayName == "Codex")
+        #expect(orchestrators["codex"]?.shortName == "CX")
+    }
 }
 
 // MARK: - DiscoveredServer Tests

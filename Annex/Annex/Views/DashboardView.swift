@@ -12,18 +12,36 @@ struct DashboardView: View {
                     // Connection status
                     ConnectionStatusBar()
 
-                    // Permission queue
-                    if !store.allPendingPermissions.isEmpty {
-                        PermissionReviewSection(onReviewAll: {
-                            showPermissionReview = true
-                        })
+                    // Disconnected warning
+                    if !store.connectedInstances.isEmpty {
+                        // Permission queue
+                        if !store.allPendingPermissions.isEmpty {
+                            PermissionReviewSection(onReviewAll: {
+                                showPermissionReview = true
+                            })
+                        }
+
+                        // Running agents
+                        RunningAgentsSection()
+
+                        // Quick stats
+                        StatsSection()
+                    } else if !store.instances.isEmpty {
+                        // Have instances but none connected
+                        VStack(spacing: 16) {
+                            Image(systemName: "wifi.exclamationmark")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.orange)
+                            Text("All Instances Offline")
+                                .font(.title3.weight(.semibold))
+                            Text("Your Clubhouse servers aren't reachable. Check that they're running and on the same network.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+                        }
+                        .padding(.top, 40)
                     }
-
-                    // Running agents
-                    RunningAgentsSection()
-
-                    // Quick stats
-                    StatsSection()
                 }
                 .padding()
             }
