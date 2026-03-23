@@ -10,15 +10,25 @@ struct AllAgentsView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.allAgents) { agent in
+                ForEach(store.allAgentsAcrossInstances, id: \.agent.id) { ia in
                     Section {
-                        NavigationLink(value: agent) {
-                            AgentRowView(agent: agent)
+                        NavigationLink(value: ia.agent) {
+                            AgentRowView(agent: ia.agent)
                         }
                         .listRowBackground(store.theme.surface0Color.opacity(0.5))
 
-                        if let project = store.project(for: agent) {
-                            HStack(spacing: 6) {
+                        HStack(spacing: 6) {
+                            // Instance badge
+                            if store.connectedInstances.count > 1 {
+                                Image(systemName: "desktopcomputer")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                Text(ia.instance.serverName)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            if let project = ia.instance.project(for: ia.agent) {
                                 ProjectIconView(
                                     name: project.name,
                                     displayName: project.displayName,
@@ -28,31 +38,31 @@ struct AllAgentsView: View {
                                 Text(project.label)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-
-                                Spacer()
-
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.25)) {
-                                        if expandedAgentIds.contains(agent.id) {
-                                            expandedAgentIds.remove(agent.id)
-                                        } else {
-                                            expandedAgentIds.insert(agent.id)
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: expandedAgentIds.contains(agent.id)
-                                          ? "chevron.up"
-                                          : "chevron.down")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
                             }
-                            .listRowBackground(store.theme.surface0Color.opacity(0.3))
-                        }
 
-                        if expandedAgentIds.contains(agent.id) {
-                            let events = store.activity(for: agent.id).suffix(maxActivityRows)
+                            Spacer()
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    if expandedAgentIds.contains(ia.agent.id) {
+                                        expandedAgentIds.remove(ia.agent.id)
+                                    } else {
+                                        expandedAgentIds.insert(ia.agent.id)
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: expandedAgentIds.contains(ia.agent.id)
+                                      ? "chevron.up"
+                                      : "chevron.down")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .listRowBackground(store.theme.surface0Color.opacity(0.3))
+
+                        if expandedAgentIds.contains(ia.agent.id) {
+                            let events = ia.instance.activity(for: ia.agent.id).suffix(maxActivityRows)
                             if events.isEmpty {
                                 Text("No recent activity")
                                     .font(.caption)
@@ -95,7 +105,7 @@ struct AllAgentsView: View {
                 }
             }
             .overlay {
-                if store.allAgents.isEmpty {
+                if store.allAgentsAcrossInstances.isEmpty {
                     ContentUnavailableView(
                         "No Agents",
                         systemImage: "person.3",
