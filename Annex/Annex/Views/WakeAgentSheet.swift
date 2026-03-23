@@ -12,8 +12,8 @@ struct WakeAgentSheet: View {
     @State private var errorMessage: String?
 
     private let availableModels = [
-        ("claude-opus-4-5", "Opus"),
-        ("claude-sonnet-4-5", "Sonnet"),
+        ("claude-opus-4-6", "Opus 4.6"),
+        ("claude-sonnet-4-6", "Sonnet 4.6"),
         ("claude-haiku-4-5", "Haiku"),
     ]
 

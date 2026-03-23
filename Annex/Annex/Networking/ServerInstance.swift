@@ -34,6 +34,7 @@ import Foundation
     private var lastSeq: Int?
     private var isReplaying = false
     private static let maxReconnectAttempts = 10
+    private static let maxActivityEventsPerAgent = 200
 
     init(id: ServerInstanceID, protocolConfig: ServerProtocol) {
         self.id = id
@@ -227,6 +228,10 @@ import Foundation
             let hookEvent = payload.event.toHookEvent(agentId: payload.agentId)
             var events = activityByAgent[payload.agentId] ?? []
             events.append(hookEvent)
+            // Cap to prevent unbounded memory growth
+            if events.count > Self.maxActivityEventsPerAgent {
+                events = Array(events.suffix(Self.maxActivityEventsPerAgent))
+            }
             activityByAgent[payload.agentId] = events
 
         case .themeChanged(let newTheme):

@@ -4,6 +4,7 @@ enum MockData {
     static let orchestrators: [String: OrchestratorEntry] = [
         "claude-code": OrchestratorEntry(displayName: "Claude Code", shortName: "CC", badge: nil),
         "copilot-cli": OrchestratorEntry(displayName: "Copilot CLI", shortName: "CP", badge: nil),
+        "codex": OrchestratorEntry(displayName: "Codex", shortName: "CX", badge: nil),
     ]
 
     static let projects: [Project] = [

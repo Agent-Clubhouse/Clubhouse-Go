@@ -203,6 +203,8 @@ enum OrchestratorColors {
             return (Color(hex: "#fb923c").opacity(0.2), Color(hex: "#fb923c"))
         case "copilot-cli":
             return (Color(hex: "#60a5fa").opacity(0.2), Color(hex: "#60a5fa"))
+        case "codex":
+            return (Color(hex: "#34d399").opacity(0.2), Color(hex: "#34d399"))
         default:
             return (Color(hex: "#94a3b8").opacity(0.2), Color(hex: "#94a3b8"))
         }
