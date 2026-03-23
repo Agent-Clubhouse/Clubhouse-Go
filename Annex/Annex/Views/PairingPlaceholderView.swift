@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PairingPlaceholderView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
     @State private var pin: String = ""
     @State private var discovery = BonjourDiscovery()
     @State private var selectedServer: DiscoveredServer?
@@ -10,6 +11,9 @@ struct PairingPlaceholderView: View {
     @State private var showManualEntry = false
     @State private var isPairing = false
     @State private var errorMessage: String?
+
+    /// When true, this is being used to add an additional instance (presented as sheet).
+    var isAddingInstance = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -22,7 +26,7 @@ struct PairingPlaceholderView: View {
                 .glassEffect(.regular.tint(store.theme.accentColor.opacity(0.2)), in: Circle())
 
             VStack(spacing: 8) {
-                Text("Connect to Clubhouse")
+                Text(isAddingInstance ? "Add Instance" : "Connect to Clubhouse")
                     .font(.title2.weight(.semibold))
 
                 if selectedServer == nil && !showManualEntry {
@@ -55,8 +59,22 @@ struct PairingPlaceholderView: View {
                                     Image(systemName: "desktopcomputer")
                                     Text(server.name)
                                         .font(.body)
+
+                                    if server.protocolVersion == .v2 {
+                                        ChipView(text: "v2", bg: .green.opacity(0.15), fg: .green)
+                                    }
+
                                     Spacer()
-                                    if selectedServer == server {
+
+                                    // Show if already connected
+                                    if store.instances.contains(where: {
+                                        $0.protocolConfig.host == server.host &&
+                                        $0.protocolConfig.mainPort == server.port
+                                    }) {
+                                        Text("Connected")
+                                            .font(.caption)
+                                            .foregroundStyle(.green)
+                                    } else if selectedServer == server {
                                         Image(systemName: "checkmark.circle.fill")
                                             .foregroundStyle(.green)
                                     }
@@ -107,7 +125,7 @@ struct PairingPlaceholderView: View {
                 }
             }
 
-            // PIN entry (shown when server is selected)
+            // PIN entry
             if selectedServer != nil || showManualEntry {
                 TextField("000000", text: $pin)
                     .keyboardType(.numberPad)
@@ -116,7 +134,6 @@ struct PairingPlaceholderView: View {
                     .frame(maxWidth: 200)
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: pin) { _, newValue in
-                        // Only allow digits, max 6
                         let filtered = String(newValue.filter(\.isNumber).prefix(6))
                         if filtered != newValue { pin = filtered }
                     }
@@ -169,24 +186,28 @@ struct PairingPlaceholderView: View {
         isPairing = true
         errorMessage = nil
 
-        let host: String
-        let port: UInt16
-
         if showManualEntry {
-            host = manualHost
-            port = UInt16(manualPort) ?? 0
+            let host = manualHost
+            let port = UInt16(manualPort) ?? 0
+            let server = DiscoveredServer(
+                id: "\(host):\(port)", name: host, host: host, port: port,
+                protocolVersion: .v1, pairingPort: nil, fingerprint: nil
+            )
+            do {
+                try await store.pair(server: server, pin: pin)
+                discovery.stopSearching()
+                if isAddingInstance { dismiss() }
+            } catch {
+                errorMessage = store.activeInstance?.lastError ?? "Connection failed"
+            }
         } else if let server = selectedServer {
-            host = server.host
-            port = server.port
-        } else {
-            return
-        }
-
-        do {
-            try await store.pair(host: host, port: port, pin: pin)
-            discovery.stopSearching()
-        } catch {
-            errorMessage = store.lastError ?? "Connection failed"
+            do {
+                try await store.pair(server: server, pin: pin)
+                discovery.stopSearching()
+                if isAddingInstance { dismiss() }
+            } catch {
+                errorMessage = (error as? APIError)?.userMessage ?? "Connection failed"
+            }
         }
 
         isPairing = false

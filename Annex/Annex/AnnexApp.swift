@@ -15,7 +15,7 @@ struct ClubhouseGoApp: App {
                 .environment(store)
                 .tint(store.theme.accentColor)
                 .preferredColorScheme(store.theme.isDark ? .dark : .light)
-            } else if store.isPaired {
+            } else if store.hasConnectedInstance {
                 RootNavigationView()
                     .environment(store)
                     .tint(store.theme.accentColor)
@@ -30,10 +30,9 @@ struct ClubhouseGoApp: App {
     }
 
     init() {
-        // Attempt to restore a previous session on launch
         let store = _store
         Task {
-            await store.wrappedValue.restoreSession()
+            await store.wrappedValue.restoreAllSessions()
         }
     }
 }

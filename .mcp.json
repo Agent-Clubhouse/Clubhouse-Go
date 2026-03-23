@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "clubhouse": {
+      "command": "node",
+      "args": [
+        "/Applications/Clubhouse.app/Contents/Resources/app.asar.unpacked/.webpack/main/bridge/clubhouse-mcp-bridge.js"
+      ],
+      "env": {
+        "CLUBHOUSE_MCP_PORT": "63674",
+        "CLUBHOUSE_AGENT_ID": "durable_1771715914778_5jl0gi",
+        "CLUBHOUSE_HOOK_NONCE": "568c3852-efe0-4ec9-ace4-cd99c2cae324"
+      }
+    }
+  }
+}

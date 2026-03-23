@@ -1,11 +1,19 @@
 import Foundation
 import Network
 
+enum ProtocolVersion: Sendable {
+    case v1
+    case v2
+}
+
 struct DiscoveredServer: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let host: String
     let port: UInt16
+    let protocolVersion: ProtocolVersion
+    let pairingPort: UInt16?
+    let fingerprint: String?
 
     static func == (lhs: DiscoveredServer, rhs: DiscoveredServer) -> Bool {
         lhs.id == rhs.id
@@ -35,9 +43,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
         browser.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
                 switch state {
-                case .failed:
-                    self?.isSearching = false
-                case .cancelled:
+                case .failed, .cancelled:
                     self?.isSearching = false
                 default:
                     break
@@ -66,36 +72,72 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     }
 
     private func handleResultsChanged(_ results: Set<NWBrowser.Result>) {
-        // Track which endpoints we've seen
         var currentIds = Set<String>()
 
         for result in results {
             let endpointId = "\(result.endpoint)"
             currentIds.insert(endpointId)
 
-            // Skip if we already have this server
             if servers.contains(where: { $0.id == endpointId }) {
                 continue
             }
 
-            // Resolve the endpoint to get host and port
-            resolveEndpoint(result.endpoint, id: endpointId, metadata: result.metadata)
+            // Parse TXT records from Bonjour metadata
+            let txtRecords = parseTXTRecords(from: result.metadata)
+            resolveEndpoint(result.endpoint, id: endpointId, txtRecords: txtRecords)
         }
 
-        // Remove servers that are no longer visible
         servers.removeAll { !currentIds.contains($0.id) }
     }
 
-    private func resolveEndpoint(_ endpoint: NWEndpoint, id: String, metadata: NWBrowser.Result.Metadata?) {
+    private func parseTXTRecords(from metadata: NWBrowser.Result.Metadata?) -> [String: String] {
+        guard case .bonjour(let txtRecord) = metadata else { return [:] }
+        // Parse TXT record raw data: series of length-prefixed "key=value" strings
+        let data = txtRecord.rawValue
+        var records: [String: String] = [:]
+        var offset = 0
+        while offset < data.count {
+            let length = Int(data[offset])
+            offset += 1
+            guard offset + length <= data.count else { break }
+            let entry = data[offset..<(offset + length)]
+            offset += length
+            if let str = String(data: entry, encoding: .utf8) {
+                let parts = str.split(separator: "=", maxSplits: 1)
+                if parts.count == 2 {
+                    records[String(parts[0])] = String(parts[1])
+                }
+            }
+        }
+        return records
+    }
+
+    private func resolveEndpoint(_ endpoint: NWEndpoint, id: String, txtRecords: [String: String]) {
         let conn = NWConnection(to: endpoint, using: .tcp)
         connections[id] = conn
 
-        // Extract service name from metadata or endpoint description
         let serviceName: String
         if case .service(let name, _, _, _) = endpoint {
             serviceName = name
         } else {
             serviceName = "Clubhouse Server"
+        }
+
+        // Determine protocol version from TXT records
+        let protoVersion: ProtocolVersion
+        let pairingPort: UInt16?
+        let fingerprint: String?
+
+        if txtRecords["v"] == "2",
+           let ppStr = txtRecords["pairingPort"],
+           let pp = UInt16(ppStr) {
+            protoVersion = .v2
+            pairingPort = pp
+            fingerprint = txtRecords["fingerprint"]
+        } else {
+            protoVersion = .v1
+            pairingPort = nil
+            fingerprint = nil
         }
 
         conn.stateUpdateHandler = { [weak self] state in
@@ -108,7 +150,6 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                         let hostStr: String
                         switch host {
                         case .ipv4(let addr):
-                            // Strip interface scope ID (e.g. "%en0") from resolved address
                             let raw = "\(addr)"
                             hostStr = raw.split(separator: "%").first.map(String.init) ?? raw
                         case .ipv6(let addr):
@@ -123,9 +164,11 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                             id: id,
                             name: serviceName,
                             host: hostStr,
-                            port: port.rawValue
+                            port: port.rawValue,
+                            protocolVersion: protoVersion,
+                            pairingPort: pairingPort,
+                            fingerprint: fingerprint
                         )
-                        print("[Annex] Bonjour resolved: name=\(serviceName) host=\(hostStr) port=\(port.rawValue)")
                         if !self.servers.contains(where: { $0.id == id }) {
                             self.servers.append(server)
                         }
@@ -144,3 +187,4 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
         conn.start(queue: .main)
     }
 }
+
