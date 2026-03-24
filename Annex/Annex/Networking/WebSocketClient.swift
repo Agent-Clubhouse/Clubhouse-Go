@@ -46,9 +46,10 @@ final class WebSocketClient: Sendable {
     func connect() -> AsyncStream<SeqWSEvent> {
         AsyncStream { continuation in
             let wsTask = session.webSocketTask(with: url)
+            wsTask.maximumMessageSize = 16 * 1024 * 1024 // 16 MB — snapshots can be large
             self.task = wsTask
             self.isConnected = true
-            print("[Go] WS connecting to \(url)")
+            AppLog.shared.info("WS", "Connecting to \(url.host ?? "?")\(url.port.map { ":\($0)" } ?? "")")
             wsTask.resume()
 
             Task {
@@ -62,6 +63,7 @@ final class WebSocketClient: Sendable {
     }
 
     func disconnect() {
+        AppLog.shared.info("WS", "Disconnecting (wasConnected=\(isConnected))")
         isConnected = false
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
@@ -70,18 +72,25 @@ final class WebSocketClient: Sendable {
     /// Send a JSON-encodable message to the server (e.g. replay request).
     func send<T: Encodable>(_ message: T) {
         guard let data = try? JSONEncoder().encode(message),
-              let text = String(data: data, encoding: .utf8) else { return }
+              let text = String(data: data, encoding: .utf8) else {
+            AppLog.shared.error("WS", "Failed to encode outgoing message")
+            return
+        }
+        AppLog.shared.debug("WS", "Sending: \(text.prefix(200))")
         task?.send(.string(text)) { error in
             if let error {
-                print("[Go] WS send error: \(error)")
+                AppLog.shared.error("WS", "Send error: \(error)")
             }
         }
     }
 
     private func receiveLoop(task: URLSessionWebSocketTask, continuation: AsyncStream<SeqWSEvent>.Continuation) async {
+        AppLog.shared.debug("WS", "Receive loop started")
+        var messageCount = 0
         while isConnected {
             do {
                 let message = try await task.receive()
+                messageCount += 1
                 switch message {
                 case .string(let text):
                     if let event = parseMessage(text) {
@@ -91,12 +100,14 @@ final class WebSocketClient: Sendable {
                     if let text = String(data: data, encoding: .utf8),
                        let event = parseMessage(text) {
                         continuation.yield(event)
+                    } else {
+                        AppLog.shared.warn("WS", "Received binary data (\(data.count) bytes) — could not parse")
                     }
                 @unknown default:
-                    break
+                    AppLog.shared.warn("WS", "Unknown message format")
                 }
             } catch {
-                print("[Go] WS receive error: \(error)")
+                AppLog.shared.error("WS", "Receive error after \(messageCount) messages: \(error)")
                 if isConnected {
                     continuation.yield(SeqWSEvent(event: .disconnected(error), seq: nil, replayed: false))
                 }
@@ -104,6 +115,7 @@ final class WebSocketClient: Sendable {
                 return
             }
         }
+        AppLog.shared.info("WS", "Receive loop ended (isConnected=false, processed \(messageCount) messages)")
         continuation.finish()
     }
 
@@ -113,14 +125,17 @@ final class WebSocketClient: Sendable {
 
         // Decode the envelope to get type, seq, and replayed
         guard let envelope = try? decoder.decode(WSEnvelope.self, from: data) else {
-            print("[Go] WS failed to decode envelope: \(text.prefix(200))")
+            AppLog.shared.warn("WS", "Failed to decode envelope: \(text.prefix(200))")
             return nil
         }
 
         let seq = envelope.seq
         let replayed = envelope.replayed ?? false
 
-        print("[Go] WS received type=\(envelope.type) seq=\(seq.map(String.init) ?? "nil") replayed=\(replayed)")
+        // Only log non-pty:data events at info level to avoid flooding
+        if envelope.type != "pty:data" {
+            AppLog.shared.debug("WS", "Received type=\(envelope.type) seq=\(seq.map(String.init) ?? "nil") replayed=\(replayed)")
+        }
 
         // Re-decode payload section based on type
         struct PayloadExtractor<T: Decodable>: Decodable {
@@ -131,7 +146,8 @@ final class WebSocketClient: Sendable {
             do {
                 return try decoder.decode(PayloadExtractor<T>.self, from: data).payload
             } catch {
-                print("[Go] WS decode error for \(envelope.type): \(error)")
+                AppLog.shared.error("WS", "Decode error for \(envelope.type): \(error)")
+                AppLog.shared.debug("WS", "Failed payload: \(text.prefix(500))")
                 return nil
             }
         }
@@ -143,6 +159,7 @@ final class WebSocketClient: Sendable {
         switch envelope.type {
         case "snapshot":
             guard let payload = extract(SnapshotPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Snapshot received: \(payload.projects.count) projects, \(payload.agents.values.flatMap { $0 }.count) agents")
             return wrap(.snapshot(payload))
 
         case "pty:data":
@@ -151,6 +168,7 @@ final class WebSocketClient: Sendable {
 
         case "pty:exit":
             guard let payload = extract(PtyExitPayload.self) else { return nil }
+            AppLog.shared.info("WS", "PTY exit: agent=\(payload.agentId) code=\(payload.exitCode)")
             return wrap(.ptyExit(payload))
 
         case "hook:event":
@@ -163,10 +181,12 @@ final class WebSocketClient: Sendable {
 
         case "theme:changed":
             guard let payload = extract(ThemeColors.self) else { return nil }
+            AppLog.shared.info("WS", "Theme changed")
             return wrap(.themeChanged(payload))
 
         case "agent:spawned":
             guard let payload = extract(AgentSpawnedPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Agent spawned: \(payload.name ?? payload.id)")
             return wrap(.agentSpawned(payload))
 
         case "agent:status":
@@ -175,33 +195,40 @@ final class WebSocketClient: Sendable {
 
         case "agent:completed":
             guard let payload = extract(AgentCompletedPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Agent completed: \(payload.id)")
             return wrap(.agentCompleted(payload))
 
         case "agent:woken":
             guard let payload = extract(AgentWokenPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Agent woken: \(payload.agentId)")
             return wrap(.agentWoken(payload))
 
         case "permission:request":
             guard let payload = extract(PermissionRequestPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Permission request: agent=\(payload.agentId) tool=\(payload.toolName)")
             return wrap(.permissionRequest(payload))
 
         case "permission:response":
             guard let payload = extract(PermissionResponsePayload.self) else { return nil }
+            AppLog.shared.info("WS", "Permission response: requestId=\(payload.requestId)")
             return wrap(.permissionResponse(payload))
 
         case "replay:gap":
             guard let payload = extract(ReplayGapPayload.self) else { return nil }
+            AppLog.shared.warn("WS", "Replay gap: lastSeq=\(payload.lastSeq)")
             return wrap(.replayGap(payload))
 
         case "replay:start":
             guard let payload = extract(ReplayStartPayload.self) else { return nil }
+            AppLog.shared.info("WS", "Replay start: from=\(payload.fromSeq)")
             return wrap(.replayStart(payload))
 
         case "replay:end":
+            AppLog.shared.info("WS", "Replay end")
             return wrap(.replayEnd)
 
         default:
-            print("[Go] WS unknown message type: \(envelope.type)")
+            AppLog.shared.warn("WS", "Unknown message type: \(envelope.type)")
             return nil
         }
     }

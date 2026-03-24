@@ -307,7 +307,8 @@ enum ConnectionState: Sendable {
 
     func pair(server: DiscoveredServer, pin: String) async throws {
         let identity = CryptoIdentity.loadOrCreate()
-        AppLog.shared.info("Pairing", "Pairing with \(server.host) pairingPort=\(server.pairingPort) fingerprint=\(identity.fingerprint)")
+        AppLog.shared.info("Pairing", "Pairing with \(server.name) (\(server.host):\(server.port)) pairingPort=\(server.pairingPort)")
+        AppLog.shared.info("Pairing", "Our fingerprint=\(identity.fingerprint), publicKey=\(identity.publicKeyBase64.prefix(30))...")
         let client = AnnexAPIClient.v2Pairing(host: server.host, pairingPort: server.pairingPort)
 
         let response = try await client.pairV2(
@@ -318,12 +319,13 @@ enum ConnectionState: Sendable {
             color: "blue"
         )
 
-        AppLog.shared.info("Pairing", "Paired: server=\(response.alias) fingerprint=\(response.fingerprint)")
+        AppLog.shared.info("Pairing", "Paired: server=\(response.alias) fingerprint=\(response.fingerprint) token=\(response.token.prefix(8))...")
         let instanceId = ServerInstanceID(value: response.fingerprint)
         let config = ServerProtocol.v2(
             host: server.host, mainPort: server.port,
             pairingPort: server.pairingPort, fingerprint: response.fingerprint
         )
+        AppLog.shared.info("Pairing", "Instance config: mainPort=\(server.port), pairingPort=\(server.pairingPort)")
         let inst = ServerInstance(id: instanceId, protocolConfig: config)
 
         KeychainHelper.saveInstance(
@@ -333,21 +335,27 @@ enum ConnectionState: Sendable {
 
         instances.append(inst)
         activeInstanceID = instanceId
+        AppLog.shared.info("Pairing", "v2 instance \(instanceId.value.prefix(12)) saved, connecting to main port...")
         await inst.connect(token: response.token)
     }
 
     // MARK: - Session Restore
 
     func restoreAllSessions() async {
+        AppLog.shared.info("Restore", "Restoring saved sessions...")
         let saved = KeychainHelper.loadAllInstances()
+        AppLog.shared.info("Restore", "Found \(saved.count) saved instance(s)")
         for s in saved {
+            AppLog.shared.info("Restore", "Restoring instance \(s.id.value.prefix(12)) (proto=\(s.protocolConfig.label))")
             let inst = ServerInstance(id: s.id, protocolConfig: s.protocolConfig)
             instances.append(inst)
             await inst.connect(token: s.token)
         }
         if activeInstanceID == nil {
             activeInstanceID = connectedInstances.first?.id ?? instances.first?.id
+            AppLog.shared.info("Restore", "Active instance: \(activeInstanceID?.value.prefix(12) ?? "none")")
         }
+        AppLog.shared.info("Restore", "Session restore complete: \(instances.count) instance(s), \(connectedInstances.count) connected")
     }
 
     // MARK: - Reconnect

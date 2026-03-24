@@ -140,13 +140,18 @@ struct PairingPlaceholderView: View {
         guard let server = selectedServer else { return }
         isPairing = true
         errorMessage = nil
+        AppLog.shared.info("PairingUI", "Pairing initiated, pin=\(pin.prefix(2))****")
 
+        AppLog.shared.info("PairingUI", "Discovered server: \(server.name) (\(server.host):\(server.port)) pairingPort=\(server.pairingPort)")
         do {
             try await store.pair(server: server, pin: pin)
+            AppLog.shared.info("PairingUI", "Pairing succeeded")
             discovery.stopSearching()
             if isAddingInstance { dismiss() }
         } catch {
-            errorMessage = (error as? APIError)?.userMessage ?? "Connection failed"
+            let msg = (error as? APIError)?.userMessage ?? "Connection failed"
+            AppLog.shared.error("PairingUI", "Pairing failed: \(error) — showing: \(msg)")
+            errorMessage = msg
         }
 
         isPairing = false

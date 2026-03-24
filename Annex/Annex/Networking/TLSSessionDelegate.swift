@@ -1,7 +1,16 @@
 import Foundation
 
-/// URLSession delegate that accepts self-signed server certificates for v2 connections.
+/// URLSession delegate that handles both server trust (self-signed certs)
+/// and client certificate presentation (mTLS) for v2 connections.
 final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
+    /// The client identity to present for mTLS. When nil, client cert
+    /// challenges are handled with default behavior (no cert).
+    private let clientIdentity: SecIdentity?
+
+    init(clientIdentity: SecIdentity? = nil) {
+        self.clientIdentity = clientIdentity
+        super.init()
+    }
 
     func urlSession(
         _ session: URLSession,
@@ -9,22 +18,36 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
     ) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
         let method = challenge.protectionSpace.authenticationMethod
         let host = challenge.protectionSpace.host
+        let port = challenge.protectionSpace.port
+
+        AppLog.shared.debug("TLS", "Auth challenge: method=\(method) host=\(host):\(port)")
 
         if method == NSURLAuthenticationMethodServerTrust {
             guard let serverTrust = challenge.protectionSpace.serverTrust else {
-                AppLog.shared.error("TLS", "No server trust for \(host) — cancelling")
+                AppLog.shared.error("TLS", "No server trust for \(host):\(port) — cancelling")
                 return (.cancelAuthenticationChallenge, nil)
             }
-            AppLog.shared.debug("TLS", "Accepting self-signed cert from \(host)")
+            let certCount = SecTrustGetCertificateCount(serverTrust)
+            AppLog.shared.info("TLS", "Accepting self-signed cert from \(host):\(port) (\(certCount) cert(s) in chain)")
             return (.useCredential, URLCredential(trust: serverTrust))
         }
 
         if method == NSURLAuthenticationMethodClientCertificate {
-            AppLog.shared.debug("TLS", "Client cert requested by \(host) — skipping (no mTLS)")
-            return (.performDefaultHandling, nil)
+            if let identity = clientIdentity {
+                AppLog.shared.info("TLS", "Presenting client certificate to \(host):\(port)")
+                let credential = URLCredential(
+                    identity: identity,
+                    certificates: nil,
+                    persistence: .forSession
+                )
+                return (.useCredential, credential)
+            } else {
+                AppLog.shared.warn("TLS", "Client cert requested by \(host):\(port) — no identity available")
+                return (.performDefaultHandling, nil)
+            }
         }
 
-        AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host)")
+        AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host):\(port)")
         return (.performDefaultHandling, nil)
     }
 }

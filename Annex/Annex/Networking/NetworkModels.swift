@@ -23,6 +23,12 @@ enum ServerProtocol: Codable, Sendable {
         case .v2(_, let mainPort, _, _): return mainPort
         }
     }
+
+    var label: String {
+        switch self {
+        case .v2(let host, let mainPort, let pairingPort, _): return "v2(\(host):\(mainPort)/\(pairingPort))"
+        }
+    }
 }
 
 // MARK: - REST Responses
