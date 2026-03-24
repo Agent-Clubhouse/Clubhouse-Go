@@ -46,6 +46,7 @@ final class WebSocketClient: Sendable {
     func connect() -> AsyncStream<SeqWSEvent> {
         AsyncStream { continuation in
             let wsTask = session.webSocketTask(with: url)
+            wsTask.maximumMessageSize = 16 * 1024 * 1024 // 16 MB — snapshots can be large
             self.task = wsTask
             self.isConnected = true
             AppLog.shared.info("WS", "Connecting to \(url.host ?? "?")\(url.port.map { ":\($0)" } ?? "")")
