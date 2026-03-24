@@ -36,9 +36,12 @@ import Foundation
     private static let maxReconnectAttempts = 10
     private static let maxActivityEventsPerAgent = 200
 
+    private var logPrefix: String { "[\(id.value.prefix(12))]" }
+
     init(id: ServerInstanceID, protocolConfig: ServerProtocol) {
         self.id = id
         self.protocolConfig = protocolConfig
+        AppLog.shared.debug("Instance", "\(id.value.prefix(12)) created (proto=\(protocolConfig.label))")
     }
 
     // MARK: - Queries
@@ -138,43 +141,49 @@ import Foundation
         let client: AnnexAPIClient
         switch protocolConfig {
         case .v1(let host, let port):
-            AppLog.shared.info("Connect", "Connecting to v1 server \(host):\(port)")
+            AppLog.shared.info("Instance", "\(logPrefix) Connecting v1 -> \(host):\(port)")
             client = AnnexAPIClient.v1(host: host, port: port)
-        case .v2(let host, let mainPort, _, _):
-            AppLog.shared.info("Connect", "Connecting to v2 server \(host):\(mainPort) (TLS)")
+        case .v2(let host, let mainPort, _, let fingerprint):
+            AppLog.shared.info("Instance", "\(logPrefix) Connecting v2 -> \(host):\(mainPort) (TLS) fingerprint=\(fingerprint)")
             let delegate = TLSSessionDelegate()
             client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         }
         self.apiClient = client
         connectionState = .connecting
+        AppLog.shared.info("Instance", "\(logPrefix) State -> connecting")
 
         do {
+            AppLog.shared.info("Instance", "\(logPrefix) Fetching status...")
             let status = try await client.getStatus(token: token)
             serverName = status.deviceName
             connectionState = .connected
-            AppLog.shared.info("Connect", "Connected: \(status.deviceName) (\(status.agentCount) agents)")
+            AppLog.shared.info("Instance", "\(logPrefix) Connected: \(status.deviceName) (\(status.agentCount) agents, \(status.orchestratorCount) orchestrators)")
             await connectWebSocket()
         } catch {
             connectionState = .disconnected
             lastError = "Failed to connect"
-            AppLog.shared.error("Connect", "Failed to connect: \(error)")
+            AppLog.shared.error("Instance", "\(logPrefix) Connection failed: \(error)")
         }
     }
 
     func disconnect() {
+        AppLog.shared.info("Instance", "\(logPrefix) Disconnect requested")
         disconnectInternal()
     }
 
     private func connectWebSocket() async {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else {
+            AppLog.shared.error("Instance", "\(logPrefix) Cannot connect WS: no apiClient or token")
+            return
+        }
         wsStreamTask?.cancel()
         webSocket?.disconnect()
 
         guard let url = try? apiClient.webSocketURL(token: token) else {
-            AppLog.shared.error("WS", "Failed to construct WebSocket URL")
+            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct WebSocket URL")
             return
         }
-        AppLog.shared.info("WS", "Connecting to \(url.absoluteString.prefix(80))...")
+        AppLog.shared.info("Instance", "\(logPrefix) Connecting WebSocket...")
         let ws = WebSocketClient(url: url, session: apiClient.urlSession)
         self.webSocket = ws
 
@@ -190,9 +199,11 @@ import Foundation
                 }
                 await handleWSEvent(seqEvent.event)
             }
+            AppLog.shared.info("Instance", "\(logPrefix) WS stream ended")
         }
 
         if let since = previousSeq {
+            AppLog.shared.info("Instance", "\(logPrefix) Requesting replay since seq=\(since)")
             let replayReq = ReplayRequest(type: "replay", since: since)
             ws.send(replayReq)
         }
@@ -203,7 +214,7 @@ import Foundation
         case .snapshot(let payload):
             let agentCount = payload.agents.values.flatMap { $0 }.count
             let permCount = payload.pendingPermissions?.count ?? 0
-            AppLog.shared.info("WS", "Snapshot: \(payload.projects.count) projects, \(agentCount) agents, \(permCount) pending permissions, seq=\(payload.lastSeq ?? -1)")
+            AppLog.shared.info("Instance", "\(logPrefix) Snapshot: \(payload.projects.count) projects, \(agentCount) agents, \(permCount) permissions, seq=\(payload.lastSeq ?? -1)")
             projects = payload.projects
             agentsByProject = payload.agents
             quickAgentsByProject = payload.quickAgents ?? [:]
@@ -246,6 +257,7 @@ import Foundation
             activityByAgent[payload.agentId] = events
 
         case .themeChanged(let newTheme):
+            AppLog.shared.info("Instance", "\(logPrefix) Theme updated")
             theme = newTheme
 
         case .structuredEvent(let payload):
@@ -254,16 +266,20 @@ import Foundation
             structuredEventsByAgent[payload.agentId] = events
 
         case .replayGap(let payload):
+            AppLog.shared.warn("Instance", "\(logPrefix) Replay gap — resetting to seq=\(payload.lastSeq)")
             lastSeq = payload.lastSeq
             isReplaying = false
 
         case .replayStart:
+            AppLog.shared.info("Instance", "\(logPrefix) Replay started")
             isReplaying = true
 
         case .replayEnd:
+            AppLog.shared.info("Instance", "\(logPrefix) Replay ended")
             isReplaying = false
 
         case .agentSpawned(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Agent spawned: \(payload.name ?? payload.id) in project \(payload.projectId)")
             if let existing = quickAgentsByProject[payload.projectId],
                existing.contains(where: { $0.id == payload.id }) { break }
             let qa = QuickAgent(
@@ -289,6 +305,7 @@ import Foundation
             }
 
         case .agentCompleted(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Agent completed: \(payload.id)")
             guard let projectId = payload.projectId else { break }
             if var agents = quickAgentsByProject[projectId],
                let idx = agents.firstIndex(where: { $0.id == payload.id }) {
@@ -302,6 +319,7 @@ import Foundation
             }
 
         case .agentWoken(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Agent woken: \(payload.agentId)")
             for (projectId, var agents) in agentsByProject {
                 if let idx = agents.firstIndex(where: { $0.id == payload.agentId }) {
                     agents[idx].status = .running
@@ -311,7 +329,7 @@ import Foundation
             }
 
         case .permissionRequest(let payload):
-            AppLog.shared.info("Perm", "Permission request: agent=\(payload.agentId) tool=\(payload.toolName) requestId=\(payload.requestId)")
+            AppLog.shared.info("Instance", "\(logPrefix) Permission request: agent=\(payload.agentId) tool=\(payload.toolName) id=\(payload.requestId)")
             let perm = PermissionRequest(
                 requestId: payload.requestId,
                 agentId: payload.agentId,
@@ -327,10 +345,11 @@ import Foundation
             pendingPermissions[perm.id] = perm
 
         case .permissionResponse(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Permission response: \(payload.requestId)")
             pendingPermissions.removeValue(forKey: payload.requestId)
 
-        case .disconnected:
-            AppLog.shared.warn("WS", "WebSocket disconnected")
+        case .disconnected(let error):
+            AppLog.shared.warn("Instance", "\(logPrefix) WS disconnected: \(error?.localizedDescription ?? "clean close")")
             if connectionState.isConnected || isReconnecting {
                 await attemptReconnect()
             }
@@ -344,6 +363,7 @@ import Foundation
 
     private func attemptReconnect() async {
         guard reconnectAttempt < Self.maxReconnectAttempts else {
+            AppLog.shared.error("Instance", "\(logPrefix) Max reconnect attempts (\(Self.maxReconnectAttempts)) reached — giving up")
             disconnectInternal()
             lastError = "Lost connection to server"
             return
@@ -351,24 +371,28 @@ import Foundation
 
         reconnectAttempt += 1
         connectionState = .reconnecting(attempt: reconnectAttempt)
-        AppLog.shared.warn("Connect", "Reconnecting (attempt \(reconnectAttempt)/\(Self.maxReconnectAttempts))")
-
         let delay = min(pow(2.0, Double(reconnectAttempt - 1)), 30.0)
+        AppLog.shared.warn("Instance", "\(logPrefix) Reconnecting attempt \(reconnectAttempt)/\(Self.maxReconnectAttempts), delay=\(delay)s")
+
         try? await Task.sleep(for: .seconds(delay))
 
         guard let apiClient, let token else {
+            AppLog.shared.error("Instance", "\(logPrefix) Cannot reconnect: no apiClient or token")
             disconnectInternal()
             return
         }
 
         do {
             _ = try await apiClient.getStatus(token: token)
+            AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
             await connectWebSocket()
         } catch let error as APIError {
             if case .unauthorized = error {
+                AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
                 disconnectInternal()
                 lastError = "Session expired. Please re-pair."
             } else {
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
                 await attemptReconnect()
             }
         }
@@ -382,6 +406,7 @@ import Foundation
         freeAgentMode: Bool? = nil, systemPrompt: String? = nil
     ) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent in project=\(projectId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: orchestrator,
             model: model, freeAgentMode: freeAgentMode,
@@ -397,6 +422,7 @@ import Foundation
         systemPrompt: String? = nil
     ) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent under parent=\(parentAgentId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: nil,
             model: model, freeAgentMode: freeAgentMode,
@@ -426,6 +452,7 @@ import Foundation
 
     func cancelQuickAgent(agentId: String) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Cancelling quick agent \(agentId)")
         let response = try await apiClient.cancelAgent(agentId: agentId, token: token)
         for (projectId, var agents) in quickAgentsByProject {
             if let idx = agents.firstIndex(where: { $0.id == response.id }) {
@@ -448,21 +475,25 @@ import Foundation
 
     func wakeAgent(agentId: String, message: String, model: String? = nil) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Waking agent \(agentId)")
         let request = WakeAgentRequest(message: message, model: model)
         _ = try await apiClient.wakeAgent(agentId: agentId, request: request, token: token)
     }
 
     func sendMessage(agentId: String, message: String) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId)")
         let request = SendMessageRequest(message: message)
         _ = try await apiClient.sendMessage(agentId: agentId, request: request, token: token)
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {
         guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Permission response: agent=\(agentId) request=\(requestId) allow=\(allow)")
 
         let agent = durableAgent(byId: agentId)
         let isStructured = agent?.executionMode == "structured"
+        AppLog.shared.debug("Instance", "\(logPrefix) Agent execution mode: \(agent?.executionMode ?? "nil"), isStructured=\(isStructured)")
 
         if isStructured {
             let request = StructuredPermissionRequest(
@@ -484,11 +515,15 @@ import Foundation
     func fetchIcons() async {
         guard let apiClient, let token else { return }
 
+        var agentIconCount = 0
+        var projectIconCount = 0
+
         for agents in agentsByProject.values {
             for agent in agents where agent.icon != nil {
                 if agentIcons[agent.id] != nil { continue }
                 if let data = await apiClient.fetchAgentIcon(agentId: agent.id, token: token) {
                     agentIcons[agent.id] = data
+                    agentIconCount += 1
                 }
             }
         }
@@ -497,13 +532,19 @@ import Foundation
             if projectIcons[project.id] != nil { continue }
             if let data = await apiClient.fetchProjectIcon(projectId: project.id, token: token) {
                 projectIcons[project.id] = data
+                projectIconCount += 1
             }
+        }
+
+        if agentIconCount > 0 || projectIconCount > 0 {
+            AppLog.shared.info("Instance", "\(logPrefix) Fetched \(agentIconCount) agent icon(s), \(projectIconCount) project icon(s)")
         }
     }
 
     // MARK: - Private
 
     private func disconnectInternal() {
+        AppLog.shared.info("Instance", "\(logPrefix) Disconnecting (clearing all state)")
         wsStreamTask?.cancel()
         wsStreamTask = nil
         webSocket?.disconnect()

@@ -32,9 +32,13 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     private var connections: [String: NWConnection] = [:]
 
     func startSearching() {
-        guard !isSearching else { return }
+        guard !isSearching else {
+            AppLog.shared.debug("Bonjour", "startSearching called but already searching — ignored")
+            return
+        }
         isSearching = true
         servers = []
+        AppLog.shared.info("Bonjour", "Starting mDNS browse for _clubhouse-annex._tcp")
 
         let params = NWParameters()
         params.includePeerToPeer = true
@@ -43,16 +47,37 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
         browser.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
                 switch state {
-                case .failed, .cancelled:
+                case .ready:
+                    AppLog.shared.info("Bonjour", "Browser ready — actively browsing")
+                case .failed(let error):
+                    AppLog.shared.error("Bonjour", "Browser failed: \(error)")
                     self?.isSearching = false
+                case .cancelled:
+                    AppLog.shared.info("Bonjour", "Browser cancelled")
+                    self?.isSearching = false
+                case .waiting(let error):
+                    AppLog.shared.warn("Bonjour", "Browser waiting: \(error) — check local network permission")
                 default:
-                    break
+                    AppLog.shared.debug("Bonjour", "Browser state: \(state)")
                 }
             }
         }
 
-        browser.browseResultsChangedHandler = { [weak self] results, _ in
+        browser.browseResultsChangedHandler = { [weak self] results, changes in
             Task { @MainActor in
+                AppLog.shared.debug("Bonjour", "Browse results changed: \(results.count) result(s), \(changes.count) change(s)")
+                for change in changes {
+                    switch change {
+                    case .added(let result):
+                        AppLog.shared.info("Bonjour", "Service added: \(result.endpoint)")
+                    case .removed(let result):
+                        AppLog.shared.info("Bonjour", "Service removed: \(result.endpoint)")
+                    case .identical:
+                        break
+                    @unknown default:
+                        break
+                    }
+                }
                 self?.handleResultsChanged(results)
             }
         }
@@ -62,6 +87,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     }
 
     func stopSearching() {
+        AppLog.shared.info("Bonjour", "Stopping search (had \(servers.count) server(s), \(connections.count) pending resolution(s))")
         browser?.cancel()
         browser = nil
         isSearching = false
@@ -84,14 +110,22 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
 
             // Parse TXT records from Bonjour metadata
             let txtRecords = parseTXTRecords(from: result.metadata)
+            AppLog.shared.info("Bonjour", "Resolving endpoint \(endpointId), TXT: \(txtRecords)")
             resolveEndpoint(result.endpoint, id: endpointId, txtRecords: txtRecords)
         }
 
+        let removedCount = servers.filter { !currentIds.contains($0.id) }.count
+        if removedCount > 0 {
+            AppLog.shared.info("Bonjour", "Removing \(removedCount) stale server(s)")
+        }
         servers.removeAll { !currentIds.contains($0.id) }
     }
 
     private func parseTXTRecords(from metadata: NWBrowser.Result.Metadata?) -> [String: String] {
-        guard case .bonjour(let txtRecord) = metadata else { return [:] }
+        guard case .bonjour(let txtRecord) = metadata else {
+            AppLog.shared.debug("Bonjour", "No Bonjour metadata in result")
+            return [:]
+        }
         var records: [String: String] = [:]
         for key in ["v", "pairingPort", "fingerprint"] {
             if let entry = txtRecord.getEntry(for: key) {
@@ -107,6 +141,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                 }
             }
         }
+        AppLog.shared.debug("Bonjour", "Parsed TXT records: \(records)")
         return records
     }
 
@@ -134,6 +169,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
             pairingPort = pp
             fingerprint = txtRecords["fingerprint"]
         } else {
+            AppLog.shared.info("Bonjour", "v1 server: \(serviceName) (v=\(txtRecords["v"] ?? "nil"))")
             protoVersion = .v1
             pairingPort = nil
             fingerprint = nil
@@ -159,6 +195,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                         @unknown default:
                             hostStr = "\(host)"
                         }
+                        AppLog.shared.info("Bonjour", "Resolved \(serviceName) -> \(hostStr):\(port.rawValue) (proto=\(protoVersion == .v2 ? "v2" : "v1"))")
                         let server = DiscoveredServer(
                             id: id,
                             name: serviceName,
@@ -171,14 +208,21 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                         if !self.servers.contains(where: { $0.id == id }) {
                             self.servers.append(server)
                         }
+                    } else {
+                        AppLog.shared.warn("Bonjour", "Connection ready but could not extract host:port from path for \(serviceName)")
                     }
                     conn.cancel()
                     self.connections.removeValue(forKey: id)
-                case .failed:
+                case .failed(let error):
+                    AppLog.shared.error("Bonjour", "Resolution connection failed for \(serviceName): \(error)")
                     conn.cancel()
                     self.connections.removeValue(forKey: id)
+                case .waiting(let error):
+                    AppLog.shared.warn("Bonjour", "Resolution connection waiting for \(serviceName): \(error)")
+                case .preparing:
+                    AppLog.shared.debug("Bonjour", "Resolution connection preparing for \(serviceName)")
                 default:
-                    break
+                    AppLog.shared.debug("Bonjour", "Resolution connection state for \(serviceName): \(state)")
                 }
             }
         }
@@ -186,4 +230,3 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
         conn.start(queue: .main)
     }
 }
-

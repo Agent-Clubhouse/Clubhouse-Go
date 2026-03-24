@@ -32,11 +32,16 @@ struct CryptoIdentity {
     static func loadOrCreate() -> CryptoIdentity {
         if let keyData = KeychainHelper.loadEd25519PrivateKey(),
            let key = try? Curve25519.Signing.PrivateKey(rawRepresentation: keyData) {
-            return CryptoIdentity(privateKey: key)
+            let identity = CryptoIdentity(privateKey: key)
+            AppLog.shared.info("Crypto", "Loaded existing Ed25519 identity, fingerprint=\(identity.fingerprint)")
+            return identity
         }
 
+        AppLog.shared.info("Crypto", "Generating new Ed25519 identity")
         let key = Curve25519.Signing.PrivateKey()
         KeychainHelper.saveEd25519PrivateKey(key.rawRepresentation)
-        return CryptoIdentity(privateKey: key)
+        let identity = CryptoIdentity(privateKey: key)
+        AppLog.shared.info("Crypto", "New identity created, fingerprint=\(identity.fingerprint)")
+        return identity
     }
 }
