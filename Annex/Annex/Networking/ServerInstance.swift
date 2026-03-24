@@ -135,16 +135,11 @@ import Foundation
 
     func connect(token: String) async {
         self.token = token
-        let client: AnnexAPIClient
-        switch protocolConfig {
-        case .v1(let host, let port):
-            AppLog.shared.info("Connect", "Connecting to v1 server \(host):\(port)")
-            client = AnnexAPIClient.v1(host: host, port: port)
-        case .v2(let host, let mainPort, _, _):
-            AppLog.shared.info("Connect", "Connecting to v2 server \(host):\(mainPort) (TLS)")
-            let delegate = TLSSessionDelegate()
-            client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
-        }
+        let host = protocolConfig.host
+        let mainPort = protocolConfig.mainPort
+        AppLog.shared.info("Connect", "Connecting to server \(host):\(mainPort) (TLS)")
+        let delegate = TLSSessionDelegate()
+        let client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         self.apiClient = client
         connectionState = .connecting
 

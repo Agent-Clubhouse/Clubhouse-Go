@@ -89,10 +89,6 @@ private struct InstanceRowView: View {
 
             Spacer()
 
-            if instance.protocolConfig.isV2 {
-                ChipView(text: "v2", bg: .green.opacity(0.15), fg: .green)
-            }
-
             if instance.pendingPermissions.count > 0 {
                 Text("\(instance.pendingPermissions.count)")
                     .font(.caption2.weight(.bold))

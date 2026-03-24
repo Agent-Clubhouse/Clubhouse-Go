@@ -33,27 +33,10 @@ struct ServerInstanceIDTests {
 // MARK: - ServerProtocol Tests
 
 struct ServerProtocolTests {
-    @Test func v1Properties() {
-        let proto = ServerProtocol.v1(host: "192.168.1.10", port: 3000)
-        #expect(proto.host == "192.168.1.10")
-        #expect(proto.mainPort == 3000)
-        #expect(proto.isV2 == false)
-    }
-
     @Test func v2Properties() {
         let proto = ServerProtocol.v2(host: "10.0.0.5", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB:CC")
         #expect(proto.host == "10.0.0.5")
         #expect(proto.mainPort == 8443)
-        #expect(proto.isV2 == true)
-    }
-
-    @Test func codableV1() throws {
-        let proto = ServerProtocol.v1(host: "localhost", port: 3000)
-        let data = try JSONEncoder().encode(proto)
-        let decoded = try JSONDecoder().decode(ServerProtocol.self, from: data)
-        #expect(decoded.host == "localhost")
-        #expect(decoded.mainPort == 3000)
-        #expect(decoded.isV2 == false)
     }
 
     @Test func codableV2() throws {
@@ -62,7 +45,6 @@ struct ServerProtocolTests {
         let decoded = try JSONDecoder().decode(ServerProtocol.self, from: data)
         #expect(decoded.host == "10.0.0.1")
         #expect(decoded.mainPort == 8443)
-        #expect(decoded.isV2 == true)
     }
 }
 
@@ -146,28 +128,17 @@ struct CryptoIdentityTests {
 // MARK: - AnnexAPIClient Factory Tests
 
 struct APIClientFactoryTests {
-    @Test func v1BaseURL() {
-        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 3000)
-        #expect(client.baseURL == "http://192.168.1.100:3000")
-        #expect(client.host == "192.168.1.100")
-        #expect(client.port == 3000)
-    }
-
     @Test func v2BaseURL() {
         let delegate = TLSSessionDelegate()
         let client = AnnexAPIClient.v2(host: "192.168.1.100", mainPort: 8443, delegate: delegate)
         #expect(client.baseURL == "https://192.168.1.100:8443")
+        #expect(client.host == "192.168.1.100")
+        #expect(client.port == 8443)
     }
 
     @Test func v2PairingBaseURL() {
         let client = AnnexAPIClient.v2Pairing(host: "192.168.1.100", pairingPort: 8080)
         #expect(client.baseURL == "http://192.168.1.100:8080")
-    }
-
-    @Test func v1WebSocketURL() throws {
-        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 3000)
-        let url = try client.webSocketURL(token: "tok_123")
-        #expect(url.absoluteString == "ws://192.168.1.100:3000/ws?token=tok_123")
     }
 
     @Test func v2WebSocketURL() throws {
@@ -185,8 +156,9 @@ struct APIClientFactoryTests {
     }
 
     @Test func ipv6URLConstruction() {
-        let client = AnnexAPIClient.v1(host: "fe80::1%en0", port: 3000)
-        #expect(client.baseURL == "http://[fe80::1%25en0]:3000")
+        let delegate = TLSSessionDelegate()
+        let client = AnnexAPIClient.v2(host: "fe80::1%en0", mainPort: 8443, delegate: delegate)
+        #expect(client.baseURL == "https://[fe80::1%25en0]:8443")
     }
 }
 
@@ -197,7 +169,7 @@ struct ServerInstanceTests {
     private func makeInstance() -> ServerInstance {
         ServerInstance(
             id: ServerInstanceID(value: "test-instance"),
-            protocolConfig: .v1(host: "localhost", port: 3000)
+            protocolConfig: .v2(host: "localhost", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
         )
     }
 
@@ -491,32 +463,21 @@ struct AppStoreMultiInstanceTests {
 
 // MARK: - DiscoveredServer Tests
 
-struct DiscoveredServerV2Tests {
-    @Test func v1Server() {
+struct DiscoveredServerTests {
+    @Test func serverProperties() {
         let server = DiscoveredServer(
-            id: "endpoint1", name: "My Mac", host: "192.168.1.10", port: 3000,
-            protocolVersion: .v1, pairingPort: nil, fingerprint: nil
+            id: "endpoint1", name: "My Mac", host: "192.168.1.10", port: 8443,
+            pairingPort: 8080, fingerprint: "AA:BB:CC"
         )
-        #expect(server.protocolVersion == .v1)
-        #expect(server.pairingPort == nil)
-        #expect(server.fingerprint == nil)
-    }
-
-    @Test func v2Server() {
-        let server = DiscoveredServer(
-            id: "endpoint2", name: "My Mac", host: "192.168.1.10", port: 8443,
-            protocolVersion: .v2, pairingPort: 8080, fingerprint: "AA:BB:CC"
-        )
-        #expect(server.protocolVersion == .v2)
         #expect(server.pairingPort == 8080)
         #expect(server.fingerprint == "AA:BB:CC")
     }
 
     @Test func equalityById() {
-        let a = DiscoveredServer(id: "ep1", name: "A", host: "1.2.3.4", port: 3000,
-                                 protocolVersion: .v1, pairingPort: nil, fingerprint: nil)
+        let a = DiscoveredServer(id: "ep1", name: "A", host: "1.2.3.4", port: 8443,
+                                 pairingPort: 8080, fingerprint: "AA:BB")
         let b = DiscoveredServer(id: "ep1", name: "B", host: "5.6.7.8", port: 4000,
-                                 protocolVersion: .v2, pairingPort: 8080, fingerprint: "XX")
+                                 pairingPort: 9090, fingerprint: "XX:YY")
         #expect(a == b) // Same ID = equal
     }
 }
@@ -526,7 +487,7 @@ struct DiscoveredServerV2Tests {
 struct KeychainHelperMultiInstanceTests {
     @Test func saveAndLoadInstance() {
         let id = ServerInstanceID(value: "test-\(UUID().uuidString)")
-        let config = ServerProtocol.v1(host: "localhost", port: 3000)
+        let config = ServerProtocol.v2(host: "localhost", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB:CC")
 
         KeychainHelper.saveInstance(id: id, token: "tok_123", protocolConfig: config)
 
@@ -534,7 +495,7 @@ struct KeychainHelperMultiInstanceTests {
         #expect(loaded != nil)
         #expect(loaded?.token == "tok_123")
         #expect(loaded?.protocolConfig.host == "localhost")
-        #expect(loaded?.protocolConfig.mainPort == 3000)
+        #expect(loaded?.protocolConfig.mainPort == 8443)
 
         // Cleanup
         KeychainHelper.deleteInstance(id: id)
@@ -544,11 +505,10 @@ struct KeychainHelperMultiInstanceTests {
         let id1 = ServerInstanceID(value: "multi-test-1-\(UUID().uuidString)")
         let id2 = ServerInstanceID(value: "multi-test-2-\(UUID().uuidString)")
 
-        KeychainHelper.saveInstance(id: id1, token: "tok_1", protocolConfig: .v1(host: "h1", port: 3000))
-        KeychainHelper.saveInstance(id: id2, token: "tok_2", protocolConfig: .v1(host: "h2", port: 3001))
+        KeychainHelper.saveInstance(id: id1, token: "tok_1", protocolConfig: .v2(host: "h1", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB"))
+        KeychainHelper.saveInstance(id: id2, token: "tok_2", protocolConfig: .v2(host: "h2", mainPort: 8444, pairingPort: 8081, fingerprint: "CC:DD"))
 
         let all = KeychainHelper.loadAllInstances()
-        // Our two test instances should be present (there may be others from other tests)
         let found1 = all.contains { $0.id == id1 }
         let found2 = all.contains { $0.id == id2 }
         #expect(found1)
@@ -561,21 +521,21 @@ struct KeychainHelperMultiInstanceTests {
 
     @Test func deleteInstance() {
         let id = ServerInstanceID(value: "delete-test-\(UUID().uuidString)")
-        KeychainHelper.saveInstance(id: id, token: "tok", protocolConfig: .v1(host: "h", port: 3000))
+        KeychainHelper.saveInstance(id: id, token: "tok", protocolConfig: .v2(host: "h", mainPort: 8443, pairingPort: 8080, fingerprint: "EE:FF"))
         #expect(KeychainHelper.loadInstance(id: id) != nil)
 
         KeychainHelper.deleteInstance(id: id)
         #expect(KeychainHelper.loadInstance(id: id) == nil)
     }
 
-    @Test func saveV2Instance() {
+    @Test func saveInstanceWithServerPublicKey() {
         let id = ServerInstanceID(value: "v2-test-\(UUID().uuidString)")
         let config = ServerProtocol.v2(host: "10.0.0.1", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB")
 
         KeychainHelper.saveInstance(id: id, token: "tok_v2", protocolConfig: config, serverPublicKey: "serverpubkey==")
 
         let loaded = KeychainHelper.loadInstance(id: id)
-        #expect(loaded?.protocolConfig.isV2 == true)
+        #expect(loaded?.protocolConfig.host == "10.0.0.1")
         #expect(loaded?.serverPublicKey == "serverpubkey==")
 
         // Cleanup

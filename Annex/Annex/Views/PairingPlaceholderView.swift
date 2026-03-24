@@ -6,9 +6,6 @@ struct PairingPlaceholderView: View {
     @State private var pin: String = ""
     @State private var discovery = BonjourDiscovery()
     @State private var selectedServer: DiscoveredServer?
-    @State private var manualHost: String = ""
-    @State private var manualPort: String = "0"
-    @State private var showManualEntry = false
     @State private var isPairing = false
     @State private var errorMessage: String?
 
@@ -29,7 +26,7 @@ struct PairingPlaceholderView: View {
                 Text(isAddingInstance ? "Add Instance" : "Connect to Clubhouse")
                     .font(.title2.weight(.semibold))
 
-                if selectedServer == nil && !showManualEntry {
+                if selectedServer == nil {
                     Text("Searching for Clubhouse servers on your network...")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -45,88 +42,52 @@ struct PairingPlaceholderView: View {
             }
 
             // Server selection
-            if !showManualEntry {
-                if discovery.servers.isEmpty && discovery.isSearching {
-                    ProgressView()
-                        .padding()
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(discovery.servers) { server in
-                            Button {
-                                selectedServer = server
-                            } label: {
-                                HStack {
-                                    Image(systemName: "desktopcomputer")
-                                    Text(server.name)
-                                        .font(.body)
-
-                                    if server.protocolVersion == .v2 {
-                                        ChipView(text: "v2", bg: .green.opacity(0.15), fg: .green)
-                                    }
-
-                                    Spacer()
-
-                                    // Show if already connected
-                                    if store.instances.contains(where: {
-                                        $0.protocolConfig.host == server.host &&
-                                        $0.protocolConfig.mainPort == server.port
-                                    }) {
-                                        Text("Connected")
-                                            .font(.caption)
-                                            .foregroundStyle(.green)
-                                    } else if selectedServer == server {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.green)
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 12)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(selectedServer == server
-                                              ? store.theme.surface1Color.opacity(0.6)
-                                              : store.theme.surface0Color.opacity(0.4))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 40)
-                }
-
-                Button {
-                    showManualEntry = true
-                    discovery.stopSearching()
-                } label: {
-                    Text("Enter address manually")
-                        .font(.caption)
-                        .foregroundStyle(store.theme.linkColor)
-                }
+            if discovery.servers.isEmpty && discovery.isSearching {
+                ProgressView()
+                    .padding()
             } else {
-                VStack(spacing: 12) {
-                    TextField("Host (e.g. 192.168.1.100)", text: $manualHost)
-                        .textFieldStyle(.roundedBorder)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                    TextField("Port", text: $manualPort)
-                        .textFieldStyle(.roundedBorder)
-                        .keyboardType(.numberPad)
-                }
-                .frame(maxWidth: 280)
+                VStack(spacing: 8) {
+                    ForEach(discovery.servers) { server in
+                        Button {
+                            selectedServer = server
+                        } label: {
+                            HStack {
+                                Image(systemName: "desktopcomputer")
+                                Text(server.name)
+                                    .font(.body)
 
-                Button {
-                    showManualEntry = false
-                    selectedServer = nil
-                    discovery.startSearching()
-                } label: {
-                    Text("Search for servers instead")
-                        .font(.caption)
-                        .foregroundStyle(store.theme.linkColor)
+                                Spacer()
+
+                                // Show if already connected
+                                if store.instances.contains(where: {
+                                    $0.protocolConfig.host == server.host &&
+                                    $0.protocolConfig.mainPort == server.port
+                                }) {
+                                    Text("Connected")
+                                        .font(.caption)
+                                        .foregroundStyle(.green)
+                                } else if selectedServer == server {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.green)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(selectedServer == server
+                                          ? store.theme.surface1Color.opacity(0.6)
+                                          : store.theme.surface0Color.opacity(0.4))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .padding(.horizontal, 40)
             }
 
             // PIN entry
-            if selectedServer != nil || showManualEntry {
+            if selectedServer != nil {
                 TextField("000000", text: $pin)
                     .keyboardType(.numberPad)
                     .font(.system(size: 32, weight: .medium, design: .monospaced))
@@ -159,7 +120,7 @@ struct PairingPlaceholderView: View {
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .tint(store.theme.accentColor)
-                .disabled(pin.count < 6 || isPairing || !hasValidServer)
+                .disabled(pin.count < 6 || isPairing || selectedServer == nil)
             }
 
             Spacer()
@@ -175,39 +136,17 @@ struct PairingPlaceholderView: View {
         }
     }
 
-    private var hasValidServer: Bool {
-        if showManualEntry {
-            return !manualHost.isEmpty && UInt16(manualPort) != nil && UInt16(manualPort) != 0
-        }
-        return selectedServer != nil
-    }
-
     private func performPairing() async {
+        guard let server = selectedServer else { return }
         isPairing = true
         errorMessage = nil
 
-        if showManualEntry {
-            let host = manualHost
-            let port = UInt16(manualPort) ?? 0
-            let server = DiscoveredServer(
-                id: "\(host):\(port)", name: host, host: host, port: port,
-                protocolVersion: .v1, pairingPort: nil, fingerprint: nil
-            )
-            do {
-                try await store.pair(server: server, pin: pin)
-                discovery.stopSearching()
-                if isAddingInstance { dismiss() }
-            } catch {
-                errorMessage = store.activeInstance?.lastError ?? "Connection failed"
-            }
-        } else if let server = selectedServer {
-            do {
-                try await store.pair(server: server, pin: pin)
-                discovery.stopSearching()
-                if isAddingInstance { dismiss() }
-            } catch {
-                errorMessage = (error as? APIError)?.userMessage ?? "Connection failed"
-            }
+        do {
+            try await store.pair(server: server, pin: pin)
+            discovery.stopSearching()
+            if isAddingInstance { dismiss() }
+        } catch {
+            errorMessage = (error as? APIError)?.userMessage ?? "Connection failed"
         }
 
         isPairing = false

@@ -1,19 +1,13 @@
 import Foundation
 import Network
 
-enum ProtocolVersion: Sendable {
-    case v1
-    case v2
-}
-
 struct DiscoveredServer: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let host: String
     let port: UInt16
-    let protocolVersion: ProtocolVersion
-    let pairingPort: UInt16?
-    let fingerprint: String?
+    let pairingPort: UInt16
+    let fingerprint: String
 
     static func == (lhs: DiscoveredServer, rhs: DiscoveredServer) -> Bool {
         lhs.id == rhs.id
@@ -121,23 +115,17 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
             serviceName = "Clubhouse Server"
         }
 
-        // Determine protocol version from TXT records
-        let protoVersion: ProtocolVersion
-        let pairingPort: UInt16?
-        let fingerprint: String?
-
-        if txtRecords["v"] == "2",
-           let ppStr = txtRecords["pairingPort"],
-           let pp = UInt16(ppStr) {
-            AppLog.shared.info("Bonjour", "v2 server: \(serviceName) pairingPort=\(pp) fingerprint=\(txtRecords["fingerprint"] ?? "?")")
-            protoVersion = .v2
-            pairingPort = pp
-            fingerprint = txtRecords["fingerprint"]
-        } else {
-            protoVersion = .v1
-            pairingPort = nil
-            fingerprint = nil
+        // Parse v2 TXT records — servers must advertise v2 with pairingPort and fingerprint
+        guard txtRecords["v"] == "2",
+              let ppStr = txtRecords["pairingPort"],
+              let pairingPort = UInt16(ppStr),
+              let fingerprint = txtRecords["fingerprint"] else {
+            AppLog.shared.warn("Bonjour", "Skipping non-v2 server: \(serviceName)")
+            conn.cancel()
+            connections.removeValue(forKey: id)
+            return
         }
+        AppLog.shared.info("Bonjour", "v2 server: \(serviceName) pairingPort=\(pairingPort) fingerprint=\(fingerprint)")
 
         conn.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
@@ -164,7 +152,6 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                             name: serviceName,
                             host: hostStr,
                             port: port.rawValue,
-                            protocolVersion: protoVersion,
                             pairingPort: pairingPort,
                             fingerprint: fingerprint
                         )
