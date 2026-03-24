@@ -93,13 +93,23 @@ final class AnnexAPIClient: Sendable {
         }
     }
 
+    private var configLabel: String {
+        switch config {
+        case .v1: return "v1"
+        case .v2: return "v2-main"
+        case .v2Pairing: return "v2-pairing"
+        }
+    }
+
     // MARK: - Factory Methods
 
     static func v1(host: String, port: UInt16) -> AnnexAPIClient {
-        AnnexAPIClient(config: .v1(host: host, port: port), session: .shared)
+        AppLog.shared.info("API", "Creating v1 client -> http://\(host):\(port)")
+        return AnnexAPIClient(config: .v1(host: host, port: port), session: .shared)
     }
 
     static func v2(host: String, mainPort: UInt16, delegate: TLSSessionDelegate) -> AnnexAPIClient {
+        AppLog.shared.info("API", "Creating v2 client -> https://\(host):\(mainPort) (TLS, custom delegate)")
         let session = URLSession(
             configuration: .default,
             delegate: delegate,
@@ -109,7 +119,8 @@ final class AnnexAPIClient: Sendable {
     }
 
     static func v2Pairing(host: String, pairingPort: UInt16) -> AnnexAPIClient {
-        AnnexAPIClient(config: .v2Pairing(host: host, pairingPort: pairingPort), session: .shared)
+        AppLog.shared.info("API", "Creating v2-pairing client -> http://\(host):\(pairingPort)")
+        return AnnexAPIClient(config: .v2Pairing(host: host, pairingPort: pairingPort), session: .shared)
     }
 
     private init(config: APIClientConfig, session: URLSession) {
@@ -120,13 +131,16 @@ final class AnnexAPIClient: Sendable {
     // MARK: - POST /pair (v1)
 
     func pair(pin: String) async throws(APIError) -> PairResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /pair (v1)")
         let url = try makeURL("/pair")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(["pin": pin])
         let data = try await perform(request)
-        return try decode(PairResponse.self, from: data)
+        let response = try decode(PairResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Pair success, token=\(response.token.prefix(8))...")
+        return response
     }
 
     // MARK: - POST /pair (v2)
@@ -134,6 +148,7 @@ final class AnnexAPIClient: Sendable {
     func pairV2(
         pin: String, publicKey: String, alias: String, icon: String, color: String
     ) async throws(APIError) -> V2PairResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /pair (v2) alias=\(alias) publicKey=\(publicKey.prefix(20))...")
         let url = try makeURL("/pair")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -141,32 +156,41 @@ final class AnnexAPIClient: Sendable {
         let body = V2PairRequest(pin: pin, publicKey: publicKey, alias: alias, icon: icon, color: color)
         request.httpBody = try? JSONEncoder().encode(body)
         let data = try await perform(request)
-        return try decode(V2PairResponse.self, from: data)
+        let response = try decode(V2PairResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] v2 Pair success: alias=\(response.alias) fingerprint=\(response.fingerprint)")
+        return response
     }
 
     // MARK: - GET /api/v1/status
 
     func getStatus(token: String) async throws(APIError) -> StatusResponse {
+        AppLog.shared.info("API", "[\(configLabel)] GET /api/v1/status")
         let url = try makeURL("/api/v1/status")
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let data = try await perform(request)
-        return try decode(StatusResponse.self, from: data)
+        let response = try decode(StatusResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Status: \(response.deviceName), \(response.agentCount) agents")
+        return response
     }
 
     // MARK: - GET /api/v1/projects
 
     func getProjects(token: String) async throws(APIError) -> [Project] {
+        AppLog.shared.info("API", "[\(configLabel)] GET /api/v1/projects")
         let url = try makeURL("/api/v1/projects")
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let data = try await perform(request)
-        return try decode([Project].self, from: data)
+        let response = try decode([Project].self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Projects: \(response.count)")
+        return response
     }
 
     // MARK: - GET /api/v1/projects/{projectId}/agents
 
     func getAgents(projectId: String, token: String) async throws(APIError) -> [DurableAgent] {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/agents")
         let url = try makeURL("/api/v1/projects/\(projectId)/agents")
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -177,6 +201,7 @@ final class AnnexAPIClient: Sendable {
     // MARK: - GET /api/v1/agents/{agentId}/buffer
 
     func getBuffer(agentId: String, token: String) async throws(APIError) -> String {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/agents/\(agentId)/buffer")
         let url = try makeURL("/api/v1/agents/\(agentId)/buffer")
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -189,6 +214,7 @@ final class AnnexAPIClient: Sendable {
     func spawnQuickAgent(
         projectId: String, request: SpawnQuickAgentRequest, token: String
     ) async throws(APIError) -> SpawnQuickAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/projects/\(projectId)/agents/quick")
         let url = try makeURL("/api/v1/projects/\(projectId)/agents/quick")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -196,7 +222,9 @@ final class AnnexAPIClient: Sendable {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.httpBody = try? JSONEncoder().encode(request)
         let data = try await perform(req)
-        return try decode(SpawnQuickAgentResponse.self, from: data)
+        let response = try decode(SpawnQuickAgentResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Quick agent spawned: \(response.id)")
+        return response
     }
 
     // MARK: - POST /api/v1/agents/{agentId}/agents/quick
@@ -204,6 +232,7 @@ final class AnnexAPIClient: Sendable {
     func spawnQuickAgentUnder(
         parentAgentId: String, request: SpawnQuickAgentRequest, token: String
     ) async throws(APIError) -> SpawnQuickAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(parentAgentId)/agents/quick")
         let url = try makeURL("/api/v1/agents/\(parentAgentId)/agents/quick")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -211,12 +240,15 @@ final class AnnexAPIClient: Sendable {
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.httpBody = try? JSONEncoder().encode(request)
         let data = try await perform(req)
-        return try decode(SpawnQuickAgentResponse.self, from: data)
+        let response = try decode(SpawnQuickAgentResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Quick agent spawned under parent: \(response.id)")
+        return response
     }
 
     // MARK: - POST /api/v1/agents/{agentId}/cancel
 
     func cancelAgent(agentId: String, token: String) async throws(APIError) -> CancelAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/cancel")
         let url = try makeURL("/api/v1/agents/\(agentId)/cancel")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -230,6 +262,7 @@ final class AnnexAPIClient: Sendable {
     func wakeAgent(
         agentId: String, request: WakeAgentRequest, token: String
     ) async throws(APIError) -> WakeAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/wake")
         let url = try makeURL("/api/v1/agents/\(agentId)/wake")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -245,6 +278,7 @@ final class AnnexAPIClient: Sendable {
     func sendMessage(
         agentId: String, request: SendMessageRequest, token: String
     ) async throws(APIError) -> SendMessageResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/message")
         let url = try makeURL("/api/v1/agents/\(agentId)/message")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -260,6 +294,7 @@ final class AnnexAPIClient: Sendable {
     func respondToPermission(
         agentId: String, request: PermissionResponseRequest, token: String
     ) async throws(APIError) -> PermissionResponseResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/permission-response decision=\(request.decision)")
         let url = try makeURL("/api/v1/agents/\(agentId)/permission-response")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -275,6 +310,7 @@ final class AnnexAPIClient: Sendable {
     func respondToStructuredPermission(
         agentId: String, request: StructuredPermissionRequest, token: String
     ) async throws(APIError) -> StructuredPermissionResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/structured-permission approved=\(request.approved)")
         let url = try makeURL("/api/v1/agents/\(agentId)/structured-permission")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -319,6 +355,7 @@ final class AnnexAPIClient: Sendable {
         guard let url = URL(string: "\(scheme)://\(urlHost):\(port)/ws?token=\(token)") else {
             throw .invalidURL
         }
+        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: \(scheme)://\(urlHost):\(port)/ws?token=\(token.prefix(8))...")
         return url
     }
 
@@ -326,22 +363,35 @@ final class AnnexAPIClient: Sendable {
 
     private func makeURL(_ path: String) throws(APIError) -> URL {
         guard let url = URL(string: "\(baseURL)\(path)") else {
+            AppLog.shared.error("API", "[\(configLabel)] Invalid URL: \(baseURL)\(path)")
             throw .invalidURL
         }
         return url
     }
 
     private nonisolated func perform(_ request: URLRequest) async throws(APIError) -> Data {
+        let method = request.httpMethod ?? "GET"
+        let urlStr = request.url?.absoluteString ?? "?"
+        AppLog.shared.debug("API", "\(method) \(urlStr)")
+
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
+            AppLog.shared.error("API", "\(method) \(urlStr) — network error: \(error)")
             throw .networkError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
+            AppLog.shared.error("API", "\(method) \(urlStr) — not an HTTP response")
             throw .networkError(URLError(.badServerResponse))
+        }
+
+        let bodyPreview = String(data: data.prefix(500), encoding: .utf8) ?? "<binary \(data.count) bytes>"
+        AppLog.shared.debug("API", "\(method) \(urlStr) -> HTTP \(http.statusCode) (\(data.count) bytes)")
+        if http.statusCode >= 400 {
+            AppLog.shared.warn("API", "\(method) \(urlStr) error body: \(bodyPreview)")
         }
 
         switch http.statusCode {
@@ -349,11 +399,16 @@ final class AnnexAPIClient: Sendable {
             return data
         case 401:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                if errResp.error == "invalid_pin" { throw .invalidPin }
+                if errResp.error == "invalid_pin" {
+                    AppLog.shared.error("API", "Invalid PIN")
+                    throw .invalidPin
+                }
             }
+            AppLog.shared.error("API", "Unauthorized (401)")
             throw .unauthorized
         case 400:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                AppLog.shared.error("API", "Bad request: \(errResp.error)")
                 switch errResp.error {
                 case "missing_prompt": throw .missingPrompt
                 case "missing_message": throw .missingMessage
@@ -368,6 +423,7 @@ final class AnnexAPIClient: Sendable {
             throw .invalidJSON
         case 404:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                AppLog.shared.error("API", "Not found: \(errResp.error)")
                 switch errResp.error {
                 case "project_not_found": throw .projectNotFound
                 case "agent_not_found": throw .agentNotFound
@@ -398,8 +454,10 @@ final class AnnexAPIClient: Sendable {
             throw .serverError("HTTP 500")
         default:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode): \(errResp.error)")
                 throw .serverError(errResp.error)
             }
+            AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode)")
             throw .serverError("HTTP \(http.statusCode)")
         }
     }
@@ -408,6 +466,8 @@ final class AnnexAPIClient: Sendable {
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {
+            let preview = String(data: data.prefix(500), encoding: .utf8) ?? "<binary>"
+            AppLog.shared.error("API", "Decode \(T.self) failed: \(error)\nBody: \(preview)")
             throw .decodingError(error)
         }
     }

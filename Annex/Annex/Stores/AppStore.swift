@@ -306,6 +306,7 @@ enum ConnectionState: Sendable {
     // MARK: - Pairing
 
     func pair(server: DiscoveredServer, pin: String) async throws {
+        AppLog.shared.info("Pairing", "Starting pair: \(server.name) (\(server.host):\(server.port)) proto=\(server.protocolVersion == .v2 ? "v2" : "v1") pairingPort=\(server.pairingPort.map(String.init) ?? "nil") fingerprint=\(server.fingerprint ?? "nil")")
         switch server.protocolVersion {
         case .v1:
             try await pairV1(server: server, pin: pin)
@@ -315,7 +316,7 @@ enum ConnectionState: Sendable {
     }
 
     private func pairV1(server: DiscoveredServer, pin: String) async throws {
-        AppLog.shared.info("Pairing", "v1 pairing with \(server.host):\(server.port)")
+        AppLog.shared.info("Pairing", "v1 pairing: POST http://\(server.host):\(server.port)/pair")
         let client = AnnexAPIClient.v1(host: server.host, port: server.port)
         let response = try await client.pair(pin: pin)
         AppLog.shared.info("Pairing", "v1 paired successfully, token=\(response.token.prefix(8))...")
@@ -330,17 +331,20 @@ enum ConnectionState: Sendable {
 
         instances.append(inst)
         activeInstanceID = instanceId
+        AppLog.shared.info("Pairing", "v1 instance \(instanceId.value.prefix(12)) saved, connecting...")
         await inst.connect(token: response.token)
     }
 
     private func pairV2(server: DiscoveredServer, pin: String) async throws {
         guard let pairingPort = server.pairingPort else {
-            AppLog.shared.error("Pairing", "v2 server missing pairingPort")
+            AppLog.shared.error("Pairing", "v2 server missing pairingPort — cannot pair")
             throw APIError.invalidURL
         }
 
         let identity = CryptoIdentity.loadOrCreate()
-        AppLog.shared.info("Pairing", "v2 pairing with \(server.host) pairingPort=\(pairingPort) fingerprint=\(identity.fingerprint)")
+        AppLog.shared.info("Pairing", "v2 pairing: POST http://\(server.host):\(pairingPort)/pair")
+        AppLog.shared.info("Pairing", "v2 our fingerprint=\(identity.fingerprint), publicKey=\(identity.publicKeyBase64.prefix(30))...")
+        AppLog.shared.info("Pairing", "v2 alias=\(UIDevice.current.name)")
         let client = AnnexAPIClient.v2Pairing(host: server.host, pairingPort: pairingPort)
 
         let response = try await client.pairV2(
@@ -351,12 +355,13 @@ enum ConnectionState: Sendable {
             color: "blue"
         )
 
-        AppLog.shared.info("Pairing", "v2 paired: server=\(response.alias) fingerprint=\(response.fingerprint)")
+        AppLog.shared.info("Pairing", "v2 paired: serverAlias=\(response.alias) serverFingerprint=\(response.fingerprint) token=\(response.token.prefix(8))...")
         let instanceId = ServerInstanceID(value: response.fingerprint)
         let config = ServerProtocol.v2(
             host: server.host, mainPort: server.port,
             pairingPort: pairingPort, fingerprint: response.fingerprint
         )
+        AppLog.shared.info("Pairing", "v2 instance config: mainPort=\(server.port), pairingPort=\(pairingPort)")
         let inst = ServerInstance(id: instanceId, protocolConfig: config)
 
         KeychainHelper.saveInstance(
@@ -366,22 +371,28 @@ enum ConnectionState: Sendable {
 
         instances.append(inst)
         activeInstanceID = instanceId
+        AppLog.shared.info("Pairing", "v2 instance \(instanceId.value.prefix(12)) saved, connecting to main port...")
         await inst.connect(token: response.token)
     }
 
     // MARK: - Session Restore
 
     func restoreAllSessions() async {
+        AppLog.shared.info("Restore", "Restoring saved sessions...")
         KeychainHelper.migrateIfNeeded()
         let saved = KeychainHelper.loadAllInstances()
+        AppLog.shared.info("Restore", "Found \(saved.count) saved instance(s)")
         for s in saved {
+            AppLog.shared.info("Restore", "Restoring instance \(s.id.value.prefix(12)) (proto=\(s.protocolConfig.label))")
             let inst = ServerInstance(id: s.id, protocolConfig: s.protocolConfig)
             instances.append(inst)
             await inst.connect(token: s.token)
         }
         if activeInstanceID == nil {
             activeInstanceID = connectedInstances.first?.id ?? instances.first?.id
+            AppLog.shared.info("Restore", "Active instance: \(activeInstanceID?.value.prefix(12) ?? "none")")
         }
+        AppLog.shared.info("Restore", "Session restore complete: \(instances.count) instance(s), \(connectedInstances.count) connected")
     }
 
     // MARK: - Reconnect

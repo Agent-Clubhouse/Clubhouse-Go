@@ -9,22 +9,26 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
     ) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
         let method = challenge.protectionSpace.authenticationMethod
         let host = challenge.protectionSpace.host
+        let port = challenge.protectionSpace.port
+
+        AppLog.shared.debug("TLS", "Auth challenge: method=\(method) host=\(host):\(port)")
 
         if method == NSURLAuthenticationMethodServerTrust {
             guard let serverTrust = challenge.protectionSpace.serverTrust else {
-                AppLog.shared.error("TLS", "No server trust for \(host) — cancelling")
+                AppLog.shared.error("TLS", "No server trust for \(host):\(port) — cancelling")
                 return (.cancelAuthenticationChallenge, nil)
             }
-            AppLog.shared.debug("TLS", "Accepting self-signed cert from \(host)")
+            let certCount = SecTrustGetCertificateCount(serverTrust)
+            AppLog.shared.info("TLS", "Accepting self-signed cert from \(host):\(port) (\(certCount) cert(s) in chain)")
             return (.useCredential, URLCredential(trust: serverTrust))
         }
 
         if method == NSURLAuthenticationMethodClientCertificate {
-            AppLog.shared.debug("TLS", "Client cert requested by \(host) — skipping (no mTLS)")
+            AppLog.shared.warn("TLS", "Client cert requested by \(host):\(port) — skipping (no mTLS yet)")
             return (.performDefaultHandling, nil)
         }
 
-        AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host)")
+        AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host):\(port)")
         return (.performDefaultHandling, nil)
     }
 }

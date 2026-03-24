@@ -185,29 +185,40 @@ struct PairingPlaceholderView: View {
     private func performPairing() async {
         isPairing = true
         errorMessage = nil
+        AppLog.shared.info("PairingUI", "Pairing initiated, pin=\(pin.prefix(2))****")
 
         if showManualEntry {
             let host = manualHost
             let port = UInt16(manualPort) ?? 0
+            AppLog.shared.info("PairingUI", "Manual entry: \(host):\(port) (v1)")
             let server = DiscoveredServer(
                 id: "\(host):\(port)", name: host, host: host, port: port,
                 protocolVersion: .v1, pairingPort: nil, fingerprint: nil
             )
             do {
                 try await store.pair(server: server, pin: pin)
+                AppLog.shared.info("PairingUI", "Manual pairing succeeded")
                 discovery.stopSearching()
                 if isAddingInstance { dismiss() }
             } catch {
-                errorMessage = store.activeInstance?.lastError ?? "Connection failed"
+                let msg = store.activeInstance?.lastError ?? "Connection failed"
+                AppLog.shared.error("PairingUI", "Manual pairing failed: \(error) — showing: \(msg)")
+                errorMessage = msg
             }
         } else if let server = selectedServer {
+            AppLog.shared.info("PairingUI", "Discovered server: \(server.name) (\(server.host):\(server.port)) proto=\(server.protocolVersion == .v2 ? "v2" : "v1") pairingPort=\(server.pairingPort.map(String.init) ?? "nil")")
             do {
                 try await store.pair(server: server, pin: pin)
+                AppLog.shared.info("PairingUI", "Pairing succeeded")
                 discovery.stopSearching()
                 if isAddingInstance { dismiss() }
             } catch {
-                errorMessage = (error as? APIError)?.userMessage ?? "Connection failed"
+                let msg = (error as? APIError)?.userMessage ?? "Connection failed"
+                AppLog.shared.error("PairingUI", "Pairing failed: \(error) — showing: \(msg)")
+                errorMessage = msg
             }
+        } else {
+            AppLog.shared.error("PairingUI", "No server selected and not manual entry — nothing to pair")
         }
 
         isPairing = false

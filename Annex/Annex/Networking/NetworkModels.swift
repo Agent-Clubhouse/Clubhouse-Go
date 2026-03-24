@@ -32,6 +32,13 @@ enum ServerProtocol: Codable, Sendable {
         if case .v2 = self { return true }
         return false
     }
+
+    var label: String {
+        switch self {
+        case .v1(let host, let port): return "v1(\(host):\(port))"
+        case .v2(let host, let mainPort, let pairingPort, _): return "v2(\(host):\(mainPort)/\(pairingPort))"
+        }
+    }
 }
 
 // MARK: - REST Responses
