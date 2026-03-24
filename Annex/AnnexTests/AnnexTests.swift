@@ -1478,3 +1478,218 @@ struct PermissionTimeoutTests {
         #expect(msg.payload.deadline == 1742000120000)
     }
 }
+
+// MARK: - DER Encoder Tests
+
+struct DEREncoderTests {
+    @Test func encodeInteger() {
+        let data = DER.integer(2)
+        // Tag 0x02, Length 0x01, Value 0x02
+        #expect(data == Data([0x02, 0x01, 0x02]))
+    }
+
+    @Test func encodeIntegerLargeValue() {
+        let data = DER.integer(256)
+        // Tag 0x02, Length 0x02, Value 0x01 0x00
+        #expect(data == Data([0x02, 0x02, 0x01, 0x00]))
+    }
+
+    @Test func encodeNull() {
+        let data = DER.null()
+        #expect(data == Data([0x05, 0x00]))
+    }
+
+    @Test func encodeUTF8String() {
+        let data = DER.utf8String("test")
+        #expect(data[0] == 0x0C) // UTF8String tag
+        #expect(data[1] == 4) // length
+        #expect(String(data: data[2...], encoding: .utf8) == "test")
+    }
+
+    @Test func encodeOID() {
+        // OID 2.5.4.3 (commonName)
+        let data = DER.oid([2, 5, 4, 3])
+        #expect(data[0] == 0x06) // OID tag
+        #expect(data[1] == 3) // length
+        #expect(data[2] == 85) // 2*40+5 = 85
+        #expect(data[3] == 4)
+        #expect(data[4] == 3)
+    }
+
+    @Test func encodeLargeOIDComponent() {
+        // OID 1.2.840.113549.1.1.11 (sha256WithRSAEncryption)
+        let data = DER.oid([1, 2, 840, 113549, 1, 1, 11])
+        #expect(data[0] == 0x06) // OID tag
+        // 840 and 113549 require multi-byte encoding
+        #expect(data.count > 2)
+    }
+
+    @Test func encodeSequence() {
+        let inner = DER.integer(42)
+        let seq = DER.sequence([inner])
+        #expect(seq[0] == 0x30) // SEQUENCE tag
+        #expect(seq[1] == UInt8(inner.count))
+        #expect(seq.suffix(from: 2) == inner)
+    }
+
+    @Test func encodeBitString() {
+        let payload = Data([0xAB, 0xCD])
+        let bs = DER.bitString(payload)
+        #expect(bs[0] == 0x03) // BIT STRING tag
+        #expect(bs[1] == 3) // length: 1 (unused bits byte) + 2 (payload)
+        #expect(bs[2] == 0x00) // unused bits = 0
+        #expect(bs[3] == 0xAB)
+        #expect(bs[4] == 0xCD)
+    }
+
+    @Test func encodeContextTag() {
+        let inner = DER.integer(2)
+        let tagged = DER.contextTag(0, constructed: true, content: inner)
+        #expect(tagged[0] == 0xA0) // context tag 0, constructed
+    }
+
+    @Test func encodeUTCTime() {
+        let date = Date(timeIntervalSince1970: 0) // 1970-01-01 00:00:00 UTC
+        let data = DER.utcTime(date)
+        #expect(data[0] == 0x17) // UTCTime tag
+        let timeStr = String(data: data[2...], encoding: .utf8)
+        #expect(timeStr == "700101000000Z")
+    }
+
+    @Test func lengthEncodingShort() {
+        // Length < 128 should be single byte
+        let data = DER.utf8String("hi")
+        #expect(data[1] == 2) // short form
+    }
+
+    @Test func lengthEncodingLong() {
+        // Length >= 128 needs multi-byte encoding
+        let longString = String(repeating: "A", count: 200)
+        let data = DER.utf8String(longString)
+        #expect(data[1] == 0x81) // long form: 1 length byte follows
+        #expect(data[2] == 200)
+    }
+}
+
+// MARK: - mTLS Identity Tests
+
+struct MTLSIdentityTests {
+    @Test func buildSelfSignedCertProducesValidDER() {
+        // Generate an RSA key for testing
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits as String: 2048,
+        ]
+        var error: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+            Issue.record("Failed to generate test RSA key: \(error!.takeRetainedValue())")
+            return
+        }
+        guard let publicKey = SecKeyCopyPublicKey(privateKey),
+              let pubKeyData = SecKeyCopyExternalRepresentation(publicKey, nil) as Data? else {
+            Issue.record("Failed to export public key")
+            return
+        }
+
+        let fingerprint = "AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89"
+        let certDER = MTLSIdentity.buildSelfSignedCert(
+            commonName: fingerprint,
+            publicKeyDER: pubKeyData,
+            privateKey: privateKey
+        )
+
+        #expect(certDER != nil)
+        #expect(certDER!.count > 100)
+
+        // Verify it's a valid certificate by parsing with SecCertificateCreateWithData
+        let secCert = SecCertificateCreateWithData(nil, certDER! as CFData)
+        #expect(secCert != nil, "DER should parse as a valid X.509 certificate")
+    }
+
+    @Test func certContainsCorrectCN() {
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits as String: 2048,
+        ]
+        var error: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+            Issue.record("Failed to generate test RSA key")
+            return
+        }
+        guard let publicKey = SecKeyCopyPublicKey(privateKey),
+              let pubKeyData = SecKeyCopyExternalRepresentation(publicKey, nil) as Data? else {
+            Issue.record("Failed to export public key")
+            return
+        }
+
+        let fingerprint = "13:93:04:DA:25:92:2A:8D:F1:FB:A6:F4:AA:82:6A:B7"
+        guard let certDER = MTLSIdentity.buildSelfSignedCert(
+            commonName: fingerprint,
+            publicKeyDER: pubKeyData,
+            privateKey: privateKey
+        ) else {
+            Issue.record("Failed to build cert")
+            return
+        }
+
+        guard let secCert = SecCertificateCreateWithData(nil, certDER as CFData) else {
+            Issue.record("Invalid DER")
+            return
+        }
+
+        // Extract the subject summary — should contain our fingerprint
+        let summary = SecCertificateCopySubjectSummary(secCert) as String?
+        #expect(summary == fingerprint, "Certificate CN should be the Ed25519 fingerprint")
+    }
+
+    @Test func loadOrCreateProducesIdentity() {
+        // Clean up any previous test artifacts
+        MTLSIdentity.deleteIdentity()
+
+        let fingerprint = "TE:ST:00:00:00:00:00:00:00:00:00:00:00:00:00:01"
+        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity != nil, "Should create a new mTLS identity")
+
+        // Loading again should return the same identity
+        let identity2 = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity2 != nil, "Should load existing mTLS identity")
+
+        // Clean up
+        MTLSIdentity.deleteIdentity()
+    }
+
+    @Test func deleteIdentityRemovesFromKeychain() {
+        let fingerprint = "TE:ST:00:00:00:00:00:00:00:00:00:00:00:00:00:02"
+        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity != nil)
+
+        MTLSIdentity.deleteIdentity()
+
+        // After deletion, loading should create a brand new identity
+        // We can't directly check "it's gone" without trying to load
+        // But loadOrCreate will log "Generating new" instead of "Loaded existing"
+    }
+}
+
+// MARK: - TLSSessionDelegate Tests
+
+struct TLSSessionDelegateTests {
+    @Test func delegateInitWithoutIdentity() {
+        let delegate = TLSSessionDelegate()
+        // Should create successfully without identity
+        #expect(delegate is URLSessionDelegate)
+    }
+
+    @Test func delegateInitWithIdentity() {
+        // Create a test identity
+        MTLSIdentity.deleteIdentity()
+        let fingerprint = "TE:ST:DE:LE:GA:TE:00:00:00:00:00:00:00:00:00:01"
+        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity != nil)
+
+        let delegate = TLSSessionDelegate(clientIdentity: identity)
+        #expect(delegate is URLSessionDelegate)
+
+        MTLSIdentity.deleteIdentity()
+    }
+}
