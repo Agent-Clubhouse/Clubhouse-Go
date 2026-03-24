@@ -6,14 +6,6 @@ import SwiftUI
 // MARK: - Model Decoding Tests
 
 struct ModelDecodingTests {
-    @Test func decodePairResponse() throws {
-        let json = """
-        {"token": "550e8400-e29b-41d4-a716-446655440000"}
-        """
-        let response = try JSONDecoder().decode(PairResponse.self, from: Data(json.utf8))
-        #expect(response.token == "550e8400-e29b-41d4-a716-446655440000")
-    }
-
     @Test func decodeStatusResponse() throws {
         let json = """
         {"version":"1","deviceName":"Clubhouse on Mason's Mac","agentCount":5,"orchestratorCount":1}
@@ -491,21 +483,6 @@ struct AgentWSPayloadTests {
         struct PayloadExtractor<T: Decodable>: Decodable { let payload: T }
         let snapshot = try JSONDecoder().decode(PayloadExtractor<SnapshotPayload>.self, from: Data(json.utf8))
         #expect(snapshot.payload.quickAgents == nil)
-    }
-}
-
-// MARK: - API Client Tests
-
-struct APIClientTests {
-    @Test func urlConstruction() throws {
-        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 8080)
-        #expect(client.baseURL == "http://192.168.1.100:8080")
-    }
-
-    @Test func webSocketURLConstruction() throws {
-        let client = AnnexAPIClient.v1(host: "192.168.1.100", port: 8080)
-        let url = try client.webSocketURL(token: "test-token-123")
-        #expect(url.absoluteString == "ws://192.168.1.100:8080/ws?token=test-token-123")
     }
 }
 

@@ -138,19 +138,14 @@ import Foundation
 
     func connect(token: String) async {
         self.token = token
-        let client: AnnexAPIClient
-        switch protocolConfig {
-        case .v1(let host, let port):
-            AppLog.shared.info("Instance", "\(logPrefix) Connecting v1 -> \(host):\(port)")
-            client = AnnexAPIClient.v1(host: host, port: port)
-        case .v2(let host, let mainPort, _, let fingerprint):
-            AppLog.shared.info("Instance", "\(logPrefix) Connecting v2 -> \(host):\(mainPort) (TLS) fingerprint=\(fingerprint)")
-            // Load Ed25519 identity to get our fingerprint for mTLS CN
-            let ed25519 = CryptoIdentity.loadOrCreate()
-            let mtlsIdentity = MTLSIdentity.loadOrCreate(fingerprint: ed25519.fingerprint)
-            let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity)
-            client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
-        }
+        let host = protocolConfig.host
+        let mainPort = protocolConfig.mainPort
+        AppLog.shared.info("Instance", "\(logPrefix) Connecting -> \(host):\(mainPort) (TLS)")
+        // Load Ed25519 identity to get our fingerprint for mTLS CN
+        let ed25519 = CryptoIdentity.loadOrCreate()
+        let mtlsIdentity = MTLSIdentity.loadOrCreate(fingerprint: ed25519.fingerprint)
+        let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity)
+        let client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         self.apiClient = client
         connectionState = .connecting
         AppLog.shared.info("Instance", "\(logPrefix) State -> connecting")

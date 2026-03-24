@@ -80,10 +80,6 @@ enum KeychainHelper {
             delete(account: "instance-\(id.value)")
         }
         delete(account: "instance-index")
-        // Legacy cleanup
-        delete(account: "session-token")
-        delete(account: "server-host")
-        delete(account: "server-port")
     }
 
     // MARK: - Ed25519 Identity (app-global)
@@ -97,30 +93,6 @@ enum KeychainHelper {
         let data = load(account: "ed25519-private-key")
         AppLog.shared.debug("Keychain", "Load Ed25519 key: \(data != nil ? "\(data!.count) bytes" : "not found")")
         return data
-    }
-
-    // MARK: - Migration from Legacy Single-Instance Format
-
-    static func migrateIfNeeded() {
-        guard let tokenData = load(account: "session-token"),
-              let token = String(data: tokenData, encoding: .utf8),
-              let hostData = load(account: "server-host"),
-              let host = String(data: hostData, encoding: .utf8),
-              let portData = load(account: "server-port"),
-              let portStr = String(data: portData, encoding: .utf8),
-              let port = UInt16(portStr) else { return }
-
-        // Already migrated?
-        if !loadInstanceIDs().isEmpty { return }
-
-        AppLog.shared.info("Keychain", "Migrating legacy single-instance -> multi-instance (host=\(host):\(port))")
-        let id = ServerInstanceID(value: UUID().uuidString)
-        let config = ServerProtocol.v1(host: host, port: port)
-        saveInstance(id: id, token: token, protocolConfig: config)
-
-        delete(account: "session-token")
-        delete(account: "server-host")
-        delete(account: "server-port")
     }
 
     // MARK: - Internal

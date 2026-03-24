@@ -1,19 +1,13 @@
 import Foundation
 import Network
 
-enum ProtocolVersion: Sendable {
-    case v1
-    case v2
-}
-
 struct DiscoveredServer: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let host: String
     let port: UInt16
-    let protocolVersion: ProtocolVersion
-    let pairingPort: UInt16?
-    let fingerprint: String?
+    let pairingPort: UInt16
+    let fingerprint: String
 
     static func == (lhs: DiscoveredServer, rhs: DiscoveredServer) -> Bool {
         lhs.id == rhs.id
@@ -191,31 +185,31 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
             serviceDomain = nil
         }
 
-        // Determine protocol version from TXT records
-        let protoVersion: ProtocolVersion
+        // Parse v2 TXT records if available
         let pairingPort: UInt16?
         let fingerprint: String?
+        let hasV2TXT: Bool
 
         if txtRecords["v"] == "2",
            let ppStr = txtRecords["pairingPort"],
-           let pp = UInt16(ppStr) {
-            AppLog.shared.info("Bonjour", "v2 server (from NWBrowser TXT): \(serviceName) pairingPort=\(pp) fingerprint=\(txtRecords["fingerprint"] ?? "?")")
-            protoVersion = .v2
+           let pp = UInt16(ppStr),
+           let fp = txtRecords["fingerprint"] {
+            AppLog.shared.info("Bonjour", "v2 server (from NWBrowser TXT): \(serviceName) pairingPort=\(pp) fingerprint=\(fp)")
             pairingPort = pp
-            fingerprint = txtRecords["fingerprint"]
+            fingerprint = fp
+            hasV2TXT = true
         } else {
-            // TXT records missing from NWBrowser — will resolve via NetService
-            protoVersion = .v1
             pairingPort = nil
             fingerprint = nil
+            hasV2TXT = false
             if txtRecords.isEmpty {
                 AppLog.shared.info("Bonjour", "No TXT from NWBrowser for \(serviceName) — will resolve via NetService")
             } else {
-                AppLog.shared.info("Bonjour", "Incomplete TXT for \(serviceName): \(txtRecords)")
+                AppLog.shared.info("Bonjour", "Incomplete TXT for \(serviceName): \(txtRecords) — will resolve via NetService")
             }
         }
 
-        let needsTXTResolution = protoVersion == .v1 && txtRecords.isEmpty && serviceNameRaw != nil
+        let needsTXTResolution = !hasV2TXT && serviceNameRaw != nil
 
         conn.stateUpdateHandler = { [weak self] state in
             Task { @MainActor in
@@ -250,14 +244,13 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                                 serviceName: serviceNameRaw!,
                                 domain: serviceDomain ?? "local."
                             )
-                        } else {
-                            AppLog.shared.info("Bonjour", "Resolved \(serviceName) -> \(hostStr):\(port.rawValue) (proto=\(protoVersion == .v2 ? "v2" : "v1"))")
+                        } else if let pairingPort, let fingerprint {
+                            AppLog.shared.info("Bonjour", "Resolved \(serviceName) -> \(hostStr):\(port.rawValue) (v2)")
                             let server = DiscoveredServer(
                                 id: id,
                                 name: serviceName,
                                 host: hostStr,
                                 port: port.rawValue,
-                                protocolVersion: protoVersion,
                                 pairingPort: pairingPort,
                                 fingerprint: fingerprint
                             )
@@ -304,30 +297,24 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
             return
         }
 
-        let protoVersion: ProtocolVersion
-        let pairingPort: UInt16?
-        let fingerprint: String?
-
-        if txtRecords["v"] == "2",
-           let ppStr = txtRecords["pairingPort"],
-           let pp = UInt16(ppStr) {
-            AppLog.shared.info("Bonjour", "v2 server (from NetService TXT): \(pending.name) pairingPort=\(pp) fingerprint=\(txtRecords["fingerprint"] ?? "?")")
-            protoVersion = .v2
-            pairingPort = pp
-            fingerprint = txtRecords["fingerprint"]
-        } else {
-            AppLog.shared.warn("Bonjour", "NetService TXT resolved but not v2: \(txtRecords)")
-            protoVersion = .v1
-            pairingPort = nil
-            fingerprint = nil
+        guard txtRecords["v"] == "2",
+              let ppStr = txtRecords["pairingPort"],
+              let pairingPort = UInt16(ppStr),
+              let fingerprint = txtRecords["fingerprint"] else {
+            AppLog.shared.warn("Bonjour", "NetService TXT resolved but not v2 for '\(serviceName)': \(txtRecords)")
+            pendingTXTResolution.removeValue(forKey: id)
+            resolvingServices[id]?.stop()
+            resolvingServices.removeValue(forKey: id)
+            return
         }
+
+        AppLog.shared.info("Bonjour", "v2 server (from NetService TXT): \(pending.name) pairingPort=\(pairingPort) fingerprint=\(fingerprint)")
 
         let server = DiscoveredServer(
             id: id,
             name: pending.name,
             host: pending.host,
             port: pending.port,
-            protocolVersion: protoVersion,
             pairingPort: pairingPort,
             fingerprint: fingerprint
         )

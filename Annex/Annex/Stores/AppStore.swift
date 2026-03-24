@@ -306,46 +306,10 @@ enum ConnectionState: Sendable {
     // MARK: - Pairing
 
     func pair(server: DiscoveredServer, pin: String) async throws {
-        AppLog.shared.info("Pairing", "Starting pair: \(server.name) (\(server.host):\(server.port)) proto=\(server.protocolVersion == .v2 ? "v2" : "v1") pairingPort=\(server.pairingPort.map(String.init) ?? "nil") fingerprint=\(server.fingerprint ?? "nil")")
-        switch server.protocolVersion {
-        case .v1:
-            try await pairV1(server: server, pin: pin)
-        case .v2:
-            try await pairV2(server: server, pin: pin)
-        }
-    }
-
-    private func pairV1(server: DiscoveredServer, pin: String) async throws {
-        AppLog.shared.info("Pairing", "v1 pairing: POST http://\(server.host):\(server.port)/pair")
-        let client = AnnexAPIClient.v1(host: server.host, port: server.port)
-        let response = try await client.pair(pin: pin)
-        AppLog.shared.info("Pairing", "v1 paired successfully, token=\(response.token.prefix(8))...")
-
-        let instanceId = ServerInstanceID(value: UUID().uuidString)
-        let config = ServerProtocol.v1(host: server.host, port: server.port)
-        let inst = ServerInstance(id: instanceId, protocolConfig: config)
-
-        KeychainHelper.saveInstance(
-            id: instanceId, token: response.token, protocolConfig: config
-        )
-
-        instances.append(inst)
-        activeInstanceID = instanceId
-        AppLog.shared.info("Pairing", "v1 instance \(instanceId.value.prefix(12)) saved, connecting...")
-        await inst.connect(token: response.token)
-    }
-
-    private func pairV2(server: DiscoveredServer, pin: String) async throws {
-        guard let pairingPort = server.pairingPort else {
-            AppLog.shared.error("Pairing", "v2 server missing pairingPort — cannot pair")
-            throw APIError.invalidURL
-        }
-
         let identity = CryptoIdentity.loadOrCreate()
-        AppLog.shared.info("Pairing", "v2 pairing: POST http://\(server.host):\(pairingPort)/pair")
-        AppLog.shared.info("Pairing", "v2 our fingerprint=\(identity.fingerprint), publicKey=\(identity.publicKeyBase64.prefix(30))...")
-        AppLog.shared.info("Pairing", "v2 alias=\(UIDevice.current.name)")
-        let client = AnnexAPIClient.v2Pairing(host: server.host, pairingPort: pairingPort)
+        AppLog.shared.info("Pairing", "Pairing with \(server.name) (\(server.host):\(server.port)) pairingPort=\(server.pairingPort)")
+        AppLog.shared.info("Pairing", "Our fingerprint=\(identity.fingerprint), publicKey=\(identity.publicKeyBase64.prefix(30))...")
+        let client = AnnexAPIClient.v2Pairing(host: server.host, pairingPort: server.pairingPort)
 
         let response = try await client.pairV2(
             pin: pin,
@@ -355,13 +319,13 @@ enum ConnectionState: Sendable {
             color: "blue"
         )
 
-        AppLog.shared.info("Pairing", "v2 paired: serverAlias=\(response.alias) serverFingerprint=\(response.fingerprint) token=\(response.token.prefix(8))...")
+        AppLog.shared.info("Pairing", "Paired: server=\(response.alias) fingerprint=\(response.fingerprint) token=\(response.token.prefix(8))...")
         let instanceId = ServerInstanceID(value: response.fingerprint)
         let config = ServerProtocol.v2(
             host: server.host, mainPort: server.port,
-            pairingPort: pairingPort, fingerprint: response.fingerprint
+            pairingPort: server.pairingPort, fingerprint: response.fingerprint
         )
-        AppLog.shared.info("Pairing", "v2 instance config: mainPort=\(server.port), pairingPort=\(pairingPort)")
+        AppLog.shared.info("Pairing", "Instance config: mainPort=\(server.port), pairingPort=\(server.pairingPort)")
         let inst = ServerInstance(id: instanceId, protocolConfig: config)
 
         KeychainHelper.saveInstance(
@@ -379,7 +343,6 @@ enum ConnectionState: Sendable {
 
     func restoreAllSessions() async {
         AppLog.shared.info("Restore", "Restoring saved sessions...")
-        KeychainHelper.migrateIfNeeded()
         let saved = KeychainHelper.loadAllInstances()
         AppLog.shared.info("Restore", "Found \(saved.count) saved instance(s)")
         for s in saved {
@@ -440,7 +403,7 @@ enum ConnectionState: Sendable {
     func loadMockData() {
         let inst1 = ServerInstance(
             id: ServerInstanceID(value: "mock-desktop"),
-            protocolConfig: .v1(host: "192.168.1.10", port: 3000)
+            protocolConfig: .v2(host: "192.168.1.10", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
         )
         inst1.serverName = "Mason's Desktop"
         inst1.projects = [MockData.projects[0], MockData.projects[2]]
@@ -458,7 +421,7 @@ enum ConnectionState: Sendable {
 
         let inst2 = ServerInstance(
             id: ServerInstanceID(value: "mock-mini"),
-            protocolConfig: .v1(host: "192.168.1.20", port: 3000)
+            protocolConfig: .v2(host: "192.168.1.20", mainPort: 8443, pairingPort: 8080, fingerprint: "11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00")
         )
         inst2.serverName = "Mac Mini"
         inst2.projects = [MockData.projects[1]]

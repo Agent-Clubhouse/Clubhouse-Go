@@ -3,49 +3,35 @@ import Foundation
 // MARK: - Multi-Instance Identity
 
 /// Unique, stable identifier for a Clubhouse server instance.
-/// v2 servers: the Ed25519 fingerprint from TXT records / pairing response.
-/// v1 servers: a UUID generated at first pairing and persisted in Keychain.
+/// Uses the Ed25519 fingerprint from TXT records / pairing response.
 struct ServerInstanceID: Hashable, Codable, Sendable {
     let value: String
 }
 
-/// Connection configuration that abstracts over v1/v2 protocol differences.
+/// Connection configuration for a v2 server.
 enum ServerProtocol: Codable, Sendable {
-    case v1(host: String, port: UInt16)
     case v2(host: String, mainPort: UInt16, pairingPort: UInt16, fingerprint: String)
 
     var host: String {
         switch self {
-        case .v1(let host, _): return host
         case .v2(let host, _, _, _): return host
         }
     }
 
     var mainPort: UInt16 {
         switch self {
-        case .v1(_, let port): return port
         case .v2(_, let mainPort, _, _): return mainPort
         }
     }
 
-    var isV2: Bool {
-        if case .v2 = self { return true }
-        return false
-    }
-
     var label: String {
         switch self {
-        case .v1(let host, let port): return "v1(\(host):\(port))"
         case .v2(let host, let mainPort, let pairingPort, _): return "v2(\(host):\(mainPort)/\(pairingPort))"
         }
     }
 }
 
 // MARK: - REST Responses
-
-struct PairResponse: Codable, Sendable {
-    let token: String
-}
 
 struct V2PairRequest: Encodable, Sendable {
     let pin: String

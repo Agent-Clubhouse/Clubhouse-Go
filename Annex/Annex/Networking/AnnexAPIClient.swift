@@ -54,7 +54,6 @@ enum APIError: Error, Sendable {
 
 /// Protocol-specific connection configuration.
 enum APIClientConfig: Sendable {
-    case v1(host: String, port: UInt16)
     case v2(host: String, mainPort: UInt16)
     case v2Pairing(host: String, pairingPort: UInt16)
 }
@@ -65,15 +64,13 @@ final class AnnexAPIClient: Sendable {
 
     var host: String {
         switch config {
-        case .v1(let h, _), .v2(let h, _), .v2Pairing(let h, _): return h
+        case .v2(let h, _), .v2Pairing(let h, _): return h
         }
     }
 
     var port: UInt16 {
         switch config {
-        case .v1(_, let p): return p
-        case .v2(_, let p): return p
-        case .v2Pairing(_, let p): return p
+        case .v2(_, let p), .v2Pairing(_, let p): return p
         }
     }
 
@@ -87,7 +84,6 @@ final class AnnexAPIClient: Sendable {
 
     nonisolated var baseURL: String {
         switch config {
-        case .v1: return "http://\(urlHost):\(port)"
         case .v2: return "https://\(urlHost):\(port)"
         case .v2Pairing: return "http://\(urlHost):\(port)"
         }
@@ -95,18 +91,12 @@ final class AnnexAPIClient: Sendable {
 
     private var configLabel: String {
         switch config {
-        case .v1: return "v1"
         case .v2: return "v2-main"
         case .v2Pairing: return "v2-pairing"
         }
     }
 
     // MARK: - Factory Methods
-
-    static func v1(host: String, port: UInt16) -> AnnexAPIClient {
-        AppLog.shared.info("API", "Creating v1 client -> http://\(host):\(port)")
-        return AnnexAPIClient(config: .v1(host: host, port: port), session: .shared)
-    }
 
     static func v2(host: String, mainPort: UInt16, delegate: TLSSessionDelegate) -> AnnexAPIClient {
         AppLog.shared.info("API", "Creating v2 client -> https://\(host):\(mainPort) (TLS, custom delegate)")
@@ -128,22 +118,7 @@ final class AnnexAPIClient: Sendable {
         self.urlSession = session
     }
 
-    // MARK: - POST /pair (v1)
-
-    func pair(pin: String) async throws(APIError) -> PairResponse {
-        AppLog.shared.info("API", "[\(configLabel)] POST /pair (v1)")
-        let url = try makeURL("/pair")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONEncoder().encode(["pin": pin])
-        let data = try await perform(request)
-        let response = try decode(PairResponse.self, from: data)
-        AppLog.shared.info("API", "[\(configLabel)] Pair success, token=\(response.token.prefix(8))...")
-        return response
-    }
-
-    // MARK: - POST /pair (v2)
+    // MARK: - POST /pair
 
     func pairV2(
         pin: String, publicKey: String, alias: String, icon: String, color: String
@@ -346,16 +321,11 @@ final class AnnexAPIClient: Sendable {
     // MARK: - WebSocket URL
 
     func webSocketURL(token: String) throws(APIError) -> URL {
-        let scheme: String
-        switch config {
-        case .v1: scheme = "ws"
-        case .v2: scheme = "wss"
-        case .v2Pairing: throw .invalidURL
-        }
-        guard let url = URL(string: "\(scheme)://\(urlHost):\(port)/ws?token=\(token)") else {
+        guard case .v2 = config else { throw .invalidURL }
+        guard let url = URL(string: "wss://\(urlHost):\(port)/ws?token=\(token)") else {
             throw .invalidURL
         }
-        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: \(scheme)://\(urlHost):\(port)/ws?token=\(token.prefix(8))...")
+        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: wss://\(urlHost):\(port)/ws?token=\(token.prefix(8))...")
         return url
     }
 
