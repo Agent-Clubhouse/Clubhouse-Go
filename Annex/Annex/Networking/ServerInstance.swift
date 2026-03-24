@@ -145,7 +145,10 @@ import Foundation
             client = AnnexAPIClient.v1(host: host, port: port)
         case .v2(let host, let mainPort, _, let fingerprint):
             AppLog.shared.info("Instance", "\(logPrefix) Connecting v2 -> \(host):\(mainPort) (TLS) fingerprint=\(fingerprint)")
-            let delegate = TLSSessionDelegate()
+            // Load Ed25519 identity to get our fingerprint for mTLS CN
+            let ed25519 = CryptoIdentity.loadOrCreate()
+            let mtlsIdentity = MTLSIdentity.loadOrCreate(fingerprint: ed25519.fingerprint)
+            let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity)
             client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         }
         self.apiClient = client
