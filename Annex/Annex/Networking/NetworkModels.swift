@@ -407,6 +407,52 @@ struct CanvasState: Codable, Sendable, Identifiable, Hashable {
     let activeCanvasId: String?
 
     var id: String { canvasId }
+
+    private enum CodingKeys: String, CodingKey {
+        case canvasId, name, views, viewport, nextZIndex
+        case zoomedViewId, selectedViewId, allCanvasTabs, activeCanvasId
+        // Server may send "id" instead of "canvasId"
+        case serverId = "id"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Accept either "canvasId" or "id"
+        canvasId = (try? c.decode(String.self, forKey: .canvasId))
+            ?? (try? c.decode(String.self, forKey: .serverId))
+            ?? "unknown"
+        name = try? c.decode(String.self, forKey: .name)
+        views = (try? c.decode([CanvasView].self, forKey: .views)) ?? []
+        viewport = (try? c.decode(CanvasViewport.self, forKey: .viewport))
+            ?? CanvasViewport(panX: 0, panY: 0, zoom: 1)
+        nextZIndex = try? c.decode(Int.self, forKey: .nextZIndex)
+        zoomedViewId = try? c.decode(String.self, forKey: .zoomedViewId)
+        selectedViewId = try? c.decode(String.self, forKey: .selectedViewId)
+        allCanvasTabs = try? c.decode([CanvasTab].self, forKey: .allCanvasTabs)
+        activeCanvasId = try? c.decode(String.self, forKey: .activeCanvasId)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(canvasId, forKey: .canvasId)
+        try c.encodeIfPresent(name, forKey: .name)
+        try c.encode(views, forKey: .views)
+        try c.encode(viewport, forKey: .viewport)
+        try c.encodeIfPresent(nextZIndex, forKey: .nextZIndex)
+        try c.encodeIfPresent(zoomedViewId, forKey: .zoomedViewId)
+        try c.encodeIfPresent(selectedViewId, forKey: .selectedViewId)
+        try c.encodeIfPresent(allCanvasTabs, forKey: .allCanvasTabs)
+        try c.encodeIfPresent(activeCanvasId, forKey: .activeCanvasId)
+    }
+
+    init(canvasId: String, name: String?, views: [CanvasView], viewport: CanvasViewport,
+         nextZIndex: Int? = nil, zoomedViewId: String? = nil, selectedViewId: String? = nil,
+         allCanvasTabs: [CanvasTab]? = nil, activeCanvasId: String? = nil) {
+        self.canvasId = canvasId; self.name = name; self.views = views; self.viewport = viewport
+        self.nextZIndex = nextZIndex; self.zoomedViewId = zoomedViewId
+        self.selectedViewId = selectedViewId; self.allCanvasTabs = allCanvasTabs
+        self.activeCanvasId = activeCanvasId
+    }
 }
 
 struct CanvasStatePayload: Codable, Sendable {
