@@ -65,7 +65,7 @@ struct AnnexesTabView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .background(store.theme.baseColor)
-            .navigationTitle("Annexes")
+            .navigationTitle("Clubhouses")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showAddInstance = true } label: {
@@ -107,7 +107,7 @@ struct AnnexesTabView: View {
             .overlay {
                 if store.instances.isEmpty {
                     ContentUnavailableView(
-                        "No Annexes",
+                        "No Clubhouses",
                         systemImage: "desktopcomputer",
                         description: Text("Tap + to connect to a Clubhouse server.")
                     )
