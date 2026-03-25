@@ -264,6 +264,12 @@ struct PluginDetailView: View {
                 } else {
                     ContentUnavailableView("No Canvas", systemImage: "rectangle.on.rectangle.angled", description: Text("No canvas data available."))
                 }
+            case "terminal":
+                if let projectId = item.projectId {
+                    TerminalPluginView(projectId: projectId, instanceId: item.instanceId)
+                } else {
+                    ContentUnavailableView("Terminal", systemImage: "terminal", description: Text("No project context available."))
+                }
             case "files":
                 if let projectId = item.projectId,
                    let instance = store.instanceByID(item.instanceId),
@@ -271,24 +277,6 @@ struct PluginDetailView: View {
                     FileBrowserView(projectId: projectId, projectName: project.label, path: project.path)
                 } else {
                     ContentUnavailableView("Files", systemImage: "doc.text", description: Text("No project context available."))
-                }
-            case "terminal":
-                if let projectId = item.projectId,
-                   let instance = store.instanceByID(item.instanceId) {
-                    // Show list of agents in this project — tap one to open its terminal
-                    let agents = instance.agents(for: instance.projects.first { $0.id == projectId } ?? Project(id: projectId, name: "", path: "", color: nil, icon: nil, displayName: nil, orchestrator: nil))
-                    if agents.isEmpty {
-                        ContentUnavailableView("No Agents", systemImage: "terminal", description: Text("No agents running in this project."))
-                    } else {
-                        List(agents) { agent in
-                            NavigationLink(value: "live:\(agent.id)") {
-                                AgentRowView(agent: agent)
-                            }
-                        }
-                        .listStyle(.insetGrouped)
-                    }
-                } else {
-                    ContentUnavailableView("Terminal", systemImage: "terminal", description: Text("No project context available."))
                 }
             default:
                 ContentUnavailableView(item.name, systemImage: item.icon, description: Text("This plugin is not yet available on mobile."))
