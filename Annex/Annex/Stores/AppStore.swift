@@ -99,6 +99,10 @@ enum ConnectionState: Sendable {
         connectedInstances.first { $0.projects.contains(where: { $0.id == project.id }) }
     }
 
+    func instance(forProject projectId: String) -> ServerInstance? {
+        connectedInstances.first { $0.projects.contains(where: { $0.id == projectId }) }
+    }
+
     // MARK: - Backward-Compatible Shims
     // Existing views use store.projects, store.agentsByProject, etc.
     // These delegate to the active instance so views need minimal changes.

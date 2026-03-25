@@ -52,8 +52,25 @@ struct AgentListView: View {
         .navigationDestination(for: QuickAgent.self) { agent in
             QuickAgentDetailView(agent: agent)
         }
+        .navigationDestination(for: FileBrowserDestination.self) { dest in
+            switch dest {
+            case .directory(let projId, let projName, let dirPath, _):
+                FileBrowserView(projectId: projId, projectName: projName, path: dirPath)
+            case .file(let projId, let filePath, _):
+                FileContentView(projectId: projId, path: filePath)
+            }
+        }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                NavigationLink(value: FileBrowserDestination.directory(
+                    projectId: project.id,
+                    projectName: project.label,
+                    path: ".",
+                    name: project.label
+                )) {
+                    Label("Files", systemImage: "folder")
+                }
+
                 Button {
                     showSpawnSheet = true
                 } label: {
