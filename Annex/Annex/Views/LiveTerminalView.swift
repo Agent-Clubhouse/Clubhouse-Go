@@ -76,6 +76,7 @@ struct LiveTerminalView: View {
                 Divider().background(Color.gray.opacity(0.3))
             }
         }
+        .id(agentId) // Force fresh view identity per agent — prevents cross-agent PTY bleed
         .background(.black)
         .navigationTitle("Live Output")
         .navigationBarTitleDisplayMode(.inline)
