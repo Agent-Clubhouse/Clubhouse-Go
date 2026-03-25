@@ -174,6 +174,12 @@ enum ConnectionState: Sendable {
         return merged
     }
 
+    var allCanvasStates: [(instance: ServerInstance, projectId: String, canvas: CanvasState)] {
+        connectedInstances.flatMap { inst in
+            inst.canvasByProject.map { (instance: inst, projectId: $0.key, canvas: $0.value) }
+        }
+    }
+
     var totalAgentCount: Int {
         connectedInstances.reduce(0) { $0 + $1.totalAgentCount }
     }
@@ -450,6 +456,39 @@ enum ConnectionState: Sendable {
             warning: "#eed49f", error: "#ed8796", info: "#91d7e3", success: "#a6da95"
         )
         inst2.connectionState = .connected
+
+        // Mock canvas data on desktop instance
+        inst1.canvasByProject["proj_001"] = CanvasState(
+            canvasId: "canvas_001",
+            name: "Architecture",
+            views: [
+                CanvasView(id: "cv_1", type: .agent, position: .init(x: -200, y: -100), size: .init(width: 160, height: 80),
+                           title: "faithful-urchin", displayName: nil, zIndex: 1, metadata: nil,
+                           agentId: "durable_1737000000000_abc123", projectId: "proj_001",
+                           label: nil, autoCollapse: nil, pluginWidgetType: nil, pluginId: nil, themeId: nil, containedViewIds: nil),
+                CanvasView(id: "cv_2", type: .anchor, position: .init(x: 50, y: -100), size: .init(width: 140, height: 60),
+                           title: nil, displayName: nil, zIndex: 2, metadata: nil,
+                           agentId: nil, projectId: nil,
+                           label: "API Gateway", autoCollapse: false, pluginWidgetType: nil, pluginId: nil, themeId: nil, containedViewIds: nil),
+                CanvasView(id: "cv_3", type: .plugin, position: .init(x: -80, y: 50), size: .init(width: 180, height: 80),
+                           title: "Terminal", displayName: nil, zIndex: 3, metadata: nil,
+                           agentId: nil, projectId: nil,
+                           label: nil, autoCollapse: nil, pluginWidgetType: "terminal", pluginId: "plugin_term", themeId: nil, containedViewIds: nil),
+                CanvasView(id: "cv_4", type: .zone, position: .init(x: -250, y: -150), size: .init(width: 500, height: 300),
+                           title: "Development", displayName: nil, zIndex: 0, metadata: nil,
+                           agentId: nil, projectId: nil,
+                           label: nil, autoCollapse: nil, pluginWidgetType: nil, pluginId: nil, themeId: "blue", containedViewIds: ["cv_1", "cv_2", "cv_3"]),
+            ],
+            viewport: CanvasViewport(panX: 0, panY: 0, zoom: 1.0),
+            nextZIndex: 5,
+            zoomedViewId: nil,
+            selectedViewId: nil,
+            allCanvasTabs: [
+                CanvasTab(id: "canvas_001", name: "Architecture"),
+                CanvasTab(id: "canvas_002", name: "Deployments"),
+            ],
+            activeCanvasId: "canvas_001"
+        )
 
         instances = [inst1, inst2]
         activeInstanceID = inst1.id

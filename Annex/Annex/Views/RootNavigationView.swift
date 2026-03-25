@@ -3,6 +3,7 @@ import SwiftUI
 enum RootTab {
     case dashboard
     case agents
+    case canvas
     case instances
 }
 
@@ -19,6 +20,10 @@ struct RootNavigationView: View {
 
             Tab("Agents", systemImage: "person.3.fill", value: .agents) {
                 AllAgentsView()
+            }
+
+            Tab("Canvas", systemImage: "rectangle.on.rectangle.angled", value: .canvas) {
+                CanvasTabView()
             }
 
             Tab("Instances", systemImage: "desktopcomputer", value: .instances) {

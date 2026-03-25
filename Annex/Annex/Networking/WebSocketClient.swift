@@ -13,6 +13,7 @@ enum WSEvent: Sendable {
     case agentWoken(AgentWokenPayload)
     case permissionRequest(PermissionRequestPayload)
     case permissionResponse(PermissionResponsePayload)
+    case canvasState(CanvasStatePayload)
     case replayGap(ReplayGapPayload)
     case replayStart(ReplayStartPayload)
     case replayEnd
@@ -212,6 +213,11 @@ final class WebSocketClient: Sendable {
             guard let payload = extract(PermissionResponsePayload.self) else { return nil }
             AppLog.shared.info("WS", "Permission response: requestId=\(payload.requestId)")
             return wrap(.permissionResponse(payload))
+
+        case "canvas:state":
+            guard let payload = extract(CanvasStatePayload.self) else { return nil }
+            AppLog.shared.info("WS", "Canvas state: project=\(payload.projectId) canvas=\(payload.state.canvasId)")
+            return wrap(.canvasState(payload))
 
         case "replay:gap":
             guard let payload = extract(ReplayGapPayload.self) else { return nil }
