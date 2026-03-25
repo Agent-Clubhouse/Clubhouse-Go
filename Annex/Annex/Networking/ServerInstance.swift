@@ -494,10 +494,17 @@ import Foundation
     }
 
     func sendMessage(agentId: String, message: String) async throws {
-        guard let apiClient, let token else { return }
-        AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId)")
-        let request = SendMessageRequest(message: message)
-        _ = try await apiClient.sendMessage(agentId: agentId, request: request, token: token)
+        // Send via pty:input on the WebSocket (no REST /message endpoint in v2)
+        guard let webSocket else {
+            AppLog.shared.warn("Instance", "\(logPrefix) Cannot send message: no WebSocket")
+            return
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId) via pty:input")
+        let msg = PtyInputMessage(
+            type: "pty:input",
+            payload: PtyInputPayload(agentId: agentId, data: message + "\r")
+        )
+        webSocket.send(msg)
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {
