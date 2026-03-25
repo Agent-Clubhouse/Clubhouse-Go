@@ -315,6 +315,86 @@ struct ReplayStartPayload: Codable, Sendable {
     let count: Int
 }
 
+// MARK: - Canvas Models
+
+struct CanvasTab: Codable, Sendable, Identifiable, Hashable {
+    let id: String
+    let name: String
+}
+
+struct CanvasViewport: Codable, Sendable, Hashable {
+    let panX: Double
+    let panY: Double
+    let zoom: Double
+}
+
+struct CanvasViewPosition: Codable, Sendable, Hashable {
+    let x: Double
+    let y: Double
+}
+
+struct CanvasViewSize: Codable, Sendable, Hashable {
+    let width: Double
+    let height: Double
+}
+
+enum CanvasViewType: String, Codable, Sendable {
+    case agent
+    case anchor
+    case plugin
+    case zone
+}
+
+struct CanvasView: Codable, Sendable, Identifiable, Hashable {
+    let id: String
+    let type: CanvasViewType
+    let position: CanvasViewPosition
+    let size: CanvasViewSize
+    let title: String?
+    let displayName: String?
+    let zIndex: Int?
+    let metadata: JSONValue?
+
+    // Agent view fields
+    let agentId: String?
+    let projectId: String?
+
+    // Anchor view fields
+    let label: String?
+    let autoCollapse: Bool?
+
+    // Plugin view fields
+    let pluginWidgetType: String?
+    let pluginId: String?
+
+    // Zone view fields
+    let themeId: String?
+    let containedViewIds: [String]?
+
+    var displayLabel: String {
+        displayName ?? title ?? label ?? id
+    }
+}
+
+struct CanvasState: Codable, Sendable, Identifiable, Hashable {
+    let canvasId: String
+    let name: String?
+    let views: [CanvasView]
+    let viewport: CanvasViewport
+    let nextZIndex: Int?
+    let zoomedViewId: String?
+    let selectedViewId: String?
+    let allCanvasTabs: [CanvasTab]?
+    let activeCanvasId: String?
+
+    var id: String { canvasId }
+}
+
+struct CanvasStatePayload: Codable, Sendable {
+    let projectId: String
+    let state: CanvasState
+}
+
 // MARK: - Flexible JSON type for arbitrary payloads
 
 enum JSONValue: Codable, Sendable, Hashable {

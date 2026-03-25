@@ -24,6 +24,7 @@ import Foundation
     var orchestrators: [String: OrchestratorEntry] = [:]
     var agentIcons: [String: Data] = [:]
     var projectIcons: [String: Data] = [:]
+    var canvasByProject: [String: CanvasState] = [:]
 
     // MARK: - Networking (private)
     private(set) var apiClient: AnnexAPIClient?
@@ -361,6 +362,10 @@ import Foundation
             AppLog.shared.info("Instance", "\(logPrefix) Permission response: \(payload.requestId)")
             pendingPermissions.removeValue(forKey: payload.requestId)
 
+        case .canvasState(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Canvas state: project=\(payload.projectId) canvas=\(payload.state.canvasId) views=\(payload.state.views.count)")
+            canvasByProject[payload.projectId] = payload.state
+
         case .disconnected(let error):
             AppLog.shared.warn("Instance", "\(logPrefix) WS disconnected: \(error?.localizedDescription ?? "clean close")")
             if connectionState.isConnected || isReconnecting {
@@ -579,6 +584,7 @@ import Foundation
         ptyBufferByAgent = [:]
         agentIcons = [:]
         projectIcons = [:]
+        canvasByProject = [:]
         serverName = ""
         orchestrators = [:]
         token = nil
