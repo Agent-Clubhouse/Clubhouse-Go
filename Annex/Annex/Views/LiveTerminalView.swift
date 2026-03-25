@@ -231,3 +231,13 @@ struct PtyResizeMessage: Codable, Sendable {
     let type: String
     let payload: PtyResizePayload
 }
+
+struct SpawnShellPayload: Codable, Sendable {
+    let sessionId: String
+    let projectId: String
+}
+
+struct SpawnShellMessage: Codable, Sendable {
+    let type: String
+    let payload: SpawnShellPayload
+}

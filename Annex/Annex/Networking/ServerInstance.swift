@@ -518,6 +518,37 @@ import Foundation
         _ = try await apiClient.wakeAgent(agentId: agentId, request: request, token: token)
     }
 
+    func spawnShell(sessionId: String, projectId: String) {
+        guard let webSocket else {
+            AppLog.shared.warn("Instance", "\(logPrefix) Cannot spawn shell: no WebSocket")
+            return
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Spawning shell: session=\(sessionId) project=\(projectId)")
+        let msg = SpawnShellMessage(
+            type: "pty:spawn-shell",
+            payload: SpawnShellPayload(sessionId: sessionId, projectId: projectId)
+        )
+        webSocket.send(msg)
+    }
+
+    func sendPtyInput(sessionId: String, data: String) {
+        guard let webSocket else { return }
+        let msg = PtyInputMessage(
+            type: "pty:input",
+            payload: PtyInputPayload(agentId: sessionId, data: data)
+        )
+        webSocket.send(msg)
+    }
+
+    func sendPtyResize(sessionId: String, cols: Int, rows: Int) {
+        guard let webSocket else { return }
+        let msg = PtyResizeMessage(
+            type: "pty:resize",
+            payload: PtyResizePayload(agentId: sessionId, cols: cols, rows: rows)
+        )
+        webSocket.send(msg)
+    }
+
     func sendMessage(agentId: String, message: String) async throws {
         // Send via pty:input on the WebSocket (no REST /message endpoint in v2)
         guard let webSocket else {
