@@ -29,7 +29,7 @@ import Foundation
     private(set) var apiClient: AnnexAPIClient?
     private(set) var webSocket: WebSocketClient?
     private var wsStreamTask: Task<Void, Never>?
-    private var token: String?
+    private(set) var token: String?
     private var reconnectAttempt = 0
     private var lastSeq: Int?
     private var isReplaying = false

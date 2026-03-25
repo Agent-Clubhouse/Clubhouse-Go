@@ -45,12 +45,12 @@ struct LiveTerminalView: View {
                     .autocorrectionDisabled()
                     .focused($inputFocused)
                     .onSubmit {
-                        sendInput(inputText + "\n")
+                        sendInput(inputText + "\r")
                         inputText = ""
                     }
 
                 Button {
-                    sendInput(inputText + "\n")
+                    sendInput(inputText + "\r")
                     inputText = ""
                 } label: {
                     Image(systemName: "return")
@@ -91,16 +91,9 @@ struct LiveTerminalView: View {
 
     private func setupTerminal() {
         let cols = terminalCols
-        terminal.resize(cols: cols, rows: 200)
+        terminal = ANSITerminal(cols: cols, rows: 200) // fresh terminal on each appear
 
-        // Process any existing buffer data
-        let buffer = store.ptyBuffer(for: agentId)
-        if !buffer.isEmpty {
-            terminal.write(buffer)
-            AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Loaded \(buffer.count) bytes from buffer")
-        }
-
-        // Subscribe to live PTY data — direct callback, no @Observable dict involvement
+        // Subscribe to live PTY data first (so we don't miss data during buffer fetch)
         if let inst = store.instance(for: agentId) {
             unsubscribe = inst.subscribePtyData(agentId: agentId) { [terminal] data in
                 terminal.write(data)
@@ -108,7 +101,45 @@ struct LiveTerminalView: View {
             AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Subscribed to live PTY data")
         }
 
+        // Load from in-memory buffer (accumulated from WebSocket pty:data)
+        let memBuffer = store.ptyBuffer(for: agentId)
+        if !memBuffer.isEmpty {
+            terminal.write(memBuffer)
+            AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Loaded \(memBuffer.count) bytes from memory buffer")
+        }
+
+        // Also fetch full buffer from REST API (gets history from before WS connected)
+        Task {
+            await fetchFullBuffer()
+        }
+
         sendResize(cols: cols, rows: 24)
+    }
+
+    private func fetchFullBuffer() async {
+        guard let inst = store.instance(for: agentId),
+              let apiClient = inst.apiClient,
+              let token = inst.token else { return }
+        do {
+            let fullBuffer = try await apiClient.getBuffer(agentId: agentId, token: token)
+            if !fullBuffer.isEmpty {
+                // Reset terminal and write full buffer (it's the authoritative source)
+                let cols = terminalCols
+                terminal = ANSITerminal(cols: cols, rows: 200)
+                terminal.write(fullBuffer)
+                AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Fetched \(fullBuffer.count) bytes from REST buffer API")
+
+                // Re-subscribe since we replaced the terminal
+                if let inst = store.instance(for: agentId) {
+                    unsubscribe?()
+                    unsubscribe = inst.subscribePtyData(agentId: agentId) { [terminal] data in
+                        terminal.write(data)
+                    }
+                }
+            }
+        } catch {
+            AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] Buffer fetch failed (agent may not be running): \(error)")
+        }
     }
 
     private func sendInput(_ text: String) {
