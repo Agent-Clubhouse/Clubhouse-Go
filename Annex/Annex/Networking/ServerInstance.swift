@@ -244,6 +244,24 @@ import Foundation
                     pendingPermissions[perm.id] = perm
                 }
             }
+            // Populate canvas state from snapshot
+            canvasByProject = [:]
+            if let canvasEntries = payload.canvasState {
+                for (projectId, entry) in canvasEntries {
+                    let activeId = entry.activeCanvasId ?? entry.canvases.first?.canvasId ?? ""
+                    if let canvas = entry.canvases.first(where: { $0.canvasId == activeId }) ?? entry.canvases.first {
+                        canvasByProject[projectId] = canvas
+                    }
+                }
+                AppLog.shared.info("Instance", "\(logPrefix) Canvas: \(canvasByProject.count) project canvas(es)")
+            }
+            if let appCanvas = payload.appCanvasState {
+                let activeId = appCanvas.activeCanvasId ?? appCanvas.canvases.first?.canvasId ?? ""
+                if let canvas = appCanvas.canvases.first(where: { $0.canvasId == activeId }) ?? appCanvas.canvases.first {
+                    canvasByProject["__app__"] = canvas
+                    AppLog.shared.info("Instance", "\(logPrefix) Canvas: app-level canvas loaded")
+                }
+            }
             connectionState = .connected
             Task { await fetchIcons() }
 

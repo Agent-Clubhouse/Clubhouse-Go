@@ -78,6 +78,15 @@ struct SnapshotPayload: Codable, Sendable {
     let orchestrators: [String: OrchestratorEntry]
     let pendingPermissions: [PermissionRequest]?
     let lastSeq: Int?
+    let canvasState: [String: SnapshotCanvasEntry]?
+    let appCanvasState: SnapshotCanvasEntry?
+}
+
+/// Per-project canvas entry as delivered in the snapshot.
+/// Contains an array of canvases and the active canvas ID.
+struct SnapshotCanvasEntry: Codable, Sendable {
+    let canvases: [CanvasState]
+    let activeCanvasId: String?
 }
 
 struct PtyDataPayload: Codable, Sendable {
