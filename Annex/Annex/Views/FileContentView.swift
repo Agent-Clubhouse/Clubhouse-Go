@@ -8,7 +8,7 @@ struct FileContentView: View {
     @State private var content: String?
     @State private var isLoading = true
     @State private var error: String?
-    @State private var showRenderedMarkdown = false
+    @State private var showRenderedMarkdown = true
 
     private var filename: String {
         (path as NSString).lastPathComponent
@@ -35,12 +35,7 @@ struct FileContentView: View {
                 }
             } else if let content {
                 if isMarkdown && showRenderedMarkdown {
-                    ScrollView {
-                        Text(markdownAttributedString(content))
-                            .textSelection(.enabled)
-                            .padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    MarkdownWebView(markdown: content, theme: store.theme)
                 } else {
                     ScrollView {
                         Text(highlightedContent(content))
@@ -74,12 +69,6 @@ struct FileContentView: View {
         .task {
             await loadContent()
         }
-    }
-
-    // MARK: - Markdown Rendering
-
-    private func markdownAttributedString(_ text: String) -> AttributedString {
-        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
     }
 
     // MARK: - Syntax Highlighting
