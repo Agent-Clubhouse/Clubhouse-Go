@@ -125,11 +125,81 @@ struct CanvasRendererView: View {
                         y: CGFloat(view.position.y) * zoom + totalOffset.height + geo.size.height / 2
                     )
                 }
+
+                // Canvas controls overlay
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        CanvasControlsView(
+                            onRecenter: { recenter() },
+                            onSizeToFit: { sizeToFit(in: geo.size) },
+                            theme: theme
+                        )
+                        .padding(12)
+                    }
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
             .gesture(panGesture)
             .gesture(zoomGesture)
+        }
+    }
+
+    private func recenter() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            panOffset = .zero
+            lastPanOffset = .zero
+            zoom = 1.0
+            lastZoom = 1.0
+        }
+    }
+
+    private func sizeToFit(in size: CGSize) {
+        guard !canvas.views.isEmpty else { return }
+
+        // Calculate bounding box of all views
+        var minX = Double.infinity, minY = Double.infinity
+        var maxX = -Double.infinity, maxY = -Double.infinity
+
+        for view in canvas.views {
+            let left = view.position.x - view.size.width / 2
+            let right = view.position.x + view.size.width / 2
+            let top = view.position.y - view.size.height / 2
+            let bottom = view.position.y + view.size.height / 2
+            minX = min(minX, left)
+            minY = min(minY, top)
+            maxX = max(maxX, right)
+            maxY = max(maxY, bottom)
+        }
+
+        let contentWidth = maxX - minX
+        let contentHeight = maxY - minY
+        guard contentWidth > 0, contentHeight > 0 else { return }
+
+        let padding: CGFloat = 40
+        let availableWidth = size.width - padding * 2
+        let availableHeight = size.height - padding * 2
+
+        let fitZoom = min(
+            availableWidth / CGFloat(contentWidth),
+            availableHeight / CGFloat(contentHeight),
+            2.0
+        )
+        let clampedZoom = max(0.25, fitZoom)
+
+        let centerX = (minX + maxX) / 2
+        let centerY = (minY + maxY) / 2
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            zoom = clampedZoom
+            lastZoom = clampedZoom
+            panOffset = CGSize(
+                width: -CGFloat(centerX) * clampedZoom - CGFloat(canvas.viewport.panX) * clampedZoom,
+                height: -CGFloat(centerY) * clampedZoom - CGFloat(canvas.viewport.panY) * clampedZoom
+            )
+            lastPanOffset = panOffset
         }
     }
 
@@ -352,6 +422,38 @@ struct CanvasFullScreenView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(theme.baseColor)
+    }
+}
+
+// MARK: - Canvas Controls
+
+private struct CanvasControlsView: View {
+    let onRecenter: () -> Void
+    let onSizeToFit: () -> Void
+    let theme: ThemeColors
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: onSizeToFit) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .help("Size to Fit")
+
+            Button(action: onRecenter) {
+                Image(systemName: "scope")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .help("Recenter")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(theme.surface1Color.opacity(0.9))
+                .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        )
+        .foregroundStyle(theme.textColor)
     }
 }
 
