@@ -27,10 +27,13 @@ struct LiveTerminalView: View {
                         .padding(.vertical, 4)
                         .id("bottom")
                 }
-                .onChange(of: store.ptyBuffer(for: agentId)) {
-                    processNewPtyData()
-                    withAnimation {
-                        proxy.scrollTo("bottom", anchor: .bottom)
+                .onChange(of: store.ptyBuffer(for: agentId)) { oldValue, newValue in
+                    if oldValue.count != newValue.count {
+                        AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] onChange fired: \(oldValue.count) -> \(newValue.count)")
+                        processNewPtyData()
+                        withAnimation {
+                            proxy.scrollTo("bottom", anchor: .bottom)
+                        }
                     }
                 }
                 .onAppear {
@@ -102,6 +105,8 @@ struct LiveTerminalView: View {
     private func processNewPtyData() {
         let buffer = store.ptyBuffer(for: agentId)
         guard buffer.count > lastProcessedLength else { return }
+        let newBytes = buffer.count - lastProcessedLength
+        AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] Processing \(newBytes) new bytes (total=\(buffer.count))")
         let startIndex = buffer.index(buffer.startIndex, offsetBy: lastProcessedLength)
         let newData = String(buffer[startIndex...])
         terminal.write(newData)
