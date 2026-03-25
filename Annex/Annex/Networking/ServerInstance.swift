@@ -27,7 +27,7 @@ import Foundation
 
     // MARK: - Networking (private)
     private(set) var apiClient: AnnexAPIClient?
-    private var webSocket: WebSocketClient?
+    private(set) var webSocket: WebSocketClient?
     private var wsStreamTask: Task<Void, Never>?
     private var token: String?
     private var reconnectAttempt = 0
