@@ -36,6 +36,19 @@ import Foundation
     private static let maxReconnectAttempts = 10
     private static let maxActivityEventsPerAgent = 200
 
+    /// Per-agent PTY data callbacks — bypasses @Observable dictionary tracking
+    /// to prevent cross-agent terminal bleed.
+    private var ptyCallbacks: [String: (String) -> Void] = [:]
+
+    /// Register a callback to receive PTY data for a specific agent.
+    /// Returns a closure to unregister.
+    func subscribePtyData(agentId: String, callback: @escaping (String) -> Void) -> (() -> Void) {
+        ptyCallbacks[agentId] = callback
+        return { [weak self] in
+            self?.ptyCallbacks.removeValue(forKey: agentId)
+        }
+    }
+
     private var logPrefix: String { "[\(id.value.prefix(12))]" }
 
     init(id: ServerInstanceID, protocolConfig: ServerProtocol) {
@@ -240,6 +253,8 @@ import Foundation
                 buf = String(buf.suffix(49_152))
             }
             ptyBufferByAgent[payload.agentId] = buf
+            // Deliver directly to subscribed terminal (bypasses @Observable dict tracking)
+            ptyCallbacks[payload.agentId]?(payload.data)
 
         case .ptyExit:
             break

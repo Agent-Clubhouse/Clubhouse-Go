@@ -4,8 +4,8 @@ struct LiveTerminalView: View {
     let agentId: String
     @Environment(AppStore.self) private var store
     @State private var terminal = ANSITerminal(cols: 80, rows: 200)
-    @State private var lastProcessedLength = 0
     @State private var inputText = ""
+    @State private var unsubscribe: (() -> Void)?
     @FocusState private var inputFocused: Bool
 
     /// Calculate terminal columns from screen width
@@ -27,18 +27,13 @@ struct LiveTerminalView: View {
                         .padding(.vertical, 4)
                         .id("bottom")
                 }
-                .onChange(of: store.ptyBuffer(for: agentId)) { oldValue, newValue in
-                    if oldValue.count != newValue.count {
-                        AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] onChange fired: \(oldValue.count) -> \(newValue.count)")
-                        processNewPtyData()
-                        withAnimation {
-                            proxy.scrollTo("bottom", anchor: .bottom)
-                        }
-                    }
-                }
                 .onAppear {
                     setupTerminal()
                     proxy.scrollTo("bottom", anchor: .bottom)
+                }
+                .onDisappear {
+                    unsubscribe?()
+                    unsubscribe = nil
                 }
             }
 
@@ -79,7 +74,7 @@ struct LiveTerminalView: View {
                 Divider().background(Color.gray.opacity(0.3))
             }
         }
-        .id(agentId) // Force fresh view identity per agent — prevents cross-agent PTY bleed
+        .id(agentId)
         .background(.black)
         .navigationTitle("Live Output")
         .navigationBarTitleDisplayMode(.inline)
@@ -96,21 +91,24 @@ struct LiveTerminalView: View {
 
     private func setupTerminal() {
         let cols = terminalCols
-        terminal.resize(cols: cols, rows: 200) // large row buffer for scrollback
-        lastProcessedLength = 0
-        processNewPtyData()
-        sendResize(cols: cols, rows: 24) // tell server our visible rows
-    }
+        terminal.resize(cols: cols, rows: 200)
 
-    private func processNewPtyData() {
+        // Process any existing buffer data
         let buffer = store.ptyBuffer(for: agentId)
-        guard buffer.count > lastProcessedLength else { return }
-        let newBytes = buffer.count - lastProcessedLength
-        AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] Processing \(newBytes) new bytes (total=\(buffer.count))")
-        let startIndex = buffer.index(buffer.startIndex, offsetBy: lastProcessedLength)
-        let newData = String(buffer[startIndex...])
-        terminal.write(newData)
-        lastProcessedLength = buffer.count
+        if !buffer.isEmpty {
+            terminal.write(buffer)
+            AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Loaded \(buffer.count) bytes from buffer")
+        }
+
+        // Subscribe to live PTY data — direct callback, no @Observable dict involvement
+        if let inst = store.instance(for: agentId) {
+            unsubscribe = inst.subscribePtyData(agentId: agentId) { [terminal] data in
+                terminal.write(data)
+            }
+            AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Subscribed to live PTY data")
+        }
+
+        sendResize(cols: cols, rows: 24)
     }
 
     private func sendInput(_ text: String) {
