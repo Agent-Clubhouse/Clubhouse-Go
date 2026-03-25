@@ -64,9 +64,10 @@ enum ConnectionState: Sendable {
         var id: String { "\(instance.id.value):\(permission.id)" }
     }
 
-    struct InstanceProject {
+    struct InstanceProject: Identifiable {
         let instance: ServerInstance
         let project: Project
+        var id: String { "\(instance.id.value):\(project.id)" }
     }
 
     var allAgentsAcrossInstances: [InstanceAgent] {
