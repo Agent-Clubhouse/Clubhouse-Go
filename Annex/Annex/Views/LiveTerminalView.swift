@@ -6,6 +6,8 @@ struct LiveTerminalView: View {
     @State private var terminal = ANSITerminal(cols: 80, rows: 200)
     @State private var inputText = ""
     @State private var unsubscribe: (() -> Void)?
+    @State private var isAtBottom = true
+    @State private var renderVersion = 0
     @FocusState private var inputFocused: Bool
 
     /// Calculate terminal columns from screen width
@@ -20,20 +22,47 @@ struct LiveTerminalView: View {
             // Terminal output
             ScrollViewReader { proxy in
                 ScrollView {
-                    Text(terminal.render())
-                        .font(.system(size: 11, design: .monospaced))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .id("bottom")
+                    VStack(spacing: 0) {
+                        Text(terminal.render())
+                            .font(.system(size: 11, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+
+                        // Invisible anchor at the very end of content
+                        Color.clear
+                            .frame(height: 1)
+                            .id("end")
+                    }
                 }
                 .onAppear {
                     setupTerminal()
-                    proxy.scrollTo("bottom", anchor: .bottom)
+                    scrollToBottom(proxy)
                 }
                 .onDisappear {
                     unsubscribe?()
                     unsubscribe = nil
+                }
+                .onChange(of: renderVersion) {
+                    if isAtBottom {
+                        scrollToBottom(proxy)
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if !isAtBottom {
+                        Button {
+                            isAtBottom = true
+                            scrollToBottom(proxy)
+                        } label: {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.system(size: 32))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, .gray.opacity(0.8))
+                                .shadow(radius: 4)
+                        }
+                        .padding(.trailing, 12)
+                        .padding(.bottom, 12)
+                    }
                 }
             }
 
@@ -87,16 +116,27 @@ struct LiveTerminalView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isAtBottom = true
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            proxy.scrollTo("end", anchor: .bottom)
+        }
     }
 
     private func setupTerminal() {
         let cols = terminalCols
-        terminal = ANSITerminal(cols: cols, rows: 200) // fresh terminal on each appear
+        terminal = ANSITerminal(cols: cols, rows: 200)
+        isAtBottom = true
 
         // Subscribe to live PTY data first (so we don't miss data during buffer fetch)
         if let inst = store.instance(for: agentId) {
             unsubscribe = inst.subscribePtyData(agentId: agentId) { [terminal] data in
                 terminal.write(data)
+                renderVersion += 1
             }
             AppLog.shared.info("Terminal", "[\(agentId.suffix(6))] Subscribed to live PTY data")
         }
@@ -134,8 +174,10 @@ struct LiveTerminalView: View {
                     unsubscribe?()
                     unsubscribe = inst.subscribePtyData(agentId: agentId) { [terminal] data in
                         terminal.write(data)
+                        renderVersion += 1
                     }
                 }
+                renderVersion += 1
             }
         } catch {
             AppLog.shared.debug("Terminal", "[\(agentId.suffix(6))] Buffer fetch failed (agent may not be running): \(error)")
@@ -152,7 +194,8 @@ struct LiveTerminalView: View {
             payload: PtyInputPayload(agentId: agentId, data: text)
         )
         inst.webSocket?.send(msg)
-        AppLog.shared.info("Terminal", "Sent pty:input (\(text.count) chars) to \(agentId)")
+        isAtBottom = true
+        renderVersion += 1
     }
 
     private func sendResize(cols: Int, rows: Int) {
