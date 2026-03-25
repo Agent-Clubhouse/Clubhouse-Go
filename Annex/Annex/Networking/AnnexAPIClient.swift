@@ -296,6 +296,34 @@ final class AnnexAPIClient: Sendable {
         return try decode(StructuredPermissionResponse.self, from: data)
     }
 
+    // MARK: - GET /api/v1/projects/{projectId}/files/tree
+
+    func getFileTree(
+        projectId: String, path: String = ".", depth: Int = 2, token: String
+    ) async throws(APIError) -> [FileNode] {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/files/tree?path=\(path)&depth=\(depth)")
+        let encodedPath = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
+        let url = try makeURL("/api/v1/projects/\(projectId)/files/tree?path=\(encodedPath)&depth=\(depth)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode([FileNode].self, from: data)
+    }
+
+    // MARK: - GET /api/v1/projects/{projectId}/files/read
+
+    func getFileContent(
+        projectId: String, path: String, token: String
+    ) async throws(APIError) -> String {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/files/read?path=\(path)")
+        let encodedPath = path.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? path
+        let url = try makeURL("/api/v1/projects/\(projectId)/files/read?path=\(encodedPath)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
     // MARK: - Icons
 
     func fetchAgentIcon(agentId: String, token: String) async -> Data? {

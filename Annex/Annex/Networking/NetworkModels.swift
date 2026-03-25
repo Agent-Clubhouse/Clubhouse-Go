@@ -395,6 +395,17 @@ struct CanvasStatePayload: Codable, Sendable {
     let state: CanvasState
 }
 
+// MARK: - File Browser Models
+
+struct FileNode: Identifiable, Codable, Sendable {
+    let name: String
+    let path: String
+    let isDirectory: Bool
+    let children: [FileNode]?
+
+    var id: String { path }
+}
+
 // MARK: - Flexible JSON type for arbitrary payloads
 
 enum JSONValue: Codable, Sendable, Hashable {
