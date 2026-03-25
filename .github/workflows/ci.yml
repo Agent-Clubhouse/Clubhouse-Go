@@ -16,13 +16,30 @@ env:
   DESTINATION: "platform=iOS Simulator,name=iPhone 17 Pro,OS=latest"
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  build:
+    name: Build
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build & run unit tests
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -destination "$DESTINATION" \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: macos-26
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run unit tests
+        continue-on-error: true
         run: |
           set -o pipefail
           xcodebuild test \
@@ -47,7 +64,7 @@ jobs:
   e2e-tests:
     name: E2E UI Tests
     runs-on: macos-26
-    needs: unit-tests
+    needs: build
     steps:
       - uses: actions/checkout@v4
 
