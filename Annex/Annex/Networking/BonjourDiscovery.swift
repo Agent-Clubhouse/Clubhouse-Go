@@ -293,7 +293,22 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     private func finalizePendingServer(serviceName: String, txtRecords: [String: String]) {
         // Find the pending server by name
         guard let (id, pending) = pendingTXTResolution.first(where: { $0.value.name == serviceName }) else {
-            AppLog.shared.warn("Bonjour", "TXT resolved for '\(serviceName)' but no pending server found")
+            // Server already finalized — update its ports if they changed (e.g. host restarted)
+            if let existingIdx = servers.firstIndex(where: { $0.name == serviceName }),
+               txtRecords["v"] == "2",
+               let ppStr = txtRecords["pairingPort"],
+               let pairingPort = UInt16(ppStr),
+               let fingerprint = txtRecords["fingerprint"] {
+                let existing = servers[existingIdx]
+                if existing.pairingPort != pairingPort {
+                    AppLog.shared.info("Bonjour", "Updating \(serviceName) pairingPort: \(existing.pairingPort) -> \(pairingPort)")
+                    servers[existingIdx] = DiscoveredServer(
+                        id: existing.id, name: existing.name,
+                        host: existing.host, port: existing.port,
+                        pairingPort: pairingPort, fingerprint: fingerprint
+                    )
+                }
+            }
             return
         }
 
