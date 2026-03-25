@@ -8,25 +8,8 @@ struct ProjectsTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.allProjects) { ip in
-                    let project = ip.project
-                    let instance = ip.instance
-                    let durableAgents = instance.agents(for: project)
-                    let quickAgents = instance.allQuickAgents(for: project)
-                    let runningCount = durableAgents.filter { $0.status == .running }.count
-                        + quickAgents.filter { $0.status == .running }.count
-
-                    NavigationLink(value: ProjectNavItem(project: project, instanceId: instance.id)) {
-                        ProjectCardRow(
-                            project: project,
-                            instanceName: instance.serverName,
-                            durableCount: durableAgents.count,
-                            quickCount: quickAgents.count,
-                            runningCount: runningCount,
-                            iconData: store.projectIcons[project.id]
-                        )
-                    }
-                    .listRowBackground(store.theme.surface0Color.opacity(0.4))
+                ForEach(store.connectedInstances) { instance in
+                    ProjectsInstanceSection(instance: instance)
                 }
             }
             .listStyle(.insetGrouped)
@@ -55,6 +38,50 @@ struct ProjectsTabView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Instance Section (extracted for type checker)
+
+private struct ProjectsInstanceSection: View {
+    let instance: ServerInstance
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        Section {
+            ForEach(instance.projects) { project in
+                ProjectRowLink(project: project, instance: instance)
+            }
+        } header: {
+            if store.connectedInstances.count > 1 {
+                Text(instance.serverName.isEmpty ? "Server" : instance.serverName)
+            }
+        }
+    }
+}
+
+private struct ProjectRowLink: View {
+    let project: Project
+    let instance: ServerInstance
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        let durableAgents = instance.agents(for: project)
+        let quickAgents = instance.allQuickAgents(for: project)
+        let runningCount = durableAgents.filter { $0.status == .running }.count
+            + quickAgents.filter { $0.status == .running }.count
+
+        NavigationLink(value: ProjectNavItem(project: project, instanceId: instance.id)) {
+            ProjectCardRow(
+                project: project,
+                instanceName: instance.serverName,
+                durableCount: durableAgents.count,
+                quickCount: quickAgents.count,
+                runningCount: runningCount,
+                iconData: store.projectIcons[project.id]
+            )
+        }
+        .listRowBackground(store.theme.surface0Color.opacity(0.4))
     }
 }
 
@@ -155,6 +182,14 @@ struct ProjectExplorerView: View {
             .map { $0 }
     }
 
+    private var annexPlugins: [PluginSummary] {
+        (instance?.plugins ?? []).filter { $0.annexEnabled && $0.scope == "project-local" }
+    }
+
+    private var nonAnnexPlugins: [PluginSummary] {
+        (instance?.plugins ?? []).filter { !$0.annexEnabled && $0.scope == "project-local" }
+    }
+
     var body: some View {
         List {
             // Project info header
@@ -168,6 +203,31 @@ struct ProjectExplorerView: View {
                 )
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+            }
+
+            // Annex-enabled plugins
+            if !annexPlugins.isEmpty {
+                Section("Plugins") {
+                    ForEach(annexPlugins) { plugin in
+                        NavigationLink(value: AnnexNav.plugin(PluginItem(
+                            id: "\(instanceId.value):\(project.id):\(plugin.id)",
+                            name: plugin.name,
+                            pluginId: plugin.id,
+                            icon: pluginIcon(plugin.id),
+                            instanceId: instanceId,
+                            projectId: project.id,
+                            enabled: true
+                        ))) {
+                            HStack(spacing: 10) {
+                                Image(systemName: pluginIcon(plugin.id))
+                                    .frame(width: 24)
+                                Text(plugin.name)
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
+                }
+                .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
 
             // Durable Agents
@@ -201,6 +261,29 @@ struct ProjectExplorerView: View {
                 }
                 .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
+
+            // Non-annex plugins (greyed out)
+            if !nonAnnexPlugins.isEmpty {
+                Section {
+                    ForEach(nonAnnexPlugins) { plugin in
+                        HStack(spacing: 10) {
+                            Image(systemName: pluginIcon(plugin.id))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 24)
+                            Text(plugin.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.tertiary)
+                            Spacer()
+                            Text("Not Annex-enabled")
+                                .font(.caption2)
+                                .foregroundStyle(.quaternary)
+                        }
+                    }
+                } header: {
+                    Text("Other Plugins")
+                }
+                .listRowBackground(store.theme.surface0Color.opacity(0.2))
+            }
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
@@ -214,12 +297,29 @@ struct ProjectExplorerView: View {
                 }
             }
         }
+        .navigationDestination(for: AnnexNav.self) { nav in
+            if case .plugin(let item) = nav {
+                PluginDetailView(item: item)
+            }
+        }
         .sheet(isPresented: $showSpawnSheet) {
             SpawnQuickAgentSheet(
                 projectId: project.id,
                 parentAgentId: nil,
                 orchestrators: store.orchestrators
             )
+        }
+    }
+
+    private func pluginIcon(_ pluginId: String) -> String {
+        switch pluginId {
+        case "terminal": return "terminal"
+        case "files": return "doc.text"
+        case "canvas": return "rectangle.on.rectangle.angled"
+        case "home": return "house"
+        case "git": return "arrow.triangle.branch"
+        case "search": return "magnifyingglass"
+        default: return "puzzlepiece"
         }
     }
 }

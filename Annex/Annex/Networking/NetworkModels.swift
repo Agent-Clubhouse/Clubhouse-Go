@@ -80,6 +80,16 @@ struct SnapshotPayload: Codable, Sendable {
     let lastSeq: Int?
     let canvasState: [String: SnapshotCanvasEntry]?
     let appCanvasState: SnapshotCanvasEntry?
+    let plugins: [PluginSummary]?
+}
+
+/// Plugin summary from the server snapshot.
+struct PluginSummary: Codable, Sendable, Identifiable {
+    let id: String
+    let name: String
+    let version: String?
+    let scope: String?
+    let annexEnabled: Bool
 }
 
 /// Per-project canvas entry as delivered in the snapshot.

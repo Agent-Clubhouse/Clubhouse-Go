@@ -25,6 +25,7 @@ import Foundation
     var agentIcons: [String: Data] = [:]
     var projectIcons: [String: Data] = [:]
     var canvasByProject: [String: CanvasState] = [:]
+    var plugins: [PluginSummary] = []
 
     // MARK: - Networking (private)
     private(set) var apiClient: AnnexAPIClient?
@@ -244,6 +245,7 @@ import Foundation
                     pendingPermissions[perm.id] = perm
                 }
             }
+            plugins = payload.plugins ?? []
             // Populate canvas state from snapshot
             canvasByProject = [:]
             if let canvasEntries = payload.canvasState {
