@@ -50,7 +50,7 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSpawnSheet = true } label: {
-                        Image(systemName: "bolt.badge.plus")
+                        Image(systemName: "bolt.fill")
                     }
                 }
             }

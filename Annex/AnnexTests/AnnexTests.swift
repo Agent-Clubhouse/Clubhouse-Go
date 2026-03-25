@@ -1670,3 +1670,234 @@ struct TLSSessionDelegateTests {
         MTLSIdentity.deleteIdentity()
     }
 }
+
+// MARK: - ANSITerminal Tests
+
+struct ANSITerminalTests {
+    @Test func plainTextWriting() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("Hello")
+        #expect(term.cursorCol == 5)
+        #expect(term.cursorRow == 0)
+        #expect(term.cells[0][0].character == "H")
+        #expect(term.cells[0][4].character == "o")
+    }
+
+    @Test func lineWrapping() {
+        let term = ANSITerminal(cols: 5, rows: 3)
+        term.write("HelloWorld")
+        // "Hello" fills row 0, "World" wraps to row 1
+        #expect(term.cells[0][0].character == "H")
+        #expect(term.cells[0][4].character == "o")
+        #expect(term.cells[1][0].character == "W")
+        #expect(term.cells[1][4].character == "d")
+    }
+
+    @Test func carriageReturnAndLineFeed() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("Hello\r\nWorld")
+        #expect(term.cells[0][0].character == "H")
+        #expect(term.cells[1][0].character == "W")
+        #expect(term.cursorRow == 1)
+    }
+
+    @Test func cursorMovement() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        term.write("Hello")
+        term.write("\u{1B}[3D")  // Move cursor left 3
+        #expect(term.cursorCol == 2)
+        term.write("\u{1B}[2B")  // Move cursor down 2
+        #expect(term.cursorRow == 2)
+        term.write("\u{1B}[1A")  // Move cursor up 1
+        #expect(term.cursorRow == 1)
+    }
+
+    @Test func cursorPosition() {
+        let term = ANSITerminal(cols: 20, rows: 10)
+        term.write("\u{1B}[5;10H")  // Move to row 5, col 10
+        #expect(term.cursorRow == 4)  // 0-indexed
+        #expect(term.cursorCol == 9)  // 0-indexed
+    }
+
+    @Test func cursorHorizontalAbsolute() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        term.write("Hello World")
+        term.write("\u{1B}[3G")  // Move to column 3
+        #expect(term.cursorCol == 2)  // 0-indexed
+    }
+
+    @Test func eraseInLine() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("HelloWorld")
+        term.write("\u{1B}[6G")   // Move to column 6 (1-indexed) = col 5 (0-indexed)
+        term.write("\u{1B}[0K")   // Erase from cursor to end
+        #expect(term.cells[0][3].character == "l")  // col 3 preserved
+        #expect(term.cells[0][4].character == "o")  // col 4 preserved
+        #expect(term.cells[0][5].character == " ")  // col 5 erased
+        #expect(term.cells[0][9].character == " ")  // col 9 erased
+    }
+
+    @Test func eraseEntireLine() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("HelloWorld")
+        term.write("\u{1B}[1G")   // Move to column 1
+        term.write("\u{1B}[2K")   // Erase entire line
+        for c in 0..<10 {
+            #expect(term.cells[0][c].character == " ")
+        }
+    }
+
+    @Test func eraseInDisplay() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("Line1\r\nLine2\r\nLine3")
+        term.write("\u{1B}[2J")   // Erase entire display
+        for r in 0..<3 {
+            for c in 0..<10 {
+                #expect(term.cells[r][c].character == " ")
+            }
+        }
+    }
+
+    @Test func sgrBasicColors() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("\u{1B}[31mRed\u{1B}[0m")
+        #expect(term.cells[0][0].style.foreground == .standard(1)) // Red
+        #expect(term.cells[0][0].character == "R")
+        // After reset
+        term.write("Normal")
+        #expect(term.cells[0][3].style.foreground == .default)
+    }
+
+    @Test func sgr256Color() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("\u{1B}[38;5;244mGray\u{1B}[0m")
+        #expect(term.cells[0][0].style.foreground == .color256(244))
+    }
+
+    @Test func sgrBold() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("\u{1B}[1mBold\u{1B}[22m")
+        #expect(term.cells[0][0].style.bold == true)
+        term.write("N")
+        #expect(term.cells[0][4].style.bold == false)
+    }
+
+    @Test func scrollingOnLineFeed() {
+        let term = ANSITerminal(cols: 5, rows: 3)
+        term.write("AAA\r\nBBB\r\nCCC\r\nDDD")
+        // After 4 lines in 3-row terminal, first line should have scrolled off
+        #expect(term.cells[0][0].character == "B")
+        #expect(term.cells[1][0].character == "C")
+        #expect(term.cells[2][0].character == "D")
+    }
+
+    @Test func backspace() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("ABC\u{08}X")
+        // Backspace moves cursor back, then X overwrites C
+        #expect(term.cells[0][0].character == "A")
+        #expect(term.cells[0][1].character == "B")
+        #expect(term.cells[0][2].character == "X")
+    }
+
+    @Test func tabStops() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("A\tB")
+        #expect(term.cells[0][0].character == "A")
+        #expect(term.cells[0][8].character == "B")  // Tab to column 8
+    }
+
+    @Test func stripEscapeCodes() {
+        let term = ANSITerminal(cols: 40, rows: 3)
+        // Typical Claude output with escape sequences
+        term.write("\u{1B}[38;5;244m───\u{1B}[39m Hello \u{1B}[1mWorld\u{1B}[22m")
+        let rendered = term.render()
+        let plain = String(rendered.characters)
+        #expect(plain.contains("───"))
+        #expect(plain.contains("Hello"))
+        #expect(plain.contains("World"))
+        // No raw escape codes should be visible
+        #expect(!plain.contains("[38"))
+        #expect(!plain.contains("[39m"))
+        #expect(!plain.contains("[1m"))
+    }
+
+    @Test func renderProducesAttributedString() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("Hello World")
+        let result = term.render()
+        let plain = String(result.characters)
+        #expect(plain.contains("Hello World"))
+    }
+
+    @Test func oscSequencesIgnored() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("\u{1B}]0;Window Title\u{07}Hello")
+        #expect(term.cells[0][0].character == "H")
+    }
+
+    @Test func privateModesIgnored() {
+        let term = ANSITerminal(cols: 20, rows: 3)
+        term.write("\u{1B}[?2026l\u{1B}[?2026hHi")
+        #expect(term.cells[0][0].character == "H")
+        #expect(term.cells[0][1].character == "i")
+    }
+
+    @Test func resize() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("Hello")
+        term.resize(cols: 5, rows: 2)
+        #expect(term.cols == 5)
+        #expect(term.rows == 2)
+        #expect(term.cells[0][0].character == "H")
+        #expect(term.cells[0][4].character == "o")
+    }
+
+    @Test func deleteCharacters() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("ABCDE")
+        term.write("\u{1B}[3G")   // cursor to col 3
+        term.write("\u{1B}[1P")   // delete 1 char at cursor
+        // "AB_DE" -> "ABDE " (D shifts left)
+        #expect(term.cells[0][2].character == "D")
+        #expect(term.cells[0][3].character == "E")
+    }
+
+    @Test func eraseCharacters() {
+        let term = ANSITerminal(cols: 10, rows: 3)
+        term.write("ABCDE")
+        term.write("\u{1B}[2G")    // cursor to col 2
+        term.write("\u{1B}[2X")    // erase 2 chars
+        #expect(term.cells[0][0].character == "A")
+        #expect(term.cells[0][1].character == " ")
+        #expect(term.cells[0][2].character == " ")
+        #expect(term.cells[0][3].character == "D")
+    }
+}
+
+// MARK: - PTY Message Tests
+
+struct PtyMessageTests {
+    @Test func ptyInputMessageEncoding() throws {
+        let msg = PtyInputMessage(
+            type: "pty:input",
+            payload: PtyInputPayload(agentId: "agent_123", data: "ls\n")
+        )
+        let data = try JSONEncoder().encode(msg)
+        let jsonStr = String(data: data, encoding: .utf8)!
+        #expect(jsonStr.contains("pty:input"))
+        #expect(jsonStr.contains("agent_123"))
+    }
+
+    @Test func ptyResizeMessageEncoding() throws {
+        let msg = PtyResizeMessage(
+            type: "pty:resize",
+            payload: PtyResizePayload(agentId: "agent_123", cols: 80, rows: 24)
+        )
+        let data = try JSONEncoder().encode(msg)
+        let jsonStr = String(data: data, encoding: .utf8)!
+        #expect(jsonStr.contains("pty:resize"))
+        #expect(jsonStr.contains("80"))
+        #expect(jsonStr.contains("24"))
+    }
+}

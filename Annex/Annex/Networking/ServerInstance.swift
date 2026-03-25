@@ -27,14 +27,27 @@ import Foundation
 
     // MARK: - Networking (private)
     private(set) var apiClient: AnnexAPIClient?
-    private var webSocket: WebSocketClient?
+    private(set) var webSocket: WebSocketClient?
     private var wsStreamTask: Task<Void, Never>?
-    private var token: String?
+    private(set) var token: String?
     private var reconnectAttempt = 0
     private var lastSeq: Int?
     private var isReplaying = false
     private static let maxReconnectAttempts = 10
     private static let maxActivityEventsPerAgent = 200
+
+    /// Per-agent PTY data callbacks — bypasses @Observable dictionary tracking
+    /// to prevent cross-agent terminal bleed.
+    private var ptyCallbacks: [String: (String) -> Void] = [:]
+
+    /// Register a callback to receive PTY data for a specific agent.
+    /// Returns a closure to unregister.
+    func subscribePtyData(agentId: String, callback: @escaping (String) -> Void) -> (() -> Void) {
+        ptyCallbacks[agentId] = callback
+        return { [weak self] in
+            self?.ptyCallbacks.removeValue(forKey: agentId)
+        }
+    }
 
     private var logPrefix: String { "[\(id.value.prefix(12))]" }
 
@@ -240,6 +253,8 @@ import Foundation
                 buf = String(buf.suffix(49_152))
             }
             ptyBufferByAgent[payload.agentId] = buf
+            // Deliver directly to subscribed terminal (bypasses @Observable dict tracking)
+            ptyCallbacks[payload.agentId]?(payload.data)
 
         case .ptyExit:
             break
@@ -479,10 +494,17 @@ import Foundation
     }
 
     func sendMessage(agentId: String, message: String) async throws {
-        guard let apiClient, let token else { return }
-        AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId)")
-        let request = SendMessageRequest(message: message)
-        _ = try await apiClient.sendMessage(agentId: agentId, request: request, token: token)
+        // Send via pty:input on the WebSocket (no REST /message endpoint in v2)
+        guard let webSocket else {
+            AppLog.shared.warn("Instance", "\(logPrefix) Cannot send message: no WebSocket")
+            return
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId) via pty:input")
+        let msg = PtyInputMessage(
+            type: "pty:input",
+            payload: PtyInputPayload(agentId: agentId, data: message + "\r")
+        )
+        webSocket.send(msg)
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {

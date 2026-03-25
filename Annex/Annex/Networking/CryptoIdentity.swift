@@ -24,7 +24,7 @@ struct CryptoIdentity {
         let spki = Data(Self.spkiPrefix) + raw
         let hash = SHA256.hash(data: spki)
         return hash.prefix(16)
-            .map { String(format: "%02X", $0) }
+            .map { String(format: "%02x", $0) }
             .joined(separator: ":")
     }
 

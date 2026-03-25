@@ -34,10 +34,14 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
 
         if method == NSURLAuthenticationMethodClientCertificate {
             if let identity = clientIdentity {
-                AppLog.shared.info("TLS", "Presenting client certificate to \(host):\(port)")
+                // Extract the certificate from the identity to include in the chain
+                var certRef: SecCertificate?
+                let copyStatus = SecIdentityCopyCertificate(identity, &certRef)
+                let certs: [Any]? = (copyStatus == errSecSuccess && certRef != nil) ? [certRef!] : nil
+                AppLog.shared.info("TLS", "Presenting client certificate to \(host):\(port) (hasCertChain=\(certs != nil))")
                 let credential = URLCredential(
                     identity: identity,
-                    certificates: nil,
+                    certificates: certs,
                     persistence: .forSession
                 )
                 return (.useCredential, credential)

@@ -18,10 +18,23 @@ enum MTLSIdentity {
     /// Load an existing mTLS identity from Keychain, or generate a new one.
     /// The certificate CN is set to the given Ed25519 fingerprint.
     static func loadOrCreate(fingerprint: String) -> SecIdentity? {
-        // Try loading existing identity first
+        // Try loading existing identity — verify CN matches current fingerprint
         if let identity = loadIdentity() {
-            AppLog.shared.info("mTLS", "Loaded existing mTLS identity from Keychain")
-            return identity
+            var certRef: SecCertificate?
+            if SecIdentityCopyCertificate(identity, &certRef) == errSecSuccess,
+               let cert = certRef {
+                let summary = SecCertificateCopySubjectSummary(cert) as String?
+                if summary == fingerprint {
+                    AppLog.shared.info("mTLS", "Loaded existing mTLS identity (CN=\(fingerprint))")
+                    return identity
+                } else {
+                    AppLog.shared.warn("mTLS", "Existing mTLS cert CN=\(summary ?? "nil") doesn't match fingerprint=\(fingerprint) — regenerating")
+                    deleteIdentity()
+                }
+            } else {
+                AppLog.shared.info("mTLS", "Loaded existing mTLS identity from Keychain")
+                return identity
+            }
         }
 
         AppLog.shared.info("mTLS", "Generating new RSA-2048 keypair and self-signed cert (CN=\(fingerprint))")

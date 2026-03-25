@@ -135,7 +135,7 @@ struct AgentDetailView: View {
                     Button {
                         showSpawnSheet = true
                     } label: {
-                        Label("Quick Agent", systemImage: "bolt.badge.plus")
+                        Label("Quick Agent", systemImage: "bolt.fill")
                     }
                 }
 
