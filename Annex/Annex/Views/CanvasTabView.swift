@@ -311,23 +311,33 @@ struct CanvasFullScreenView: View {
         }
     }
 
+    private var isGroupProject: Bool {
+        canvasView.pluginWidgetType?.contains("group-project") == true
+            || canvasView.pluginId?.contains("group-project") == true
+    }
+
+    @ViewBuilder
     private var pluginContent: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "puzzlepiece.fill")
-                .font(.system(size: 48, weight: .light))
-                .foregroundStyle(theme.linkColor)
-            Text(canvasView.displayLabel)
-                .font(.title3.weight(.medium))
-            if let widgetType = canvasView.pluginWidgetType {
-                Text("Plugin: \(widgetType)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        if isGroupProject {
+            GroupProjectDetailView(canvasView: canvasView, instance: instance, theme: theme)
+        } else {
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "puzzlepiece.fill")
+                    .font(.system(size: 48, weight: .light))
+                    .foregroundStyle(theme.linkColor)
+                Text(canvasView.displayLabel)
+                    .font(.title3.weight(.medium))
+                if let widgetType = canvasView.pluginWidgetType {
+                    Text("Plugin: \(widgetType)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
             }
-            Spacer()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(theme.baseColor)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(theme.baseColor)
     }
 
     private func placeholderContent(icon: String, label: String) -> some View {
