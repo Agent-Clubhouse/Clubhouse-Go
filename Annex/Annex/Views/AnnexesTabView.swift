@@ -92,6 +92,15 @@ struct AnnexesTabView: View {
                 if value.hasPrefix("live:") {
                     let id = String(value.dropFirst(5))
                     LiveTerminalView(agentId: id)
+                } else if value.hasPrefix("shell:") {
+                    let projectId = String(value.dropFirst(6))
+                    if let inst = store.connectedInstances.first(where: { $0.projects.contains { $0.id == projectId } }) {
+                        RemoteShellView(
+                            projectId: projectId,
+                            instanceId: inst.id,
+                            shellLabel: "Project Shell"
+                        )
+                    }
                 }
             }
             .sheet(isPresented: $showAddInstance) {

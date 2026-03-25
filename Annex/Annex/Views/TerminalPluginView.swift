@@ -32,12 +32,39 @@ struct TerminalPluginView: View {
 
     var body: some View {
         List {
+            // Project Shell
+            Section {
+                NavigationLink(value: "shell:\(projectId)") {
+                    HStack(spacing: 12) {
+                        Image(systemName: "terminal.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.green)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(.green.opacity(0.15)))
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Project Shell")
+                                .font(.body.weight(.semibold))
+                            Text("Interactive terminal at project root")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                Text("Remote Shell")
+            }
+            .listRowBackground(store.theme.surface0Color.opacity(0.6))
+
             if agents.isEmpty {
                 Section {
                     ContentUnavailableView(
                         "No Agents",
-                        systemImage: "terminal",
-                        description: Text("No agents in this project yet.")
+                        systemImage: "person.3",
+                        description: Text("No agents in this project. Agent terminals appear here when agents are running.")
                     )
                     .listRowBackground(Color.clear)
                 }
