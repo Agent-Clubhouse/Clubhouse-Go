@@ -3,22 +3,23 @@ import SwiftUI
 struct CanvasTabView: View {
     @Environment(AppStore.self) private var store
     @State private var selectedCanvasKey: String?
+    @State private var expandedView: CanvasView?
 
-    private var canvasEntries: [(key: String, label: String, projectId: String, canvas: CanvasState)] {
+    private var canvasEntries: [(key: String, label: String, projectId: String, instance: ServerInstance, canvas: CanvasState)] {
         store.allCanvasStates.flatMap { entry in
             let tabs = entry.canvas.allCanvasTabs ?? [CanvasTab(id: entry.canvas.canvasId, name: entry.canvas.name ?? "Canvas")]
             let project = entry.instance.projects.first { $0.id == entry.projectId }
             let projectLabel = project?.label ?? entry.projectId
             return tabs.map { tab in
                 let key = "\(entry.instance.id.value):\(entry.projectId):\(tab.id)"
-                return (key: key, label: "\(projectLabel) — \(tab.name)", projectId: entry.projectId, canvas: entry.canvas)
+                return (key: key, label: "\(projectLabel) — \(tab.name)", projectId: entry.projectId, instance: entry.instance, canvas: entry.canvas)
             }
         }
     }
 
-    private var selectedCanvas: CanvasState? {
-        guard let key = selectedCanvasKey else { return canvasEntries.first?.canvas }
-        return canvasEntries.first { $0.key == key }?.canvas
+    private var selectedEntry: (key: String, label: String, projectId: String, instance: ServerInstance, canvas: CanvasState)? {
+        guard let key = selectedCanvasKey else { return canvasEntries.first }
+        return canvasEntries.first { $0.key == key }
     }
 
     var body: some View {
@@ -30,13 +31,25 @@ struct CanvasTabView: View {
                     if canvasEntries.count > 1 {
                         canvasPicker
                     }
-                    if let canvas = selectedCanvas {
-                        CanvasRendererView(canvas: canvas, theme: store.theme)
+                    if let entry = selectedEntry {
+                        CanvasRendererView(
+                            canvas: entry.canvas,
+                            instance: entry.instance,
+                            theme: store.theme,
+                            expandedView: $expandedView
+                        )
                     }
                 }
             }
             .navigationTitle("Canvas")
             .navigationBarTitleDisplayMode(.inline)
+            .fullScreenCover(item: $expandedView) { view in
+                CanvasFullScreenView(
+                    canvasView: view,
+                    instance: selectedEntry?.instance,
+                    theme: store.theme
+                )
+            }
         }
     }
 
@@ -74,9 +87,13 @@ struct CanvasTabView: View {
     }
 }
 
+// MARK: - Canvas Renderer (pannable/zoomable)
+
 struct CanvasRendererView: View {
     let canvas: CanvasState
+    let instance: ServerInstance
     let theme: ThemeColors
+    @Binding var expandedView: CanvasView?
 
     @State private var panOffset: CGSize = .zero
     @State private var lastPanOffset: CGSize = .zero
@@ -90,17 +107,23 @@ struct CanvasRendererView: View {
                 height: panOffset.height + CGFloat(canvas.viewport.panY) * zoom
             )
 
-            ZStack(alignment: .topLeading) {
-                // Background
-                theme.baseColor.ignoresSafeArea()
+            ZStack {
+                theme.crustColor.ignoresSafeArea()
 
-                // Canvas views
                 ForEach(sortedViews) { view in
-                    CanvasNodeView(canvasView: view, theme: theme)
-                        .position(
-                            x: CGFloat(view.position.x) * zoom + totalOffset.width + geo.size.width / 2,
-                            y: CGFloat(view.position.y) * zoom + totalOffset.height + geo.size.height / 2
-                        )
+                    CanvasPlaceholderView(
+                        canvasView: view,
+                        instance: instance,
+                        theme: theme,
+                        zoom: zoom
+                    )
+                    .onTapGesture {
+                        expandedView = view
+                    }
+                    .position(
+                        x: CGFloat(view.position.x) * zoom + totalOffset.width + geo.size.width / 2,
+                        y: CGFloat(view.position.y) * zoom + totalOffset.height + geo.size.height / 2
+                    )
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -138,48 +161,84 @@ struct CanvasRendererView: View {
     }
 }
 
-struct CanvasNodeView: View {
+// MARK: - Compact Placeholder (shown on canvas)
+
+struct CanvasPlaceholderView: View {
     let canvasView: CanvasView
+    let instance: ServerInstance
     let theme: ThemeColors
+    let zoom: CGFloat
 
-    var body: some View {
-        let w = CGFloat(canvasView.size.width)
-        let h = CGFloat(canvasView.size.height)
-
-        VStack(spacing: 4) {
-            icon
-                .font(.system(size: 14))
-                .foregroundStyle(theme.subtext1Color)
-
-            Text(canvasView.displayLabel)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(theme.textColor)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-        }
-        .padding(8)
-        .frame(width: w, height: h)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(backgroundColor)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(borderColor, lineWidth: 1)
-                )
-        )
+    private var agent: DurableAgent? {
+        guard let agentId = canvasView.agentId else { return nil }
+        return instance.durableAgent(byId: agentId)
     }
 
-    @ViewBuilder
-    private var icon: some View {
+    var body: some View {
+        let w = CGFloat(canvasView.size.width) * zoom
+        let h = CGFloat(canvasView.size.height) * zoom
+        let placeholderSize = min(w, h) * 0.6
+
+        VStack(spacing: 4 * zoom) {
+            Group {
+                switch canvasView.type {
+                case .agent:
+                    if let agent {
+                        AgentAvatarView(
+                            color: agent.color ?? "gray",
+                            status: agent.status,
+                            state: agent.detailedStatus?.state,
+                            name: agent.name,
+                            iconData: instance.agentIcons[agent.id],
+                            size: placeholderSize
+                        )
+                    } else {
+                        placeholderIcon("person.circle.fill", size: placeholderSize)
+                    }
+
+                case .anchor:
+                    placeholderIcon("mappin.circle.fill", size: placeholderSize)
+
+                case .plugin:
+                    placeholderIcon("puzzlepiece.fill", size: placeholderSize)
+
+                case .zone:
+                    EmptyView()
+                }
+            }
+
+            if zoom > 0.5 {
+                Text(canvasView.displayLabel)
+                    .font(.system(size: max(9, 11 * zoom), weight: .medium))
+                    .foregroundStyle(theme.textColor)
+                    .lineLimit(1)
+            }
+        }
+        .frame(width: w, height: h)
+        .background(
+            RoundedRectangle(cornerRadius: 10 * zoom)
+                .fill(backgroundColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10 * zoom)
+                        .strokeBorder(borderColor, lineWidth: canvasView.type == .zone ? 1 : 1.5)
+                )
+        )
+        .contentShape(Rectangle())
+    }
+
+    private func placeholderIcon(_ name: String, size: CGFloat) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size * 0.6))
+            .foregroundStyle(iconColor)
+            .frame(width: size, height: size)
+    }
+
+    private var iconColor: Color {
         switch canvasView.type {
-        case .agent:
-            Image(systemName: "person.circle")
-        case .anchor:
-            Image(systemName: "mappin.circle")
-        case .plugin:
-            Image(systemName: "puzzlepiece")
-        case .zone:
-            Image(systemName: "rectangle.dashed")
+        case .agent: return theme.accentColor
+        case .anchor: return theme.subtext1Color
+        case .plugin: return theme.linkColor
+        case .zone: return theme.subtext0Color
         }
     }
 
@@ -188,7 +247,7 @@ struct CanvasNodeView: View {
         case .agent: return theme.surface1Color.opacity(0.8)
         case .anchor: return theme.surface0Color.opacity(0.6)
         case .plugin: return theme.surface1Color.opacity(0.7)
-        case .zone: return theme.surface0Color.opacity(0.3)
+        case .zone: return theme.surface0Color.opacity(0.15)
         }
     }
 
@@ -199,6 +258,90 @@ struct CanvasNodeView: View {
         case .plugin: return theme.linkColor.opacity(0.4)
         case .zone: return theme.subtext0Color.opacity(0.2)
         }
+    }
+}
+
+// MARK: - Full-Screen View (shown on tap)
+
+struct CanvasFullScreenView: View {
+    let canvasView: CanvasView
+    let instance: ServerInstance?
+    let theme: ThemeColors
+    @Environment(AppStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+
+    private var agent: DurableAgent? {
+        guard let agentId = canvasView.agentId, let instance else { return nil }
+        return instance.durableAgent(byId: agentId)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                switch canvasView.type {
+                case .agent:
+                    if let agent {
+                        AgentDetailView(agent: agent)
+                    } else {
+                        placeholderContent(icon: "person.circle", label: canvasView.displayLabel)
+                    }
+
+                case .anchor:
+                    placeholderContent(icon: "mappin.circle", label: canvasView.displayLabel)
+
+                case .plugin:
+                    pluginContent
+
+                case .zone:
+                    placeholderContent(icon: "rectangle.dashed", label: canvasView.displayLabel)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .symbolRenderingMode(.hierarchical)
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+    }
+
+    private var pluginContent: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "puzzlepiece.fill")
+                .font(.system(size: 48, weight: .light))
+                .foregroundStyle(theme.linkColor)
+            Text(canvasView.displayLabel)
+                .font(.title3.weight(.medium))
+            if let widgetType = canvasView.pluginWidgetType {
+                Text("Plugin: \(widgetType)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.baseColor)
+    }
+
+    private func placeholderContent(icon: String, label: String) -> some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: icon)
+                .font(.system(size: 48, weight: .light))
+                .foregroundStyle(theme.subtext0Color)
+            Text(label)
+                .font(.title3.weight(.medium))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.baseColor)
     }
 }
 

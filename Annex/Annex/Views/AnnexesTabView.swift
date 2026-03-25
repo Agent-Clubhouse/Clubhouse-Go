@@ -251,6 +251,7 @@ private struct PluginRow: View {
 struct PluginDetailView: View {
     let item: PluginItem
     @Environment(AppStore.self) private var store
+    @State private var expandedView: CanvasView?
 
     var body: some View {
         Group {
@@ -258,7 +259,7 @@ struct PluginDetailView: View {
             case "canvas":
                 if let instance = store.instanceByID(item.instanceId),
                    let canvas = instance.canvasByProject[item.projectId ?? "__app__"] {
-                    CanvasRendererView(canvas: canvas, theme: instance.theme)
+                    CanvasRendererView(canvas: canvas, instance: instance, theme: instance.theme, expandedView: $expandedView)
                 } else {
                     ContentUnavailableView("No Canvas", systemImage: "rectangle.on.rectangle.angled", description: Text("No canvas data available."))
                 }
@@ -268,6 +269,13 @@ struct PluginDetailView: View {
         }
         .navigationTitle(item.name)
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(item: $expandedView) { view in
+            CanvasFullScreenView(
+                canvasView: view,
+                instance: store.instanceByID(item.instanceId),
+                theme: store.theme
+            )
+        }
     }
 }
 
