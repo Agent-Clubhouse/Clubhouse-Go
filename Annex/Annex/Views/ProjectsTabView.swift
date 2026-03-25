@@ -182,12 +182,16 @@ struct ProjectExplorerView: View {
             .map { $0 }
     }
 
+    private var projectPlugins: [PluginSummary] {
+        (instance?.plugins ?? []).filter { $0.scope == "project" || $0.scope == "dual" }
+    }
+
     private var annexPlugins: [PluginSummary] {
-        (instance?.plugins ?? []).filter { $0.annexEnabled && $0.scope == "project-local" }
+        projectPlugins.filter(\.annexEnabled)
     }
 
     private var nonAnnexPlugins: [PluginSummary] {
-        (instance?.plugins ?? []).filter { !$0.annexEnabled && $0.scope == "project-local" }
+        projectPlugins.filter { !$0.annexEnabled }
     }
 
     var body: some View {

@@ -16,14 +16,25 @@ struct AnnexesTabView: View {
                         }
                         .listRowBackground(store.theme.surface0Color.opacity(0.5))
 
-                        // App-level plugins (Home, Canvas, etc.)
-                        let annexPlugins = instance.plugins.filter(\.annexEnabled)
-                        let otherPlugins = instance.plugins.filter { !$0.annexEnabled }
-
-                        if !annexPlugins.isEmpty || instance.canvasByProject["__app__"] != nil {
-                            ForEach(appLevelItems(for: instance)) { item in
-                                NavigationLink(value: AnnexNav.plugin(item)) {
-                                    PluginRow(name: item.name, icon: item.icon, enabled: true)
+                        // App-level plugins
+                        let appPlugins = instance.plugins.filter { $0.scope == "app" || $0.scope == "dual" }
+                        if !appPlugins.isEmpty {
+                            ForEach(appPlugins) { plugin in
+                                let item = PluginItem(
+                                    id: "\(instance.id.value):\(plugin.id)",
+                                    name: plugin.name,
+                                    pluginId: plugin.id,
+                                    icon: pluginIcon(plugin.id),
+                                    instanceId: instance.id,
+                                    projectId: nil,
+                                    enabled: plugin.annexEnabled
+                                )
+                                if plugin.annexEnabled {
+                                    NavigationLink(value: AnnexNav.plugin(item)) {
+                                        PluginRow(name: plugin.name, icon: pluginIcon(plugin.id), enabled: true)
+                                    }
+                                } else {
+                                    PluginRow(name: plugin.name, icon: pluginIcon(plugin.id), enabled: false)
                                 }
                             }
                             .listRowBackground(store.theme.surface0Color.opacity(0.4))
@@ -105,31 +116,19 @@ struct AnnexesTabView: View {
         }
     }
 
-    private func appLevelItems(for instance: ServerInstance) -> [PluginItem] {
-        var items: [PluginItem] = []
-        // Home is always an app-level feature
-        items.append(PluginItem(
-            id: "\(instance.id.value):home",
-            name: "Home",
-            pluginId: "home",
-            icon: "house",
-            instanceId: instance.id,
-            projectId: nil,
-            enabled: true
-        ))
-        // App-level canvas
-        if instance.canvasByProject["__app__"] != nil {
-            items.append(PluginItem(
-                id: "\(instance.id.value):canvas",
-                name: "Canvas",
-                pluginId: "canvas",
-                icon: "rectangle.on.rectangle.angled",
-                instanceId: instance.id,
-                projectId: nil,
-                enabled: true
-            ))
+    private func pluginIcon(_ pluginId: String) -> String {
+        switch pluginId {
+        case "terminal": return "terminal"
+        case "files": return "doc.text"
+        case "canvas": return "rectangle.on.rectangle.angled"
+        case "home": return "house"
+        case "hub": return "square.grid.2x2"
+        case "browser": return "globe"
+        case "git": return "arrow.triangle.branch"
+        case "search": return "magnifyingglass"
+        case "issues": return "exclamationmark.circle"
+        default: return "puzzlepiece"
         }
-        return items
     }
 }
 
