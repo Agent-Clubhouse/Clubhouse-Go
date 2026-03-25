@@ -448,9 +448,25 @@ import SwiftUI
     // MARK: - Rendering
 
     /// Render the visible screen buffer as an AttributedString.
+    /// Only renders up to the last row that has content to avoid blank trailing space.
     func render() -> AttributedString {
+        // Find the last row with any content
+        var lastContentRow = -1
+        for r in stride(from: rows - 1, through: 0, by: -1) {
+            let hasContent = cells[r].contains { $0.character != " " || $0.style != CellStyle() }
+            if hasContent {
+                lastContentRow = r
+                break
+            }
+        }
+
+        guard lastContentRow >= 0 else {
+            return AttributedString(" ") // empty terminal
+        }
+
         var result = AttributedString()
-        for (rowIdx, row) in cells.enumerated() {
+        for rowIdx in 0...lastContentRow {
+            let row = cells[rowIdx]
             // Find last non-space column to trim trailing spaces
             var lastNonSpace = -1
             for c in stride(from: cols - 1, through: 0, by: -1) {
@@ -481,7 +497,7 @@ import SwiftUI
                 }
             }
 
-            if rowIdx < rows - 1 {
+            if rowIdx < lastContentRow {
                 result.append(AttributedString("\n"))
             }
         }

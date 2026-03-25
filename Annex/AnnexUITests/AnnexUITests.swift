@@ -188,7 +188,7 @@ final class ClubhouseGoUITests: XCTestCase {
         app.launch()
 
         // Tap the spawn button in Dashboard toolbar
-        let spawnButton = app.navigationBars.buttons["bolt.badge.plus"]
+        let spawnButton = app.navigationBars.buttons["bolt.fill"]
         if spawnButton.waitForExistence(timeout: 5) {
             spawnButton.tap()
             XCTAssertTrue(app.navigationBars["New Quick Agent"].waitForExistence(timeout: 3))
