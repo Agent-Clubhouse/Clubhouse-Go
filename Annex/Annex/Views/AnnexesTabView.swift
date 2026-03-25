@@ -255,6 +255,8 @@ struct PluginDetailView: View {
     var body: some View {
         Group {
             switch item.pluginId {
+            case "home":
+                HomePluginView(instanceId: item.instanceId)
             case "canvas":
                 if let instance = store.instanceByID(item.instanceId),
                    let canvas = instance.canvasByProject[item.projectId ?? "__app__"] {
