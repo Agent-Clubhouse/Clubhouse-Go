@@ -4,13 +4,20 @@ struct AllAgentsView: View {
     @Environment(AppStore.self) private var store
     @State private var expandedAgentIds: Set<String> = []
     @State private var showSettings = false
+    @State private var hideSleeping = false
 
     private let maxActivityRows = 5
+
+    private var filteredAgents: [AppStore.InstanceAgent] {
+        store.allAgentsAcrossInstances.filter { ia in
+            !hideSleeping || ia.agent.status == .running
+        }
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.allAgentsAcrossInstances, id: \.agent.id) { ia in
+                ForEach(filteredAgents, id: \.agent.id) { ia in
                     Section {
                         NavigationLink(value: ia.agent) {
                             AgentRowView(agent: ia.agent)
@@ -86,6 +93,13 @@ struct AllAgentsView: View {
             .background(store.theme.baseColor)
             .navigationTitle("Agents")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        withAnimation { hideSleeping.toggle() }
+                    } label: {
+                        Image(systemName: hideSleeping ? "eye.slash" : "eye")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape")
@@ -105,12 +119,20 @@ struct AllAgentsView: View {
                 }
             }
             .overlay {
-                if store.allAgentsAcrossInstances.isEmpty {
-                    ContentUnavailableView(
-                        "No Agents",
-                        systemImage: "person.3",
-                        description: Text("Agents will appear here once they're running.")
-                    )
+                if filteredAgents.isEmpty {
+                    if hideSleeping && !store.allAgentsAcrossInstances.isEmpty {
+                        ContentUnavailableView(
+                            "No Running Agents",
+                            systemImage: "moon.zzz",
+                            description: Text("All agents are sleeping. Tap the eye icon to show them.")
+                        )
+                    } else {
+                        ContentUnavailableView(
+                            "No Agents",
+                            systemImage: "person.3",
+                            description: Text("Agents will appear here once they're running.")
+                        )
+                    }
                 }
             }
         }

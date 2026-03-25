@@ -2,10 +2,9 @@ import SwiftUI
 
 enum RootTab {
     case dashboard
+    case annexes
     case projects
     case agents
-    case canvas
-    case instances
 }
 
 struct RootNavigationView: View {
@@ -19,20 +18,16 @@ struct RootNavigationView: View {
             }
             .badge(store.allPendingPermissions.count)
 
+            Tab("Annexes", systemImage: "desktopcomputer", value: .annexes) {
+                AnnexesTabView()
+            }
+
             Tab("Projects", systemImage: "folder.fill", value: .projects) {
                 ProjectsTabView()
             }
 
             Tab("Agents", systemImage: "person.3.fill", value: .agents) {
                 AllAgentsView()
-            }
-
-            Tab("Canvas", systemImage: "rectangle.on.rectangle.angled", value: .canvas) {
-                CanvasTabView()
-            }
-
-            Tab("Instances", systemImage: "desktopcomputer", value: .instances) {
-                InstancesView()
             }
         }
     }
