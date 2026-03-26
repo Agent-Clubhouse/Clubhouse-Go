@@ -12,7 +12,7 @@ concurrency:
 
 env:
   PROJECT: Annex/Annex.xcodeproj
-  SCHEME: Annex
+  SCHEME: ClubhouseGo
   DESTINATION: "platform=iOS Simulator,name=iPhone 17 Pro,OS=latest"
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
             -project "$PROJECT" \
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
-            -only-testing:AnnexTests \
+            -only-testing:ClubhouseGoTests \
             -resultBundlePath unit-tests.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee xcodebuild-unit.log
@@ -106,7 +106,7 @@ jobs:
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
             -derivedDataPath DerivedData \
-            -only-testing:AnnexUITests \
+            -only-testing:ClubhouseGoUITests \
             -resultBundlePath e2e-tests.xcresult \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 30 \
