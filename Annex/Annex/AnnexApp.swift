@@ -44,10 +44,35 @@ struct ClubhouseGoApp: App {
         } else if args.contains("--ui-testing") {
             store.wrappedValue.loadMockData()
             store.wrappedValue.completeOnboarding()
+        } else if let serverArg = Self.parseTestServer(args) {
+            // Connect directly to a test server (bypasses Bonjour + pairing)
+            store.wrappedValue.completeOnboarding()
+            Task {
+                await store.wrappedValue.connectToTestServer(
+                    host: serverArg.host,
+                    mainPort: serverArg.mainPort,
+                    pairingPort: serverArg.pairingPort,
+                    pin: serverArg.pin
+                )
+            }
         } else {
             Task {
                 await store.wrappedValue.restoreAllSessions()
             }
         }
+    }
+
+    /// Parse --test-server host:mainPort:pairingPort and optional --test-pin PIN
+    private static func parseTestServer(_ args: [String]) -> (host: String, mainPort: UInt16, pairingPort: UInt16, pin: String)? {
+        guard let idx = args.firstIndex(of: "--test-server"), idx + 1 < args.count else { return nil }
+        let parts = args[idx + 1].split(separator: ":")
+        guard parts.count >= 3,
+              let mainPort = UInt16(parts[1]),
+              let pairingPort = UInt16(parts[2]) else { return nil }
+        let host = String(parts[0])
+        let pin = args.firstIndex(of: "--test-pin").flatMap { i in
+            i + 1 < args.count ? args[i + 1] : nil
+        } ?? "000000"
+        return (host: host, mainPort: mainPort, pairingPort: pairingPort, pin: pin)
     }
 }

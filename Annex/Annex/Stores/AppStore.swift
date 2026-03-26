@@ -350,6 +350,38 @@ enum ConnectionState: Sendable {
         await inst.connect(token: response.token)
     }
 
+    // MARK: - Test Server (integration testing)
+
+    func connectToTestServer(host: String, mainPort: UInt16, pairingPort: UInt16, pin: String) async {
+        AppLog.shared.info("TestServer", "Connecting to test server at \(host):\(mainPort) (pairing: \(pairingPort))")
+
+        // Pair with the test server
+        let pairingClient = AnnexAPIClient.v2Pairing(host: host, pairingPort: pairingPort)
+        do {
+            let identity = CryptoIdentity.loadOrCreate()
+            let response = try await pairingClient.pairV2(
+                pin: pin,
+                publicKey: identity.publicKeyBase64,
+                alias: "Test Device",
+                icon: "phone",
+                color: "blue"
+            )
+            AppLog.shared.info("TestServer", "Paired: token=\(response.token.prefix(8))... fingerprint=\(response.fingerprint)")
+
+            let instanceId = ServerInstanceID(value: response.fingerprint)
+            let config = ServerProtocol.v2(
+                host: host, mainPort: mainPort,
+                pairingPort: pairingPort, fingerprint: response.fingerprint
+            )
+            let inst = ServerInstance(id: instanceId, protocolConfig: config)
+            instances.append(inst)
+            activeInstanceID = instanceId
+            await inst.connect(token: response.token)
+        } catch {
+            AppLog.shared.error("TestServer", "Failed to connect: \(error)")
+        }
+    }
+
     // MARK: - Session Restore
 
     func restoreAllSessions() async {
