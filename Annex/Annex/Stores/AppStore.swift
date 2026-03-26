@@ -355,7 +355,7 @@ enum ConnectionState: Sendable {
     func connectToTestServer(host: String, mainPort: UInt16, pairingPort: UInt16, pin: String) async {
         AppLog.shared.info("TestServer", "Connecting to test server at \(host):\(mainPort) (pairing: \(pairingPort))")
 
-        // Pair with the test server
+        // Pair with the test server (plain HTTP)
         let pairingClient = AnnexAPIClient.v2Pairing(host: host, pairingPort: pairingPort)
         do {
             let identity = CryptoIdentity.loadOrCreate()
@@ -376,7 +376,8 @@ enum ConnectionState: Sendable {
             let inst = ServerInstance(id: instanceId, protocolConfig: config)
             instances.append(inst)
             activeInstanceID = instanceId
-            await inst.connect(token: response.token)
+            // Use plain HTTP/WS for test servers (no TLS)
+            await inst.connectPlaintext(token: response.token)
         } catch {
             AppLog.shared.error("TestServer", "Failed to connect: \(error)")
         }

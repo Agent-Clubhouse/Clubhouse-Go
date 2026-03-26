@@ -151,6 +151,58 @@ import Foundation
 
     // MARK: - Connection Lifecycle
 
+    /// Connect using plain HTTP/WS (no TLS) for integration testing with mock servers.
+    func connectPlaintext(token: String) async {
+        self.token = token
+        let host = protocolConfig.host
+        let mainPort = protocolConfig.mainPort
+        AppLog.shared.info("Instance", "\(logPrefix) Connecting (plaintext) -> \(host):\(mainPort)")
+        let client = AnnexAPIClient.v2Pairing(host: host, pairingPort: mainPort)
+        self.apiClient = client
+        connectionState = .connecting
+
+        do {
+            let status = try await client.getStatus(token: token)
+            serverName = status.deviceName
+            connectionState = .connected
+            AppLog.shared.info("Instance", "\(logPrefix) Connected (plaintext): \(status.deviceName)")
+            // Connect WebSocket using plain ws://
+            await connectWebSocketPlaintext()
+        } catch {
+            connectionState = .disconnected
+            lastError = "Failed to connect"
+            AppLog.shared.error("Instance", "\(logPrefix) Plaintext connection failed: \(error)")
+        }
+    }
+
+    private func connectWebSocketPlaintext() async {
+        guard let token else { return }
+        wsStreamTask?.cancel()
+        webSocket?.disconnect()
+
+        let urlHost = protocolConfig.host.contains(":") ? "[\(protocolConfig.host)]" : protocolConfig.host
+        guard let url = URL(string: "ws://\(urlHost):\(protocolConfig.mainPort)/ws?token=\(token)") else {
+            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct plaintext WebSocket URL")
+            return
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Connecting WebSocket (plaintext)...")
+        let ws = WebSocketClient(url: url, session: .shared)
+        self.webSocket = ws
+
+        let stream = ws.connect()
+        reconnectAttempt = 0
+        isReplaying = false
+
+        wsStreamTask = Task {
+            for await seqEvent in stream {
+                if let seq = seqEvent.seq {
+                    self.lastSeq = seq
+                }
+                await handleWSEvent(seqEvent.event)
+            }
+        }
+    }
+
     func connect(token: String) async {
         self.token = token
         let host = protocolConfig.host
