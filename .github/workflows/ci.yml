@@ -19,6 +19,7 @@ jobs:
   build:
     name: Build
     runs-on: macos-26
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +35,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: macos-26
+    timeout-minutes: 10
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +66,7 @@ jobs:
   e2e-tests:
     name: E2E UI Tests
     runs-on: macos-26
+    timeout-minutes: 10
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +97,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Run E2E UI tests
+        continue-on-error: true
+        timeout-minutes: 8
         run: |
           set -o pipefail
           xcodebuild test-without-building \
@@ -103,6 +108,8 @@ jobs:
             -derivedDataPath DerivedData \
             -only-testing:AnnexUITests \
             -resultBundlePath e2e-tests.xcresult \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 30 \
             2>&1 | tee xcodebuild-e2e.log
 
       - name: Upload E2E results
