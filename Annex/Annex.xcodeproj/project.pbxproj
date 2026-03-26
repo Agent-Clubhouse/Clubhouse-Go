@@ -24,9 +24,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		ACF46E222F4A5C73007272FE /* Annex.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Annex.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		ACF46E2F2F4A5C73007272FE /* AnnexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnnexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		ACF46E392F4A5C73007272FE /* AnnexUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnnexUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACF46E222F4A5C73007272FE /* ClubhouseGo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClubhouseGo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACF46E2F2F4A5C73007272FE /* ClubhouseGoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClubhouseGoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACF46E392F4A5C73007272FE /* ClubhouseGoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClubhouseGoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -85,9 +85,9 @@
 		ACF46E232F4A5C73007272FE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				ACF46E222F4A5C73007272FE /* Annex.app */,
-				ACF46E2F2F4A5C73007272FE /* AnnexTests.xctest */,
-				ACF46E392F4A5C73007272FE /* AnnexUITests.xctest */,
+				ACF46E222F4A5C73007272FE /* ClubhouseGo.app */,
+				ACF46E2F2F4A5C73007272FE /* ClubhouseGoTests.xctest */,
+				ACF46E392F4A5C73007272FE /* ClubhouseGoUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +95,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		ACF46E212F4A5C73007272FE /* Annex */ = {
+		ACF46E212F4A5C73007272FE /* ClubhouseGo */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = ACF46E432F4A5C73007272FE /* Build configuration list for PBXNativeTarget "Annex" */;
+			buildConfigurationList = ACF46E432F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGo" */;
 			buildPhases = (
 				ACF46E1E2F4A5C73007272FE /* Sources */,
 				ACF46E1F2F4A5C73007272FE /* Frameworks */,
@@ -110,16 +110,16 @@
 			fileSystemSynchronizedGroups = (
 				ACF46E242F4A5C73007272FE /* Annex */,
 			);
-			name = Annex;
+			name = ClubhouseGo;
 			packageProductDependencies = (
 			);
 			productName = Annex;
-			productReference = ACF46E222F4A5C73007272FE /* Annex.app */;
+			productReference = ACF46E222F4A5C73007272FE /* ClubhouseGo.app */;
 			productType = "com.apple.product-type.application";
 		};
-		ACF46E2E2F4A5C73007272FE /* AnnexTests */ = {
+		ACF46E2E2F4A5C73007272FE /* ClubhouseGoTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = ACF46E462F4A5C73007272FE /* Build configuration list for PBXNativeTarget "AnnexTests" */;
+			buildConfigurationList = ACF46E462F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGoTests" */;
 			buildPhases = (
 				ACF46E2B2F4A5C73007272FE /* Sources */,
 				ACF46E2C2F4A5C73007272FE /* Frameworks */,
@@ -133,16 +133,16 @@
 			fileSystemSynchronizedGroups = (
 				ACF46E322F4A5C73007272FE /* AnnexTests */,
 			);
-			name = AnnexTests;
+			name = ClubhouseGoTests;
 			packageProductDependencies = (
 			);
 			productName = AnnexTests;
-			productReference = ACF46E2F2F4A5C73007272FE /* AnnexTests.xctest */;
+			productReference = ACF46E2F2F4A5C73007272FE /* ClubhouseGoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		ACF46E382F4A5C73007272FE /* AnnexUITests */ = {
+		ACF46E382F4A5C73007272FE /* ClubhouseGoUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = ACF46E492F4A5C73007272FE /* Build configuration list for PBXNativeTarget "AnnexUITests" */;
+			buildConfigurationList = ACF46E492F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGoUITests" */;
 			buildPhases = (
 				ACF46E352F4A5C73007272FE /* Sources */,
 				ACF46E362F4A5C73007272FE /* Frameworks */,
@@ -156,11 +156,11 @@
 			fileSystemSynchronizedGroups = (
 				ACF46E3C2F4A5C73007272FE /* AnnexUITests */,
 			);
-			name = AnnexUITests;
+			name = ClubhouseGoUITests;
 			packageProductDependencies = (
 			);
 			productName = AnnexUITests;
-			productReference = ACF46E392F4A5C73007272FE /* AnnexUITests.xctest */;
+			productReference = ACF46E392F4A5C73007272FE /* ClubhouseGoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -200,9 +200,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				ACF46E212F4A5C73007272FE /* Annex */,
-				ACF46E2E2F4A5C73007272FE /* AnnexTests */,
-				ACF46E382F4A5C73007272FE /* AnnexUITests */,
+				ACF46E212F4A5C73007272FE /* ClubhouseGo */,
+				ACF46E2E2F4A5C73007272FE /* ClubhouseGoTests */,
+				ACF46E382F4A5C73007272FE /* ClubhouseGoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +258,12 @@
 /* Begin PBXTargetDependency section */
 		ACF46E312F4A5C73007272FE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = ACF46E212F4A5C73007272FE /* Annex */;
+			target = ACF46E212F4A5C73007272FE /* ClubhouseGo */;
 			targetProxy = ACF46E302F4A5C73007272FE /* PBXContainerItemProxy */;
 		};
 		ACF46E3B2F4A5C73007272FE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = ACF46E212F4A5C73007272FE /* Annex */;
+			target = ACF46E212F4A5C73007272FE /* ClubhouseGo */;
 			targetProxy = ACF46E3A2F4A5C73007272FE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -401,6 +401,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Clubhouse Go";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Clubhouse Go uses your local network to discover and connect to Clubhouse servers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -411,7 +413,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.Annex";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.Go";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -434,6 +436,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Clubhouse Go";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Clubhouse Go uses your local network to discover and connect to Clubhouse servers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -444,7 +448,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.Annex";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.Go";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -466,7 +470,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.AnnexTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.GoTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -474,7 +478,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Annex.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Annex";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClubhouseGo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClubhouseGo";
 			};
 			name = Debug;
 		};
@@ -488,7 +492,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.AnnexTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.GoTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -496,7 +500,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Annex.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Annex";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClubhouseGo.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClubhouseGo";
 			};
 			name = Release;
 		};
@@ -508,7 +512,7 @@
 				DEVELOPMENT_TEAM = 4Z8XC9T77W;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.AnnexUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.GoUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -528,7 +532,7 @@
 				DEVELOPMENT_TEAM = 4Z8XC9T77W;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.AnnexUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Agent-Clubhouse.GoUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -552,7 +556,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ACF46E432F4A5C73007272FE /* Build configuration list for PBXNativeTarget "Annex" */ = {
+		ACF46E432F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ACF46E442F4A5C73007272FE /* Debug */,
@@ -561,7 +565,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ACF46E462F4A5C73007272FE /* Build configuration list for PBXNativeTarget "AnnexTests" */ = {
+		ACF46E462F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGoTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ACF46E472F4A5C73007272FE /* Debug */,
@@ -570,7 +574,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		ACF46E492F4A5C73007272FE /* Build configuration list for PBXNativeTarget "AnnexUITests" */ = {
+		ACF46E492F4A5C73007272FE /* Build configuration list for PBXNativeTarget "ClubhouseGoUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				ACF46E4A2F4A5C73007272FE /* Debug */,

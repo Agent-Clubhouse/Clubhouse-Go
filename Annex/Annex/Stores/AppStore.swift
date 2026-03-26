@@ -354,6 +354,7 @@ enum ConnectionState: Sendable {
 
     func restoreAllSessions() async {
         AppLog.shared.info("Restore", "Restoring saved sessions...")
+        KeychainHelper.migrateServiceIfNeeded()
         let saved = KeychainHelper.loadAllInstances()
         AppLog.shared.info("Restore", "Found \(saved.count) saved instance(s)")
         for s in saved {
