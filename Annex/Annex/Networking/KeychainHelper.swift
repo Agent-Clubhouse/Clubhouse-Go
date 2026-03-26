@@ -2,7 +2,8 @@ import Foundation
 import Security
 
 enum KeychainHelper {
-    private static let service = "com.Agent-Clubhouse.Annex"
+    private static let service = "com.Agent-Clubhouse.Go"
+    private static let legacyService = "com.Agent-Clubhouse.Annex"
 
     // MARK: - Per-Instance Storage
 
@@ -93,6 +94,46 @@ enum KeychainHelper {
         let data = load(account: "ed25519-private-key")
         AppLog.shared.debug("Keychain", "Load Ed25519 key: \(data != nil ? "\(data!.count) bytes" : "not found")")
         return data
+    }
+
+    // MARK: - Service Migration
+
+    /// Migrate Keychain items from legacy "Annex" service to "Go" service.
+    static func migrateServiceIfNeeded() {
+        // Check if legacy service has data but new service doesn't
+        let legacyQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: legacyService,
+            kSecAttrAccount as String: "instance-index",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var legacyResult: AnyObject?
+        let legacyStatus = SecItemCopyMatching(legacyQuery as CFDictionary, &legacyResult)
+        guard legacyStatus == errSecSuccess, let legacyData = legacyResult as? Data else { return }
+
+        // Check if new service already has data
+        if load(account: "instance-index") != nil { return }
+
+        // Migrate: copy all items from legacy to new service
+        AppLog.shared.info("Keychain", "Migrating from legacy Annex service to Go service")
+        let allLegacyQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: legacyService,
+            kSecReturnAttributes as String: true,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ]
+        var allResult: AnyObject?
+        let allStatus = SecItemCopyMatching(allLegacyQuery as CFDictionary, &allResult)
+        guard allStatus == errSecSuccess, let items = allResult as? [[String: Any]] else { return }
+
+        for item in items {
+            guard let account = item[kSecAttrAccount as String] as? String,
+                  let data = item[kSecValueData as String] as? Data else { continue }
+            save(account: account, data: data)
+        }
+        AppLog.shared.info("Keychain", "Migrated \(items.count) item(s) from legacy service")
     }
 
     // MARK: - Internal

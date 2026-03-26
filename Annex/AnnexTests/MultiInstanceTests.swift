@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import Annex
+@testable import ClubhouseGo
 
 // MARK: - ServerInstanceID Tests
 

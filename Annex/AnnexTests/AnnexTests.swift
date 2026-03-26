@@ -1,7 +1,7 @@
 import Testing
 import Foundation
 import SwiftUI
-@testable import Annex
+@testable import ClubhouseGo
 
 // MARK: - Model Decoding Tests
 
