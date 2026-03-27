@@ -201,3 +201,18 @@ struct ErrorRetryView: View {
         }
     }
 }
+
+// MARK: - Agent Name Validation
+
+/// Validates an agent name. Returns nil if valid, or an error message string.
+func validateAgentName(_ name: String) -> String? {
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return nil }
+    if trimmed.count < 2 { return "Name must be at least 2 characters" }
+    if trimmed.count > 40 { return "Name must be 40 characters or less" }
+    if trimmed.contains(" ") { return "Use hyphens instead of spaces (e.g. my-agent)" }
+    if !trimmed.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) {
+        return "Only letters, numbers, and hyphens allowed"
+    }
+    return nil
+}

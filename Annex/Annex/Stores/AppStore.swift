@@ -314,6 +314,24 @@ enum ConnectionState: Sendable {
         try await inst.respondToPermission(agentId: agentId, requestId: requestId, allow: allow)
     }
 
+    func createDurableAgent(
+        projectId: String, name: String, color: String?,
+        model: String?, orchestrator: String?, freeAgentMode: Bool?
+    ) async throws -> CreateDurableAgentResponse {
+        guard let inst = connectedInstances.first(where: {
+            $0.projects.contains { $0.id == projectId }
+        }) else { throw APIError.projectNotFound }
+        return try await inst.createDurableAgent(
+            projectId: projectId, name: name, color: color,
+            model: model, orchestrator: orchestrator, freeAgentMode: freeAgentMode
+        )
+    }
+
+    func deleteAgent(agentId: String) async throws {
+        guard let inst = instance(for: agentId) else { return }
+        try await inst.deleteAgent(agentId: agentId)
+    }
+
     // MARK: - Pairing
 
     func pair(server: DiscoveredServer, pin: String) async throws {
