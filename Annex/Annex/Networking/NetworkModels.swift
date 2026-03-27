@@ -544,6 +544,48 @@ struct FileNode: Identifiable, Codable, Sendable {
     var id: String { path }
 }
 
+// MARK: - Git Models
+
+struct GitCommit: Identifiable, Codable, Sendable, Hashable {
+    let hash: String
+    let shortHash: String?
+    let author: String
+    let email: String?
+    let message: String
+    let timestamp: Int
+
+    var id: String { hash }
+
+    var shortMessage: String {
+        message.components(separatedBy: .newlines).first ?? message
+    }
+
+    var displayHash: String {
+        shortHash ?? String(hash.prefix(7))
+    }
+}
+
+struct GitDiffFile: Identifiable, Codable, Sendable, Hashable {
+    let path: String
+    let status: String        // "added", "modified", "deleted", "renamed"
+    let additions: Int?
+    let deletions: Int?
+    let patch: String?
+
+    var id: String { path }
+}
+
+struct GitDiffResponse: Codable, Sendable {
+    let files: [GitDiffFile]
+    let stats: GitDiffStats?
+}
+
+struct GitDiffStats: Codable, Sendable {
+    let totalAdditions: Int
+    let totalDeletions: Int
+    let filesChanged: Int
+}
+
 // MARK: - Flexible JSON type for arbitrary payloads
 
 enum JSONValue: Codable, Sendable, Hashable {
