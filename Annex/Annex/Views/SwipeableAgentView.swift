@@ -37,26 +37,13 @@ struct SwipeableAgentView: View {
 // MARK: - Agent Card
 
 /// A full-screen card showing a single agent's status, activity, and terminal preview.
-struct AgentCardView: View {
+private struct AgentCardView: View {
     let agent: DurableAgent
     let instance: ServerInstance
     @Environment(AppStore.self) private var store
 
     private var statusColor: Color {
-        switch agent.detailedStatus?.state {
-        case .working: .green
-        case .needsPermission: .orange
-        case .toolError: .yellow
-        default:
-            switch agent.status {
-            case .starting, .running: .green
-            case .sleeping: .gray
-            case .error, .failed: .red
-            case .completed: .blue
-            case .cancelled: .gray
-            case nil: .gray
-            }
-        }
+        agentStatusColor(state: agent.detailedStatus?.state, status: agent.status)
     }
 
     private var statusLabel: String {
@@ -69,14 +56,6 @@ struct AgentCardView: View {
             }
         }
         return agent.status?.rawValue.capitalized ?? "Unknown"
-    }
-
-    private var modelLabel: String? {
-        guard let model = agent.model else { return nil }
-        if model.contains("opus") { return "Opus" }
-        if model.contains("sonnet") { return "Sonnet" }
-        if model.contains("haiku") { return "Haiku" }
-        return model
     }
 
     private var orchestratorLabel: String? {
@@ -96,7 +75,13 @@ struct AgentCardView: View {
     private var terminalPreview: String {
         let buffer = store.ptyBuffer(for: agent.id)
         guard !buffer.isEmpty else { return "" }
-        let lines = buffer.components(separatedBy: .newlines)
+        // Strip ANSI escape sequences for clean preview
+        let stripped = buffer.replacingOccurrences(
+            of: "\u{1B}\\[[0-9;]*[A-Za-z]",
+            with: "",
+            options: .regularExpression
+        )
+        let lines = stripped.components(separatedBy: .newlines)
         let lastLines = lines.suffix(4).filter { !$0.isEmpty }
         return lastLines.joined(separator: "\n")
     }
@@ -170,7 +155,7 @@ struct AgentCardView: View {
                 let c = OrchestratorColors.colors(for: agent.orchestrator)
                 ChipView(text: label, bg: c.bg, fg: c.fg)
             }
-            if let label = modelLabel {
+            if let label = modelLabel(from: agent.model) {
                 let c = ModelColors.colors(for: agent.model)
                 ChipView(text: label, bg: c.bg, fg: c.fg)
             }
@@ -214,7 +199,23 @@ struct AgentCardView: View {
                 .foregroundStyle(.secondary)
 
             ForEach(recentActivity) { event in
-                CardActivityRow(event: event, accent: store.theme.accentColor)
+                HStack(spacing: 8) {
+                    Image(systemName: hookEventIcon(for: event))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(hookEventIconColor(for: event, accent: store.theme.accentColor))
+                        .frame(width: 16, alignment: .center)
+
+                    Text(hookEventLabel(for: event))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(compactRelativeTime(from: event.timestamp))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(12)
@@ -258,6 +259,7 @@ struct AgentCardView: View {
                         color: store.theme.accentColor
                     )
                 }
+                .accessibilityHint("Opens live terminal view")
             }
 
             NavigationLink(value: agent) {
@@ -267,22 +269,7 @@ struct AgentCardView: View {
                     color: .blue
                 )
             }
-
-            if hasPendingPermission {
-                CardActionButton(
-                    icon: "lock.open",
-                    label: "Approve",
-                    color: .orange
-                )
-            }
-
-            if agent.status == .sleeping {
-                CardActionButton(
-                    icon: "bolt",
-                    label: "Wake",
-                    color: .green
-                )
-            }
+            .accessibilityHint("Shows agent details and activity")
         }
     }
 
@@ -300,105 +287,47 @@ struct AgentCardView: View {
         .background(Capsule().fill(.orange))
         .foregroundStyle(.white)
         .padding(20)
+        .accessibilityLabel("Agent needs permission approval")
     }
 }
 
 // MARK: - Supporting Views
 
 /// A pulsing status dot that animates for running agents.
-struct PulsingStatusDot: View {
+/// Respects Reduce Motion accessibility setting.
+private struct PulsingStatusDot: View {
     let color: Color
     let isAnimating: Bool
     @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldAnimate: Bool {
+        isAnimating && !reduceMotion
+    }
 
     var body: some View {
         Circle()
             .fill(color)
             .frame(width: 10, height: 10)
-            .scaleEffect(isAnimating && pulse ? 1.3 : 1.0)
-            .opacity(isAnimating && pulse ? 0.7 : 1.0)
+            .scaleEffect(shouldAnimate && pulse ? 1.3 : 1.0)
+            .opacity(shouldAnimate && pulse ? 0.7 : 1.0)
             .animation(
-                isAnimating
+                shouldAnimate
                     ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
                     : .default,
                 value: pulse
             )
             .onAppear {
-                if isAnimating { pulse = true }
+                if shouldAnimate { pulse = true }
             }
             .onChange(of: isAnimating) { _, animating in
-                pulse = animating
+                pulse = animating && !reduceMotion
             }
-    }
-}
-
-/// A compact activity row for display inside agent cards.
-private struct CardActivityRow: View {
-    let event: HookEvent
-    let accent: Color
-
-    private var icon: String {
-        switch event.kind {
-        case .preTool: toolIcon(for: event.toolName)
-        case .postTool: "checkmark.circle"
-        case .toolError: "exclamationmark.triangle.fill"
-        case .stop: "stop.circle.fill"
-        case .notification: "bell.fill"
-        case .permissionRequest: "lock.fill"
-        }
-    }
-
-    private var iconColor: Color {
-        switch event.kind {
-        case .preTool: accent
-        case .postTool: .green
-        case .toolError: .red
-        case .stop: .secondary
-        case .notification: accent
-        case .permissionRequest: .orange
-        }
-    }
-
-    private var label: String {
-        switch event.kind {
-        case .preTool:
-            return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
-        case .postTool:
-            return "\(event.toolName ?? "Tool") done"
-        case .toolError:
-            return event.message ?? "Error"
-        case .stop:
-            return event.message ?? "Stopped"
-        case .notification:
-            return event.message ?? ""
-        case .permissionRequest:
-            return "Needs permission"
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(iconColor)
-                .frame(width: 16, alignment: .center)
-
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Spacer()
-
-            Text(compactRelativeTime(from: event.timestamp))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
     }
 }
 
 /// A quick action button for agent cards.
-struct CardActionButton: View {
+private struct CardActionButton: View {
     let icon: String
     let label: String
     let color: Color

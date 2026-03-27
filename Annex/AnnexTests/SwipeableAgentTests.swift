@@ -79,11 +79,11 @@ struct AgentCardDataTests {
         let customAgent = makeAgent(model: "gpt-4")
         let noModel = makeAgent(model: nil)
 
-        #expect(extractModelLabel(opusAgent.model) == "Opus")
-        #expect(extractModelLabel(sonnetAgent.model) == "Sonnet")
-        #expect(extractModelLabel(haikuAgent.model) == "Haiku")
-        #expect(extractModelLabel(customAgent.model) == "gpt-4")
-        #expect(extractModelLabel(noModel.model) == nil)
+        #expect(modelLabel(from: opusAgent.model) == "Opus")
+        #expect(modelLabel(from: sonnetAgent.model) == "Sonnet")
+        #expect(modelLabel(from: haikuAgent.model) == "Haiku")
+        #expect(modelLabel(from: customAgent.model) == "gpt-4")
+        #expect(modelLabel(from: noModel.model) == nil)
     }
 
     @Test func detailedStatusMessageMapping() {
@@ -143,24 +143,26 @@ struct AgentCardDataTests {
         #expect(buffer.isEmpty)
     }
 
-    @Test func hookEventActivityIcons() {
-        let kinds: [HookEventKind] = [.preTool, .postTool, .toolError, .stop, .notification, .permissionRequest]
-        for kind in kinds {
-            let event = HookEvent(id: UUID(), agentId: "a", kind: kind, toolName: "Read", toolVerb: nil, message: nil, timestamp: 100)
-            #expect(event.kind == kind)
-        }
+    @Test func hookEventSharedHelpers() {
+        let preTool = HookEvent(id: UUID(), agentId: "a", kind: .preTool, toolName: "Read", toolVerb: "Reading file", message: nil, timestamp: 100)
+        #expect(hookEventIcon(for: preTool) == "doc.text")
+        #expect(hookEventLabel(for: preTool) == "Reading file")
+
+        let postTool = HookEvent(id: UUID(), agentId: "a", kind: .postTool, toolName: "Edit", toolVerb: nil, message: nil, timestamp: 200)
+        #expect(hookEventIcon(for: postTool) == "checkmark.circle")
+        #expect(hookEventLabel(for: postTool) == "Edit done")
+
+        let error = HookEvent(id: UUID(), agentId: "a", kind: .toolError, toolName: nil, toolVerb: nil, message: "File not found", timestamp: 300)
+        #expect(hookEventIcon(for: error) == "exclamationmark.triangle.fill")
+        #expect(hookEventLabel(for: error) == "File not found")
+
+        let perm = HookEvent(id: UUID(), agentId: "a", kind: .permissionRequest, toolName: nil, toolVerb: nil, message: nil, timestamp: 400)
+        #expect(hookEventIcon(for: perm) == "lock.fill")
+        #expect(hookEventLabel(for: perm) == "Needs permission")
     }
 }
 
-// MARK: - Helpers for testing card logic without views
-
-private func extractModelLabel(_ model: String?) -> String? {
-    guard let model else { return nil }
-    if model.contains("opus") { return "Opus" }
-    if model.contains("sonnet") { return "Sonnet" }
-    if model.contains("haiku") { return "Haiku" }
-    return model
-}
+// MARK: - Helper for testing status label logic
 
 private func extractStatusLabel(_ status: AgentDetailedStatus) -> String {
     switch status.state {
