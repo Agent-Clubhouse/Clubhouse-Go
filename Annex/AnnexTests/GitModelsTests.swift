@@ -112,7 +112,7 @@ struct GitDiffTests {
 
         let file = try JSONDecoder().decode(GitDiffFile.self, from: json)
         #expect(file.path == "src/main.swift")
-        #expect(file.status == "modified")
+        #expect(file.status == .modified)
         #expect(file.additions == 10)
         #expect(file.deletions == 3)
         #expect(file.patch != nil)
@@ -135,8 +135,8 @@ struct GitDiffTests {
 
         let response = try JSONDecoder().decode(GitDiffResponse.self, from: json)
         #expect(response.files.count == 2)
-        #expect(response.files[0].status == "added")
-        #expect(response.files[1].status == "deleted")
+        #expect(response.files[0].status == .added)
+        #expect(response.files[1].status == .deleted)
         #expect(response.stats?.totalAdditions == 5)
         #expect(response.stats?.totalDeletions == 10)
         #expect(response.stats?.filesChanged == 2)
@@ -144,7 +144,7 @@ struct GitDiffTests {
 
     @Test func diffFileIdentifiable() {
         let file = GitDiffFile(
-            path: "src/test.swift", status: "modified",
+            path: "src/test.swift", status: .modified,
             additions: 1, deletions: 1, patch: nil
         )
         #expect(file.id == "src/test.swift")
@@ -165,9 +165,27 @@ struct GitDiffTests {
         #expect(response.stats == nil)
     }
 
+    @Test func unknownStatusDecodesToUnknown() throws {
+        let json = """
+        {"path": "x.swift", "status": "copied"}
+        """.data(using: .utf8)!
+        let file = try JSONDecoder().decode(GitDiffFile.self, from: json)
+        #expect(file.status == .unknown)
+    }
+
+    @Test func knownStatusesDecodeCorrectly() throws {
+        for status in ["added", "modified", "deleted", "renamed"] {
+            let json = """
+            {"path": "x.swift", "status": "\(status)"}
+            """.data(using: .utf8)!
+            let file = try JSONDecoder().decode(GitDiffFile.self, from: json)
+            #expect(file.status != .unknown)
+        }
+    }
+
     @Test func diffFileRoundTrip() throws {
         let file = GitDiffFile(
-            path: "test.swift", status: "modified",
+            path: "test.swift", status: .modified,
             additions: 5, deletions: 2, patch: "+new\n-old"
         )
         let data = try JSONEncoder().encode(file)

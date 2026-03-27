@@ -1,5 +1,29 @@
 import SwiftUI
 
+// MARK: - GitFileStatus Display
+
+extension GitFileStatus {
+    var icon: String {
+        switch self {
+        case .added: "plus.circle.fill"
+        case .modified: "pencil.circle.fill"
+        case .deleted: "minus.circle.fill"
+        case .renamed: "arrow.right.circle.fill"
+        case .unknown: "circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .added: .green
+        case .modified: .orange
+        case .deleted: .red
+        case .renamed: .blue
+        case .unknown: .secondary
+        }
+    }
+}
+
 // MARK: - Git Log View
 
 /// Displays a list of recent git commits for a project.
@@ -215,9 +239,9 @@ struct CommitDetailView: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: fileStatusIcon(file.status))
+                    Image(systemName: file.status.icon)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(fileStatusColor(file.status))
+                        .foregroundStyle(file.status.color)
 
                     Text(file.path)
                         .font(.system(.caption, design: .monospaced))
@@ -283,9 +307,13 @@ struct CommitDetailView: View {
 private struct DiffPatchView: View {
     let patch: String
 
+    private var lines: [String] {
+        patch.components(separatedBy: .newlines)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(patch.components(separatedBy: .newlines).enumerated()), id: \.offset) { _, line in
+        LazyVStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 Text(line)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(lineColor(for: line))
@@ -309,27 +337,5 @@ private struct DiffPatchView: View {
         if line.hasPrefix("-") { return .red.opacity(0.08) }
         if line.hasPrefix("@@") { return .blue.opacity(0.05) }
         return .clear
-    }
-}
-
-// MARK: - Helpers
-
-private func fileStatusIcon(_ status: String) -> String {
-    switch status {
-    case "added": "plus.circle.fill"
-    case "modified": "pencil.circle.fill"
-    case "deleted": "minus.circle.fill"
-    case "renamed": "arrow.right.circle.fill"
-    default: "circle.fill"
-    }
-}
-
-private func fileStatusColor(_ status: String) -> Color {
-    switch status {
-    case "added": .green
-    case "modified": .orange
-    case "deleted": .red
-    case "renamed": .blue
-    default: .secondary
     }
 }

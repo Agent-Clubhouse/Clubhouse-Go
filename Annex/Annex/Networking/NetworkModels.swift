@@ -565,9 +565,19 @@ struct GitCommit: Identifiable, Codable, Sendable, Hashable {
     }
 }
 
+enum GitFileStatus: String, Codable, Sendable, Hashable {
+    case added, modified, deleted, renamed
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        self = GitFileStatus(rawValue: value) ?? .unknown
+    }
+}
+
 struct GitDiffFile: Identifiable, Codable, Sendable, Hashable {
     let path: String
-    let status: String        // "added", "modified", "deleted", "renamed"
+    let status: GitFileStatus
     let additions: Int?
     let deletions: Int?
     let patch: String?
