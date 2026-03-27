@@ -27,6 +27,9 @@ import Foundation
     var canvasByProject: [String: CanvasState] = [:]
     var plugins: [PluginSummary] = []
 
+    // MARK: - Replay State (observable)
+    var replayState: ReplayState = .idle
+
     // MARK: - Networking (private)
     private(set) var apiClient: AnnexAPIClient?
     private(set) var webSocket: WebSocketClient?
@@ -57,6 +60,30 @@ import Foundation
         self.id = id
         self.protocolConfig = protocolConfig
         AppLog.shared.debug("Instance", "\(id.value.prefix(12)) created (proto=\(protocolConfig.label))")
+        loadCachedState()
+    }
+
+    /// Load previously cached snapshot and activity for cold launch.
+    private func loadCachedState() {
+        if let cached = LocalCache.loadSnapshot(instanceId: id) {
+            projects = cached.projects
+            agentsByProject = cached.agents
+            quickAgentsByProject = cached.quickAgents
+            theme = cached.theme
+            orchestrators = cached.orchestrators
+            serverName = cached.serverName
+            lastSeq = cached.lastSeq
+            AppLog.shared.info("Instance", "\(logPrefix) Restored cached snapshot (saved \(cached.savedAt))")
+        }
+        if let activity = LocalCache.loadActivity(instanceId: id) {
+            activityByAgent = activity
+            AppLog.shared.info("Instance", "\(logPrefix) Restored cached activity (\(activity.values.flatMap { $0 }.count) events)")
+        }
+    }
+
+    /// Persist current activity to disk for cold launch restore.
+    func saveActivityCache() {
+        LocalCache.saveActivity(activityByAgent, instanceId: id)
     }
 
     // MARK: - Queries
@@ -209,6 +236,7 @@ import Foundation
         let previousSeq = lastSeq
         reconnectAttempt = 0
         isReplaying = false
+        replayState = .idle
 
         wsStreamTask = Task {
             for await seqEvent in stream {
@@ -270,6 +298,18 @@ import Foundation
                 }
             }
             connectionState = .connected
+            // Cache snapshot for cold launch
+            let cached = LocalCache.CachedSnapshot(
+                projects: projects,
+                agents: agentsByProject,
+                quickAgents: quickAgentsByProject,
+                theme: theme,
+                orchestrators: orchestrators,
+                serverName: serverName,
+                lastSeq: lastSeq,
+                savedAt: Date()
+            )
+            LocalCache.saveSnapshot(cached, instanceId: id)
             Task { await fetchIcons() }
 
         case .ptyData(let payload):
@@ -308,14 +348,17 @@ import Foundation
             AppLog.shared.warn("Instance", "\(logPrefix) Replay gap — resetting to seq=\(payload.lastSeq)")
             lastSeq = payload.lastSeq
             isReplaying = false
+            replayState = .gap(oldestAvailable: payload.oldestAvailable)
 
-        case .replayStart:
-            AppLog.shared.info("Instance", "\(logPrefix) Replay started")
+        case .replayStart(let payload):
+            AppLog.shared.info("Instance", "\(logPrefix) Replay started: \(payload.count) events from \(payload.fromSeq) to \(payload.toSeq)")
             isReplaying = true
+            replayState = .replaying(fromSeq: payload.fromSeq, toSeq: payload.toSeq, count: payload.count)
 
         case .replayEnd:
             AppLog.shared.info("Instance", "\(logPrefix) Replay ended")
             isReplaying = false
+            replayState = .idle
 
         case .agentSpawned(let payload):
             AppLog.shared.info("Instance", "\(logPrefix) Agent spawned: \(payload.name ?? payload.id) in project \(payload.projectId)")
@@ -718,6 +761,7 @@ import Foundation
 
     private func disconnectInternal() {
         AppLog.shared.info("Instance", "\(logPrefix) Disconnecting (clearing all state)")
+        LocalCache.clearInstance(id)
         wsStreamTask?.cancel()
         wsStreamTask = nil
         webSocket?.disconnect()
@@ -740,5 +784,6 @@ import Foundation
         reconnectAttempt = 0
         lastSeq = nil
         isReplaying = false
+        replayState = .idle
     }
 }

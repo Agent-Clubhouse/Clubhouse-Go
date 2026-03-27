@@ -27,6 +27,10 @@ struct DashboardView: View {
                 VStack(spacing: 20) {
                     ConnectionStatusBar()
 
+                    if store.replayState != .idle {
+                        ReplayStatusBanner(state: store.replayState)
+                    }
+
                     if !store.connectedInstances.isEmpty {
                         if !store.allPendingPermissions.isEmpty {
                             PermissionReviewSection(onReviewAll: {

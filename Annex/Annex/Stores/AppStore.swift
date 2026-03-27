@@ -48,6 +48,17 @@ enum ConnectionState: Sendable {
         instances.contains { $0.connectionState.isConnected }
     }
 
+    /// Aggregate replay state across all connected instances.
+    var replayState: ReplayState {
+        for inst in connectedInstances {
+            if inst.replayState.isReplaying { return inst.replayState }
+        }
+        for inst in connectedInstances {
+            if inst.replayState.hasGap { return inst.replayState }
+        }
+        return .idle
+    }
+
     func instanceByID(_ id: ServerInstanceID) -> ServerInstance? {
         instances.first { $0.id == id }
     }
