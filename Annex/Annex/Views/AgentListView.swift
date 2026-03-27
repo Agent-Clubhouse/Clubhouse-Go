@@ -58,6 +58,8 @@ struct AgentListView: View {
                 FileBrowserView(projectId: projId, projectName: projName, path: dirPath)
             case .file(let projId, let filePath, _):
                 FileContentView(projectId: projId, path: filePath)
+            case .gitLog(let projId, let projName):
+                GitLogView(projectId: projId, projectName: projName)
             }
         }
         .toolbar {

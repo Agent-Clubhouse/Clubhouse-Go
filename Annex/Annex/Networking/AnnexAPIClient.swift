@@ -360,6 +360,41 @@ final class AnnexAPIClient: Sendable {
         return String(data: data, encoding: .utf8) ?? ""
     }
 
+    // MARK: - Git Operations
+
+    func getGitLog(
+        projectId: String, maxCommits: Int = 50, token: String
+    ) async throws(APIError) -> [GitCommit] {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/git/log")
+        let url = try makeURL("/api/v1/projects/\(projectId)/git/log?limit=\(maxCommits)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode([GitCommit].self, from: data)
+    }
+
+    func getGitDiff(
+        projectId: String, commitHash: String, token: String
+    ) async throws(APIError) -> GitDiffResponse {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/git/diff/\(commitHash)")
+        let url = try makeURL("/api/v1/projects/\(projectId)/git/diff/\(commitHash)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode(GitDiffResponse.self, from: data)
+    }
+
+    func getGitShowCommit(
+        projectId: String, commitHash: String, token: String
+    ) async throws(APIError) -> GitCommit {
+        AppLog.shared.debug("API", "[\(configLabel)] GET /api/v1/projects/\(projectId)/git/show/\(commitHash)")
+        let url = try makeURL("/api/v1/projects/\(projectId)/git/show/\(commitHash)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode(GitCommit.self, from: data)
+    }
+
     // MARK: - Icons
 
     func fetchAgentIcon(agentId: String, token: String) async -> Data? {

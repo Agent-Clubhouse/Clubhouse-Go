@@ -9,6 +9,19 @@ struct FileBrowserView: View {
     @State private var nodes: [FileNode] = []
     @State private var isLoading = true
     @State private var error: String?
+    @State private var searchText = ""
+
+    private var isRoot: Bool { path == "." }
+
+    private var breadcrumbs: [String] {
+        guard !isRoot else { return [] }
+        return path.components(separatedBy: "/").filter { !$0.isEmpty }
+    }
+
+    private var filteredNodes: [FileNode] {
+        guard !searchText.isEmpty else { return nodes }
+        return nodes.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
 
     var body: some View {
         Group {
@@ -28,45 +41,93 @@ struct FileBrowserView: View {
                     Text("No files found at this path.")
                 }
             } else {
-                List(nodes) { node in
-                    if node.isDirectory {
-                        NavigationLink(value: FileBrowserDestination.directory(
-                            projectId: projectId,
-                            projectName: projectName,
-                            path: node.path,
-                            name: node.name
-                        )) {
-                            FileRowView(node: node)
+                List {
+                    if !breadcrumbs.isEmpty {
+                        breadcrumbRow
+                    }
+
+                    ForEach(filteredNodes) { node in
+                        if node.isDirectory {
+                            NavigationLink(value: FileBrowserDestination.directory(
+                                projectId: projectId,
+                                projectName: projectName,
+                                path: node.path,
+                                name: node.name
+                            )) {
+                                FileRowView(node: node)
+                            }
+                            .listRowBackground(store.theme.surface0Color.opacity(0.5))
+                        } else {
+                            NavigationLink(value: FileBrowserDestination.file(
+                                projectId: projectId,
+                                path: node.path,
+                                name: node.name
+                            )) {
+                                FileRowView(node: node)
+                            }
+                            .listRowBackground(store.theme.surface0Color.opacity(0.5))
                         }
-                        .listRowBackground(store.theme.surface0Color.opacity(0.5))
-                    } else {
-                        NavigationLink(value: FileBrowserDestination.file(
-                            projectId: projectId,
-                            path: node.path,
-                            name: node.name
-                        )) {
-                            FileRowView(node: node)
-                        }
-                        .listRowBackground(store.theme.surface0Color.opacity(0.5))
                     }
                 }
                 .scrollContentBackground(.hidden)
+                .searchable(text: $searchText, prompt: "Filter files")
+                .overlay {
+                    if filteredNodes.isEmpty && !searchText.isEmpty {
+                        ContentUnavailableView.search(text: searchText)
+                    }
+                }
             }
         }
         .background(store.theme.baseColor)
-        .navigationTitle(path == "." ? projectName : (path as NSString).lastPathComponent)
+        .navigationTitle(isRoot ? projectName : (path as NSString).lastPathComponent)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if isRoot {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(value: FileBrowserDestination.gitLog(
+                        projectId: projectId,
+                        projectName: projectName
+                    )) {
+                        Label("Git Log", systemImage: "clock.arrow.circlepath")
+                    }
+                }
+            }
+        }
         .navigationDestination(for: FileBrowserDestination.self) { dest in
             switch dest {
             case .directory(let projId, let projName, let dirPath, _):
                 FileBrowserView(projectId: projId, projectName: projName, path: dirPath)
             case .file(let projId, let filePath, _):
                 FileContentView(projectId: projId, path: filePath)
+            case .gitLog(let projId, let projName):
+                GitLogView(projectId: projId, projectName: projName)
             }
         }
         .task {
             await loadTree()
         }
+    }
+
+    private var breadcrumbRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                ForEach(Array(breadcrumbs.enumerated()), id: \.offset) { index, crumb in
+                    if index > 0 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.quaternary)
+                    }
+                    Text(crumb)
+                        .font(.caption)
+                        .foregroundStyle(index == breadcrumbs.count - 1 ? .primary : .tertiary)
+                }
+            }
+        }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private func loadTree() async {
@@ -98,6 +159,7 @@ struct FileBrowserView: View {
 enum FileBrowserDestination: Hashable {
     case directory(projectId: String, projectName: String, path: String, name: String)
     case file(projectId: String, path: String, name: String)
+    case gitLog(projectId: String, projectName: String)
 }
 
 // MARK: - File Row
