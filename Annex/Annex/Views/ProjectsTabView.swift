@@ -5,15 +5,50 @@ import SwiftUI
 struct ProjectsTabView: View {
     @Environment(AppStore.self) private var store
 
+    private var isLoading: Bool {
+        !store.instances.isEmpty
+            && store.connectedInstances.isEmpty
+            && store.instances.contains(where: {
+                if case .connecting = $0.connectionState { return true }
+                if case .discovering = $0.connectionState { return true }
+                if case .reconnecting = $0.connectionState { return true }
+                return false
+            })
+    }
+
+    private var hasError: Bool {
+        store.instances.contains { $0.lastError != nil }
+            && store.connectedInstances.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(store.connectedInstances) { instance in
-                    ProjectsInstanceSection(instance: instance)
+            Group {
+                if isLoading {
+                    List {
+                        ForEach(0..<4, id: \.self) { _ in
+                            ProjectCardSkeleton()
+                                .listRowBackground(Color.clear)
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
+                } else if hasError {
+                    ErrorRetryView(
+                        title: "Connection Error",
+                        message: store.instances.compactMap(\.lastError).first ?? "Unable to reach server.",
+                        onRetry: {
+                            Task {
+                                for inst in store.instances {
+                                    await store.reconnect(instanceId: inst.id)
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    projectList
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(store.theme.baseColor)
             .navigationTitle("Projects")
             .navigationDestination(for: ProjectNavItem.self) { item in
@@ -37,20 +72,36 @@ struct ProjectsTabView: View {
                     }
                 }
             }
-            .overlay {
-                if store.allProjects.isEmpty {
-                    ContentUnavailableView(
-                        "No Projects",
-                        systemImage: "folder",
-                        description: Text("Connect to a Clubhouse server to see your projects.")
-                    )
-                }
+        }
+    }
+
+    private var projectList: some View {
+        List {
+            ForEach(store.connectedInstances) { instance in
+                ProjectsInstanceSection(instance: instance)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .overlay {
+            if store.connectedInstances.isEmpty {
+                ContentUnavailableView(
+                    "Not Connected",
+                    systemImage: "wifi.slash",
+                    description: Text("Connect to a Clubhouse server to see your projects.")
+                )
+            } else if store.allProjects.isEmpty {
+                ContentUnavailableView(
+                    "No Projects",
+                    systemImage: "folder",
+                    description: Text("No projects found on connected servers.")
+                )
             }
         }
     }
 }
 
-// MARK: - Instance Section (extracted for type checker)
+// MARK: - Instance Section
 
 private struct ProjectsInstanceSection: View {
     let instance: ServerInstance
@@ -87,10 +138,19 @@ private struct ProjectRowLink: View {
                 durableCount: durableAgents.count,
                 quickCount: quickAgents.count,
                 runningCount: runningCount,
-                iconData: store.projectIcons[project.id]
+                iconData: store.projectIcons[project.id],
+                lastActivity: latestActivityTimestamp(for: project, in: instance)
             )
         }
         .listRowBackground(store.theme.surface0Color.opacity(0.4))
+    }
+
+    private func latestActivityTimestamp(for project: Project, in instance: ServerInstance) -> Int? {
+        let agentIds = instance.agents(for: project).map(\.id)
+        let timestamps = agentIds.compactMap { id in
+            instance.activity(for: id).last?.timestamp
+        }
+        return timestamps.max()
     }
 }
 
@@ -109,10 +169,20 @@ private struct ProjectCardRow: View {
     let quickCount: Int
     let runningCount: Int
     let iconData: Data?
+    let lastActivity: Int?
     @Environment(AppStore.self) private var store
+
+    private var projectColor: Color {
+        AgentColor.color(for: project.color)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(projectColor)
+                .frame(width: 4, height: 48)
+                .accessibilityHidden(true)
+
             ProjectIconView(
                 name: project.name,
                 displayName: project.displayName,
@@ -150,12 +220,24 @@ private struct ProjectCardRow: View {
 
             Spacer()
 
-            if store.connectedInstances.count > 1 {
-                Text(instanceName)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+            VStack(alignment: .trailing, spacing: 4) {
+                if store.connectedInstances.count > 1 {
+                    Text(instanceName)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+
+                if let ts = lastActivity {
+                    Text(compactRelativeTime(from: ts))
+                        .font(.caption2)
+                        .foregroundStyle(.quaternary)
+                }
             }
+
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }
@@ -182,7 +264,6 @@ struct ProjectExplorerView: View {
     }
 
     private var recentActivity: [HookEvent] {
-        // Aggregate activity across all agents in this project
         let agentIds = durableAgents.map(\.id) + quickAgents.map(\.id)
         return agentIds
             .flatMap { store.activity(for: $0) }
@@ -205,7 +286,6 @@ struct ProjectExplorerView: View {
 
     var body: some View {
         List {
-            // Project info header
             Section {
                 ProjectHeaderView(
                     project: project,
@@ -218,7 +298,6 @@ struct ProjectExplorerView: View {
                 .listRowInsets(EdgeInsets())
             }
 
-            // Annex-enabled plugins
             if !annexPlugins.isEmpty {
                 Section("Plugins") {
                     ForEach(annexPlugins) { plugin in
@@ -243,7 +322,6 @@ struct ProjectExplorerView: View {
                 .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
 
-            // Durable Agents
             if !durableAgents.isEmpty {
                 Section("Agents") {
                     ForEach(durableAgents) { agent in
@@ -255,7 +333,6 @@ struct ProjectExplorerView: View {
                 .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
 
-            // Quick Agents
             if !quickAgents.isEmpty {
                 Section("Quick Agents") {
                     ForEach(quickAgents) { agent in
@@ -265,7 +342,6 @@ struct ProjectExplorerView: View {
                 .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
 
-            // Recent Activity
             if !recentActivity.isEmpty {
                 Section("Recent Activity") {
                     ForEach(recentActivity.prefix(10)) { event in
@@ -275,7 +351,6 @@ struct ProjectExplorerView: View {
                 .listRowBackground(store.theme.surface0Color.opacity(0.4))
             }
 
-            // Non-annex plugins (greyed out)
             if !nonAnnexPlugins.isEmpty {
                 Section {
                     ForEach(nonAnnexPlugins) { plugin in
@@ -347,9 +422,12 @@ private struct ProjectHeaderView: View {
     let iconData: Data?
     @Environment(AppStore.self) private var store
 
+    private var projectColor: Color {
+        AgentColor.color(for: project.color)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
-            // Large project icon
             if let iconData, let uiImage = UIImage(data: iconData) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -357,26 +435,27 @@ private struct ProjectHeaderView: View {
                     .frame(width: 64, height: 64)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
-                let color = AgentColor(rawValue: project.color ?? "indigo") ?? .indigo
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(hex: color.hex))
+                    .fill(projectColor.opacity(0.2))
                     .frame(width: 64, height: 64)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(projectColor.opacity(0.4), lineWidth: 2)
+                    )
                     .overlay {
                         Text(String(project.label.prefix(1)).uppercased())
                             .font(.title.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(projectColor)
                     }
             }
 
             VStack(spacing: 4) {
                 Text(project.label)
                     .font(.title2.weight(.bold))
-
                 Text(project.path)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
-
                 if !instanceName.isEmpty {
                     Text(instanceName)
                         .font(.caption)
@@ -384,7 +463,6 @@ private struct ProjectHeaderView: View {
                 }
             }
 
-            // Stats row
             HStack(spacing: 24) {
                 VStack(spacing: 2) {
                     Text("\(durableCount)")
@@ -477,20 +555,10 @@ private struct ActivityEventRow: View {
 
             Spacer()
 
-            Text(relativeTime(from: event.timestamp))
+            Text(compactRelativeTime(from: event.timestamp))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
-    }
-
-    private func relativeTime(from unixMs: Int) -> String {
-        let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
-        if seconds < 60 { return "now" }
-        let minutes = seconds / 60
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60
-        if hours < 24 { return "\(hours)h" }
-        return "\(hours / 24)d"
     }
 }
 

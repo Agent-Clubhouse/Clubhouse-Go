@@ -5,42 +5,61 @@ struct DashboardView: View {
     @State private var showPermissionReview = false
     @State private var showSpawnSheet = false
 
+    private var isLoading: Bool {
+        !store.instances.isEmpty
+            && store.connectedInstances.isEmpty
+            && store.instances.contains(where: {
+                if case .connecting = $0.connectionState { return true }
+                if case .discovering = $0.connectionState { return true }
+                if case .reconnecting = $0.connectionState { return true }
+                return false
+            })
+    }
+
+    private var hasError: Bool {
+        store.instances.contains { $0.lastError != nil }
+            && store.connectedInstances.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Connection status
                     ConnectionStatusBar()
 
-                    // Disconnected warning
                     if !store.connectedInstances.isEmpty {
-                        // Permission queue
                         if !store.allPendingPermissions.isEmpty {
                             PermissionReviewSection(onReviewAll: {
                                 showPermissionReview = true
                             })
                         }
 
-                        // Running agents
-                        RunningAgentsSection()
-
-                        // Quick stats
                         StatsSection()
+                        RunningAgentsSection()
+                        RecentActivitySection()
+
+                        QuickActionsSection(
+                            onSpawn: { showSpawnSheet = true },
+                            onReviewPermissions: { showPermissionReview = true }
+                        )
+                    } else if isLoading {
+                        DashboardLoadingView()
+                    } else if hasError {
+                        ErrorRetryView(
+                            title: "Connection Error",
+                            message: store.instances.compactMap(\.lastError).first ?? "Unable to connect to server.",
+                            onRetry: {
+                                Task {
+                                    for inst in store.instances {
+                                        await store.reconnect(instanceId: inst.id)
+                                    }
+                                }
+                            }
+                        )
                     } else if !store.instances.isEmpty {
-                        // Have instances but none connected
-                        VStack(spacing: 16) {
-                            Image(systemName: "wifi.exclamationmark")
-                                .font(.system(size: 40))
-                                .foregroundStyle(.orange)
-                            Text("All Instances Offline")
-                                .font(.title3.weight(.semibold))
-                            Text("Your Clubhouse servers aren't reachable. Check that they're running and on the same network.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 20)
-                        }
-                        .padding(.top, 40)
+                        DisconnectedWarningView()
+                    } else {
+                        NoInstancesView()
                     }
                 }
                 .padding()
@@ -52,6 +71,7 @@ struct DashboardView: View {
                     Button { showSpawnSheet = true } label: {
                         Image(systemName: "bolt.fill")
                     }
+                    .disabled(store.connectedInstances.isEmpty)
                 }
             }
             .fullScreenCover(isPresented: $showPermissionReview) {
@@ -79,11 +99,17 @@ private struct ConnectionStatusBar: View {
                     Text(instance.serverName.isEmpty ? "Server" : instance.serverName)
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
-                    Text("\(instance.runningAgentCount)")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(.secondary.opacity(0.2)))
+                    if instance.connectionState.isConnected {
+                        Text("\(instance.runningAgentCount)")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(Capsule().fill(.secondary.opacity(0.2)))
+                    } else {
+                        Text(instance.connectionState.label)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -202,6 +228,65 @@ private struct MiniPermissionCard: View {
     }
 }
 
+// MARK: - Stats Section
+
+private struct StatsSection: View {
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible(), spacing: 10),
+            GridItem(.flexible(), spacing: 10),
+        ], spacing: 10) {
+            StatCard(icon: "bolt.fill", label: "Running",
+                     value: "\(store.runningAgentCount)", color: .green,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "person.3.fill", label: "Total Agents",
+                     value: "\(store.totalAgentCount)", color: store.theme.accentColor,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "folder.fill", label: "Projects",
+                     value: "\(store.allProjects.count)", color: .blue,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "lock.shield.fill", label: "Pending",
+                     value: "\(store.allPendingPermissions.count)",
+                     color: store.allPendingPermissions.isEmpty ? .secondary : .orange,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+        }
+    }
+}
+
+private struct StatCard: View {
+    let icon: String
+    let label: String
+    let value: String
+    let color: Color
+    let backgroundColor: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(color)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.title2.weight(.bold))
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(backgroundColor)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
+    }
+}
+
 // MARK: - Running Agents Section
 
 private struct RunningAgentsSection: View {
@@ -243,6 +328,7 @@ private struct RunningAgentTile: View {
     let agent: DurableAgent
     let instanceName: String
     let iconData: Data?
+    @Environment(AppStore.self) private var store
 
     var body: some View {
         VStack(spacing: 8) {
@@ -254,75 +340,138 @@ private struct RunningAgentTile: View {
                 iconData: iconData,
                 size: 44
             )
-
-            Text(agent.name ?? "")
-                .font(.caption2.weight(.medium))
-                .lineLimit(1)
-
-            Text(instanceName)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            VStack(spacing: 2) {
+                Text(agent.name ?? "")
+                    .font(.caption2.weight(.medium))
+                    .lineLimit(1)
+                if let msg = agent.detailedStatus?.message, !msg.isEmpty {
+                    Text(msg)
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
         }
-        .frame(width: 72)
-    }
-}
-
-// MARK: - Stats Section
-
-private struct StatsSection: View {
-    @Environment(AppStore.self) private var store
-
-    var body: some View {
-        HStack(spacing: 12) {
-            StatCard(
-                icon: "person.3.fill",
-                label: "Total Agents",
-                value: "\(store.totalAgentCount)",
-                color: store.theme.accentColor
-            )
-
-            StatCard(
-                icon: "bolt.fill",
-                label: "Running",
-                value: "\(store.runningAgentCount)",
-                color: .green
-            )
-
-            StatCard(
-                icon: "desktopcomputer",
-                label: "Instances",
-                value: "\(store.connectedInstances.count)",
-                color: .blue
-            )
-        }
-    }
-}
-
-private struct StatCard: View {
-    let icon: String
-    let label: String
-    let value: String
-    let color: Color
-
-    @Environment(AppStore.self) private var store
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(color)
-            Text(value)
-                .font(.title2.weight(.bold))
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .frame(width: 80)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(store.theme.surface0Color.opacity(0.5))
+                .fill(store.theme.surface0Color.opacity(0.3))
         )
+    }
+}
+
+// MARK: - Quick Actions Section
+
+private struct QuickActionsSection: View {
+    let onSpawn: () -> Void
+    let onReviewPermissions: () -> Void
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quick Actions")
+                .font(.headline)
+            HStack(spacing: 12) {
+                QuickActionButton(icon: "bolt.fill", label: "Spawn Agent",
+                                  color: store.theme.accentColor, action: onSpawn)
+                    .accessibilityHint("Opens the agent spawn dialog")
+                if !store.allPendingPermissions.isEmpty {
+                    QuickActionButton(icon: "lock.shield.fill",
+                                      label: "Review (\(store.allPendingPermissions.count))",
+                                      color: .orange, action: onReviewPermissions)
+                        .accessibilityHint("Opens the permission review flow")
+                }
+            }
+        }
+    }
+}
+
+private struct QuickActionButton: View {
+    let icon: String
+    let label: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.subheadline.weight(.semibold))
+                Text(label)
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(color.opacity(0.12))
+                    .strokeBorder(color.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Loading State
+
+private struct DashboardLoadingView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10),
+            ], spacing: 10) {
+                ForEach(0..<4, id: \.self) { _ in
+                    StatCardSkeleton()
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ShimmerView(width: 120, height: 16, cornerRadius: 4)
+                ForEach(0..<3, id: \.self) { _ in
+                    AgentCardSkeleton()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Empty / Disconnected States
+
+private struct DisconnectedWarningView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundStyle(.orange)
+            Text("All Instances Offline")
+                .font(.title3.weight(.semibold))
+            Text("Your Clubhouse servers aren't reachable. Check that they're running and on the same network.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+        }
+        .padding(.top, 40)
+    }
+}
+
+private struct NoInstancesView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "desktopcomputer.trianglebadge.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text("No Instances")
+                .font(.title3.weight(.semibold))
+            Text("Pair with a Clubhouse server to get started. Your agents, projects, and activity will appear here.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+        }
+        .padding(.top, 40)
     }
 }
 

@@ -110,6 +110,11 @@ import Foundation
         activityByAgent[agentId] ?? []
     }
 
+    /// All activity events across all agents for this instance, flattened.
+    var allActivityEvents: [HookEvent] {
+        activityByAgent.values.flatMap { $0 }
+    }
+
     func structuredEvents(for agentId: String) -> [StructuredEvent] {
         structuredEventsByAgent[agentId] ?? []
     }
