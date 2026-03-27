@@ -165,9 +165,25 @@ struct PermissionBanner: View {
 
     @Environment(AppStore.self) private var store
     @State private var isResponding = false
+    @State private var responseError: String?
 
     var body: some View {
         VStack(spacing: 0) {
+            if let responseError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                    Text(responseError)
+                        .font(.caption)
+                    Spacer()
+                    Button("Retry") { self.responseError = nil }
+                        .font(.caption.weight(.bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(Color.red)
+            }
             Button(action: onTap) {
                 HStack(spacing: 10) {
                     Image(systemName: "lock.shield.fill")
@@ -227,13 +243,19 @@ struct PermissionBanner: View {
 
     private func quickRespond(allow: Bool) async {
         isResponding = true
+        responseError = nil
         let style: UIImpactFeedbackGenerator.FeedbackStyle = allow ? .medium : .rigid
         UIImpactFeedbackGenerator(style: style).impactOccurred()
-        try? await store.respondToPermission(
-            agentId: permission.agentId,
-            requestId: permission.id,
-            allow: allow
-        )
+        do {
+            try await store.respondToPermission(
+                agentId: permission.agentId,
+                requestId: permission.id,
+                allow: allow
+            )
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            responseError = (error as? APIError)?.userMessage ?? "Response failed"
+        }
         isResponding = false
     }
 }
