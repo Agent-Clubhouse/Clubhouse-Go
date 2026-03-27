@@ -81,6 +81,7 @@ struct AgentAvatarView: View {
                     .strokeBorder(ringColor, lineWidth: 2.5)
                     .frame(width: size + 4, height: size + 4)
                     .opacity(state == .working ? (0.6 + 0.4 * sin(Double(ringPhase))) : 1)
+                    .animation(.easeInOut(duration: 0.4), value: ringColor)
             )
 
             if showErrorBadge {
@@ -94,8 +95,10 @@ struct AgentAvatarView: View {
                     )
                     .scaleEffect(state == .needsPermission && badgePulse ? 1.2 : 1.0)
                     .offset(x: size * 0.06, y: -size * 0.06)
+                    .transition(.scale.combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showErrorBadge)
         .onAppear {
             if state == .working {
                 withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
@@ -176,6 +179,7 @@ struct StatusDotView: View {
         Circle()
             .fill(color)
             .frame(width: size, height: size)
+            .animation(.easeInOut(duration: 0.3), value: status)
     }
 }
 

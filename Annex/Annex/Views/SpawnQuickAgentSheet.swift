@@ -95,8 +95,10 @@ struct SpawnQuickAgentSheet: View {
                     freeAgentMode: freeAgentMode ? true : nil
                 )
             }
+            Haptics.success()
             dismiss()
         } catch {
+            Haptics.error()
             errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
             isSubmitting = false
         }

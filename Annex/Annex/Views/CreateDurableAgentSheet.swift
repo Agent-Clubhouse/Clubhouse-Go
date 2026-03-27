@@ -104,9 +104,11 @@ struct CreateDurableAgentSheet: View {
                 orchestrator: selectedOrchestrator,
                 freeAgentMode: freeAgentMode ? true : nil
             )
+            Haptics.success()
             dismiss()
             onCreated?(response.id)
         } catch {
+            Haptics.error()
             errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
             isSubmitting = false
         }
@@ -141,6 +143,7 @@ private struct ColorPickerRow: View {
                                 .frame(width: 38, height: 38)
                         )
                         .onTapGesture {
+                            Haptics.selection()
                             selectedColor = agentColor.rawValue
                         }
                         .accessibilityLabel(agentColor.rawValue)

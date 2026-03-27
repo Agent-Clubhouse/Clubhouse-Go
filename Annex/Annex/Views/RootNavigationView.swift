@@ -30,6 +30,9 @@ struct RootNavigationView: View {
                 AllAgentsView()
             }
         }
+        .onChange(of: selectedTab) { _, _ in
+            Haptics.selection()
+        }
     }
 }
 
