@@ -5,6 +5,7 @@ struct QuickAgentDetailView: View {
     @Environment(AppStore.self) private var store
     @State private var isCancelling = false
     @State private var cancelError: String?
+    @State private var showDeleteConfirmation = false
 
     private var statusLabel: String {
         switch agent.status {
@@ -158,6 +159,40 @@ struct QuickAgentDetailView: View {
         .background(store.theme.baseColor)
         .navigationTitle(agent.label)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if agent.status == .completed || agent.status == .failed || agent.status == .cancelled {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+
+                    Button(role: .destructive) {
+                        store.removeQuickAgent(agentId: agent.id)
+                    } label: {
+                        Label("Remove from List", systemImage: "eye.slash")
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete Quick Agent?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await store.deleteAgent(agentId: agent.id)
+                }
+            }
+        } message: {
+            Text("This will permanently remove this quick agent and its data.")
+        }
     }
 
     private func cancelAgent() async {

@@ -250,6 +250,7 @@ struct ProjectExplorerView: View {
     let instanceId: ServerInstanceID
     @Environment(AppStore.self) private var store
     @State private var showSpawnSheet = false
+    @State private var showCreateSheet = false
 
     private var instance: ServerInstance? {
         store.instanceByID(instanceId)
@@ -379,9 +380,21 @@ struct ProjectExplorerView: View {
         .navigationTitle(project.label)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { showSpawnSheet = true } label: {
-                    Image(systemName: "bolt.fill")
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        showSpawnSheet = true
+                    } label: {
+                        Label("Quick Agent", systemImage: "bolt.fill")
+                    }
+
+                    Button {
+                        showCreateSheet = true
+                    } label: {
+                        Label("New Durable Agent", systemImage: "person.badge.plus")
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
@@ -394,6 +407,12 @@ struct ProjectExplorerView: View {
             SpawnQuickAgentSheet(
                 projectId: project.id,
                 parentAgentId: nil,
+                orchestrators: store.orchestrators
+            )
+        }
+        .sheet(isPresented: $showCreateSheet) {
+            CreateDurableAgentSheet(
+                projectId: project.id,
                 orchestrators: store.orchestrators
             )
         }

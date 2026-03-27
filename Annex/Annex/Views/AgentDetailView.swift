@@ -7,6 +7,8 @@ struct AgentDetailView: View {
     @State private var showMessageSheet = false
     @State private var showSpawnSheet = false
     @State private var showPermissionSheet = false
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
 
     private var stateMessage: String {
         guard let ds = agent.detailedStatus else {
@@ -147,6 +149,17 @@ struct AgentDetailView: View {
                     Label("See Live", systemImage: "terminal")
                         .font(.caption)
                 }
+
+                Menu {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Agent", systemImage: "trash")
+                    }
+                    .disabled(isDeleting)
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
             }
         }
         .sheet(isPresented: $showWakeSheet) {
@@ -181,6 +194,23 @@ struct AgentDetailView: View {
                 SessionListView(agentId: id)
             }
         }
+        .confirmationDialog(
+            "Delete \(agent.name ?? "Agent")?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Agent", role: .destructive) {
+                Task { await deleteAgent() }
+            }
+        } message: {
+            Text("This will permanently remove the agent and its data. This action cannot be undone.")
+        }
+    }
+
+    private func deleteAgent() async {
+        isDeleting = true
+        try? await store.deleteAgent(agentId: agent.id)
+        isDeleting = false
     }
 }
 
