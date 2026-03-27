@@ -23,7 +23,7 @@ struct ProjectRowView: View {
             ProjectIconView(
                 name: project.name,
                 displayName: project.displayName,
-                iconData: store.projectIcons[project.id]
+                iconData: store.projectIconData(project.id)
             )
 
             VStack(alignment: .leading, spacing: 3) {

@@ -35,7 +35,7 @@ struct AgentRowView: View {
                 status: agent.status,
                 state: agent.detailedStatus?.state,
                 name: agent.name,
-                iconData: store.agentIcons[agent.id]
+                iconData: store.agentIconData(agent.id)
             )
 
             VStack(alignment: .leading, spacing: 4) {

@@ -169,6 +169,10 @@ enum ConnectionState: Sendable {
         for inst in connectedInstances {
             merged.merge(inst.agentIcons) { _, new in new }
         }
+        // Populate icon cache as icons arrive from instances
+        for (id, data) in merged {
+            iconCache.storeIfNeeded(key: "agent:\(id)", data: data)
+        }
         return merged
     }
 
@@ -177,7 +181,20 @@ enum ConnectionState: Sendable {
         for inst in connectedInstances {
             merged.merge(inst.projectIcons) { _, new in new }
         }
+        for (id, data) in merged {
+            iconCache.storeIfNeeded(key: "project:\(id)", data: data)
+        }
         return merged
+    }
+
+    /// Get cached agent icon Data, or nil if not available.
+    func agentIconData(_ agentId: String) -> Data? {
+        agentIcons[agentId]
+    }
+
+    /// Get cached project icon Data, or nil if not available.
+    func projectIconData(_ projectId: String) -> Data? {
+        projectIcons[projectId]
     }
 
     var allCanvasStates: [(instance: ServerInstance, projectId: String, canvas: CanvasState)] {

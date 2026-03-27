@@ -47,7 +47,7 @@ struct AnnexesTabView: View {
                                     project: project,
                                     agentCount: instance.agents(for: project).count,
                                     runningCount: instance.agents(for: project).filter { $0.status == .running }.count,
-                                    iconData: store.projectIcons[project.id]
+                                    iconData: store.projectIconData(project.id)
                                 )
                             }
                             .listRowBackground(store.theme.surface0Color.opacity(0.4))

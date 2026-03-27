@@ -131,7 +131,7 @@ private struct AgentCardView: View {
                 status: agent.status,
                 state: agent.detailedStatus?.state,
                 name: agent.name,
-                iconData: store.agentIcons[agent.id],
+                iconData: store.agentIconData(agent.id),
                 size: 64
             )
 
