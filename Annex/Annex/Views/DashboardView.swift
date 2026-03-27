@@ -314,7 +314,7 @@ private struct RunningAgentsSection: View {
                             RunningAgentTile(
                                 agent: ia.agent,
                                 instanceName: ia.instance.serverName,
-                                iconData: store.agentIcons[ia.agent.id]
+                                iconData: store.agentIconData(ia.agent.id)
                             )
                         }
                     }

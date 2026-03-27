@@ -138,7 +138,7 @@ private struct ProjectRowLink: View {
                 durableCount: durableAgents.count,
                 quickCount: quickAgents.count,
                 runningCount: runningCount,
-                iconData: store.projectIcons[project.id],
+                iconData: store.projectIconData(project.id),
                 lastActivity: latestActivityTimestamp(for: project, in: instance)
             )
         }
@@ -294,7 +294,7 @@ struct ProjectExplorerView: View {
                     instanceName: instance?.serverName ?? "",
                     durableCount: durableAgents.count,
                     quickCount: quickAgents.count,
-                    iconData: store.projectIcons[project.id]
+                    iconData: store.projectIconData(project.id)
                 )
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())

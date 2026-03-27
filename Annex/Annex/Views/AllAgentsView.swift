@@ -162,7 +162,7 @@ struct AllAgentsView: View {
                             ProjectIconView(
                                 name: project.name,
                                 displayName: project.displayName,
-                                iconData: store.projectIcons[project.id],
+                                iconData: store.projectIconData(project.id),
                                 size: 18
                             )
                             Text(project.label)
@@ -323,7 +323,7 @@ private struct AgentCardRow: View {
                 status: agent.status,
                 state: agent.detailedStatus?.state,
                 name: agent.name,
-                iconData: store.agentIcons[agent.id]
+                iconData: store.agentIconData(agent.id)
             )
 
             VStack(alignment: .leading, spacing: 4) {
