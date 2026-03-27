@@ -596,29 +596,61 @@ import Foundation
     func fetchIcons() async {
         guard let apiClient, let token else { return }
 
-        var agentIconCount = 0
-        var projectIconCount = 0
+        let agentsNeedingIcons = agentsByProject.values.flatMap { $0 }
+            .filter { $0.icon != nil && agentIcons[$0.id] == nil }
+        let projectsNeedingIcons = projects
+            .filter { $0.icon != nil && projectIcons[$0.id] == nil }
 
-        for agents in agentsByProject.values {
-            for agent in agents where agent.icon != nil {
-                if agentIcons[agent.id] != nil { continue }
-                if let data = await apiClient.fetchAgentIcon(agentId: agent.id, token: token) {
-                    agentIcons[agent.id] = data
-                    agentIconCount += 1
+        guard !agentsNeedingIcons.isEmpty || !projectsNeedingIcons.isEmpty else { return }
+
+        await withTaskGroup(of: (String, String, Data?).self) { group in
+            for agent in agentsNeedingIcons {
+                group.addTask {
+                    let data = await apiClient.fetchAgentIcon(agentId: agent.id, token: token)
+                    return ("agent", agent.id, data)
                 }
             }
-        }
+            for project in projectsNeedingIcons {
+                group.addTask {
+                    let data = await apiClient.fetchProjectIcon(projectId: project.id, token: token)
+                    return ("project", project.id, data)
+                }
+            }
 
-        for project in projects where project.icon != nil {
-            if projectIcons[project.id] != nil { continue }
-            if let data = await apiClient.fetchProjectIcon(projectId: project.id, token: token) {
-                projectIcons[project.id] = data
-                projectIconCount += 1
+            var agentCount = 0
+            var projectCount = 0
+            for await (kind, id, data) in group {
+                guard let data else { continue }
+                if kind == "agent" {
+                    agentIcons[id] = data
+                    agentCount += 1
+                } else {
+                    projectIcons[id] = data
+                    projectCount += 1
+                }
+            }
+
+            if agentCount > 0 || projectCount > 0 {
+                AppLog.shared.info("Instance", "\(logPrefix) Fetched \(agentCount) agent icon(s), \(projectCount) project icon(s)")
             }
         }
+    }
 
-        if agentIconCount > 0 || projectIconCount > 0 {
-            AppLog.shared.info("Instance", "\(logPrefix) Fetched \(agentIconCount) agent icon(s), \(projectIconCount) project icon(s)")
+    /// Fetch a single agent icon on demand if not already cached.
+    func fetchAgentIconIfNeeded(agentId: String) async {
+        guard agentIcons[agentId] == nil,
+              let apiClient, let token else { return }
+        if let data = await apiClient.fetchAgentIcon(agentId: agentId, token: token) {
+            agentIcons[agentId] = data
+        }
+    }
+
+    /// Fetch a single project icon on demand if not already cached.
+    func fetchProjectIconIfNeeded(projectId: String) async {
+        guard projectIcons[projectId] == nil,
+              let apiClient, let token else { return }
+        if let data = await apiClient.fetchProjectIcon(projectId: projectId, token: token) {
+            projectIcons[projectId] = data
         }
     }
 
