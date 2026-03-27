@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct ClubhouseGoApp: App {
     @State private var store = AppStore()
+    @Environment(\.scenePhase) private var scenePhase
 
     private var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("--ui-testing")
@@ -30,6 +31,25 @@ struct ClubhouseGoApp: App {
                     .environment(store)
                     .tint(store.theme.accentColor)
                     .preferredColorScheme(store.theme.isDark ? .dark : .light)
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .background:
+                // Save activity cache for cold launch restore
+                for instance in store.instances {
+                    instance.saveActivityCache()
+                }
+            case .active:
+                // Reconnect any disconnected instances
+                Task {
+                    for instance in store.instances where !instance.connectionState.isConnected {
+                        if case .reconnecting = instance.connectionState { continue }
+                        await store.reconnect(instanceId: instance.id)
+                    }
+                }
+            default:
+                break
             }
         }
     }

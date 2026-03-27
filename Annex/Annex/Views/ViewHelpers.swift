@@ -260,3 +260,34 @@ func validateAgentName(_ name: String) -> String? {
     }
     return nil
 }
+
+// MARK: - Replay Status Banner
+
+/// Shows "Catching up..." during replay or "Some events may be missing" on gap.
+struct ReplayStatusBanner: View {
+    let state: ReplayState
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if state.isReplaying {
+                ProgressView()
+                    .controlSize(.small)
+                Text(state.label)
+                    .font(.subheadline.weight(.medium))
+            } else if state.hasGap {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text(state.label)
+                    .font(.subheadline)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(state.isReplaying ? Color.blue.opacity(0.1) : Color.orange.opacity(0.1))
+        )
+        .padding(.horizontal)
+    }
+}

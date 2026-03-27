@@ -1,5 +1,32 @@
 import Foundation
 
+// MARK: - Replay State
+
+/// Observable replay state for UI to show "Catching up..." or gap warnings.
+enum ReplayState: Sendable, Equatable {
+    case idle
+    case replaying(fromSeq: Int, toSeq: Int, count: Int)
+    case gap(oldestAvailable: Int)
+
+    var isReplaying: Bool {
+        if case .replaying = self { return true }
+        return false
+    }
+
+    var hasGap: Bool {
+        if case .gap = self { return true }
+        return false
+    }
+
+    var label: String {
+        switch self {
+        case .idle: return ""
+        case .replaying(_, _, let count): return "Catching up... (\(count) events)"
+        case .gap: return "Some events may be missing"
+        }
+    }
+}
+
 // MARK: - Multi-Instance Identity
 
 /// Unique, stable identifier for a Clubhouse server instance.
