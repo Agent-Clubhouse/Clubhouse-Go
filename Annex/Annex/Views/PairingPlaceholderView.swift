@@ -42,7 +42,46 @@ struct PairingPlaceholderView: View {
             }
 
             // Server selection
-            if discovery.servers.isEmpty && discovery.isSearching {
+            if discovery.permissionDenied {
+                VStack(spacing: 8) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.title)
+                        .foregroundStyle(.orange)
+                    Text("Local Network Access Required")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Go to Settings > Privacy & Security > Local Network and enable access for Clubhouse Go.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding()
+            } else if discovery.servers.isEmpty && discovery.searchTimedOut {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                    Text("No Servers Found")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Make sure Clubhouse desktop is running with Go enabled in Settings, and that your phone is on the same Wi-Fi network.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                    Button("Retry") {
+                        discovery.stopSearching()
+                        discovery.startSearching()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding()
+            } else if discovery.servers.isEmpty && discovery.isSearching {
                 ProgressView()
                     .padding()
             } else {
