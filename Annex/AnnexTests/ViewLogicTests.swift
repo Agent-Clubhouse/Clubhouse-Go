@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import SwiftUI
 @testable import ClubhouseGo
 
 // MARK: - Agent Sort Order Tests
