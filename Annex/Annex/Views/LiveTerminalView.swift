@@ -9,13 +9,16 @@ struct LiveTerminalView: View {
     @State private var userScrolledUp = false
     @State private var renderVersion = 0
     @State private var showCopied = false
+    @State private var availableWidth: CGFloat = 0
+    @State private var copyToastTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
 
-    /// Calculate terminal columns from screen width
+    private static let charWidth: CGFloat = 6.7 // approximate monospace char width at size 11
+
+    /// Calculate terminal columns from available width
     private var terminalCols: Int {
-        let screenWidth = UIScreen.main.bounds.width - 16 // padding
-        let charWidth: CGFloat = 6.7 // approximate monospace char width at size 11
-        return max(Int(screenWidth / charWidth), 40)
+        let width = availableWidth > 0 ? availableWidth - 16 : 320
+        return max(Int(width / Self.charWidth), 40)
     }
 
     private var connectionState: ConnectionState {
@@ -30,58 +33,63 @@ struct LiveTerminalView: View {
             }
 
             // Terminal output
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        Text(terminal.render())
-                            .font(.system(size: 11, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .textSelection(.enabled)
+            GeometryReader { geo in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Text(terminal.render())
+                                .font(.system(size: 11, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .textSelection(.enabled)
 
-                        // Invisible anchor at the very end of content
-                        Color.clear
-                            .frame(height: 1)
-                            .id("end")
+                            // Invisible anchor at the very end of content
+                            Color.clear
+                                .frame(height: 1)
+                                .id("end")
+                        }
                     }
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .onScrollGeometryChange(for: Bool.self) { geo in
-                    // User is "at bottom" if within 40pt of the bottom edge
-                    geo.contentOffset.y + geo.containerSize.height >= geo.contentSize.height - 40
-                } action: { _, atBottom in
-                    userScrolledUp = !atBottom
-                }
-                .onAppear {
-                    setupTerminal()
-                    scrollToBottom(proxy)
-                }
-                .onDisappear {
-                    unsubscribe?()
-                    unsubscribe = nil
-                }
-                .onChange(of: renderVersion) {
-                    if !userScrolledUp {
+                    .scrollDismissesKeyboard(.interactively)
+                    .onScrollGeometryChange(for: Bool.self) { scrollGeo in
+                        // User is "at bottom" if within 40pt of the bottom edge
+                        scrollGeo.contentOffset.y + scrollGeo.containerSize.height >= scrollGeo.contentSize.height - 40
+                    } action: { _, atBottom in
+                        userScrolledUp = !atBottom
+                    }
+                    .onAppear {
+                        availableWidth = geo.size.width
+                        setupTerminal()
                         scrollToBottom(proxy)
                     }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if userScrolledUp {
-                        Button {
-                            userScrolledUp = false
-                            scrollToBottom(proxy)
-                        } label: {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.system(size: 32))
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, .gray.opacity(0.8))
-                                .shadow(radius: 4)
-                        }
-                        .padding(.trailing, 12)
-                        .padding(.bottom, 12)
-                        .transition(.scale.combined(with: .opacity))
+                    .onDisappear {
+                        copyToastTask?.cancel()
+                        unsubscribe?()
+                        unsubscribe = nil
                     }
+                    .onChange(of: renderVersion) {
+                        if !userScrolledUp {
+                            scrollToBottom(proxy)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if userScrolledUp {
+                            Button {
+                                userScrolledUp = false
+                                scrollToBottom(proxy)
+                            } label: {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.system(size: 32))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, .gray.opacity(0.8))
+                                    .shadow(radius: 4)
+                            }
+                            .accessibilityLabel("Jump to bottom")
+                            .padding(.trailing, 12)
+                            .padding(.bottom, 12)
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                }
                 }
             }
 
@@ -190,6 +198,8 @@ struct LiveTerminalView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.red.opacity(0.85))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Connection status: \(connectionState.label)")
     }
 
     // MARK: - Actions
@@ -204,9 +214,12 @@ struct LiveTerminalView: View {
         let text = terminal.plainText()
         guard !text.isEmpty else { return }
         UIPasteboard.general.string = text
+        AccessibilityNotification.Announcement("Copied to clipboard").post()
         withAnimation(.easeInOut(duration: 0.2)) { showCopied = true }
-        Task {
+        copyToastTask?.cancel()
+        copyToastTask = Task {
             try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: 0.2)) { showCopied = false }
         }
     }

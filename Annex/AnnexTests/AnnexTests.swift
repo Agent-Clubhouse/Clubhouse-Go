@@ -1906,7 +1906,7 @@ struct PtyMessageTests {
 
 // MARK: - ANSITerminal Plain Text Tests
 
-@Suite(.serialized)
+@Suite
 struct ANSITerminalPlainTextTests {
     @Test func plainTextSimple() {
         let term = ANSITerminal(cols: 20, rows: 5)
@@ -1950,6 +1950,7 @@ struct ANSITerminalPlainTextTests {
 
 // MARK: - Activity Filter Tests
 
+@Suite
 struct ActivityFilterTests {
     private func makeEvent(kind: HookEventKind, toolName: String? = nil) -> HookEvent {
         HookEvent(id: UUID(), agentId: "a", kind: kind, toolName: toolName, toolVerb: nil, message: nil, timestamp: 0)
@@ -1993,6 +1994,7 @@ struct ActivityFilterTests {
 
 // MARK: - Relative Time Tests
 
+@Suite
 struct RelativeTimeTests {
     private func msAgo(_ seconds: Int) -> Int {
         Int((Date().timeIntervalSince1970 - Double(seconds)) * 1000)

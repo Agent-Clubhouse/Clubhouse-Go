@@ -1,5 +1,8 @@
 import SwiftUI
 
+// MARK: - Activity Filter
+
+/// Filter categories for the activity feed. Kept `internal` intentionally for test access.
 enum ActivityFilter: String, CaseIterable {
     case all = "All"
     case tools = "Tools"
@@ -16,6 +19,34 @@ enum ActivityFilter: String, CaseIterable {
     }
 }
 
+// MARK: - Relative Time Formatting
+
+/// Format a Unix-ms timestamp as a relative time string.
+/// Kept `internal` intentionally for test access.
+func relativeTime(_ unixMs: Int) -> String {
+    let date = Date(timeIntervalSince1970: Double(unixMs) / 1000)
+    let seconds = Int(Date().timeIntervalSince(date))
+
+    if seconds < 5 { return "just now" }
+    if seconds < 60 { return "\(seconds)s ago" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m ago" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h ago" }
+    return RelativeTimeFormatting.absoluteFormatter.string(from: date)
+}
+
+private enum RelativeTimeFormatting {
+    static let absoluteFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        f.dateStyle = .short
+        return f
+    }()
+}
+
+// MARK: - Activity Feed View
+
 struct ActivityFeedView: View {
     let events: [HookEvent]
     @Environment(AppStore.self) private var store
@@ -26,19 +57,30 @@ struct ActivityFeedView: View {
         events.filter { filter.matches($0) }
     }
 
+    /// Pre-compute filter counts once per render instead of per-chip.
+    private var filterCounts: [ActivityFilter: Int] {
+        var counts: [ActivityFilter: Int] = [:]
+        for f in ActivityFilter.allCases where f != .all {
+            counts[f] = events.filter { f.matches($0) }.count
+        }
+        return counts
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Filter bar
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(ActivityFilter.allCases, id: \.self) { option in
+                        let count = option == .all ? nil : filterCounts[option]
                         FilterChip(
                             title: option.rawValue,
-                            count: option == .all ? nil : events.filter { option.matches($0) }.count,
+                            count: count,
                             isSelected: filter == option
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) { filter = option }
                         }
+                        .accessibilityLabel(chipAccessibilityLabel(option, count: count))
                     }
                 }
                 .padding(.horizontal)
@@ -88,6 +130,13 @@ struct ActivityFeedView: View {
         .sheet(item: $selectedPermission) { perm in
             PermissionRequestSheet(permission: perm, agentName: nil)
         }
+    }
+
+    private func chipAccessibilityLabel(_ filter: ActivityFilter, count: Int?) -> String {
+        if let count, count > 0 {
+            return "\(filter.rawValue), \(count) event\(count == 1 ? "" : "s")"
+        }
+        return filter.rawValue
     }
 }
 
@@ -189,7 +238,6 @@ private struct ActivityEventRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            // Timeline line + icon
             VStack(spacing: 0) {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .medium))
@@ -232,24 +280,6 @@ private func toolIcon(_ toolName: String?) -> String {
     case "Task": return "arrow.triangle.branch"
     default: return "wrench"
     }
-}
-
-/// Format a Unix-ms timestamp as a relative time string.
-func relativeTime(_ unixMs: Int) -> String {
-    let date = Date(timeIntervalSince1970: Double(unixMs) / 1000)
-    let seconds = Int(Date().timeIntervalSince(date))
-
-    if seconds < 5 { return "just now" }
-    if seconds < 60 { return "\(seconds)s ago" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m ago" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h ago" }
-    // Fall back to absolute time for old events
-    let formatter = DateFormatter()
-    formatter.timeStyle = .short
-    formatter.dateStyle = .short
-    return formatter.string(from: date)
 }
 
 #Preview {
