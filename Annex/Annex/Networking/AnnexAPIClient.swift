@@ -346,6 +346,35 @@ final class AnnexAPIClient: Sendable {
         return data
     }
 
+    // MARK: - Sessions & Transcripts
+
+    func getSessions(agentId: String, token: String) async throws(APIError) -> [SessionInfo] {
+        AppLog.shared.info("API", "[\(configLabel)] GET /api/v1/agents/\(agentId)/sessions")
+        let url = try makeURL("/api/v1/agents/\(agentId)/sessions")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode([SessionInfo].self, from: data)
+    }
+
+    func getTranscript(agentId: String, sessionId: String, offset: Int = 0, limit: Int = 50, token: String) async throws(APIError) -> TranscriptResponse {
+        AppLog.shared.info("API", "[\(configLabel)] GET /api/v1/agents/\(agentId)/sessions/\(sessionId)/transcript?offset=\(offset)&limit=\(limit)")
+        let url = try makeURL("/api/v1/agents/\(agentId)/sessions/\(sessionId)/transcript?offset=\(offset)&limit=\(limit)")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode(TranscriptResponse.self, from: data)
+    }
+
+    func getSessionSummary(agentId: String, sessionId: String, token: String) async throws(APIError) -> SessionSummary {
+        AppLog.shared.info("API", "[\(configLabel)] GET /api/v1/agents/\(agentId)/sessions/\(sessionId)/summary")
+        let url = try makeURL("/api/v1/agents/\(agentId)/sessions/\(sessionId)/summary")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(request)
+        return try decode(SessionSummary.self, from: data)
+    }
+
     // MARK: - WebSocket URL
 
     func webSocketURL(token: String) throws(APIError) -> URL {

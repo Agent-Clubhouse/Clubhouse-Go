@@ -2118,3 +2118,112 @@ struct HookEventFormattingTests {
         #expect(hookEventColorName(.permissionRequest) == "orange")
     }
 }
+
+// MARK: - Session Model Tests
+
+@Suite
+struct SessionModelTests {
+    @Test func decodeSessionInfo() throws {
+        let json = """
+        {"id":"sess_001","agentId":"agent_1","startedAt":1708531200000,"endedAt":1708531500000,"status":"completed","messageCount":42,"model":"claude-opus-4-5","costUsd":0.0523,"inputTokens":12345,"outputTokens":6789}
+        """
+        let session = try JSONDecoder().decode(SessionInfo.self, from: Data(json.utf8))
+        #expect(session.id == "sess_001")
+        #expect(session.agentId == "agent_1")
+        #expect(session.status == "completed")
+        #expect(session.messageCount == 42)
+        #expect(session.model == "claude-opus-4-5")
+        #expect(session.costUsd == 0.0523)
+        #expect(session.inputTokens == 12345)
+        #expect(session.outputTokens == 6789)
+        #expect(session.startedAt == 1708531200000)
+        #expect(session.endedAt == 1708531500000)
+    }
+
+    @Test func decodeSessionInfoMinimal() throws {
+        let json = """
+        {"id":"sess_002","agentId":"agent_2"}
+        """
+        let session = try JSONDecoder().decode(SessionInfo.self, from: Data(json.utf8))
+        #expect(session.id == "sess_002")
+        #expect(session.status == nil)
+        #expect(session.messageCount == nil)
+        #expect(session.costUsd == nil)
+    }
+
+    @Test func decodeTranscriptEntry() throws {
+        let json = """
+        {"id":"entry_001","role":"assistant","content":"Hello, I'll help you fix that bug.","toolName":null,"timestamp":1708531200000,"index":0}
+        """
+        let entry = try JSONDecoder().decode(TranscriptEntry.self, from: Data(json.utf8))
+        #expect(entry.id == "entry_001")
+        #expect(entry.role == "assistant")
+        #expect(entry.content == "Hello, I'll help you fix that bug.")
+        #expect(entry.toolName == nil)
+        #expect(entry.index == 0)
+    }
+
+    @Test func decodeTranscriptEntryToolUse() throws {
+        let json = """
+        {"id":"entry_002","role":"tool_use","content":"Reading file...","toolName":"Read","timestamp":1708531210000,"index":1}
+        """
+        let entry = try JSONDecoder().decode(TranscriptEntry.self, from: Data(json.utf8))
+        #expect(entry.role == "tool_use")
+        #expect(entry.toolName == "Read")
+    }
+
+    @Test func decodeTranscriptResponse() throws {
+        let json = """
+        {"entries":[{"id":"e1","role":"user","content":"Fix the bug","toolName":null,"timestamp":1708531200000,"index":0}],"total":25,"hasMore":true}
+        """
+        let response = try JSONDecoder().decode(TranscriptResponse.self, from: Data(json.utf8))
+        #expect(response.entries.count == 1)
+        #expect(response.total == 25)
+        #expect(response.hasMore == true)
+    }
+
+    @Test func decodeTranscriptResponseMinimal() throws {
+        let json = """
+        {"entries":[]}
+        """
+        let response = try JSONDecoder().decode(TranscriptResponse.self, from: Data(json.utf8))
+        #expect(response.entries.isEmpty)
+        #expect(response.hasMore == nil)
+        #expect(response.total == nil)
+    }
+
+    @Test func decodeSessionSummary() throws {
+        let json = """
+        {"sessionId":"sess_001","summary":"Fixed authentication bug in login flow","filesChanged":["src/auth/login.ts","src/auth/session.ts"],"toolsUsed":["Read","Edit","Bash"],"duration":300,"model":"claude-opus-4-5","costUsd":0.0523,"inputTokens":12345,"outputTokens":6789}
+        """
+        let summary = try JSONDecoder().decode(SessionSummary.self, from: Data(json.utf8))
+        #expect(summary.sessionId == "sess_001")
+        #expect(summary.summary == "Fixed authentication bug in login flow")
+        #expect(summary.filesChanged?.count == 2)
+        #expect(summary.toolsUsed?.count == 3)
+        #expect(summary.duration == 300)
+    }
+
+    @Test func decodeSessionSummaryMinimal() throws {
+        let json = """
+        {"sessionId":"sess_002"}
+        """
+        let summary = try JSONDecoder().decode(SessionSummary.self, from: Data(json.utf8))
+        #expect(summary.sessionId == "sess_002")
+        #expect(summary.summary == nil)
+        #expect(summary.filesChanged == nil)
+        #expect(summary.duration == nil)
+    }
+
+    @Test func sessionInfoIdentifiable() {
+        let s1 = SessionInfo(id: "s1", agentId: "a1", startedAt: nil, endedAt: nil, status: nil, messageCount: nil, model: nil, costUsd: nil, inputTokens: nil, outputTokens: nil)
+        let s2 = SessionInfo(id: "s2", agentId: "a1", startedAt: nil, endedAt: nil, status: nil, messageCount: nil, model: nil, costUsd: nil, inputTokens: nil, outputTokens: nil)
+        #expect(s1.id != s2.id)
+    }
+
+    @Test func transcriptEntryIdentifiable() {
+        let e1 = TranscriptEntry(id: "e1", role: "user", content: nil, toolName: nil, timestamp: nil, index: nil)
+        let e2 = TranscriptEntry(id: "e2", role: "assistant", content: nil, toolName: nil, timestamp: nil, index: nil)
+        #expect(e1.id != e2.id)
+    }
+}

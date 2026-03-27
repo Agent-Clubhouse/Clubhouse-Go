@@ -139,6 +139,10 @@ struct AgentDetailView: View {
                     }
                 }
 
+                NavigationLink(value: "sessions:\(agent.id)") {
+                    Label("Sessions", systemImage: "clock.arrow.circlepath")
+                }
+
                 NavigationLink(value: "live:\(agent.id)") {
                     Label("See Live", systemImage: "terminal")
                         .font(.caption)
@@ -170,6 +174,9 @@ struct AgentDetailView: View {
             if value.hasPrefix("live:") {
                 let id = String(value.dropFirst(5))
                 LiveTerminalView(agentId: id)
+            } else if value.hasPrefix("sessions:") {
+                let id = String(value.dropFirst(9))
+                SessionListView(agentId: id)
             }
         }
     }
