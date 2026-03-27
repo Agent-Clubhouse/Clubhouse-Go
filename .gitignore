@@ -9,3 +9,6 @@
 
 # Xcode user state
 xcuserdata/
+
+# Agent-specific Claude instructions (managed outside repo)
+CLAUDE.md
