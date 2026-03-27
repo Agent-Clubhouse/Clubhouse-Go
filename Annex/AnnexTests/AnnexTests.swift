@@ -488,7 +488,7 @@ struct AgentWSPayloadTests {
 
 // MARK: - AppStore Tests
 
-@MainActor
+@MainActor @Suite(.serialized)
 struct AppStoreTests {
     @Test func initialState() {
         let store = AppStore()
@@ -771,17 +771,16 @@ struct InitialsTests {
 
 // MARK: - All Agents View Support Tests
 
-@MainActor
+@MainActor @Suite(.serialized)
 struct AllAgentsTests {
     @Test func allAgentsSortedByStatus() {
         let store = AppStore()
         store.loadMockData()
+        // allAgents delegates to activeInstance (inst1: proj_001 has 2 agents, proj_003 has 1)
         let agents = store.allAgents
-        // Should have all 5 agents
-        #expect(agents.count == 5)
+        #expect(agents.count == 3)
         // Running agents should come before sleeping/error
         let statuses = agents.compactMap(\.status)
-        // First agents should be running
         let firstRunningIndex = statuses.firstIndex(of: .running)
         let firstSleepingIndex = statuses.firstIndex(of: .sleeping)
         if let r = firstRunningIndex, let s = firstSleepingIndex {
@@ -858,17 +857,17 @@ struct AllAgentsTests {
     @Test func projectLookupMapsCorrectly() {
         let store = AppStore()
         store.loadMockData()
-        // faithful-urchin belongs to proj_001 ("My App")
+        // faithful-urchin belongs to proj_001 ("My App") on active instance
         let faithfulUrchin = store.allAgents.first { $0.name == "faithful-urchin" }
         #expect(faithfulUrchin != nil)
         let project = store.project(for: faithfulUrchin!)
         #expect(project?.id == "proj_001")
         #expect(project?.label == "My App")
 
-        // bold-eagle belongs to proj_002 ("api-server")
-        let boldEagle = store.allAgents.first { $0.name == "bold-eagle" }
+        // bold-eagle belongs to proj_002 ("api-server") on inst2 — use cross-instance lookup
+        let boldEagle = store.allAgentsAcrossInstances.first { $0.agent.name == "bold-eagle" }
         #expect(boldEagle != nil)
-        let project2 = store.project(for: boldEagle!)
+        let project2 = store.project(for: boldEagle!.agent)
         #expect(project2?.id == "proj_002")
     }
 }
@@ -1045,7 +1044,7 @@ struct PermissionWSTests {
 
 // MARK: - AppStore Permission Tests
 
-@MainActor
+@MainActor @Suite(.serialized)
 struct AppStorePermissionTests {
     @Test func pendingPermissionsEmptyByDefault() {
         let store = AppStore()
@@ -1054,20 +1053,22 @@ struct AppStorePermissionTests {
 
     @Test func pendingPermissionForAgent() {
         let store = AppStore()
+        store.loadMockData()
+        // Use a real agent ID from the active instance's mock data so instance(for:) can find it
+        let agentId = "durable_1737000000000_abc123" // faithful-urchin on active instance
         let futureDeadline = Int(Date().timeIntervalSince1970 * 1000) + 60_000
         let perm = PermissionRequest(
             requestId: "perm_001",
-            agentId: "agent_1",
+            agentId: agentId,
             toolName: "Bash",
             toolInput: nil,
             message: "Run tests",
             timeout: 120000,
             deadline: futureDeadline
         )
-        store.loadMockData()
         store.activeInstance?.pendingPermissions["perm_001"] = perm
 
-        let found = store.pendingPermission(for: "agent_1")
+        let found = store.pendingPermission(for: agentId)
         #expect(found != nil)
         #expect(found?.id == "perm_001")
     }
@@ -1550,6 +1551,7 @@ struct DEREncoderTests {
 
 // MARK: - mTLS Identity Tests
 
+@Suite(.serialized)
 struct MTLSIdentityTests {
     @Test func buildSelfSignedCertProducesValidDER() {
         // Generate an RSA key for testing

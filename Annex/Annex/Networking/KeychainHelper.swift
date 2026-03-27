@@ -4,6 +4,7 @@ import Security
 enum KeychainHelper {
     private static let service = "com.Agent-Clubhouse.Go"
     private static let legacyService = "com.Agent-Clubhouse.Annex"
+    private static let indexLock = NSLock()
 
     // MARK: - Per-Instance Storage
 
@@ -32,6 +33,8 @@ enum KeychainHelper {
         }
         save(account: "instance-\(id.value)", data: data)
 
+        indexLock.lock()
+        defer { indexLock.unlock() }
         var ids = loadInstanceIDs()
         if !ids.contains(id) { ids.append(id) }
         guard let indexData = try? JSONEncoder().encode(ids) else { return }
@@ -63,6 +66,9 @@ enum KeychainHelper {
     static func deleteInstance(id: ServerInstanceID) {
         AppLog.shared.info("Keychain", "Deleting instance \(id.value)")
         delete(account: "instance-\(id.value)")
+
+        indexLock.lock()
+        defer { indexLock.unlock() }
         var ids = loadInstanceIDs()
         ids.removeAll { $0 == id }
         if ids.isEmpty {
@@ -144,16 +150,26 @@ enum KeychainHelper {
     }
 
     private static func save(account: String, data: Data) {
-        delete(account: account)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: data,
         ]
-        let status = SecItemAdd(query as CFDictionary, nil)
-        if status != errSecSuccess {
-            AppLog.shared.error("Keychain", "SecItemAdd failed for '\(account)': OSStatus \(status)")
+        let attrs: [String: Any] = [kSecValueData as String: data]
+
+        // Try update first — if the item already exists, this is the safe path.
+        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+
+        // Item doesn't exist yet — add it.
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        if addStatus == errSecDuplicateItem {
+            // Race: another caller added between our update and add — update again.
+            SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+        } else if addStatus != errSecSuccess {
+            AppLog.shared.error("Keychain", "SecItemAdd failed for '\(account)': OSStatus \(addStatus)")
         }
     }
 
