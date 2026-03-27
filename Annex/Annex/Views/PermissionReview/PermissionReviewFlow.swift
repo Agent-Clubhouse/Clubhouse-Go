@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PermissionReviewFlow: View {
     @Environment(AppStore.self) private var store
@@ -99,6 +100,8 @@ struct PermissionReviewFlow: View {
     }
 
     private func handleDecision(perm: AppStore.InstancePermission, allow: Bool) {
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = allow ? .medium : .rigid
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
         Task {
             try? await store.respondToPermission(
                 agentId: perm.permission.agentId,
