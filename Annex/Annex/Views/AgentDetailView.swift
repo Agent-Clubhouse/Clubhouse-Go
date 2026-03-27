@@ -139,6 +139,10 @@ struct AgentDetailView: View {
                     }
                 }
 
+                NavigationLink(value: "sessions:\(agent.id)") {
+                    Label("Sessions", systemImage: "clock.arrow.circlepath")
+                }
+
                 NavigationLink(value: "live:\(agent.id)") {
                     Label("See Live", systemImage: "terminal")
                         .font(.caption)
@@ -166,10 +170,15 @@ struct AgentDetailView: View {
                 )
             }
         }
+        // Tech debt: string-prefix navigation values should be replaced with a
+        // typed AgentNavDestination enum. Tracked for a future cleanup mission.
         .navigationDestination(for: String.self) { value in
             if value.hasPrefix("live:") {
                 let id = String(value.dropFirst(5))
                 LiveTerminalView(agentId: id)
+            } else if value.hasPrefix("sessions:") {
+                let id = String(value.dropFirst(9))
+                SessionListView(agentId: id)
             }
         }
     }

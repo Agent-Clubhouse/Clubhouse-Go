@@ -197,6 +197,54 @@ struct SendMessageResponse: Codable, Sendable {
     let delivered: Bool
 }
 
+// MARK: - Session History Models
+
+enum SessionStatus: String, Codable, Sendable {
+    case active
+    case completed
+    case error
+}
+
+struct SessionInfo: Codable, Sendable, Identifiable {
+    let id: String
+    let agentId: String
+    let startedAt: Int? // Unix ms
+    let endedAt: Int? // Unix ms
+    let status: SessionStatus?
+    let messageCount: Int?
+    let model: String?
+    let costUsd: Double?
+    let inputTokens: Int?
+    let outputTokens: Int?
+}
+
+struct TranscriptEntry: Codable, Sendable, Identifiable {
+    let id: String
+    let role: String // "user", "assistant", "tool_use", "tool_result"
+    let content: String?
+    let toolName: String?
+    let timestamp: Int? // Unix ms
+    let index: Int?
+}
+
+struct TranscriptResponse: Codable, Sendable {
+    let entries: [TranscriptEntry]
+    let total: Int?
+    let hasMore: Bool?
+}
+
+struct SessionSummary: Codable, Sendable {
+    let sessionId: String
+    let summary: String?
+    let filesChanged: [String]?
+    let toolsUsed: [String]?
+    let duration: Int? // seconds
+    let model: String?
+    let costUsd: Double?
+    let inputTokens: Int?
+    let outputTokens: Int?
+}
+
 // MARK: - New WebSocket Payloads
 
 struct AgentSpawnedPayload: Codable, Sendable {
