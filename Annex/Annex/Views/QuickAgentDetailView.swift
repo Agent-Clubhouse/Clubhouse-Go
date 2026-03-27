@@ -6,6 +6,7 @@ struct QuickAgentDetailView: View {
     @State private var isCancelling = false
     @State private var cancelError: String?
     @State private var showDeleteConfirmation = false
+    @State private var deleteError: String?
 
     private var statusLabel: String {
         switch agent.status {
@@ -187,11 +188,23 @@ struct QuickAgentDetailView: View {
         ) {
             Button("Delete", role: .destructive) {
                 Task {
-                    try? await store.deleteAgent(agentId: agent.id)
+                    do {
+                        try await store.deleteAgent(agentId: agent.id)
+                    } catch {
+                        deleteError = (error as? APIError)?.userMessage ?? error.localizedDescription
+                    }
                 }
             }
         } message: {
             Text("This will permanently remove this quick agent and its data.")
+        }
+        .alert("Delete Failed", isPresented: .init(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("OK") { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
         }
     }
 

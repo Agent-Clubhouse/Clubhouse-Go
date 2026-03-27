@@ -9,6 +9,7 @@ struct AgentDetailView: View {
     @State private var showPermissionSheet = false
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var deleteError: String?
 
     private var stateMessage: String {
         guard let ds = agent.detailedStatus else {
@@ -205,11 +206,24 @@ struct AgentDetailView: View {
         } message: {
             Text("This will permanently remove the agent and its data. This action cannot be undone.")
         }
+        .alert("Delete Failed", isPresented: .init(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("OK") { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
     }
 
     private func deleteAgent() async {
         isDeleting = true
-        try? await store.deleteAgent(agentId: agent.id)
+        deleteError = nil
+        do {
+            try await store.deleteAgent(agentId: agent.id)
+        } catch {
+            deleteError = (error as? APIError)?.userMessage ?? error.localizedDescription
+        }
         isDeleting = false
     }
 }

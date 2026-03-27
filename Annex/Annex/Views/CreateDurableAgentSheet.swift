@@ -3,6 +3,7 @@ import SwiftUI
 struct CreateDurableAgentSheet: View {
     let projectId: String
     let orchestrators: [String: OrchestratorEntry]
+    var onCreated: ((String) -> Void)? = nil
 
     @Environment(AppStore.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -14,7 +15,6 @@ struct CreateDurableAgentSheet: View {
     @State private var freeAgentMode = false
     @State private var isSubmitting = false
     @State private var errorMessage: String?
-    @State private var createdAgentId: String?
 
     private let availableModels = [
         ("claude-opus-4-6", "Opus 4.6"),
@@ -23,15 +23,7 @@ struct CreateDurableAgentSheet: View {
     ]
 
     private var nameValidationError: String? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return nil } // Don't show error for empty (just disable button)
-        if trimmed.count < 2 { return "Name must be at least 2 characters" }
-        if trimmed.count > 40 { return "Name must be 40 characters or less" }
-        if trimmed.contains(" ") { return "Use hyphens instead of spaces (e.g. my-agent)" }
-        if !trimmed.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) {
-            return "Only letters, numbers, and hyphens allowed"
-        }
-        return nil
+        validateAgentName(name)
     }
 
     private var canSubmit: Bool {
@@ -112,8 +104,8 @@ struct CreateDurableAgentSheet: View {
                 orchestrator: selectedOrchestrator,
                 freeAgentMode: freeAgentMode ? true : nil
             )
-            createdAgentId = response.id
             dismiss()
+            onCreated?(response.id)
         } catch {
             errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
             isSubmitting = false

@@ -307,7 +307,8 @@ final class AnnexAPIClient: Sendable {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.httpBody = try? JSONEncoder().encode(request)
+        // Encoding can't fail for these simple Codable structs
+        req.httpBody = try! JSONEncoder().encode(request)
         let data = try await perform(req)
         let response = try decode(CreateDurableAgentResponse.self, from: data)
         AppLog.shared.info("API", "[\(configLabel)] Durable agent created: \(response.id) name=\(response.name)")
@@ -325,7 +326,8 @@ final class AnnexAPIClient: Sendable {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.httpBody = try? JSONEncoder().encode(request)
+        // Encoding can't fail for these simple Codable structs
+        req.httpBody = try! JSONEncoder().encode(request)
         let data = try await perform(req)
         return try decode(DeleteAgentResponse.self, from: data)
     }

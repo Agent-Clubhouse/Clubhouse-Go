@@ -121,48 +121,35 @@ struct DeleteAgentTests {
 // MARK: - Agent Name Validation Tests
 
 struct AgentNameValidationTests {
-    /// Mirrors the validation logic from CreateDurableAgentSheet
-    private func validate(_ name: String) -> String? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return nil }
-        if trimmed.count < 2 { return "Name must be at least 2 characters" }
-        if trimmed.count > 40 { return "Name must be 40 characters or less" }
-        if trimmed.contains(" ") { return "Use hyphens instead of spaces (e.g. my-agent)" }
-        if !trimmed.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) {
-            return "Only letters, numbers, and hyphens allowed"
-        }
-        return nil
-    }
-
     @Test func validNames() {
-        #expect(validate("brave-falcon") == nil)
-        #expect(validate("my-agent-123") == nil)
-        #expect(validate("ab") == nil)
-        #expect(validate("a-very-long-but-still-valid-name-here12") == nil) // 40 chars
+        #expect(validateAgentName("brave-falcon") == nil)
+        #expect(validateAgentName("my-agent-123") == nil)
+        #expect(validateAgentName("ab") == nil)
+        #expect(validateAgentName("a-very-long-but-still-valid-name-here12") == nil) // 40 chars
     }
 
     @Test func emptyReturnsNil() {
-        #expect(validate("") == nil) // Empty doesn't show error, just disables button
-        #expect(validate("   ") == nil)
+        #expect(validateAgentName("") == nil)
+        #expect(validateAgentName("   ") == nil)
     }
 
     @Test func tooShort() {
-        #expect(validate("a") != nil)
+        #expect(validateAgentName("a") != nil)
     }
 
     @Test func tooLong() {
         let long = String(repeating: "a", count: 41)
-        #expect(validate(long) != nil)
+        #expect(validateAgentName(long) != nil)
     }
 
     @Test func spacesRejected() {
-        #expect(validate("my agent") != nil)
+        #expect(validateAgentName("my agent") != nil)
     }
 
     @Test func specialCharsRejected() {
-        #expect(validate("my_agent") != nil)
-        #expect(validate("my.agent") != nil)
-        #expect(validate("my@agent") != nil)
+        #expect(validateAgentName("my_agent") != nil)
+        #expect(validateAgentName("my.agent") != nil)
+        #expect(validateAgentName("my@agent") != nil)
     }
 }
 
@@ -208,27 +195,43 @@ struct AppStoreAgentManagementTests {
         return store
     }
 
-    @Test func deleteAgentRemovesFromLocalCache() async throws {
-        let store = makeStore()
-        let inst = store.connectedInstances[0]
-        let initialCount = inst.allAgents.count
+    @Test func serverInstanceDeleteRemovesFromCaches() {
+        let inst = ServerInstance(
+            id: ServerInstanceID(value: "test"),
+            protocolConfig: .v2(host: "127.0.0.1", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB")
+        )
+        inst.agentsByProject["proj_1"] = [
+            DurableAgent(id: "agent_1", name: "test-agent", kind: "durable", color: nil,
+                         branch: nil, model: nil, orchestrator: nil, freeAgentMode: nil,
+                         icon: nil, executionMode: nil, status: .sleeping, mission: nil,
+                         detailedStatus: nil, quickAgents: nil)
+        ]
+        inst.activityByAgent["agent_1"] = [
+            HookEvent(id: UUID(), agentId: "agent_1", kind: .preTool, toolName: "Read",
+                      toolVerb: nil, message: nil, timestamp: 100)
+        ]
+        inst.ptyBufferByAgent["agent_1"] = "some output"
 
-        // removeQuickAgent should remove from client-side cache
-        let quickId = "quick_1737000100000_def456"
-        store.removeQuickAgent(agentId: quickId)
+        // Verify agent exists
+        #expect(inst.durableAgent(byId: "agent_1") != nil)
+        #expect(inst.activity(for: "agent_1").count == 1)
 
-        // Quick agent should be removed from nested quickAgents
-        let agent = inst.durableAgent(byId: "durable_1737000000000_abc123")
-        // Note: removeQuickAgent works on quickAgentsByProject, not nested quickAgents
-        // So we just verify the method doesn't crash
-        #expect(true)
+        // Remove from all caches (simulating what deleteAgent does locally)
+        inst.agentsByProject["proj_1"] = inst.agentsByProject["proj_1"]?.filter { $0.id != "agent_1" }
+        inst.activityByAgent.removeValue(forKey: "agent_1")
+        inst.ptyBufferByAgent.removeValue(forKey: "agent_1")
+
+        // Verify removal
+        #expect(inst.durableAgent(byId: "agent_1") == nil)
+        #expect(inst.activity(for: "agent_1").isEmpty)
+        #expect(inst.ptyBuffer(for: "agent_1").isEmpty)
     }
 
-    @Test func cancelQuickAgentRequiresRunningAgent() {
+    @Test func instanceLookupForAgentActions() {
         let store = makeStore()
-        // Just verify the method exists and the instance lookup works
         let inst = store.instance(for: "durable_1737000000000_abc123")
         #expect(inst != nil)
+        #expect(inst?.serverName == "Mason's Desktop")
     }
 
     @Test func projectLookupForCreateAgent() {

@@ -251,6 +251,7 @@ struct ProjectExplorerView: View {
     @Environment(AppStore.self) private var store
     @State private var showSpawnSheet = false
     @State private var showCreateSheet = false
+    @State private var createdAgentName: String?
 
     private var instance: ServerInstance? {
         store.instanceByID(instanceId)
@@ -413,9 +414,31 @@ struct ProjectExplorerView: View {
         .sheet(isPresented: $showCreateSheet) {
             CreateDurableAgentSheet(
                 projectId: project.id,
-                orchestrators: store.orchestrators
+                orchestrators: store.orchestrators,
+                onCreated: { agentId in
+                    if let agent = store.durableAgent(byId: agentId) {
+                        createdAgentName = agent.name ?? "Agent"
+                    }
+                }
             )
         }
+        .overlay(alignment: .bottom) {
+            if let name = createdAgentName {
+                Text("Created \(name)")
+                    .font(.subheadline.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial, in: Capsule())
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { createdAgentName = nil }
+                        }
+                    }
+                    .padding(.bottom, 16)
+            }
+        }
+        .animation(.easeInOut, value: createdAgentName)
     }
 
     private func pluginIcon(_ pluginId: String) -> String {
