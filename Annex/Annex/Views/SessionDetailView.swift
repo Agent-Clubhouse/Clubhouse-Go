@@ -8,6 +8,7 @@ struct SessionDetailView: View {
     @State private var summary: SessionSummary?
     @State private var isLoading = true
     @State private var isLoadingMore = false
+    @State private var loadMoreFailed = false
     @State private var hasMore = false
     @State private var error: String?
 
@@ -58,8 +59,9 @@ struct SessionDetailView: View {
                                         .frame(maxWidth: .infinity)
                                         .padding()
                                 } else {
-                                    Text("Load More")
+                                    Text(loadMoreFailed ? "Failed to load — tap to retry" : "Load More")
                                         .font(.subheadline)
+                                        .foregroundStyle(loadMoreFailed ? .red : .accentColor)
                                         .frame(maxWidth: .infinity)
                                         .padding()
                                 }
@@ -110,9 +112,11 @@ struct SessionDetailView: View {
     private func loadMore() async {
         guard !isLoadingMore else { return }
         isLoadingMore = true
+        loadMoreFailed = false
         guard let inst = store.instance(for: agentId),
               let apiClient = inst.apiClient,
               let token = inst.token else {
+            loadMoreFailed = true
             isLoadingMore = false
             return
         }
@@ -124,7 +128,7 @@ struct SessionDetailView: View {
             entries.append(contentsOf: transcript.entries)
             hasMore = transcript.hasMore ?? false
         } catch {
-            // Silently fail on pagination — user can retry
+            loadMoreFailed = true
         }
         isLoadingMore = false
     }
@@ -246,18 +250,23 @@ private struct TranscriptEntryView: View {
         case "user":
             Image(systemName: "person.circle.fill")
                 .foregroundStyle(.blue)
+                .accessibilityLabel("User message")
         case "assistant":
             Image(systemName: "brain")
                 .foregroundStyle(.purple)
+                .accessibilityLabel("Assistant response")
         case "tool_use":
             Image(systemName: "wrench.and.screwdriver")
                 .foregroundStyle(.orange)
+                .accessibilityLabel("Tool call")
         case "tool_result":
             Image(systemName: "doc.text")
                 .foregroundStyle(.green)
+                .accessibilityLabel("Tool result")
         default:
             Image(systemName: "circle")
                 .foregroundStyle(.secondary)
+                .accessibilityLabel("Message")
         }
     }
 

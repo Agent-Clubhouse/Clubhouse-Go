@@ -2130,7 +2130,7 @@ struct SessionModelTests {
         let session = try JSONDecoder().decode(SessionInfo.self, from: Data(json.utf8))
         #expect(session.id == "sess_001")
         #expect(session.agentId == "agent_1")
-        #expect(session.status == "completed")
+        #expect(session.status == .completed)
         #expect(session.messageCount == 42)
         #expect(session.model == "claude-opus-4-5")
         #expect(session.costUsd == 0.0523)

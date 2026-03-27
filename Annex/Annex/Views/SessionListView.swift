@@ -83,7 +83,7 @@ private struct SessionRow: View {
 
             HStack(spacing: 12) {
                 if let model = session.model {
-                    Label(model, systemImage: "cpu")
+                    Label(model.replacingOccurrences(of: "claude-", with: ""), systemImage: "cpu")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -123,10 +123,10 @@ private struct SessionRow: View {
 
     private var statusInfo: (Color, String) {
         switch session.status {
-        case "active": return (.green, "circle.fill")
-        case "completed": return (.secondary, "checkmark.circle.fill")
-        case "error": return (.red, "exclamationmark.circle.fill")
-        default: return (.secondary, "circle")
+        case .active: return (.green, "circle.fill")
+        case .completed: return (.secondary, "checkmark.circle.fill")
+        case .error: return (.red, "exclamationmark.circle.fill")
+        case nil: return (.secondary, "circle")
         }
     }
 

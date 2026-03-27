@@ -199,12 +199,18 @@ struct SendMessageResponse: Codable, Sendable {
 
 // MARK: - Session History Models
 
+enum SessionStatus: String, Codable, Sendable {
+    case active
+    case completed
+    case error
+}
+
 struct SessionInfo: Codable, Sendable, Identifiable {
     let id: String
     let agentId: String
     let startedAt: Int? // Unix ms
     let endedAt: Int? // Unix ms
-    let status: String? // "active", "completed", "error"
+    let status: SessionStatus?
     let messageCount: Int?
     let model: String?
     let costUsd: Double?

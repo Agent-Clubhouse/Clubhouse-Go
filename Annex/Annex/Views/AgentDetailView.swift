@@ -170,6 +170,8 @@ struct AgentDetailView: View {
                 )
             }
         }
+        // Tech debt: string-prefix navigation values should be replaced with a
+        // typed AgentNavDestination enum. Tracked for a future cleanup mission.
         .navigationDestination(for: String.self) { value in
             if value.hasPrefix("live:") {
                 let id = String(value.dropFirst(5))
