@@ -38,11 +38,17 @@ struct ProjectsTabView: View {
                 }
             }
             .overlay {
-                if store.allProjects.isEmpty {
+                if store.connectedInstances.isEmpty {
+                    ContentUnavailableView(
+                        "Not Connected",
+                        systemImage: "wifi.slash",
+                        description: Text("Connect to a Clubhouse server to see your projects.")
+                    )
+                } else if store.allProjects.isEmpty {
                     ContentUnavailableView(
                         "No Projects",
                         systemImage: "folder",
-                        description: Text("Connect to a Clubhouse server to see your projects.")
+                        description: Text("No projects found on connected servers.")
                     )
                 }
             }
@@ -87,10 +93,19 @@ private struct ProjectRowLink: View {
                 durableCount: durableAgents.count,
                 quickCount: quickAgents.count,
                 runningCount: runningCount,
-                iconData: store.projectIcons[project.id]
+                iconData: store.projectIcons[project.id],
+                lastActivity: latestActivityTimestamp(for: project, in: instance)
             )
         }
         .listRowBackground(store.theme.surface0Color.opacity(0.4))
+    }
+
+    private func latestActivityTimestamp(for project: Project, in instance: ServerInstance) -> Int? {
+        let agentIds = instance.agents(for: project).map(\.id)
+        let timestamps = agentIds.compactMap { id in
+            instance.activity(for: id).last?.timestamp
+        }
+        return timestamps.max()
     }
 }
 
@@ -109,10 +124,20 @@ private struct ProjectCardRow: View {
     let quickCount: Int
     let runningCount: Int
     let iconData: Data?
+    let lastActivity: Int?
     @Environment(AppStore.self) private var store
+
+    private var projectColor: Color {
+        AgentColor.color(for: project.color)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
+            // Color accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(projectColor)
+                .frame(width: 4, height: 48)
+
             ProjectIconView(
                 name: project.name,
                 displayName: project.displayName,
@@ -150,12 +175,24 @@ private struct ProjectCardRow: View {
 
             Spacer()
 
-            if store.connectedInstances.count > 1 {
-                Text(instanceName)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
+            VStack(alignment: .trailing, spacing: 4) {
+                if store.connectedInstances.count > 1 {
+                    Text(instanceName)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+
+                if let ts = lastActivity {
+                    Text(projectCompactTime(ts))
+                        .font(.caption2)
+                        .foregroundStyle(.quaternary)
+                }
             }
+
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }
@@ -347,9 +384,13 @@ private struct ProjectHeaderView: View {
     let iconData: Data?
     @Environment(AppStore.self) private var store
 
+    private var projectColor: Color {
+        AgentColor.color(for: project.color)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
-            // Large project icon
+            // Large project icon with color accent
             if let iconData, let uiImage = UIImage(data: iconData) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -357,14 +398,17 @@ private struct ProjectHeaderView: View {
                     .frame(width: 64, height: 64)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
-                let color = AgentColor(rawValue: project.color ?? "indigo") ?? .indigo
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(hex: color.hex))
+                    .fill(projectColor.opacity(0.2))
                     .frame(width: 64, height: 64)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(projectColor.opacity(0.4), lineWidth: 2)
+                    )
                     .overlay {
                         Text(String(project.label.prefix(1)).uppercased())
                             .font(.title.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(projectColor)
                     }
             }
 
@@ -477,21 +521,23 @@ private struct ActivityEventRow: View {
 
             Spacer()
 
-            Text(relativeTime(from: event.timestamp))
+            Text(projectCompactTime(event.timestamp))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
     }
+}
 
-    private func relativeTime(from unixMs: Int) -> String {
-        let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
-        if seconds < 60 { return "now" }
-        let minutes = seconds / 60
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60
-        if hours < 24 { return "\(hours)h" }
-        return "\(hours / 24)d"
-    }
+// MARK: - Helpers
+
+private func projectCompactTime(_ unixMs: Int) -> String {
+    let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
+    if seconds < 60 { return "now" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h" }
+    return "\(hours / 24)d"
 }
 
 #Preview {

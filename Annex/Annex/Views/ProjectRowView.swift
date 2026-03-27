@@ -5,20 +5,47 @@ struct ProjectRowView: View {
     let agentCount: Int
     @Environment(AppStore.self) private var store
 
+    private var projectColor: Color {
+        AgentColor.color(for: project.color)
+    }
+
+    private var runningCount: Int {
+        store.agents(for: project).filter { $0.status == .running }.count
+    }
+
     var body: some View {
         HStack(spacing: 12) {
+            // Color accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(projectColor)
+                .frame(width: 4, height: 40)
+
             ProjectIconView(
                 name: project.name,
                 displayName: project.displayName,
                 iconData: store.projectIcons[project.id]
             )
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(project.label)
                     .font(.body.weight(.medium))
-                Text("\(agentCount) agent\(agentCount == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 6) {
+                    Text("\(agentCount) agent\(agentCount == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if runningCount > 0 {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(.green)
+                                .frame(width: 5, height: 5)
+                            Text("\(runningCount) running")
+                                .font(.caption)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                }
             }
 
             Spacer()
