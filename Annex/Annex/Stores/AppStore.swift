@@ -32,6 +32,7 @@ enum ConnectionState: Sendable {
     var instances: [ServerInstance] = []
     var activeInstanceID: ServerInstanceID?
     var hasCompletedOnboarding: Bool = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+    let iconCache = IconCache()
 
     // MARK: - Instance Accessors
 

@@ -2227,3 +2227,142 @@ struct SessionModelTests {
         #expect(e1.id != e2.id)
     }
 }
+
+// MARK: - Icon Cache Tests
+
+@Suite
+struct IconCacheTests {
+    /// Create a minimal valid 1x1 red PNG for testing.
+    private func make1x1PNG() -> Data {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1))
+        return renderer.pngData { ctx in
+            UIColor.red.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+    }
+
+    @Test func storeAndRetrieve() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.store(key: "test", data: data)
+        #expect(cache.image(for: "test") != nil)
+        #expect(cache.count == 1)
+    }
+
+    @Test func retrieveMissReturnsNil() {
+        let cache = IconCache()
+        #expect(cache.image(for: "nonexistent") == nil)
+    }
+
+    @Test func storeInvalidDataIgnored() {
+        let cache = IconCache()
+        cache.store(key: "bad", data: Data([0x00, 0x01, 0x02]))
+        #expect(cache.image(for: "bad") == nil)
+        #expect(cache.count == 0)
+    }
+
+    @Test func agentConvenienceAccessors() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.storeAgentIcon(id: "agent_1", data: data)
+        #expect(cache.agentImage(id: "agent_1") != nil)
+        #expect(cache.projectImage(id: "agent_1") == nil) // different namespace
+    }
+
+    @Test func projectConvenienceAccessors() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.storeProjectIcon(id: "proj_1", data: data)
+        #expect(cache.projectImage(id: "proj_1") != nil)
+        #expect(cache.agentImage(id: "proj_1") == nil)
+    }
+
+    @Test func lruEviction() {
+        let cache = IconCache(maxEntries: 3)
+        let data = make1x1PNG()
+        cache.store(key: "a", data: data)
+        cache.store(key: "b", data: data)
+        cache.store(key: "c", data: data)
+        #expect(cache.count == 3)
+
+        // Adding a 4th should evict the oldest ("a")
+        cache.store(key: "d", data: data)
+        #expect(cache.count == 3)
+        #expect(cache.image(for: "a") == nil)
+        #expect(cache.image(for: "b") != nil)
+        #expect(cache.image(for: "d") != nil)
+    }
+
+    @Test func lruAccessUpdatesOrder() {
+        let cache = IconCache(maxEntries: 3)
+        let data = make1x1PNG()
+        cache.store(key: "a", data: data)
+        cache.store(key: "b", data: data)
+        cache.store(key: "c", data: data)
+
+        // Access "a" to make it most recent
+        _ = cache.image(for: "a")
+
+        // Adding "d" should evict "b" (now oldest), not "a"
+        cache.store(key: "d", data: data)
+        #expect(cache.image(for: "a") != nil)
+        #expect(cache.image(for: "b") == nil)
+    }
+
+    @Test func storeIfNeededSkipsDuplicate() {
+        let cache = IconCache()
+        let data1 = make1x1PNG()
+        cache.store(key: "x", data: data1)
+        let image1 = cache.image(for: "x")
+
+        // storeIfNeeded should not overwrite
+        cache.storeIfNeeded(key: "x", data: data1)
+        let image2 = cache.image(for: "x")
+        #expect(image1 === image2)
+    }
+
+    @Test func clearRemovesAll() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.store(key: "a", data: data)
+        cache.store(key: "b", data: data)
+        #expect(cache.count == 2)
+
+        cache.clear()
+        #expect(cache.count == 0)
+        #expect(cache.image(for: "a") == nil)
+    }
+
+    @Test func removeSpecificEntry() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.store(key: "a", data: data)
+        cache.store(key: "b", data: data)
+
+        cache.remove("a")
+        #expect(cache.image(for: "a") == nil)
+        #expect(cache.image(for: "b") != nil)
+        #expect(cache.count == 1)
+    }
+
+    @Test func containsCheck() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        #expect(!cache.contains("x"))
+        cache.store(key: "x", data: data)
+        #expect(cache.contains("x"))
+    }
+
+    @Test func loadFromSnapshotPopulatesCache() {
+        let cache = IconCache()
+        let data = make1x1PNG()
+        cache.loadFromSnapshot(
+            agentIcons: ["a1": data, "a2": data],
+            projectIcons: ["p1": data]
+        )
+        #expect(cache.agentImage(id: "a1") != nil)
+        #expect(cache.agentImage(id: "a2") != nil)
+        #expect(cache.projectImage(id: "p1") != nil)
+        #expect(cache.count == 3)
+    }
+}
