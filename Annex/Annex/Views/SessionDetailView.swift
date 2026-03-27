@@ -26,6 +26,12 @@ struct SessionDetailView: View {
                 } actions: {
                     Button("Retry") { Task { await loadInitial() } }
                 }
+            } else if entries.isEmpty && summary == nil {
+                ContentUnavailableView {
+                    Label("Empty Transcript", systemImage: "text.bubble")
+                } description: {
+                    Text("No transcript entries for this session.")
+                }
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
