@@ -110,7 +110,7 @@ struct AgentDetailView: View {
                 }
             }
 
-            ActivityFeedView(events: store.activity(for: agent.id))
+            ActivityFeedView(events: store.activity(for: agent.id), connectionState: store.connectionState)
         }
         .background(store.theme.baseColor)
         .navigationTitle(agent.name ?? agent.id)

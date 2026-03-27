@@ -6,63 +6,90 @@ struct LiveTerminalView: View {
     @State private var terminal = ANSITerminal(cols: 80, rows: 200)
     @State private var inputText = ""
     @State private var unsubscribe: (() -> Void)?
-    @State private var isAtBottom = true
+    @State private var userScrolledUp = false
     @State private var renderVersion = 0
+    @State private var showCopied = false
+    @State private var availableWidth: CGFloat = 0
+    @State private var copyToastTask: Task<Void, Never>?
     @FocusState private var inputFocused: Bool
 
-    /// Calculate terminal columns from screen width
+    private static let charWidth: CGFloat = 6.7 // approximate monospace char width at size 11
+
+    /// Calculate terminal columns from available width
     private var terminalCols: Int {
-        let screenWidth = UIScreen.main.bounds.width - 16 // padding
-        let charWidth: CGFloat = 6.7 // approximate monospace char width at size 11
-        return max(Int(screenWidth / charWidth), 40)
+        let width = availableWidth > 0 ? availableWidth - 16 : 320
+        return max(Int(width / Self.charWidth), 40)
+    }
+
+    private var connectionState: ConnectionState {
+        store.instance(for: agentId)?.connectionState ?? .disconnected
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Terminal output
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        Text(terminal.render())
-                            .font(.system(size: 11, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+            // Connection status banner
+            if !connectionState.isConnected {
+                connectionBanner
+            }
 
-                        // Invisible anchor at the very end of content
-                        Color.clear
-                            .frame(height: 1)
-                            .id("end")
+            // Terminal output
+            GeometryReader { geo in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Text(terminal.render())
+                                .font(.system(size: 11, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .textSelection(.enabled)
+
+                            // Invisible anchor at the very end of content
+                            Color.clear
+                                .frame(height: 1)
+                                .id("end")
+                        }
                     }
-                }
-                .onAppear {
-                    setupTerminal()
-                    scrollToBottom(proxy)
-                }
-                .onDisappear {
-                    unsubscribe?()
-                    unsubscribe = nil
-                }
-                .onChange(of: renderVersion) {
-                    if isAtBottom {
+                    .scrollDismissesKeyboard(.interactively)
+                    .onScrollGeometryChange(for: Bool.self) { scrollGeo in
+                        // User is "at bottom" if within 40pt of the bottom edge
+                        scrollGeo.contentOffset.y + scrollGeo.containerSize.height >= scrollGeo.contentSize.height - 40
+                    } action: { _, atBottom in
+                        userScrolledUp = !atBottom
+                    }
+                    .onAppear {
+                        availableWidth = geo.size.width
+                        setupTerminal()
                         scrollToBottom(proxy)
                     }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if !isAtBottom {
-                        Button {
-                            isAtBottom = true
-                            scrollToBottom(proxy)
-                        } label: {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.system(size: 32))
-                                .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, .gray.opacity(0.8))
-                                .shadow(radius: 4)
-                        }
-                        .padding(.trailing, 12)
-                        .padding(.bottom, 12)
+                    .onDisappear {
+                        copyToastTask?.cancel()
+                        unsubscribe?()
+                        unsubscribe = nil
                     }
+                    .onChange(of: renderVersion) {
+                        if !userScrolledUp {
+                            scrollToBottom(proxy)
+                        }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        if userScrolledUp {
+                            Button {
+                                userScrolledUp = false
+                                scrollToBottom(proxy)
+                            } label: {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.system(size: 32))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(.white, .gray.opacity(0.8))
+                                    .shadow(radius: 4)
+                            }
+                            .accessibilityLabel("Jump to bottom")
+                            .padding(.trailing, 12)
+                            .padding(.bottom, 12)
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                }
                 }
             }
 
@@ -109,17 +136,73 @@ struct LiveTerminalView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    inputFocused.toggle()
+                Menu {
+                    Button {
+                        copyTerminalText()
+                    } label: {
+                        Label("Copy Output", systemImage: "doc.on.doc")
+                    }
+
+                    Button {
+                        inputFocused.toggle()
+                    } label: {
+                        Label(inputFocused ? "Hide Keyboard" : "Show Keyboard", systemImage: "keyboard")
+                    }
                 } label: {
-                    Image(systemName: "keyboard")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
+        .overlay(alignment: .top) {
+            if showCopied {
+                Text("Copied to clipboard")
+                    .font(.footnote.weight(.medium))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.top, 8)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            isAtBottom = true
+            userScrolledUp = false
         }
     }
+
+    // MARK: - Connection Banner
+
+    @ViewBuilder
+    private var connectionBanner: some View {
+        HStack(spacing: 8) {
+            switch connectionState {
+            case .reconnecting(let attempt):
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                Text("Reconnecting (\(attempt))...")
+                    .font(.caption.weight(.medium))
+            case .disconnected:
+                Image(systemName: "wifi.slash")
+                    .font(.caption)
+                Text("Disconnected")
+                    .font(.caption.weight(.medium))
+            default:
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.caption)
+                Text(connectionState.label)
+                    .font(.caption.weight(.medium))
+            }
+            Spacer()
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.red.opacity(0.85))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Connection status: \(connectionState.label)")
+    }
+
+    // MARK: - Actions
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
         withAnimation(.easeOut(duration: 0.15)) {
@@ -127,10 +210,24 @@ struct LiveTerminalView: View {
         }
     }
 
+    private func copyTerminalText() {
+        let text = terminal.plainText()
+        guard !text.isEmpty else { return }
+        UIPasteboard.general.string = text
+        AccessibilityNotification.Announcement("Copied to clipboard").post()
+        withAnimation(.easeInOut(duration: 0.2)) { showCopied = true }
+        copyToastTask?.cancel()
+        copyToastTask = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { showCopied = false }
+        }
+    }
+
     private func setupTerminal() {
         let cols = terminalCols
         terminal = ANSITerminal(cols: cols, rows: 200)
-        isAtBottom = true
+        userScrolledUp = false
 
         // Subscribe to live PTY data first (so we don't miss data during buffer fetch)
         if let inst = store.instance(for: agentId) {
@@ -194,7 +291,7 @@ struct LiveTerminalView: View {
             payload: PtyInputPayload(agentId: agentId, data: text)
         )
         inst.webSocket?.send(msg)
-        isAtBottom = true
+        userScrolledUp = false
         renderVersion += 1
     }
 
