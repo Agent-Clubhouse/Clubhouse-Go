@@ -29,6 +29,15 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "ACF46E212F4A5C73007272FE"
+            BuildableName = "ClubhouseGo.app"
+            BlueprintName = "ClubhouseGo"
+            ReferencedContainer = "container:Annex.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO"
