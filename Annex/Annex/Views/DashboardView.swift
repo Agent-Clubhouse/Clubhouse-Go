@@ -63,6 +63,12 @@ struct DashboardView: View {
                     }
                 }
                 .padding()
+                .animation(.easeInOut(duration: 0.3), value: store.connectedInstances.count)
+            }
+            .refreshable {
+                for inst in store.instances {
+                    await store.reconnect(instanceId: inst.id)
+                }
             }
             .background(store.theme.baseColor)
             .navigationTitle("Dashboard")

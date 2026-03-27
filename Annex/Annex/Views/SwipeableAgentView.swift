@@ -25,6 +25,9 @@ struct SwipeableAgentView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .automatic))
             .indexViewStyle(.page(backgroundDisplayMode: .automatic))
+            .onChange(of: selectedIndex) { _, _ in
+                Haptics.selection()
+            }
             .onChange(of: agents.count) { _, newCount in
                 if selectedIndex >= newCount {
                     selectedIndex = max(0, newCount - 1)

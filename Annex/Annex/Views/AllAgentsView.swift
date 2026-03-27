@@ -103,6 +103,7 @@ struct AllAgentsView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        Haptics.light()
                         withAnimation(.easeInOut(duration: 0.25)) {
                             viewMode = viewMode == .list ? .cards : .list
                         }
@@ -213,6 +214,11 @@ struct AllAgentsView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .refreshable {
+            for inst in store.instances {
+                await store.reconnect(instanceId: inst.id)
+            }
+        }
         .overlay {
             if filteredAgents.isEmpty {
                 if hideSleeping && !store.allAgentsAcrossInstances.isEmpty {

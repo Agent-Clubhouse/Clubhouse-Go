@@ -83,6 +83,11 @@ struct ProjectsTabView: View {
         }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .refreshable {
+            for inst in store.instances {
+                await store.reconnect(instanceId: inst.id)
+            }
+        }
         .overlay {
             if store.connectedInstances.isEmpty {
                 ContentUnavailableView(

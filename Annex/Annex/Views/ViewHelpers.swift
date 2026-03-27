@@ -202,6 +202,50 @@ struct ErrorRetryView: View {
     }
 }
 
+// MARK: - Haptic Feedback
+
+/// Centralized haptic feedback triggers for consistent tactile responses.
+enum Haptics {
+    static func light() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    static func medium() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    static func error() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+    }
+
+    static func selection() {
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+}
+
+// MARK: - Animated Content Transition
+
+/// View modifier that applies a smooth transition when content changes between states.
+struct AnimatedContentModifier: ViewModifier {
+    let isLoading: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isLoading ? 0 : 1)
+            .animation(.easeInOut(duration: 0.3), value: isLoading)
+    }
+}
+
+extension View {
+    func animatedContent(isLoading: Bool) -> some View {
+        modifier(AnimatedContentModifier(isLoading: isLoading))
+    }
+}
+
 // MARK: - Agent Name Validation
 
 /// Validates an agent name. Returns nil if valid, or an error message string.
