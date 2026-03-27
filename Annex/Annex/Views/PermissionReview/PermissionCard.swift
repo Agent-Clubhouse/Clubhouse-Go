@@ -17,23 +17,6 @@ struct PermissionCard: View {
         offset.width / 150
     }
 
-    private var toolInputSummary: String? {
-        guard let input = permission.toolInput else { return nil }
-        switch input {
-        case .object(let dict):
-            if let path = dict["path"], case .string(let s) = path { return s }
-            if let command = dict["command"], case .string(let s) = command {
-                return String(s.prefix(120))
-            }
-            if let pattern = dict["pattern"], case .string(let s) = pattern { return s }
-            return nil
-        case .string(let s):
-            return String(s.prefix(120))
-        default:
-            return nil
-        }
-    }
-
     var body: some View {
         ZStack {
             // Background reveal
@@ -113,7 +96,7 @@ struct PermissionCard: View {
                     }
                 }
 
-                if let summary = toolInputSummary {
+                if let summary = permission.toolInputSummary {
                     Text(summary)
                         .font(.caption)
                         .fontDesign(.monospaced)

@@ -300,6 +300,31 @@ struct PermissionRequest: Identifiable, Codable, Sendable, Hashable {
     let deadline: Int?      // Unix timestamp (ms) when permission expires
 
     var id: String { requestId }
+
+    /// Human-readable summary of the tool input (path, command, or pattern).
+    var toolInputSummary: String? {
+        guard let input = toolInput else { return nil }
+        switch input {
+        case .object(let dict):
+            if let path = dict["path"], case .string(let s) = path { return s }
+            if let command = dict["command"], case .string(let s) = command {
+                return String(s.prefix(120))
+            }
+            if let pattern = dict["pattern"], case .string(let s) = pattern { return s }
+            return nil
+        case .string(let s):
+            return String(s.prefix(120))
+        default:
+            return nil
+        }
+    }
+
+    /// Whether this permission has expired based on its deadline.
+    var isExpired: Bool {
+        guard let deadline else { return false }
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        return now >= deadline
+    }
 }
 
 struct PermissionRequestPayload: Codable, Sendable {

@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import Combine
 
 struct PermissionRequestSheet: View {
     let permission: PermissionRequest
@@ -9,24 +11,8 @@ struct PermissionRequestSheet: View {
 
     @State private var isSubmitting = false
     @State private var errorMessage: String?
-
-    private var toolInputSummary: String? {
-        guard let input = permission.toolInput else { return nil }
-        switch input {
-        case .object(let dict):
-            // Show key fields like "path" or "command" if present
-            if let path = dict["path"], case .string(let s) = path { return s }
-            if let command = dict["command"], case .string(let s) = command {
-                return String(s.prefix(120))
-            }
-            if let pattern = dict["pattern"], case .string(let s) = pattern { return s }
-            return nil
-        case .string(let s):
-            return String(s.prefix(120))
-        default:
-            return nil
-        }
-    }
+    @State private var isExpired = false
+    private let expirationTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var timeRemaining: String {
         let now = Int(Date().timeIntervalSince1970 * 1000)
@@ -63,7 +49,7 @@ struct PermissionRequestSheet: View {
                     }
                 }
 
-                if let summary = toolInputSummary {
+                if let summary = permission.toolInputSummary {
                     Section("Input") {
                         Text(summary)
                             .font(.caption)
@@ -90,32 +76,44 @@ struct PermissionRequestSheet: View {
                     }
                 }
 
-                Section {
-                    Button {
-                        Task { await respond(allow: true) }
-                    } label: {
+                if isExpired {
+                    Section {
                         HStack {
-                            Spacer()
-                            if isSubmitting {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Label("Allow", systemImage: "checkmark.shield")
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text("This permission request has expired")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    Section {
+                        Button {
+                            Task { await respond(allow: true) }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                if isSubmitting {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Label("Allow", systemImage: "checkmark.shield")
+                                }
+                                Spacer()
                             }
-                            Spacer()
                         }
-                    }
-                    .disabled(isSubmitting)
+                        .disabled(isSubmitting)
 
-                    Button(role: .destructive) {
-                        Task { await respond(allow: false) }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Label("Deny", systemImage: "xmark.shield")
-                            Spacer()
+                        Button(role: .destructive) {
+                            Task { await respond(allow: false) }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                Label("Deny", systemImage: "xmark.shield")
+                                Spacer()
+                            }
                         }
+                        .disabled(isSubmitting)
                     }
-                    .disabled(isSubmitting)
                 }
             }
             .listStyle(.insetGrouped)
@@ -126,12 +124,23 @@ struct PermissionRequestSheet: View {
                     Button("Dismiss") { dismiss() }
                 }
             }
+            .onReceive(expirationTimer) { _ in
+                guard let deadline = permission.deadline else { return }
+                let now = Int(Date().timeIntervalSince1970 * 1000)
+                if now >= deadline && !isExpired {
+                    isExpired = true
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
+            }
         }
     }
 
     private func respond(allow: Bool) async {
         isSubmitting = true
         errorMessage = nil
+
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = allow ? .medium : .rigid
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
 
         do {
             try await store.respondToPermission(
@@ -141,6 +150,7 @@ struct PermissionRequestSheet: View {
             )
             dismiss()
         } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
             errorMessage = (error as? APIError)?.userMessage ?? error.localizedDescription
             isSubmitting = false
         }
@@ -155,9 +165,25 @@ struct PermissionBanner: View {
 
     @Environment(AppStore.self) private var store
     @State private var isResponding = false
+    @State private var responseError: String?
 
     var body: some View {
         VStack(spacing: 0) {
+            if let responseError {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                    Text(responseError)
+                        .font(.caption)
+                    Spacer()
+                    Button("Retry") { self.responseError = nil }
+                        .font(.caption.weight(.bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal)
+                .padding(.vertical, 6)
+                .background(Color.red)
+            }
             Button(action: onTap) {
                 HStack(spacing: 10) {
                     Image(systemName: "lock.shield.fill")
@@ -217,11 +243,19 @@ struct PermissionBanner: View {
 
     private func quickRespond(allow: Bool) async {
         isResponding = true
-        try? await store.respondToPermission(
-            agentId: permission.agentId,
-            requestId: permission.id,
-            allow: allow
-        )
+        responseError = nil
+        let style: UIImpactFeedbackGenerator.FeedbackStyle = allow ? .medium : .rigid
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
+        do {
+            try await store.respondToPermission(
+                agentId: permission.agentId,
+                requestId: permission.id,
+                allow: allow
+            )
+        } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            responseError = (error as? APIError)?.userMessage ?? "Response failed"
+        }
         isResponding = false
     }
 }
