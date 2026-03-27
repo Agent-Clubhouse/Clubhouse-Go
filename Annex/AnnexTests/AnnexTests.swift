@@ -1903,3 +1903,123 @@ struct PtyMessageTests {
         #expect(jsonStr.contains("24"))
     }
 }
+
+// MARK: - ANSITerminal Plain Text Tests
+
+@Suite(.serialized)
+struct ANSITerminalPlainTextTests {
+    @Test func plainTextSimple() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        term.write("Hello World")
+        let text = term.plainText()
+        #expect(text == "Hello World")
+    }
+
+    @Test func plainTextMultiLine() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        term.write("Line 1\r\nLine 2\r\nLine 3")
+        let text = term.plainText()
+        #expect(text.contains("Line 1"))
+        #expect(text.contains("Line 2"))
+        #expect(text.contains("Line 3"))
+        #expect(text.components(separatedBy: "\n").count == 3)
+    }
+
+    @Test func plainTextStripsANSI() {
+        let term = ANSITerminal(cols: 40, rows: 5)
+        term.write("\u{1b}[31mRed Text\u{1b}[0m Normal")
+        let text = term.plainText()
+        #expect(text.contains("Red Text"))
+        #expect(text.contains("Normal"))
+        #expect(!text.contains("\u{1b}"))
+    }
+
+    @Test func plainTextEmptyTerminal() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        #expect(term.plainText() == "")
+    }
+
+    @Test func plainTextTrimsTrailingSpaces() {
+        let term = ANSITerminal(cols: 20, rows: 5)
+        term.write("Hi")
+        let text = term.plainText()
+        #expect(text == "Hi")
+        #expect(!text.hasSuffix(" "))
+    }
+}
+
+// MARK: - Activity Filter Tests
+
+struct ActivityFilterTests {
+    private func makeEvent(kind: HookEventKind, toolName: String? = nil) -> HookEvent {
+        HookEvent(id: UUID(), agentId: "a", kind: kind, toolName: toolName, toolVerb: nil, message: nil, timestamp: 0)
+    }
+
+    @Test func allFilterMatchesEverything() {
+        let events: [HookEvent] = [
+            makeEvent(kind: .preTool),
+            makeEvent(kind: .postTool),
+            makeEvent(kind: .toolError),
+            makeEvent(kind: .stop),
+            makeEvent(kind: .notification),
+            makeEvent(kind: .permissionRequest),
+        ]
+        for event in events {
+            #expect(ActivityFilter.all.matches(event))
+        }
+    }
+
+    @Test func toolsFilterMatchesToolEvents() {
+        #expect(ActivityFilter.tools.matches(makeEvent(kind: .preTool)))
+        #expect(ActivityFilter.tools.matches(makeEvent(kind: .postTool)))
+        #expect(!ActivityFilter.tools.matches(makeEvent(kind: .toolError)))
+        #expect(!ActivityFilter.tools.matches(makeEvent(kind: .notification)))
+        #expect(!ActivityFilter.tools.matches(makeEvent(kind: .permissionRequest)))
+    }
+
+    @Test func errorsFilterMatchesErrorAndStop() {
+        #expect(ActivityFilter.errors.matches(makeEvent(kind: .toolError)))
+        #expect(ActivityFilter.errors.matches(makeEvent(kind: .stop)))
+        #expect(!ActivityFilter.errors.matches(makeEvent(kind: .preTool)))
+        #expect(!ActivityFilter.errors.matches(makeEvent(kind: .notification)))
+    }
+
+    @Test func permissionsFilterMatchesPermissions() {
+        #expect(ActivityFilter.permissions.matches(makeEvent(kind: .permissionRequest)))
+        #expect(!ActivityFilter.permissions.matches(makeEvent(kind: .preTool)))
+        #expect(!ActivityFilter.permissions.matches(makeEvent(kind: .toolError)))
+    }
+}
+
+// MARK: - Relative Time Tests
+
+struct RelativeTimeTests {
+    private func msAgo(_ seconds: Int) -> Int {
+        Int((Date().timeIntervalSince1970 - Double(seconds)) * 1000)
+    }
+
+    @Test func justNow() {
+        #expect(relativeTime(msAgo(2)) == "just now")
+    }
+
+    @Test func secondsAgo() {
+        let result = relativeTime(msAgo(30))
+        #expect(result.hasSuffix("s ago"))
+    }
+
+    @Test func minutesAgo() {
+        let result = relativeTime(msAgo(120))
+        #expect(result.hasSuffix("m ago"))
+    }
+
+    @Test func hoursAgo() {
+        let result = relativeTime(msAgo(7200))
+        #expect(result.hasSuffix("h ago"))
+    }
+
+    @Test func oldEventShowsDate() {
+        // 2 days ago — should show date format
+        let result = relativeTime(msAgo(172800))
+        #expect(!result.hasSuffix("ago"))
+    }
+}

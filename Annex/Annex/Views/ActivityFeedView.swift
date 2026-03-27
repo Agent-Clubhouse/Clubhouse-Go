@@ -1,35 +1,86 @@
 import SwiftUI
 
+enum ActivityFilter: String, CaseIterable {
+    case all = "All"
+    case tools = "Tools"
+    case errors = "Errors"
+    case permissions = "Permissions"
+
+    func matches(_ event: HookEvent) -> Bool {
+        switch self {
+        case .all: return true
+        case .tools: return event.kind == .preTool || event.kind == .postTool
+        case .errors: return event.kind == .toolError || event.kind == .stop
+        case .permissions: return event.kind == .permissionRequest
+        }
+    }
+}
+
 struct ActivityFeedView: View {
     let events: [HookEvent]
     @Environment(AppStore.self) private var store
     @State private var selectedPermission: PermissionRequest?
+    @State private var filter: ActivityFilter = .all
+
+    private var filteredEvents: [HookEvent] {
+        events.filter { filter.matches($0) }
+    }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(events) { event in
-                        if event.kind == .permissionRequest,
-                           let perm = store.pendingPermissions.values.first(where: {
-                               $0.agentId == event.agentId && $0.toolName == event.toolName
-                           }) {
-                            ActivityEventRow(event: event, accent: store.theme.accentColor, isPending: true)
-                                .id(event.id)
-                                .onTapGesture { selectedPermission = perm }
-                        } else {
-                            ActivityEventRow(event: event, accent: store.theme.accentColor)
-                                .id(event.id)
+        VStack(spacing: 0) {
+            // Filter bar
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(ActivityFilter.allCases, id: \.self) { option in
+                        FilterChip(
+                            title: option.rawValue,
+                            count: option == .all ? nil : events.filter { option.matches($0) }.count,
+                            isSelected: filter == option
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.2)) { filter = option }
                         }
                     }
                 }
                 .padding(.horizontal)
-                .padding(.top, 8)
+                .padding(.vertical, 8)
             }
-            .onChange(of: events.count) {
-                if let last = events.last {
-                    withAnimation {
-                        proxy.scrollTo(last.id, anchor: .bottom)
+
+            Divider()
+
+            // Event list
+            if filteredEvents.isEmpty {
+                ContentUnavailableView {
+                    Label("No Events", systemImage: filter == .all ? "clock" : "line.3.horizontal.decrease.circle")
+                } description: {
+                    Text(filter == .all ? "Activity will appear here as the agent works." : "No \(filter.rawValue.lowercased()) events yet.")
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(filteredEvents) { event in
+                                if event.kind == .permissionRequest,
+                                   let perm = store.pendingPermissions.values.first(where: {
+                                       $0.agentId == event.agentId && $0.toolName == event.toolName
+                                   }) {
+                                    ActivityEventRow(event: event, accent: store.theme.accentColor, isPending: true)
+                                        .id(event.id)
+                                        .onTapGesture { selectedPermission = perm }
+                                } else {
+                                    ActivityEventRow(event: event, accent: store.theme.accentColor)
+                                        .id(event.id)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    }
+                    .onChange(of: filteredEvents.count) {
+                        if let last = filteredEvents.last {
+                            withAnimation {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
                     }
                 }
             }
@@ -39,6 +90,42 @@ struct ActivityFeedView: View {
         }
     }
 }
+
+// MARK: - Filter Chip
+
+private struct FilterChip: View {
+    let title: String
+    let count: Int?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.medium))
+                if let count, count > 0 {
+                    Text("\(count)")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(
+                            Capsule().fill(isSelected ? .white.opacity(0.25) : .secondary.opacity(0.15))
+                        )
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule().fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
+            )
+            .foregroundStyle(isSelected ? .white : .primary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Event Row
 
 private struct ActivityEventRow: View {
     let event: HookEvent
@@ -102,16 +189,19 @@ private struct ActivityEventRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(iconColor)
-                .frame(width: 20, alignment: .center)
-                .padding(.top, 3)
+            // Timeline line + icon
+            VStack(spacing: 0) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 20, height: 20, alignment: .center)
+            }
+            .padding(.top, 3)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(description)
                     .font(.subheadline)
-                Text(formatTime(event.timestamp))
+                Text(relativeTime(event.timestamp))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -126,6 +216,8 @@ private struct ActivityEventRow: View {
         )
     }
 }
+
+// MARK: - Helpers
 
 private func toolIcon(_ toolName: String?) -> String {
     switch toolName {
@@ -142,11 +234,21 @@ private func toolIcon(_ toolName: String?) -> String {
     }
 }
 
-private func formatTime(_ unixMs: Int) -> String {
+/// Format a Unix-ms timestamp as a relative time string.
+func relativeTime(_ unixMs: Int) -> String {
     let date = Date(timeIntervalSince1970: Double(unixMs) / 1000)
+    let seconds = Int(Date().timeIntervalSince(date))
+
+    if seconds < 5 { return "just now" }
+    if seconds < 60 { return "\(seconds)s ago" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m ago" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h ago" }
+    // Fall back to absolute time for old events
     let formatter = DateFormatter()
-    formatter.timeStyle = .medium
-    formatter.dateStyle = .none
+    formatter.timeStyle = .short
+    formatter.dateStyle = .short
     return formatter.string(from: date)
 }
 

@@ -447,6 +447,33 @@ import SwiftUI
 
     // MARK: - Rendering
 
+    /// Return the visible buffer as plain text (for clipboard copy).
+    func plainText() -> String {
+        var lastContentRow = -1
+        for r in stride(from: rows - 1, through: 0, by: -1) {
+            if cells[r].contains(where: { $0.character != " " }) {
+                lastContentRow = r
+                break
+            }
+        }
+        guard lastContentRow >= 0 else { return "" }
+
+        var lines: [String] = []
+        for rowIdx in 0...lastContentRow {
+            let row = cells[rowIdx]
+            var lastNonSpace = -1
+            for c in stride(from: cols - 1, through: 0, by: -1) {
+                if row[c].character != " " { lastNonSpace = c; break }
+            }
+            if lastNonSpace >= 0 {
+                lines.append(String(row[0...lastNonSpace].map(\.character)))
+            } else {
+                lines.append("")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
     /// Render the visible screen buffer as an AttributedString.
     /// Only renders up to the last row that has content to avoid blank trailing space.
     func render() -> AttributedString {
