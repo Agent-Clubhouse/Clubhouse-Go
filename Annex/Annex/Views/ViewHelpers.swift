@@ -31,6 +31,81 @@ func compactRelativeTime(from unixMs: Int) -> String {
     return "\(hours / 24)d"
 }
 
+// MARK: - Shared Model Label
+
+/// Extracts a short display label from a model ID string.
+func modelLabel(from model: String?) -> String? {
+    guard let model else { return nil }
+    if model.contains("opus") { return "Opus" }
+    if model.contains("sonnet") { return "Sonnet" }
+    if model.contains("haiku") { return "Haiku" }
+    return model
+}
+
+// MARK: - Shared Agent Status Color
+
+/// Returns the display color for an agent based on its detailed state and status.
+func agentStatusColor(state: AgentState?, status: AgentStatus?) -> Color {
+    switch state {
+    case .working: return .green
+    case .needsPermission: return .orange
+    case .toolError: return .yellow
+    default:
+        switch status {
+        case .starting, .running: return .green
+        case .sleeping: return .gray
+        case .error, .failed: return .red
+        case .completed: return .blue
+        case .cancelled: return .gray
+        case nil: return .gray
+        }
+    }
+}
+
+// MARK: - Shared Hook Event Display
+
+/// Returns the SF Symbol icon name for a hook event.
+func hookEventIcon(for event: HookEvent) -> String {
+    switch event.kind {
+    case .preTool: toolIcon(for: event.toolName)
+    case .postTool: "checkmark.circle"
+    case .toolError: "exclamationmark.triangle.fill"
+    case .stop: "stop.circle.fill"
+    case .notification: "bell.fill"
+    case .permissionRequest: "lock.fill"
+    }
+}
+
+/// Returns the display color for a hook event icon.
+func hookEventIconColor(for event: HookEvent, accent: Color) -> Color {
+    switch event.kind {
+    case .preTool: accent
+    case .postTool: .green
+    case .toolError: .red
+    case .stop: .secondary
+    case .notification: accent
+    case .permissionRequest: .orange
+    }
+}
+
+/// Returns a short description label for a hook event.
+func hookEventLabel(for event: HookEvent) -> String {
+    switch event.kind {
+    case .preTool:
+        return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
+    case .postTool:
+        return "\(event.toolName ?? "Tool") done"
+    case .toolError:
+        return event.message ?? "Error"
+    case .stop:
+        return event.message ?? "Stopped"
+    case .notification:
+        return event.message ?? ""
+    case .permissionRequest:
+        return "Needs permission"
+    }
+}
+
 // MARK: - Shimmer Loading Effect
 
 /// A shimmer/skeleton loading placeholder that pulses.
