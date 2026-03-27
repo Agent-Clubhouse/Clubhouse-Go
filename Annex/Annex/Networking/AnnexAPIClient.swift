@@ -113,7 +113,7 @@ final class AnnexAPIClient: Sendable {
         return AnnexAPIClient(config: .v2Pairing(host: host, pairingPort: pairingPort), session: .shared)
     }
 
-    private init(config: APIClientConfig, session: URLSession) {
+    init(config: APIClientConfig, session: URLSession) {
         self.config = config
         self.urlSession = session
     }
