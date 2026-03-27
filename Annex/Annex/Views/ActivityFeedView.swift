@@ -49,6 +49,7 @@ private enum RelativeTimeFormatting {
 
 struct ActivityFeedView: View {
     let events: [HookEvent]
+    var connectionState: ConnectionState = .connected
     @Environment(AppStore.self) private var store
     @State private var selectedPermission: PermissionRequest?
     @State private var filter: ActivityFilter = .all
@@ -68,6 +69,11 @@ struct ActivityFeedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Connection status banner
+            if !connectionState.isConnected {
+                ActivityConnectionBanner(state: connectionState)
+            }
+
             // Filter bar
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -181,23 +187,6 @@ private struct ActivityEventRow: View {
     let accent: Color
     var isPending: Bool = false
 
-    private var icon: String {
-        switch event.kind {
-        case .preTool:
-            return toolIcon(event.toolName)
-        case .postTool:
-            return "checkmark.circle"
-        case .toolError:
-            return "exclamationmark.triangle.fill"
-        case .stop:
-            return "stop.circle.fill"
-        case .notification:
-            return "bell.fill"
-        case .permissionRequest:
-            return "lock.fill"
-        }
-    }
-
     private var iconColor: Color {
         switch event.kind {
         case .preTool: accent
@@ -206,24 +195,6 @@ private struct ActivityEventRow: View {
         case .stop: .secondary
         case .notification: accent
         case .permissionRequest: .orange
-        }
-    }
-
-    private var description: String {
-        switch event.kind {
-        case .preTool:
-            return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
-        case .postTool:
-            return "\(event.toolName ?? "Tool") completed"
-        case .toolError:
-            return event.message ?? "Tool error"
-        case .stop:
-            return event.message ?? "Agent stopped"
-        case .notification:
-            return event.message ?? ""
-        case .permissionRequest:
-            let detail = event.message ?? event.toolName ?? "unknown"
-            return isPending ? "Tap to respond: \(detail)" : "Needs permission: \(detail)"
         }
     }
 
@@ -239,7 +210,7 @@ private struct ActivityEventRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(spacing: 0) {
-                Image(systemName: icon)
+                Image(systemName: hookEventIcon(event))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(iconColor)
                     .frame(width: 20, height: 20, alignment: .center)
@@ -247,7 +218,7 @@ private struct ActivityEventRow: View {
             .padding(.top, 3)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(description)
+                Text(hookEventDescription(event, isPending: isPending))
                     .font(.subheadline)
                 Text(relativeTime(event.timestamp))
                     .font(.caption2)
@@ -265,7 +236,50 @@ private struct ActivityEventRow: View {
     }
 }
 
-// MARK: - Helpers
+// MARK: - Hook Event Formatting (testable)
+
+/// Returns the SF Symbol name for a hook event.
+func hookEventIcon(_ event: HookEvent) -> String {
+    switch event.kind {
+    case .preTool: return toolIcon(event.toolName)
+    case .postTool: return "checkmark.circle"
+    case .toolError: return "exclamationmark.triangle.fill"
+    case .stop: return "stop.circle.fill"
+    case .notification: return "bell.fill"
+    case .permissionRequest: return "lock.fill"
+    }
+}
+
+/// Returns a display description for a hook event.
+func hookEventDescription(_ event: HookEvent, isPending: Bool = false) -> String {
+    switch event.kind {
+    case .preTool:
+        return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
+    case .postTool:
+        return "\(event.toolName ?? "Tool") completed"
+    case .toolError:
+        return event.message ?? "Tool error"
+    case .stop:
+        return event.message ?? "Agent stopped"
+    case .notification:
+        return event.message ?? ""
+    case .permissionRequest:
+        let detail = event.message ?? event.toolName ?? "unknown"
+        return isPending ? "Tap to respond: \(detail)" : "Needs permission: \(detail)"
+    }
+}
+
+/// Returns the semantic color name for a hook event kind.
+func hookEventColorName(_ kind: HookEventKind) -> String {
+    switch kind {
+    case .preTool: return "accent"
+    case .postTool: return "green"
+    case .toolError: return "red"
+    case .stop: return "secondary"
+    case .notification: return "accent"
+    case .permissionRequest: return "orange"
+    }
+}
 
 private func toolIcon(_ toolName: String?) -> String {
     switch toolName {
@@ -279,6 +293,39 @@ private func toolIcon(_ toolName: String?) -> String {
     case "WebFetch": return "arrow.down.circle"
     case "Task": return "arrow.triangle.branch"
     default: return "wrench"
+    }
+}
+
+// MARK: - Connection Banner
+
+private struct ActivityConnectionBanner: View {
+    let state: ConnectionState
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if case .reconnecting(let attempt) = state {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                Text("Reconnecting (\(attempt))...")
+                    .font(.caption.weight(.medium))
+            } else {
+                Image(systemName: "wifi.slash")
+                    .font(.caption)
+                Text(state.label)
+                    .font(.caption.weight(.medium))
+            }
+            Spacer()
+            Text("Activity may be stale")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.orange.opacity(0.85))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Connection status: \(state.label). Activity may be stale.")
     }
 }
 

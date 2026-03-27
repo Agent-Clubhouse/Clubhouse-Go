@@ -2025,3 +2025,96 @@ struct RelativeTimeTests {
         #expect(!result.hasSuffix("ago"))
     }
 }
+
+// MARK: - Hook Event Formatting Tests
+
+@Suite
+struct HookEventFormattingTests {
+    private func makeEvent(
+        kind: HookEventKind,
+        toolName: String? = nil,
+        toolVerb: String? = nil,
+        message: String? = nil
+    ) -> HookEvent {
+        HookEvent(id: UUID(), agentId: "agent_1", kind: kind, toolName: toolName, toolVerb: toolVerb, message: message, timestamp: 0)
+    }
+
+    @Test func preToolIconUsesToolSpecificIcon() {
+        let event = makeEvent(kind: .preTool, toolName: "Edit")
+        #expect(hookEventIcon(event) == "pencil")
+    }
+
+    @Test func preToolIconFallsBackToWrench() {
+        let event = makeEvent(kind: .preTool, toolName: "UnknownTool")
+        #expect(hookEventIcon(event) == "wrench")
+    }
+
+    @Test func postToolIcon() {
+        let event = makeEvent(kind: .postTool)
+        #expect(hookEventIcon(event) == "checkmark.circle")
+    }
+
+    @Test func toolErrorIcon() {
+        let event = makeEvent(kind: .toolError)
+        #expect(hookEventIcon(event) == "exclamationmark.triangle.fill")
+    }
+
+    @Test func stopIcon() {
+        let event = makeEvent(kind: .stop)
+        #expect(hookEventIcon(event) == "stop.circle.fill")
+    }
+
+    @Test func notificationIcon() {
+        let event = makeEvent(kind: .notification)
+        #expect(hookEventIcon(event) == "bell.fill")
+    }
+
+    @Test func permissionRequestIcon() {
+        let event = makeEvent(kind: .permissionRequest)
+        #expect(hookEventIcon(event) == "lock.fill")
+    }
+
+    @Test func preToolDescriptionUsesToolVerb() {
+        let event = makeEvent(kind: .preTool, toolName: "Read", toolVerb: "Reading config.json")
+        #expect(hookEventDescription(event) == "Reading config.json")
+    }
+
+    @Test func preToolDescriptionFallsBackToToolName() {
+        let event = makeEvent(kind: .preTool, toolName: "Bash")
+        #expect(hookEventDescription(event) == "Using Bash")
+    }
+
+    @Test func postToolDescription() {
+        let event = makeEvent(kind: .postTool, toolName: "Edit")
+        #expect(hookEventDescription(event) == "Edit completed")
+    }
+
+    @Test func toolErrorDescriptionUsesMessage() {
+        let event = makeEvent(kind: .toolError, message: "Command failed")
+        #expect(hookEventDescription(event) == "Command failed")
+    }
+
+    @Test func toolErrorDescriptionFallback() {
+        let event = makeEvent(kind: .toolError)
+        #expect(hookEventDescription(event) == "Tool error")
+    }
+
+    @Test func permissionDescriptionPending() {
+        let event = makeEvent(kind: .permissionRequest, toolName: "Bash", message: "Run npm test")
+        #expect(hookEventDescription(event, isPending: true) == "Tap to respond: Run npm test")
+    }
+
+    @Test func permissionDescriptionNotPending() {
+        let event = makeEvent(kind: .permissionRequest, toolName: "Bash", message: "Run npm test")
+        #expect(hookEventDescription(event, isPending: false) == "Needs permission: Run npm test")
+    }
+
+    @Test func colorNameMapping() {
+        #expect(hookEventColorName(.preTool) == "accent")
+        #expect(hookEventColorName(.postTool) == "green")
+        #expect(hookEventColorName(.toolError) == "red")
+        #expect(hookEventColorName(.stop) == "secondary")
+        #expect(hookEventColorName(.notification) == "accent")
+        #expect(hookEventColorName(.permissionRequest) == "orange")
+    }
+}
