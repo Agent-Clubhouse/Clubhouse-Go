@@ -1,0 +1,432 @@
+import SwiftUI
+
+// MARK: - Swipeable Agent Card View
+
+/// A "Tinder for agents" full-screen card interface for quickly swiping between agents.
+struct SwipeableAgentView: View {
+    @Environment(AppStore.self) private var store
+    @State private var selectedIndex: Int = 0
+
+    let agents: [AppStore.InstanceAgent]
+
+    var body: some View {
+        if agents.isEmpty {
+            ContentUnavailableView(
+                "No Agents",
+                systemImage: "person.3",
+                description: Text("Agents will appear here once they're running.")
+            )
+        } else {
+            TabView(selection: $selectedIndex) {
+                ForEach(Array(agents.enumerated()), id: \.element.agent.id) { index, ia in
+                    AgentCardView(agent: ia.agent, instance: ia.instance)
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
+            .indexViewStyle(.page(backgroundDisplayMode: .automatic))
+            .onChange(of: agents.count) { _, newCount in
+                if selectedIndex >= newCount {
+                    selectedIndex = max(0, newCount - 1)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Agent Card
+
+/// A full-screen card showing a single agent's status, activity, and terminal preview.
+struct AgentCardView: View {
+    let agent: DurableAgent
+    let instance: ServerInstance
+    @Environment(AppStore.self) private var store
+
+    private var statusColor: Color {
+        switch agent.detailedStatus?.state {
+        case .working: .green
+        case .needsPermission: .orange
+        case .toolError: .yellow
+        default:
+            switch agent.status {
+            case .starting, .running: .green
+            case .sleeping: .gray
+            case .error, .failed: .red
+            case .completed: .blue
+            case .cancelled: .gray
+            case nil: .gray
+            }
+        }
+    }
+
+    private var statusLabel: String {
+        if let ds = agent.detailedStatus {
+            switch ds.state {
+            case .working: return ds.message.isEmpty ? "Working" : ds.message
+            case .needsPermission: return "Needs permission"
+            case .toolError: return ds.message.isEmpty ? "Error" : ds.message
+            case .idle: return "Idle"
+            }
+        }
+        return agent.status?.rawValue.capitalized ?? "Unknown"
+    }
+
+    private var modelLabel: String? {
+        guard let model = agent.model else { return nil }
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return model
+    }
+
+    private var orchestratorLabel: String? {
+        guard let orchId = agent.orchestrator,
+              let info = store.orchestrators[orchId] else { return nil }
+        return info.shortName
+    }
+
+    private var projectName: String? {
+        instance.project(for: agent)?.label
+    }
+
+    private var recentActivity: [HookEvent] {
+        Array(instance.activity(for: agent.id).suffix(3))
+    }
+
+    private var terminalPreview: String {
+        let buffer = store.ptyBuffer(for: agent.id)
+        guard !buffer.isEmpty else { return "" }
+        let lines = buffer.components(separatedBy: .newlines)
+        let lastLines = lines.suffix(4).filter { !$0.isEmpty }
+        return lastLines.joined(separator: "\n")
+    }
+
+    private var hasPendingPermission: Bool {
+        agent.detailedStatus?.state == .needsPermission
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                cardHeader
+                chipRow
+                statusSection
+                if !recentActivity.isEmpty {
+                    activitySection
+                }
+                if !terminalPreview.isEmpty {
+                    terminalSection
+                }
+                quickActions
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 40)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(store.theme.surface0Color.opacity(0.6))
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        )
+        .overlay(alignment: .topTrailing) {
+            if hasPendingPermission {
+                permissionBadge
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Card Header
+
+    private var cardHeader: some View {
+        VStack(spacing: 12) {
+            AgentAvatarView(
+                color: agent.color ?? "gray",
+                status: agent.status,
+                state: agent.detailedStatus?.state,
+                name: agent.name,
+                iconData: store.agentIcons[agent.id],
+                size: 64
+            )
+
+            Text(agent.name ?? agent.id)
+                .font(.title2.weight(.bold))
+                .lineLimit(1)
+
+            if let project = projectName {
+                Text(project)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Chip Row
+
+    private var chipRow: some View {
+        HStack(spacing: 6) {
+            if let label = orchestratorLabel {
+                let c = OrchestratorColors.colors(for: agent.orchestrator)
+                ChipView(text: label, bg: c.bg, fg: c.fg)
+            }
+            if let label = modelLabel {
+                let c = ModelColors.colors(for: agent.model)
+                ChipView(text: label, bg: c.bg, fg: c.fg)
+            }
+            if agent.freeAgentMode == true {
+                ChipView(text: "Free", bg: .red.opacity(0.15), fg: .red)
+            }
+        }
+    }
+
+    // MARK: - Status Section
+
+    private var statusSection: some View {
+        HStack(spacing: 8) {
+            PulsingStatusDot(color: statusColor, isAnimating: agent.status == .running)
+            Text(statusLabel)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+
+            if let ts = agent.detailedStatus?.timestamp {
+                Text(compactRelativeTime(from: ts))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(statusColor.opacity(0.1))
+        )
+    }
+
+    // MARK: - Activity Section
+
+    private var activitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Recent Activity", systemImage: "clock")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            ForEach(recentActivity) { event in
+                CardActivityRow(event: event, accent: store.theme.accentColor)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(store.theme.surface1Color.opacity(0.5))
+        )
+    }
+
+    // MARK: - Terminal Preview Section
+
+    private var terminalSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Terminal", systemImage: "terminal")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text(terminalPreview)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.primary.opacity(0.8))
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.7))
+        )
+    }
+
+    // MARK: - Quick Actions
+
+    private var quickActions: some View {
+        HStack(spacing: 12) {
+            if agent.status == .running {
+                NavigationLink(value: "live:\(agent.id)") {
+                    CardActionButton(
+                        icon: "terminal",
+                        label: "Terminal",
+                        color: store.theme.accentColor
+                    )
+                }
+            }
+
+            NavigationLink(value: agent) {
+                CardActionButton(
+                    icon: "chart.bar",
+                    label: "Details",
+                    color: .blue
+                )
+            }
+
+            if hasPendingPermission {
+                CardActionButton(
+                    icon: "lock.open",
+                    label: "Approve",
+                    color: .orange
+                )
+            }
+
+            if agent.status == .sleeping {
+                CardActionButton(
+                    icon: "bolt",
+                    label: "Wake",
+                    color: .green
+                )
+            }
+        }
+    }
+
+    // MARK: - Permission Badge
+
+    private var permissionBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "lock.fill")
+                .font(.caption2.weight(.bold))
+            Text("Permission")
+                .font(.caption2.weight(.semibold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(.orange))
+        .foregroundStyle(.white)
+        .padding(20)
+    }
+}
+
+// MARK: - Supporting Views
+
+/// A pulsing status dot that animates for running agents.
+struct PulsingStatusDot: View {
+    let color: Color
+    let isAnimating: Bool
+    @State private var pulse = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 10, height: 10)
+            .scaleEffect(isAnimating && pulse ? 1.3 : 1.0)
+            .opacity(isAnimating && pulse ? 0.7 : 1.0)
+            .animation(
+                isAnimating
+                    ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+                    : .default,
+                value: pulse
+            )
+            .onAppear {
+                if isAnimating { pulse = true }
+            }
+            .onChange(of: isAnimating) { _, animating in
+                pulse = animating
+            }
+    }
+}
+
+/// A compact activity row for display inside agent cards.
+private struct CardActivityRow: View {
+    let event: HookEvent
+    let accent: Color
+
+    private var icon: String {
+        switch event.kind {
+        case .preTool: toolIcon(for: event.toolName)
+        case .postTool: "checkmark.circle"
+        case .toolError: "exclamationmark.triangle.fill"
+        case .stop: "stop.circle.fill"
+        case .notification: "bell.fill"
+        case .permissionRequest: "lock.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch event.kind {
+        case .preTool: accent
+        case .postTool: .green
+        case .toolError: .red
+        case .stop: .secondary
+        case .notification: accent
+        case .permissionRequest: .orange
+        }
+    }
+
+    private var label: String {
+        switch event.kind {
+        case .preTool:
+            return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
+        case .postTool:
+            return "\(event.toolName ?? "Tool") done"
+        case .toolError:
+            return event.message ?? "Error"
+        case .stop:
+            return event.message ?? "Stopped"
+        case .notification:
+            return event.message ?? ""
+        case .permissionRequest:
+            return "Needs permission"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(iconColor)
+                .frame(width: 16, alignment: .center)
+
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text(compactRelativeTime(from: event.timestamp))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+}
+
+/// A quick action button for agent cards.
+struct CardActionButton: View {
+    let icon: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+            Text(label)
+                .font(.caption2.weight(.medium))
+        }
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(color.opacity(0.1))
+        )
+    }
+}
+
+#Preview {
+    let store = AppStore()
+    store.loadMockData()
+    return NavigationStack {
+        SwipeableAgentView(
+            agents: store.allAgentsAcrossInstances
+        )
+    }
+    .environment(store)
+}

@@ -6,6 +6,7 @@ struct AllAgentsView: View {
     @State private var showSettings = false
     @State private var hideSleeping = false
     @State private var sortOrder: AgentSortOrder = .status
+    @State private var viewMode: AgentViewMode = .list
 
     private let maxActivityRows = 5
 
@@ -69,6 +70,8 @@ struct AllAgentsView: View {
                             }
                         }
                     )
+                } else if viewMode == .cards {
+                    SwipeableAgentView(agents: filteredAgents)
                 } else {
                     agentList
                 }
@@ -97,6 +100,18 @@ struct AllAgentsView: View {
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease")
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            viewMode = viewMode == .list ? .cards : .list
+                        }
+                    } label: {
+                        Image(systemName: viewMode == .list
+                              ? "rectangle.stack"
+                              : "list.bullet")
+                    }
+                    .accessibilityLabel(viewMode == .list ? "Card View" : "List View")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: {
@@ -224,7 +239,14 @@ struct AllAgentsView: View {
     }
 }
 
-// MARK: - Sort Order (private to this file, exposed for tests via @testable)
+// MARK: - View Mode (exposed for tests via @testable)
+
+enum AgentViewMode: String, CaseIterable {
+    case list
+    case cards
+}
+
+// MARK: - Sort Order (exposed for tests via @testable)
 
 enum AgentSortOrder: String, CaseIterable {
     case status
