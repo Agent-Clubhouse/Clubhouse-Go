@@ -245,6 +245,42 @@ struct SessionSummary: Codable, Sendable {
     let outputTokens: Int?
 }
 
+// MARK: - Create Durable Agent
+
+struct CreateDurableAgentRequest: Codable, Sendable {
+    let name: String
+    let color: String?
+    let model: String?
+    let orchestrator: String?
+    let freeAgentMode: Bool?
+}
+
+struct CreateDurableAgentResponse: Codable, Sendable {
+    let id: String
+    let name: String
+    let kind: String
+    let color: String?
+    let status: String
+    let branch: String?
+    let model: String?
+    let orchestrator: String?
+    let freeAgentMode: Bool?
+    let icon: String?
+    let executionMode: String?
+    let projectId: String
+}
+
+// MARK: - Delete Agent
+
+struct DeleteAgentRequest: Codable, Sendable {
+    let confirm: Bool
+}
+
+struct DeleteAgentResponse: Codable, Sendable {
+    let id: String
+    let deleted: Bool
+}
+
 // MARK: - New WebSocket Payloads
 
 struct AgentSpawnedPayload: Codable, Sendable {

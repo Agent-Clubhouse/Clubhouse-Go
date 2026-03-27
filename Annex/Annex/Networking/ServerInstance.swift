@@ -591,6 +591,66 @@ import Foundation
         pendingPermissions.removeValue(forKey: requestId)
     }
 
+    // MARK: - Create Durable Agent
+
+    func createDurableAgent(
+        projectId: String, name: String, color: String?,
+        model: String?, orchestrator: String?, freeAgentMode: Bool?
+    ) async throws -> CreateDurableAgentResponse {
+        guard let apiClient, let token else {
+            throw APIError.invalidURL
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Creating durable agent in project \(projectId): name=\(name)")
+        let request = CreateDurableAgentRequest(
+            name: name, color: color, model: model,
+            orchestrator: orchestrator, freeAgentMode: freeAgentMode
+        )
+        let response = try await apiClient.createDurableAgent(
+            projectId: projectId, request: request, token: token
+        )
+
+        // Add to local cache
+        let agent = DurableAgent(
+            id: response.id, name: response.name, kind: response.kind,
+            color: response.color, branch: response.branch, model: response.model,
+            orchestrator: response.orchestrator, freeAgentMode: response.freeAgentMode,
+            icon: response.icon, executionMode: response.executionMode,
+            status: AgentStatus(rawValue: response.status), mission: nil,
+            detailedStatus: nil, quickAgents: nil
+        )
+        var agents = agentsByProject[response.projectId] ?? []
+        agents.append(agent)
+        agentsByProject[response.projectId] = agents
+
+        return response
+    }
+
+    // MARK: - Delete Agent
+
+    func deleteAgent(agentId: String) async throws {
+        guard let apiClient, let token else { return }
+        AppLog.shared.info("Instance", "\(logPrefix) Deleting agent \(agentId)")
+        let request = DeleteAgentRequest(confirm: true)
+        _ = try await apiClient.deleteAgent(agentId: agentId, request: request, token: token)
+
+        // Remove from local cache (check both durable and quick)
+        for (projectId, agents) in agentsByProject {
+            if agents.contains(where: { $0.id == agentId }) {
+                agentsByProject[projectId] = agents.filter { $0.id != agentId }
+                break
+            }
+        }
+        for (projectId, agents) in quickAgentsByProject {
+            if agents.contains(where: { $0.id == agentId }) {
+                quickAgentsByProject[projectId] = agents.filter { $0.id != agentId }
+                break
+            }
+        }
+        activityByAgent.removeValue(forKey: agentId)
+        ptyBufferByAgent.removeValue(forKey: agentId)
+        structuredEventsByAgent.removeValue(forKey: agentId)
+    }
+
     // MARK: - Icon Cache
 
     func fetchIcons() async {

@@ -296,6 +296,40 @@ final class AnnexAPIClient: Sendable {
         return try decode(StructuredPermissionResponse.self, from: data)
     }
 
+    // MARK: - POST /api/v1/projects/{projectId}/agents/durable
+
+    func createDurableAgent(
+        projectId: String, request: CreateDurableAgentRequest, token: String
+    ) async throws(APIError) -> CreateDurableAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/projects/\(projectId)/agents/durable")
+        let url = try makeURL("/api/v1/projects/\(projectId)/agents/durable")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONEncoder().encode(request)
+        let data = try await perform(req)
+        let response = try decode(CreateDurableAgentResponse.self, from: data)
+        AppLog.shared.info("API", "[\(configLabel)] Durable agent created: \(response.id) name=\(response.name)")
+        return response
+    }
+
+    // MARK: - POST /api/v1/agents/{agentId}/delete
+
+    func deleteAgent(
+        agentId: String, request: DeleteAgentRequest, token: String
+    ) async throws(APIError) -> DeleteAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/delete")
+        let url = try makeURL("/api/v1/agents/\(agentId)/delete")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONEncoder().encode(request)
+        let data = try await perform(req)
+        return try decode(DeleteAgentResponse.self, from: data)
+    }
+
     // MARK: - GET /api/v1/projects/{projectId}/files/tree
 
     func getFileTree(
