@@ -9,6 +9,22 @@ struct AllAgentsView: View {
 
     private let maxActivityRows = 5
 
+    private var isLoading: Bool {
+        !store.instances.isEmpty
+            && store.connectedInstances.isEmpty
+            && store.instances.contains(where: {
+                if case .connecting = $0.connectionState { return true }
+                if case .discovering = $0.connectionState { return true }
+                if case .reconnecting = $0.connectionState { return true }
+                return false
+            })
+    }
+
+    private var hasError: Bool {
+        store.instances.contains { $0.lastError != nil }
+            && store.connectedInstances.isEmpty
+    }
+
     private var filteredAgents: [AppStore.InstanceAgent] {
         let agents = store.allAgentsAcrossInstances.filter { ia in
             !hideSleeping || ia.agent.status == .running || ia.agent.status == .error || ia.agent.status == .starting
@@ -31,85 +47,32 @@ struct AllAgentsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(filteredAgents, id: \.agent.id) { ia in
-                    Section {
-                        NavigationLink(value: ia.agent) {
-                            AgentCardRow(
-                                agent: ia.agent,
-                                instance: ia.instance,
-                                showInstance: store.connectedInstances.count > 1
-                            )
-                        }
-                        .listRowBackground(store.theme.surface0Color.opacity(0.5))
-
-                        // Expandable activity detail
-                        HStack(spacing: 6) {
-                            // Instance badge
-                            if store.connectedInstances.count > 1 {
-                                Image(systemName: "desktopcomputer")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                Text(ia.instance.serverName)
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-
-                            if let project = ia.instance.project(for: ia.agent) {
-                                ProjectIconView(
-                                    name: project.name,
-                                    displayName: project.displayName,
-                                    iconData: store.projectIcons[project.id],
-                                    size: 18
-                                )
-                                Text(project.label)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.25)) {
-                                    if expandedAgentIds.contains(ia.agent.id) {
-                                        expandedAgentIds.remove(ia.agent.id)
-                                    } else {
-                                        expandedAgentIds.insert(ia.agent.id)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: expandedAgentIds.contains(ia.agent.id)
-                                      ? "chevron.up"
-                                      : "chevron.down")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .listRowBackground(store.theme.surface0Color.opacity(0.3))
-
-                        if expandedAgentIds.contains(ia.agent.id) {
-                            let events = ia.instance.activity(for: ia.agent.id).suffix(maxActivityRows)
-                            if events.isEmpty {
-                                Text("No recent activity")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                    .listRowBackground(store.theme.surface0Color.opacity(0.2))
-                            } else {
-                                ForEach(Array(events)) { event in
-                                    CompactActivityRow(
-                                        event: event,
-                                        accent: store.theme.accentColor
-                                    )
-                                    .listRowBackground(store.theme.surface0Color.opacity(0.2))
-                                }
-                            }
+            Group {
+                if isLoading {
+                    List {
+                        ForEach(0..<4, id: \.self) { _ in
+                            AgentCardSkeleton()
+                                .listRowBackground(Color.clear)
                         }
                     }
+                    .listStyle(.insetGrouped)
+                    .scrollContentBackground(.hidden)
+                } else if hasError {
+                    ErrorRetryView(
+                        title: "Connection Error",
+                        message: store.instances.compactMap(\.lastError).first ?? "Unable to reach server.",
+                        onRetry: {
+                            Task {
+                                for inst in store.instances {
+                                    await store.reconnect(instanceId: inst.id)
+                                }
+                            }
+                        }
+                    )
+                } else {
+                    agentList
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .background(store.theme.baseColor)
             .navigationTitle("Agents")
             .toolbar {
@@ -153,34 +116,115 @@ struct AllAgentsView: View {
                     LiveTerminalView(agentId: id)
                 }
             }
-            .overlay {
-                if filteredAgents.isEmpty {
-                    if hideSleeping && !store.allAgentsAcrossInstances.isEmpty {
-                        ContentUnavailableView(
-                            "No Running Agents",
-                            systemImage: "moon.zzz",
-                            description: Text("All agents are sleeping. Tap the filter icon to show them.")
-                        )
-                    } else if store.connectedInstances.isEmpty {
-                        ContentUnavailableView(
-                            "Not Connected",
-                            systemImage: "wifi.slash",
-                            description: Text("Connect to a Clubhouse server to see your agents.")
-                        )
-                    } else {
-                        ContentUnavailableView(
-                            "No Agents",
-                            systemImage: "person.3",
-                            description: Text("Agents will appear here once they're running.")
+        }
+    }
+
+    private var agentList: some View {
+        List {
+            ForEach(filteredAgents, id: \.agent.id) { ia in
+                Section {
+                    NavigationLink(value: ia.agent) {
+                        AgentCardRow(
+                            agent: ia.agent,
+                            instance: ia.instance,
+                            showInstance: store.connectedInstances.count > 1
                         )
                     }
+                    .listRowBackground(store.theme.surface0Color.opacity(0.5))
+
+                    // Expandable activity detail
+                    HStack(spacing: 6) {
+                        if store.connectedInstances.count > 1 {
+                            Image(systemName: "desktopcomputer")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text(ia.instance.serverName)
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+
+                        if let project = ia.instance.project(for: ia.agent) {
+                            ProjectIconView(
+                                name: project.name,
+                                displayName: project.displayName,
+                                iconData: store.projectIcons[project.id],
+                                size: 18
+                            )
+                            Text(project.label)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                if expandedAgentIds.contains(ia.agent.id) {
+                                    expandedAgentIds.remove(ia.agent.id)
+                                } else {
+                                    expandedAgentIds.insert(ia.agent.id)
+                                }
+                            }
+                        } label: {
+                            Image(systemName: expandedAgentIds.contains(ia.agent.id)
+                                  ? "chevron.up"
+                                  : "chevron.down")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .listRowBackground(store.theme.surface0Color.opacity(0.3))
+
+                    if expandedAgentIds.contains(ia.agent.id) {
+                        let events = ia.instance.activity(for: ia.agent.id).suffix(maxActivityRows)
+                        if events.isEmpty {
+                            Text("No recent activity")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .listRowBackground(store.theme.surface0Color.opacity(0.2))
+                        } else {
+                            ForEach(Array(events)) { event in
+                                CompactActivityRow(
+                                    event: event,
+                                    accent: store.theme.accentColor
+                                )
+                                .listRowBackground(store.theme.surface0Color.opacity(0.2))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .overlay {
+            if filteredAgents.isEmpty {
+                if hideSleeping && !store.allAgentsAcrossInstances.isEmpty {
+                    ContentUnavailableView(
+                        "No Running Agents",
+                        systemImage: "moon.zzz",
+                        description: Text("All agents are sleeping. Tap the filter icon to show them.")
+                    )
+                } else if store.connectedInstances.isEmpty {
+                    ContentUnavailableView(
+                        "Not Connected",
+                        systemImage: "wifi.slash",
+                        description: Text("Connect to a Clubhouse server to see your agents.")
+                    )
+                } else {
+                    ContentUnavailableView(
+                        "No Agents",
+                        systemImage: "person.3",
+                        description: Text("Agents will appear here once they're running.")
+                    )
                 }
             }
         }
     }
 }
 
-// MARK: - Sort Order
+// MARK: - Sort Order (private to this file, exposed for tests via @testable)
 
 enum AgentSortOrder: String, CaseIterable {
     case status
@@ -240,12 +284,17 @@ private struct AgentCardRow: View {
         }
     }
 
+    private var projectName: String? {
+        instance.project(for: agent)?.label
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Status color indicator bar
             RoundedRectangle(cornerRadius: 2)
                 .fill(statusColor)
                 .frame(width: 4, height: 44)
+                .accessibilityHidden(true)
 
             AgentAvatarView(
                 color: agent.color ?? "gray",
@@ -274,18 +323,26 @@ private struct AgentCardRow: View {
                     }
                 }
 
-                if !preview.isEmpty {
-                    Text(preview)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let project = projectName {
+                        Text(project)
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    if !preview.isEmpty {
+                        Text(preview)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
             Spacer()
 
             if let ts = agent.detailedStatus?.timestamp {
-                Text(agentCardCompactTime(from: ts))
+                Text(compactRelativeTime(from: ts))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -301,7 +358,7 @@ private struct CompactActivityRow: View {
 
     private var icon: String {
         switch event.kind {
-        case .preTool: toolIcon(event.toolName)
+        case .preTool: toolIcon(for: event.toolName)
         case .postTool: "checkmark.circle"
         case .toolError: "exclamationmark.triangle.fill"
         case .stop: "stop.circle.fill"
@@ -352,37 +409,12 @@ private struct CompactActivityRow: View {
 
             Spacer()
 
-            Text(agentCardCompactTime(from: event.timestamp))
+            Text(compactRelativeTime(from: event.timestamp))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 2)
     }
-}
-
-private func toolIcon(_ toolName: String?) -> String {
-    switch toolName {
-    case "Edit": "pencil"
-    case "Read": "doc.text"
-    case "Write": "doc.badge.plus"
-    case "Bash": "terminal"
-    case "Glob": "magnifyingglass"
-    case "Grep": "text.magnifyingglass"
-    case "WebSearch": "globe"
-    case "WebFetch": "arrow.down.circle"
-    case "Task": "arrow.triangle.branch"
-    default: "wrench"
-    }
-}
-
-private func agentCardCompactTime(from unixMs: Int) -> String {
-    let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
-    if seconds < 60 { return "now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h" }
-    return "\(hours / 24)d"
 }
 
 #Preview {

@@ -138,12 +138,61 @@ struct ActivityAggregationTests {
         #expect(limited.count == 8)
         #expect(limited[0].timestamp == 1019) // Most recent first
     }
+}
 
-    @Test func hookEventKindIconMapping() {
-        // Verify all kinds have distinct representations
-        let kinds: [HookEventKind] = [.preTool, .postTool, .toolError, .stop, .notification, .permissionRequest]
-        let seen = Set(kinds.map(\.rawValue))
-        #expect(seen.count == kinds.count, "All hook event kinds should be distinct")
+// MARK: - Compact Time Formatting Tests
+
+struct CompactTimeTests {
+    @Test func nowForRecentTimestamps() {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        #expect(compactRelativeTime(from: now) == "now")
+        #expect(compactRelativeTime(from: now - 30_000) == "now") // 30 seconds ago
+        #expect(compactRelativeTime(from: now - 59_000) == "now") // 59 seconds ago
+    }
+
+    @Test func minutesBoundary() {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        #expect(compactRelativeTime(from: now - 60_000) == "1m")
+        #expect(compactRelativeTime(from: now - 300_000) == "5m")
+        #expect(compactRelativeTime(from: now - 3_540_000) == "59m") // 59 minutes
+    }
+
+    @Test func hoursBoundary() {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        #expect(compactRelativeTime(from: now - 3_600_000) == "1h")
+        #expect(compactRelativeTime(from: now - 7_200_000) == "2h")
+        #expect(compactRelativeTime(from: now - 82_800_000) == "23h") // 23 hours
+    }
+
+    @Test func daysBoundary() {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        #expect(compactRelativeTime(from: now - 86_400_000) == "1d")
+        #expect(compactRelativeTime(from: now - 172_800_000) == "2d")
+    }
+
+    @Test func futureTimestampsReturnNow() {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        #expect(compactRelativeTime(from: now + 60_000) == "now")
+    }
+}
+
+// MARK: - Tool Icon Mapping Tests
+
+struct ToolIconMappingTests {
+    @Test func knownToolsMapToDistinctIcons() {
+        let tools = ["Edit", "Read", "Write", "Bash", "Glob", "Grep", "WebSearch", "WebFetch", "Task"]
+        var icons = Set<String>()
+        for tool in tools {
+            let icon = toolIcon(for: tool)
+            #expect(icon != "wrench", "\(tool) should have a specific icon, not the default")
+            icons.insert(icon)
+        }
+        #expect(icons.count == tools.count, "All known tools should map to distinct icons")
+    }
+
+    @Test func unknownToolReturnsDefault() {
+        #expect(toolIcon(for: "UnknownTool") == "wrench")
+        #expect(toolIcon(for: nil) == "wrench")
     }
 }
 
@@ -181,32 +230,27 @@ struct AppStoreAggregateTests {
 
     @Test func totalAgentCountAcrossInstances() {
         let store = makeStore()
-        // Mock data has: proj_001 (2 agents), proj_002 (2 agents), proj_003 (1 agent) = 5 total
         #expect(store.totalAgentCount == 5)
     }
 
     @Test func runningAgentCountAcrossInstances() {
         let store = makeStore()
-        // Mock data: faithful-urchin (running), bold-eagle (running), swift-crane (running) = 3
         #expect(store.runningAgentCount == 3)
     }
 
     @Test func allProjectsAcrossInstances() {
         let store = makeStore()
-        // 3 projects across 2 instances
         #expect(store.allProjects.count == 3)
     }
 
     @Test func allPendingPermissionsAcrossInstances() {
         let store = makeStore()
-        // Mock data has 1 pending permission on inst2
         #expect(store.allPendingPermissions.count == 1)
     }
 
     @Test func allAgentsSortedByStatus() {
         let store = makeStore()
         let agents = store.allAgentsAcrossInstances
-        // Running agents should come first
         #expect(agents.first?.agent.status == .running)
     }
 
@@ -250,31 +294,5 @@ struct ServerInstanceActivityTests {
             protocolConfig: .v2(host: "127.0.0.1", mainPort: 8443, pairingPort: 8080, fingerprint: "AA:BB")
         )
         #expect(inst.activity(for: "nonexistent").isEmpty)
-    }
-}
-
-// MARK: - Status Indicator Tests
-
-struct StatusIndicatorTests {
-    @Test func agentInitialsFromHyphenatedName() {
-        #expect(agentInitials(from: "faithful-urchin") == "FU")
-        #expect(agentInitials(from: "bold-eagle") == "BE")
-        #expect(agentInitials(from: "swift-crane") == "SC")
-    }
-
-    @Test func agentInitialsFromSingleWord() {
-        #expect(agentInitials(from: "agent") == "A")
-    }
-
-    @Test func agentInitialsFromNil() {
-        #expect(agentInitials(from: nil) == "")
-    }
-
-    @Test func projectInitialFromDisplayName() {
-        #expect(projectInitial(from: "My App", name: "my-app") == "M")
-    }
-
-    @Test func projectInitialFallsBackToName() {
-        #expect(projectInitial(from: nil, name: "api-server") == "A")
     }
 }

@@ -5,40 +5,60 @@ struct DashboardView: View {
     @State private var showPermissionReview = false
     @State private var showSpawnSheet = false
 
+    private var isLoading: Bool {
+        !store.instances.isEmpty
+            && store.connectedInstances.isEmpty
+            && store.instances.contains(where: {
+                if case .connecting = $0.connectionState { return true }
+                if case .discovering = $0.connectionState { return true }
+                if case .reconnecting = $0.connectionState { return true }
+                return false
+            })
+    }
+
+    private var hasError: Bool {
+        store.instances.contains { $0.lastError != nil }
+            && store.connectedInstances.isEmpty
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Connection status
                     ConnectionStatusBar()
 
                     if !store.connectedInstances.isEmpty {
-                        // Permission queue
                         if !store.allPendingPermissions.isEmpty {
                             PermissionReviewSection(onReviewAll: {
                                 showPermissionReview = true
                             })
                         }
 
-                        // Quick stats
                         StatsSection()
-
-                        // Running agents
                         RunningAgentsSection()
-
-                        // Recent Activity feed
                         RecentActivitySection()
 
-                        // Quick actions
                         QuickActionsSection(
                             onSpawn: { showSpawnSheet = true },
                             onReviewPermissions: { showPermissionReview = true }
                         )
+                    } else if isLoading {
+                        DashboardLoadingView()
+                    } else if hasError {
+                        ErrorRetryView(
+                            title: "Connection Error",
+                            message: store.instances.compactMap(\.lastError).first ?? "Unable to connect to server.",
+                            onRetry: {
+                                Task {
+                                    for inst in store.instances {
+                                        await store.reconnect(instanceId: inst.id)
+                                    }
+                                }
+                            }
+                        )
                     } else if !store.instances.isEmpty {
-                        // Have instances but none connected
                         DisconnectedWarningView()
                     } else {
-                        // No instances at all
                         NoInstancesView()
                     }
                 }
@@ -218,33 +238,19 @@ private struct StatsSection: View {
             GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10),
         ], spacing: 10) {
-            StatCard(
-                icon: "bolt.fill",
-                label: "Running",
-                value: "\(store.runningAgentCount)",
-                color: .green
-            )
-
-            StatCard(
-                icon: "person.3.fill",
-                label: "Total Agents",
-                value: "\(store.totalAgentCount)",
-                color: store.theme.accentColor
-            )
-
-            StatCard(
-                icon: "folder.fill",
-                label: "Projects",
-                value: "\(store.allProjects.count)",
-                color: .blue
-            )
-
-            StatCard(
-                icon: "lock.shield.fill",
-                label: "Pending",
-                value: "\(store.allPendingPermissions.count)",
-                color: store.allPendingPermissions.isEmpty ? .secondary : .orange
-            )
+            StatCard(icon: "bolt.fill", label: "Running",
+                     value: "\(store.runningAgentCount)", color: .green,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "person.3.fill", label: "Total Agents",
+                     value: "\(store.totalAgentCount)", color: store.theme.accentColor,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "folder.fill", label: "Projects",
+                     value: "\(store.allProjects.count)", color: .blue,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "lock.shield.fill", label: "Pending",
+                     value: "\(store.allPendingPermissions.count)",
+                     color: store.allPendingPermissions.isEmpty ? .secondary : .orange,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5))
         }
     }
 }
@@ -254,8 +260,7 @@ private struct StatCard: View {
     let label: String
     let value: String
     let color: Color
-
-    @Environment(AppStore.self) private var store
+    let backgroundColor: Color
 
     var body: some View {
         HStack(spacing: 12) {
@@ -263,7 +268,6 @@ private struct StatCard: View {
                 .font(.title3)
                 .foregroundStyle(color)
                 .frame(width: 28)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.title2.weight(.bold))
@@ -271,14 +275,15 @@ private struct StatCard: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(store.theme.surface0Color.opacity(0.5))
+                .fill(backgroundColor)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -335,12 +340,10 @@ private struct RunningAgentTile: View {
                 iconData: iconData,
                 size: 44
             )
-
             VStack(spacing: 2) {
                 Text(agent.name ?? "")
                     .font(.caption2.weight(.medium))
                     .lineLimit(1)
-
                 if let msg = agent.detailedStatus?.message, !msg.isEmpty {
                     Text(msg)
                         .font(.system(size: 9))
@@ -358,135 +361,6 @@ private struct RunningAgentTile: View {
     }
 }
 
-// MARK: - Recent Activity Section
-
-private struct RecentActivitySection: View {
-    @Environment(AppStore.self) private var store
-
-    private var recentEvents: [AgentHookEvent] {
-        store.connectedInstances.flatMap { inst in
-            inst.allActivityEvents.map { AgentHookEvent(event: $0, instance: inst) }
-        }
-        .sorted { $0.event.timestamp > $1.event.timestamp }
-        .prefix(8)
-        .map { $0 }
-    }
-
-    var body: some View {
-        if !recentEvents.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Recent Activity")
-                        .font(.headline)
-                    Spacer()
-                }
-
-                VStack(spacing: 0) {
-                    ForEach(Array(recentEvents.enumerated()), id: \.element.event.id) { index, item in
-                        DashboardActivityRow(
-                            event: item.event,
-                            agentName: store.durableAgent(byId: item.event.agentId)?.name,
-                            agentColor: store.durableAgent(byId: item.event.agentId)?.color,
-                            accent: store.theme.accentColor
-                        )
-
-                        if index < recentEvents.count - 1 {
-                            Divider()
-                                .padding(.leading, 36)
-                        }
-                    }
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(store.theme.surface0Color.opacity(0.4))
-                )
-            }
-        }
-    }
-}
-
-/// Pairs a HookEvent with its source instance for cross-instance aggregation
-private struct AgentHookEvent {
-    let event: HookEvent
-    let instance: ServerInstance
-}
-
-private struct DashboardActivityRow: View {
-    let event: HookEvent
-    let agentName: String?
-    let agentColor: String?
-    let accent: Color
-
-    private var icon: String {
-        switch event.kind {
-        case .preTool: dashboardToolIcon(event.toolName)
-        case .postTool: "checkmark.circle"
-        case .toolError: "exclamationmark.triangle.fill"
-        case .stop: "stop.circle.fill"
-        case .notification: "bell.fill"
-        case .permissionRequest: "lock.fill"
-        }
-    }
-
-    private var iconColor: Color {
-        switch event.kind {
-        case .preTool: accent
-        case .postTool: .green
-        case .toolError: .red
-        case .stop: .secondary
-        case .notification: accent
-        case .permissionRequest: .orange
-        }
-    }
-
-    private var label: String {
-        switch event.kind {
-        case .preTool:
-            return event.toolVerb ?? "Using \(event.toolName ?? "tool")"
-        case .postTool:
-            return "\(event.toolName ?? "Tool") done"
-        case .toolError:
-            return event.message ?? "Error"
-        case .stop:
-            return event.message ?? "Stopped"
-        case .notification:
-            return event.message ?? ""
-        case .permissionRequest:
-            return "Needs permission: \(event.toolName ?? "tool")"
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(iconColor)
-                .frame(width: 20, alignment: .center)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label)
-                    .font(.caption)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                if let name = agentName {
-                    Text(name)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            Spacer()
-
-            Text(dashboardCompactTime(event.timestamp))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
 // MARK: - Quick Actions Section
 
 private struct QuickActionsSection: View {
@@ -498,22 +372,15 @@ private struct QuickActionsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
                 .font(.headline)
-
             HStack(spacing: 12) {
-                QuickActionButton(
-                    icon: "bolt.fill",
-                    label: "Spawn Agent",
-                    color: store.theme.accentColor,
-                    action: onSpawn
-                )
-
+                QuickActionButton(icon: "bolt.fill", label: "Spawn Agent",
+                                  color: store.theme.accentColor, action: onSpawn)
+                    .accessibilityHint("Opens the agent spawn dialog")
                 if !store.allPendingPermissions.isEmpty {
-                    QuickActionButton(
-                        icon: "lock.shield.fill",
-                        label: "Review (\(store.allPendingPermissions.count))",
-                        color: .orange,
-                        action: onReviewPermissions
-                    )
+                    QuickActionButton(icon: "lock.shield.fill",
+                                      label: "Review (\(store.allPendingPermissions.count))",
+                                      color: .orange, action: onReviewPermissions)
+                        .accessibilityHint("Opens the permission review flow")
                 }
             }
         }
@@ -525,7 +392,6 @@ private struct QuickActionButton: View {
     let label: String
     let color: Color
     let action: () -> Void
-    @Environment(AppStore.self) private var store
 
     var body: some View {
         Button(action: action) {
@@ -545,6 +411,29 @@ private struct QuickActionButton: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Loading State
+
+private struct DashboardLoadingView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            LazyVGrid(columns: [
+                GridItem(.flexible(), spacing: 10),
+                GridItem(.flexible(), spacing: 10),
+            ], spacing: 10) {
+                ForEach(0..<4, id: \.self) { _ in
+                    StatCardSkeleton()
+                }
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ShimmerView(width: 120, height: 16, cornerRadius: 4)
+                ForEach(0..<3, id: \.self) { _ in
+                    AgentCardSkeleton()
+                }
+            }
+        }
     }
 }
 
@@ -584,33 +473,6 @@ private struct NoInstancesView: View {
         }
         .padding(.top, 40)
     }
-}
-
-// MARK: - Helpers
-
-private func dashboardToolIcon(_ toolName: String?) -> String {
-    switch toolName {
-    case "Edit": "pencil"
-    case "Read": "doc.text"
-    case "Write": "doc.badge.plus"
-    case "Bash": "terminal"
-    case "Glob": "magnifyingglass"
-    case "Grep": "text.magnifyingglass"
-    case "WebSearch": "globe"
-    case "WebFetch": "arrow.down.circle"
-    case "Task": "arrow.triangle.branch"
-    default: "wrench"
-    }
-}
-
-private func dashboardCompactTime(_ unixMs: Int) -> String {
-    let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
-    if seconds < 60 { return "now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h" }
-    return "\(hours / 24)d"
 }
 
 #Preview {

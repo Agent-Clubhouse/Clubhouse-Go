@@ -68,7 +68,7 @@ struct AgentRowView: View {
             Spacer()
 
             if let ts = agent.detailedStatus?.timestamp {
-                Text(relativeTime(from: ts))
+                Text(compactRelativeTime(from: ts))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -149,15 +149,7 @@ struct QuickAgentRowView: View {
     }
 }
 
-private func relativeTime(from unixMs: Int) -> String {
-    let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
-    if seconds < 60 { return "now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h" }
-    return "\(hours / 24)d"
-}
+// relativeTime is provided by compactRelativeTime in ViewHelpers.swift
 
 #Preview {
     let store = AppStore()

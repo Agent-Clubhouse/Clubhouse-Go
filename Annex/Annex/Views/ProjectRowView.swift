@@ -15,10 +15,10 @@ struct ProjectRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Color accent bar
             RoundedRectangle(cornerRadius: 2)
                 .fill(projectColor)
                 .frame(width: 4, height: 40)
+                .accessibilityHidden(true)
 
             ProjectIconView(
                 name: project.name,
