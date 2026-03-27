@@ -5,13 +5,28 @@ struct AllAgentsView: View {
     @State private var expandedAgentIds: Set<String> = []
     @State private var showSettings = false
     @State private var hideSleeping = false
+    @State private var sortOrder: AgentSortOrder = .status
 
     private let maxActivityRows = 5
 
     private var filteredAgents: [AppStore.InstanceAgent] {
-        store.allAgentsAcrossInstances.filter { ia in
-            !hideSleeping || ia.agent.status == .running
+        let agents = store.allAgentsAcrossInstances.filter { ia in
+            !hideSleeping || ia.agent.status == .running || ia.agent.status == .error || ia.agent.status == .starting
         }
+        switch sortOrder {
+        case .status:
+            return agents.sorted { $0.agent.statusSortOrder < $1.agent.statusSortOrder }
+        case .name:
+            return agents.sorted { ($0.agent.name ?? "") < ($1.agent.name ?? "") }
+        case .activity:
+            return agents.sorted { latestTimestamp(for: $0) > latestTimestamp(for: $1) }
+        }
+    }
+
+    private func latestTimestamp(for ia: AppStore.InstanceAgent) -> Int {
+        ia.agent.detailedStatus?.timestamp
+            ?? ia.instance.activity(for: ia.agent.id).last?.timestamp
+            ?? 0
     }
 
     var body: some View {
@@ -20,10 +35,15 @@ struct AllAgentsView: View {
                 ForEach(filteredAgents, id: \.agent.id) { ia in
                     Section {
                         NavigationLink(value: ia.agent) {
-                            AgentRowView(agent: ia.agent)
+                            AgentCardRow(
+                                agent: ia.agent,
+                                instance: ia.instance,
+                                showInstance: store.connectedInstances.count > 1
+                            )
                         }
                         .listRowBackground(store.theme.surface0Color.opacity(0.5))
 
+                        // Expandable activity detail
                         HStack(spacing: 6) {
                             // Instance badge
                             if store.connectedInstances.count > 1 {
@@ -94,10 +114,25 @@ struct AllAgentsView: View {
             .navigationTitle("Agents")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        withAnimation { hideSleeping.toggle() }
+                    Menu {
+                        Button {
+                            withAnimation { hideSleeping.toggle() }
+                        } label: {
+                            Label(
+                                hideSleeping ? "Show All" : "Hide Sleeping",
+                                systemImage: hideSleeping ? "eye" : "eye.slash"
+                            )
+                        }
+
+                        Divider()
+
+                        Picker("Sort", selection: $sortOrder) {
+                            Label("Status", systemImage: "circle.fill").tag(AgentSortOrder.status)
+                            Label("Name", systemImage: "textformat").tag(AgentSortOrder.name)
+                            Label("Activity", systemImage: "clock").tag(AgentSortOrder.activity)
+                        }
                     } label: {
-                        Image(systemName: hideSleeping ? "eye.slash" : "eye")
+                        Image(systemName: "line.3.horizontal.decrease")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -124,7 +159,13 @@ struct AllAgentsView: View {
                         ContentUnavailableView(
                             "No Running Agents",
                             systemImage: "moon.zzz",
-                            description: Text("All agents are sleeping. Tap the eye icon to show them.")
+                            description: Text("All agents are sleeping. Tap the filter icon to show them.")
+                        )
+                    } else if store.connectedInstances.isEmpty {
+                        ContentUnavailableView(
+                            "Not Connected",
+                            systemImage: "wifi.slash",
+                            description: Text("Connect to a Clubhouse server to see your agents.")
                         )
                     } else {
                         ContentUnavailableView(
@@ -136,6 +177,120 @@ struct AllAgentsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Sort Order
+
+enum AgentSortOrder: String, CaseIterable {
+    case status
+    case name
+    case activity
+}
+
+// MARK: - Agent Card Row
+
+private struct AgentCardRow: View {
+    let agent: DurableAgent
+    let instance: ServerInstance
+    let showInstance: Bool
+    @Environment(AppStore.self) private var store
+
+    private var preview: String {
+        if agent.status == .running, let msg = agent.detailedStatus?.message, !msg.isEmpty {
+            return msg
+        }
+        if let mission = agent.mission {
+            return mission
+        }
+        if let status = agent.status {
+            return status.rawValue.capitalized
+        }
+        return ""
+    }
+
+    private var modelLabel: String? {
+        guard let model = agent.model else { return nil }
+        if model.contains("opus") { return "Opus" }
+        if model.contains("sonnet") { return "Sonnet" }
+        if model.contains("haiku") { return "Haiku" }
+        return model
+    }
+
+    private var orchestratorLabel: String? {
+        guard let orchId = agent.orchestrator,
+              let info = store.orchestrators[orchId] else { return nil }
+        return info.shortName
+    }
+
+    private var statusColor: Color {
+        switch agent.detailedStatus?.state {
+        case .working: return .green
+        case .needsPermission: return .orange
+        case .toolError: return .yellow
+        default:
+            switch agent.status {
+            case .starting, .running: return .green
+            case .sleeping: return .gray
+            case .error, .failed: return .red
+            case .completed: return .blue
+            case .cancelled: return .gray
+            case nil: return .gray
+            }
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Status color indicator bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(statusColor)
+                .frame(width: 4, height: 44)
+
+            AgentAvatarView(
+                color: agent.color ?? "gray",
+                status: agent.status,
+                state: agent.detailedStatus?.state,
+                name: agent.name,
+                iconData: store.agentIcons[agent.id]
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text(agent.name ?? agent.id)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(1)
+
+                    if let label = orchestratorLabel {
+                        let c = OrchestratorColors.colors(for: agent.orchestrator)
+                        ChipView(text: label, bg: c.bg, fg: c.fg)
+                    }
+                    if let label = modelLabel {
+                        let c = ModelColors.colors(for: agent.model)
+                        ChipView(text: label, bg: c.bg, fg: c.fg)
+                    }
+                    if agent.freeAgentMode == true {
+                        ChipView(text: "Free", bg: .red.opacity(0.15), fg: .red)
+                    }
+                }
+
+                if !preview.isEmpty {
+                    Text(preview)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            if let ts = agent.detailedStatus?.timestamp {
+                Text(agentCardCompactTime(from: ts))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
@@ -197,7 +352,7 @@ private struct CompactActivityRow: View {
 
             Spacer()
 
-            Text(compactTime(event.timestamp))
+            Text(agentCardCompactTime(from: event.timestamp))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -220,7 +375,7 @@ private func toolIcon(_ toolName: String?) -> String {
     }
 }
 
-private func compactTime(_ unixMs: Int) -> String {
+private func agentCardCompactTime(from unixMs: Int) -> String {
     let seconds = max(0, (Int(Date().timeIntervalSince1970 * 1000) - unixMs) / 1000)
     if seconds < 60 { return "now" }
     let minutes = seconds / 60
