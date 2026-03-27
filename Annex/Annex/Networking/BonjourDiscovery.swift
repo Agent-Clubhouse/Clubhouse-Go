@@ -21,6 +21,8 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
 @Observable final class BonjourDiscovery: NSObject {
     private(set) var servers: [DiscoveredServer] = []
     private(set) var isSearching = false
+    private(set) var permissionDenied = false
+    private(set) var searchTimedOut = false
 
     private var browser: NWBrowser?
     private var connections: [String: NWConnection] = [:]
@@ -43,6 +45,8 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
             return
         }
         isSearching = true
+        permissionDenied = false
+        searchTimedOut = false
         servers = []
         AppLog.shared.info("Bonjour", "Starting mDNS browse for _clubhouse-annex._tcp")
 
@@ -63,6 +67,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
                     self?.isSearching = false
                 case .waiting(let error):
                     AppLog.shared.warn("Bonjour", "Browser waiting: \(error) — check local network permission")
+                    self?.permissionDenied = true
                 default:
                     AppLog.shared.debug("Bonjour", "Browser state: \(state)")
                 }
@@ -90,6 +95,15 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
 
         browser.start(queue: .main)
         self.browser = browser
+
+        // Timeout: if no servers found after 15s, show help
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(15))
+            if self.isSearching && self.servers.isEmpty && !self.permissionDenied {
+                self.searchTimedOut = true
+                AppLog.shared.warn("Bonjour", "No servers found after 15s timeout")
+            }
+        }
     }
 
     func stopSearching() {
