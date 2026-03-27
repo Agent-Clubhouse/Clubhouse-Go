@@ -22,16 +22,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select latest Xcode
+      - name: Select Xcode matching simulator runtime
         run: |
-          XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
-          echo "Selected Xcode: $XCODE_PATH"
-          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          # Find the installed iOS simulator runtime version
+          SIM_VER=$(xcrun simctl list runtimes -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for r in sorted(data['runtimes'], key=lambda x: x.get('version',''), reverse=True):
+              if 'iOS' in r.get('name','') and r.get('isAvailable', False):
+                  print(r['version'])
+                  sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "Simulator runtime: iOS $SIM_VER"
+
+          # Pick the Xcode whose SDK best matches the simulator runtime
+          BEST_XCODE=""
+          for xc in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -rV); do
+            SDK_VER=$("$xc/Contents/Developer/usr/bin/xcodebuild" -version -sdk iphonesimulator ProductVersion 2>/dev/null || true)
+            echo "  $xc → SDK $SDK_VER"
+            if [ "$SDK_VER" = "$SIM_VER" ]; then
+              BEST_XCODE="$xc"
+              break
+            fi
+          done
+
+          # Fall back to latest if no exact match
+          if [ -z "$BEST_XCODE" ]; then
+            BEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+            echo "No exact SDK match — falling back to latest: $BEST_XCODE"
+          fi
+
+          echo "Selected Xcode: $BEST_XCODE"
+          sudo xcode-select -s "$BEST_XCODE/Contents/Developer"
           xcodebuild -version
 
       - name: Resolve simulator
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | \
+          DEVICE_NAME=$(xcrun simctl list devices available -j | \
             python3 -c "
           import json, sys
           data = json.load(sys.stdin)
@@ -40,13 +68,12 @@ jobs:
                   continue
               for d in data['devices'][runtime]:
                   if 'iPhone' in d['name']:
-                      print(d['udid'])
+                      print(d['name'])
                       sys.exit(0)
           sys.exit(1)
           ")
-          echo "DEST=platform=iOS Simulator,id=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$DEVICE_ID" || true
-          echo "Booted simulator: $DEVICE_ID"
+          echo "DEST=platform=iOS Simulator,name=$DEVICE_NAME" >> "$GITHUB_ENV"
+          echo "Using simulator: $DEVICE_NAME"
 
       - name: Build for testing
         run: |
