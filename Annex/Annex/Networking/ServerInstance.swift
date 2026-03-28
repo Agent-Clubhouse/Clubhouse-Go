@@ -224,12 +224,12 @@ import Foundation
         wsStreamTask?.cancel()
         webSocket?.disconnect()
 
-        guard let url = try? apiClient.webSocketURL(token: token) else {
-            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct WebSocket URL")
+        guard let request = try? apiClient.webSocketRequest(token: token) else {
+            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct WebSocket request")
             return
         }
         AppLog.shared.info("Instance", "\(logPrefix) Connecting WebSocket...")
-        let ws = WebSocketClient(url: url, session: apiClient.urlSession)
+        let ws = WebSocketClient(request: request, session: apiClient.urlSession)
         self.webSocket = ws
 
         let stream = ws.connect()

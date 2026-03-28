@@ -446,15 +446,17 @@ final class AnnexAPIClient: Sendable {
         return try decode(SessionSummary.self, from: data)
     }
 
-    // MARK: - WebSocket URL
+    // MARK: - WebSocket
 
-    func webSocketURL(token: String) throws(APIError) -> URL {
+    func webSocketRequest(token: String) throws(APIError) -> URLRequest {
         guard case .v2 = config else { throw .invalidURL }
-        guard let url = URL(string: "wss://\(urlHost):\(port)/ws?token=\(token)") else {
+        guard let url = URL(string: "wss://\(urlHost):\(port)/ws") else {
             throw .invalidURL
         }
-        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: wss://\(urlHost):\(port)/ws?token=\(token.prefix(8))...")
-        return url
+        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: wss://\(urlHost):\(port)/ws")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
     }
 
     // MARK: - Helpers
