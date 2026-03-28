@@ -448,40 +448,41 @@ import Foundation
     }
 
     private func attemptReconnect() async {
-        guard reconnectAttempt < Self.maxReconnectAttempts else {
-            AppLog.shared.error("Instance", "\(logPrefix) Max reconnect attempts (\(Self.maxReconnectAttempts)) reached — giving up")
-            disconnectInternal()
-            lastError = "Lost connection to server"
-            return
-        }
+        for attempt in 1...Self.maxReconnectAttempts {
+            guard !Task.isCancelled else { break }
 
-        reconnectAttempt += 1
-        connectionState = .reconnecting(attempt: reconnectAttempt)
-        let delay = min(pow(2.0, Double(reconnectAttempt - 1)), 30.0)
-        AppLog.shared.warn("Instance", "\(logPrefix) Reconnecting attempt \(reconnectAttempt)/\(Self.maxReconnectAttempts), delay=\(delay)s")
+            reconnectAttempt = attempt
+            connectionState = .reconnecting(attempt: attempt)
+            let delay = min(pow(2.0, Double(attempt - 1)), 30.0)
+            AppLog.shared.warn("Instance", "\(logPrefix) Reconnecting attempt \(attempt)/\(Self.maxReconnectAttempts), delay=\(delay)s")
 
-        try? await Task.sleep(for: .seconds(delay))
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { break }
 
-        guard let apiClient, let token else {
-            AppLog.shared.error("Instance", "\(logPrefix) Cannot reconnect: no apiClient or token")
-            disconnectInternal()
-            return
-        }
+            guard let apiClient, let token else {
+                AppLog.shared.error("Instance", "\(logPrefix) Cannot reconnect: no apiClient or token")
+                break
+            }
 
-        do {
-            _ = try await apiClient.getStatus(token: token)
-            AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
-            await connectWebSocket()
-        } catch let error as APIError {
-            if case .unauthorized = error {
+            do {
+                _ = try await apiClient.getStatus(token: token)
+                AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
+                await connectWebSocket()
+                return // success
+            } catch let error as APIError where error == .unauthorized {
                 AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
                 disconnectInternal()
                 lastError = "Session expired. Please re-pair."
-            } else {
+                return
+            } catch {
                 AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                await attemptReconnect()
+                continue
             }
         }
+
+        AppLog.shared.error("Instance", "\(logPrefix) Max reconnect attempts (\(Self.maxReconnectAttempts)) reached — giving up")
+        disconnectInternal()
+        lastError = "Lost connection to server"
     }
 
     // MARK: - Agent Actions
