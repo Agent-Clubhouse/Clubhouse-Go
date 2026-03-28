@@ -33,11 +33,11 @@ struct SeqWSEvent: Sendable {
     let replayed: Bool
 }
 
-final class WebSocketClient: Sendable {
+@MainActor final class WebSocketClient {
     private let request: URLRequest
     private let session: URLSession
-    nonisolated(unsafe) private var task: URLSessionWebSocketTask?
-    nonisolated(unsafe) private var isConnected = false
+    private var task: URLSessionWebSocketTask?
+    private var isConnected = false
 
     init(request: URLRequest, session: URLSession = .shared) {
         self.request = request
@@ -82,7 +82,9 @@ final class WebSocketClient: Sendable {
         AppLog.shared.debug("WS", "Sending: \(text.prefix(200))")
         task?.send(.string(text)) { error in
             if let error {
-                AppLog.shared.error("WS", "Send error: \(error)")
+                Task { @MainActor in
+                    AppLog.shared.error("WS", "Send error: \(error)")
+                }
             }
         }
     }
