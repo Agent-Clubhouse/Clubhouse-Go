@@ -4,7 +4,7 @@ import OSLog
 /// In-app log buffer for on-device debugging.
 /// Captures key lifecycle events so the user can view and share logs
 /// without needing Xcode connected.
-@Observable final class AppLog {
+@MainActor @Observable final class AppLog {
     static let shared = AppLog()
 
     struct Entry: Identifiable {
