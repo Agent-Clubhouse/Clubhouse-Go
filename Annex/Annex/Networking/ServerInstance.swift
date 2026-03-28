@@ -491,7 +491,7 @@ import Foundation
         orchestrator: String? = nil, model: String? = nil,
         freeAgentMode: Bool? = nil, systemPrompt: String? = nil
     ) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent in project=\(projectId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: orchestrator,
@@ -507,7 +507,7 @@ import Foundation
         model: String? = nil, freeAgentMode: Bool? = nil,
         systemPrompt: String? = nil
     ) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent under parent=\(parentAgentId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: nil,
@@ -537,7 +537,7 @@ import Foundation
     }
 
     func cancelQuickAgent(agentId: String) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Cancelling quick agent \(agentId)")
         let response = try await apiClient.cancelAgent(agentId: agentId, token: token)
         for (projectId, var agents) in quickAgentsByProject {
@@ -560,7 +560,7 @@ import Foundation
     }
 
     func wakeAgent(agentId: String, message: String, model: String? = nil) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Waking agent \(agentId)")
         let request = WakeAgentRequest(message: message, model: model)
         _ = try await apiClient.wakeAgent(agentId: agentId, request: request, token: token)
@@ -600,8 +600,7 @@ import Foundation
     func sendMessage(agentId: String, message: String) async throws {
         // Send via pty:input on the WebSocket (no REST /message endpoint in v2)
         guard let webSocket else {
-            AppLog.shared.warn("Instance", "\(logPrefix) Cannot send message: no WebSocket")
-            return
+            throw APIError.notConnected
         }
         AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId) via pty:input")
         let msg = PtyInputMessage(
@@ -612,7 +611,7 @@ import Foundation
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Permission response: agent=\(agentId) request=\(requestId) allow=\(allow)")
 
         let agent = durableAgent(byId: agentId)
@@ -641,7 +640,7 @@ import Foundation
         model: String?, orchestrator: String?, freeAgentMode: Bool?
     ) async throws -> CreateDurableAgentResponse {
         guard let apiClient, let token else {
-            throw APIError.invalidURL
+            throw APIError.notConnected
         }
         AppLog.shared.info("Instance", "\(logPrefix) Creating durable agent in project \(projectId): name=\(name)")
         let request = CreateDurableAgentRequest(
@@ -671,7 +670,7 @@ import Foundation
     // MARK: - Delete Agent
 
     func deleteAgent(agentId: String) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Deleting agent \(agentId)")
         let request = DeleteAgentRequest(confirm: true)
         _ = try await apiClient.deleteAgent(agentId: agentId, request: request, token: token)

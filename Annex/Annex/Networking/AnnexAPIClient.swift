@@ -20,6 +20,7 @@ enum APIError: Error, Sendable {
     case invalidOrchestrator
     case spawnFailed
     case wakeFailed
+    case notConnected
     case serverError(String)
     case networkError(Error)
     case decodingError(Error)
@@ -45,6 +46,7 @@ enum APIError: Error, Sendable {
         case .invalidOrchestrator: return "Invalid orchestrator"
         case .spawnFailed: return "Failed to start agent"
         case .wakeFailed: return "Failed to wake agent"
+        case .notConnected: return "Not connected to server"
         case .serverError(let msg): return msg
         case .networkError: return "Cannot reach server"
         case .decodingError: return "Unexpected server response"
