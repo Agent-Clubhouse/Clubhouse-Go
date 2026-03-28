@@ -27,31 +27,31 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
         let host = challenge.protectionSpace.host
         let port = challenge.protectionSpace.port
 
-        AppLog.shared.debug("TLS", "Auth challenge: method=\(method) host=\(host):\(port)")
+        await AppLog.shared.debug("TLS", "Auth challenge: method=\(method) host=\(host):\(port)")
 
         if method == NSURLAuthenticationMethodServerTrust {
             guard let serverTrust = challenge.protectionSpace.serverTrust else {
-                AppLog.shared.error("TLS", "No server trust for \(host):\(port) — cancelling")
+                await AppLog.shared.error("TLS", "No server trust for \(host):\(port) — cancelling")
                 return (.cancelAuthenticationChallenge, nil)
             }
 
             // Certificate pinning: verify the server's public key matches
             if let expectedKey = expectedPublicKeyBase64 {
                 guard let presentedKey = Self.extractPublicKeyBase64(from: serverTrust) else {
-                    AppLog.shared.error("TLS", "Cannot extract public key from \(host):\(port) — rejecting")
+                    await AppLog.shared.error("TLS", "Cannot extract public key from \(host):\(port) — rejecting")
                     return (.cancelAuthenticationChallenge, nil)
                 }
                 guard presentedKey == expectedKey else {
-                    AppLog.shared.error("TLS", "Public key mismatch for \(host):\(port) — rejecting (possible MITM)")
+                    await AppLog.shared.error("TLS", "Public key mismatch for \(host):\(port) — rejecting (possible MITM)")
                     return (.cancelAuthenticationChallenge, nil)
                 }
-                AppLog.shared.info("TLS", "Public key pinning verified for \(host):\(port)")
+                await AppLog.shared.info("TLS", "Public key pinning verified for \(host):\(port)")
             } else {
-                AppLog.shared.info("TLS", "No pinned key for \(host):\(port) — skipping pin check (legacy server)")
+                await AppLog.shared.info("TLS", "No pinned key for \(host):\(port) — skipping pin check (legacy server)")
             }
 
             let certCount = SecTrustGetCertificateCount(serverTrust)
-            AppLog.shared.info("TLS", "Accepting cert from \(host):\(port) (\(certCount) cert(s) in chain)")
+            await AppLog.shared.info("TLS", "Accepting cert from \(host):\(port) (\(certCount) cert(s) in chain)")
             return (.useCredential, URLCredential(trust: serverTrust))
         }
 
@@ -61,7 +61,7 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
                 var certRef: SecCertificate?
                 let copyStatus = SecIdentityCopyCertificate(identity, &certRef)
                 let certs: [Any]? = (copyStatus == errSecSuccess && certRef != nil) ? [certRef!] : nil
-                AppLog.shared.info("TLS", "Presenting client certificate to \(host):\(port) (hasCertChain=\(certs != nil))")
+                await AppLog.shared.info("TLS", "Presenting client certificate to \(host):\(port) (hasCertChain=\(certs != nil))")
                 let credential = URLCredential(
                     identity: identity,
                     certificates: certs,
@@ -69,12 +69,12 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
                 )
                 return (.useCredential, credential)
             } else {
-                AppLog.shared.warn("TLS", "Client cert requested by \(host):\(port) — no identity available")
+                await AppLog.shared.warn("TLS", "Client cert requested by \(host):\(port) — no identity available")
                 return (.performDefaultHandling, nil)
             }
         }
 
-        AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host):\(port)")
+        await AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host):\(port)")
         return (.performDefaultHandling, nil)
     }
 

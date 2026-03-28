@@ -474,26 +474,26 @@ final class AnnexAPIClient: Sendable {
     private nonisolated func perform(_ request: URLRequest) async throws(APIError) -> Data {
         let method = request.httpMethod ?? "GET"
         let urlStr = request.url?.absoluteString ?? "?"
-        AppLog.shared.debug("API", "\(method) \(urlStr)")
+        await AppLog.shared.debug("API", "\(method) \(urlStr)")
 
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
-            AppLog.shared.error("API", "\(method) \(urlStr) — network error: \(error)")
+            await AppLog.shared.error("API", "\(method) \(urlStr) — network error: \(error)")
             throw .networkError(error)
         }
 
         guard let http = response as? HTTPURLResponse else {
-            AppLog.shared.error("API", "\(method) \(urlStr) — not an HTTP response")
+            await AppLog.shared.error("API", "\(method) \(urlStr) — not an HTTP response")
             throw .networkError(URLError(.badServerResponse))
         }
 
         let bodyPreview = String(data: data.prefix(500), encoding: .utf8) ?? "<binary \(data.count) bytes>"
-        AppLog.shared.debug("API", "\(method) \(urlStr) -> HTTP \(http.statusCode) (\(data.count) bytes)")
+        await AppLog.shared.debug("API", "\(method) \(urlStr) -> HTTP \(http.statusCode) (\(data.count) bytes)")
         if http.statusCode >= 400 {
-            AppLog.shared.warn("API", "\(method) \(urlStr) error body: \(bodyPreview)")
+            await AppLog.shared.warn("API", "\(method) \(urlStr) error body: \(bodyPreview)")
         }
 
         switch http.statusCode {
@@ -502,15 +502,15 @@ final class AnnexAPIClient: Sendable {
         case 401:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                 if errResp.error == "invalid_pin" {
-                    AppLog.shared.error("API", "Invalid PIN")
+                    await AppLog.shared.error("API", "Invalid PIN")
                     throw .invalidPin
                 }
             }
-            AppLog.shared.error("API", "Unauthorized (401)")
+            await AppLog.shared.error("API", "Unauthorized (401)")
             throw .unauthorized
         case 400:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                AppLog.shared.error("API", "Bad request: \(errResp.error)")
+                await AppLog.shared.error("API", "Bad request: \(errResp.error)")
                 switch errResp.error {
                 case "missing_prompt": throw .missingPrompt
                 case "missing_message": throw .missingMessage
@@ -525,7 +525,7 @@ final class AnnexAPIClient: Sendable {
             throw .invalidJSON
         case 404:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                AppLog.shared.error("API", "Not found: \(errResp.error)")
+                await AppLog.shared.error("API", "Not found: \(errResp.error)")
                 switch errResp.error {
                 case "project_not_found": throw .projectNotFound
                 case "agent_not_found": throw .agentNotFound
@@ -556,10 +556,10 @@ final class AnnexAPIClient: Sendable {
             throw .serverError("HTTP 500")
         default:
             if let errResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode): \(errResp.error)")
+                await AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode): \(errResp.error)")
                 throw .serverError(errResp.error)
             }
-            AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode)")
+            await AppLog.shared.error("API", "Unexpected HTTP \(http.statusCode)")
             throw .serverError("HTTP \(http.statusCode)")
         }
     }
