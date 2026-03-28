@@ -469,11 +469,15 @@ import Foundation
                 AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
                 await connectWebSocket()
                 return // success
-            } catch let error as APIError where error == .unauthorized {
-                AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
-                disconnectInternal()
-                lastError = "Session expired. Please re-pair."
-                return
+            } catch let error as APIError {
+                if case .unauthorized = error {
+                    AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
+                    disconnectInternal()
+                    lastError = "Session expired. Please re-pair."
+                    return
+                }
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
+                continue
             } catch {
                 AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
                 continue
