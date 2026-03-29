@@ -187,7 +187,7 @@ import Foundation
         // Load Ed25519 identity to get our fingerprint for mTLS CN
         let ed25519 = CryptoIdentity.loadOrCreate()
         let mtlsIdentity = MTLSIdentity.loadOrCreate(fingerprint: ed25519.fingerprint)
-        let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity, expectedPublicKeyBase64: serverPublicKey)
+        let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity, expectedServerFingerprint: id.value)
         let client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         self.apiClient = client
         connectionState = .connecting

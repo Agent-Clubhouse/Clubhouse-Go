@@ -8,14 +8,15 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
     /// challenges are handled with default behavior (no cert).
     private let clientIdentity: SecIdentity?
 
-    /// Base64-encoded server public key for certificate pinning.
-    /// When nil, pinning is skipped (migration: servers paired before
-    /// this feature may not have a stored key).
-    private let expectedPublicKeyBase64: String?
+    /// Expected server Ed25519 fingerprint (colon-separated hex).
+    /// Validated against the TLS certificate's Common Name (CN),
+    /// which the server sets to its Ed25519 fingerprint per the v2 spec.
+    /// When nil, CN validation is skipped (legacy servers).
+    private let expectedServerFingerprint: String?
 
-    init(clientIdentity: SecIdentity? = nil, expectedPublicKeyBase64: String? = nil) {
+    init(clientIdentity: SecIdentity? = nil, expectedServerFingerprint: String? = nil) {
         self.clientIdentity = clientIdentity
-        self.expectedPublicKeyBase64 = expectedPublicKeyBase64
+        self.expectedServerFingerprint = expectedServerFingerprint
         super.init()
     }
 
@@ -35,19 +36,20 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
                 return (.cancelAuthenticationChallenge, nil)
             }
 
-            // Certificate pinning: verify the server's public key matches
-            if let expectedKey = expectedPublicKeyBase64 {
-                guard let presentedKey = Self.extractPublicKeyBase64(from: serverTrust) else {
-                    await AppLog.shared.error("TLS", "Cannot extract public key from \(host):\(port) — rejecting")
+            // Certificate pinning: verify the TLS cert's CN matches the expected
+            // server Ed25519 fingerprint (the server sets CN = fingerprint per v2 spec).
+            if let expectedFingerprint = expectedServerFingerprint {
+                guard let certCN = Self.extractCommonName(from: serverTrust) else {
+                    await AppLog.shared.error("TLS", "Cannot extract CN from \(host):\(port) — rejecting")
                     return (.cancelAuthenticationChallenge, nil)
                 }
-                guard presentedKey == expectedKey else {
-                    await AppLog.shared.error("TLS", "Public key mismatch for \(host):\(port) — rejecting (possible MITM)")
+                guard certCN == expectedFingerprint else {
+                    await AppLog.shared.error("TLS", "CN mismatch for \(host):\(port) — expected \(expectedFingerprint.prefix(12))..., got \(certCN.prefix(12))... — rejecting (possible MITM)")
                     return (.cancelAuthenticationChallenge, nil)
                 }
-                await AppLog.shared.info("TLS", "Public key pinning verified for \(host):\(port)")
+                await AppLog.shared.info("TLS", "CN fingerprint verified for \(host):\(port)")
             } else {
-                await AppLog.shared.info("TLS", "No pinned key for \(host):\(port) — skipping pin check (legacy server)")
+                await AppLog.shared.info("TLS", "No expected fingerprint for \(host):\(port) — skipping CN check (legacy server)")
             }
 
             let certCount = SecTrustGetCertificateCount(serverTrust)
@@ -78,18 +80,18 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
         return (.performDefaultHandling, nil)
     }
 
-    /// Extract the base64-encoded public key from the leaf certificate in a trust chain.
-    static func extractPublicKeyBase64(from trust: SecTrust) -> String? {
+    /// Extract the Common Name (CN) from the leaf certificate in a trust chain.
+    /// The v2 server sets CN to its Ed25519 fingerprint (colon-separated hex).
+    static func extractCommonName(from trust: SecTrust) -> String? {
         guard SecTrustGetCertificateCount(trust) > 0,
               let certChain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
               let leafCert = certChain.first else {
             return nil
         }
-        guard let publicKey = SecCertificateCopyKey(leafCert) else { return nil }
-        var error: Unmanaged<CFError>?
-        guard let keyData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
+        // SecCertificateCopySubjectSummary returns the CN for simple certs
+        guard let summary = SecCertificateCopySubjectSummary(leafCert) as String? else {
             return nil
         }
-        return keyData.base64EncodedString()
+        return summary
     }
 }
