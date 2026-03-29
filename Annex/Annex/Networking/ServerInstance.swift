@@ -224,12 +224,12 @@ import Foundation
         wsStreamTask?.cancel()
         webSocket?.disconnect()
 
-        guard let url = try? apiClient.webSocketURL(token: token) else {
-            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct WebSocket URL")
+        guard let request = try? apiClient.webSocketRequest(token: token) else {
+            AppLog.shared.error("Instance", "\(logPrefix) Failed to construct WebSocket request")
             return
         }
         AppLog.shared.info("Instance", "\(logPrefix) Connecting WebSocket...")
-        let ws = WebSocketClient(url: url, session: apiClient.urlSession)
+        let ws = WebSocketClient(request: request, session: apiClient.urlSession)
         self.webSocket = ws
 
         let stream = ws.connect()
@@ -448,40 +448,45 @@ import Foundation
     }
 
     private func attemptReconnect() async {
-        guard reconnectAttempt < Self.maxReconnectAttempts else {
-            AppLog.shared.error("Instance", "\(logPrefix) Max reconnect attempts (\(Self.maxReconnectAttempts)) reached — giving up")
-            disconnectInternal()
-            lastError = "Lost connection to server"
-            return
-        }
+        for attempt in 1...Self.maxReconnectAttempts {
+            guard !Task.isCancelled else { break }
 
-        reconnectAttempt += 1
-        connectionState = .reconnecting(attempt: reconnectAttempt)
-        let delay = min(pow(2.0, Double(reconnectAttempt - 1)), 30.0)
-        AppLog.shared.warn("Instance", "\(logPrefix) Reconnecting attempt \(reconnectAttempt)/\(Self.maxReconnectAttempts), delay=\(delay)s")
+            reconnectAttempt = attempt
+            connectionState = .reconnecting(attempt: attempt)
+            let delay = min(pow(2.0, Double(attempt - 1)), 30.0)
+            AppLog.shared.warn("Instance", "\(logPrefix) Reconnecting attempt \(attempt)/\(Self.maxReconnectAttempts), delay=\(delay)s")
 
-        try? await Task.sleep(for: .seconds(delay))
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { break }
 
-        guard let apiClient, let token else {
-            AppLog.shared.error("Instance", "\(logPrefix) Cannot reconnect: no apiClient or token")
-            disconnectInternal()
-            return
-        }
+            guard let apiClient, let token else {
+                AppLog.shared.error("Instance", "\(logPrefix) Cannot reconnect: no apiClient or token")
+                break
+            }
 
-        do {
-            _ = try await apiClient.getStatus(token: token)
-            AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
-            await connectWebSocket()
-        } catch let error as APIError {
-            if case .unauthorized = error {
-                AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
-                disconnectInternal()
-                lastError = "Session expired. Please re-pair."
-            } else {
+            do {
+                _ = try await apiClient.getStatus(token: token)
+                AppLog.shared.info("Instance", "\(logPrefix) Reconnect status check passed — reconnecting WS")
+                await connectWebSocket()
+                return // success
+            } catch let error as APIError {
+                if case .unauthorized = error {
+                    AppLog.shared.error("Instance", "\(logPrefix) Token expired during reconnect")
+                    disconnectInternal()
+                    lastError = "Session expired. Please re-pair."
+                    return
+                }
                 AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                await attemptReconnect()
+                continue
+            } catch {
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
+                continue
             }
         }
+
+        AppLog.shared.error("Instance", "\(logPrefix) Max reconnect attempts (\(Self.maxReconnectAttempts)) reached — giving up")
+        disconnectInternal()
+        lastError = "Lost connection to server"
     }
 
     // MARK: - Agent Actions
@@ -491,7 +496,7 @@ import Foundation
         orchestrator: String? = nil, model: String? = nil,
         freeAgentMode: Bool? = nil, systemPrompt: String? = nil
     ) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent in project=\(projectId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: orchestrator,
@@ -507,7 +512,7 @@ import Foundation
         model: String? = nil, freeAgentMode: Bool? = nil,
         systemPrompt: String? = nil
     ) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Spawning quick agent under parent=\(parentAgentId)")
         let request = SpawnQuickAgentRequest(
             prompt: prompt, orchestrator: nil,
@@ -537,7 +542,7 @@ import Foundation
     }
 
     func cancelQuickAgent(agentId: String) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Cancelling quick agent \(agentId)")
         let response = try await apiClient.cancelAgent(agentId: agentId, token: token)
         for (projectId, var agents) in quickAgentsByProject {
@@ -560,7 +565,7 @@ import Foundation
     }
 
     func wakeAgent(agentId: String, message: String, model: String? = nil) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Waking agent \(agentId)")
         let request = WakeAgentRequest(message: message, model: model)
         _ = try await apiClient.wakeAgent(agentId: agentId, request: request, token: token)
@@ -600,8 +605,7 @@ import Foundation
     func sendMessage(agentId: String, message: String) async throws {
         // Send via pty:input on the WebSocket (no REST /message endpoint in v2)
         guard let webSocket else {
-            AppLog.shared.warn("Instance", "\(logPrefix) Cannot send message: no WebSocket")
-            return
+            throw APIError.notConnected
         }
         AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId) via pty:input")
         let msg = PtyInputMessage(
@@ -612,7 +616,7 @@ import Foundation
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Permission response: agent=\(agentId) request=\(requestId) allow=\(allow)")
 
         let agent = durableAgent(byId: agentId)
@@ -641,7 +645,7 @@ import Foundation
         model: String?, orchestrator: String?, freeAgentMode: Bool?
     ) async throws -> CreateDurableAgentResponse {
         guard let apiClient, let token else {
-            throw APIError.invalidURL
+            throw APIError.notConnected
         }
         AppLog.shared.info("Instance", "\(logPrefix) Creating durable agent in project \(projectId): name=\(name)")
         let request = CreateDurableAgentRequest(
@@ -671,7 +675,7 @@ import Foundation
     // MARK: - Delete Agent
 
     func deleteAgent(agentId: String) async throws {
-        guard let apiClient, let token else { return }
+        guard let apiClient, let token else { throw APIError.notConnected }
         AppLog.shared.info("Instance", "\(logPrefix) Deleting agent \(agentId)")
         let request = DeleteAgentRequest(confirm: true)
         _ = try await apiClient.deleteAgent(agentId: agentId, request: request, token: token)

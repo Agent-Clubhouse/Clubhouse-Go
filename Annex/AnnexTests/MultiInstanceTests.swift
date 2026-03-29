@@ -141,17 +141,18 @@ struct APIClientFactoryTests {
         #expect(client.baseURL == "http://192.168.1.100:8080")
     }
 
-    @Test func v2WebSocketURL() throws {
+    @Test func v2WebSocketRequest() throws {
         let delegate = TLSSessionDelegate()
         let client = AnnexAPIClient.v2(host: "192.168.1.100", mainPort: 8443, delegate: delegate)
-        let url = try client.webSocketURL(token: "tok_123")
-        #expect(url.absoluteString == "wss://192.168.1.100:8443/ws?token=tok_123")
+        let request = try client.webSocketRequest(token: "tok_123")
+        #expect(request.url?.absoluteString == "wss://192.168.1.100:8443/ws")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer tok_123")
     }
 
-    @Test func v2PairingWebSocketURLThrows() {
+    @Test func v2PairingWebSocketRequestThrows() {
         let client = AnnexAPIClient.v2Pairing(host: "192.168.1.100", pairingPort: 8080)
         #expect(throws: APIError.self) {
-            _ = try client.webSocketURL(token: "tok")
+            _ = try client.webSocketRequest(token: "tok")
         }
     }
 

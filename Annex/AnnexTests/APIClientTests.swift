@@ -465,27 +465,29 @@ struct APIClientTests {
         }
     }
 
-    // MARK: - WebSocket URL
+    // MARK: - WebSocket Request
 
-    @Test func webSocketURLConstruction() throws {
+    @Test func webSocketRequestConstruction() throws {
         MockURLProtocol.reset()
         let client = MockURLProtocol.mockV2Client(host: "192.168.1.100", port: 4321)
-        let url = try client.webSocketURL(token: "my-token-123")
-        #expect(url.absoluteString == "wss://192.168.1.100:4321/ws?token=my-token-123")
+        let request = try client.webSocketRequest(token: "my-token-123")
+        #expect(request.url?.absoluteString == "wss://192.168.1.100:4321/ws")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer my-token-123")
     }
 
-    @Test func webSocketURLWithIPv6() throws {
+    @Test func webSocketRequestWithIPv6() throws {
         MockURLProtocol.reset()
         let client = MockURLProtocol.mockV2Client(host: "fe80::1", port: 4321)
-        let url = try client.webSocketURL(token: "tok")
-        #expect(url.absoluteString.contains("[fe80::1]"))
+        let request = try client.webSocketRequest(token: "tok")
+        #expect(request.url?.absoluteString.contains("[fe80::1]") == true)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer tok")
     }
 
-    @Test func webSocketURLFailsForPairingClient() throws {
+    @Test func webSocketRequestFailsForPairingClient() throws {
         MockURLProtocol.reset()
         let client = MockURLProtocol.mockClient()
         do {
-            _ = try client.webSocketURL(token: "tok")
+            _ = try client.webSocketRequest(token: "tok")
             Issue.record("Expected invalidURL error")
         } catch let error as APIError {
             #expect(error == .invalidURL)

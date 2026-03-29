@@ -408,6 +408,7 @@ import SwiftUI
     }
 
     private func eraseInDisplay(_ mode: Int) {
+        guard rows > 0, cols > 0, cursorRow >= 0, cursorRow < rows else { return }
         switch mode {
         case 0: // Erase from cursor to end
             eraseInLine(0)
@@ -418,7 +419,8 @@ import SwiftUI
             for r in 0..<cursorRow {
                 cells[r] = Array(repeating: Cell(), count: cols)
             }
-            for c in 0...cursorCol {
+            let maxCol = min(cursorCol, cols - 1)
+            for c in 0...maxCol {
                 cells[cursorRow][c] = Cell()
             }
         case 2, 3: // Erase entire screen
@@ -429,13 +431,15 @@ import SwiftUI
     }
 
     private func eraseInLine(_ mode: Int) {
+        guard rows > 0, cols > 0, cursorRow >= 0, cursorRow < rows else { return }
         switch mode {
         case 0: // Erase from cursor to end of line
             for c in cursorCol..<cols {
                 cells[cursorRow][c] = Cell()
             }
         case 1: // Erase from start to cursor
-            for c in 0...min(cursorCol, cols - 1) {
+            let maxCol = min(cursorCol, cols - 1)
+            for c in 0...maxCol {
                 cells[cursorRow][c] = Cell()
             }
         case 2: // Erase entire line

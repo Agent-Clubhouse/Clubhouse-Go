@@ -20,6 +20,7 @@ enum APIError: Error, Sendable {
     case invalidOrchestrator
     case spawnFailed
     case wakeFailed
+    case notConnected
     case serverError(String)
     case networkError(Error)
     case decodingError(Error)
@@ -45,6 +46,7 @@ enum APIError: Error, Sendable {
         case .invalidOrchestrator: return "Invalid orchestrator"
         case .spawnFailed: return "Failed to start agent"
         case .wakeFailed: return "Failed to wake agent"
+        case .notConnected: return "Not connected to server"
         case .serverError(let msg): return msg
         case .networkError: return "Cannot reach server"
         case .decodingError: return "Unexpected server response"
@@ -446,15 +448,17 @@ final class AnnexAPIClient: Sendable {
         return try decode(SessionSummary.self, from: data)
     }
 
-    // MARK: - WebSocket URL
+    // MARK: - WebSocket
 
-    func webSocketURL(token: String) throws(APIError) -> URL {
+    func webSocketRequest(token: String) throws(APIError) -> URLRequest {
         guard case .v2 = config else { throw .invalidURL }
-        guard let url = URL(string: "wss://\(urlHost):\(port)/ws?token=\(token)") else {
+        guard let url = URL(string: "wss://\(urlHost):\(port)/ws") else {
             throw .invalidURL
         }
-        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: wss://\(urlHost):\(port)/ws?token=\(token.prefix(8))...")
-        return url
+        AppLog.shared.debug("API", "[\(configLabel)] WebSocket URL: wss://\(urlHost):\(port)/ws")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
     }
 
     // MARK: - Helpers

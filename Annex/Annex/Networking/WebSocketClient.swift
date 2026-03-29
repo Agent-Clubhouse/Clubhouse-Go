@@ -34,23 +34,25 @@ struct SeqWSEvent: Sendable {
 }
 
 final class WebSocketClient: Sendable {
-    private let url: URL
+    private let request: URLRequest
     private let session: URLSession
     nonisolated(unsafe) private var task: URLSessionWebSocketTask?
     nonisolated(unsafe) private var isConnected = false
 
-    init(url: URL, session: URLSession = .shared) {
-        self.url = url
+    init(request: URLRequest, session: URLSession = .shared) {
+        self.request = request
         self.session = session
     }
 
     func connect() -> AsyncStream<SeqWSEvent> {
         AsyncStream { continuation in
-            let wsTask = session.webSocketTask(with: url)
+            let wsTask = session.webSocketTask(with: request)
             wsTask.maximumMessageSize = 16 * 1024 * 1024 // 16 MB — snapshots can be large
             self.task = wsTask
             self.isConnected = true
-            AppLog.shared.info("WS", "Connecting to \(url.host ?? "?")\(url.port.map { ":\($0)" } ?? "")")
+            let host = request.url?.host ?? "?"
+            let port = request.url?.port.map { ":\($0)" } ?? ""
+            AppLog.shared.info("WS", "Connecting to \(host)\(port)")
             wsTask.resume()
 
             Task {
