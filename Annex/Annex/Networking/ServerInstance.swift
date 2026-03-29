@@ -39,6 +39,7 @@ import Foundation
     /// Nil for servers paired before pinning was implemented.
     var serverPublicKey: String?
     private var reconnectAttempt = 0
+    private var reconnectInProgress = false
     private var lastSeq: Int?
     private var isReplaying = false
     private static let maxReconnectAttempts = 10
@@ -443,6 +444,15 @@ import Foundation
     }
 
     private func attemptReconnect() async {
+        // Prevent concurrent reconnect chains — the await points below yield
+        // the actor, which could allow a second .disconnected event to re-enter.
+        guard !reconnectInProgress else {
+            AppLog.shared.debug("Instance", "\(logPrefix) Reconnect already in progress — skipping")
+            return
+        }
+        reconnectInProgress = true
+        defer { reconnectInProgress = false }
+
         for attempt in 1...Self.maxReconnectAttempts {
             guard !Task.isCancelled else { break }
 
@@ -471,11 +481,9 @@ import Foundation
                     lastError = "Session expired. Please re-pair."
                     return
                 }
-                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                continue
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect attempt \(attempt) failed: \(error)")
             } catch {
-                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                continue
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect attempt \(attempt) failed: \(error)")
             }
         }
 
@@ -781,6 +789,7 @@ import Foundation
         token = nil
         apiClient = nil
         reconnectAttempt = 0
+        reconnectInProgress = false
         lastSeq = nil
         isReplaying = false
         replayState = .idle
