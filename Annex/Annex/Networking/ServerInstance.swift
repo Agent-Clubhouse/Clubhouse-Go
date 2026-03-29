@@ -217,7 +217,12 @@ import Foundation
             AppLog.shared.error("Instance", "\(logPrefix) Cannot connect WS: no apiClient or token")
             return
         }
-        wsStreamTask?.cancel()
+        // Cancel and await the previous stream task to prevent leaks
+        if let oldTask = wsStreamTask {
+            oldTask.cancel()
+            await oldTask.value
+            wsStreamTask = nil
+        }
         webSocket?.disconnect()
 
         guard let request = try? apiClient.webSocketRequest(token: token) else {
