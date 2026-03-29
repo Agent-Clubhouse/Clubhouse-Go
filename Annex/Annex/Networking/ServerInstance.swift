@@ -46,11 +46,13 @@ import Foundation
 
     /// Per-agent PTY data callbacks — bypasses @Observable dictionary tracking
     /// to prevent cross-agent terminal bleed.
-    private var ptyCallbacks: [String: (String) -> Void] = [:]
+    /// Callbacks are guaranteed to run on the main actor since ServerInstance is @MainActor.
+    private var ptyCallbacks: [String: @MainActor (String) -> Void] = [:]
 
     /// Register a callback to receive PTY data for a specific agent.
+    /// The callback is invoked on the main actor (safe to mutate @State).
     /// Returns a closure to unregister.
-    func subscribePtyData(agentId: String, callback: @escaping (String) -> Void) -> (() -> Void) {
+    func subscribePtyData(agentId: String, callback: @escaping @MainActor (String) -> Void) -> (() -> Void) {
         ptyCallbacks[agentId] = callback
         return { [weak self] in
             self?.ptyCallbacks.removeValue(forKey: agentId)
