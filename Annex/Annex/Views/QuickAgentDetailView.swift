@@ -17,6 +17,7 @@ struct QuickAgentDetailView: View {
         case .cancelled: return "Cancelled"
         case .sleeping: return "Sleeping"
         case .error: return "Error"
+        case .unknown: return "Unknown"
         case nil: return "Unknown"
         }
     }
@@ -27,7 +28,7 @@ struct QuickAgentDetailView: View {
         case .completed: return .blue
         case .failed, .error: return .red
         case .cancelled: return .orange
-        case .sleeping: return .secondary
+        case .sleeping, .unknown: return .secondary
         case nil: return .secondary
         }
     }

@@ -306,7 +306,7 @@ private struct AgentCardRow: View {
             case .sleeping: return .gray
             case .error, .failed: return .red
             case .completed: return .blue
-            case .cancelled: return .gray
+            case .cancelled, .unknown: return .gray
             case nil: return .gray
             }
         }
