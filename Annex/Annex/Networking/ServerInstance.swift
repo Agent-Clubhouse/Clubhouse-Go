@@ -35,6 +35,9 @@ import Foundation
     private(set) var webSocket: WebSocketClient?
     private var wsStreamTask: Task<Void, Never>?
     private(set) var token: String?
+    /// Base64-encoded server public key for TLS certificate pinning.
+    /// Nil for servers paired before pinning was implemented.
+    var serverPublicKey: String?
     private var reconnectAttempt = 0
     private var lastSeq: Int?
     private var isReplaying = false
@@ -191,7 +194,7 @@ import Foundation
         // Load Ed25519 identity to get our fingerprint for mTLS CN
         let ed25519 = CryptoIdentity.loadOrCreate()
         let mtlsIdentity = MTLSIdentity.loadOrCreate(fingerprint: ed25519.fingerprint)
-        let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity)
+        let delegate = TLSSessionDelegate(clientIdentity: mtlsIdentity, expectedPublicKeyBase64: serverPublicKey)
         let client = AnnexAPIClient.v2(host: host, mainPort: mainPort, delegate: delegate)
         self.apiClient = client
         connectionState = .connecting

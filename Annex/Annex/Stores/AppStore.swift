@@ -385,6 +385,7 @@ enum ConnectionState: Sendable {
         )
         AppLog.shared.info("Pairing", "Instance config: mainPort=\(server.port), pairingPort=\(server.pairingPort)")
         let inst = ServerInstance(id: instanceId, protocolConfig: config)
+        inst.serverPublicKey = response.publicKey
 
         KeychainHelper.saveInstance(
             id: instanceId, token: response.token,
@@ -439,6 +440,7 @@ enum ConnectionState: Sendable {
         for s in saved {
             AppLog.shared.info("Restore", "Restoring instance \(s.id.value.prefix(12)) (proto=\(s.protocolConfig.label))")
             let inst = ServerInstance(id: s.id, protocolConfig: s.protocolConfig)
+            inst.serverPublicKey = s.serverPublicKey
             instances.append(inst)
             await inst.connect(token: s.token)
         }
@@ -454,6 +456,7 @@ enum ConnectionState: Sendable {
     func reconnect(instanceId: ServerInstanceID) async {
         guard let inst = instanceByID(instanceId),
               let saved = KeychainHelper.loadInstance(id: instanceId) else { return }
+        inst.serverPublicKey = saved.serverPublicKey
         await inst.connect(token: saved.token)
     }
 
