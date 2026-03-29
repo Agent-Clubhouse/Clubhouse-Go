@@ -87,6 +87,7 @@ enum KeychainHelper {
             delete(account: "instance-\(id.value)")
         }
         delete(account: "instance-index")
+        delete(account: "ed25519-private-key")
     }
 
     // MARK: - Ed25519 Identity (app-global)
