@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 /// URLSession delegate that handles both server trust (self-signed certs)
 /// and client certificate presentation (mTLS) for v2 connections.
@@ -7,8 +8,14 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
     /// challenges are handled with default behavior (no cert).
     private let clientIdentity: SecIdentity?
 
-    init(clientIdentity: SecIdentity? = nil) {
+    /// Base64-encoded server public key for certificate pinning.
+    /// When nil, pinning is skipped (migration: servers paired before
+    /// this feature may not have a stored key).
+    private let expectedPublicKeyBase64: String?
+
+    init(clientIdentity: SecIdentity? = nil, expectedPublicKeyBase64: String? = nil) {
         self.clientIdentity = clientIdentity
+        self.expectedPublicKeyBase64 = expectedPublicKeyBase64
         super.init()
     }
 
@@ -27,8 +34,24 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
                 AppLog.shared.error("TLS", "No server trust for \(host):\(port) — cancelling")
                 return (.cancelAuthenticationChallenge, nil)
             }
+
+            // Certificate pinning: verify the server's public key matches
+            if let expectedKey = expectedPublicKeyBase64 {
+                guard let presentedKey = Self.extractPublicKeyBase64(from: serverTrust) else {
+                    AppLog.shared.error("TLS", "Cannot extract public key from \(host):\(port) — rejecting")
+                    return (.cancelAuthenticationChallenge, nil)
+                }
+                guard presentedKey == expectedKey else {
+                    AppLog.shared.error("TLS", "Public key mismatch for \(host):\(port) — rejecting (possible MITM)")
+                    return (.cancelAuthenticationChallenge, nil)
+                }
+                AppLog.shared.info("TLS", "Public key pinning verified for \(host):\(port)")
+            } else {
+                AppLog.shared.info("TLS", "No pinned key for \(host):\(port) — skipping pin check (legacy server)")
+            }
+
             let certCount = SecTrustGetCertificateCount(serverTrust)
-            AppLog.shared.info("TLS", "Accepting self-signed cert from \(host):\(port) (\(certCount) cert(s) in chain)")
+            AppLog.shared.info("TLS", "Accepting cert from \(host):\(port) (\(certCount) cert(s) in chain)")
             return (.useCredential, URLCredential(trust: serverTrust))
         }
 
@@ -53,5 +76,20 @@ final class TLSSessionDelegate: NSObject, URLSessionDelegate, Sendable {
 
         AppLog.shared.debug("TLS", "Unhandled auth challenge: \(method) from \(host):\(port)")
         return (.performDefaultHandling, nil)
+    }
+
+    /// Extract the base64-encoded public key from the leaf certificate in a trust chain.
+    static func extractPublicKeyBase64(from trust: SecTrust) -> String? {
+        guard SecTrustGetCertificateCount(trust) > 0,
+              let certChain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leafCert = certChain.first else {
+            return nil
+        }
+        guard let publicKey = SecCertificateCopyKey(leafCert) else { return nil }
+        var error: Unmanaged<CFError>?
+        guard let keyData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
+            return nil
+        }
+        return keyData.base64EncodedString()
     }
 }
