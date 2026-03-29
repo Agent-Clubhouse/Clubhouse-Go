@@ -2,7 +2,7 @@ import Foundation
 
 /// Per-server connection state and data. Each ServerInstance manages its own
 /// WebSocket, API client, reconnection, and cached agent/project data.
-@Observable final class ServerInstance: Identifiable {
+@MainActor @Observable final class ServerInstance: Identifiable {
     // MARK: - Identity (immutable after init)
     let id: ServerInstanceID
     let protocolConfig: ServerProtocol

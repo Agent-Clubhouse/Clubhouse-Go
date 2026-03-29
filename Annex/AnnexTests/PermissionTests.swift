@@ -140,7 +140,7 @@ struct PermissionStateTests {
 
     // MARK: - ServerInstance permission filtering
 
-    @Test func serverInstanceFiltersExpiredPermissions() {
+    @Test @MainActor func serverInstanceFiltersExpiredPermissions() {
         let instance = ServerInstance(
             id: ServerInstanceID(value: "test"),
             protocolConfig: .v2(host: "localhost", mainPort: 4321, pairingPort: 4322, fingerprint: "fp")
@@ -160,7 +160,7 @@ struct PermissionStateTests {
         #expect(instance.pendingPermission(for: "agent_001") == nil)
     }
 
-    @Test func serverInstanceReturnsValidPermission() {
+    @Test @MainActor func serverInstanceReturnsValidPermission() {
         let instance = ServerInstance(
             id: ServerInstanceID(value: "test"),
             protocolConfig: .v2(host: "localhost", mainPort: 4321, pairingPort: 4322, fingerprint: "fp")
@@ -184,7 +184,7 @@ struct PermissionStateTests {
         #expect(result?.toolInputSummary == "/src/main.ts")
     }
 
-    @Test func serverInstanceReturnsNilForUnknownAgent() {
+    @Test @MainActor func serverInstanceReturnsNilForUnknownAgent() {
         let instance = ServerInstance(
             id: ServerInstanceID(value: "test"),
             protocolConfig: .v2(host: "localhost", mainPort: 4321, pairingPort: 4322, fingerprint: "fp")
