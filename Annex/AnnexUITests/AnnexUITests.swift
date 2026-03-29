@@ -139,10 +139,9 @@ final class ClubhouseGoUITests: XCTestCase {
         app.tabBars.buttons["Agents"].tap()
 
         let settingsButton = app.navigationBars.buttons["gearshape"]
-        if settingsButton.waitForExistence(timeout: 3) {
-            settingsButton.tap()
-            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
-        }
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 3), "Settings button should exist")
+        settingsButton.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3), "Settings sheet should open")
     }
 
     // MARK: - Actions
@@ -153,10 +152,9 @@ final class ClubhouseGoUITests: XCTestCase {
         app.launch()
 
         let spawnButton = app.navigationBars.buttons["bolt.fill"]
-        if spawnButton.waitForExistence(timeout: 5) {
-            spawnButton.tap()
-            XCTAssertTrue(app.navigationBars["New Quick Agent"].waitForExistence(timeout: 3))
-        }
+        XCTAssertTrue(spawnButton.waitForExistence(timeout: 5), "Spawn button should exist")
+        spawnButton.tap()
+        XCTAssertTrue(app.navigationBars["New Quick Agent"].waitForExistence(timeout: 3), "Spawn sheet should open")
     }
 
     @MainActor
@@ -165,9 +163,8 @@ final class ClubhouseGoUITests: XCTestCase {
         app.launch()
 
         let reviewButton = app.buttons["Review All"]
-        if reviewButton.waitForExistence(timeout: 5) {
-            reviewButton.tap()
-            XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 3))
-        }
+        XCTAssertTrue(reviewButton.waitForExistence(timeout: 5), "Review All button should exist")
+        reviewButton.tap()
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 3), "Permission review flow should open")
     }
 }
