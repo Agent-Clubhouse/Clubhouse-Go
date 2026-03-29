@@ -221,7 +221,7 @@ struct ProjectColorTests {
 
 // MARK: - AppStore Aggregate Query Tests
 
-struct AppStoreAggregateTests {
+@MainActor struct AppStoreAggregateTests {
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.loadMockData()
@@ -268,7 +268,7 @@ struct AppStoreAggregateTests {
 
 // MARK: - ServerInstance Activity Tests
 
-struct ServerInstanceActivityTests {
+@MainActor struct ServerInstanceActivityTests {
     @Test func allActivityEventsFlattensCorrectly() {
         let inst = ServerInstance(
             id: ServerInstanceID(value: "test"),

@@ -38,7 +38,7 @@ struct ReplayStateTests {
 
 // MARK: - ServerInstance Replay State Tests
 
-struct ServerInstanceReplayStateTests {
+@MainActor struct ServerInstanceReplayStateTests {
 
     private func makeInstance() -> ServerInstance {
         ServerInstance(

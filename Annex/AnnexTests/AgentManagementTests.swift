@@ -188,7 +188,7 @@ struct SpawnQuickAgentRequestTests {
 
 // MARK: - AppStore Agent Management Tests
 
-struct AppStoreAgentManagementTests {
+@MainActor struct AppStoreAgentManagementTests {
     private func makeStore() -> AppStore {
         let store = AppStore()
         store.loadMockData()
