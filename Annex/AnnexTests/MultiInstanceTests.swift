@@ -572,3 +572,93 @@ struct ConnectionStateExtendedTests {
         #expect(ConnectionState.reconnecting(attempt: 1).isConnected == false)
     }
 }
+
+// MARK: - TLS Delegate Fingerprint Tests
+
+struct TLSFingerprintTests {
+    @Test func delegateInitWithFingerprint() {
+        let delegate = TLSSessionDelegate(expectedServerFingerprint: "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99")
+        #expect(delegate is URLSessionDelegate)
+    }
+
+    @Test func delegateInitWithIdentityAndFingerprint() {
+        MTLSIdentity.deleteIdentity()
+        let fingerprint = "TE:ST:FP:00:00:00:00:00:00:00:00:00:00:00:00:01"
+        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity != nil)
+
+        let delegate = TLSSessionDelegate(
+            clientIdentity: identity,
+            expectedServerFingerprint: "fd:15:ca:c4:95:d2:af:45:bd:ad:64:42:4b:cd:ed:3a"
+        )
+        #expect(delegate is URLSessionDelegate)
+
+        MTLSIdentity.deleteIdentity()
+    }
+
+    @Test func delegateInitWithNilFingerprint() {
+        // Legacy servers may not have a fingerprint — should still create
+        let delegate = TLSSessionDelegate(expectedServerFingerprint: nil)
+        #expect(delegate is URLSessionDelegate)
+    }
+}
+
+// MARK: - ServerInstance Port Update Tests
+
+@Suite
+struct ServerInstancePortUpdateTests {
+    @MainActor @Test func updateProtocolConfigChangesPort() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let oldConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 61235, pairingPort: 61236, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: oldConfig)
+
+        let newConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 61640, pairingPort: 61641, fingerprint: id.value)
+        let changed = inst.updateProtocolConfig(newConfig)
+
+        #expect(changed == true)
+        #expect(inst.protocolConfig.mainPort == 61640)
+    }
+
+    @MainActor @Test func updateProtocolConfigSamePortReturnsFalse() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let config = ServerProtocol.v2(host: "192.168.1.26", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: config)
+
+        let changed = inst.updateProtocolConfig(config)
+        #expect(changed == false)
+    }
+
+    @MainActor @Test func updateProtocolConfigChangesHost() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let oldConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: oldConfig)
+
+        let newConfig = ServerProtocol.v2(host: "192.168.1.100", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let changed = inst.updateProtocolConfig(newConfig)
+
+        #expect(changed == true)
+        #expect(inst.protocolConfig.host == "192.168.1.100")
+    }
+
+    @Test func keychainPersistsUpdatedConfig() {
+        let id = ServerInstanceID(value: "port-update-test-\(UUID().uuidString)")
+        let oldConfig = ServerProtocol.v2(host: "10.0.0.1", mainPort: 1000, pairingPort: 1001, fingerprint: "FF:EE")
+        KeychainHelper.saveInstance(id: id, token: "tok", protocolConfig: oldConfig, serverPublicKey: "key==")
+
+        // Simulate port update
+        let newConfig = ServerProtocol.v2(host: "10.0.0.1", mainPort: 2000, pairingPort: 2001, fingerprint: "FF:EE")
+        if let saved = KeychainHelper.loadInstance(id: id) {
+            KeychainHelper.saveInstance(
+                id: id, token: saved.token,
+                protocolConfig: newConfig, serverPublicKey: saved.serverPublicKey
+            )
+        }
+
+        let reloaded = KeychainHelper.loadInstance(id: id)
+        #expect(reloaded?.protocolConfig.mainPort == 2000)
+        #expect(reloaded?.serverPublicKey == "key==")
+        #expect(reloaded?.token == "tok")
+
+        KeychainHelper.deleteInstance(id: id)
+    }
+}
