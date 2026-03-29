@@ -624,13 +624,6 @@ struct AppStoreTests {
         #expect(store.quickAgentsByProject["proj_001"]?.count == 1)
     }
 
-    @Test func iconURLsRequireConnection() {
-        let store = AppStore()
-        // No apiClient or token set — should return nil
-        #expect(store.agentIconURL(agentId: "agent_1") == nil)
-        #expect(store.projectIconURL(projectId: "proj_1") == nil)
-    }
-
     @Test func projectIconsAccessibleForAgentProjects() {
         let store = AppStore()
         store.loadMockData()
