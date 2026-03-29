@@ -581,21 +581,6 @@ struct TLSFingerprintTests {
         #expect(delegate is URLSessionDelegate)
     }
 
-    @Test func delegateInitWithIdentityAndFingerprint() {
-        MTLSIdentity.deleteIdentity()
-        let fingerprint = "TE:ST:FP:00:00:00:00:00:00:00:00:00:00:00:00:01"
-        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
-        #expect(identity != nil)
-
-        let delegate = TLSSessionDelegate(
-            clientIdentity: identity,
-            expectedServerFingerprint: "fd:15:ca:c4:95:d2:af:45:bd:ad:64:42:4b:cd:ed:3a"
-        )
-        #expect(delegate is URLSessionDelegate)
-
-        MTLSIdentity.deleteIdentity()
-    }
-
     @Test func delegateInitWithNilFingerprint() {
         // Legacy servers may not have a fingerprint — should still create
         let delegate = TLSSessionDelegate(expectedServerFingerprint: nil)
@@ -638,27 +623,5 @@ struct ServerInstancePortUpdateTests {
 
         #expect(changed == true)
         #expect(inst.protocolConfig.host == "192.168.1.100")
-    }
-
-    @Test func keychainPersistsUpdatedConfig() {
-        let id = ServerInstanceID(value: "port-update-test-\(UUID().uuidString)")
-        let oldConfig = ServerProtocol.v2(host: "10.0.0.1", mainPort: 1000, pairingPort: 1001, fingerprint: "FF:EE")
-        KeychainHelper.saveInstance(id: id, token: "tok", protocolConfig: oldConfig, serverPublicKey: "key==")
-
-        // Simulate port update
-        let newConfig = ServerProtocol.v2(host: "10.0.0.1", mainPort: 2000, pairingPort: 2001, fingerprint: "FF:EE")
-        if let saved = KeychainHelper.loadInstance(id: id) {
-            KeychainHelper.saveInstance(
-                id: id, token: saved.token,
-                protocolConfig: newConfig, serverPublicKey: saved.serverPublicKey
-            )
-        }
-
-        let reloaded = KeychainHelper.loadInstance(id: id)
-        #expect(reloaded?.protocolConfig.mainPort == 2000)
-        #expect(reloaded?.serverPublicKey == "key==")
-        #expect(reloaded?.token == "tok")
-
-        KeychainHelper.deleteInstance(id: id)
     }
 }

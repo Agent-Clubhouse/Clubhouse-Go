@@ -99,8 +99,6 @@ jobs:
             -skip-testing:ClubhouseGoTests/KeychainHelperMultiInstanceTests \
             -skip-testing:ClubhouseGoTests/MTLSIdentityTests \
             -skip-testing:ClubhouseGoTests/TLSSessionDelegateTests \
-            -skip-testing:ClubhouseGoTests/TLSFingerprintTests/delegateInitWithIdentityAndFingerprint \
-            -skip-testing:ClubhouseGoTests/ServerInstancePortUpdateTests/keychainPersistsUpdatedConfig \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 30 \
             CODE_SIGNING_ALLOWED=NO \
