@@ -572,3 +572,56 @@ struct ConnectionStateExtendedTests {
         #expect(ConnectionState.reconnecting(attempt: 1).isConnected == false)
     }
 }
+
+// MARK: - TLS Delegate Fingerprint Tests
+
+struct TLSFingerprintTests {
+    @Test func delegateInitWithFingerprint() {
+        let delegate = TLSSessionDelegate(expectedServerFingerprint: "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99")
+        #expect(delegate is URLSessionDelegate)
+    }
+
+    @Test func delegateInitWithNilFingerprint() {
+        // Legacy servers may not have a fingerprint — should still create
+        let delegate = TLSSessionDelegate(expectedServerFingerprint: nil)
+        #expect(delegate is URLSessionDelegate)
+    }
+}
+
+// MARK: - ServerInstance Port Update Tests
+
+@Suite
+struct ServerInstancePortUpdateTests {
+    @MainActor @Test func updateProtocolConfigChangesPort() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let oldConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 61235, pairingPort: 61236, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: oldConfig)
+
+        let newConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 61640, pairingPort: 61641, fingerprint: id.value)
+        let changed = inst.updateProtocolConfig(newConfig)
+
+        #expect(changed == true)
+        #expect(inst.protocolConfig.mainPort == 61640)
+    }
+
+    @MainActor @Test func updateProtocolConfigSamePortReturnsFalse() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let config = ServerProtocol.v2(host: "192.168.1.26", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: config)
+
+        let changed = inst.updateProtocolConfig(config)
+        #expect(changed == false)
+    }
+
+    @MainActor @Test func updateProtocolConfigChangesHost() {
+        let id = ServerInstanceID(value: "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99")
+        let oldConfig = ServerProtocol.v2(host: "192.168.1.26", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let inst = ServerInstance(id: id, protocolConfig: oldConfig)
+
+        let newConfig = ServerProtocol.v2(host: "192.168.1.100", mainPort: 8443, pairingPort: 8080, fingerprint: id.value)
+        let changed = inst.updateProtocolConfig(newConfig)
+
+        #expect(changed == true)
+        #expect(inst.protocolConfig.host == "192.168.1.100")
+    }
+}

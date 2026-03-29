@@ -1664,6 +1664,28 @@ struct TLSSessionDelegateTests {
 
         MTLSIdentity.deleteIdentity()
     }
+
+    @Test func delegateInitWithServerFingerprint() {
+        let delegate = TLSSessionDelegate(
+            expectedServerFingerprint: "fd:15:ca:c4:95:d2:af:45:bd:ad:64:42:4b:cd:ed:3a"
+        )
+        #expect(delegate is URLSessionDelegate)
+    }
+
+    @Test func delegateInitWithAllParameters() {
+        MTLSIdentity.deleteIdentity()
+        let fingerprint = "TE:ST:DE:LE:GA:TE:00:00:00:00:00:00:00:00:00:02"
+        let identity = MTLSIdentity.loadOrCreate(fingerprint: fingerprint)
+        #expect(identity != nil)
+
+        let delegate = TLSSessionDelegate(
+            clientIdentity: identity,
+            expectedServerFingerprint: "fd:15:ca:c4:95:d2:af:45:bd:ad:64:42:4b:cd:ed:3a"
+        )
+        #expect(delegate is URLSessionDelegate)
+
+        MTLSIdentity.deleteIdentity()
+    }
 }
 
 // MARK: - ANSITerminal Tests

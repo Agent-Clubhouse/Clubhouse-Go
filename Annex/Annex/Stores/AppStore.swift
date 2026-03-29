@@ -386,6 +386,52 @@ enum ConnectionState: Sendable {
         await inst.connect(token: response.token)
     }
 
+    // MARK: - Bonjour Port Refresh
+
+    /// Run a brief Bonjour scan to discover current ports for known servers.
+    /// When a known server is found at new host/port, updates the instance
+    /// config, persists to keychain, and reconnects.
+    func refreshInstancePortsViaBonjourIfNeeded() async {
+        let disconnected = instances.filter { !$0.connectionState.isConnected }
+        guard !disconnected.isEmpty else { return }
+
+        AppLog.shared.info("Bonjour", "Starting port refresh scan for \(disconnected.count) disconnected instance(s)")
+        let discovery = BonjourDiscovery()
+        discovery.startSearching()
+
+        // Give Bonjour up to 5 seconds to find servers
+        for _ in 0..<10 {
+            try? await Task.sleep(for: .milliseconds(500))
+            if !discovery.servers.isEmpty { break }
+        }
+
+        for server in discovery.servers {
+            let instanceId = ServerInstanceID(value: server.fingerprint)
+            guard let inst = instanceByID(instanceId) else { continue }
+
+            let newConfig = ServerProtocol.v2(
+                host: server.host, mainPort: server.port,
+                pairingPort: server.pairingPort, fingerprint: server.fingerprint
+            )
+            guard inst.updateProtocolConfig(newConfig) else { continue }
+
+            AppLog.shared.info("Bonjour", "Port refresh: \(server.name) moved to \(server.host):\(server.port)")
+
+            // Persist updated config to keychain
+            if let saved = KeychainHelper.loadInstance(id: instanceId) {
+                KeychainHelper.saveInstance(
+                    id: instanceId, token: saved.token,
+                    protocolConfig: newConfig, serverPublicKey: saved.serverPublicKey
+                )
+            }
+
+            // Reconnect with updated ports
+            await reconnect(instanceId: instanceId)
+        }
+
+        discovery.stopSearching()
+    }
+
     // MARK: - Test Server (integration testing)
 
     func connectToTestServer(host: String, mainPort: UInt16, pairingPort: UInt16, pin: String) async {
@@ -437,6 +483,11 @@ enum ConnectionState: Sendable {
             AppLog.shared.info("Restore", "Active instance: \(activeInstanceID?.value.prefix(12) ?? "none")")
         }
         AppLog.shared.info("Restore", "Session restore complete: \(instances.count) instance(s), \(connectedInstances.count) connected")
+
+        // If any instances failed to connect, try Bonjour to discover updated ports
+        if connectedInstances.count < instances.count {
+            await refreshInstancePortsViaBonjourIfNeeded()
+        }
     }
 
     // MARK: - Reconnect
