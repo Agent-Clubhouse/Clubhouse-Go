@@ -39,6 +39,7 @@ import Foundation
     /// Nil for servers paired before pinning was implemented.
     var serverPublicKey: String?
     private var reconnectAttempt = 0
+    private var reconnectInProgress = false
     private var lastSeq: Int?
     private var isReplaying = false
     private static let maxReconnectAttempts = 10
@@ -46,11 +47,13 @@ import Foundation
 
     /// Per-agent PTY data callbacks — bypasses @Observable dictionary tracking
     /// to prevent cross-agent terminal bleed.
-    private var ptyCallbacks: [String: (String) -> Void] = [:]
+    /// Callbacks are guaranteed to run on the main actor since ServerInstance is @MainActor.
+    private var ptyCallbacks: [String: @MainActor (String) -> Void] = [:]
 
     /// Register a callback to receive PTY data for a specific agent.
+    /// The callback is invoked on the main actor (safe to mutate @State).
     /// Returns a closure to unregister.
-    func subscribePtyData(agentId: String, callback: @escaping (String) -> Void) -> (() -> Void) {
+    func subscribePtyData(agentId: String, callback: @escaping @MainActor (String) -> Void) -> (() -> Void) {
         ptyCallbacks[agentId] = callback
         return { [weak self] in
             self?.ptyCallbacks.removeValue(forKey: agentId)
@@ -214,7 +217,12 @@ import Foundation
             AppLog.shared.error("Instance", "\(logPrefix) Cannot connect WS: no apiClient or token")
             return
         }
-        wsStreamTask?.cancel()
+        // Cancel and await the previous stream task to prevent leaks
+        if let oldTask = wsStreamTask {
+            oldTask.cancel()
+            await oldTask.value
+            wsStreamTask = nil
+        }
         webSocket?.disconnect()
 
         guard let request = try? apiClient.webSocketRequest(token: token) else {
@@ -441,6 +449,15 @@ import Foundation
     }
 
     private func attemptReconnect() async {
+        // Prevent concurrent reconnect chains — the await points below yield
+        // the actor, which could allow a second .disconnected event to re-enter.
+        guard !reconnectInProgress else {
+            AppLog.shared.debug("Instance", "\(logPrefix) Reconnect already in progress — skipping")
+            return
+        }
+        reconnectInProgress = true
+        defer { reconnectInProgress = false }
+
         for attempt in 1...Self.maxReconnectAttempts {
             guard !Task.isCancelled else { break }
 
@@ -469,11 +486,9 @@ import Foundation
                     lastError = "Session expired. Please re-pair."
                     return
                 }
-                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                continue
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect attempt \(attempt) failed: \(error)")
             } catch {
-                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect status check failed: \(error) — will retry")
-                continue
+                AppLog.shared.warn("Instance", "\(logPrefix) Reconnect attempt \(attempt) failed: \(error)")
             }
         }
 
@@ -779,6 +794,7 @@ import Foundation
         token = nil
         apiClient = nil
         reconnectAttempt = 0
+        reconnectInProgress = false
         lastSeq = nil
         isReplaying = false
         replayState = .idle

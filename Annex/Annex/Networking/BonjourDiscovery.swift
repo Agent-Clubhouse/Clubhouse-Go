@@ -18,7 +18,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     }
 }
 
-@Observable final class BonjourDiscovery: NSObject {
+@MainActor @Observable final class BonjourDiscovery: NSObject {
     private(set) var servers: [DiscoveredServer] = []
     private(set) var isSearching = false
     private(set) var permissionDenied = false
@@ -171,7 +171,7 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
     }
 
     /// Parse TXT record data from NetService (binary DNS TXT format)
-    private func parseTXTData(_ data: Data) -> [String: String] {
+    private nonisolated func parseTXTData(_ data: Data) -> [String: String] {
         let dict = NetService.dictionary(fromTXTRecord: data)
         var records: [String: String] = [:]
         for (key, value) in dict {
@@ -362,14 +362,20 @@ struct DiscoveredServer: Identifiable, Hashable, Sendable {
 
 // MARK: - NetServiceDelegate (TXT record resolution)
 
-extension BonjourDiscovery: NetServiceDelegate {
-    func netService(_ sender: NetService, didUpdateTXTRecord data: Data) {
+extension BonjourDiscovery: @preconcurrency NetServiceDelegate {
+    nonisolated func netService(_ sender: NetService, didUpdateTXTRecord data: Data) {
         let txtRecords = parseTXTData(data)
-        AppLog.shared.info("Bonjour", "NetService TXT update for '\(sender.name)': \(txtRecords)")
-        finalizePendingServer(serviceName: sender.name, txtRecords: txtRecords)
+        let name = sender.name
+        Task { @MainActor in
+            AppLog.shared.info("Bonjour", "NetService TXT update for '\(name)': \(txtRecords)")
+            self.finalizePendingServer(serviceName: name, txtRecords: txtRecords)
+        }
     }
 
-    func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
-        AppLog.shared.error("Bonjour", "NetService resolve failed for '\(sender.name)': \(errorDict)")
+    nonisolated func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
+        let name = sender.name
+        Task { @MainActor in
+            AppLog.shared.error("Bonjour", "NetService resolve failed for '\(name)': \(errorDict)")
+        }
     }
 }
