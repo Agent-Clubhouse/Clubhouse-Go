@@ -3,9 +3,9 @@ import Foundation
 /// Per-server connection state and data. Each ServerInstance manages its own
 /// WebSocket, API client, reconnection, and cached agent/project data.
 @MainActor @Observable final class ServerInstance: Identifiable {
-    // MARK: - Identity (immutable after init)
+    // MARK: - Identity
     let id: ServerInstanceID
-    let protocolConfig: ServerProtocol
+    private(set) var protocolConfig: ServerProtocol
 
     // MARK: - Connection State
     var connectionState: ConnectionState = .disconnected
@@ -210,6 +210,19 @@ import Foundation
     func disconnect() {
         AppLog.shared.info("Instance", "\(logPrefix) Disconnect requested")
         disconnectInternal()
+    }
+
+    /// Update connection config when Bonjour discovers the server at new ports.
+    /// Returns true if the config changed and a reconnect should be triggered.
+    @discardableResult
+    func updateProtocolConfig(_ newConfig: ServerProtocol) -> Bool {
+        guard newConfig.host != protocolConfig.host
+                || newConfig.mainPort != protocolConfig.mainPort else {
+            return false
+        }
+        AppLog.shared.info("Instance", "\(logPrefix) Updating config: \(protocolConfig.label) -> \(newConfig.label)")
+        protocolConfig = newConfig
+        return true
     }
 
     private func connectWebSocket() async {
