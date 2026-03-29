@@ -66,7 +66,7 @@ struct FileContentView: View {
                     .lineLimit(1)
             }
         }
-        .task {
+        .task(id: path) {
             await loadContent()
         }
     }

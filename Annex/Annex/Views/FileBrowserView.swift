@@ -103,7 +103,7 @@ struct FileBrowserView: View {
                 GitLogView(projectId: projId, projectName: projName)
             }
         }
-        .task {
+        .task(id: path) {
             await loadTree()
         }
     }
