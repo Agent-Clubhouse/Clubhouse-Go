@@ -269,18 +269,6 @@ enum ConnectionState: Sendable {
         instance(for: agentId)?.ptyBuffer(for: agentId) ?? ""
     }
 
-    func agentIconURL(agentId: String) -> URL? {
-        instance(for: agentId)?.agentIconURL(agentId: agentId)
-    }
-
-    func projectIconURL(projectId: String) -> URL? {
-        for inst in connectedInstances {
-            if inst.projects.contains(where: { $0.id == projectId }) {
-                return inst.projectIconURL(projectId: projectId)
-            }
-        }
-        return nil
-    }
 
     // MARK: - Delegating Agent Actions
 

@@ -42,7 +42,7 @@ struct AgentAvatarView: View {
             case .sleeping: .gray
             case .error, .failed: .red
             case .completed: .blue
-            case .cancelled: .gray
+            case .cancelled, .unknown: .gray
             case nil: .gray
             }
         }
@@ -171,7 +171,7 @@ struct StatusDotView: View {
         case .sleeping: .yellow
         case .error, .failed: .red
         case .completed: .blue
-        case .cancelled: .gray
+        case .cancelled, .unknown: .gray
         }
     }
 

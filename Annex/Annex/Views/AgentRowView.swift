@@ -91,7 +91,7 @@ struct QuickAgentRowView: View {
         case .completed: return "checkmark.circle.fill"
         case .failed, .error: return "xmark.circle.fill"
         case .cancelled: return "stop.circle.fill"
-        case .sleeping, nil: return "bolt"
+        case .sleeping, .unknown, nil: return "bolt"
         }
     }
 
@@ -101,7 +101,7 @@ struct QuickAgentRowView: View {
         case .completed: return .green
         case .failed, .error: return .red
         case .cancelled: return .secondary
-        case .sleeping, nil: return .secondary
+        case .sleeping, .unknown, nil: return .secondary
         }
     }
 

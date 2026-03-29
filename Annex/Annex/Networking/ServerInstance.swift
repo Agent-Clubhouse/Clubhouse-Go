@@ -171,16 +171,6 @@ import Foundation
         agentsByProject.values.flatMap { $0 }.filter { $0.status == .running }.count
     }
 
-    func agentIconURL(agentId: String) -> URL? {
-        guard let apiClient, let token else { return nil }
-        return URL(string: "\(apiClient.baseURL)/api/v1/icons/agent/\(agentId)?token=\(token)")
-    }
-
-    func projectIconURL(projectId: String) -> URL? {
-        guard let apiClient, let token else { return nil }
-        return URL(string: "\(apiClient.baseURL)/api/v1/icons/project/\(projectId)?token=\(token)")
-    }
-
     // MARK: - Connection Lifecycle
 
     func connect(token: String) async {

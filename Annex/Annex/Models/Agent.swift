@@ -26,7 +26,7 @@ struct DurableAgent: Identifiable, Hashable, Codable, Sendable {
         case .error, .failed: 1
         case .sleeping: 2
         case .completed: 3
-        case .cancelled: 4
+        case .cancelled, .unknown: 4
         case nil: 5
         }
     }

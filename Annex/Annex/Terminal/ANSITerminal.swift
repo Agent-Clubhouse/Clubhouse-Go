@@ -544,10 +544,11 @@ import SwiftUI
         if bg != .clear {
             attrStr.backgroundColor = bg
         }
-        if style.bold {
+        if style.bold && style.italic {
+            attrStr.font = .system(size: 11, weight: .bold, design: .monospaced).italic()
+        } else if style.bold {
             attrStr.font = .system(size: 11, weight: .bold, design: .monospaced)
-        }
-        if style.italic {
+        } else if style.italic {
             attrStr.font = .system(size: 11, design: .monospaced).italic()
         }
         if style.underline {
