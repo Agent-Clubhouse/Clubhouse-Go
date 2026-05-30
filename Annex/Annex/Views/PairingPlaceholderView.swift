@@ -9,6 +9,12 @@ struct PairingPlaceholderView: View {
     @State private var isPairing = false
     @State private var errorMessage: String?
 
+    // Manual address entry (for Tailscale / non-mDNS networks)
+    @State private var showManualEntry = false
+    @State private var manualAddressInput: String = ""
+    @State private var manualPairingPortInput: String = ""
+    @State private var manualEntryError: String?
+
     /// When true, this is being used to add an additional instance (presented as sheet).
     var isAddingInstance = false
 
@@ -41,8 +47,10 @@ struct PairingPlaceholderView: View {
                 }
             }
 
-            // Server selection
-            if discovery.permissionDenied {
+            // Manual entry takes over the body once activated
+            if showManualEntry {
+                manualEntrySection
+            } else if discovery.permissionDenied {
                 VStack(spacing: 8) {
                     Image(systemName: "wifi.exclamationmark")
                         .font(.title)
@@ -125,8 +133,21 @@ struct PairingPlaceholderView: View {
                 .padding(.horizontal, 40)
             }
 
-            // PIN entry
-            if selectedServer != nil {
+            // "Enter address manually" — always available while discovering, hidden once manual form is open
+            if !showManualEntry && selectedServer == nil && !discovery.permissionDenied {
+                Button {
+                    showManualEntry = true
+                    discovery.stopSearching()
+                } label: {
+                    Text("Enter address manually")
+                        .font(.subheadline)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 4)
+            }
+
+            // PIN entry (for discovered servers; manual flow shows its own Connect button)
+            if selectedServer != nil && !showManualEntry {
                 TextField("000000", text: $pin)
                     .keyboardType(.numberPad)
                     .font(.system(size: 32, weight: .medium, design: .monospaced))
@@ -173,6 +194,138 @@ struct PairingPlaceholderView: View {
         .onDisappear {
             discovery.stopSearching()
         }
+    }
+
+    // MARK: - Manual entry
+
+    private var manualEntrySection: some View {
+        VStack(spacing: 12) {
+            Text("Enter the server address from Clubhouse desktop. Use IP or hostname, with optional :port.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            TextField("e.g. 100.64.0.5 or my-host.tail.ts.net:8443", text: $manualAddressInput)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                .padding(.horizontal, 40)
+
+            DisclosureGroup("Advanced") {
+                HStack {
+                    Text("Pairing port")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    TextField(
+                        String(ManualServerAddress.defaultPairingPort),
+                        text: $manualPairingPortInput
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .keyboardType(.numberPad)
+                    .frame(maxWidth: 100)
+                }
+                .padding(.top, 4)
+            }
+            .font(.caption)
+            .padding(.horizontal, 40)
+
+            TextField("000000", text: $pin)
+                .keyboardType(.numberPad)
+                .font(.system(size: 32, weight: .medium, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 200)
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: pin) { _, newValue in
+                    let filtered = String(newValue.filter(\.isNumber).prefix(6))
+                    if filtered != newValue { pin = filtered }
+                }
+
+            if let manualEntryError {
+                Text(manualEntryError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+            } else if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack(spacing: 12) {
+                Button("Back") {
+                    showManualEntry = false
+                    manualEntryError = nil
+                    errorMessage = nil
+                    discovery.startSearching()
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    Task { await submitManualEntry() }
+                } label: {
+                    if isPairing {
+                        ProgressView()
+                            .frame(maxWidth: 120)
+                    } else {
+                        Text("Connect")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: 120)
+                    }
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .tint(store.theme.accentColor)
+                .disabled(pin.count < 6 || isPairing || manualAddressInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func submitManualEntry() async {
+        manualEntryError = nil
+        errorMessage = nil
+
+        guard let parsed = ManualServerAddress.parse(manualAddressInput) else {
+            manualEntryError = "Enter a valid host (e.g. 100.64.0.5 or my-host.local:8443)"
+            return
+        }
+
+        let pairingPort: UInt16
+        let trimmedPP = manualPairingPortInput.trimmingCharacters(in: .whitespaces)
+        if trimmedPP.isEmpty {
+            pairingPort = ManualServerAddress.defaultPairingPort
+        } else if let p = UInt16(trimmedPP), p > 0 {
+            pairingPort = p
+        } else {
+            manualEntryError = "Pairing port must be a number between 1 and 65535"
+            return
+        }
+
+        let manualServer = DiscoveredServer(
+            id: "manual:\(parsed.host):\(parsed.mainPort)",
+            name: parsed.host,
+            host: parsed.host,
+            port: parsed.mainPort,
+            pairingPort: pairingPort,
+            fingerprint: ""
+        )
+
+        isPairing = true
+        AppLog.shared.info("PairingUI", "Manual pair to \(parsed.host):\(parsed.mainPort) pairingPort=\(pairingPort)")
+        do {
+            try await store.pair(server: manualServer, pin: pin)
+            AppLog.shared.info("PairingUI", "Manual pairing succeeded")
+            if isAddingInstance { dismiss() }
+        } catch {
+            let msg = (error as? APIError)?.userMessage ?? "Connection failed"
+            AppLog.shared.error("PairingUI", "Manual pairing failed: \(error) — showing: \(msg)")
+            manualEntryError = msg
+        }
+        isPairing = false
     }
 
     private func performPairing() async {
