@@ -94,34 +94,44 @@ struct HomePluginView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(instance.allAgents.prefix(5)) { agent in
-                    HStack(spacing: 10) {
-                        AgentAvatarView(
-                            color: agent.color ?? "gray",
-                            status: agent.status,
-                            state: agent.detailedStatus?.state,
-                            name: agent.name,
-                            iconData: instance.agentIcons[agent.id],
-                            size: 32
-                        )
+                    NavigationLink(value: agent) {
+                        HStack(spacing: 10) {
+                            AgentAvatarView(
+                                color: agent.color ?? "gray",
+                                status: agent.status,
+                                state: agent.detailedStatus?.state,
+                                name: agent.name,
+                                iconData: instance.agentIcons[agent.id],
+                                size: 32
+                            )
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(agent.name ?? agent.id)
-                                .font(.subheadline.weight(.medium))
-                            if let mission = agent.mission {
-                                Text(mission)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(agent.name ?? agent.id)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                if let mission = agent.mission {
+                                    Text(mission)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
-                        }
 
-                        Spacer()
+                            Spacer()
 
-                        if let status = agent.status {
-                            StatusDotView(status: status, size: 8)
+                            if let status = agent.status {
+                                StatusDotView(status: status, size: 8)
+                            }
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.tertiary)
                         }
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home-agent-row-\(agent.id)")
                 }
 
                 if instance.allAgents.count > 5 {

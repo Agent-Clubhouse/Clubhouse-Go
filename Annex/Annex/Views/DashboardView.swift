@@ -90,6 +90,9 @@ struct DashboardView: View {
             .sheet(isPresented: $showSpawnSheet) {
                 MultiInstanceSpawnSheet()
             }
+            .navigationDestination(for: DurableAgent.self) { agent in
+                AgentDetailView(agent: agent)
+            }
         }
     }
 }
@@ -321,11 +324,15 @@ private struct RunningAgentsSection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(runningAgents, id: \.agent.id) { ia in
-                            RunningAgentTile(
-                                agent: ia.agent,
-                                instanceName: ia.instance.serverName,
-                                iconData: store.agentIconData(ia.agent.id)
-                            )
+                            NavigationLink(value: ia.agent) {
+                                RunningAgentTile(
+                                    agent: ia.agent,
+                                    instanceName: ia.instance.serverName,
+                                    iconData: store.agentIconData(ia.agent.id)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("running-agent-tile-\(ia.agent.id)")
                         }
                     }
                 }
