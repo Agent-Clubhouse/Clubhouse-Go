@@ -167,4 +167,23 @@ final class ClubhouseGoUITests: XCTestCase {
         reviewButton.tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 3), "Permission review flow should open")
     }
+
+    // MARK: - Persona Tap Navigation (issue #77)
+
+    @MainActor
+    func testDashboardRunningAgentTileNavigatesToDetail() throws {
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        // faithful-urchin is a running agent in mock data (id: durable_1737000000000_abc123)
+        let tile = app.buttons["running-agent-tile-durable_1737000000000_abc123"]
+        XCTAssertTrue(tile.waitForExistence(timeout: 5), "Running agent tile should exist on Dashboard")
+        tile.tap()
+
+        // AgentDetailView sets navigationTitle to the agent's name
+        XCTAssertTrue(
+            app.navigationBars["faithful-urchin"].waitForExistence(timeout: 3),
+            "Tapping the persona tile should navigate to the agent detail view"
+        )
+    }
 }
