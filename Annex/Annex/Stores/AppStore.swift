@@ -146,6 +146,20 @@ enum ConnectionState: Sendable {
         return merged
     }
 
+    /// Resolve an orchestrator id to its short display name.
+    ///
+    /// Resolution order (GH #92): the orchestrator's own instance first, then
+    /// the merged cross-instance map, then the raw id as a last resort. Keying
+    /// off the project's own instance means the same project shows the same
+    /// orchestrator name regardless of which tab it was opened from, and avoids
+    /// cross-instance id collisions in the merged map.
+    func orchestratorDisplayName(_ id: String, instanceId: ServerInstanceID?) -> String {
+        if let instanceId, let entry = instanceByID(instanceId)?.orchestrators[id] {
+            return entry.shortName
+        }
+        return orchestrators[id]?.shortName ?? id
+    }
+
     var projects: [Project] {
         activeInstance?.projects ?? []
     }
