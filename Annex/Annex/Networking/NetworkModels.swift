@@ -218,6 +218,11 @@ struct CancelAgentResponse: Codable, Sendable {
     let status: String
 }
 
+struct SleepAgentResponse: Codable, Sendable {
+    let id: String
+    let status: String
+}
+
 struct SendMessageResponse: Codable, Sendable {
     let id: String
     let status: String

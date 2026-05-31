@@ -272,6 +272,31 @@ struct APIClientTests {
         }
     }
 
+    // MARK: - POST /api/v1/agents/{agentId}/sleep
+
+    @Test func sleepAgentSuccess() async throws {
+        try await withMockClient(path: "/api/v1/agents/durable_001/sleep", response: .json("""
+        {"id":"durable_001","status":"sleeping"}
+        """)) { client in
+            let response = try await client.sleepAgent(agentId: "durable_001", token: "tok")
+            #expect(response.id == "durable_001")
+            #expect(response.status == "sleeping")
+        }
+    }
+
+    @Test func sleepAgentServerError() async throws {
+        try await withMockClient(path: "/api/v1/agents/durable_001/sleep", response: .json(
+            "{\"error\":\"internal\"}", statusCode: 500
+        )) { client in
+            do {
+                _ = try await client.sleepAgent(agentId: "durable_001", token: "tok")
+                Issue.record("Expected an APIError to be thrown")
+            } catch is APIError {
+                // Expected — any server error surfaces as an APIError.
+            }
+        }
+    }
+
     // MARK: - POST /api/v1/agents/{agentId}/wake
 
     @Test func wakeAgentSuccess() async throws {

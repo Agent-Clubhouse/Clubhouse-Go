@@ -6,7 +6,7 @@ struct AllAgentsView: View {
     @State private var showSettings = false
     @State private var hideSleeping = false
     @State private var sortOrder: AgentSortOrder = .status
-    @State private var viewMode: AgentViewMode = .list
+    @State private var viewMode: AgentViewMode = .cards
 
     private let maxActivityRows = 5
 
@@ -124,7 +124,12 @@ struct AllAgentsView: View {
                 SettingsView()
             }
             .navigationDestination(for: DurableAgent.self) { agent in
-                AgentDetailView(agent: agent)
+                // Tapping an agent opens the swipe-card experience focused on it,
+                // rather than the retired heavyweight detail view (#94).
+                SwipeableAgentView(agents: filteredAgents, initialAgentId: agent.id)
+                    .background(store.theme.baseColor)
+                    .navigationTitle(agent.name ?? agent.id)
+                    .navigationBarTitleDisplayMode(.inline)
             }
             .navigationDestination(for: String.self) { value in
                 if value.hasPrefix("live:") {

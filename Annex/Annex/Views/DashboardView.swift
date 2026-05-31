@@ -21,6 +21,11 @@ struct DashboardView: View {
             && store.connectedInstances.isEmpty
     }
 
+    /// Running agents shown as tiles; also the swipe set when a tile is tapped (#94).
+    private var runningAgents: [AppStore.InstanceAgent] {
+        store.allAgentsAcrossInstances.filter { $0.agent.status == .running }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -91,7 +96,18 @@ struct DashboardView: View {
                 MultiInstanceSpawnSheet()
             }
             .navigationDestination(for: DurableAgent.self) { agent in
-                AgentDetailView(agent: agent)
+                // Running-agent tiles open the swipe-card experience focused on
+                // the tapped agent rather than the retired detail view (#94).
+                SwipeableAgentView(agents: runningAgents, initialAgentId: agent.id)
+                    .background(store.theme.baseColor)
+                    .navigationTitle(agent.name ?? agent.id)
+                    .navigationBarTitleDisplayMode(.inline)
+            }
+            .navigationDestination(for: String.self) { value in
+                if value.hasPrefix("live:") {
+                    let id = String(value.dropFirst(5))
+                    LiveTerminalView(agentId: id)
+                }
             }
         }
     }

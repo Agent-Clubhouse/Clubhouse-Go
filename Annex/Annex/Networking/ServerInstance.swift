@@ -592,6 +592,12 @@ import Foundation
         _ = try await apiClient.wakeAgent(agentId: agentId, request: request, token: token)
     }
 
+    func sleepAgent(agentId: String) async throws {
+        guard let apiClient, let token else { throw APIError.notConnected }
+        AppLog.shared.info("Instance", "\(logPrefix) Sleeping agent \(agentId)")
+        _ = try await apiClient.sleepAgent(agentId: agentId, token: token)
+    }
+
     func spawnShell(sessionId: String, projectId: String) {
         guard let webSocket else {
             AppLog.shared.warn("Instance", "\(logPrefix) Cannot spawn shell: no WebSocket")

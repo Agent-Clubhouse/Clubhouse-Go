@@ -8,6 +8,9 @@ struct SwipeableAgentView: View {
     @State private var selectedIndex: Int = 0
 
     let agents: [AppStore.InstanceAgent]
+    /// When set, the browser opens positioned on this agent (e.g. when reached
+    /// by tapping a specific agent in the list or a dashboard tile).
+    var initialAgentId: String? = nil
 
     var body: some View {
         if agents.isEmpty {
@@ -25,6 +28,9 @@ struct SwipeableAgentView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .automatic))
             .indexViewStyle(.page(backgroundDisplayMode: .automatic))
+            .onAppear {
+                selectedIndex = SwipeableAgentView.initialIndex(for: initialAgentId, in: agents)
+            }
             .onChange(of: selectedIndex) { _, _ in
                 Haptics.selection()
             }
@@ -35,6 +41,15 @@ struct SwipeableAgentView: View {
             }
         }
     }
+
+    /// Resolves the starting page index for a focus agent id. Falls back to 0
+    /// when the id is nil or not present. Pure/static for testability.
+    static func initialIndex(for agentId: String?, in agents: [AppStore.InstanceAgent]) -> Int {
+        guard let agentId,
+              let idx = agents.firstIndex(where: { $0.agent.id == agentId })
+        else { return 0 }
+        return idx
+    }
 }
 
 // MARK: - Agent Card
@@ -44,6 +59,10 @@ private struct AgentCardView: View {
     let agent: DurableAgent
     let instance: ServerInstance
     @Environment(AppStore.self) private var store
+    @State private var showWakeSheet = false
+    @State private var showSleepConfirm = false
+    @State private var isSleeping = false
+    @State private var sleepError: String?
 
     private var statusColor: Color {
         agentStatusColor(state: agent.detailedStatus?.state, status: agent.status)
@@ -123,6 +142,39 @@ private struct AgentCardView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .sheet(isPresented: $showWakeSheet) {
+            WakeAgentSheet(agent: agent)
+        }
+        .confirmationDialog(
+            "Put \(agent.name ?? "agent") to sleep?",
+            isPresented: $showSleepConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Sleep Agent", role: .destructive) {
+                Task { await sleepAgent() }
+            }
+        } message: {
+            Text("The agent will stop working until you wake it again. Any in-progress task will be interrupted.")
+        }
+        .alert("Sleep Failed", isPresented: .init(
+            get: { sleepError != nil },
+            set: { if !$0 { sleepError = nil } }
+        )) {
+            Button("OK") { sleepError = nil }
+        } message: {
+            Text(sleepError ?? "")
+        }
+    }
+
+    private func sleepAgent() async {
+        isSleeping = true
+        sleepError = nil
+        do {
+            try await store.sleepAgent(agentId: agent.id)
+        } catch {
+            sleepError = (error as? APIError)?.userMessage ?? error.localizedDescription
+        }
+        isSleeping = false
     }
 
     // MARK: - Card Header
@@ -265,14 +317,33 @@ private struct AgentCardView: View {
                 .accessibilityHint("Opens live terminal view")
             }
 
-            NavigationLink(value: agent) {
+            wakeSleepToggle
+        }
+    }
+
+    /// Replaces the old "Details" button (#94). Sleeping agents can be woken;
+    /// running agents can be put to sleep behind a confirmation dialog.
+    @ViewBuilder
+    private var wakeSleepToggle: some View {
+        if agent.status == .sleeping {
+            Button {
+                showWakeSheet = true
+            } label: {
+                CardActionButton(icon: "alarm", label: "Wake", color: .green)
+            }
+            .accessibilityHint("Wakes the sleeping agent")
+        } else if agent.status == .running {
+            Button {
+                showSleepConfirm = true
+            } label: {
                 CardActionButton(
-                    icon: "chart.bar",
-                    label: "Details",
-                    color: .blue
+                    icon: isSleeping ? "hourglass" : "moon.zzz",
+                    label: "Sleep",
+                    color: .indigo
                 )
             }
-            .accessibilityHint("Shows agent details and activity")
+            .disabled(isSleeping)
+            .accessibilityHint("Puts the agent to sleep")
         }
     }
 
