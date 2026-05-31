@@ -41,6 +41,9 @@ import Foundation
     private var reconnectAttempt = 0
     private var reconnectInProgress = false
     private var lastSeq: Int?
+    /// Outbound messages (PTY input) parked while the socket is down, flushed in
+    /// order on reconnect so keystrokes aren't silently lost (GH #96).
+    private var outboundQueue = OutboundQueue()
     private var isReplaying = false
     private static let maxReconnectAttempts = 10
     private static let maxActivityEventsPerAgent = 200
@@ -312,6 +315,8 @@ import Foundation
                 }
             }
             connectionState = .connected
+            // Connection restored — replay any input parked during the outage.
+            flushOutboundQueue()
             // Cache snapshot for cold launch
             let cached = LocalCache.CachedSnapshot(
                 projects: projects,
@@ -373,6 +378,12 @@ import Foundation
             AppLog.shared.info("Instance", "\(logPrefix) Replay ended")
             isReplaying = false
             replayState = .idle
+            // A reconnect may deliver a replay without a fresh snapshot; make
+            // sure we're marked connected and parked input is flushed (GH #96).
+            if !connectionState.isConnected {
+                connectionState = .connected
+            }
+            flushOutboundQueue()
 
         case .agentSpawned(let payload):
             AppLog.shared.info("Instance", "\(logPrefix) Agent spawned: \(payload.name ?? payload.id) in project \(payload.projectId)")
@@ -606,12 +617,40 @@ import Foundation
     }
 
     func sendPtyInput(sessionId: String, data: String) {
-        guard let webSocket else { return }
         let msg = PtyInputMessage(
             type: "pty:input",
             payload: PtyInputPayload(agentId: sessionId, data: data)
         )
-        webSocket.send(msg)
+        sendOrQueue(msg)
+    }
+
+    /// Send a WebSocket message when connected, otherwise park it in the
+    /// outbound queue to be flushed on reconnect. Used for PTY input so a drop
+    /// mid-session doesn't silently lose the user's keystrokes (GH #96).
+    private func sendOrQueue<T: Encodable>(_ message: T) {
+        guard let text = WebSocketClient.encodeToString(message) else {
+            AppLog.shared.error("Instance", "\(logPrefix) Failed to encode outbound message")
+            return
+        }
+        if connectionState.isConnected, let webSocket {
+            webSocket.sendText(text)
+        } else {
+            let dropped = outboundQueue.enqueue(text)
+            if dropped > 0 {
+                AppLog.shared.warn("Instance", "\(logPrefix) Outbound queue full — dropped \(dropped) oldest message(s)")
+            }
+            AppLog.shared.info("Instance", "\(logPrefix) Queued outbound message while \(connectionState.label) (queued=\(outboundQueue.count))")
+        }
+    }
+
+    /// Flush any queued outbound messages once the connection is restored.
+    private func flushOutboundQueue() {
+        guard connectionState.isConnected, let webSocket, !outboundQueue.isEmpty else { return }
+        let pending = outboundQueue.drain()
+        AppLog.shared.info("Instance", "\(logPrefix) Flushing \(pending.count) queued outbound message(s)")
+        for text in pending {
+            webSocket.sendText(text)
+        }
     }
 
     func sendPtyResize(sessionId: String, cols: Int, rows: Int) {
@@ -811,5 +850,6 @@ import Foundation
         lastSeq = nil
         isReplaying = false
         replayState = .idle
+        outboundQueue.clear()
     }
 }

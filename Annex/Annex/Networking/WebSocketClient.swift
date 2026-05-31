@@ -38,6 +38,13 @@ struct SeqWSEvent: Sendable {
     private let session: URLSession
     private var task: URLSessionWebSocketTask?
     private var isConnected = false
+    private var pingTask: Task<Void, Never>?
+
+    /// How often to send a keep-alive ping. Long-lived sockets can be reset by
+    /// intermediaries (NAT/idle timeouts) under sustained one-way traffic; a
+    /// periodic ping keeps the connection warm and surfaces a dead socket
+    /// sooner (GH #96).
+    private static let pingInterval: Duration = .seconds(20)
 
     init(request: URLRequest, session: URLSession = .shared) {
         self.request = request
@@ -54,6 +61,7 @@ struct SeqWSEvent: Sendable {
             let port = request.url?.port.map { ":\($0)" } ?? ""
             AppLog.shared.info("WS", "Connecting to \(host)\(port)")
             wsTask.resume()
+            self.startPingLoop(task: wsTask)
 
             Task {
                 await self.receiveLoop(task: wsTask, continuation: continuation)
@@ -68,22 +76,55 @@ struct SeqWSEvent: Sendable {
     func disconnect() {
         AppLog.shared.info("WS", "Disconnecting (wasConnected=\(isConnected))")
         isConnected = false
+        pingTask?.cancel()
+        pingTask = nil
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
     }
 
-    /// Send a JSON-encodable message to the server (e.g. replay request).
-    func send<T: Encodable>(_ message: T) {
+    /// Encode a message to its JSON string representation, or nil on failure.
+    static func encodeToString<T: Encodable>(_ message: T) -> String? {
         guard let data = try? JSONEncoder().encode(message),
               let text = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return text
+    }
+
+    /// Send a JSON-encodable message to the server (e.g. replay request).
+    func send<T: Encodable>(_ message: T) {
+        guard let text = Self.encodeToString(message) else {
             AppLog.shared.error("WS", "Failed to encode outgoing message")
             return
         }
+        sendText(text)
+    }
+
+    /// Send a pre-encoded message string. Used both by `send(_:)` and when
+    /// flushing the instance's outbound queue after a reconnect (GH #96).
+    func sendText(_ text: String) {
         AppLog.shared.debug("WS", "Sending: \(text.prefix(200))")
         task?.send(.string(text)) { error in
             if let error {
                 Task { @MainActor in
                     AppLog.shared.error("WS", "Send error: \(error)")
+                }
+            }
+        }
+    }
+
+    private func startPingLoop(task: URLSessionWebSocketTask) {
+        pingTask?.cancel()
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.pingInterval)
+                guard !Task.isCancelled, let self, self.isConnected else { return }
+                task.sendPing { error in
+                    if let error {
+                        Task { @MainActor in
+                            AppLog.shared.warn("WS", "Keep-alive ping failed: \(error.localizedDescription)")
+                        }
+                    }
                 }
             }
         }

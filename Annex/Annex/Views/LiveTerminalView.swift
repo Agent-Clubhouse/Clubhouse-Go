@@ -286,11 +286,9 @@ struct LiveTerminalView: View {
             AppLog.shared.warn("Terminal", "No instance found for agent \(agentId)")
             return
         }
-        let msg = PtyInputMessage(
-            type: "pty:input",
-            payload: PtyInputPayload(agentId: agentId, data: text)
-        )
-        inst.webSocket?.send(msg)
+        // Route through the instance so input is queued and replayed if the
+        // socket is mid-reconnect rather than silently dropped (GH #96).
+        inst.sendPtyInput(sessionId: agentId, data: text)
         userScrolledUp = false
         renderVersion += 1
     }
