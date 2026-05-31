@@ -299,7 +299,10 @@ struct ProjectExplorerView: View {
                     instanceName: instance?.serverName ?? "",
                     durableCount: durableAgents.count,
                     quickCount: quickAgents.count,
-                    iconData: store.projectIconData(project.id)
+                    iconData: store.projectIconData(project.id),
+                    orchestratorName: project.orchestrator.map {
+                        store.orchestratorDisplayName($0, instanceId: instanceId)
+                    }
                 )
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -467,6 +470,10 @@ private struct ProjectHeaderView: View {
     let durableCount: Int
     let quickCount: Int
     let iconData: Data?
+    /// Pre-resolved orchestrator short name (nil when the project has none).
+    /// Passed in so the header renders identically regardless of which tab
+    /// opened the project (GH #92).
+    let orchestratorName: String?
     @Environment(AppStore.self) private var store
 
     private var projectColor: Color {
@@ -527,10 +534,9 @@ private struct ProjectHeaderView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if let orch = project.orchestrator {
+                if let orchestratorName {
                     VStack(spacing: 2) {
-                        let info = store.orchestrators[orch]
-                        Text(info?.shortName ?? orch)
+                        Text(orchestratorName)
                             .font(.title3.weight(.bold))
                         Text("Orchestrator")
                             .font(.caption2)

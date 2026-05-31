@@ -1,56 +1,127 @@
 import SwiftUI
 
+/// How the Canvas tab should present itself for a given number of available
+/// canvases. Kept as a pure, view-independent decision so it can be unit-tested
+/// and reused by every entry point (GH #87).
+enum CanvasPresentation: Equatable {
+    /// No canvases available — show the empty state.
+    case empty
+    /// Exactly one canvas — render it directly ("go straight in").
+    case single
+    /// More than one canvas — present a selector first.
+    case selector
+
+    /// Decide presentation from the number of available canvas entries.
+    static func mode(canvasCount: Int) -> CanvasPresentation {
+        switch canvasCount {
+        case ..<1: return .empty
+        case 1: return .single
+        default: return .selector
+        }
+    }
+}
+
+/// A single selectable canvas entry. `key` is stable across reloads so it can
+/// drive navigation selection.
+struct CanvasEntry: Identifiable, Hashable {
+    let key: String
+    let label: String
+    let projectId: String
+    let instance: ServerInstance
+    let canvas: CanvasState
+
+    var id: String { key }
+
+    static func == (lhs: CanvasEntry, rhs: CanvasEntry) -> Bool { lhs.key == rhs.key }
+    func hash(into hasher: inout Hasher) { hasher.combine(key) }
+}
+
 struct CanvasTabView: View {
     @Environment(AppStore.self) private var store
-    @State private var selectedCanvasKey: String?
     @State private var expandedView: CanvasView?
 
-    private var canvasEntries: [(key: String, label: String, projectId: String, instance: ServerInstance, canvas: CanvasState)] {
-        store.allCanvasStates.flatMap { entry in
+    private var canvasEntries: [CanvasEntry] {
+        store.allCanvasStates.flatMap { entry -> [CanvasEntry] in
             let tabs = entry.canvas.allCanvasTabs ?? [CanvasTab(id: entry.canvas.canvasId, name: entry.canvas.name ?? "Canvas")]
             let project = entry.instance.projects.first { $0.id == entry.projectId }
             let projectLabel = project?.label ?? entry.projectId
             return tabs.map { tab in
                 let key = "\(entry.instance.id.value):\(entry.projectId):\(tab.id)"
-                return (key: key, label: "\(projectLabel) — \(tab.name)", projectId: entry.projectId, instance: entry.instance, canvas: entry.canvas)
+                return CanvasEntry(key: key, label: "\(projectLabel) — \(tab.name)", projectId: entry.projectId, instance: entry.instance, canvas: entry.canvas)
             }
         }
-    }
-
-    private var selectedEntry: (key: String, label: String, projectId: String, instance: ServerInstance, canvas: CanvasState)? {
-        guard let key = selectedCanvasKey else { return canvasEntries.first }
-        return canvasEntries.first { $0.key == key }
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if canvasEntries.isEmpty {
-                    emptyState
-                } else {
-                    if canvasEntries.count > 1 {
-                        canvasPicker
-                    }
-                    if let entry = selectedEntry {
-                        CanvasRendererView(
-                            canvas: entry.canvas,
-                            instance: entry.instance,
-                            theme: store.theme,
-                            expandedView: $expandedView
-                        )
+            content
+                .navigationTitle("Canvas")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationDestination(for: CanvasEntry.self) { entry in
+                    canvasRenderer(for: entry)
+                        .navigationTitle(entry.label)
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+                .fullScreenCover(item: $expandedView) { view in
+                    CanvasFullScreenView(
+                        canvasView: view,
+                        instance: canvasEntries.first { $0.canvas.views.contains(view) }?.instance,
+                        theme: store.theme
+                    )
+                }
+        }
+    }
+
+    /// Drive the tab's presentation purely from how many canvases exist, so the
+    /// selector is reached from every entry point when there's more than one.
+    @ViewBuilder
+    private var content: some View {
+        switch CanvasPresentation.mode(canvasCount: canvasEntries.count) {
+        case .empty:
+            emptyState
+        case .single:
+            if let entry = canvasEntries.first {
+                canvasRenderer(for: entry)
+            }
+        case .selector:
+            canvasSelector
+        }
+    }
+
+    private func canvasRenderer(for entry: CanvasEntry) -> some View {
+        CanvasRendererView(
+            canvas: entry.canvas,
+            instance: entry.instance,
+            theme: store.theme,
+            expandedView: $expandedView
+        )
+    }
+
+    /// List of all available canvases shown when more than one exists, so the
+    /// user explicitly chooses which to open instead of being dropped into the
+    /// first one (GH #87).
+    private var canvasSelector: some View {
+        List(canvasEntries) { entry in
+            NavigationLink(value: entry) {
+                HStack(spacing: 12) {
+                    Image(systemName: "rectangle.on.rectangle.angled")
+                        .font(.title3)
+                        .foregroundStyle(store.theme.accentColor)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.label)
+                            .font(.body.weight(.medium))
+                        Text("\(entry.canvas.views.count) item\(entry.canvas.views.count == 1 ? "" : "s")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
-            .navigationTitle("Canvas")
-            .navigationBarTitleDisplayMode(.inline)
-            .fullScreenCover(item: $expandedView) { view in
-                CanvasFullScreenView(
-                    canvasView: view,
-                    instance: selectedEntry?.instance,
-                    theme: store.theme
-                )
-            }
+            .listRowBackground(store.theme.surface0Color.opacity(0.5))
+            .accessibilityIdentifier("canvas-selector-row-\(entry.key)")
         }
+        .scrollContentBackground(.hidden)
+        .background(store.theme.baseColor)
     }
 
     private var emptyState: some View {
@@ -69,21 +140,6 @@ struct CanvasTabView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private var canvasPicker: some View {
-        Picker("Canvas", selection: Binding(
-            get: { selectedCanvasKey ?? canvasEntries.first?.key ?? "" },
-            set: { selectedCanvasKey = $0 }
-        )) {
-            ForEach(canvasEntries, id: \.key) { entry in
-                Text(entry.label).tag(entry.key)
-            }
-        }
-        .pickerStyle(.menu)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 }
 
