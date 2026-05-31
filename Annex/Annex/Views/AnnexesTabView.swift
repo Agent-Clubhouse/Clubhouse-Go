@@ -16,8 +16,14 @@ struct AnnexesTabView: View {
                         }
                         .listRowBackground(store.theme.surface0Color.opacity(0.5))
 
-                        // App-level plugins
-                        let appPlugins = instance.plugins.filter { $0.scope == "app" || $0.scope == "dual" }
+                        // App-level plugins — rail-style: only functional,
+                        // Annex-enabled entries (effectively Canvas). Non-Annex
+                        // rows and "not yet available on mobile" placeholders are
+                        // hidden (GH #86).
+                        let appPlugins = instance.plugins.filter {
+                            ($0.scope == "app" || $0.scope == "dual")
+                                && ClubhousePluginVisibility.shouldShow($0)
+                        }
                         if !appPlugins.isEmpty {
                             ForEach(appPlugins) { plugin in
                                 let item = PluginItem(
@@ -27,14 +33,10 @@ struct AnnexesTabView: View {
                                     icon: pluginIcon(plugin.id),
                                     instanceId: instance.id,
                                     projectId: nil,
-                                    enabled: plugin.annexEnabled
+                                    enabled: true
                                 )
-                                if plugin.annexEnabled {
-                                    NavigationLink(value: AnnexNav.plugin(item)) {
-                                        PluginRow(name: plugin.name, icon: pluginIcon(plugin.id), enabled: true)
-                                    }
-                                } else {
-                                    PluginRow(name: plugin.name, icon: pluginIcon(plugin.id), enabled: false)
+                                NavigationLink(value: AnnexNav.plugin(item)) {
+                                    PluginRow(name: plugin.name, icon: pluginIcon(plugin.id))
                                 }
                             }
                             .listRowBackground(store.theme.surface0Color.opacity(0.4))
@@ -233,23 +235,16 @@ private struct ProjectRowCompact: View {
 private struct PluginRow: View {
     let name: String
     let icon: String
-    let enabled: Bool
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(enabled ? .primary : .tertiary)
+                .foregroundStyle(.primary)
                 .frame(width: 24)
             Text(name)
                 .font(.subheadline)
-                .foregroundStyle(enabled ? .primary : .tertiary)
-            if !enabled {
-                Spacer()
-                Text("Not Annex-enabled")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+                .foregroundStyle(.primary)
         }
     }
 }

@@ -529,6 +529,14 @@ struct CanvasView: Codable, Sendable, Identifiable, Hashable {
     var displayLabel: String {
         displayName ?? title ?? label ?? id
     }
+
+    /// A "group project" plugin node. Its detail view's primary feature
+    /// (the bulletin board) requires server-side support that isn't available
+    /// on mobile, so these nodes are hidden from the canvas (GH #91).
+    var isGroupProject: Bool {
+        pluginWidgetType?.contains("group-project") == true
+            || pluginId?.contains("group-project") == true
+    }
 }
 
 struct CanvasState: Codable, Sendable, Identifiable, Hashable {

@@ -101,10 +101,16 @@ struct CanvasRendererView: View {
     @State private var lastZoom: CGFloat = 1.0
     @State private var didInitialFit = false
 
+    /// Canvas nodes that should be rendered. Group-project nodes are dropped
+    /// because their detail view isn't functional on mobile (GH #91).
+    private var visibleViews: [CanvasView] {
+        canvas.views.filter { !$0.isGroupProject }
+    }
+
     /// Server positions adjusted so node frames don't overlap on the smaller
-    /// mobile viewport (GH #88). Computed once per layout from the canvas views.
+    /// mobile viewport (GH #88). Computed once per layout from the visible views.
     private var resolvedPositions: [String: CanvasViewPosition] {
-        CanvasLayout.resolvePositions(for: canvas.views)
+        CanvasLayout.resolvePositions(for: visibleViews)
     }
 
     private func position(for view: CanvasView) -> CanvasViewPosition {
@@ -176,7 +182,8 @@ struct CanvasRendererView: View {
     }
 
     private func sizeToFit(in size: CGSize, animated: Bool = true) {
-        guard !canvas.views.isEmpty else { return }
+        let views = visibleViews
+        guard !views.isEmpty else { return }
 
         // Calculate bounding box of all views, using the collision-adjusted
         // positions so the fit matches what's actually rendered (#88).
@@ -184,7 +191,7 @@ struct CanvasRendererView: View {
         var minX = Double.infinity, minY = Double.infinity
         var maxX = -Double.infinity, maxY = -Double.infinity
 
-        for view in canvas.views {
+        for view in views {
             let center = positions[view.id] ?? view.position
             let left = center.x - view.size.width / 2
             let right = center.x + view.size.width / 2
@@ -232,7 +239,7 @@ struct CanvasRendererView: View {
     }
 
     private var sortedViews: [CanvasView] {
-        canvas.views.sorted { ($0.zIndex ?? 0) < ($1.zIndex ?? 0) }
+        visibleViews.sorted { ($0.zIndex ?? 0) < ($1.zIndex ?? 0) }
     }
 
     private var panGesture: some Gesture {
@@ -422,33 +429,27 @@ struct CanvasFullScreenView: View {
         }
     }
 
-    private var isGroupProject: Bool {
-        canvasView.pluginWidgetType?.contains("group-project") == true
-            || canvasView.pluginId?.contains("group-project") == true
-    }
-
     @ViewBuilder
     private var pluginContent: some View {
-        if isGroupProject {
-            GroupProjectDetailView(canvasView: canvasView, instance: instance, theme: theme)
-        } else {
-            VStack(spacing: 16) {
-                Spacer()
-                Image(systemName: "puzzlepiece.fill")
-                    .font(.system(size: 48, weight: .light))
-                    .foregroundStyle(theme.linkColor)
-                Text(canvasView.displayLabel)
-                    .font(.title3.weight(.medium))
-                if let widgetType = canvasView.pluginWidgetType {
-                    Text("Plugin: \(widgetType)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+        // Group-project nodes are filtered out of the canvas (GH #91), so they
+        // never reach this detail view. Remaining plugin nodes show a generic
+        // placeholder.
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "puzzlepiece.fill")
+                .font(.system(size: 48, weight: .light))
+                .foregroundStyle(theme.linkColor)
+            Text(canvasView.displayLabel)
+                .font(.title3.weight(.medium))
+            if let widgetType = canvasView.pluginWidgetType {
+                Text("Plugin: \(widgetType)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(theme.baseColor)
+            Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.baseColor)
     }
 
     private func placeholderContent(icon: String, label: String) -> some View {
