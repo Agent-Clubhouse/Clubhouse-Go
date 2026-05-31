@@ -68,14 +68,8 @@ struct RemoteShellView: View {
                     .submitLabel(.send)
                     .focused($inputFocused)
                     .onSubmit { submitInput() }
-                    .onChange(of: inputText) { _, newValue in
-                        let result = PTYInputSubmit.evaluate(text: newValue)
-                        if result.newBinding != newValue {
-                            inputText = result.newBinding
-                        }
-                        if let payload = result.payload {
-                            sendInput(payload)
-                        }
+                    .onChange(of: inputText) { oldValue, newValue in
+                        handleInputChange(from: oldValue, to: newValue)
                     }
 
                 Button {
@@ -148,12 +142,35 @@ struct RemoteShellView: View {
         renderVersion += 1
     }
 
-    private func submitInput() {
-        let result = PTYInputSubmit.evaluate(text: inputText + "\n")
-        if let payload = result.payload {
-            sendInput(payload)
+    /// Route a binding change through `PTYInputSubmit` to distinguish an
+    /// explicit Return (submit) from a paste/dictation (don't submit).
+    private func handleInputChange(from oldValue: String, to newValue: String) {
+        switch PTYInputSubmit.evaluate(previous: oldValue, current: newValue) {
+        case .none:
+            break
+        case .clear:
+            inputText = ""
+        case .replace(let cleaned):
+            inputText = cleaned
+        case .submit(let command):
+            submit(command: command)
         }
+    }
+
+    /// Submit whatever is currently in the field (Send button / `.onSubmit`).
+    private func submitInput() {
+        // Normalize defensively in case stray newlines reached the binding.
+        submit(command: inputText.filter { $0 != "\n" && $0 != "\r" })
+    }
+
+    /// Send `command` to the shell, clear the field, and keep the keyboard up.
+    private func submit(command: String) {
         inputText = ""
+        // Re-assert focus: clearing the field can otherwise drop first responder
+        // and dismiss the keyboard after every send (issue #95, Problem B).
+        inputFocused = true
+        guard !command.isEmpty else { return }
+        sendInput(command + "\r")
     }
 }
 
