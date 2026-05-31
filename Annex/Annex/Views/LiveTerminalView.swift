@@ -99,15 +99,21 @@ struct LiveTerminalView: View {
                     .font(.system(size: 14, design: .monospaced))
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .submitLabel(.send)
                     .focused($inputFocused)
-                    .onSubmit {
-                        sendInput(inputText + "\r")
-                        inputText = ""
+                    .onSubmit { submitInput() }
+                    .onChange(of: inputText) { _, newValue in
+                        let result = PTYInputSubmit.evaluate(text: newValue)
+                        if result.newBinding != newValue {
+                            inputText = result.newBinding
+                        }
+                        if let payload = result.payload {
+                            sendInput(payload)
+                        }
                     }
 
                 Button {
-                    sendInput(inputText + "\r")
-                    inputText = ""
+                    submitInput()
                 } label: {
                     Image(systemName: "return")
                         .font(.system(size: 16, weight: .semibold))
@@ -293,6 +299,14 @@ struct LiveTerminalView: View {
         inst.webSocket?.send(msg)
         userScrolledUp = false
         renderVersion += 1
+    }
+
+    private func submitInput() {
+        let result = PTYInputSubmit.evaluate(text: inputText + "\n")
+        if let payload = result.payload {
+            sendInput(payload)
+        }
+        inputText = ""
     }
 
     private func sendResize(cols: Int, rows: Int) {
