@@ -635,11 +635,7 @@ import Foundation
             throw APIError.notConnected
         }
         AppLog.shared.info("Instance", "\(logPrefix) Sending message to agent \(agentId) via pty:input")
-        let msg = PtyInputMessage(
-            type: "pty:input",
-            payload: PtyInputPayload(agentId: agentId, data: message + "\r")
-        )
-        webSocket.send(msg)
+        webSocket.send(PtyInputMessage.submit(agentId: agentId, message: message))
     }
 
     func respondToPermission(agentId: String, requestId: String, allow: Bool) async throws {

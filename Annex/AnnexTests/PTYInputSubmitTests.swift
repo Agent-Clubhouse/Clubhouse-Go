@@ -98,3 +98,40 @@ struct PTYInputSubmitTests {
         #expect(PTYInputSubmit.evaluate(previous: "", current: "\n\n") == .clear)
     }
 }
+
+// MARK: - Message-to-running-agent transport (#25)
+//
+// v2 has no REST /message endpoint; messaging a running agent is delivered as a
+// `pty:input` control message terminated by a carriage return. These guard the
+// wire format produced by `PtyInputMessage.submit` (used by ServerInstance.sendMessage).
+
+struct PtyInputSubmitMessageTests {
+    @Test func submitBuildsPtyInputWithTrailingCR() {
+        let msg = PtyInputMessage.submit(agentId: "agent_1", message: "rebase on main")
+        #expect(msg.type == "pty:input")
+        #expect(msg.payload.agentId == "agent_1")
+        #expect(msg.payload.data == "rebase on main\r")
+    }
+
+    @Test func submitAppendsExactlyOneCR() {
+        let msg = PtyInputMessage.submit(agentId: "a", message: "hi")
+        #expect(msg.payload.data.filter { $0 == "\r" }.count == 1)
+        #expect(msg.payload.data.hasSuffix("\r"))
+    }
+
+    @Test func submitPreservesMessageContent() {
+        // Whitespace and special characters in the message are preserved verbatim;
+        // only the submitting carriage return is appended.
+        let msg = PtyInputMessage.submit(agentId: "a", message: "  echo 'hi there'  ")
+        #expect(msg.payload.data == "  echo 'hi there'  \r")
+    }
+
+    @Test func submitEncodesToExpectedJSON() throws {
+        let msg = PtyInputMessage.submit(agentId: "agent_1", message: "go")
+        let data = try JSONEncoder().encode(msg)
+        let decoded = try JSONDecoder().decode(PtyInputMessage.self, from: data)
+        #expect(decoded.type == "pty:input")
+        #expect(decoded.payload.agentId == "agent_1")
+        #expect(decoded.payload.data == "go\r")
+    }
+}

@@ -60,6 +60,7 @@ private struct AgentCardView: View {
     let instance: ServerInstance
     @Environment(AppStore.self) private var store
     @State private var showWakeSheet = false
+    @State private var showMessageSheet = false
     @State private var showSleepConfirm = false
     @State private var isSleeping = false
     @State private var sleepError: String?
@@ -144,6 +145,9 @@ private struct AgentCardView: View {
         .padding(.vertical, 8)
         .sheet(isPresented: $showWakeSheet) {
             WakeAgentSheet(agent: agent)
+        }
+        .sheet(isPresented: $showMessageSheet) {
+            SendMessageSheet(agent: agent)
         }
         .confirmationDialog(
             "Put \(agent.name ?? "agent") to sleep?",
@@ -315,6 +319,17 @@ private struct AgentCardView: View {
                     )
                 }
                 .accessibilityHint("Opens live terminal view")
+
+                Button {
+                    showMessageSheet = true
+                } label: {
+                    CardActionButton(
+                        icon: "text.bubble",
+                        label: "Message",
+                        color: .blue
+                    )
+                }
+                .accessibilityHint("Sends a message to the running agent")
             }
 
             wakeSleepToggle
