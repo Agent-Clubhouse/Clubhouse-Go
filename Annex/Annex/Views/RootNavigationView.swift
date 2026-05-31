@@ -14,7 +14,7 @@ struct RootNavigationView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Dashboard", systemImage: "house.fill", value: .dashboard) {
-                DashboardView()
+                DashboardView(selectedTab: $selectedTab)
             }
             .badge(store.allPendingPermissions.count)
 
