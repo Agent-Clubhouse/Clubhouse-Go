@@ -234,6 +234,18 @@ final class AnnexAPIClient: Sendable {
         return try decode(CancelAgentResponse.self, from: data)
     }
 
+    // MARK: - POST /api/v1/agents/{agentId}/sleep
+
+    func sleepAgent(agentId: String, token: String) async throws(APIError) -> SleepAgentResponse {
+        AppLog.shared.info("API", "[\(configLabel)] POST /api/v1/agents/\(agentId)/sleep")
+        let url = try makeURL("/api/v1/agents/\(agentId)/sleep")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await perform(req)
+        return try decode(SleepAgentResponse.self, from: data)
+    }
+
     // MARK: - POST /api/v1/agents/{agentId}/wake
 
     func wakeAgent(

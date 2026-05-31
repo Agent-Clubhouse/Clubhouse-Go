@@ -321,6 +321,11 @@ enum ConnectionState: Sendable {
         try await inst.wakeAgent(agentId: agentId, message: message, model: model)
     }
 
+    func sleepAgent(agentId: String) async throws {
+        guard let inst = instance(for: agentId) else { return }
+        try await inst.sleepAgent(agentId: agentId)
+    }
+
     func sendMessage(agentId: String, message: String) async throws {
         guard let inst = instance(for: agentId) else { return }
         try await inst.sendMessage(agentId: agentId, message: message)

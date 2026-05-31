@@ -52,20 +52,6 @@ struct ActivityFeedView: View {
     var connectionState: ConnectionState = .connected
     @Environment(AppStore.self) private var store
     @State private var selectedPermission: PermissionRequest?
-    @State private var filter: ActivityFilter = .all
-
-    private var filteredEvents: [HookEvent] {
-        events.filter { filter.matches($0) }
-    }
-
-    /// Pre-compute filter counts once per render instead of per-chip.
-    private var filterCounts: [ActivityFilter: Int] {
-        var counts: [ActivityFilter: Int] = [:]
-        for f in ActivityFilter.allCases where f != .all {
-            counts[f] = events.filter { f.matches($0) }.count
-        }
-        return counts
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -74,39 +60,19 @@ struct ActivityFeedView: View {
                 ActivityConnectionBanner(state: connectionState)
             }
 
-            // Filter bar
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(ActivityFilter.allCases, id: \.self) { option in
-                        let count = option == .all ? nil : filterCounts[option]
-                        FilterChip(
-                            title: option.rawValue,
-                            count: count,
-                            isSelected: filter == option
-                        ) {
-                            withAnimation(.easeInOut(duration: 0.2)) { filter = option }
-                        }
-                        .accessibilityLabel(chipAccessibilityLabel(option, count: count))
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-            }
-
-            Divider()
-
-            // Event list
-            if filteredEvents.isEmpty {
+            // Event list (filter chips removed per #94 — playback wasn't working
+            // and the categories were generally empty).
+            if events.isEmpty {
                 ContentUnavailableView {
-                    Label("No Events", systemImage: filter == .all ? "clock" : "line.3.horizontal.decrease.circle")
+                    Label("No Events", systemImage: "clock")
                 } description: {
-                    Text(filter == .all ? "Activity will appear here as the agent works." : "No \(filter.rawValue.lowercased()) events yet.")
+                    Text("Activity will appear here as the agent works.")
                 }
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
-                            ForEach(filteredEvents) { event in
+                            ForEach(events) { event in
                                 if event.kind == .permissionRequest,
                                    let perm = store.pendingPermissions.values.first(where: {
                                        $0.agentId == event.agentId && $0.toolName == event.toolName
@@ -123,8 +89,8 @@ struct ActivityFeedView: View {
                         .padding(.horizontal)
                         .padding(.top, 8)
                     }
-                    .onChange(of: filteredEvents.count) {
-                        if let last = filteredEvents.last {
+                    .onChange(of: events.count) {
+                        if let last = events.last {
                             withAnimation {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }
@@ -136,47 +102,6 @@ struct ActivityFeedView: View {
         .sheet(item: $selectedPermission) { perm in
             PermissionRequestSheet(permission: perm, agentName: nil)
         }
-    }
-
-    private func chipAccessibilityLabel(_ filter: ActivityFilter, count: Int?) -> String {
-        if let count, count > 0 {
-            return "\(filter.rawValue), \(count) event\(count == 1 ? "" : "s")"
-        }
-        return filter.rawValue
-    }
-}
-
-// MARK: - Filter Chip
-
-private struct FilterChip: View {
-    let title: String
-    let count: Int?
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Text(title)
-                    .font(.caption.weight(.medium))
-                if let count, count > 0 {
-                    Text("\(count)")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(
-                            Capsule().fill(isSelected ? .white.opacity(0.25) : .secondary.opacity(0.15))
-                        )
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule().fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
-            )
-            .foregroundStyle(isSelected ? .white : .primary)
-        }
-        .buttonStyle(.plain)
     }
 }
 

@@ -142,6 +142,21 @@ final class ClubhouseGoUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["faithful-urchin"].waitForExistence(timeout: 5))
     }
 
+    @MainActor
+    func testAgentsTabDefaultsToCardView() throws {
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        app.tabBars.buttons["Agents"].tap()
+
+        // The Agents tab now defaults to swipe-card mode (#93); the toolbar
+        // toggle therefore offers switching back to the list.
+        XCTAssertTrue(
+            app.buttons["List View"].waitForExistence(timeout: 5),
+            "Agents tab should default to card mode, exposing a 'List View' toggle"
+        )
+    }
+
     // MARK: - Settings
 
     @MainActor
