@@ -157,6 +157,12 @@ final class ClubhouseGoUITests: XCTestCase {
         )
     }
 
+    // Note: the running-agent "Message" action is covered by unit tests
+    // (PtyInputSubmitMessageTests) rather than a UI test. An XCUITest that
+    // launched the app, opened the swipe card, and presented the Send Message
+    // sheet proved unstable on CI (app failed to terminate, cascading into the
+    // whole UI job timing out), and the UI suite is already near the CI budget.
+
     // MARK: - Settings
 
     @MainActor

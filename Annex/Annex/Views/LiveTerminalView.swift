@@ -345,6 +345,17 @@ struct PtyInputPayload: Codable, Sendable {
 struct PtyInputMessage: Codable, Sendable {
     let type: String
     let payload: PtyInputPayload
+
+    /// Builds a `pty:input` control message that submits `message` to a running
+    /// agent's PTY as a single line. v2 has no REST `/message` endpoint, so
+    /// messaging a running agent is delivered as terminal input (#25); the
+    /// trailing carriage return is what makes the agent act on the line.
+    static func submit(agentId: String, message: String) -> PtyInputMessage {
+        PtyInputMessage(
+            type: "pty:input",
+            payload: PtyInputPayload(agentId: agentId, data: message + "\r")
+        )
+    }
 }
 
 struct PtyResizePayload: Codable, Sendable {
