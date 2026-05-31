@@ -99,6 +99,17 @@ struct CanvasRendererView: View {
     @State private var lastPanOffset: CGSize = .zero
     @State private var zoom: CGFloat = 1.0
     @State private var lastZoom: CGFloat = 1.0
+    @State private var didInitialFit = false
+
+    /// Server positions adjusted so node frames don't overlap on the smaller
+    /// mobile viewport (GH #88). Computed once per layout from the canvas views.
+    private var resolvedPositions: [String: CanvasViewPosition] {
+        CanvasLayout.resolvePositions(for: canvas.views)
+    }
+
+    private func position(for view: CanvasView) -> CanvasViewPosition {
+        resolvedPositions[view.id] ?? view.position
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -111,6 +122,7 @@ struct CanvasRendererView: View {
                 theme.crustColor.ignoresSafeArea()
 
                 ForEach(sortedViews) { view in
+                    let pos = position(for: view)
                     CanvasPlaceholderView(
                         canvasView: view,
                         instance: instance,
@@ -121,8 +133,8 @@ struct CanvasRendererView: View {
                         expandedView = view
                     }
                     .position(
-                        x: CGFloat(view.position.x) * zoom + totalOffset.width + geo.size.width / 2,
-                        y: CGFloat(view.position.y) * zoom + totalOffset.height + geo.size.height / 2
+                        x: CGFloat(pos.x) * zoom + totalOffset.width + geo.size.width / 2,
+                        y: CGFloat(pos.y) * zoom + totalOffset.height + geo.size.height / 2
                     )
                 }
 
@@ -144,6 +156,13 @@ struct CanvasRendererView: View {
             .clipped()
             .gesture(panGesture)
             .gesture(zoomGesture)
+            .onAppear {
+                // Scale the desktop-sized layout to fit the mobile viewport on
+                // first display rather than starting at 1:1 desktop zoom (#88).
+                guard !didInitialFit else { return }
+                didInitialFit = true
+                sizeToFit(in: geo.size, animated: false)
+            }
         }
     }
 
@@ -156,18 +175,21 @@ struct CanvasRendererView: View {
         }
     }
 
-    private func sizeToFit(in size: CGSize) {
+    private func sizeToFit(in size: CGSize, animated: Bool = true) {
         guard !canvas.views.isEmpty else { return }
 
-        // Calculate bounding box of all views
+        // Calculate bounding box of all views, using the collision-adjusted
+        // positions so the fit matches what's actually rendered (#88).
+        let positions = resolvedPositions
         var minX = Double.infinity, minY = Double.infinity
         var maxX = -Double.infinity, maxY = -Double.infinity
 
         for view in canvas.views {
-            let left = view.position.x - view.size.width / 2
-            let right = view.position.x + view.size.width / 2
-            let top = view.position.y - view.size.height / 2
-            let bottom = view.position.y + view.size.height / 2
+            let center = positions[view.id] ?? view.position
+            let left = center.x - view.size.width / 2
+            let right = center.x + view.size.width / 2
+            let top = center.y - view.size.height / 2
+            let bottom = center.y + view.size.height / 2
             minX = min(minX, left)
             minY = min(minY, top)
             maxX = max(maxX, right)
@@ -192,7 +214,7 @@ struct CanvasRendererView: View {
         let centerX = (minX + maxX) / 2
         let centerY = (minY + maxY) / 2
 
-        withAnimation(.easeInOut(duration: 0.3)) {
+        let apply = {
             zoom = clampedZoom
             lastZoom = clampedZoom
             panOffset = CGSize(
@@ -200,6 +222,12 @@ struct CanvasRendererView: View {
                 height: -CGFloat(centerY) * clampedZoom - CGFloat(canvas.viewport.panY) * clampedZoom
             )
             lastPanOffset = panOffset
+        }
+
+        if animated {
+            withAnimation(.easeInOut(duration: 0.3)) { apply() }
+        } else {
+            apply()
         }
     }
 
@@ -293,6 +321,19 @@ struct CanvasPlaceholderView: View {
                         .strokeBorder(borderColor, lineWidth: canvasView.type == .zone ? 1 : 1.5)
                 )
         )
+        // Subtle "tap to view" affordance on agent nodes (#89): a small chevron
+        // badge in the corner hints that the node opens a detail view on tap.
+        // Overlaid (not in the layout stack) so it doesn't affect node sizing.
+        .overlay(alignment: .bottomTrailing) {
+            if canvasView.type == .agent, agent != nil, zoom > 0.45 {
+                Image(systemName: "chevron.right.circle.fill")
+                    .font(.system(size: max(10, 13 * zoom)))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(theme.crustColor, theme.accentColor)
+                    .padding(4 * zoom)
+                    .accessibilityLabel("Tap to view agent")
+            }
+        }
         .contentShape(Rectangle())
     }
 
