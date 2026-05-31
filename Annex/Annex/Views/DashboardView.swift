@@ -2,8 +2,10 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(AppStore.self) private var store
+    @Binding var selectedTab: RootTab
     @State private var showPermissionReview = false
     @State private var showSpawnSheet = false
+    @State private var showSettings = false
 
     private var isLoading: Bool {
         !store.instances.isEmpty
@@ -38,8 +40,9 @@ struct DashboardView: View {
                             })
                         }
 
-                        StatsSection()
+                        StatsSection(onSelectTab: { selectedTab = $0 })
                         RunningAgentsSection()
+                        DashboardProjectsSection(onSelectProjects: { selectedTab = .projects })
                         RecentActivitySection()
 
                         QuickActionsSection(
@@ -78,10 +81,9 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showSpawnSheet = true } label: {
-                        Image(systemName: "bolt.fill")
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape")
                     }
-                    .disabled(store.connectedInstances.isEmpty)
                 }
             }
             .fullScreenCover(isPresented: $showPermissionReview) {
@@ -89,6 +91,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $showSpawnSheet) {
                 MultiInstanceSpawnSheet()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .navigationDestination(for: DurableAgent.self) { agent in
                 AgentDetailView(agent: agent)
@@ -243,23 +248,41 @@ private struct MiniPermissionCard: View {
 
 // MARK: - Stats Section
 
+/// Pure formatting helpers for the Dashboard stats, kept separate from the views
+/// so they can be unit-tested without standing up an `AppStore`.
+enum DashboardStats {
+    /// Combined agents value, e.g. `48 (4 running)`.
+    static func agentsValue(total: Int, running: Int) -> String {
+        "\(total) (\(running) running)"
+    }
+
+    /// Accessibility label for the combined Agents tile, e.g. `Agents: 48 (4 running)`.
+    static func agentsAccessibilityLabel(total: Int, running: Int) -> String {
+        "Agents: \(agentsValue(total: total, running: running))"
+    }
+}
+
 private struct StatsSection: View {
     @Environment(AppStore.self) private var store
+    let onSelectTab: (RootTab) -> Void
 
     var body: some View {
         LazyVGrid(columns: [
             GridItem(.flexible(), spacing: 10),
             GridItem(.flexible(), spacing: 10),
         ], spacing: 10) {
-            StatCard(icon: "bolt.fill", label: "Running",
-                     value: "\(store.runningAgentCount)", color: .green,
-                     backgroundColor: store.theme.surface0Color.opacity(0.5))
-            StatCard(icon: "person.3.fill", label: "Total Agents",
-                     value: "\(store.totalAgentCount)", color: store.theme.accentColor,
-                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+            StatCard(icon: "person.3.fill", label: "Agents",
+                     value: DashboardStats.agentsValue(total: store.totalAgentCount,
+                                                        running: store.runningAgentCount),
+                     color: store.theme.accentColor,
+                     backgroundColor: store.theme.surface0Color.opacity(0.5),
+                     accessibilityLabel: DashboardStats.agentsAccessibilityLabel(
+                        total: store.totalAgentCount, running: store.runningAgentCount),
+                     action: { onSelectTab(.agents) })
             StatCard(icon: "folder.fill", label: "Projects",
                      value: "\(store.allProjects.count)", color: .blue,
-                     backgroundColor: store.theme.surface0Color.opacity(0.5))
+                     backgroundColor: store.theme.surface0Color.opacity(0.5),
+                     action: { onSelectTab(.projects) })
             StatCard(icon: "lock.shield.fill", label: "Pending",
                      value: "\(store.allPendingPermissions.count)",
                      color: store.allPendingPermissions.isEmpty ? .secondary : .orange,
@@ -274,8 +297,25 @@ private struct StatCard: View {
     let value: String
     let color: Color
     let backgroundColor: Color
+    var accessibilityLabel: String?
+    var action: (() -> Void)?
 
     var body: some View {
+        if let action {
+            Button {
+                Haptics.selection()
+                action()
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("stat-card-\(label.lowercased())")
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
@@ -284,6 +324,8 @@ private struct StatCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .font(.title2.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text(label)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -296,7 +338,7 @@ private struct StatCard: View {
                 .fill(backgroundColor)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label): \(value)")
+        .accessibilityLabel(accessibilityLabel ?? "\(label): \(value)")
     }
 }
 
@@ -375,6 +417,60 @@ private struct RunningAgentTile: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(store.theme.surface0Color.opacity(0.3))
         )
+    }
+}
+
+// MARK: - Projects Section
+
+private struct DashboardProjectsSection: View {
+    @Environment(AppStore.self) private var store
+    let onSelectProjects: () -> Void
+
+    var body: some View {
+        if !store.allProjects.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    Haptics.selection()
+                    onSelectProjects()
+                } label: {
+                    HStack {
+                        Text("Projects")
+                            .font(.headline)
+                        Spacer()
+                        Text("\(store.allProjects.count)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("dashboard-projects-header")
+
+                VStack(spacing: 8) {
+                    ForEach(store.allProjects) { ip in
+                        Button {
+                            Haptics.selection()
+                            onSelectProjects()
+                        } label: {
+                            ProjectRowView(
+                                project: ip.project,
+                                agentCount: ip.instance.agents(for: ip.project).count
+                            )
+                            .padding(.horizontal, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(store.theme.surface0Color.opacity(0.3))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("dashboard-project-row-\(ip.project.id)")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -493,8 +589,9 @@ private struct NoInstancesView: View {
 }
 
 #Preview {
+    @Previewable @State var tab: RootTab = .dashboard
     let store = AppStore()
     store.loadMockData()
-    return DashboardView()
+    return DashboardView(selectedTab: $tab)
         .environment(store)
 }

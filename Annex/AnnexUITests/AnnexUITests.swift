@@ -50,8 +50,21 @@ final class ClubhouseGoUITests: XCTestCase {
         app.launchArguments = ["--ui-testing"]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["Total Agents"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Running"].exists)
+        // Stats were simplified to a single tappable "Agents" tile + Projects tile (#84).
+        XCTAssertTrue(app.buttons["stat-card-agents"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["stat-card-projects"].exists)
+    }
+
+    @MainActor
+    func testDashboardAgentsTileSwitchesToAgentsTab() throws {
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        let agentsTile = app.buttons["stat-card-agents"]
+        XCTAssertTrue(agentsTile.waitForExistence(timeout: 5))
+        agentsTile.tap()
+        XCTAssertTrue(app.navigationBars["Agents"].waitForExistence(timeout: 3),
+                      "Tapping the Agents tile should switch to the Agents tab")
     }
 
     @MainActor
@@ -151,10 +164,24 @@ final class ClubhouseGoUITests: XCTestCase {
         app.launchArguments = ["--ui-testing"]
         app.launch()
 
-        let spawnButton = app.navigationBars.buttons["bolt.fill"]
-        XCTAssertTrue(spawnButton.waitForExistence(timeout: 5), "Spawn button should exist")
+        // The Dashboard bolt button was replaced by the Settings gear (#85);
+        // spawning now lives in the "Spawn Agent" quick action.
+        let spawnButton = app.buttons["Spawn Agent"]
+        XCTAssertTrue(spawnButton.waitForExistence(timeout: 5), "Spawn Agent action should exist")
         spawnButton.tap()
         XCTAssertTrue(app.navigationBars["New Quick Agent"].waitForExistence(timeout: 3), "Spawn sheet should open")
+    }
+
+    @MainActor
+    func testDashboardSettingsGearOpens() throws {
+        app.launchArguments = ["--ui-testing"]
+        app.launch()
+
+        // The Dashboard top-right toolbar now hosts the Settings gear (#85).
+        let settingsButton = app.navigationBars.buttons["gearshape"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5), "Settings gear should exist on Dashboard")
+        settingsButton.tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3), "Settings sheet should open")
     }
 
     @MainActor
