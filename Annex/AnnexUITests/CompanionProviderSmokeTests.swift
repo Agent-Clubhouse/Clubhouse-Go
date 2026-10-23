@@ -42,4 +42,34 @@ final class CompanionProviderSmokeTests: XCTestCase {
         final.lifetime = .keepAlways
         add(final)
     }
+
+    func testRealCodexSteeringDuringActiveGeneration() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let agent = app.descendants(matching: .any).matching(NSPredicate(format: "identifier ENDSWITH %@", "-durable_sprint_provider")).firstMatch
+        XCTAssertTrue(agent.waitForExistence(timeout: 60))
+        agent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        let send = app.buttons["companion-send"]
+        composer.tap()
+        composer.typeText("No tools. Write 500 lines. Each line must be Stream check N, with N from 1 to 500. Output all lines.")
+        send.tap()
+        let streaming = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Stream check 1")).firstMatch
+        XCTAssertTrue(streaming.waitForExistence(timeout: 120), "Actual provider output must begin before attempting to steer")
+        let interrupt = app.buttons["Interrupt"]
+        XCTAssertTrue(interrupt.exists, "The provider must still be generating")
+        composer.tap()
+        composer.typeText("Stop the list now and reply exactly: Mobile in-flight steering verified.")
+        XCTAssertTrue(interrupt.exists, "A completed-turn follow-up does not establish in-flight steering")
+        XCTAssertTrue(send.isEnabled)
+        send.tap()
+        let changed = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@ AND NOT label BEGINSWITH %@", "Mobile in-flight steering verified.", "Stop the list")).firstMatch
+        XCTAssertTrue(changed.waitForExistence(timeout: 120), "The real provider must apply the new direction")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Real Codex direction changed during active generation"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
 }
