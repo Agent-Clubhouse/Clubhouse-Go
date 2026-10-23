@@ -57,7 +57,7 @@ struct CompanionSpawnSheet: View {
                         if store.spawnInProgress { ProgressView().accessibilityLabel("Starting agent") }
                         else { Text("Start agent") }
                     }
-                    .disabled(store.spawnInProgress || selectedHost?.connection.canOperate != true || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(store.spawnInProgress || selectedHost?.connection.canOperate != true || selectedHost?.canSpawn != true || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 }
             }

@@ -4,18 +4,25 @@ import Observation
 @MainActor @Observable final class CompanionStore {
     var hosts: [CompanionHost] = []
     var selection: CompanionTarget?
-    var drafts: [CompanionTarget: String] = [:]
+    var drafts: [CompanionTarget: String] = [:] {
+        didSet { draftPersistence?.save(drafts) }
+    }
     private(set) var conversations: [CompanionTarget: CompanionConversation] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     @ObservationIgnored private let service: any CompanionService
+    @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
 
-    init(service: any CompanionService) { self.service = service }
+    init(service: any CompanionService, draftPersistence: (any CompanionDraftPersistence)? = nil) {
+        self.service = service
+        self.draftPersistence = draftPersistence
+        self.drafts = draftPersistence?.load() ?? [:]
+    }
 
     func start() {
         guard listeningTask == nil else { return }
@@ -142,9 +149,11 @@ import Observation
         defer { pendingCommands.remove(target) }
         do {
             try await service.respond(to: approval.id, optionID: option.id, target: target, clientCommandID: UUID().uuidString)
+            guard approvalIsSubmitting(approval.id, target: target) else { return }
             submitted.resolution = option.kind == .allowOnce ? .allowed : .denied
             upsert(.approval(submitted), target: target)
         } catch {
+            guard approvalIsSubmitting(approval.id, target: target) else { return }
             if case CompanionServiceError.rejected = error {
                 upsert(.approval(approval), target: target)
             } else {
@@ -168,9 +177,11 @@ import Observation
         defer { pendingCommands.remove(target) }
         do {
             try await service.answer(question.id, answers: answers, target: target, clientCommandID: UUID().uuidString)
+            guard questionIsSubmitting(question.id, target: target) else { return }
             submitted.resolution = .answered
             upsert(.question(submitted), target: target)
         } catch {
+            guard questionIsSubmitting(question.id, target: target) else { return }
             if case CompanionServiceError.rejected = error { submitted.resolution = .pending }
             else {
                 submitted.resolution = .uncertain
@@ -195,7 +206,7 @@ import Observation
     }
 
     func spawn(project: CompanionProjectTarget, prompt: String, provider: String?, model: String?) async -> Bool {
-        guard !spawnInProgress, hosts.first(where: { $0.id == project.hostID })?.connection.canOperate == true,
+        guard !spawnInProgress, let host = hosts.first(where: { $0.id == project.hostID }), host.connection.canOperate, host.canSpawn,
               !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         spawnInProgress = true
         spawnError = nil
@@ -223,7 +234,16 @@ import Observation
                 guard case .message(let message) = item, let commandID = message.clientCommandID else { return false }
                 return message.delivery != .confirmed && !commandIDs.contains(commandID)
             }
-            conversations[target, default: .init()].items = items + local
+            let previous = Dictionary(conversation(for: target).items.map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
+            let merged = items.map { item -> CompanionTimelineItem in
+                guard let old = previous[item.id] else { return item }
+                if case .approval(let incoming) = item, incoming.resolution == .pending,
+                   case .approval(let existing) = old, existing.resolution != .pending { return old }
+                if case .question(let incoming) = item, incoming.resolution == .pending,
+                   case .question(let existing) = old, existing.resolution != .pending { return old }
+                return item
+            }
+            conversations[target, default: .init()].items = merged + local
             conversations[target, default: .init()].lastSequence = sequence
         case .resyncRequired(let hostID):
             for target in conversations.keys where target.hostID == hostID {
@@ -252,6 +272,15 @@ import Observation
                 conversations[target, default: .init()].items = items
             }
         }
+    }
+
+    private func approvalIsSubmitting(_ id: String, target: CompanionTarget) -> Bool {
+        guard let item = conversation(for: target).items.first(where: { $0.id == "approval:\(id)" }), case .approval(let current) = item else { return false }
+        return current.resolution == .submitting
+    }
+    private func questionIsSubmitting(_ id: String, target: CompanionTarget) -> Bool {
+        guard let item = conversation(for: target).items.first(where: { $0.id == "question:\(id)" }), case .question(let current) = item else { return false }
+        return current.resolution == .submitting
     }
 
     private func accept(_ sequence: Int?, for target: CompanionTarget) -> Bool {

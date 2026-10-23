@@ -51,6 +51,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var endpoint: String
     var connection: CompanionConnection
     var projects: [CompanionProject]
+    var canSpawn = false
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {

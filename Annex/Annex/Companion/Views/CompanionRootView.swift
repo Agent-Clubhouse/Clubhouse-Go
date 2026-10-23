@@ -79,7 +79,7 @@ struct CompanionRootView: View {
                                 } label: { Image(systemName: "plus.circle") }
                                     .buttonStyle(.borderless)
                                     .frame(minWidth: 44, minHeight: 44)
-                                    .disabled(!host.connection.canOperate)
+                                    .disabled(!host.connection.canOperate || !host.canSpawn)
                                     .accessibilityLabel("New agent in \(project.name) on \(host.name)")
                             }
                             .listRowSeparator(.hidden)
@@ -125,11 +125,11 @@ struct CompanionRootView: View {
                     Button("Pair a desktop", systemImage: "desktopcomputer.badge.plus", action: onPair)
                 } label: { Label("Filter and desktops", systemImage: filter == .all ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill") }
                 Button("New agent", systemImage: "square.and.pencil") {
-                    if let host = store.hosts.first(where: { $0.connection.canOperate }), let project = host.projects.first {
+                    if let host = store.hosts.first(where: { $0.connection.canOperate && $0.canSpawn }), let project = host.projects.first {
                         spawnProject = .init(hostID: host.id, projectID: project.id)
                     }
                 }
-                .disabled(!store.hosts.contains { $0.connection.canOperate && !$0.projects.isEmpty })
+                .disabled(!store.hosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
                 .keyboardShortcut("n", modifiers: .command)
             }
         }

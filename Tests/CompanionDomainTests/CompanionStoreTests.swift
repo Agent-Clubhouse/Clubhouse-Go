@@ -8,12 +8,15 @@ import Testing
     var sent: [CompanionSendRequest] = []
     var responses: [String] = []
     var cancelled: [CompanionTarget] = []
+    var spawnCount = 0
     var historyValue = CompanionHistory(items: [])
     var historyGate: CheckedContinuation<CompanionHistory, Error>?
     var shouldSuspendHistory = false
     var sendGate: CheckedContinuation<CompanionCommandReceipt, Error>?
     var shouldSuspendSend = false
     var nextHistory: CompanionHistory?
+    var responseGate: CheckedContinuation<Void, Error>?
+    var shouldSuspendResponse = false
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
@@ -30,8 +33,14 @@ import Testing
         }
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { cancelled.append(target) }
-    func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { responses.append(approvalID) }
-    func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { .init(clientCommandID: request.clientCommandID) }
+    func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
+        responses.append(approvalID)
+        if shouldSuspendResponse { try await withCheckedThrowingContinuation { responseGate = $0 } }
+    }
+    func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt {
+        spawnCount += 1
+        return .init(clientCommandID: request.clientCommandID)
+    }
     func reconnect(hostID: String) async {}
 }
 
@@ -159,4 +168,81 @@ import Testing
         guard case .message(let message) = store.conversation(for: target).items.first else { Issue.record("Expected message"); return }
         #expect(message.delivery == .confirmed)
     }
+    @Test func authoritativeApprovalResolutionWinsLateReceipt() async {
+        let service = TestCompanionService()
+        service.shouldSuspendResponse = true
+        let store = makeStore(service: service)
+        let option = CompanionApprovalOption(id: "allow", label: "Allow once", kind: .allowOnce)
+        let approval = CompanionApproval(id: "p", toolName: "Command", summary: "Task", options: [option])
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        let task = Task { await store.respond(approval, option: option, target: target) }
+        while service.responseGate == nil { await Task.yield() }
+        var resolved = approval
+        resolved.resolution = .denied
+        store.apply(.upsert(target, .approval(resolved), sequence: 2))
+        service.responseGate?.resume()
+        await task.value
+        guard case .approval(let final) = store.conversation(for: target).items[0] else { Issue.record("Expected approval"); return }
+        #expect(final.resolution == .denied)
+    }
+
+    @Test func unrelatedTimelineDoesNotReopenAcknowledgedApproval() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        let option = CompanionApprovalOption(id: "allow", label: "Allow once", kind: .allowOnce)
+        let approval = CompanionApproval(id: "p", toolName: "Command", summary: "Task", options: [option])
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        await store.respond(approval, option: option, target: target)
+        store.apply(.timeline(target, items: [.approval(approval), .notice(id: "other", text: "Working")], sequence: 2, reset: false))
+        guard case .approval(let final) = store.conversation(for: target).items[0] else { Issue.record("Expected approval"); return }
+        #expect(final.resolution == .allowed)
+    }
+
+    @Test func draftPersistenceRestoresAndClearsSentDraft() async {
+        let persistence = TestDraftPersistence()
+        persistence.values[target] = "Saved across launch"
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service, draftPersistence: persistence)
+        store.apply(.hosts([host(id: "host-a")]))
+        #expect(store.drafts[target] == "Saved across launch")
+        store.drafts[target] = "Updated draft"
+        #expect(persistence.values[target] == "Updated draft")
+        await store.sendDraft(to: target)
+        #expect(persistence.values[target] == "")
+    }
+
+    @Test func queuedFollowUpWorksWithoutSteeringCapability() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var value = host(id: "host-a")
+        value.projects[0].agents[0].capabilities = [.chat, .queue]
+        store.apply(.hosts([value]))
+        store.drafts[target] = "Next, review the tests"
+        #expect(store.canSend(target))
+        await store.sendDraft(to: target)
+        #expect(service.sent.first?.isSteering == false)
+        #expect(service.sent.first?.queueIfBusy == true)
+    }
+
+    @Test func spawningRequiresAdvertisedHostCapability() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        let project = CompanionProjectTarget(hostID: "host-a", projectID: "project")
+        let unsupported = await store.spawn(project: project, prompt: "Task", provider: nil, model: nil)
+        #expect(!unsupported)
+        #expect(service.spawnCount == 0)
+        var value = host(id: "host-a")
+        value.canSpawn = true
+        store.apply(.hosts([value]))
+        let supported = await store.spawn(project: project, prompt: "Task", provider: nil, model: nil)
+        #expect(supported)
+        #expect(service.spawnCount == 1)
+    }
+
+}
+
+@MainActor private final class TestDraftPersistence: CompanionDraftPersistence {
+    var values: [CompanionTarget: String] = [:]
+    func load() -> [CompanionTarget: String] { values }
+    func save(_ drafts: [CompanionTarget: String]) { values = drafts }
 }

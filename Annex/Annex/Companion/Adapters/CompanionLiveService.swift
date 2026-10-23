@@ -220,6 +220,7 @@ import ClubhouseTransport
         do {
             let rawCaps = try? await transport.read(.capabilities)
             capabilities[hostID] = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
+            hosts[hostID]?.canSpawn = capabilities[hostID]?.commands.contains("agent.spawn") == true
             let rawProjects = try await transport.read(.projects)
             let projects = rawProjects["projects"].arrayValue.isEmpty ? Optional(rawProjects).arrayValue : rawProjects["projects"].arrayValue
             var agents: [String: AnnexJSON] = [:]
@@ -262,7 +263,7 @@ import ClubhouseTransport
                 let subtitle: String = mission ?? value["branch"]?.string ?? ""
                 let status: CompanionAgentStatus = projection?.status ?? CompanionChatProjector.status(value["status"]?.string)
                 let model: String? = projection?.model ?? value["model"]?.string
-                let supported: CompanionCapabilities = capabilities[hostID] == nil ? [] : projection?.capabilities ?? []
+                let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported))
             }
             let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
@@ -287,9 +288,22 @@ import ClubhouseTransport
         guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
               let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = capabilities[target.hostID] == nil ? [] : projection.capabilities
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
         if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
     }
+    private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
+        guard let commands = capabilities[hostID]?.commands else { return [] }
+        var result = proposed
+        if !commands.contains("chat.send") {
+            result.subtract([.steer, .queue])
+            if !commands.contains("agent.start") { result.remove(.chat) }
+        }
+        if !commands.contains("chat.interrupt") { result.remove(.cancel) }
+        if !commands.contains("chat.permission") { result.remove(.approve) }
+        if !commands.contains("chat.question") { result.remove(.answer) }
+        return result
+    }
+
     static func readableError(_ error: Error) -> String {
         guard let error = error as? AnnexTransportError else { return error.localizedDescription }
         switch error {

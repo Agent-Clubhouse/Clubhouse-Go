@@ -11,11 +11,11 @@ import ClubhouseTransport
     var isRestoring = false
     private var started = false
 
-    init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore())) {
+    init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         self.registry = registry
         let service = CompanionLiveService()
         self.service = service
-        self.store = CompanionStore(service: service)
+        self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil)
     }
     func start() async {
         guard !started else { return }
@@ -49,7 +49,7 @@ struct CompanionAppRoot: View {
         // Only the integration worker supplies this explicit test invitation.
         // It selects an in-memory registry and never writes a saved pairing.
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
-        _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore())))
+        _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode))
         #else
         _runtime = State(initialValue: CompanionRuntime())
         #endif
