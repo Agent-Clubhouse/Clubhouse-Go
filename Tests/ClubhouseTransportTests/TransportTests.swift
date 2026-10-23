@@ -60,6 +60,7 @@ private func testHost(_ host: String = "127.0.0.1") throws -> TrustedAnnexHost {
     #expect(cursor.accept(AnnexEnvelope(type: "chat:event", seq: 11, replayed: true)) == .duplicate)
     #expect(cursor.accept(AnnexEnvelope(type: "chat:event", seq: 13)) == .resync(.sequenceGap))
     #expect(cursor.lastSequence == 11)
+    cursor.beginConnection()
     #expect(cursor.accept(AnnexEnvelope(type: "snapshot", lastSeq: 0)) == .resync(.serverRestart))
     #expect(cursor.lastSequence == 0)
     #expect(cursor.accept(AnnexEnvelope(type: "replay:gap")) == .resync(.replayGap))

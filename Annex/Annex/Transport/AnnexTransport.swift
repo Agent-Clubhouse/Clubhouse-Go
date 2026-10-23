@@ -18,7 +18,8 @@ public actor AnnexTransport: AnnexTransporting {
     private var cursor = AnnexReplayCursor()
     private var commandBusy = false
     private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
-    private var commands: [String: CommandRecord] = [:]
+    private struct CommandKey: Hashable { let epoch: String; let id: String }
+    private var commands: [CommandKey: CommandRecord] = [:]
 
     public init(host: TrustedAnnexHost, credentials: any AnnexCredentialStore, clientIdentity: AnnexClientIdentity? = nil,
                 io: (any AnnexIO)? = nil, eventCapacity: Int = 256, commandCapacity: Int = 256, backoff: AnnexBackoff = AnnexBackoff()) {
@@ -81,6 +82,7 @@ public actor AnnexTransport: AnnexTransporting {
         return request
     }
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
+        let requestedGeneration = generation
         let path: [String]; var query: [URLQueryItem] = []
         switch route {
         case .identity: path = ["api", "v1", "identity"]
@@ -101,8 +103,10 @@ public actor AnnexTransport: AnnexTransporting {
             query = [URLQueryItem(name: "offset", value: String(max(0, offset))), URLQueryItem(name: "limit", value: String(min(500, max(1, limit))))]
         }
         let request = try await authorizedRequest(path: path, query: query)
+        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
         try Task.checkCancellation()
         let response = try await io.perform(request)
+        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
         try Task.checkCancellation()
         guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
         guard let value = try? JSONDecoder().decode(AnnexJSON.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
@@ -125,7 +129,7 @@ public actor AnnexTransport: AnnexTransporting {
         }
         commands = commands.filter { $0.value.expiresAt > now }
         let digest = AnnexCertificatePin.digest(data)
-        let key = command.epoch + ":" + command.commandID
+        let key = CommandKey(epoch: command.epoch, id: command.commandID)
         if let recorded = commands[key] {
             guard recorded.digest == digest else { throw AnnexTransportError.duplicateCommandConflict }
             if let receipt = recorded.receipt { return receipt }
@@ -137,9 +141,12 @@ public actor AnnexTransport: AnnexTransporting {
             throw AnnexTransportError.unsupportedCapability(command.type)
         }
         // Reserve before the first await so concurrent commands cannot overtake.
+        let requestedGeneration = generation
         commandBusy = true
         defer { commandBusy = false }
         var request = try await authorizedRequest(path: ["api", "v1", "mobile", "commands"])
+        guard generation == requestedGeneration, self.capabilities?.epoch == command.epoch,
+              self.capabilities?.controlAvailable == true else { throw AnnexTransportError.disconnected }
         try Task.checkCancellation()
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -179,15 +186,19 @@ public actor AnnexTransport: AnnexTransporting {
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _) { capabilities = nil }
                 let request = try await authorizedRequest(path: ["ws"], webSocket: true)
+                guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)
                 guard current == generation && !Task.isCancelled else { await newSocket.close(); return }
                 socket = newSocket
+                cursor.beginConnection()
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
             } catch {
                 guard current == generation && !Task.isCancelled else { return }
+                capabilities = nil
                 let oldSocket = socket; socket = nil; await oldSocket?.close()
+                guard current == generation && !Task.isCancelled else { return }
                 if let terminal = terminalError(error) {
                     transition(.failed(terminal)); loop = nil; return
                 }
@@ -245,6 +256,12 @@ public actor AnnexTransport: AnnexTransporting {
         guard data.count <= 16 * 1024 * 1024, let envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
+        if envelope.type == "snapshot" {
+            guard let seq = envelope.snapshotSequence, seq >= 0,
+                  envelope.epoch == nil || envelope.epoch == capabilities?.epoch else {
+                throw AnnexTransportError.malformedResponse
+            }
+        }
         switch cursor.accept(envelope) {
         case .duplicate: return
         case .resync(let reason):
@@ -254,7 +271,7 @@ public actor AnnexTransport: AnnexTransporting {
         }
         if envelope.type == "snapshot" { transition(.connected) }
         emit(.message(envelope))
-        if envelope.type == "snapshot", let seq = envelope.snapshotSequence {
+        if envelope.type == "snapshot", let seq = cursor.lastSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
             if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))

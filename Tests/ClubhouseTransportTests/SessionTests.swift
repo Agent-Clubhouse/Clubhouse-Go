@@ -14,6 +14,11 @@ private actor TestSocket: AnnexWebSocket {
         if !messages.isEmpty { return messages.removeFirst() }
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
+    func push(_ json: String) {
+        let data = Data(json.utf8)
+        if let pending { self.pending = nil; pending.resume(returning: data) }
+        else { messages.append(data) }
+    }
     func send(_ data: Data) { sent.append(data) }
     func ping() throws { if closed { throw AnnexTransportError.disconnected } }
     func close() {
@@ -108,5 +113,69 @@ private func sessionFixture(unauthorized: Bool = false) async throws -> (AnnexTr
     #expect(needsRefresh)
     #expect(snapshots == 2)
     #expect(await io.sockets.count == 2)
+    await transport.disconnect()
+}
+
+@Test func aheadRefreshReplaysFromLastDeliveredEvent() async throws {
+    let (transport, io) = try await sessionFixture()
+    let stream = await transport.events()
+    try await transport.connect()
+    var receivedInitial = false
+    var sawGap = false
+    for try await event in stream {
+        if case .resyncRequired(.sequenceGap) = event { sawGap = true }
+        if case .message(let envelope) = event, envelope.type == "snapshot" {
+            if receivedInitial { break }
+            receivedInitial = true
+            await io.sockets.first?.push(#"{"type":"chat:event","seq":1,"payload":{}}"#)
+            await io.sockets.first?.push(#"{"type":"snapshot","payload":{"lastSeq":3}}"#)
+        }
+    }
+    let socket = try #require(await io.sockets.first)
+    for _ in 0..<30 {
+        if await socket.sent.count >= 2 { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    let replay = try JSONDecoder().decode(AnnexJSON.self, from: #require(await socket.sent.last))
+    #expect(sawGap)
+    #expect(replay["since"]?.integer == 1)
+    await transport.disconnect()
+}
+
+@Test func malformedSnapshotFailsClosedWithoutReconnectLoop() async throws {
+    let (transport, io) = try await sessionFixture()
+    let stream = await transport.events()
+    try await transport.connect()
+    for try await event in stream {
+        if case .message(let envelope) = event, envelope.type == "snapshot" {
+            await io.sockets.first?.push(#"{"type":"snapshot","payload":{"lastSeq":-1}}"#)
+        }
+        if case .connection(.failed(let error)) = event {
+            #expect(error == .malformedResponse); break
+        }
+    }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(await io.sockets.count == 1)
+    await transport.disconnect()
+}
+
+@Test func lateDuplicateEventsAreNotDeliveredTwice() async throws {
+    let (transport, io) = try await sessionFixture()
+    let stream = await transport.events()
+    try await transport.connect()
+    var sequence: [Int64] = []
+    for try await event in stream {
+        if case .message(let envelope) = event {
+            if envelope.type == "snapshot" {
+                for value in [1, 2, 1, 2, 3] {
+                    await io.sockets.first?.push("{\"type\":\"chat:event\",\"seq\":\(value)}")
+                }
+            } else if let seq = envelope.seq {
+                sequence.append(seq)
+                if seq == 3 { break }
+            }
+        }
+    }
+    #expect(sequence == [1, 2, 3])
     await transport.disconnect()
 }

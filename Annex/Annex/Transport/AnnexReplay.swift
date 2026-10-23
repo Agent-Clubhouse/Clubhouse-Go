@@ -16,18 +16,31 @@ nonisolated public struct AnnexBackoff: Sendable {
 }
 
 /// Cursor belongs to one host connection, never shared among hosts. Snapshot
-/// resets are authoritative. A reconnect requests history refresh explicitly;
+/// connection boundaries are authoritative; refreshes never rewind it.
+/// A reconnect requests history refresh explicitly;
 /// global Annex seq is distinct from chat's per-session seq.
 nonisolated public struct AnnexReplayCursor: Sendable {
     public private(set) var lastSequence: Int64?
     public private(set) var epoch: String?
+    private var needsSnapshot = true
     public init() {}
+    public mutating func beginConnection() { needsSnapshot = true }
     public enum Decision: Equatable, Sendable { case deliver, duplicate, resync(AnnexResyncReason) }
     public mutating func accept(_ envelope: AnnexEnvelope) -> Decision {
         if envelope.type == "snapshot" {
+            guard let sequence = envelope.snapshotSequence, sequence >= 0 else { return .resync(.sequenceGap) }
+            if !needsSnapshot, let lastSequence {
+                if let nextEpoch = envelope.epoch, let epoch, nextEpoch != epoch { return .resync(.serverRestart) }
+                if sequence < lastSequence { return .duplicate }
+                // A catalog snapshot does not contain chat deltas. Keep the
+                // previous cursor so replay can recover every skipped event.
+                if sequence > lastSequence { return .resync(.sequenceGap) }
+                return .deliver
+            }
+            needsSnapshot = false
             let restarted = (envelope.epoch != nil && epoch != nil && envelope.epoch != epoch)
                 || (envelope.snapshotSequence != nil && lastSequence != nil && envelope.snapshotSequence! < lastSequence!)
-            lastSequence = envelope.snapshotSequence
+            lastSequence = sequence
             epoch = envelope.epoch
             return restarted ? .resync(.serverRestart) : .deliver
         }
