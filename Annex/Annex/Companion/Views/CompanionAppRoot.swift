@@ -131,12 +131,17 @@ struct CompanionSettingsSheet: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
                                     Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
+                                    // Explicit styles keep each action independent inside this List row.
+                                    // Automatic row activation can otherwise invoke sibling buttons too.
                                     Button("Reconnect") { Task { await runtime.store.reconnect(hostID: host.id) } }
+                                        .buttonStyle(.borderless)
                                     if runtime.sessionHosts.contains(host.id), host.canRevokeSession {
                                         Button("End session pairing", role: .destructive) { hostToEnd = host }
+                                            .buttonStyle(.borderless)
                                             .disabled(!host.connection.canOperate)
                                     }
                                     Button("Forget on this device", role: .destructive) { hostToForget = host }
+                                        .buttonStyle(.borderless)
                                 }.padding(.vertical, 8)
                             }.font(.subheadline)
                         }.padding(.vertical, 6).disabled(removingHostID == host.id)
