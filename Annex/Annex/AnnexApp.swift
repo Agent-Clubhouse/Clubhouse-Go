@@ -11,6 +11,22 @@ struct ClubhouseGoApp: App {
 
     var body: some Scene {
         WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
+                CompanionPreviewRoot()
+            } else {
+                appContent
+            }
+            #else
+            appContent
+            #endif
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhase(newPhase)
+        }
+    }
+
+    @ViewBuilder private var appContent: some View {
             if !store.hasCompletedOnboarding {
                 WelcomeView {
                     withAnimation(.easeInOut(duration: 0.4)) {
@@ -33,7 +49,8 @@ struct ClubhouseGoApp: App {
                     .preferredColorScheme(store.theme.isDark ? .dark : .light)
             }
         }
-        .onChange(of: scenePhase) { _, newPhase in
+
+    private func handleScenePhase(_ newPhase: ScenePhase) {
             switch newPhase {
             case .background:
                 // Save activity cache for cold launch restore
@@ -51,14 +68,16 @@ struct ClubhouseGoApp: App {
             default:
                 break
             }
-        }
     }
 
     init() {
         let store = _store
         let args = ProcessInfo.processInfo.arguments
 
-        if args.contains("--reset-onboarding") {
+        if args.contains("--companion-preview") {
+            // Explicit preview must not restore or contact any real paired desktop.
+            return
+        } else if args.contains("--reset-onboarding") {
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
             store.wrappedValue = AppStore()
         } else if args.contains("--ui-testing") {
