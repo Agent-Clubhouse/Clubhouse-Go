@@ -6,6 +6,32 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+        202610230000000000000001 /* ClubhouseTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 202610230000000000000002 /* ClubhouseTransport */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+        202610230000000000000004 /* Transport package sources */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+				Transport/AnnexClientIdentity.swift,
+				Transport/AnnexCommands.swift,
+				Transport/AnnexCredentials.swift,
+				Transport/AnnexDiscovery.swift,
+				Transport/AnnexEndpoint.swift,
+				Transport/AnnexIO.swift,
+				Transport/AnnexPairing.swift,
+				Transport/AnnexPairingStore.swift,
+				Transport/AnnexReplay.swift,
+				Transport/AnnexTransport.swift,
+				Transport/AnnexTransportRegistry.swift,
+				Transport/AnnexTrustProbe.swift,
+				Transport/AnnexWire.swift,
+            );
+            target = ACF46E212F4A5C73007272FE /* ClubhouseGo */;
+        };
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXContainerItemProxy section */
 		ACF46E302F4A5C73007272FE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -32,6 +58,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		ACF46E242F4A5C73007272FE /* Annex */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+            exceptions = (202610230000000000000004 /* Transport package sources */,);
 			path = Annex;
 			sourceTree = "<group>";
 		};
@@ -52,6 +79,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                202610230000000000000001 /* ClubhouseTransport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +140,7 @@
 			);
 			name = ClubhouseGo;
 			packageProductDependencies = (
+                202610230000000000000002 /* ClubhouseTransport */,
 			);
 			productName = Annex;
 			productReference = ACF46E222F4A5C73007272FE /* ClubhouseGo.app */;
@@ -195,6 +224,7 @@
 			);
 			mainGroup = ACF46E192F4A5C73007272FE;
 			minimizedProjectReferenceProxies = 1;
+            packageReferences = (202610230000000000000003 /* Local transport package */,);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ACF46E232F4A5C73007272FE /* Products */;
 			projectDirPath = "";
@@ -267,6 +297,20 @@
 			targetProxy = ACF46E3A2F4A5C73007272FE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin XCLocalSwiftPackageReference section */
+        202610230000000000000003 /* Local transport package */ = {
+            isa = XCLocalSwiftPackageReference;
+            relativePath = ..;
+        };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+        202610230000000000000002 /* ClubhouseTransport */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = ClubhouseTransport;
+        };
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		ACF46E412F4A5C73007272FE /* Debug */ = {
