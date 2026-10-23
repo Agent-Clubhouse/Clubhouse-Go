@@ -31,3 +31,12 @@ The live test expects a fixture agent `durable_sprint_fixture` backed by the des
 The preexisting unsigned application unit suite has seven Keychain/mTLS failures with OSStatus -34018; the new in-memory transport package tests avoid persistent credential requirements. No Keychain entitlement or trust-setting change was made to hide those baseline failures.
 
 For the optional client-queue assertion, set `TEST_RUNNER_CLUBHOUSE_RUN_QUEUE_SMOKE=1` and configure only the fixture session capabilities as `steer: false, queue: client`. This makes the real runtime hold a follow-up while approval is pending. The test removes that exact pending message before resolving the approval, then continues through reconnect, archive, and revocation. Default Claude capabilities use a native provider queue, whose messages are not advertised as locally removable.
+
+
+## Real Codex provider check
+
+The opt-in `CompanionProviderSmokeTests/testRealCodexResponseFollowUpAndForegroundReconnect` passed on the rebuilt iPhone application using installed Codex CLI 0.163.0, its existing ChatGPT login, and the default `gpt-6-astra` model. Enable only with `TEST_RUNNER_CLUBHOUSE_RUN_PROVIDER_SMOKE=1` and a separately owned `durable_sprint_provider` runtime. The desktop must use `new CodexChatDriver({ ephemeralThread: true })`, a fresh project/session, `level: plan`, no resume ID, and a no-tools instruction. The driver requests `ephemeral: true`, requires the server to echo it, and rejects resume before spawning. Disable configured MCP servers only for this child process; do not change global config or enroll credentials.
+
+Use the exact current arm64 `.xctestrun` file with `test-without-building` after installing the rebuilt app and runner. A stale multi-architecture configuration selected zero tests during the sprint; zero tests is not provider evidence.
+
+The verified run sent three harmless prompts from mobile through production Annex and CodexChatDriver: initial fixed reply, benign follow-up, and a third fixed reply after home/background → foreground reconnect. The desktop recorded 14 streamed message chunks, three final responses and three completed turns, with zero tool calls. XCTest passed in 28.369 seconds. This is full mobile provider E2E, separate from the scripted approval/queue/archive coverage above. In-flight provider steering, actual provider tool execution and physical LAN/Tailscale routing are not established by this check.
