@@ -116,7 +116,10 @@ final class CompanionLiveSmokeTests: XCTestCase {
         XCTAssertFalse(app.buttons["Forget desktop"].exists,
                        "Tapping revoke must not also activate a sibling List-row action")
         let confirmations = app.buttons.matching(identifier: "End session pairing")
-        confirmations.element(boundBy: confirmations.count - 1).tap()
+        guard let confirmation = confirmations.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("The visible confirmation must be tappable"); return
+        }
+        confirmation.tap()
         let removed = NSPredicate(format: "exists == false")
         expectation(for: removed, evaluatedWith: app.staticTexts["Sprint Fixture Desktop"])
         waitForExpectations(timeout: 15)
