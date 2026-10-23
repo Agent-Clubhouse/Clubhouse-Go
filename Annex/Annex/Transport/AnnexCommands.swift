@@ -1,0 +1,86 @@
+import Foundation
+
+public struct AnnexCommand: Sendable, Equatable {
+    public enum Delivery: String, Sendable { case auto, prompt, steer, queued }
+    public enum Kind: Sendable, Equatable {
+        case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto)
+        case interrupt(agentID: String, sessionID: String)
+        case permission(agentID: String, sessionID: String, requestID: String, optionID: String)
+        case question(agentID: String, sessionID: String, requestID: String, answers: [String: AnnexJSON])
+        case start(agentID: String, message: String? = nil, resume: Bool? = nil)
+        case stop(agentID: String)
+        case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
+    }
+    public let commandID: String
+    public let epoch: String
+    public let kind: Kind
+    public init(commandID: String = UUID().uuidString, epoch: String, kind: Kind) {
+        self.commandID = commandID; self.epoch = epoch; self.kind = kind
+    }
+    public var type: String {
+        switch kind {
+        case .send: "chat.send"
+        case .interrupt: "chat.interrupt"
+        case .permission: "chat.permission"
+        case .question: "chat.question"
+        case .start: "agent.start"
+        case .stop: "agent.stop"
+        case .spawn: "agent.spawn"
+        }
+    }
+    public func encoded() throws -> Data {
+        guard !commandID.isEmpty, commandID.count <= 128, !epoch.isEmpty, epoch.count <= 128 else {
+            throw AnnexTransportError.malformedResponse
+        }
+        var v: [String: AnnexJSON] = ["version": .integer(1), "commandId": .string(commandID), "epoch": .string(epoch), "type": .string(type)]
+        func target(_ agent: String, _ session: String? = nil) {
+            v["agentId"] = .string(agent)
+            if let session { v["sessionId"] = .string(session) }
+        }
+        switch kind {
+        case .send(let agent, let session, let text, let delivery):
+            target(agent, session); v["text"] = .string(text); v["delivery"] = .string(delivery.rawValue)
+        case .interrupt(let agent, let session): target(agent, session)
+        case .permission(let agent, let session, let request, let option):
+            target(agent, session); v["requestId"] = .string(request); v["optionId"] = .string(option)
+        case .question(let agent, let session, let request, let answers):
+            target(agent, session); v["requestId"] = .string(request); v["answers"] = .object(answers)
+        case .start(let agent, let message, let resume):
+            target(agent); if let message { v["message"] = .string(message) }; if let resume { v["resume"] = .bool(resume) }
+        case .stop(let agent): target(agent)
+        case .spawn(let project, let prompt, let model, let orchestrator):
+            v["projectId"] = .string(project); v["prompt"] = .string(prompt)
+            if let model { v["model"] = .string(model) }; if let orchestrator { v["orchestrator"] = .string(orchestrator) }
+        }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(AnnexJSON.object(v))
+        guard data.count <= 128 * 1024 else { throw AnnexTransportError.responseTooLarge }
+        return data
+    }
+}
+
+public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
+    public enum Status: String, Codable, Sendable { case completed, rejected, failed }
+    public struct Failure: Codable, Sendable, Equatable { public let code: String; public let message: String }
+    public let version: Int
+    public let commandId: String?
+    public let epoch: String
+    public let status: Status
+    public let result: AnnexJSON?
+    public let error: Failure?
+    /// 'completed' means dispatch completed, not that the agent's turn ended.
+    public var isDispatchAcknowledged: Bool { status == .completed }
+}
+
+public struct AnnexCapabilities: Decodable, Sendable {
+    public let version: Int
+    public let epoch: String
+    public let controlAuth: String
+    public let commands: [String]
+    public struct Idempotency: Decodable, Sendable {
+        public let scope: String
+        public let maxEntries: Int
+        public let ttlMs: Int
+    }
+    public let idempotency: Idempotency
+}
