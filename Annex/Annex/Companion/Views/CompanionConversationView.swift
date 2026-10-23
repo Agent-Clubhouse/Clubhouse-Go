@@ -158,9 +158,10 @@ struct CompanionConversationView: View {
     @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem) -> some View {
         switch item {
         case .message(let message):
-            CompanionMessageView(message: message, canRetry: store.canSend(target)) {
+            CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
                 Task { await store.retry(messageID: message.id, target: target) }
-            }
+            }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
+               removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil)
         case .tool(let tool): CompanionToolCard(tool: tool)
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, canRespond: store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target)) { option in

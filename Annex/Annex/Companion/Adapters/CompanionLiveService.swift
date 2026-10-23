@@ -71,6 +71,7 @@ import ClubhouseTransport
                 projection.apply(event, allowOlderPending: true)
             }
             if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
+            projection.applyQueueSnapshot(snapshot)
             projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
             if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
                 readOnly.insert(target)
@@ -123,6 +124,11 @@ import ClubhouseTransport
 
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
         _ = try await execute(.interrupt(agentID: target.agentID, sessionID: try session(for: target)), id: clientCommandID, hostID: target.hostID)
+    }
+    func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
+        let receipt = try await execute(.removeQueued(agentID: target.agentID, sessionID: try session(for: target), messageIDs: [messageID]),
+                                        id: clientCommandID, hostID: target.hostID)
+        return receipt.result?["removed"].arrayValue.contains(.string(messageID)) == true
     }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
         _ = try await execute(.permission(agentID: target.agentID, sessionID: try session(for: target), requestID: approvalID, optionID: optionID), id: clientCommandID, hostID: target.hostID)
@@ -332,6 +338,7 @@ import ClubhouseTransport
         if !commands.contains("chat.interrupt") { result.remove(.cancel) }
         if !commands.contains("chat.permission") { result.remove(.approve) }
         if !commands.contains("chat.question") { result.remove(.answer) }
+        if !commands.contains("chat.queue.remove") { result.remove(.removeQueued) }
         return result
     }
 

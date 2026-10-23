@@ -4,6 +4,8 @@ struct CompanionMessageView: View {
     let message: CompanionMessage
     var canRetry: Bool
     var retry: () -> Void
+    var canRemoveQueued = false
+    var removeQueued: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -23,6 +25,16 @@ struct CompanionMessageView: View {
                 CompanionRichText(text: message.text)
             }
             deliveryStatus
+            if let state = message.queueState {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(queueLabel(state), systemImage: state == .removed ? "minus.circle" : "clock.arrow.circlepath")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if state == .queued, let removeQueued {
+                        Button("Remove from queue", systemImage: "minus.circle", action: removeQueued)
+                            .font(.subheadline).disabled(!canRemoveQueued)
+                    }
+                }
+            }
         }
         .padding(message.role == .user ? 16 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -63,6 +75,16 @@ struct CompanionMessageView: View {
         case .failed: .red
         case .uncertain: .orange
         default: .secondary
+        }
+    }
+    private func queueLabel(_ state: CompanionMessage.QueueState) -> String {
+        switch state {
+        case .queued: "Queued for the next turn"
+        case .dispatching: "Sending to the agent"
+        case .delivered: "Delivered to the agent"
+        case .failed: "Queue delivery unknown — refresh before sending again"
+        case .removed: "Removed from queue"
+        case .submitted: "Follow-up submitted"
         }
     }
 }

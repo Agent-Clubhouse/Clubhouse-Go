@@ -11,6 +11,8 @@ import Testing
     var spawnCount = 0
     var spawnResult: SendResult = .accepted
     var spawned: [CompanionSpawnRequest] = []
+    var removedMessages: [String] = []
+    var removalIsUncertain = false
     var historyValue = CompanionHistory(items: [])
     var historyGate: CheckedContinuation<CompanionHistory, Error>?
     var shouldSuspendHistory = false
@@ -47,6 +49,11 @@ import Testing
         return .init(clientCommandID: request.clientCommandID)
     }
     func reconnect(hostID: String) async {}
+    func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
+        removedMessages.append(messageID)
+        if removalIsUncertain { throw CompanionServiceError.uncertain("Reply lost") }
+        return true
+    }
 }
 
 @Suite @MainActor struct CompanionStoreTests {
@@ -281,6 +288,33 @@ import Testing
         #expect(service.spawned[1].prompt == "Original task")
         #expect(service.spawned[1].model == "model")
         #expect(store.uncertainSpawnRequest == nil)
+    }
+
+    @Test func acknowledgedQueueRemovalCannotBeReopenedByUnrelatedTimeline() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var value = host(id: "host-a"); value.projects[0].agents[0].capabilities.insert(.removeQueued)
+        store.apply(.hosts([value]))
+        let queued = CompanionTimelineItem.message(.init(id: "m", role: .user, text: "Next task", queueState: .queued))
+        store.apply(.timeline(target, items: [queued], sequence: 1, reset: true))
+        await store.removeQueuedMessage("m", target: target)
+        store.apply(.timeline(target, items: [queued, .notice(id: "other", text: "Activity")], sequence: 2, reset: false))
+        await store.removeQueuedMessage("m", target: target)
+        #expect(service.removedMessages == ["m"])
+        guard case .message(let message) = store.conversation(for: target).items[0] else { Issue.record("Expected message"); return }
+        #expect(message.queueState == .removed)
+    }
+
+    @Test func uncertainQueueRemovalRequiresReconciliation() async {
+        let service = TestCompanionService(); service.removalIsUncertain = true
+        let store = makeStore(service: service)
+        var value = host(id: "host-a"); value.projects[0].agents[0].capabilities.insert(.removeQueued)
+        store.apply(.hosts([value]))
+        store.apply(.timeline(target, items: [.message(.init(id: "m", role: .user, text: "Task", queueState: .queued))], sequence: 1, reset: true))
+        await store.removeQueuedMessage("m", target: target)
+        await store.removeQueuedMessage("m", target: target)
+        #expect(service.removedMessages == ["m"])
+        #expect(store.conversation(for: target).requiresResync)
     }
 
     @Test func restartedSessionHistoryReplacesOlderHighSequence() async {

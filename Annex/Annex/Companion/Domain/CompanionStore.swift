@@ -253,6 +253,35 @@ import Observation
     }
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }
+
+    func removeQueuedMessage(_ messageID: String, target: CompanionTarget) async {
+        guard canOperate(target), !pendingCommands.contains(target), agent(for: target)?.capabilities.contains(.removeQueued) == true,
+              conversation(for: target).items.contains(where: {
+                  if case .message(let message) = $0 { return message.id == messageID && message.queueState == .queued }; return false
+              }) else { return }
+        pendingCommands.insert(target)
+        defer { pendingCommands.remove(target) }
+        do {
+            let removed = try await service.removeQueued(messageID, target: target, clientCommandID: UUID().uuidString)
+            if removed {
+                var items = conversation(for: target).items
+                for index in items.indices {
+                    if case .message(var message) = items[index], message.id == messageID, message.queueState == .queued {
+                        message.queueState = .removed; items[index] = .message(message)
+                    }
+                }
+                conversations[target, default: .init()].items = items
+            } else {
+                operationErrors[target] = "This message has already left the desktop queue. Refreshing its status."
+                await load(target, force: true)
+            }
+        } catch {
+            operationErrors[target] = error.localizedDescription
+            if case CompanionServiceError.rejected = error {} else {
+                conversations[target, default: .init()].requiresResync = true
+            }
+        }
+    }
     func dismissError(for target: CompanionTarget) { operationErrors[target] = nil }
 
     func apply(_ event: CompanionEvent) {
@@ -274,6 +303,11 @@ import Observation
                    case .approval(let existing) = old, existing.resolution != .pending { return old }
                 if case .question(let incoming) = item, incoming.resolution == .pending,
                    case .question(let existing) = old, existing.resolution != .pending { return old }
+                if case .message(var incoming) = item, incoming.queueState == .queued,
+                   case .message(let existing) = old, existing.queueState == .removed, !reset {
+                    incoming.queueState = .removed
+                    return .message(incoming)
+                }
                 return item
             }
             conversations[target, default: .init()].items = merged + local

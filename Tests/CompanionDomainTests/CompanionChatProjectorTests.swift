@@ -79,4 +79,36 @@ import ClubhouseTransport
         #expect(!CompanionStore.validAnswers(["choice": .text("one")], for: question))
         #expect(CompanionStore.validAnswers(["choice": .text("one"), "text": .text("Details")], for: question))
     }
+
+    @Test func queueSnapshotWatermarkRejectsOlderTranscriptQueueState() {
+        var projection = CompanionChatProjector()
+        projection.apply(event("user_message", seq: 10, data: ["messageId": .string("m"), "delivery": .string("queued"), "content": .array([])]))
+        projection.applyQueueSnapshot(.object(["queuedMessageIds": .array([.string("m")]), "queueStateSeq": .integer(40), "queueRemovalSupported": .bool(true)]))
+        projection.apply(event("queue_state", seq: 30, data: ["queuedMessageIds": .array([]), "transition": .object(["messageIds": .array([.string("m")]), "status": .string("delivered")])]))
+        guard case .message(let queued) = projection.items[0] else { Issue.record("Expected queued message"); return }
+        #expect(queued.queueState == .queued)
+        #expect(projection.queueStateSequence == 40)
+        projection.apply(event("queue_state", seq: 41, data: ["queuedMessageIds": .array([]), "transition": .object(["messageIds": .array([.string("m")]), "status": .string("dispatching")])]))
+        guard case .message(let dispatching) = projection.items[0] else { Issue.record("Expected message"); return }
+        #expect(dispatching.queueState == .dispatching)
+        #expect(projection.queuedMessageIDs.isEmpty)
+        projection.apply(event("queue_removed", seq: 42, data: ["messageIds": .array([.string("m")])]))
+        projection.applyQueueSnapshot(.object(["queuedMessageIds": .array([.string("m")]), "queueStateSeq": .integer(41), "queueRemovalSupported": .bool(true)]))
+        guard case .message(let removed) = projection.items[0] else { Issue.record("Expected message"); return }
+        #expect(removed.queueState == .removed)
+        #expect(projection.queuedMessageIDs.isEmpty)
+    }
+
+    @Test func providerQueueIsSubmittedAndNewSessionResetsQueueWatermark() {
+        var projection = CompanionChatProjector()
+        projection.apply(event("session_started", seq: 1, data: ["capabilities": .object(["queue": .string("native")])]))
+        projection.apply(event("user_message", seq: 2, data: ["messageId": .string("m"), "delivery": .string("queued"), "content": .array([])]))
+        guard case .message(let message) = projection.items[0] else { Issue.record("Expected message"); return }
+        #expect(message.queueState == .submitted)
+        #expect(!projection.capabilities.contains(.removeQueued))
+        projection.applyQueueSnapshot(.object(["queueStateSeq": .integer(100), "queuedMessageIds": .array([])]))
+        projection.apply(event("queue_state", seq: 2, session: "replacement", data: ["queuedMessageIds": .array([.string("new")])]))
+        #expect(projection.queueStateSequence == 2)
+        #expect(projection.queuedMessageIDs == ["new"])
+    }
 }

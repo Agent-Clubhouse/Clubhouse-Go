@@ -13,12 +13,16 @@ struct CompanionChatProjector {
     var capabilities: CompanionCapabilities = []
     var model: String?
     var commandIDsByMessage: [String: String] = [:]
+    var queueStateSequence: Int64 = 0
+    var queuedMessageIDs: Set<String> = []
+    var queueRemovalSupported = false
 
     mutating func apply(_ event: AnnexJSON, allowOlderPending: Bool = false) {
         guard let session = event["sessionId"]?.string,
               let sequence = event["seq"]?.integer, let type = event["type"]?.string else { return }
         if sessionID != session {
             sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil
+            queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
         }
         guard allowOlderPending || sequence > lastSequence else { return }
         lastSequence = max(lastSequence, Int(sequence))
@@ -38,9 +42,37 @@ struct CompanionChatProjector {
             capabilities = []; finishStreams()
         case "user_message":
             guard let messageID = data["messageId"]?.string else { return }
-            let text = data["content"].arrayValue.map(Self.contentText).joined(separator: "\n")
+            let text = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.message(.init(id: messageID, role: .user, text: text, timestamp: time,
-                                  clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID])))
+                                  clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
+                                  queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil)))
+        case "queue_state":
+            guard sequence > queueStateSequence else { return }
+            queueStateSequence = sequence
+            queuedMessageIDs = Set(data["queuedMessageIds"].arrayValue.compactMap(\.string))
+            applyQueueMembership()
+            if let transition = data["transition"], let name = transition["status"]?.string,
+               let state = CompanionMessage.QueueState(rawValue: name) {
+                let ids = Set(transition["messageIds"].arrayValue.compactMap(\.string))
+                for index in items.indices {
+                    if case .message(var message) = items[index], ids.contains(message.id) {
+                        message.queueState = queuedMessageIDs.contains(message.id) ? .queued : state == .queued ? .submitted : state
+                        items[index] = .message(message)
+                    }
+                }
+            }
+        case "queue_removed":
+            // Legacy event remains useful for history. New queue_state/snapshot
+            // watermarks prevent an older event from overriding newer membership.
+            guard sequence > queueStateSequence else { return }
+            queueStateSequence = sequence
+            let ids = Set(data["messageIds"].arrayValue.compactMap(\.string))
+            queuedMessageIDs.subtract(ids)
+            for index in items.indices {
+                if case .message(var message) = items[index], ids.contains(message.id) {
+                    message.queueState = .removed; items[index] = .message(message)
+                }
+            }
         case "agent_message_chunk", "agent_message":
             guard let messageID = data["messageId"]?.string, let text = data["text"]?.string else { return }
             let existing = message(id: messageID)
@@ -50,7 +82,7 @@ struct CompanionChatProjector {
         case "tool_call", "tool_call_update":
             guard let toolID = data["toolCallId"]?.string else { return }
             let old = tool(id: toolID)
-            let content = data["content"].arrayValue.map(Self.contentText).joined(separator: "\n")
+            let content = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             let output = content.isEmpty ? data["error"]?.string ?? data["rawOutput"]?.displayText : content
             let input = data["rawInput"]?.displayText
             let state: CompanionTool.State
@@ -76,7 +108,7 @@ struct CompanionChatProjector {
                 }
                 return .init(id: id, label: label, kind: kind)
             }
-            let detail = data["content"].arrayValue.map(Self.contentText).joined(separator: "\n")
+            let detail = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.approval(.init(id: requestID, toolName: data["toolName"]?.string ?? "Approval request",
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
                                    detail: detail.isEmpty ? data["rawInput"]?.displayText : detail, options: options)))
@@ -127,8 +159,29 @@ struct CompanionChatProjector {
         if value["steer"].boolValue { capabilities.insert(.steer) } else { capabilities.remove(.steer) }
         if value["interrupt"].boolValue { capabilities.insert(.cancel) } else { capabilities.remove(.cancel) }
         if value["queue"]?.string != "none", value["queue"] != nil { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
+        queueRemovalSupported = value["queue"]?.string == "client"
+        if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
         capabilities.insert(.approve)
         if value["questions"].boolValue { capabilities.insert(.answer) } else { capabilities.remove(.answer) }
+    }
+
+    mutating func applyQueueSnapshot(_ snapshot: AnnexJSON) {
+        guard let sequence = snapshot["queueStateSeq"]?.integer, sequence >= queueStateSequence else { return }
+        queueStateSequence = sequence
+        queuedMessageIDs = Set(snapshot["queuedMessageIds"].arrayValue.compactMap(\.string))
+        queueRemovalSupported = snapshot["queueRemovalSupported"].boolValue
+        if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
+        applyQueueMembership()
+    }
+
+    private mutating func applyQueueMembership() {
+        for index in items.indices {
+            if case .message(var message) = items[index] {
+                if queuedMessageIDs.contains(message.id) { message.queueState = .queued }
+                else if message.queueState == .queued { message.queueState = .submitted }
+                items[index] = .message(message)
+            }
+        }
     }
     mutating func reconcile(messageID: String, commandID: String) -> CompanionTimelineItem? {
         commandIDsByMessage[messageID] = commandID

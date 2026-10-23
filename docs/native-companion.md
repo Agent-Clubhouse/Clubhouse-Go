@@ -13,7 +13,7 @@ Acceptance is not completion: an optimistic user message goes from sending to ac
 
 ## Validation
 
-`swift test --filter Companion` runs the 28 presentation tests on macOS without launching a simulator. The root package's `CompanionDomain` target includes `Domain` and `Adapters`, with `Views` excluded. Coverage includes host identity collisions, replay de-duplication, stale history racing live events, uncertain delivery, stable retry IDs, server echo reconciliation, late receipts, expired approval rejection, serialized foreground/background transitions and paginated archives.
+`swift test --filter Companion` runs the 33 presentation tests on macOS without launching a simulator. The root package's `CompanionDomain` target includes `Domain` and `Adapters`, with `Views` excluded. Coverage includes host identity collisions, replay de-duplication, stale history racing live events, uncertain delivery, stable retry IDs, server echo reconciliation, late receipts, expired approval rejection, serialized foreground/background transitions, paginated archives, uncertain spawning and queue state/removal races.
 
 Integration owns simulator/GUI validation. Inspect compact iPhone, iPad split view, accessibility Dynamic Type, light/dark appearance, long code/output, disconnected drafts, and pending approvals/questions. Do not treat preview fixtures as end-to-end proof; the live transport must be exercised against the separately launched isolated desktop.
 
@@ -34,3 +34,5 @@ The subsequent live control smoke also passed one-time denial, a structured ques
 Desktops & settings exposes explicit online session revocation when advertised. Local forgetting explains that it does not revoke desktop trust. Unknown revocation results preserve local material and direct the user to check desktop state. Pairing describes the controller authority granted and distinguishes session access from remembered access.
 
 Conversation archive lists saved desktop sessions and pages backward through their history. Archive readers reconstruct all loaded events in sequence (including split tool/message chunks), retain data and cursor after failed reads, reject session substitution, and never alter the live command session. Archived approval/question rows are informational. This feature has unit/build validation; simulator visual/interaction coverage is tracked separately by integration.
+
+Queue membership comes from desktop `queue_state` events and snapshot `queuedMessageIds`, with an independent `queueStateSeq` watermark. Older transcript events cannot override newer queue snapshots. Only advertised, client-managed pending IDs show removal controls; provider-managed follow-ups remain submitted. Dispatch/delivery/removal states are distinct. Unknown removal outcomes block additional commands until refresh. An uncertain spawn preserves its exact command and offers an explicit same-ID outcome check, avoiding accidental duplicate agents.

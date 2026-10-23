@@ -104,9 +104,11 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     static let approve = Self(rawValue: 1 << 3)
     static let answer = Self(rawValue: 1 << 4)
     static let queue = Self(rawValue: 1 << 5)
+    static let removeQueued = Self(rawValue: 1 << 6)
 }
 
 struct CompanionMessage: Identifiable, Sendable, Equatable {
+    enum QueueState: String, Sendable { case queued, dispatching, delivered, failed, removed, submitted }
     enum Role: String, Sendable { case user, assistant, system }
     enum Delivery: Equatable, Sendable {
         case confirmed, sending, accepted, failed(String), uncertain(String)
@@ -127,6 +129,7 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var isStreaming = false
     var delivery: Delivery = .confirmed
     var clientCommandID: String?
+    var queueState: QueueState?
 }
 
 struct CompanionTool: Identifiable, Sendable, Equatable {
@@ -263,6 +266,7 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
+    func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt
@@ -270,6 +274,9 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
+        throw CompanionServiceError.unavailable("This desktop does not support removing queued messages.")
+    }
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] {
         throw CompanionServiceError.unavailable("This desktop does not support conversation archives yet.")
     }
