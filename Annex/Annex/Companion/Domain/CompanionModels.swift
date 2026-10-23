@@ -101,6 +101,7 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     static let cancel = Self(rawValue: 1 << 2)
     static let approve = Self(rawValue: 1 << 3)
     static let answer = Self(rawValue: 1 << 4)
+    static let queue = Self(rawValue: 1 << 5)
 }
 
 struct CompanionMessage: Identifiable, Sendable, Equatable {
@@ -210,6 +211,7 @@ struct CompanionHistory: Sendable {
 
 enum CompanionEvent: Sendable {
     case hosts([CompanionHost])
+    case timeline(CompanionTarget, items: [CompanionTimelineItem], sequence: Int, reset: Bool)
     case upsert(CompanionTarget, CompanionTimelineItem, sequence: Int?)
     case textDelta(CompanionTarget, messageID: String, text: String, sequence: Int?)
     case streamFinished(CompanionTarget, messageID: String, sequence: Int?)
@@ -221,6 +223,7 @@ struct CompanionSendRequest: Sendable {
     var text: String
     var clientCommandID: String
     var isSteering: Bool
+    var queueIfBusy = false
 }
 
 struct CompanionSpawnRequest: Sendable {

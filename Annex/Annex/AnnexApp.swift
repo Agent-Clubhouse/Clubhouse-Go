@@ -27,6 +27,19 @@ struct ClubhouseGoApp: App {
     }
 
     @ViewBuilder private var appContent: some View {
+        if !usesLegacyInterface {
+            CompanionAppRoot()
+        } else {
+            legacyContent
+        }
+    }
+
+    private var usesLegacyInterface: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        return args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")
+    }
+
+    @ViewBuilder private var legacyContent: some View {
             if !store.hasCompletedOnboarding {
                 WelcomeView {
                     withAnimation(.easeInOut(duration: 0.4)) {
@@ -51,6 +64,7 @@ struct ClubhouseGoApp: App {
         }
 
     private func handleScenePhase(_ newPhase: ScenePhase) {
+            guard usesLegacyInterface else { return }
             switch newPhase {
             case .background:
                 // Save activity cache for cold launch restore
@@ -74,7 +88,7 @@ struct ClubhouseGoApp: App {
         let store = _store
         let args = ProcessInfo.processInfo.arguments
 
-        if args.contains("--companion-preview") {
+        if args.contains("--companion-preview") || !(args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")) {
             // Explicit preview must not restore or contact any real paired desktop.
             return
         } else if args.contains("--reset-onboarding") {

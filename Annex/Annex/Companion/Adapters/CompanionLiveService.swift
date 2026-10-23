@@ -1,0 +1,308 @@
+import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
+
+@MainActor final class CompanionLiveService: CompanionService {
+    private var transports: [String: any AnnexTransporting] = [:]
+    private var hosts: [String: CompanionHost] = [:]
+    private var capabilities: [String: AnnexCapabilities] = [:]
+    private var projections: [CompanionTarget: CompanionChatProjector] = [:]
+    private var readOnly: Set<CompanionTarget> = []
+    private var eventTasks: [String: Task<Void, Never>] = [:]
+    private var subscribers: [UUID: AsyncStream<CompanionEvent>.Continuation] = [:]
+    private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
+    private var quickCatalog: [String: AnnexJSON] = [:]
+    private var savedCommands: [String: AnnexCommand] = [:]
+
+    func events() -> AsyncStream<CompanionEvent> {
+        let id = UUID()
+        return AsyncStream { continuation in
+            subscribers[id] = continuation
+            continuation.yield(.hosts(sortedHosts))
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in self?.subscribers.removeValue(forKey: id) }
+            }
+        }
+    }
+
+    func register(_ registration: AnnexTransportRegistry.Registration) async {
+        let id = registration.host.hostID
+        eventTasks[id]?.cancel()
+        transports[id] = registration.transport
+        let endpoint = registration.host.endpoint
+        hosts[id] = .init(id: id, name: registration.alias.isEmpty ? endpoint.host : registration.alias,
+                          endpoint: "\(endpoint.host):\(endpoint.port)", connection: .connecting,
+                          projects: hosts[id]?.projects ?? [])
+        emitHosts()
+        let stream = await registration.transport.events()
+        eventTasks[id] = Task { [weak self] in
+            do {
+                for try await event in stream {
+                    guard !Task.isCancelled else { return }
+                    await self?.receive(event, hostID: id)
+                }
+            } catch {
+                self?.hosts[id]?.connection = .failed(Self.readableError(error))
+                self?.emit(.resyncRequired(hostID: id))
+                self?.emitHosts()
+            }
+        }
+        do { try await registration.transport.connect() }
+        catch { hosts[id]?.connection = .failed(Self.readableError(error)); emitHosts() }
+    }
+
+    func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        let transport = try transport(for: target.hostID)
+        buffers[target] = []
+        do {
+            let snapshot = try await transport.read(.chat(agentID: target.agentID))
+            var projection = CompanionChatProjector()
+            projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
+            for event in snapshot["events"].arrayValue { projection.apply(event) }
+            if projection.sessionID == nil { projection.sessionID = snapshot["sessionId"]?.string }
+            for event in snapshot["pendingPermissions"].arrayValue + snapshot["pendingQuestions"].arrayValue {
+                projection.apply(event, allowOlderPending: true)
+            }
+            if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
+            projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
+            if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
+                readOnly.insert(target)
+                projection.capabilities = capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat] : []
+            } else { readOnly.remove(target) }
+            // Live events received while HTTP was in flight are applied after its snapshot.
+            for event in buffers.removeValue(forKey: target) ?? [] { projection.apply(event) }
+            projections[target] = projection
+            updateAgent(target, projection: projection)
+            emitHosts()
+            return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence)
+        } catch {
+            let pending = buffers.removeValue(forKey: target) ?? []
+            for event in pending { project(event, target: target) }
+            throw CompanionServiceError.unavailable(Self.readableError(error))
+        }
+    }
+
+    func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
+        let kind: AnnexCommand.Kind
+        if readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {
+            kind = .start(agentID: request.target.agentID, message: request.text, resume: true)
+        } else {
+            kind = .send(agentID: request.target.agentID, sessionID: try session(for: request.target), text: request.text,
+                         delivery: request.isSteering ? .steer : request.queueIfBusy ? .queued : .auto)
+        }
+        let receipt = try await execute(kind, id: request.clientCommandID, hostID: request.target.hostID)
+        if let messageID = receipt.result?["messageId"]?.string {
+            if let item = projections[request.target]?.reconcile(messageID: messageID, commandID: request.clientCommandID) {
+                emit(.upsert(request.target, item, sequence: nil))
+            }
+        }
+        return .init(clientCommandID: request.clientCommandID)
+    }
+
+    func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
+        _ = try await execute(.interrupt(agentID: target.agentID, sessionID: try session(for: target)), id: clientCommandID, hostID: target.hostID)
+    }
+    func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
+        _ = try await execute(.permission(agentID: target.agentID, sessionID: try session(for: target), requestID: approvalID, optionID: optionID), id: clientCommandID, hostID: target.hostID)
+    }
+    func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
+        let values = answers.mapValues { answer -> AnnexJSON in
+            switch answer {
+            case .text(let value): .string(value)
+            case .choices(let values): .array(values.map(AnnexJSON.string))
+            }
+        }
+        _ = try await execute(.question(agentID: target.agentID, sessionID: try session(for: target), requestID: questionID, answers: values), id: clientCommandID, hostID: target.hostID)
+    }
+    func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt {
+        let receipt = try await execute(.spawn(projectID: request.project.projectID, prompt: request.prompt, model: request.model, orchestrator: request.provider), id: request.clientCommandID, hostID: request.project.hostID)
+        let agentID = receipt.result?["id"]?.string ?? receipt.result?["agentId"]?.string
+        if let agentID {
+            rememberQuick(.object(["id": .string(agentID), "projectId": .string(request.project.projectID), "kind": .string("quick"),
+                                   "name": receipt.result?["name"] ?? .string(agentID), "status": receipt.result?["state"] ?? .string("starting"),
+                                   "prompt": .string(request.prompt)]), hostID: request.project.hostID)
+        }
+        await refresh(hostID: request.project.hostID)
+        return .init(clientCommandID: request.clientCommandID, agentTarget: agentID.map {
+            .init(hostID: request.project.hostID, projectID: request.project.projectID, agentID: $0)
+        })
+    }
+    func reconnect(hostID: String) async {
+        guard let transport = transports[hostID] else { return }
+        await transport.disconnect()
+        do { try await transport.connect() }
+        catch { hosts[hostID]?.connection = .failed(Self.readableError(error)); emitHosts() }
+    }
+    func remove(hostID: String) {
+        eventTasks.removeValue(forKey: hostID)?.cancel()
+        transports.removeValue(forKey: hostID)
+        hosts.removeValue(forKey: hostID)
+        capabilities.removeValue(forKey: hostID)
+        projections = projections.filter { $0.key.hostID != hostID }
+        emitHosts()
+    }
+    func suspend() async { for transport in transports.values { await transport.disconnect() } }
+    func resume() async { for id in transports.keys { await reconnect(hostID: id) } }
+
+    private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String) async throws -> AnnexCommandReceipt {
+        guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }
+        let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
+        guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.") }
+        savedCommands[id] = command
+        do {
+            let receipt = try await transport(for: hostID).execute(command)
+            switch receipt.status {
+            case .completed: return receipt
+            case .rejected: throw CompanionServiceError.rejected(receipt.error?.message ?? "The desktop rejected this command.")
+            case .failed: throw CompanionServiceError.uncertain(receipt.error?.message ?? "The command may have partially run. Refresh to check its result.")
+            }
+        } catch let error as CompanionServiceError { throw error }
+        catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
+        catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
+    }
+    private func session(for target: CompanionTarget) throws -> String {
+        guard let session = projections[target]?.sessionID else { throw CompanionServiceError.unavailable("Refresh the conversation before sending a command.") }
+        return session
+    }
+    private func transport(for hostID: String) throws -> any AnnexTransporting {
+        guard let transport = transports[hostID] else { throw CompanionServiceError.unavailable("This desktop is not paired.") }
+        return transport
+    }
+    private var sortedHosts: [CompanionHost] { hosts.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending } }
+    private func emit(_ event: CompanionEvent) { for continuation in subscribers.values { continuation.yield(event) } }
+    private func emitHosts() { emit(.hosts(sortedHosts)) }
+
+    private func receive(_ event: AnnexTransportEvent, hostID: String) async {
+        switch event {
+        case .connection(let state):
+            switch state {
+            case .connected:
+                hosts[hostID]?.connection = .synchronizing; emitHosts()
+                await refresh(hostID: hostID)
+            case .connecting: hosts[hostID]?.connection = .connecting
+            case .disconnected, .suspended: hosts[hostID]?.connection = .offline
+            case .reconnecting: hosts[hostID]?.connection = .reconnecting
+            case .failed(let error): hosts[hostID]?.connection = .failed(Self.readableError(error))
+            }
+            emitHosts()
+        case .resyncRequired:
+            hosts[hostID]?.connection = .synchronizing
+            emit(.resyncRequired(hostID: hostID)); emitHosts()
+            await refresh(hostID: hostID)
+            // Store keeps active conversations blocked until its history is refreshed.
+        case .message(let envelope):
+            guard let payload = envelope.payload else { return }
+            switch envelope.type {
+            case "snapshot":
+                if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
+                applyCatalog(payload, hostID: hostID); emitHosts()
+            case "chat:event":
+                guard let agentID = payload["agentId"]?.string, let event = payload["event"], let target = target(agentID: agentID, hostID: hostID) else { return }
+                if buffers[target] != nil { buffers[target]?.append(event) }
+                else { project(event, target: target) }
+            case "agent:spawned":
+                rememberQuick(payload, hostID: hostID)
+                await refresh(hostID: hostID)
+            case "agent:status", "agent:completed":
+                if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
+                    projections[target]?.status = CompanionChatProjector.status(payload["status"]?.string)
+                }
+                await refresh(hostID: hostID)
+            case "agent:deleted": await refresh(hostID: hostID)
+            default: break
+            }
+        }
+    }
+
+    private func refresh(hostID: String) async {
+        guard let transport = transports[hostID] else { return }
+        do {
+            let rawCaps = try? await transport.read(.capabilities)
+            capabilities[hostID] = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
+            let rawProjects = try await transport.read(.projects)
+            let projects = rawProjects["projects"].arrayValue.isEmpty ? Optional(rawProjects).arrayValue : rawProjects["projects"].arrayValue
+            var agents: [String: AnnexJSON] = [:]
+            for project in projects {
+                guard let projectID = project["id"]?.string else { continue }
+                let result = try await transport.read(.agents(projectID: projectID))
+                agents[projectID] = result["agents"] ?? result
+            }
+            applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
+            hosts[hostID]?.connection = .connected
+        } catch { hosts[hostID]?.connection = .failed(Self.readableError(error)) }
+        emitHosts()
+    }
+
+    private func rememberQuick(_ payload: AnnexJSON, hostID: String) {
+        guard payload["kind"]?.string == "quick", let projectID = payload["projectId"]?.string, let agentID = payload["id"]?.string else { return }
+        var projects: [String: AnnexJSON] = [:]
+        if case .object(let existing) = quickCatalog[hostID] { projects = existing }
+        var agents = projects[projectID].arrayValue
+        agents.removeAll { $0["id"]?.string == agentID }
+        agents.append(payload)
+        projects[projectID] = .array(agents)
+        quickCatalog[hostID] = .object(projects)
+    }
+
+    private func applyCatalog(_ payload: AnnexJSON, hostID: String) {
+        guard var host = hosts[hostID] else { return }
+        var projects: [CompanionProject] = []
+        for project in payload["projects"].arrayValue {
+            guard let projectID = project["id"]?.string else { continue }
+            let durableValues: [AnnexJSON] = (payload["agents"]?[projectID]).arrayValue
+            let quickValues: [AnnexJSON] = (payload["quickAgents"]?[projectID]).arrayValue
+            var agents: [CompanionAgent] = []
+            for value in durableValues + quickValues {
+                guard let id = value["id"]?.string else { continue }
+                let target = CompanionTarget(hostID: hostID, projectID: projectID, agentID: id)
+                let projection = projections[target]
+                let name: String = value["name"]?.string ?? id
+                let mission: String? = value["mission"]?.string ?? value["prompt"]?.string
+                let subtitle: String = mission ?? value["branch"]?.string ?? ""
+                let status: CompanionAgentStatus = projection?.status ?? CompanionChatProjector.status(value["status"]?.string)
+                let model: String? = projection?.model ?? value["model"]?.string
+                let supported: CompanionCapabilities = capabilities[hostID] == nil ? [] : projection?.capabilities ?? []
+                agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported))
+            }
+            let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
+            projects.append(CompanionProject(id: projectID, name: name, agents: agents))
+        }
+        host.projects = projects
+        hosts[hostID] = host
+    }
+    private func target(agentID: String, hostID: String) -> CompanionTarget? {
+        hosts[hostID]?.projects.flatMap(\.agents).first { $0.id.agentID == agentID }?.id
+    }
+    private func project(_ event: AnnexJSON, target: CompanionTarget) {
+        var projection = projections[target] ?? .init()
+        let oldSession = projection.sessionID
+        projection.apply(event)
+        projections[target] = projection
+        updateAgent(target, projection: projection)
+        emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID))
+        emitHosts()
+    }
+    private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
+        guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
+              let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = capabilities[target.hostID] == nil ? [] : projection.capabilities
+        if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
+    }
+    static func readableError(_ error: Error) -> String {
+        guard let error = error as? AnnexTransportError else { return error.localizedDescription }
+        switch error {
+        case .identityMismatch, .trustRequired, .invalidPin: return "The desktop identity could not be verified. Compare the fingerprints on your desktop before pairing again."
+        case .unauthorized, .credentialMissing: return "Pair this desktop again to restore access."
+        case .forbidden: return "This desktop has not granted mobile control. Pair again using the secure invitation."
+        case .disconnected: return "The desktop is offline. Reconnect to continue."
+        case .unsupportedCapability: return "This action is not supported by the connected desktop."
+        case .commandOutcomeUnknown: return "Delivery is unknown. Refresh the conversation to check the result."
+        case .commandInFlight: return "Another command is being sent to this desktop. Try again when it finishes."
+        case .invalidEndpoint: return "Enter a valid desktop address and port."
+        case .rejected(let status, let code): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
+        default: return "The desktop connection could not complete. Reconnect and try again."
+        }
+    }
+}

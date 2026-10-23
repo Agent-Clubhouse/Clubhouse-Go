@@ -39,7 +39,7 @@ struct CompanionConversationView: View {
                 Menu {
                     Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                     if agent.status == .working {
-                        Button("Stop agent", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
+                        Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
                             .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
                     }
                 } label: { Label("Conversation actions", systemImage: "ellipsis.circle") }
@@ -47,9 +47,9 @@ struct CompanionConversationView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         .task(id: target) { await store.load(target) }
-        .confirmationDialog("Stop this agent?", isPresented: $confirmCancel, titleVisibility: .visible) {
-            Button("Stop agent", role: .destructive) { Task { await store.cancel(target) } }
-        } message: { Text("The current operation will be interrupted. Your conversation will remain available.") }
+        .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
+            Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
+        } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
     }
 
     private var contextHeader: some View {
@@ -169,13 +169,13 @@ struct CompanionConversationView: View {
                 HStack {
                     Label("Agent is working", systemImage: "waveform").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Stop", systemImage: "stop.fill") { confirmCancel = true }
+                    Button("Interrupt", systemImage: "stop.fill") { confirmCancel = true }
                         .font(.caption.weight(.semibold))
                         .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
                 }
             }
             HStack(alignment: .bottom, spacing: 10) {
-                TextField(agent.status == .working ? "Steer this agent…" : "Message this agent…", text: draft, axis: .vertical)
+                TextField(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer this agent…" : "Queue a follow-up…") : "Message this agent…", text: draft, axis: .vertical)
                     .lineLimit(1...8)
                     .padding(.horizontal, 15).padding(.vertical, 12)
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
@@ -200,7 +200,7 @@ struct CompanionConversationView: View {
             } else if !connection.canOperate {
                 Text("Draft saved while you reconnect").font(.caption).foregroundStyle(.secondary)
             } else {
-                Text(agent.status == .working ? "Your direction will be sent to the running agent." : "Runs on your desktop • ⌘ Return to send")
+                Text(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : "Runs on your desktop • ⌘ Return to send")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

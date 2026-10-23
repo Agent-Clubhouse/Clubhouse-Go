@@ -7,6 +7,8 @@ let package = Package(
     products: [.library(name: "ClubhouseTransport", targets: ["ClubhouseTransport"])],
     targets: [
         .target(name: "ClubhouseTransport", path: "Annex/Annex/Transport"),
+        .target(name: "CompanionDomain", dependencies: ["ClubhouseTransport"], path: "Annex/Annex/Companion", sources: ["Domain", "Adapters"]),
+        .testTarget(name: "CompanionDomainTests", dependencies: ["CompanionDomain", "ClubhouseTransport"], path: "Tests/CompanionDomainTests"),
         .testTarget(name: "ClubhouseTransportTests", dependencies: ["ClubhouseTransport"], path: "Tests/ClubhouseTransportTests", resources: [.copy("Fixtures")])
     ]
 )

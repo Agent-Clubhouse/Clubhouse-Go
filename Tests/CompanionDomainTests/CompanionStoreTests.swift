@@ -126,7 +126,7 @@ import Testing
     @Test func expiredPermissionCannotBeApproved() async {
         let service = TestCompanionService()
         let store = makeStore(service: service)
-        let approval = CompanionApproval(id: "permission", toolName: "Shell", summary: "run command", deadline: Date(timeIntervalSince1970: 1))
+        let approval = CompanionApproval(id: "permission", toolName: "Shell", summary: "run command", deadline: Date(timeIntervalSince1970: 1), options: [.init(id: "allow", label: "Allow once", kind: .allowOnce)])
         await store.respond(approval, option: .init(id: "allow", label: "Allow once", kind: .allowOnce), target: target)
         #expect(service.responses.isEmpty)
     }
@@ -138,9 +138,10 @@ import Testing
         let task = Task { await store.load(target) }
         while service.historyGate == nil { await Task.yield() }
         store.apply(.textDelta(target, messageID: "live", text: "Newest", sequence: 11))
-        service.historyGate?.resume(returning: .init(items: [], lastSequence: 10))
+        service.historyGate?.resume(returning: .init(items: [.message(.init(id: "old", role: .user, text: "Earlier message"))], lastSequence: 10))
         await task.value
-        #expect(store.conversation(for: target).items.count == 1)
+        #expect(store.conversation(for: target).items.count == 2)
+        #expect(store.conversation(for: target).items.first?.id == "message:old")
         #expect(store.conversation(for: target).lastSequence == 11)
     }
 

@@ -40,7 +40,7 @@ import Observation
     }
     func canSend(_ target: CompanionTarget) -> Bool {
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
-        return agent.capabilities.contains(agent.status == .working ? .steer : .chat)
+        return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)
     }
 
     func load(_ target: CompanionTarget, force: Bool = false) async {
@@ -109,7 +109,8 @@ import Observation
         defer { pendingCommands.remove(target) }
         do {
             let request = sendRequests[commandID] ?? CompanionSendRequest(target: target, text: message.text, clientCommandID: commandID,
-                                                                          isSteering: agent(for: target)?.status == .working)
+                                                                          isSteering: agent(for: target)?.status == .working && agent(for: target)?.capabilities.contains(.steer) == true,
+                                                                          queueIfBusy: agent(for: target)?.status == .working && agent(for: target)?.capabilities.contains(.steer) != true)
             sendRequests[commandID] = request
             _ = try await service.send(request)
             updateDelivery(commandID, target: target, delivery: .accepted)
@@ -213,6 +214,17 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts): self.hosts = hosts
+        case .timeline(let target, let items, let sequence, let reset):
+            if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
+            let commandIDs = Set(items.compactMap { item -> String? in
+                if case .message(let message) = item { return message.clientCommandID }; return nil
+            })
+            let local = conversation(for: target).items.filter { item in
+                guard case .message(let message) = item, let commandID = message.clientCommandID else { return false }
+                return message.delivery != .confirmed && !commandIDs.contains(commandID)
+            }
+            conversations[target, default: .init()].items = items + local
+            conversations[target, default: .init()].lastSequence = sequence
         case .resyncRequired(let hostID):
             for target in conversations.keys where target.hostID == hostID {
                 conversations[target]?.requiresResync = true
