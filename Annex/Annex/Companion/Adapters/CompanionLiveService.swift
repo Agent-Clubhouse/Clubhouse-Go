@@ -23,7 +23,7 @@ import ClubhouseTransport
             subscribers[id] = continuation
             continuation.yield(.hosts(sortedHosts))
             continuation.onTermination = { [weak self] _ in
-                Task { @MainActor in self?.subscribers.removeValue(forKey: id) }
+                Task { @MainActor [weak self] in self?.subscribers.removeValue(forKey: id) }
             }
         }
     }

@@ -40,6 +40,10 @@ struct CompanionConversationView: View {
                 Menu {
                     Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                     Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                    Section("Conversation details") {
+                        Text(contextName)
+                        if let model = agent.model { Text(model) }
+                    }
                     if agent.status == .working {
                         Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
                             .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
@@ -63,11 +67,12 @@ struct CompanionConversationView: View {
     private var contextHeader: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(contextName).font(.caption).foregroundStyle(.secondary)
+                if !dynamicTypeSize.isAccessibilitySize { Text(contextName).font(.caption).foregroundStyle(.secondary) }
                 CompanionStatusLabel(status: agent.status)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            if let model = agent.model { Text(model).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+            if let model = agent.model, !dynamicTypeSize.isAccessibilitySize { Text(model).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
         }
         .padding(.horizontal, 20).padding(.vertical, 12)
         .background(.bar)
@@ -175,7 +180,7 @@ struct CompanionConversationView: View {
         VStack(alignment: .leading, spacing: 10) {
             if agent.status == .working {
                 HStack {
-                    Label("Agent is working", systemImage: "waveform").font(.caption).foregroundStyle(.secondary)
+                    if !dynamicTypeSize.isAccessibilitySize { Label("Agent is working", systemImage: "waveform").font(.caption).foregroundStyle(.secondary) }
                     Spacer()
                     Button("Interrupt", systemImage: "stop.fill") { confirmCancel = true }
                         .font(.caption.weight(.semibold))
@@ -183,18 +188,19 @@ struct CompanionConversationView: View {
                 }
             }
             HStack(alignment: .bottom, spacing: 10) {
-                TextField(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer this agent…" : "Queue a follow-up…") : "Message this agent…", text: draft, axis: .vertical)
-                    .lineLimit(1...8)
+                TextField(composerPlaceholder, text: draft, axis: .vertical)
+                    .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
                     .padding(.horizontal, 15).padding(.vertical, 12)
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
                     .focused($composerFocused)
                     .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
+                    .accessibilityHint("Runs on your desktop. Command Return sends the message.")
                     .accessibilityIdentifier("companion-composer")
                 Button {
                     Task { await store.sendDraft(to: target) }
                 } label: {
                     Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
-                        .font(.headline.weight(.bold)).frame(width: 44, height: 44)
+                        .font(.headline.weight(.bold)).frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent).buttonBorderShape(.circle)
                 .disabled(!store.canSend(target) || draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -202,12 +208,14 @@ struct CompanionConversationView: View {
                 .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
                 .accessibilityIdentifier("companion-send")
             }
-            if !store.canSend(target) && connection.canOperate && !store.pendingCommands.contains(target) && !conversation.requiresResync {
+            if conversation.isLoading {
+                ProgressView("Refreshing…").font(.caption)
+            } else if !store.canSend(target) && connection.canOperate && !store.pendingCommands.contains(target) && !conversation.requiresResync {
                 Text("This desktop does not support chat control for this agent yet.")
                     .font(.caption).foregroundStyle(.secondary)
-            } else if !connection.canOperate {
+            } else if !connection.canOperate && !dynamicTypeSize.isAccessibilitySize {
                 Text("Draft saved while you reconnect").font(.caption).foregroundStyle(.secondary)
-            } else {
+            } else if !dynamicTypeSize.isAccessibilitySize {
                 Text(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : "Runs on your desktop • ⌘ Return to send")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -216,5 +224,12 @@ struct CompanionConversationView: View {
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .background(.bar)
+    }
+
+    private var composerPlaceholder: String {
+        if dynamicTypeSize.isAccessibilitySize {
+            return agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer…" : "Follow up…") : "Message…"
+        }
+        return agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer this agent…" : "Queue a follow-up…") : "Message this agent…"
     }
 }
