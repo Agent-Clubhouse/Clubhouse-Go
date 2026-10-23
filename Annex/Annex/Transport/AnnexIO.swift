@@ -121,14 +121,51 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
         try await task.send(.string(text))
     }
     func ping() async throws {
+        let completion = AnnexPingCompletion()
+        let deadline = Task {
+            do {
+                try await Task.sleep(for: .seconds(10))
+                completion.resolve(.failure(URLError(.timedOut)))
+                task.cancel(with: .goingAway, reason: nil)
+            } catch { }
+        }
+        defer { deadline.cancel() }
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            try await withCheckedThrowingContinuation { continuation in
+                completion.install(continuation)
                 task.sendPing { error in
-                    if let error { continuation.resume(throwing: error) }
-                    else { continuation.resume() }
+                    completion.resolve(error.map { .failure($0) } ?? .success(()))
                 }
             }
-        } onCancel: { task.cancel(with: .goingAway, reason: nil) }
+        } onCancel: {
+            completion.resolve(.failure(CancellationError()))
+            task.cancel(with: .goingAway, reason: nil)
+        }
     }
     func close() { task.cancel(with: .goingAway, reason: nil) }
+}
+
+/// Races timeout, callback and cancellation without double-resuming or relying
+/// on URLSession to invoke a callback after the task has already been closed.
+nonisolated final class AnnexPingCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var result: Result<Void, Error>?
+    func install(_ continuation: CheckedContinuation<Void, Error>) {
+        let ready: Result<Void, Error>? = lock.withLock {
+            if let result { return result }
+            self.continuation = continuation
+            return nil as Result<Void, Error>?
+        }
+        if let ready { continuation.resume(with: ready) }
+    }
+    func resolve(_ result: Result<Void, Error>) {
+        let waiting = lock.withLock {
+            guard self.result == nil else { return nil as CheckedContinuation<Void, Error>? }
+            self.result = result
+            let waiting = continuation; continuation = nil
+            return waiting
+        }
+        waiting?.resume(with: result)
+    }
 }

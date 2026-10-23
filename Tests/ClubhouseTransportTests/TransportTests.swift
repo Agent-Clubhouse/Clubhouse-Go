@@ -282,3 +282,18 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
     #expect(query.first(where: { $0.name == "sessionId" })?.value == "session&1")
     #expect(query.first(where: { $0.name == "beforeSeq" })?.value == "321")
 }
+
+@Test func pingCompletionHandlesCancellationBeforeRegistrationAndLateCallbacks() async throws {
+    let early = AnnexPingCompletion()
+    early.resolve(.failure(CancellationError()))
+    await #expect(throws: CancellationError.self) {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in early.install(continuation) }
+    }
+    early.resolve(.success(())) // late callback must be ignored
+    let normal = AnnexPingCompletion()
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+        normal.install(continuation)
+        normal.resolve(.success(()))
+        normal.resolve(.failure(URLError(.timedOut)))
+    }
+}
