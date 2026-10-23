@@ -90,6 +90,20 @@ import ClubhouseTransport
         }
     }
 
+    func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] {
+        let value = try await transport(for: target.hostID).read(.chatSessions(agentID: target.agentID))
+        return value["sessions"].arrayValue.compactMap { session in
+            guard let id = session["sessionId"]?.string else { return nil }
+            return CompanionSessionSummary(id: id, title: session["title"]?.string ?? "Conversation",
+                lastActiveAt: session["lastActiveAt"]?.integer.map { Date(timeIntervalSince1970: Double($0) / 1000) },
+                provider: session["provider"]?.string)
+        }.sorted { ($0.lastActiveAt ?? .distantPast) > ($1.lastActiveAt ?? .distantPast) }
+    }
+
+    func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading {
+        CompanionArchiveReader(transport: try transport(for: target.hostID), target: target, sessionID: sessionID)
+    }
+
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         let kind: AnnexCommand.Kind
         if readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {

@@ -259,6 +259,8 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
 @MainActor protocol CompanionService: AnyObject {
     func events() -> AsyncStream<CompanionEvent>
     func history(for target: CompanionTarget) async throws -> CompanionHistory
+    func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary]
+    func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws
@@ -268,6 +270,12 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] {
+        throw CompanionServiceError.unavailable("This desktop does not support conversation archives yet.")
+    }
+    func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading {
+        throw CompanionServiceError.unavailable("This desktop does not support conversation archives yet.")
+    }
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not support answering questions yet.")
     }

@@ -13,7 +13,7 @@ Acceptance is not completion: an optimistic user message goes from sending to ac
 
 ## Validation
 
-`Tests/CompanionDomainTests` runs via Swift Testing on macOS without launching a simulator. Target it as `CompanionDomainTests`, depending on a `CompanionDomain` target at `Annex/Annex/Companion/Domain` when integrating the transport Package.swift. Coverage includes host identity collisions, replay de-duplication, stale history racing live events, uncertain delivery, stable retry IDs, server echo reconciliation, late receipts and expired approval rejection.
+`swift test --filter Companion` runs the 28 presentation tests on macOS without launching a simulator. The root package's `CompanionDomain` target includes `Domain` and `Adapters`, with `Views` excluded. Coverage includes host identity collisions, replay de-duplication, stale history racing live events, uncertain delivery, stable retry IDs, server echo reconciliation, late receipts, expired approval rejection, serialized foreground/background transitions and paginated archives.
 
 Integration owns simulator/GUI validation. Inspect compact iPhone, iPad split view, accessibility Dynamic Type, light/dark appearance, long code/output, disconnected drafts, and pending approvals/questions. Do not treat preview fixtures as end-to-end proof; the live transport must be exercised against the separately launched isolated desktop.
 
@@ -28,3 +28,9 @@ For integration only, a DEBUG app can receive `CLUBHOUSE_COMPANION_TEST_INVITATI
 Draft persistence is injected: production stores per-host/project/agent draft text locally, while preview and integration modes keep it in memory. Approval/question acknowledgements preserve authoritative stream resolutions, and unrelated timeline updates cannot reopen an already submitted or acknowledged interaction. Capability negotiation gates spawn and each chat operation independently.
 
 First integration evidence: the dedicated iPhone simulator paired over actual pinned HTTPS/mTLS with the production Annex service and sent a chat message through `ChatAgentRuntime` to a local fake-CLI subprocess. It received the user-message echo, streamed response and turn end; integration's XCTest passed. This verifies the real mobile/desktop transport path with a deterministic backend, not an external model-provider session. The coordinator retains logs/screenshots in its evidence directory.
+
+The subsequent live control smoke also passed one-time denial, a structured question answer, background/foreground reconnection, and a second streamed permission request. Lifecycle operations are serialized across the transient inactive phase. Open conversations reconcile on reconnect; failed/in-flight history blocks commands and retains drafts. Session IDs scope transcript cursors so restarted agents cannot inherit old high sequence values.
+
+Desktops & settings exposes explicit online session revocation when advertised. Local forgetting explains that it does not revoke desktop trust. Unknown revocation results preserve local material and direct the user to check desktop state. Pairing describes the controller authority granted and distinguishes session access from remembered access.
+
+Conversation archive lists saved desktop sessions and pages backward through their history. Archive readers reconstruct all loaded events in sequence (including split tool/message chunks), retain data and cursor after failed reads, reject session substitution, and never alter the live command session. Archived approval/question rows are informational. This feature has unit/build validation; simulator visual/interaction coverage is tracked separately by integration.

@@ -37,6 +37,11 @@ import Observation
 
     func stop() { listeningTask?.cancel(); listeningTask = nil }
 
+    func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] { try await service.sessions(for: target) }
+    func archive(for target: CompanionTarget, sessionID: String) throws -> CompanionArchiveTranscript {
+        CompanionArchiveTranscript(reader: try service.archive(for: target, sessionID: sessionID))
+    }
+
     func host(for target: CompanionTarget) -> CompanionHost? { hosts.first { $0.id == target.hostID } }
     func agent(for target: CompanionTarget) -> CompanionAgent? {
         host(for: target)?.projects.first { $0.id == target.projectID }?.agents.first { $0.id == target }

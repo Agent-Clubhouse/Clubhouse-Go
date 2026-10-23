@@ -5,6 +5,7 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     @State private var followLatest = true
     @State private var confirmCancel = false
+    @State private var showArchive = false
     @FocusState private var composerFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -38,6 +39,7 @@ struct CompanionConversationView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
+                    Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                     if agent.status == .working {
                         Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
                             .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
@@ -46,6 +48,7 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
         .onChange(of: connection) { _, current in
             if current.canOperate && conversation.requiresResync && !conversation.isLoading {
@@ -109,8 +112,8 @@ struct CompanionConversationView: View {
                         }
                     }
                     if conversation.hasEarlierMessages {
-                        Label("Showing recent conversation", systemImage: "clock.arrow.circlepath")
-                            .font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity)
+                        Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                            .font(.caption).frame(maxWidth: .infinity)
                     }
                     if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
                         ContentUnavailableView {
