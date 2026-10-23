@@ -59,28 +59,28 @@ nonisolated public final class AnnexClientIdentity: @unchecked Sendable, CustomS
         }
         // X.509 encoding only; cryptographic key generation and signatures are
         // performed by Security.framework, never custom cryptography.
-        let algorithm = DER.sequence(DER.oid([0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x0b]) + DER.null)
-        let rsaAlgorithm = DER.sequence(DER.oid([0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01]) + DER.null)
-        let distinguishedName = DER.sequence(DER.tag(0x31, DER.sequence(DER.oid([0x55,0x04,0x03]) + DER.tag(0x0c, Data(name.utf8)))))
+        let algorithm = AnnexClientDER.sequence(AnnexClientDER.oid([0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x0b]) + AnnexClientDER.null)
+        let rsaAlgorithm = AnnexClientDER.sequence(AnnexClientDER.oid([0x2a,0x86,0x48,0x86,0xf7,0x0d,0x01,0x01,0x01]) + AnnexClientDER.null)
+        let distinguishedName = AnnexClientDER.sequence(AnnexClientDER.tag(0x31, AnnexClientDER.sequence(AnnexClientDER.oid([0x55,0x04,0x03]) + AnnexClientDER.tag(0x0c, Data(name.utf8)))))
         var serial = Data(count: 16)
         let status = serial.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
         guard status == errSecSuccess else { throw AnnexTransportError.identityMismatch }
         serial[0] = (serial[0] & 0x7f) | 0x01
-        let validity = DER.sequence(DER.time(now.addingTimeInterval(-300)) + DER.time(now.addingTimeInterval(365 * 86400)))
-        let tbs = DER.sequence(DER.tag(0xa0, DER.tag(0x02, Data([2])))
-            + DER.tag(0x02, serial) + algorithm + distinguishedName + validity + distinguishedName
-            + DER.sequence(rsaAlgorithm + DER.bitString(publicBytes)))
+        let validity = AnnexClientDER.sequence(AnnexClientDER.time(now.addingTimeInterval(-300)) + AnnexClientDER.time(now.addingTimeInterval(365 * 86400)))
+        let tbs = AnnexClientDER.sequence(AnnexClientDER.tag(0xa0, AnnexClientDER.tag(0x02, Data([2])))
+            + AnnexClientDER.tag(0x02, serial) + algorithm + distinguishedName + validity + distinguishedName
+            + AnnexClientDER.sequence(rsaAlgorithm + AnnexClientDER.bitString(publicBytes)))
         guard let signature = SecKeyCreateSignature(key, .rsaSignatureMessagePKCS1v15SHA256, tbs as CFData, &error) as Data? else {
             throw AnnexTransportError.identityMismatch
         }
-        let bytes = DER.sequence(tbs + algorithm + DER.bitString(signature))
+        let bytes = AnnexClientDER.sequence(tbs + algorithm + AnnexClientDER.bitString(signature))
         guard let certificate = SecCertificateCreateWithData(nil, bytes as CFData),
               let identity = SecIdentityCreate(nil, certificate, key) else { throw AnnexTransportError.identityMismatch }
         return AnnexClientIdentity(identity: identity, privateKey: key, certificateDER: bytes, pairingIdentity: pairing)
     }
 }
 
-nonisolated private enum DER {
+nonisolated private enum AnnexClientDER {
     static func tag(_ tag: UInt8, _ contents: Data) -> Data {
         var length = Data()
         if contents.count < 128 { length.append(UInt8(contents.count)) }
