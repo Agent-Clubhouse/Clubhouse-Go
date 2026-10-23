@@ -10,6 +10,7 @@ import ClubhouseTransport
     let lifecycle: CompanionLifecycle
     var restoreError: String?
     var isRestoring = false
+    private(set) var sessionHosts: Set<String> = []
     private var started = false
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
@@ -34,10 +35,19 @@ import ClubhouseTransport
     func pair(host: TrustedAnnexHost, pin: String, name: String, remember: Bool) async throws {
         let registration = try await registry.pair(host: host, pin: pin, alias: name,
                                                    persistence: remember ? .persistent : .sessionOnly)
+        if remember { sessionHosts.remove(host.hostID) }
+        else { sessionHosts.insert(host.hostID) }
         await service.register(registration)
     }
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)
+        sessionHosts.remove(hostID)
+        service.remove(hostID: hostID)
+        if store.selection?.hostID == hostID { store.selection = nil }
+    }
+    func endSession(hostID: String) async throws {
+        try await registry.revokeSessionAndRemove(hostID: hostID)
+        sessionHosts.remove(hostID)
         service.remove(hostID: hostID)
         if store.selection?.hostID == hostID { store.selection = nil }
     }
@@ -104,6 +114,8 @@ struct CompanionSettingsSheet: View {
     var pair: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var hostToForget: CompanionHost?
+    @State private var hostToEnd: CompanionHost?
+    @State private var removingHostID: String?
     @State private var error: String?
     var body: some View {
         NavigationStack {
@@ -114,15 +126,20 @@ struct CompanionSettingsSheet: View {
                             Label(host.name, systemImage: "desktopcomputer").font(.headline)
                             Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
                             Text(host.connection.label).font(.caption)
+                            Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
                             DisclosureGroup("Connection details") {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
                                     Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
                                     Button("Reconnect") { Task { await runtime.store.reconnect(hostID: host.id) } }
-                                    Button("Forget desktop", role: .destructive) { hostToForget = host }
+                                    if runtime.sessionHosts.contains(host.id), host.canRevokeSession {
+                                        Button("End session pairing", role: .destructive) { hostToEnd = host }
+                                            .disabled(!host.connection.canOperate)
+                                    }
+                                    Button("Forget on this device", role: .destructive) { hostToForget = host }
                                 }.padding(.vertical, 8)
                             }.font(.subheadline)
-                        }.padding(.vertical, 6)
+                        }.padding(.vertical, 6).disabled(removingHostID == host.id)
                     }
                     Button("Pair another desktop", systemImage: "plus", action: pair)
                 }
@@ -140,13 +157,28 @@ struct CompanionSettingsSheet: View {
                 if let host = hostToForget {
                     Button("Forget desktop", role: .destructive) {
                         Task {
+                            removingHostID = host.id
+                            defer { removingHostID = nil }
                             do { try await runtime.forget(hostID: host.id) }
                             catch { self.error = CompanionLiveService.readableError(error) }
                             hostToForget = nil
                         }
                     }
                 }
-            } message: { Text("This removes its saved access from this device. Running desktop agents are unaffected.") }
+            } message: { Text("This removes access from this device. Desktop trust remains until you disconnect this device in desktop settings or stop Annex for a session-only pairing. Running agents are unaffected.") }
+            .confirmationDialog("End this session pairing?", isPresented: Binding(get: { hostToEnd != nil }, set: { if !$0 { hostToEnd = nil } }), titleVisibility: .visible) {
+                if let host = hostToEnd {
+                    Button("End session pairing", role: .destructive) {
+                        Task {
+                            removingHostID = host.id
+                            defer { removingHostID = nil }
+                            do { try await runtime.endSession(hostID: host.id) }
+                            catch { self.error = CompanionLiveService.readableError(error) }
+                            hostToEnd = nil
+                        }
+                    }
+                }
+            } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
         }
     }
 }

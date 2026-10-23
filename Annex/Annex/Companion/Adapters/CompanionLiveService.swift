@@ -237,6 +237,7 @@ import ClubhouseTransport
             let rawCaps = try? await transport.read(.capabilities)
             capabilities[hostID] = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
             hosts[hostID]?.canSpawn = capabilities[hostID]?.commands.contains("agent.spawn") == true
+            hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             let rawProjects = try await transport.read(.projects)
             let projects = rawProjects["projects"].arrayValue.isEmpty ? Optional(rawProjects).arrayValue : rawProjects["projects"].arrayValue
             var agents: [String: AnnexJSON] = [:]
@@ -329,8 +330,10 @@ import ClubhouseTransport
         case .disconnected: return "The desktop is offline. Reconnect to continue."
         case .unsupportedCapability: return "This action is not supported by the connected desktop."
         case .commandOutcomeUnknown: return "Delivery is unknown. Refresh the conversation to check the result."
+        case .pairingRevocationOutcomeUnknown: return "The desktop may have ended this pairing, but its reply was lost. Access is kept here so you can check desktop settings before forgetting this device."
         case .commandInFlight: return "Another command is being sent to this desktop. Try again when it finishes."
         case .invalidEndpoint: return "Enter a valid desktop address and port."
+        case .rejected(_, let code) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
         case .rejected(let status, let code): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
         default: return "The desktop connection could not complete. Reconnect and try again."
         }

@@ -85,7 +85,7 @@ struct CompanionPairingSheet: View {
                     SecureField("Pairing PIN", text: $pin).keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused, equals: .pin)
                     Toggle("Remember this desktop", isOn: $remember)
                 } header: { Text("Connect") } footer: {
-                    Text(remember ? "Pairing saves this desktop's verified identity and your access in this device's Keychain. You can remove it in Desktops & settings." : "Session-only pairing. Access stays in memory and ends when this app closes.")
+                    Text("Pairing lets this device control Clubhouse agents on your desktop. " + (remember ? "Remembering saves access in this device's Keychain and keeps this device paired on desktop." : "This device keeps access in memory until the app closes. End the pairing in Desktops & settings to revoke desktop session trust; otherwise it remains until desktop disconnect or Annex stops."))
                 }
                 if let error { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }

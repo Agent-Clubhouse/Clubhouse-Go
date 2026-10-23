@@ -52,6 +52,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var connection: CompanionConnection
     var projects: [CompanionProject]
     var canSpawn = false
+    var canRevokeSession = false
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {
