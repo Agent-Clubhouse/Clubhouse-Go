@@ -111,6 +111,10 @@ final class CompanionLiveSmokeTests: XCTestCase {
         let endSession = app.buttons["End session pairing"].firstMatch
         XCTAssertTrue(endSession.waitForExistence(timeout: 10), "Desktop capability must advertise scoped session revocation")
         endSession.tap()
+        XCTAssertTrue(app.staticTexts["End this session pairing?"].waitForExistence(timeout: 5),
+                      "The scoped-revoke action must present its own confirmation")
+        XCTAssertFalse(app.buttons["Forget desktop"].exists,
+                       "Tapping revoke must not also activate a sibling List-row action")
         let confirmations = app.buttons.matching(identifier: "End session pairing")
         confirmations.element(boundBy: confirmations.count - 1).tap()
         let removed = NSPredicate(format: "exists == false")
