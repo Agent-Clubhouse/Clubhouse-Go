@@ -11,10 +11,12 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case stop(agentID: String)
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
     }
+    public let createdAt: Date
     public let commandID: String
     public let epoch: String
     public let kind: Kind
     public init(commandID: String = UUID().uuidString, epoch: String, kind: Kind) {
+        self.createdAt = Date()
         self.commandID = commandID; self.epoch = epoch; self.kind = kind
     }
     public var type: String {
@@ -76,6 +78,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let version: Int
     public let epoch: String
     public let controlAuth: String
+    public let controlAvailable: Bool?
     public let commands: [String]
     public struct Idempotency: Decodable, Sendable {
         public let scope: String

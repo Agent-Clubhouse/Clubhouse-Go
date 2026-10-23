@@ -17,7 +17,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var capabilities: AnnexCapabilities?
     private var cursor = AnnexReplayCursor()
     private var commandBusy = false
-    private struct CommandRecord { let digest: String; var receipt: AnnexCommandReceipt? }
+    private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
     private var commands: [String: CommandRecord] = [:]
 
     public init(host: TrustedAnnexHost, credentials: any AnnexCredentialStore, clientIdentity: AnnexClientIdentity? = nil,
@@ -29,6 +29,10 @@ public actor AnnexTransport: AnnexTransporting {
     public func events() -> AsyncThrowingStream<AnnexTransportEvent, Error> {
         let id = UUID()
         let (stream, continuation) = AsyncThrowingStream<AnnexTransportEvent, Error>.makeStream(bufferingPolicy: .bufferingOldest(eventCapacity))
+        guard subscribers.count < 16 else {
+            continuation.finish(throwing: AnnexTransportError.queueOverflow)
+            return stream
+        }
         subscribers[id] = continuation
         continuation.yield(.connection(state))
         continuation.onTermination = { [weak self] _ in Task { await self?.removeSubscriber(id) } }
@@ -52,8 +56,10 @@ public actor AnnexTransport: AnnexTransporting {
 
     public func connect() async throws {
         guard loop == nil else { return }
+        let requestedGeneration = generation
         guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
-        guard loop == nil else { return }
+        guard loop == nil, generation == requestedGeneration else { return }
+        try Task.checkCancellation()
         generation = UUID()
         let current = generation
         transition(.connecting)
@@ -82,6 +88,12 @@ public actor AnnexTransport: AnnexTransporting {
         case .projects: path = ["api", "v1", "projects"]
         case .capabilities: path = ["api", "v1", "mobile", "capabilities"]
         case .chat(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat"]
+        case .chatSessions(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat", "sessions"]
+        case .chatHistory(let agent, let session, let before, let limit):
+            path = ["api", "v1", "mobile", "agents", agent, "chat"]
+            query = [URLQueryItem(name: "limit", value: String(min(2000, max(1, limit))))]
+            if let session { query.append(URLQueryItem(name: "sessionId", value: session)) }
+            if let before { query.append(URLQueryItem(name: "beforeSeq", value: String(max(1, before)))) }
         case .agents(let project): path = ["api", "v1", "projects", project, "agents"]
         case .sessions(let agent): path = ["api", "v1", "agents", agent, "sessions"]
         case .transcript(let agent, let session, let offset, let limit):
@@ -106,6 +118,12 @@ public actor AnnexTransport: AnnexTransporting {
 
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         let data = try command.encoded()
+        let now = Date()
+        let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
+        guard now.timeIntervalSince(command.createdAt) < ttl else {
+            throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+        }
+        commands = commands.filter { $0.value.expiresAt > now }
         let digest = AnnexCertificatePin.digest(data)
         let key = command.epoch + ":" + command.commandID
         if let recorded = commands[key] {
@@ -115,7 +133,7 @@ public actor AnnexTransport: AnnexTransporting {
         }
         guard !commandBusy else { throw AnnexTransportError.commandInFlight }
         guard commands.count < commandCapacity else { throw AnnexTransportError.queueOverflow }
-        guard let capabilities, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
+        guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
             throw AnnexTransportError.unsupportedCapability(command.type)
         }
         // Reserve before the first await so concurrent commands cannot overtake.
@@ -126,12 +144,17 @@ public actor AnnexTransport: AnnexTransporting {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = data
-        commands[key] = CommandRecord(digest: digest, receipt: nil)
+        commands[key] = CommandRecord(digest: digest, expiresAt: command.createdAt.addingTimeInterval(ttl), receipt: nil)
         do {
             let response = try await io.perform(request)
             // A valid receipt wins even if cancellation races after dispatch.
             guard let receipt = try? JSONDecoder().decode(AnnexCommandReceipt.self, from: response.data),
-                  receipt.version == 1, receipt.commandId == command.commandID, receipt.epoch == command.epoch else {
+                  receipt.version == 1,
+                  (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
+                  (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
+                  ((receipt.status == .completed && (200...299).contains(response.status))
+                   || (receipt.status == .rejected && (400...499).contains(response.status))
+                   || (receipt.status == .failed && (500...599).contains(response.status))) else {
                 throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
             }
             commands[key]?.receipt = receipt
@@ -146,6 +169,7 @@ public actor AnnexTransport: AnnexTransporting {
         var attempt = 0
         var hasConnected = false
         while !Task.isCancelled && current == generation {
+            let started = ContinuousClock.now
             do {
                 // Bind the stored host identity to the pinned endpoint on every connection.
                 let identity = try await read(.identity)
@@ -158,7 +182,6 @@ public actor AnnexTransport: AnnexTransporting {
                 let newSocket = try await io.openWebSocket(request)
                 guard current == generation && !Task.isCancelled else { await newSocket.close(); return }
                 socket = newSocket
-                transition(.connected)
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
@@ -168,6 +191,7 @@ public actor AnnexTransport: AnnexTransporting {
                 if let terminal = terminalError(error) {
                     transition(.failed(terminal)); loop = nil; return
                 }
+                if ContinuousClock.now - started > .seconds(30) { attempt = 0 }
                 attempt += 1
                 let delay = backoff.delay(attempt: attempt)
                 transition(.reconnecting(attempt: attempt, delaySeconds: delay))
@@ -187,7 +211,7 @@ public actor AnnexTransport: AnnexTransporting {
             switch error.code {
             case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot,
                  .serverCertificateNotYetValid, .clientCertificateRejected, .clientCertificateRequired,
-                 .secureConnectionFailed, .userCancelledAuthentication: return .trustRequired
+                 .secureConnectionFailed, .userCancelledAuthentication, .cancelled: return .trustRequired
             default: return nil
             }
         }
@@ -228,6 +252,7 @@ public actor AnnexTransport: AnnexTransporting {
             if envelope.type != "snapshot" { throw AnnexTransportError.disconnected }
         case .deliver: break
         }
+        if envelope.type == "snapshot" { transition(.connected) }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = envelope.snapshotSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]

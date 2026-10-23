@@ -16,6 +16,8 @@ nonisolated public struct AnnexPairingIdentity: Sendable {
     }
 }
 
+nonisolated public enum AnnexPairingMode: String, Sendable { case session, persistent }
+
 nonisolated public struct AnnexPairingResult: Sendable {
     public let host: TrustedAnnexHost
     public let publicKey: String
@@ -34,26 +36,33 @@ nonisolated public struct AnnexPairingClient: Sendable {
 
     /// Explicit action after desktop trust verification. PIN and token are only
     /// carried inside pinned TLS. No fallback to the legacy HTTP pairing port.
-    public func pair(pin: String, alias: String) async throws -> AnnexPairingResult {
+    public func pair(pin: String, alias: String, mode: AnnexPairingMode = .session) async throws -> AnnexPairingResult {
         guard !pin.isEmpty, pin.count <= 128, !alias.isEmpty, alias.count <= 128 else { throw AnnexTransportError.malformedResponse }
         struct Request: Encodable {
             let pin: String, publicKey: String, alias: String
             let icon = "smartphone"
             let color = "indigo"
-            let clientType = "mobile"
+            let pairingMode: String
         }
         var request = URLRequest(url: try host.endpoint.url(path: ["pair"]))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(Request(pin: pin, publicKey: clientIdentity.pairingIdentity.publicKeyBase64, alias: alias))
+        request.httpBody = try JSONEncoder().encode(Request(pin: pin, publicKey: clientIdentity.pairingIdentity.publicKeyBase64, alias: alias, pairingMode: mode.rawValue))
         try Task.checkCancellation()
         let response = try await io.perform(request)
         try Task.checkCancellation()
         guard response.status == 200 else { throw AnnexHTTPValidation.error(response) }
         struct Response: Decodable {
             let token: String, publicKey: String, fingerprint: String, alias: String
+            let tlsCertificateFingerprint: String
+            let mobileProtocolVersion: Int
+            let pairingMode: String
         }
         guard let result = try? JSONDecoder().decode(Response.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
+        guard result.mobileProtocolVersion == 1, result.pairingMode == mode.rawValue,
+              try AnnexCertificatePin(sha256: result.tlsCertificateFingerprint) == host.certificatePin else {
+            throw AnnexTransportError.identityMismatch
+        }
         let actual = try AnnexPairingIdentity.fingerprint(publicKeyBase64: result.publicKey)
         guard result.fingerprint.lowercased() == actual, actual == host.hostID else { throw AnnexTransportError.identityMismatch }
         let credential = try AnnexCredential(bearerToken: result.token)

@@ -31,7 +31,7 @@ public actor AnnexTransportRegistry {
         let identity = try clientIdentity ?? AnnexClientIdentity.ephemeral()
         let io = PinnedAnnexIO(host: host, clientIdentity: identity)
         let temporary = MemoryAnnexCredentialStore()
-        let result = try await AnnexPairingClient(host: host, clientIdentity: identity, credentials: temporary, io: io).pair(pin: pin, alias: alias)
+        let result = try await AnnexPairingClient(host: host, clientIdentity: identity, credentials: temporary, io: io).pair(pin: pin, alias: alias, mode: persistence == .persistent ? .persistent : .session)
         guard let credential = await temporary.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
         if persistence == .persistent, let pairings {
             try await pairings.save(AnnexSavedPairing(host: host, alias: result.alias, identity: identity, credential: credential))

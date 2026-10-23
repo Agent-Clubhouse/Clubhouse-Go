@@ -111,7 +111,7 @@ private actor StubIO: AnnexIO {
     func last() -> URLRequest? { requests.last }
 }
 private func jsonResponse(_ value: String, status: Int = 200) -> AnnexHTTPResponse { AnnexHTTPResponse(status: status, data: Data(value.utf8)) }
-private let capabilityJSON = #"{"version":1,"epoch":"epoch1","controlAuth":"mtls-pinned-client","commands":["chat.send","chat.interrupt"],"idempotency":{"scope":"peer-and-epoch","maxEntries":2048,"ttlMs":3600000}}"#
+private let capabilityJSON = #"{"version":1,"epoch":"epoch1","controlAuth":"mtls-pinned-client","controlAvailable":true,"commands":["chat.send","chat.interrupt"],"idempotency":{"scope":"peer-and-epoch","maxEntries":2048,"ttlMs":3600000}}"#
 private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTransport {
     let host = try testHost()
     let credentials = MemoryAnnexCredentialStore()
@@ -173,13 +173,15 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: server.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "localhost", port: 4321), verifiedHostID: fingerprint,
                                    verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
-    let body = try JSONEncoder().encode(AnnexJSON.object(["token": .string("fake-only"), "publicKey": .string(server.publicKeyBase64), "fingerprint": .string(fingerprint), "alias": .string("Test")]))
+    let body = try JSONEncoder().encode(AnnexJSON.object(["token": .string("fake-only"), "publicKey": .string(server.publicKeyBase64), "fingerprint": .string(fingerprint), "alias": .string("Test"), "tlsCertificateFingerprint": .string(host.certificatePin.sha256), "mobileProtocolVersion": .integer(1), "pairingMode": .string("session")]))
     let io = StubIO(responses: [AnnexHTTPResponse(status: 200, data: body)])
     let store = MemoryAnnexCredentialStore()
     let result = try await AnnexPairingClient(host: host, clientIdentity: client, credentials: store, io: io).pair(pin: "123456", alias: "Mobile")
     #expect(result.publicKey == server.publicKeyBase64)
     #expect(await store.credential(for: host.hostID) != nil)
     #expect(await io.last()?.url?.scheme == "https")
+    let pairRequest = try JSONDecoder().decode(AnnexJSON.self, from: #require(await io.last()?.httpBody))
+    #expect(pairRequest["pairingMode"]?.string == "session")
     let wrongStore = MemoryAnnexCredentialStore()
     let wrongIO = StubIO(responses: [AnnexHTTPResponse(status: 200, data: body)])
     await #expect(throws: AnnexTransportError.identityMismatch) {
@@ -229,4 +231,54 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
     #expect(throws: AnnexTransportError.self) {
         try AnnexClientIdentity.restore(.init(certificateDER: one.certificateDER, rsaPrivateKey: one.rsaPrivateKey, ed25519PrivateKey: two.ed25519PrivateKey))
     }
+}
+
+@Test func bonjourHintsNeverBecomeTrustedAuthority() throws {
+    let candidate = try AnnexDiscoveredHost(id: "service1", name: "Desktop", host: "desktop.local.", port: 4321,
+        txt: ["fingerprint": Data("unverified-advertisement".utf8), "pairingPort": Data("7654".utf8)])
+    #expect(candidate.endpoint.route == .localNetwork)
+    #expect(candidate.identityFingerprintHint == "unverified-advertisement")
+    #expect(candidate.pairingPortHint == 7654)
+    #expect(throws: AnnexTransportError.self) {
+        try TrustedAnnexHost(endpoint: candidate.endpoint, verifiedHostID: candidate.identityFingerprintHint!, verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "00", count: 32)))
+    }
+}
+
+@Test func explicitRejectionWithoutCommandIDIsNotAnUnknownOutcome() async throws {
+    let io = StubIO(responses: [jsonResponse(capabilityJSON), jsonResponse(#"{"version":1,"epoch":"epoch1","status":"rejected","error":{"code":"invalid_command","message":"invalid_command"}}"#, status: 400)])
+    let transport = try await configured(io: io)
+    _ = try await transport.read(.capabilities)
+    let receipt = try await transport.execute(AnnexCommand(commandID: "invalid", epoch: "epoch1", kind: .send(agentID: "a", sessionID: "s", text: "")))
+    #expect(receipt.status == .rejected)
+    #expect(!receipt.isDispatchAcknowledged)
+}
+
+@Test func epochMismatchReceiptIsDefinitiveRejection() async throws {
+    let io = StubIO(responses: [jsonResponse(capabilityJSON), jsonResponse(#"{"version":1,"commandId":"old","epoch":"new-epoch","status":"rejected","error":{"code":"epoch_mismatch","message":"epoch_mismatch"}}"#, status: 409)])
+    let transport = try await configured(io: io)
+    _ = try await transport.read(.capabilities)
+    let receipt = try await transport.execute(AnnexCommand(commandID: "old", epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+    #expect(receipt.status == .rejected)
+    #expect(receipt.epoch == "new-epoch")
+}
+
+@Test func absentControlAuthorityDisablesCommands() async throws {
+    let io = StubIO(responses: [jsonResponse(capabilityJSON.replacingOccurrences(of: "\"controlAvailable\":true", with: "\"controlAvailable\":false"))])
+    let transport = try await configured(io: io)
+    _ = try await transport.read(.capabilities)
+    await #expect(throws: AnnexTransportError.unsupportedCapability("chat.interrupt")) {
+        try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+    }
+    #expect(await io.count() == 1)
+}
+
+@Test func chatHistoryEncodesSessionAndPaginationSeparately() async throws {
+    let io = StubIO(responses: [jsonResponse("{}")])
+    let transport = try await configured(io: io)
+    _ = try await transport.read(.chatHistory(agentID: "agent/1", sessionID: "session&1", beforeSeq: 321, limit: 100))
+    let url = try #require(await io.last()?.url)
+    #expect(url.absoluteString.contains("agent%2F1/chat"))
+    let query = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+    #expect(query.first(where: { $0.name == "sessionId" })?.value == "session&1")
+    #expect(query.first(where: { $0.name == "beforeSeq" })?.value == "321")
 }

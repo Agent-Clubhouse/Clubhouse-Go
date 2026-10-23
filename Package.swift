@@ -7,6 +7,6 @@ let package = Package(
     products: [.library(name: "ClubhouseTransport", targets: ["ClubhouseTransport"])],
     targets: [
         .target(name: "ClubhouseTransport", path: "Annex/Annex/Transport"),
-        .testTarget(name: "ClubhouseTransportTests", dependencies: ["ClubhouseTransport"], path: "Tests/ClubhouseTransportTests")
+        .testTarget(name: "ClubhouseTransportTests", dependencies: ["ClubhouseTransport"], path: "Tests/ClubhouseTransportTests", resources: [.copy("Fixtures")])
     ]
 )

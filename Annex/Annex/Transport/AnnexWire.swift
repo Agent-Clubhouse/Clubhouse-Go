@@ -74,6 +74,8 @@ nonisolated public enum AnnexTransportEvent: Sendable, Equatable {
 nonisolated public enum AnnexReadRoute: Sendable {
     case identity, status, projects, capabilities
     case chat(agentID: String)
+    case chatSessions(agentID: String)
+    case chatHistory(agentID: String, sessionID: String?, beforeSeq: Int64?, limit: Int)
     case agents(projectID: String)
     case sessions(agentID: String)
     case transcript(agentID: String, sessionID: String, offset: Int, limit: Int)
