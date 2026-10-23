@@ -1,6 +1,6 @@
 # Phone workflow integration
 
-Base: mobile integration `0fce51f`, plus Framebriar integration `5a4414a` (SDK `0907e98`). Work is isolated on `codex/mobile-phone-workflow`; desktop companion changes are on `codex/annex-phone-workflow`. Nothing is merged or released.
+Base: mobile integration `0fce51f`, plus Framebriar integrations `5a4414a` and `184e191` (SDK `d2a02f0`). Work is isolated on `codex/mobile-phone-workflow`; desktop companion changes are on `codex/annex-phone-workflow`. Nothing is merged or released.
 
 ## Features
 
@@ -9,7 +9,7 @@ Base: mobile integration `0fce51f`, plus Framebriar integration `5a4414a` (SDK `
 - A desktop-authorized sleeping durable exposes Wake agent. Sending a message can also resume it; the subsequent message uses the reconciled live session. Running terminal agents and historical sessions cannot falsely offer wake. Live controls remain capability-gated.
 - Existing experimental `richChatContent` is respected. Authenticated mobile mTLS routes reuse desktop stored-image and agent-root file-preview policy. Only known non-disposed agents are addressable; revoked authorization is checked again after reads. Content is capped at 8 MiB binary and is not HTTP-cached.
 - User-tapped stored-image previews support raster thumbnails, copy/share-preview, and sandboxed SVG image rendering (no JavaScript/external resources). Explicit code-span/Markdown file links support text/copy and platform-supported audio/video playback. AVFoundation is forbidden from following external references. Temporary playback files are protected and removed on close. Media never autoplays or loads arbitrary remote URLs; raster previews use the first frame and a maximum 2048-pixel edge.
-- Framebriar Settings and UI model are integrated. This build has no game ID and creates no feedback client. Enrollment, uploads, real credentials and screenshots remain opt-in, separately authorized actions; mocked flow tests exercise review/queue/delivery/disconnect.
+- Framebriar Settings, UI model and optional shake-to-open shortcut are integrated. Shake opens an empty composer only for eligible enrolled users; it is debounced, suppressed while typing/presenting/inactive, and can be disabled. This build has no game ID and creates no feedback client. Enrollment, uploads, real credentials and screenshots remain opt-in, separately authorized actions; mocked flow tests exercise review/queue/delivery/disconnect.
 
 ## Physical phone prerequisites — not yet performed
 
