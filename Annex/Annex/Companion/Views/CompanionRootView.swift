@@ -4,6 +4,8 @@ struct CompanionRootView: View {
     @Bindable var store: CompanionStore
     var onPair: () -> Void
     var onSettings: () -> Void
+    var isPreview = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var search = ""
     @State private var spawnProject: CompanionProjectTarget?
     @State private var filter: AgentFilter = .all
@@ -21,8 +23,10 @@ struct CompanionRootView: View {
                 .navigationSplitViewColumnWidth(min: 290, ideal: 340, max: 420)
         } detail: {
             if let target = store.selection, let agent = store.agent(for: target) {
-                CompanionConversationView(store: store, agent: agent)
-                    .id(target)
+                VStack(spacing: 0) {
+                    if isPreview { previewLabel.padding(6).frame(maxWidth: .infinity).background(.bar) }
+                    CompanionConversationView(store: store, agent: agent).id(target)
+                }
             } else {
                 ContentUnavailableView {
                     Label("Your agents, within reach", systemImage: "bubble.left.and.bubble.right")
@@ -41,6 +45,7 @@ struct CompanionRootView: View {
 
     private var sidebar: some View {
         List(selection: $store.selection) {
+            if isPreview { previewLabel.listRowBackground(Color.clear) }
             Section {
                 HStack(spacing: 16) {
                     overviewMetric("Working", count: allAgents.filter { $0.status == .working }.count, symbol: "waveform", color: .accentColor)
@@ -136,6 +141,11 @@ struct CompanionRootView: View {
     }
 
     private var allAgents: [CompanionAgent] { store.hosts.flatMap(\.projects).flatMap(\.agents) }
+    private var previewLabel: some View {
+        Text(dynamicTypeSize.isAccessibilitySize ? "Preview" : "UI PREVIEW · NO DESKTOP CONNECTED")
+            .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            .accessibilityLabel("UI preview. No desktop connected. Actions are disabled.")
+    }
     private func matches(_ agent: CompanionAgent) -> Bool {
         let matchesFilter = filter == .all || filter == .working && agent.status == .working || filter == .attention && (agent.status == .approval || agent.status == .waiting || agent.status == .failed)
         return matchesFilter && (search.isEmpty || "\(agent.name) \(agent.subtitle)".localizedCaseInsensitiveContains(search))

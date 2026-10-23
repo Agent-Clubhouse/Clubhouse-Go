@@ -12,6 +12,7 @@ import Observation
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
+    private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
@@ -215,17 +216,40 @@ import Observation
     }
 
     func spawn(project: CompanionProjectTarget, prompt: String, provider: String?, model: String?) async -> Bool {
-        guard !spawnInProgress, let host = hosts.first(where: { $0.id == project.hostID }), host.connection.canOperate, host.canSpawn,
+        guard !spawnInProgress, uncertainSpawnRequest == nil, let host = hosts.first(where: { $0.id == project.hostID }), host.connection.canOperate, host.canSpawn,
               !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return await dispatchSpawn(.init(project: project, prompt: prompt, provider: provider,
+                                         model: model, clientCommandID: UUID().uuidString))
+    }
+
+    /// Explicitly checks/re-dispatches the same idempotent request. The transport
+    /// refuses expired or cross-epoch retries; a second task is never invented.
+    func checkSpawnOutcome() async -> Bool {
+        guard !spawnInProgress, let request = uncertainSpawnRequest,
+              hosts.first(where: { $0.id == request.project.hostID })?.connection.canOperate == true else { return false }
+        return await dispatchSpawn(request)
+    }
+
+    func acknowledgeReviewedSpawn() {
+        guard !spawnInProgress else { return }
+        uncertainSpawnRequest = nil; spawnError = nil
+    }
+
+    private func dispatchSpawn(_ request: CompanionSpawnRequest) async -> Bool {
         spawnInProgress = true
         spawnError = nil
         defer { spawnInProgress = false }
         do {
-            let receipt = try await service.spawn(.init(project: project, prompt: prompt, provider: provider,
-                                                       model: model, clientCommandID: UUID().uuidString))
+            let receipt = try await service.spawn(request)
+            uncertainSpawnRequest = nil
             if let target = receipt.agentTarget { selection = target }
             return true
-        } catch { spawnError = error.localizedDescription; return false }
+        } catch {
+            if case CompanionServiceError.rejected = error { uncertainSpawnRequest = nil }
+            else { uncertainSpawnRequest = request }
+            spawnError = error.localizedDescription
+            return false
+        }
     }
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }

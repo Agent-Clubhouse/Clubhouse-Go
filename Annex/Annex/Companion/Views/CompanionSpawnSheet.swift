@@ -8,6 +8,7 @@ struct CompanionSpawnSheet: View {
     @State private var prompt = ""
     @State private var provider = ""
     @State private var model = ""
+    @State private var confirmReviewedSpawn = false
     @FocusState private var promptFocused: Bool
 
     var body: some View {
@@ -42,6 +43,17 @@ struct CompanionSpawnSheet: View {
                 if let error = store.spawnError {
                     Section { Label(error, systemImage: "exclamationmark.circle").foregroundStyle(.red) }
                 }
+                if let request = store.uncertainSpawnRequest {
+                    Section("Check the previous request") {
+                        Text("The desktop may already have started this agent. Check the original request before creating another task.")
+                        Text(request.prompt).font(.subheadline).foregroundStyle(.secondary)
+                        Button("Check previous request") {
+                            Task { if await store.checkSpawnOutcome() { dismiss() } }
+                        }.disabled(store.spawnInProgress)
+                        Button("View agents") { dismiss() }
+                        Button("I've checked the agents") { confirmReviewedSpawn = true }
+                    }
+                }
             }
             .navigationTitle("New agent")
             .navigationBarTitleDisplayMode(.inline)
@@ -57,12 +69,18 @@ struct CompanionSpawnSheet: View {
                         if store.spawnInProgress { ProgressView().accessibilityLabel("Starting agent") }
                         else { Text("Start agent") }
                     }
-                    .disabled(store.spawnInProgress || selectedHost?.connection.canOperate != true || selectedHost?.canSpawn != true || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(store.spawnInProgress || store.uncertainSpawnRequest != nil || selectedHost?.connection.canOperate != true || selectedHost?.canSpawn != true || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                 }
             }
             .interactiveDismissDisabled(store.spawnInProgress || !prompt.isEmpty)
-            .onAppear { project = initialProject; store.spawnError = nil; promptFocused = true }
+            .confirmationDialog("Finish reviewing the previous request?", isPresented: $confirmReviewedSpawn, titleVisibility: .visible) {
+                Button("Continue with a new task") {
+                    store.acknowledgeReviewedSpawn()
+                    prompt = ""
+                }
+            } message: { Text("The earlier agent may still be running. Continue only after checking the desktop's agent list; starting a new task does not cancel it.") }
+            .onAppear { project = initialProject; if store.uncertainSpawnRequest == nil { store.spawnError = nil }; promptFocused = true }
         }
         .presentationDetents([.large])
     }

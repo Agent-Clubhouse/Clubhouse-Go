@@ -9,6 +9,8 @@ import Testing
     var responses: [String] = []
     var cancelled: [CompanionTarget] = []
     var spawnCount = 0
+    var spawnResult: SendResult = .accepted
+    var spawned: [CompanionSpawnRequest] = []
     var historyValue = CompanionHistory(items: [])
     var historyGate: CheckedContinuation<CompanionHistory, Error>?
     var shouldSuspendHistory = false
@@ -39,6 +41,9 @@ import Testing
     }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt {
         spawnCount += 1
+        spawned.append(request)
+        if spawnResult == .uncertain { throw CompanionServiceError.uncertain("Reply lost") }
+        if spawnResult == .rejected { throw CompanionServiceError.rejected("Not started") }
         return .init(clientCommandID: request.clientCommandID)
     }
     func reconnect(hostID: String) async {}
@@ -256,6 +261,26 @@ import Testing
         service.shouldSuspendHistory = false
         await store.load(target, force: true)
         #expect(store.canSend(target))
+    }
+
+    @Test func uncertainSpawnCannotCreateAnotherTaskOnRetry() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var value = host(id: "host-a"); value.canSpawn = true
+        store.apply(.hosts([value]))
+        let project = CompanionProjectTarget(hostID: "host-a", projectID: "project")
+        service.spawnResult = .uncertain
+        #expect(await !store.spawn(project: project, prompt: "Original task", provider: "provider", model: "model"))
+        #expect(store.uncertainSpawnRequest != nil)
+        #expect(await !store.spawn(project: project, prompt: "Duplicate", provider: nil, model: nil))
+        #expect(service.spawnCount == 1)
+        service.spawnResult = .accepted
+        #expect(await store.checkSpawnOutcome())
+        #expect(service.spawnCount == 2)
+        #expect(service.spawned[0].clientCommandID == service.spawned[1].clientCommandID)
+        #expect(service.spawned[1].prompt == "Original task")
+        #expect(service.spawned[1].model == "model")
+        #expect(store.uncertainSpawnRequest == nil)
     }
 
     @Test func restartedSessionHistoryReplacesOlderHighSequence() async {
