@@ -11,6 +11,6 @@ let package = Package(
     targets: [
         .target(name: "Framebriar"),
         .target(name: "FramebriarUI", dependencies: ["Framebriar"]),
-        .testTarget(name: "FramebriarTests", dependencies: ["Framebriar"], resources: [.copy("Fixtures")])
+        .testTarget(name: "FramebriarTests", dependencies: ["Framebriar", "FramebriarUI"], resources: [.copy("Fixtures")])
     ]
 )

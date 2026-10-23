@@ -61,6 +61,7 @@ struct CompanionAppRoot: View {
     @State private var runtime: CompanionRuntime
     @State private var showPairing = false
     @State private var showSettings = false
+    @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -77,6 +78,8 @@ struct CompanionAppRoot: View {
         CompanionRootView(store: runtime.store, onPair: { showPairing = true }, onSettings: { showSettings = true })
             .sheet(isPresented: $showPairing) { CompanionPairingSheet(runtime: runtime) }
             .sheet(isPresented: $showSettings) { CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true }) }
+            .shakeToOpenFeedback(model: runtime.feedback, enabled: shakeFeedbackEnabled,
+                                 isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
             .overlay(alignment: .top) {
                 if runtime.isRestoring { ProgressView("Restoring desktops…").padding().background(.regularMaterial, in: Capsule()).padding() }
             }

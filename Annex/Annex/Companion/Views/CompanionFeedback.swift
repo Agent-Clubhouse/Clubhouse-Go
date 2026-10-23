@@ -4,6 +4,7 @@ import FramebriarUI
 
 /// Composition-only adapter: has no access to agent conversations, prompts, transport or pairing credentials.
 @MainActor enum CompanionFeedback {
+    static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
     static func makeModel() -> FeedbackModel? {
         // Intentionally unconfigured. Set a server-approved game ID in the build's Info.plist
         // only after the owner approves live enrollment. A missing value creates no client/network activity.
@@ -27,6 +28,7 @@ import FramebriarUI
 
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
+    @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
     var body: some View {
         Section("Developer feedback") {
             if let model {
@@ -39,6 +41,9 @@ struct CompanionFeedbackSettings: View {
             } else {
                 Text("Feedback is not configured for this build or local storage is unavailable.")
             }
+            Toggle("Shake to open feedback", isOn: $shakeEnabled)
+            Text("When enrolled, shake opens a blank feedback form. It never captures or sends automatically. You can also use Send feedback in Settings.")
+                .font(.caption).foregroundStyle(.secondary)
             Text("Only your submitted notes and optional reviewed image are shared. No agent content, prompts, diagnostics, or telemetry are collected.")
                 .font(.caption).foregroundStyle(.secondary)
         }

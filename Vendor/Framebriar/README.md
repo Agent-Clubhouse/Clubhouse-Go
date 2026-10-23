@@ -88,3 +88,20 @@ python3 scripts/native-pin.py --check
 ```
 
 The Swift tests use synthetic credentials, injected clocks and in-memory transports; they do not contact the service. A shared fixture checks the Swift report against the actual JS service normalizer. Tests cover text/image flows, same-UUID recovery, invite attempt reuse, early renewal/fixed deadlines, rejection, pause/disconnect races, expiry, storage failure, item/byte bounds, redaction, corrupt local files and durable backoff. Full live enrollment, issuer state, real-device Keychain/protection behavior, physical-device UI, provisioning and release remain separate approval/validation gates.
+
+## Optional shake shortcut
+
+Settings → Send feedback is always available to eligible enrolled users. To also use UIKit's shake gesture, install `shakeToOpenFeedback(model:enabled:isPresenting:)` once at the scene root. It opens the same **empty composer**, never a captured screen and never a submission. The core package does not depend on motion APIs; this is entirely optional `FramebriarUI` behavior.
+
+```swift
+@AppStorage("feedback.shakeEnabled") private var shakeEnabled = true
+// In Settings:
+Toggle("Shake to open feedback", isOn: $shakeEnabled)
+// On the scene's root view:
+content.shakeToOpenFeedback(model: feedback, enabled: shakeEnabled,
+                           isPresenting: showingSettings || showingPairing || showingError)
+```
+
+Pass all host presentation flags to cover the time before UIKit begins presenting. The receiver also checks UIKit's window/controller tree for nested presentations and checks for active text input. It does not steal the keyboard's first responder, swizzle UIApplication, collect motion samples, add analytics, or transmit anything. It is active only in the foreground and only while `canSubmit` is true (including previously enrolled users saving offline/expired feedback locally). Never-enrolled users cannot open the composer by shaking.
+
+Repeated motion is debounced for two seconds; known presentation/dismissal boundaries restart that delay. The SDK does not enable a preference by itself: the host supplies `enabled`. Clubhouse Go defaults this local shortcut on for eligible enrolled users and supplies a persistent Settings toggle to disable it. The existing Settings entry remains usable when disabled. A screenshot must still be explicitly picked, displayed, removable, and reviewed before Submit; notes and attachments start empty every time.
