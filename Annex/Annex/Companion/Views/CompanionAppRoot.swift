@@ -1,9 +1,12 @@
 import SwiftUI
+import Framebriar
+import FramebriarUI
 #if canImport(ClubhouseTransport)
 import ClubhouseTransport
 #endif
 
 @MainActor @Observable final class CompanionRuntime {
+    let feedback: FeedbackModel?
     let service: CompanionLiveService
     let store: CompanionStore
     let registry: AnnexTransportRegistry
@@ -14,6 +17,7 @@ import ClubhouseTransport
     private var started = false
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
+        self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
         self.registry = registry
         let service = CompanionLiveService()
         self.service = service
@@ -85,6 +89,22 @@ struct CompanionAppRoot: View {
                 await bootstrapIntegrationIfRequested()
                 #endif
             }
+            .task(id: scenePhase) {
+                guard let feedback = runtime.feedback else { return }
+                await feedback.setActive(scenePhase == .active)
+                guard scenePhase == .active else { return }
+                while !Task.isCancelled {
+                    await feedback.tick()
+                    do { try await Task.sleep(for: .seconds(15)) } catch { return }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if let feedback = runtime.feedback, let status = feedback.status,
+                   status.canSubmit && [.expired, .accessRequired, .offline].contains(status.access) {
+                    Button("Feedback access: \(status.access.rawValue). Reports stay on this device. Open Settings.") { showSettings = true }
+                        .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
+                }
+            }
             .onChange(of: scenePhase) { _, phase in
                 switch phase {
                 case .active: runtime.lifecycle.update(.active)
@@ -120,6 +140,7 @@ struct CompanionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Your desktops") {
                     ForEach(runtime.store.hosts) { host in
                         VStack(alignment: .leading, spacing: 10) {
