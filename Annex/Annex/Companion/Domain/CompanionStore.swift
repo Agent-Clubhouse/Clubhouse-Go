@@ -51,6 +51,20 @@ import Observation
     func canOperate(_ target: CompanionTarget) -> Bool {
         host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
+    func canWake(_ target: CompanionTarget) -> Bool {
+        canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
+    }
+    func wake(_ target: CompanionTarget) async {
+        guard canWake(target) else { return }
+        pendingCommands.insert(target); operationErrors.removeValue(forKey: target)
+        defer { pendingCommands.remove(target) }
+        do { try await service.wake(target, clientCommandID: UUID().uuidString); await load(target, force: true) }
+        catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
+    }
+    func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        guard host(for: target)?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
+        return try await service.content(reference, target: target)
+    }
     func canSend(_ target: CompanionTarget) -> Bool {
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)

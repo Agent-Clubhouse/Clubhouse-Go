@@ -42,6 +42,26 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
         guard let url = try? url(path: []), url.host != nil else { throw AnnexTransportError.invalidEndpoint }
     }
 
+    /// Accept a bare IPv4/hostname plus port, host:port, or an exact HTTPS
+    /// origin. Never accept credentials, paths, queries, or insecure HTTP.
+    public static func manual(address: String, port: String) throws -> AnnexEndpoint {
+        let input = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let separate = port.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty, !input.contains("\\"), !input.contains("%") else { throw AnnexTransportError.invalidEndpoint }
+        let urlText = input.contains("://") ? input : "https://" + input
+        guard let components = URLComponents(string: urlText), components.scheme == "https",
+              components.user == nil, components.password == nil, components.query == nil, components.fragment == nil,
+              components.path.isEmpty || components.path == "/", let host = components.host,
+              !host.isEmpty else { throw AnnexTransportError.invalidEndpoint }
+        let embedded = components.port.flatMap(UInt16.init(exactly:))
+        let supplied = UInt16(separate)
+        guard components.port == nil || embedded != nil,
+              separate.isEmpty || supplied != nil,
+              embedded == nil || supplied == nil || embedded == supplied,
+              let number = supplied ?? embedded, number != 0 else { throw AnnexTransportError.invalidEndpoint }
+        return try .init(host: host, port: number, route: host.hasSuffix(".ts.net") ? .tailscale : .manual)
+    }
+
     /// Path components are individually encoded, including slash, percent and query characters.
     public func url(path: [String], query: [URLQueryItem] = [], webSocket: Bool = false) throws -> URL {
         var components = URLComponents()

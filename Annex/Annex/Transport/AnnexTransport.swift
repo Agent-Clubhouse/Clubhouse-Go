@@ -89,6 +89,11 @@ public actor AnnexTransport: AnnexTransporting {
         case .status: path = ["api", "v1", "status"]
         case .projects: path = ["api", "v1", "projects"]
         case .capabilities: path = ["api", "v1", "mobile", "capabilities"]
+        case .chatContent(let agent, let reference, let file):
+            guard (reference != nil) != (file != nil) else { throw AnnexTransportError.invalidEndpoint }
+            path = ["api", "v1", "mobile", "agents", agent, "content"]
+            if let reference { query = [.init(name: "mediaRef", value: reference)] }
+            if let file { query = [.init(name: "path", value: file)] }
         case .chat(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat"]
         case .chatSessions(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat", "sessions"]
         case .chatHistory(let agent, let session, let before, let limit):

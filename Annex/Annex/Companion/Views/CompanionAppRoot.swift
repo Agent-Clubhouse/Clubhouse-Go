@@ -121,6 +121,7 @@ struct CompanionAppRoot: View {
         struct TestInvitation: Decodable { var host: String; var port: UInt16; var hostID: String; var certificatePin: String; var pin: String; var name: String? }
         do {
             let config = try JSONDecoder().decode(TestInvitation.self, from: data)
+            if ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_MANUAL_TEST"] == "1" { showPairing = true; return }
             let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: config.host, port: config.port), verifiedHostID: config.hostID,
                                             verifiedCertificatePin: AnnexCertificatePin(sha256: config.certificatePin))
             try await runtime.pair(host: host, pin: config.pin, name: config.name ?? "Integration desktop", remember: false)

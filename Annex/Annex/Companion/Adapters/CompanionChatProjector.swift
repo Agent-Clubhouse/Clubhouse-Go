@@ -94,7 +94,10 @@ struct CompanionChatProjector {
             }
             upsert(.tool(.init(id: toolID, name: data["title"]?.string ?? data["toolName"]?.string ?? old?.name ?? "Tool activity",
                                summary: input ?? old?.summary ?? "", output: data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output,
-                               state: state)))
+                               state: state, images: data["media"] == nil ? old?.images ?? [] : data["media"].arrayValue.prefix(16).compactMap { image in
+                                   guard let reference = image["mediaRef"]?.string, CompanionContentReference.validMediaReference(reference) else { return nil }
+                                   return .image(reference)
+                               })))
         case "permission_request":
             guard let requestID = data["requestId"]?.string else { return }
             let options = data["options"].arrayValue.compactMap { value -> CompanionApprovalOption? in
@@ -214,7 +217,8 @@ struct CompanionChatProjector {
         case "waiting_input": .waiting
         case "error", "failed": .failed
         case "completed": .completed
-        case "sleeping", "cancelled": .stopped
+        case "sleeping": .sleeping
+        case "cancelled": .stopped
         default: .idle
         }
     }

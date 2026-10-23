@@ -25,12 +25,15 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
 /// Explicit user-driven LAN discovery. Creates no client identity or connection
 /// credentials. Stop when the pairing sheet closes; never browse in background.
 @MainActor public final class AnnexDiscovery: NSObject, @preconcurrency NetServiceBrowserDelegate, @preconcurrency NetServiceDelegate {
+    private let makeBrowser: () -> NetServiceBrowser
     private var browser: NetServiceBrowser?
     private var services: [String: NetService] = [:]
     private var hosts: [String: AnnexDiscoveredHost] = [:]
     private var continuations: [UUID: AsyncStream<AnnexDiscoveryState>.Continuation] = [:]
     private var errorCode: Int?
-    public override init() { super.init() }
+    public override init() { makeBrowser = { NetServiceBrowser() }; super.init() }
+    /// Injectable discovery engine; tests never browse the user's network.
+    public init(makeBrowser: @escaping () -> NetServiceBrowser) { self.makeBrowser = makeBrowser; super.init() }
     public func states() -> AsyncStream<AnnexDiscoveryState> {
         let id = UUID()
         let (stream, continuation) = AsyncStream<AnnexDiscoveryState>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -44,7 +47,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     public func start() {
         guard browser == nil else { return }
         errorCode = nil
-        let browser = NetServiceBrowser()
+        let browser = makeBrowser()
         browser.delegate = self
         self.browser = browser
         browser.searchForServices(ofType: "_clubhouse-annex._tcp.", inDomain: "local.")

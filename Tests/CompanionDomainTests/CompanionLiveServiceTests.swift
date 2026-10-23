@@ -19,7 +19,11 @@ private actor LiveTestTransport: AnnexTransporting {
     private var historyResponse: AnnexJSON = .object([:])
     private var commands: [String: AnnexCommandReceipt] = [:]
     private(set) var executedIDs: [String] = []
+    private var startedHistory: AnnexJSON?
+    func setStartedHistory(_ value: AnnexJSON) { startedHistory = value }
     private var rejectNext = true
+    private(set) var executedKinds: [String] = []
+    func acceptCommands() { rejectNext = false }
 
     func delaySubscription() { holdEvents = true }
     func releaseSubscription() { holdEvents = false; eventsWaiting = false; eventsGate?.resume(); eventsGate = nil }
@@ -77,6 +81,8 @@ private actor LiveTestTransport: AnnexTransporting {
     }
     func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt {
         executedIDs.append(command.commandID)
+        executedKinds.append(command.type)
+        if command.type == "agent.start", let startedHistory { historyResponse = startedHistory }
         if let receipt = commands[command.commandID] { return receipt }
         let status = rejectNext ? "rejected" : "completed"
         rejectNext = false
@@ -119,6 +125,47 @@ private actor LiveTestTransport: AnnexTransporting {
         .message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": event])))
     }
 
+
+    @Test func sleepingDurableCanWakeOnlyAfterAuthoritativeSnapshot() async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(true)]))
+        let (_, store) = try await setup(transport)
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(!store.canWake(target))
+        await store.load(target)
+        try await waitUntil { store.canWake(target) }
+        #expect(store.canWake(target))
+        #expect(store.agent(for: target)?.status == .sleeping)
+        await store.wake(target)
+        #expect(await transport.executedKinds == ["agent.start"])
+        store.stop()
+    }
+    @Test func messageWakesThenNextMessageUsesTheLiveSession() async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(true)]))
+        await transport.setStartedHistory(snapshot("new-session", text: "hello"))
+        let (service, store) = try await setup(transport)
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        _ = try await service.history(for: target)
+        _ = try await service.send(.init(target: target, text: "wake message", clientCommandID: "wake-message", isSteering: false))
+        _ = try await service.send(.init(target: target, text: "follow up", clientCommandID: "follow-up", isSteering: false))
+        #expect(await transport.executedKinds == ["agent.start", "chat.send"])
+        store.stop()
+    }
+    @Test func historicalOrTerminalSessionCannotOfferWakeWithoutDesktopAuthority() async throws {
+        let transport = LiveTestTransport()
+        await transport.setHistory(.object(["sessionId": .string("old"), "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(false)]))
+        let (_, store) = try await setup(transport)
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await store.load(target)
+        #expect(!store.canWake(target))
+        #expect(!store.canSend(target))
+        await store.wake(target)
+        #expect(await transport.executedKinds.isEmpty)
+        store.stop()
+    }
 
     @Test func staleDelayedSubscriptionCannotConnectRemovedOrReplacedHost() async throws {
         let old = LiveTestTransport()

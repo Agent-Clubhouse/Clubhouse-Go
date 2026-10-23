@@ -106,7 +106,10 @@ private struct CompanionArchivedSessionView: View {
         switch item {
         case .message(let message):
             CompanionMessageView(message: archived(message), canRetry: false, retry: {})
-        case .tool(let tool): CompanionToolCard(tool: tool)
+            if message.role == .assistant { CompanionContentLinks(references: CompanionContentReference.files(in: message.text), store: store, target: target) }
+        case .tool(let tool):
+            CompanionToolCard(tool: tool)
+            CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
         case .approval(let approval):
             VStack(alignment: .leading, spacing: 8) {
                 Label(approval.toolName, systemImage: "hand.raised").font(.headline)

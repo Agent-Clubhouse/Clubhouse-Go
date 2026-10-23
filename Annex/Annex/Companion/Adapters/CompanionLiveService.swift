@@ -70,7 +70,7 @@ import ClubhouseTransport
             projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
             if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
                 readOnly.insert(target)
-                projection.capabilities = capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat] : []
+                projection.capabilities = snapshot["canStart"].boolValue && capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat, .wake] : []
             } else { readOnly.remove(target) }
             // Live events received while HTTP was in flight are applied after its snapshot.
             let buffered = buffers.removeValue(forKey: target) ?? []
@@ -124,12 +124,48 @@ import ClubhouseTransport
                          delivery: request.isSteering ? .steer : request.queueIfBusy ? .queued : .auto)
         }
         let receipt = try await execute(kind, id: request.clientCommandID, hostID: request.target.hostID)
+        if case .start = kind {
+            // A message can wake a sleeping durable too. Reconcile the newly
+            // running session before another send, rather than starting it twice.
+            do { _ = try await history(for: request.target) }
+            catch { emit(.resyncRequired(hostID: request.target.hostID)) }
+        }
         if let messageID = receipt.result?["messageId"]?.string {
             if let item = projections[request.target]?.reconcile(messageID: messageID, commandID: request.clientCommandID) {
                 emit(.upsert(request.target, item, sequence: nil))
             }
         }
         return .init(clientCommandID: request.clientCommandID)
+    }
+
+    func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
+        guard readOnly.contains(target), projections[target]?.capabilities.contains(.wake) == true else {
+            throw CompanionServiceError.rejected("Refresh the conversation before waking this agent.")
+        }
+        _ = try await execute(.start(agentID: target.agentID, resume: true), id: clientCommandID, hostID: target.hostID)
+        await refresh(hostID: target.hostID)
+    }
+
+    func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        guard hosts[target.hostID]?.richContentAvailable == true else {
+            throw CompanionServiceError.unavailable("Enable Rich chat content in desktop Experimental settings. A compatible Annex version is required.")
+        }
+        let route: AnnexReadRoute
+        switch reference {
+        case .image(let ref):
+            guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
+            route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
+        case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+        }
+        let value = try await transport(for: target.hostID).read(route)
+        guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
+              let name = value["name"]?.string else { throw AnnexTransportError.malformedResponse }
+        let encoded = value["base64"]?.string
+        guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
+        let bytes = encoded.flatMap { Data(base64Encoded: $0) }
+        guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
+        return .init(kind: kind, name: name, mimeType: value["mimeType"]?.string, bytes: bytes,
+                     text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
     }
 
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
@@ -352,6 +388,7 @@ import ClubhouseTransport
             }
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             capabilities[hostID] = newCapabilities
+            hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
             hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
@@ -426,6 +463,7 @@ import ClubhouseTransport
             result.subtract([.steer, .queue])
             if !commands.contains("agent.start") { result.remove(.chat) }
         }
+        if !commands.contains("agent.start") { result.remove(.wake) }
         if !commands.contains("chat.interrupt") { result.remove(.cancel) }
         if !commands.contains("chat.permission") { result.remove(.approve) }
         if !commands.contains("chat.question") { result.remove(.answer) }
