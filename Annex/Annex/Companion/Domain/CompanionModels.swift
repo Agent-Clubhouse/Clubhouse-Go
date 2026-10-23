@@ -202,17 +202,19 @@ struct CompanionConversation: Equatable, Sendable {
     var hasEarlierMessages = false
     var lastSequence: Int?
     var requiresResync = false
+    var sessionID: String?
 }
 
 struct CompanionHistory: Sendable {
     var items: [CompanionTimelineItem]
     var hasEarlierMessages = false
     var lastSequence: Int?
+    var sessionID: String?
 }
 
 enum CompanionEvent: Sendable {
     case hosts([CompanionHost])
-    case timeline(CompanionTarget, items: [CompanionTimelineItem], sequence: Int, reset: Bool)
+    case timeline(CompanionTarget, items: [CompanionTimelineItem], sequence: Int, reset: Bool, sessionID: String? = nil)
     case upsert(CompanionTarget, CompanionTimelineItem, sequence: Int?)
     case textDelta(CompanionTarget, messageID: String, text: String, sequence: Int?)
     case streamFinished(CompanionTarget, messageID: String, sequence: Int?)

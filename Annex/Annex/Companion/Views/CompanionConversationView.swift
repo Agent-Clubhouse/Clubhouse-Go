@@ -46,7 +46,12 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { composer }
-        .task(id: target) { await store.load(target) }
+        .task(id: target) { await store.load(target, force: conversation.requiresResync) }
+        .onChange(of: connection) { _, current in
+            if current.canOperate && conversation.requiresResync && !conversation.isLoading {
+                Task { await store.load(target, force: true) }
+            }
+        }
         .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }

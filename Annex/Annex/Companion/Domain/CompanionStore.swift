@@ -70,7 +70,8 @@ import Observation
                 return message.delivery != .confirmed && !acknowledged.contains(commandID)
             }
             // Do not overwrite events received while a history request was in flight.
-            if let historySequence = history.lastSequence, let currentSequence = current.lastSequence,
+            if history.sessionID == current.sessionID,
+               let historySequence = history.lastSequence, let currentSequence = current.lastSequence,
                currentSequence > historySequence {
                 let currentByID = Dictionary(current.items.map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
                 let historyIDs = Set(history.items.map(\.id))
@@ -78,9 +79,11 @@ import Observation
                 current.isLoading = false
                 current.isLoaded = true
                 current.hasEarlierMessages = history.hasEarlierMessages
+                current.requiresResync = false
+                current.error = nil
             } else {
                 current = .init(items: history.items + local, isLoading: false, isLoaded: true,
-                                hasEarlierMessages: history.hasEarlierMessages, lastSequence: history.lastSequence)
+                                hasEarlierMessages: history.hasEarlierMessages, lastSequence: history.lastSequence, sessionID: history.sessionID)
             }
             conversations[target] = current
         } catch {
@@ -226,7 +229,7 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts): self.hosts = hosts
-        case .timeline(let target, let items, let sequence, let reset):
+        case .timeline(let target, let items, let sequence, let reset, let sessionID):
             if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
             let commandIDs = Set(items.compactMap { item -> String? in
                 if case .message(let message) = item { return message.clientCommandID }; return nil
@@ -246,6 +249,7 @@ import Observation
             }
             conversations[target, default: .init()].items = merged + local
             conversations[target, default: .init()].lastSequence = sequence
+            conversations[target, default: .init()].sessionID = sessionID
         case .resyncRequired(let hostID):
             for target in conversations.keys where target.hostID == hostID {
                 conversations[target]?.requiresResync = true

@@ -258,6 +258,34 @@ import Testing
         #expect(store.canSend(target))
     }
 
+    @Test func restartedSessionHistoryReplacesOlderHighSequence() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        store.apply(.timeline(target, items: [.notice(id: "old", text: "Previous session")], sequence: 100,
+                              reset: true, sessionID: "old-session"))
+        store.apply(.resyncRequired(hostID: target.hostID))
+        service.historyValue = .init(items: [.notice(id: "new", text: "Restarted session")],
+                                     lastSequence: 2, sessionID: "new-session")
+        await store.load(target, force: true)
+        #expect(store.conversation(for: target).items.map(\.id) == ["notice:new"])
+        #expect(store.conversation(for: target).sessionID == "new-session")
+        #expect(!store.conversation(for: target).requiresResync)
+    }
+
+    @Test func successfulHistoryWithNewerLiveEventsClearsResync() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        store.apply(.timeline(target, items: [.notice(id: "live", text: "Live update")], sequence: 12,
+                              reset: true, sessionID: "session"))
+        store.apply(.resyncRequired(hostID: target.hostID))
+        service.historyValue = .init(items: [.notice(id: "past", text: "Earlier update")],
+                                     lastSequence: 10, sessionID: "session")
+        await store.load(target, force: true)
+        #expect(store.conversation(for: target).items.count == 2)
+        #expect(!store.conversation(for: target).requiresResync)
+        #expect(store.canOperate(target))
+    }
+
 }
 
 @MainActor private final class TestDraftPersistence: CompanionDraftPersistence {

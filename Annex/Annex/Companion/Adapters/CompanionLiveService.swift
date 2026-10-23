@@ -81,7 +81,7 @@ import ClubhouseTransport
             projections[target] = projection
             updateAgent(target, projection: projection)
             emitHosts()
-            return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence)
+            return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID)
         } catch {
             guard historyGenerations[target] == generation else { throw CancellationError() }
             let pending = buffers.removeValue(forKey: target) ?? []
@@ -195,7 +195,9 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
                 await refresh(hostID: hostID)
             case .connecting: hosts[hostID]?.connection = .connecting
-            case .disconnected, .suspended: hosts[hostID]?.connection = .offline
+            case .disconnected, .suspended:
+                hosts[hostID]?.connection = .offline
+                emit(.resyncRequired(hostID: hostID))
             case .reconnecting: hosts[hostID]?.connection = .reconnecting
             case .failed(let error): hosts[hostID]?.connection = .failed(Self.readableError(error))
             }
@@ -295,7 +297,7 @@ import ClubhouseTransport
         projection.apply(event)
         projections[target] = projection
         updateAgent(target, projection: projection)
-        emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID))
+        emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID, sessionID: projection.sessionID))
         emitHosts()
     }
     private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
