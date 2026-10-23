@@ -114,7 +114,14 @@ import Observation
     /// Retry is only offered for a definite rejection. Unknown delivery requires reconciliation first.
     func retry(messageID: String, target: CompanionTarget) async {
         guard canSend(target), let item = conversation(for: target).items.first(where: { $0.id == "message:\(messageID)" }),
-              case .message(let message) = item, case .failed = message.delivery else { return }
+              case .message(var message) = item, case .failed = message.delivery else { return }
+        // A definitive rejection is cached by both transport and desktop. A
+        // deliberate retry is a new logical command; uncertain outcomes never
+        // enter this path and retain their original identity for reconciliation.
+        if let previousID = message.clientCommandID { sendRequests.removeValue(forKey: previousID) }
+        message.clientCommandID = UUID().uuidString
+        message.delivery = .sending
+        upsert(.message(message), target: target)
         await submit(message, to: target)
     }
 

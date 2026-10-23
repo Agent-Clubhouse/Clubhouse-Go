@@ -29,6 +29,7 @@ final class IntegrationTests: XCTestCase {
     @MainActor
     func testAppLaunchesWithTestServer() throws {
         app.launchArguments = [
+            "--legacy-interface",
             "--test-server", "127.0.0.1:\(ports.mainPort):\(ports.pairingPort)",
             "--test-pin", "000000"
         ]
@@ -43,6 +44,7 @@ final class IntegrationTests: XCTestCase {
     @MainActor
     func testMockServerServesStatus() throws {
         app.launchArguments = [
+            "--legacy-interface",
             "--test-server", "127.0.0.1:\(ports.mainPort):\(ports.pairingPort)",
             "--test-pin", "000000"
         ]
@@ -61,6 +63,7 @@ final class IntegrationTests: XCTestCase {
     @MainActor
     func testMockServerDeliversSnapshot() throws {
         app.launchArguments = [
+            "--legacy-interface",
             "--test-server", "127.0.0.1:\(ports.mainPort):\(ports.pairingPort)",
             "--test-pin", "000000"
         ]
@@ -79,6 +82,7 @@ final class IntegrationTests: XCTestCase {
     @MainActor
     func testMockServerDeliversAgent() throws {
         app.launchArguments = [
+            "--legacy-interface",
             "--test-server", "127.0.0.1:\(ports.mainPort):\(ports.pairingPort)",
             "--test-pin", "000000"
         ]

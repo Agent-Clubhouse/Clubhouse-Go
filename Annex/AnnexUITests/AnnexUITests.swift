@@ -13,7 +13,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testWelcomeScreenShowsOnFirstLaunch() throws {
-        app.launchArguments = ["--reset-onboarding"]
+        app.launchArguments = ["--legacy-interface", "--reset-onboarding"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Clubhouse Go"].waitForExistence(timeout: 5))
@@ -25,7 +25,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testAllFourTabsExist() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
@@ -36,7 +36,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardTabExists() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         let dashboardTab = app.tabBars.buttons["Dashboard"]
@@ -47,7 +47,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardShowsStats() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         // Stats were simplified to a single tappable "Agents" tile + Projects tile (#84).
@@ -57,7 +57,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardAgentsTileSwitchesToAgentsTab() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         let agentsTile = app.buttons["stat-card-agents"]
@@ -69,7 +69,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardShowsPermissionSection() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         let permText = app.staticTexts["1 Permission Waiting"]
@@ -78,7 +78,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardTabHasBadge() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         let dashboardTab = app.tabBars.buttons["Dashboard"]
@@ -91,7 +91,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testNavigateToClubhousesTab() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Clubhouses"].tap()
@@ -100,7 +100,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testClubhousesTabShowsInstances() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Clubhouses"].tap()
@@ -113,7 +113,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testNavigateToProjectsTab() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Projects"].tap()
@@ -124,7 +124,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testNavigateToAgentsTab() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Agents"].tap()
@@ -133,7 +133,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testAgentsTabShowsAgents() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Agents"].tap()
@@ -144,7 +144,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testAgentsTabDefaultsToCardView() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Agents"].tap()
@@ -167,7 +167,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testSettingsSheetOpens() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         app.tabBars.buttons["Agents"].tap()
@@ -182,7 +182,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testSpawnSheetOpens() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         // The Dashboard bolt button was replaced by the Settings gear (#85);
@@ -195,7 +195,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardSettingsGearOpens() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         // The Dashboard top-right toolbar now hosts the Settings gear (#85).
@@ -207,7 +207,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testPermissionReviewFlowOpens() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         let reviewButton = app.buttons["Review All"]
@@ -220,7 +220,7 @@ final class ClubhouseGoUITests: XCTestCase {
 
     @MainActor
     func testDashboardRunningAgentTileNavigatesToDetail() throws {
-        app.launchArguments = ["--ui-testing"]
+        app.launchArguments = ["--legacy-interface", "--ui-testing"]
         app.launch()
 
         // faithful-urchin is a running agent in mock data (id: durable_1737000000000_abc123)

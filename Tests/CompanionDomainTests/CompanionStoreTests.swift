@@ -128,7 +128,7 @@ import Testing
         #expect(service.sent.count == 1)
     }
 
-    @Test func retryKeepsIdempotencyKeyAndEchoReconcilesLocalMessage() async {
+    @Test func definitiveRejectionRetryUsesNewCommandAndEchoReconcilesLocalMessage() async {
         let service = TestCompanionService()
         service.sendResult = .rejected
         let store = makeStore(service: service)
@@ -138,8 +138,8 @@ import Testing
         service.sendResult = .accepted
         await store.retry(messageID: message.id, target: target)
         #expect(service.sent.count == 2)
-        #expect(service.sent[0].clientCommandID == service.sent[1].clientCommandID)
-        store.apply(.upsert(target, .message(.init(id: "server-id", role: .user, text: "Hello", clientCommandID: service.sent[0].clientCommandID)), sequence: 8))
+        #expect(service.sent[0].clientCommandID != service.sent[1].clientCommandID)
+        store.apply(.upsert(target, .message(.init(id: "server-id", role: .user, text: "Hello", clientCommandID: service.sent[1].clientCommandID)), sequence: 8))
         #expect(store.conversation(for: target).items.count == 1)
         #expect(store.conversation(for: target).items[0].id == "message:server-id")
     }
