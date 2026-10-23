@@ -43,7 +43,7 @@ import Observation
     }
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync
+        host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canSend(_ target: CompanionTarget) -> Bool {
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
@@ -87,6 +87,7 @@ import Observation
             guard historyGenerations[target] == generation else { return }
             conversations[target, default: .init()].isLoading = false
             conversations[target, default: .init()].error = error.localizedDescription
+            conversations[target, default: .init()].requiresResync = true
         }
     }
 

@@ -239,6 +239,25 @@ import Testing
         #expect(service.spawnCount == 1)
     }
 
+    @Test func failedRefreshKeepsCommandsBlockedUntilReconciled() async {
+        let service = TestCompanionService()
+        service.shouldSuspendHistory = true
+        let store = makeStore(service: service)
+        store.drafts[target] = "Keep this direction"
+        let task = Task { await store.load(target, force: true) }
+        while service.historyGate == nil { await Task.yield() }
+        #expect(!store.canSend(target))
+        await store.sendDraft(to: target)
+        #expect(service.sent.isEmpty)
+        service.historyGate?.resume(throwing: CompanionServiceError.unavailable("Offline"))
+        await task.value
+        #expect(!store.canSend(target))
+        #expect(store.drafts[target] == "Keep this direction")
+        service.shouldSuspendHistory = false
+        await store.load(target, force: true)
+        #expect(store.canSend(target))
+    }
+
 }
 
 @MainActor private final class TestDraftPersistence: CompanionDraftPersistence {

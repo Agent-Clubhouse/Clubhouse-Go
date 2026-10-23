@@ -12,8 +12,10 @@ import ClubhouseTransport
     private var eventTasks: [String: Task<Void, Never>] = [:]
     private var subscribers: [UUID: AsyncStream<CompanionEvent>.Continuation] = [:]
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
+    private var historyGenerations: [CompanionTarget: UUID] = [:]
     private var quickCatalog: [String: AnnexJSON] = [:]
     private var savedCommands: [String: AnnexCommand] = [:]
+    private var isSuspended = false
 
     func events() -> AsyncStream<CompanionEvent> {
         let id = UUID()
@@ -48,15 +50,19 @@ import ClubhouseTransport
                 self?.emitHosts()
             }
         }
+        guard !isSuspended else { hosts[id]?.connection = .offline; emitHosts(); return }
         do { try await registration.transport.connect() }
         catch { hosts[id]?.connection = .failed(Self.readableError(error)); emitHosts() }
     }
 
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         let transport = try transport(for: target.hostID)
-        buffers[target] = []
+        let generation = UUID()
+        historyGenerations[target] = generation
+        if buffers[target] == nil { buffers[target] = [] }
         do {
             let snapshot = try await transport.read(.chat(agentID: target.agentID))
+            guard historyGenerations[target] == generation else { throw CancellationError() }
             var projection = CompanionChatProjector()
             projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
             for event in snapshot["events"].arrayValue { projection.apply(event) }
@@ -77,6 +83,7 @@ import ClubhouseTransport
             emitHosts()
             return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence)
         } catch {
+            guard historyGenerations[target] == generation else { throw CancellationError() }
             let pending = buffers.removeValue(forKey: target) ?? []
             for event in pending { project(event, target: target) }
             throw CompanionServiceError.unavailable(Self.readableError(error))
@@ -129,8 +136,9 @@ import ClubhouseTransport
         })
     }
     func reconnect(hostID: String) async {
-        guard let transport = transports[hostID] else { return }
+        guard !isSuspended, let transport = transports[hostID] else { return }
         await transport.disconnect()
+        guard !isSuspended, transports[hostID] != nil else { return }
         do { try await transport.connect() }
         catch { hosts[hostID]?.connection = .failed(Self.readableError(error)); emitHosts() }
     }
@@ -142,8 +150,14 @@ import ClubhouseTransport
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
-    func suspend() async { for transport in transports.values { await transport.disconnect() } }
-    func resume() async { for id in transports.keys { await reconnect(hostID: id) } }
+    func suspend() async {
+        isSuspended = true
+        for transport in Array(transports.values) { await transport.disconnect() }
+    }
+    func resume() async {
+        isSuspended = false
+        for id in Array(transports.keys) { await reconnect(hostID: id) }
+    }
 
     private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String) async throws -> AnnexCommandReceipt {
         guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }

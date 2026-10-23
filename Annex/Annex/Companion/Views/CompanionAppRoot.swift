@@ -7,6 +7,7 @@ import ClubhouseTransport
     let service: CompanionLiveService
     let store: CompanionStore
     let registry: AnnexTransportRegistry
+    let lifecycle: CompanionLifecycle
     var restoreError: String?
     var isRestoring = false
     private var started = false
@@ -15,6 +16,10 @@ import ClubhouseTransport
         self.registry = registry
         let service = CompanionLiveService()
         self.service = service
+        self.lifecycle = CompanionLifecycle { active in
+            if active { await service.resume() }
+            else { await service.suspend() }
+        }
         self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil)
     }
     func start() async {
@@ -70,9 +75,12 @@ struct CompanionAppRoot: View {
                 await bootstrapIntegrationIfRequested()
                 #endif
             }
-            .onChange(of: scenePhase) { old, phase in
-                if phase == .background { Task { await runtime.service.suspend() } }
-                else if phase == .active && old == .background { Task { await runtime.service.resume() } }
+            .onChange(of: scenePhase) { _, phase in
+                switch phase {
+                case .active: runtime.lifecycle.update(.active)
+                case .background: runtime.lifecycle.update(.background)
+                default: runtime.lifecycle.update(.inactive)
+                }
             }
     }
 
