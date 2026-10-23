@@ -5,6 +5,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
     public enum Kind: Sendable, Equatable {
         case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto)
         case interrupt(agentID: String, sessionID: String)
+        case removeQueued(agentID: String, sessionID: String, messageIDs: [String])
         case permission(agentID: String, sessionID: String, requestID: String, optionID: String)
         case question(agentID: String, sessionID: String, requestID: String, answers: [String: AnnexJSON])
         case start(agentID: String, message: String? = nil, resume: Bool? = nil)
@@ -23,6 +24,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         switch kind {
         case .send: "chat.send"
         case .interrupt: "chat.interrupt"
+        case .removeQueued: "chat.queue.remove"
         case .permission: "chat.permission"
         case .question: "chat.question"
         case .start: "agent.start"
@@ -43,6 +45,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .send(let agent, let session, let text, let delivery):
             target(agent, session); v["text"] = .string(text); v["delivery"] = .string(delivery.rawValue)
         case .interrupt(let agent, let session): target(agent, session)
+        case .removeQueued(let agent, let session, let ids):
+            target(agent, session); v["messageIds"] = .array(ids.map(AnnexJSON.string))
         case .permission(let agent, let session, let request, let option):
             target(agent, session); v["requestId"] = .string(request); v["optionId"] = .string(option)
         case .question(let agent, let session, let request, let answers):
@@ -85,5 +89,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public let maxEntries: Int
         public let ttlMs: Int
     }
+    public struct Pairing: Decodable, Sendable { public let sessionRevokePath: String? }
+    public let pairing: Pairing?
     public let idempotency: Idempotency
 }

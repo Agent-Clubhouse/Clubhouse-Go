@@ -88,4 +88,9 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func disconnect() async
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON
     func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt
+    func revokeSessionPairing() async throws
+}
+
+nonisolated public extension AnnexTransporting {
+    func revokeSessionPairing() async throws { throw AnnexTransportError.unsupportedCapability("session-revocation") }
 }

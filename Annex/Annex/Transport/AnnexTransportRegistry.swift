@@ -105,6 +105,19 @@ public actor AnnexTransportRegistry {
         revision = UUID()
         busyHosts.insert(hostID)
         defer { busyHosts.remove(hostID) }
+        try await removeRegistration(hostID: hostID)
+    }
+    /// Explicit online self-revocation. Failure preserves local material.
+    public func revokeSessionAndRemove(hostID: String) async throws {
+        guard !busyHosts.contains(hostID) else { throw AnnexTransportError.commandInFlight }
+        guard let registration = registrations[hostID] else { throw AnnexTransportError.credentialMissing }
+        revision = UUID()
+        busyHosts.insert(hostID)
+        defer { busyHosts.remove(hostID) }
+        try await registration.transport.revokeSessionPairing()
+        try await removeRegistration(hostID: hostID)
+    }
+    private func removeRegistration(hostID: String) async throws {
         try await pairings?.remove(hostID: hostID)
         if let registration = registrations.removeValue(forKey: hostID) { await registration.transport.disconnect() }
         identities.removeValue(forKey: hostID)

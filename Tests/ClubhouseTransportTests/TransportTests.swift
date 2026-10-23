@@ -298,3 +298,52 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
         normal.resolve(.failure(URLError(.timedOut)))
     }
 }
+
+private var revokeCapabilities: String {
+    capabilityJSON.replacingOccurrences(of: "\"commands\":", with: "\"pairing\":{\"sessionRevokePath\":\"/api/v1/mobile/pairing\"},\"commands\":")
+}
+@Test func sessionRevocationUsesOnlyFixedSameOriginRouteAndValidatesReceipt() async throws {
+    let io = StubIO(responses: [jsonResponse(revokeCapabilities), jsonResponse(#"{"version":1,"epoch":"epoch1","revoked":true,"pairingMode":"session"}"#)])
+    let transport = try await configured(io: io)
+    try await transport.revokeSessionPairing()
+    let request = try #require(await io.last())
+    #expect(request.httpMethod == "DELETE")
+    #expect(request.url?.absoluteString == "https://127.0.0.1:4321/api/v1/mobile/pairing")
+    #expect(request.httpBody == nil)
+}
+@Test func sessionRevocationRefusesUnadvertisedOrForeignPaths() async throws {
+    for body in [capabilityJSON, revokeCapabilities.replacingOccurrences(of: "/api/v1/mobile/pairing", with: "https://other.test/delete")] {
+        let io = StubIO(responses: [jsonResponse(body)])
+        let transport = try await configured(io: io)
+        await #expect(throws: AnnexTransportError.unsupportedCapability("session-revocation")) { try await transport.revokeSessionPairing() }
+        #expect(await io.count() == 1)
+    }
+}
+@Test func lostSessionRevocationReplyIsUncertainAndDoesNotRetry() async throws {
+    let io = StubIO(responses: [jsonResponse(revokeCapabilities)], failure: true)
+    let transport = try await configured(io: io)
+    await #expect(throws: AnnexTransportError.pairingRevocationOutcomeUnknown) { try await transport.revokeSessionPairing() }
+    #expect(await io.count() == 2)
+}
+@Test func persistentPairingRevocationRejectionIsPreserved() async throws {
+    let io = StubIO(responses: [jsonResponse(revokeCapabilities), jsonResponse(#"{"error":"persistent_pairing_requires_desktop"}"#, status: 409)])
+    let transport = try await configured(io: io)
+    await #expect(throws: AnnexTransportError.rejected(status: 409, code: "persistent_pairing_requires_desktop")) { try await transport.revokeSessionPairing() }
+}
+@Test func queuedMessageRemovalUsesExactDesktopFields() throws {
+    let command = AnnexCommand(epoch: "epoch1", kind: .removeQueued(agentID: "a", sessionID: "s", messageIDs: ["m1", "m2"]))
+    let value = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+    #expect(value["type"] == .string("chat.queue.remove"))
+    #expect(value["messageIds"] == .array([.string("m1"), .string("m2")]))
+    #expect(value["sessionId"] == .string("s"))
+}
+
+@Test func invalidSessionRevocationReceiptCannotClaimSuccess() async throws {
+    for receipt in [#"{"version":1,"epoch":"other","revoked":true,"pairingMode":"session"}"#,
+                    #"{"version":1,"epoch":"epoch1","revoked":false,"pairingMode":"session"}"#,
+                    #"{"version":1,"epoch":"epoch1","revoked":true,"pairingMode":"persistent"}"#, "not-json"] {
+        let io = StubIO(responses: [jsonResponse(revokeCapabilities), jsonResponse(receipt)])
+        let transport = try await configured(io: io)
+        await #expect(throws: AnnexTransportError.pairingRevocationOutcomeUnknown) { try await transport.revokeSessionPairing() }
+    }
+}

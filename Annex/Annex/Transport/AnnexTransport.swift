@@ -172,6 +172,31 @@ public actor AnnexTransport: AnnexTransporting {
         }
     }
 
+    /// Explicit self-revocation only; no caller-selected path or target identity.
+    /// Unknown outcomes retain local credentials so the UI can explain recovery.
+    public func revokeSessionPairing() async throws {
+        _ = try await read(.capabilities)
+        guard let capabilities, capabilities.controlAvailable == true,
+              capabilities.pairing?.sessionRevokePath == "/api/v1/mobile/pairing" else {
+            throw AnnexTransportError.unsupportedCapability("session-revocation")
+        }
+        let requestedGeneration = generation
+        var request = try await authorizedRequest(path: ["api", "v1", "mobile", "pairing"])
+        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
+        try Task.checkCancellation()
+        request.httpMethod = "DELETE"
+        let response: AnnexHTTPResponse
+        do { response = try await io.perform(request) }
+        catch { throw AnnexTransportError.pairingRevocationOutcomeUnknown }
+        guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+        guard let receipt = try? JSONDecoder().decode(AnnexJSON.self, from: response.data),
+              receipt["version"] == .integer(1), receipt["epoch"] == .string(capabilities.epoch),
+              receipt["revoked"] == .bool(true), receipt["pairingMode"] == .string("session") else {
+            throw AnnexTransportError.pairingRevocationOutcomeUnknown
+        }
+        await disconnect()
+    }
+
     private func run(generation current: UUID) async {
         var attempt = 0
         var hasConnected = false

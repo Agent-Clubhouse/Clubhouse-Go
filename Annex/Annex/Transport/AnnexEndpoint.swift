@@ -9,6 +9,7 @@ nonisolated public enum AnnexTransportError: Error, Sendable, Equatable {
     case credentialMissing
     case unauthorized
     case forbidden
+    case pairingRevocationOutcomeUnknown
     case unsupportedCapability(String)
     case rejected(status: Int, code: String?)
     case malformedResponse
