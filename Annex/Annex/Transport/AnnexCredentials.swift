@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 /// Redacted by default, including debugger descriptions. Never put tokens in URLs.
-public struct AnnexCredential: Sendable, CustomStringConvertible, CustomDebugStringConvertible, Equatable {
+nonisolated public struct AnnexCredential: Sendable, CustomStringConvertible, CustomDebugStringConvertible, Equatable {
     let bearerToken: String
     public init(bearerToken: String) throws {
         guard !bearerToken.isEmpty, bearerToken.count <= 8192,
@@ -15,7 +15,7 @@ public struct AnnexCredential: Sendable, CustomStringConvertible, CustomDebugStr
     public var debugDescription: String { description }
 }
 
-public protocol AnnexCredentialStore: Sendable {
+nonisolated public protocol AnnexCredentialStore: Sendable {
     func credential(for hostID: String) async throws -> AnnexCredential?
     func save(_ credential: AnnexCredential, for hostID: String) async throws
     func remove(for hostID: String) async throws

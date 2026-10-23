@@ -197,3 +197,36 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
     #expect(try await iterator.next() == .connection(.disconnected))
     await #expect(throws: AnnexTransportError.queueOverflow) { try await iterator.next() }
 }
+
+@Test func savedPairingRoundTripPreservesBothIdentitiesAndCredential() async throws {
+    let identity = try AnnexClientIdentity.ephemeral()
+    let record = try AnnexSavedPairing(host: testHost(), alias: "Fake desktop", identity: identity, credential: AnnexCredential(bearerToken: "test-only"))
+    let restored = try AnnexSavedPairing.decode(record.encoded())
+    #expect(restored.host == record.host)
+    #expect(restored.identity.certificateDER == identity.certificateDER)
+    #expect(try restored.identity.fingerprint == identity.fingerprint)
+    #expect(restored.credential == record.credential)
+    #expect(!String(reflecting: restored).contains("test-only"))
+    let store = MemoryAnnexPairingStore()
+    await store.save(restored)
+    let registry = AnnexTransportRegistry(pairings: store)
+    let registrations = try await registry.restoreSaved()
+    #expect(registrations.count == 1)
+    #expect(registrations.first?.host == record.host)
+    try await registry.remove(hostID: record.host.hostID)
+    #expect(await store.loadAll().isEmpty)
+    #expect(await registry.all().isEmpty)
+}
+
+@Test func mismatchedStoredCertificateAndPrivateKeyFailClosed() throws {
+    let first = try AnnexClientIdentity.ephemeral()
+    let second = try AnnexClientIdentity.ephemeral()
+    let one = try first.archive()
+    let two = try second.archive()
+    #expect(throws: AnnexTransportError.self) {
+        try AnnexClientIdentity.restore(.init(certificateDER: one.certificateDER, rsaPrivateKey: two.rsaPrivateKey, ed25519PrivateKey: one.ed25519PrivateKey))
+    }
+    #expect(throws: AnnexTransportError.self) {
+        try AnnexClientIdentity.restore(.init(certificateDER: one.certificateDER, rsaPrivateKey: one.rsaPrivateKey, ed25519PrivateKey: two.ed25519PrivateKey))
+    }
+}

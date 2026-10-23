@@ -3,8 +3,9 @@ import Security
 
 /// Immutable Security references can be used concurrently. Keys are generated
 /// in process memory (kSecAttrIsPermanent=false), never in the user's Keychain.
-public final class AnnexClientIdentity: @unchecked Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+nonisolated public final class AnnexClientIdentity: @unchecked Sendable, CustomStringConvertible, CustomDebugStringConvertible {
     let securityIdentity: SecIdentity
+    private let privateKey: SecKey
     public let certificateDER: Data
     public let pairingIdentity: AnnexPairingIdentity
     public var fingerprint: String { get throws { try AnnexPairingIdentity.fingerprint(publicKeyBase64: pairingIdentity.publicKeyBase64) } }
@@ -12,8 +13,36 @@ public final class AnnexClientIdentity: @unchecked Sendable, CustomStringConvert
     public var description: String { "AnnexClientIdentity(<redacted>)" }
     public var debugDescription: String { description }
 
-    private init(identity: SecIdentity, certificateDER: Data, pairingIdentity: AnnexPairingIdentity) {
-        self.securityIdentity = identity; self.certificateDER = certificateDER; self.pairingIdentity = pairingIdentity
+    private init(identity: SecIdentity, privateKey: SecKey, certificateDER: Data, pairingIdentity: AnnexPairingIdentity) {
+        self.privateKey = privateKey; self.securityIdentity = identity; self.certificateDER = certificateDER; self.pairingIdentity = pairingIdentity
+    }
+
+    struct Archive: Codable, Sendable {
+        let certificateDER: Data
+        let rsaPrivateKey: Data
+        let ed25519PrivateKey: Data
+    }
+    func archive() throws -> Archive {
+        var error: Unmanaged<CFError>?
+        guard let bytes = SecKeyCopyExternalRepresentation(privateKey, &error) as Data? else {
+            throw AnnexTransportError.identityMismatch
+        }
+        return Archive(certificateDER: certificateDER, rsaPrivateKey: bytes, ed25519PrivateKey: pairingIdentity.privateKeyData)
+    }
+    static func restore(_ archive: Archive) throws -> AnnexClientIdentity {
+        let pairing = try AnnexPairingIdentity(privateKeyData: archive.ed25519PrivateKey)
+        let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: pairing.publicKeyBase64)
+        let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate, kSecAttrKeySizeInBits as String: 2048,
+            kSecAttrIsPermanent as String: false]
+        var error: Unmanaged<CFError>?
+        guard let key = SecKeyCreateWithData(archive.rsaPrivateKey as CFData, attributes as CFDictionary, &error),
+              let cert = SecCertificateCreateWithData(nil, archive.certificateDER as CFData),
+              let identity = SecIdentityCreate(nil, cert, key) else { throw AnnexTransportError.identityMismatch }
+        var commonName: CFString?
+        guard SecCertificateCopyCommonName(cert, &commonName) == errSecSuccess,
+              commonName as String? == fingerprint else { throw AnnexTransportError.identityMismatch }
+        return AnnexClientIdentity(identity: identity, privateKey: key, certificateDER: archive.certificateDER, pairingIdentity: pairing)
     }
 
     public static func ephemeral(now: Date = Date()) throws -> AnnexClientIdentity {
@@ -47,11 +76,11 @@ public final class AnnexClientIdentity: @unchecked Sendable, CustomStringConvert
         let bytes = DER.sequence(tbs + algorithm + DER.bitString(signature))
         guard let certificate = SecCertificateCreateWithData(nil, bytes as CFData),
               let identity = SecIdentityCreate(nil, certificate, key) else { throw AnnexTransportError.identityMismatch }
-        return AnnexClientIdentity(identity: identity, certificateDER: bytes, pairingIdentity: pairing)
+        return AnnexClientIdentity(identity: identity, privateKey: key, certificateDER: bytes, pairingIdentity: pairing)
     }
 }
 
-private enum DER {
+nonisolated private enum DER {
     static func tag(_ tag: UInt8, _ contents: Data) -> Data {
         var length = Data()
         if contents.count < 128 { length.append(UInt8(contents.count)) }

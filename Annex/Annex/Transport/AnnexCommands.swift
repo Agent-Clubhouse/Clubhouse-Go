@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AnnexCommand: Sendable, Equatable {
+nonisolated public struct AnnexCommand: Sendable, Equatable {
     public enum Delivery: String, Sendable { case auto, prompt, steer, queued }
     public enum Kind: Sendable, Equatable {
         case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto)
@@ -59,7 +59,7 @@ public struct AnnexCommand: Sendable, Equatable {
     }
 }
 
-public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
+nonisolated public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public enum Status: String, Codable, Sendable { case completed, rejected, failed }
     public struct Failure: Codable, Sendable, Equatable { public let code: String; public let message: String }
     public let version: Int
@@ -72,7 +72,7 @@ public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public var isDispatchAcknowledged: Bool { status == .completed }
 }
 
-public struct AnnexCapabilities: Decodable, Sendable {
+nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let version: Int
     public let epoch: String
     public let controlAuth: String

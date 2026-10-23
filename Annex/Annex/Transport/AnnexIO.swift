@@ -1,13 +1,13 @@
 import Foundation
 import Security
 
-public struct AnnexHTTPResponse: Sendable {
+nonisolated public struct AnnexHTTPResponse: Sendable {
     public let status: Int
     public let data: Data
     public init(status: Int, data: Data) { self.status = status; self.data = data }
 }
 
-public protocol AnnexWebSocket: Sendable {
+nonisolated public protocol AnnexWebSocket: Sendable {
     func receive() async throws -> Data
     func send(_ data: Data) async throws
     func ping() async throws
@@ -16,14 +16,14 @@ public protocol AnnexWebSocket: Sendable {
 
 /// Injection boundary for deterministic protocol tests. Implementations MUST
 /// honor TrustedAnnexHost before sending any credential or application bytes.
-public protocol AnnexIO: Sendable {
+nonisolated public protocol AnnexIO: Sendable {
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse
     func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket
 }
 
 /// Pinned leaf certificate plus exact endpoint; TLS interception, DNS changes
 /// and a forged certificate common name cannot replace the approved host.
-final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDelegate, Sendable {
+nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     let host: TrustedAnnexHost
     let clientIdentity: AnnexClientIdentity?
     init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity?) { self.host = host; self.clientIdentity = clientIdentity }
@@ -58,7 +58,7 @@ final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDelegate, Sendab
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest) async -> URLRequest? { nil }
 }
 
-public final class PinnedAnnexIO: AnnexIO, Sendable {
+nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
     private let session: URLSession
     private let host: TrustedAnnexHost
     private let maximumResponseBytes: Int
@@ -106,7 +106,7 @@ public final class PinnedAnnexIO: AnnexIO, Sendable {
     }
 }
 
-private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendable {
+nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendable {
     let task: URLSessionWebSocketTask
     init(task: URLSessionWebSocketTask) { self.task = task }
     func receive() async throws -> Data {

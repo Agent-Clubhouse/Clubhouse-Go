@@ -1,12 +1,13 @@
 import Foundation
 import CryptoKit
 
-public struct AnnexPairingIdentity: Sendable {
+nonisolated public struct AnnexPairingIdentity: Sendable {
     /// Ephemeral by default. Applications may supply a separately approved key.
     private let privateKey: Curve25519.Signing.PrivateKey
     public init() { privateKey = Curve25519.Signing.PrivateKey() }
     public init(privateKeyData: Data) throws { privateKey = try Curve25519.Signing.PrivateKey(rawRepresentation: privateKeyData) }
     private static let spkiPrefix = Data([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00])
+    var privateKeyData: Data { privateKey.rawRepresentation }
     public var publicKeyBase64: String { (Self.spkiPrefix + privateKey.publicKey.rawRepresentation).base64EncodedString() }
     public static func fingerprint(publicKeyBase64: String) throws -> String {
         guard let bytes = Data(base64Encoded: publicKeyBase64), bytes.count == 44,
@@ -15,13 +16,13 @@ public struct AnnexPairingIdentity: Sendable {
     }
 }
 
-public struct AnnexPairingResult: Sendable {
+nonisolated public struct AnnexPairingResult: Sendable {
     public let host: TrustedAnnexHost
     public let publicKey: String
     public let alias: String
 }
 
-public struct AnnexPairingClient: Sendable {
+nonisolated public struct AnnexPairingClient: Sendable {
     private let host: TrustedAnnexHost
     private let io: any AnnexIO
     private let clientIdentity: AnnexClientIdentity
@@ -61,7 +62,7 @@ public struct AnnexPairingClient: Sendable {
     }
 }
 
-enum AnnexHTTPValidation {
+nonisolated enum AnnexHTTPValidation {
     static func error(_ response: AnnexHTTPResponse) -> AnnexTransportError {
         switch response.status {
         case 401: return .unauthorized

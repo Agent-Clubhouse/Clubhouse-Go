@@ -1,7 +1,7 @@
 import Foundation
 
 /// Lossless integers keep sequence numbers out of Double's rounding range.
-public enum AnnexJSON: Codable, Sendable, Equatable {
+nonisolated public enum AnnexJSON: Codable, Sendable, Equatable {
     case string(String), integer(Int64), number(Double), bool(Bool)
     case object([String: AnnexJSON]), array([AnnexJSON]), null
     public init(from decoder: Decoder) throws {
@@ -38,7 +38,7 @@ public enum AnnexJSON: Codable, Sendable, Equatable {
 
 /// Existing Annex envelopes remain unchanged. Replay control metadata is at the
 /// top level on desktop; accepting nested metadata also supports older fixtures.
-public struct AnnexEnvelope: Codable, Sendable, Equatable {
+nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
     public let type: String
     public let payload: AnnexJSON?
     public let seq: Int64?
@@ -59,19 +59,19 @@ public struct AnnexEnvelope: Codable, Sendable, Equatable {
     public var replayUpperBound: Int64? { toSeq ?? payload?["toSeq"]?.integer }
 }
 
-public enum AnnexConnectionState: Sendable, Equatable {
+nonisolated public enum AnnexConnectionState: Sendable, Equatable {
     case disconnected, connecting, connected, suspended
     case reconnecting(attempt: Int, delaySeconds: Double)
     case failed(AnnexTransportError)
 }
-public enum AnnexResyncReason: String, Sendable { case replayGap, serverRestart, consumerTooSlow, sequenceGap, reconnected }
-public enum AnnexTransportEvent: Sendable, Equatable {
+nonisolated public enum AnnexResyncReason: String, Sendable { case replayGap, serverRestart, consumerTooSlow, sequenceGap, reconnected }
+nonisolated public enum AnnexTransportEvent: Sendable, Equatable {
     case connection(AnnexConnectionState)
     case message(AnnexEnvelope)
     case resyncRequired(AnnexResyncReason)
 }
 
-public enum AnnexReadRoute: Sendable {
+nonisolated public enum AnnexReadRoute: Sendable {
     case identity, status, projects, capabilities
     case chat(agentID: String)
     case agents(projectID: String)
@@ -80,7 +80,7 @@ public enum AnnexReadRoute: Sendable {
 }
 
 /// A gateway can implement this interface later without weakening direct-host trust.
-public protocol AnnexTransporting: Sendable {
+nonisolated public protocol AnnexTransporting: Sendable {
     func events() async -> AsyncThrowingStream<AnnexTransportEvent, Error>
     func connect() async throws
     func disconnect() async

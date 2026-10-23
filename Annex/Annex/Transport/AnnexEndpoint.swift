@@ -1,7 +1,7 @@
 import Foundation
 import CryptoKit
 
-public enum AnnexTransportError: Error, Sendable, Equatable {
+nonisolated public enum AnnexTransportError: Error, Sendable, Equatable {
     case invalidEndpoint
     case invalidPin
     case trustRequired
@@ -23,7 +23,7 @@ public enum AnnexTransportError: Error, Sendable, Equatable {
 
 /// An address is a route to a host, never that host's identity. Tailscale addresses
 /// use the same pinned TLS transport as LAN addresses; no VPN privileges required.
-public struct AnnexEndpoint: Hashable, Codable, Sendable {
+nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
     public enum Route: String, Codable, Sendable { case localNetwork, tailscale, manual, gateway }
     public let host: String
     public let port: UInt16
@@ -64,7 +64,7 @@ public struct AnnexEndpoint: Hashable, Codable, Sendable {
     }
 }
 
-public struct AnnexCertificatePin: Hashable, Codable, Sendable {
+nonisolated public struct AnnexCertificatePin: Hashable, Codable, Sendable {
     /// Full SHA-256 of leaf certificate DER; distinct from the truncated Ed25519 host fingerprint.
     public let sha256: String
     public init(sha256: String) throws {
@@ -89,7 +89,7 @@ public struct AnnexCertificatePin: Hashable, Codable, Sendable {
 
 /// Construct only after the user verifies BOTH fingerprints on the desktop or
 /// scans an authenticated pairing invitation. Bonjour TXT is never proof of trust.
-public struct TrustedAnnexHost: Hashable, Codable, Sendable {
+nonisolated public struct TrustedAnnexHost: Hashable, Codable, Sendable {
     public let endpoint: AnnexEndpoint
     public let hostID: String
     public let certificatePin: AnnexCertificatePin

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct AnnexBackoff: Sendable {
+nonisolated public struct AnnexBackoff: Sendable {
     public let initialSeconds: Double
     public let maximumSeconds: Double
     public init(initialSeconds: Double = 0.5, maximumSeconds: Double = 30) {
@@ -18,7 +18,7 @@ public struct AnnexBackoff: Sendable {
 /// Cursor belongs to one host connection, never shared among hosts. Snapshot
 /// resets are authoritative. A reconnect requests history refresh explicitly;
 /// global Annex seq is distinct from chat's per-session seq.
-public struct AnnexReplayCursor: Sendable {
+nonisolated public struct AnnexReplayCursor: Sendable {
     public private(set) var lastSequence: Int64?
     public private(set) var epoch: String?
     public init() {}
