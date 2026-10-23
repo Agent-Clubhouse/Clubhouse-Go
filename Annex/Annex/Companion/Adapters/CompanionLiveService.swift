@@ -10,6 +10,9 @@ import ClubhouseTransport
     private var projections: [CompanionTarget: CompanionChatProjector] = [:]
     private var readOnly: Set<CompanionTarget> = []
     private var eventTasks: [String: Task<Void, Never>] = [:]
+    private var eventGenerations: [String: UUID] = [:]
+    private var refreshTasks: [String: Task<Void, Never>] = [:]
+    private var refreshAgain: Set<String> = []
     private var subscribers: [UUID: AsyncStream<CompanionEvent>.Continuation] = [:]
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
     private var historyGenerations: [CompanionTarget: UUID] = [:]
@@ -30,34 +33,26 @@ import ClubhouseTransport
 
     func register(_ registration: AnnexTransportRegistry.Registration) async {
         let id = registration.host.hostID
-        eventTasks[id]?.cancel()
+        invalidateEvents(hostID: id)
         transports[id] = registration.transport
         let endpoint = registration.host.endpoint
         hosts[id] = .init(id: id, name: registration.alias.isEmpty ? endpoint.host : registration.alias,
                           endpoint: "\(endpoint.host):\(endpoint.port)", connection: .connecting,
                           projects: hosts[id]?.projects ?? [])
         emitHosts()
-        let stream = await registration.transport.events()
-        eventTasks[id] = Task { [weak self] in
-            do {
-                for try await event in stream {
-                    guard !Task.isCancelled else { return }
-                    await self?.receive(event, hostID: id)
-                }
-            } catch {
-                self?.hosts[id]?.connection = .failed(Self.readableError(error))
-                self?.emit(.resyncRequired(hostID: id))
-                self?.emitHosts()
-            }
-        }
+        guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
         guard !isSuspended else { hosts[id]?.connection = .offline; emitHosts(); return }
         do { try await registration.transport.connect() }
-        catch { hosts[id]?.connection = .failed(Self.readableError(error)); emitHosts() }
+        catch {
+            guard !isSuspended, eventGenerations[id] == generation else { return }
+            hosts[id]?.connection = .failed(Self.readableError(error)); emitHosts()
+        }
     }
 
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         let transport = try transport(for: target.hostID)
         let generation = UUID()
+        let previousSessionID = projections[target]?.sessionID
         historyGenerations[target] = generation
         if buffers[target] == nil { buffers[target] = [] }
         do {
@@ -78,7 +73,22 @@ import ClubhouseTransport
                 projection.capabilities = capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat] : []
             } else { readOnly.remove(target) }
             // Live events received while HTTP was in flight are applied after its snapshot.
-            for event in buffers.removeValue(forKey: target) ?? [] { projection.apply(event) }
+            let buffered = buffers.removeValue(forKey: target) ?? []
+            var needsRefresh = false
+            for event in buffered {
+                if event["sessionId"]?.string == projection.sessionID { projection.apply(event) }
+                else if event["sessionId"]?.string != previousSessionID || projection.sessionID == previousSessionID {
+                    // Cross-session sequence numbers cannot establish whether a
+                    // different session began before or after the HTTP snapshot.
+                    needsRefresh = true
+                }
+                // A buffered event from the previously displayed session cannot
+                // roll a newer authoritative snapshot back to that old session.
+            }
+            if needsRefresh {
+                emit(.resyncRequired(hostID: target.hostID))
+                throw CompanionServiceError.unavailable("The conversation changed while loading. Refresh to synchronize its current session.")
+            }
             projections[target] = projection
             updateAgent(target, projection: projection)
             emitHosts()
@@ -157,13 +167,21 @@ import ClubhouseTransport
     }
     func reconnect(hostID: String) async {
         guard !isSuspended, let transport = transports[hostID] else { return }
+        invalidateEvents(hostID: hostID)
+        let generation = UUID()
+        eventGenerations[hostID] = generation
         await transport.disconnect()
-        guard !isSuspended, transports[hostID] != nil else { return }
+        guard !isSuspended, eventGenerations[hostID] == generation else { return }
+        guard let subscription = await subscribe(to: transport, hostID: hostID),
+              !isSuspended, eventGenerations[hostID] == subscription else { return }
         do { try await transport.connect() }
-        catch { hosts[hostID]?.connection = .failed(Self.readableError(error)); emitHosts() }
+        catch {
+            guard !isSuspended, eventGenerations[hostID] == subscription else { return }
+            hosts[hostID]?.connection = .failed(Self.readableError(error)); emitHosts()
+        }
     }
     func remove(hostID: String) {
-        eventTasks.removeValue(forKey: hostID)?.cancel()
+        invalidateEvents(hostID: hostID)
         transports.removeValue(forKey: hostID)
         hosts.removeValue(forKey: hostID)
         capabilities.removeValue(forKey: hostID)
@@ -172,11 +190,72 @@ import ClubhouseTransport
     }
     func suspend() async {
         isSuspended = true
-        for transport in Array(transports.values) { await transport.disconnect() }
+        for (id, transport) in Array(transports) {
+            invalidateEvents(hostID: id)
+            hosts[id]?.connection = .offline
+            emit(.resyncRequired(hostID: id))
+            await transport.disconnect()
+        }
+        emitHosts()
     }
     func resume() async {
         isSuspended = false
         for id in Array(transports.keys) { await reconnect(hostID: id) }
+    }
+
+    private func invalidateEvents(hostID: String) {
+        eventGenerations.removeValue(forKey: hostID)
+        eventTasks.removeValue(forKey: hostID)?.cancel()
+        cancelRefresh(hostID: hostID)
+    }
+
+    private func cancelRefresh(hostID: String) {
+        refreshTasks.removeValue(forKey: hostID)?.cancel()
+        refreshAgain.remove(hostID)
+    }
+
+    private func subscribe(to transport: any AnnexTransporting, hostID: String) async -> UUID? {
+        invalidateEvents(hostID: hostID)
+        let generation = UUID()
+        eventGenerations[hostID] = generation
+        let stream = await transport.events()
+        guard eventGenerations[hostID] == generation else { return nil }
+        eventTasks[hostID] = Task { [weak self] in
+            do {
+                for try await event in stream {
+                    guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
+                    await self?.receive(event, hostID: hostID)
+                }
+                guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
+                self?.subscriptionEnded(hostID: hostID, error: AnnexTransportError.disconnected)
+            } catch {
+                guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
+                self?.subscriptionEnded(hostID: hostID, error: error)
+            }
+        }
+        return generation
+    }
+
+    private func subscriptionEnded(hostID: String, error: Error) {
+        invalidateEvents(hostID: hostID)
+        hosts[hostID]?.connection = .failed(Self.readableError(error))
+        emit(.resyncRequired(hostID: hostID))
+        emitHosts()
+    }
+
+    // Catalog reads must not stall consumption of the bounded transport stream.
+    // Coalesce bursts into one active read plus at most one follow-up refresh.
+    private func scheduleRefresh(hostID: String) {
+        guard let generation = eventGenerations[hostID], !isSuspended else { return }
+        guard refreshTasks[hostID] == nil else { refreshAgain.insert(hostID); return }
+        refreshTasks[hostID] = Task { [weak self] in
+            repeat {
+                self?.refreshAgain.remove(hostID)
+                await self?.refresh(hostID: hostID)
+                guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
+            } while self?.refreshAgain.contains(hostID) == true
+            self?.refreshTasks.removeValue(forKey: hostID)
+        }
     }
 
     private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String) async throws -> AnnexCommandReceipt {
@@ -213,19 +292,26 @@ import ClubhouseTransport
             switch state {
             case .connected:
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
-                await refresh(hostID: hostID)
-            case .connecting: hosts[hostID]?.connection = .connecting
+                scheduleRefresh(hostID: hostID)
+            case .connecting:
+                cancelRefresh(hostID: hostID)
+                hosts[hostID]?.connection = .connecting
             case .disconnected, .suspended:
+                cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .offline
                 emit(.resyncRequired(hostID: hostID))
-            case .reconnecting: hosts[hostID]?.connection = .reconnecting
-            case .failed(let error): hosts[hostID]?.connection = .failed(Self.readableError(error))
+            case .reconnecting:
+                cancelRefresh(hostID: hostID)
+                hosts[hostID]?.connection = .reconnecting
+            case .failed(let error):
+                cancelRefresh(hostID: hostID)
+                hosts[hostID]?.connection = .failed(Self.readableError(error))
             }
             emitHosts()
         case .resyncRequired:
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
-            await refresh(hostID: hostID)
+            scheduleRefresh(hostID: hostID)
             // Store keeps active conversations blocked until its history is refreshed.
         case .message(let envelope):
             guard let payload = envelope.payload else { return }
@@ -239,25 +325,23 @@ import ClubhouseTransport
                 else { project(event, target: target) }
             case "agent:spawned":
                 rememberQuick(payload, hostID: hostID)
-                await refresh(hostID: hostID)
+                scheduleRefresh(hostID: hostID)
             case "agent:status", "agent:completed":
                 if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
                     projections[target]?.status = CompanionChatProjector.status(payload["status"]?.string)
                 }
-                await refresh(hostID: hostID)
-            case "agent:deleted": await refresh(hostID: hostID)
+                scheduleRefresh(hostID: hostID)
+            case "agent:deleted": scheduleRefresh(hostID: hostID)
             default: break
             }
         }
     }
 
     private func refresh(hostID: String) async {
-        guard let transport = transports[hostID] else { return }
+        guard let transport = transports[hostID], let generation = eventGenerations[hostID], !isSuspended else { return }
         do {
             let rawCaps = try? await transport.read(.capabilities)
-            capabilities[hostID] = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
-            hosts[hostID]?.canSpawn = capabilities[hostID]?.commands.contains("agent.spawn") == true
-            hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
+            let newCapabilities = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
             let rawProjects = try await transport.read(.projects)
             let projects = rawProjects["projects"].arrayValue.isEmpty ? Optional(rawProjects).arrayValue : rawProjects["projects"].arrayValue
             var agents: [String: AnnexJSON] = [:]
@@ -266,9 +350,16 @@ import ClubhouseTransport
                 let result = try await transport.read(.agents(projectID: projectID))
                 agents[projectID] = result["agents"] ?? result
             }
+            guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
+            capabilities[hostID] = newCapabilities
+            hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
+            hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             hosts[hostID]?.connection = .connected
-        } catch { hosts[hostID]?.connection = .failed(Self.readableError(error)) }
+        } catch {
+            guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
+            hosts[hostID]?.connection = .failed(Self.readableError(error))
+        }
         emitHosts()
     }
 
