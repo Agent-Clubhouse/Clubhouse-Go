@@ -24,8 +24,9 @@ nonisolated public enum AnnexDiagnosticCaptureMode: String, CaseIterable, Codabl
     public init(defaults: UserDefaults = .standard, telemetry: AnnexTelemetry = .shared) {
         self.defaults = defaults; self.telemetry = telemetry
         mode = defaults.string(forKey: Self.preferenceKey) == AnnexDiagnosticCaptureMode.always.rawValue ? .always : .off
-        destination = defaults.data(forKey: Self.destinationKey).flatMap { try? JSONDecoder().decode(AnnexOTLPConfiguration.self, from: $0) }
-        remoteEnabled = destination != nil && defaults.bool(forKey: Self.remoteKey)
+        let decodedDestination = defaults.data(forKey: Self.destinationKey).flatMap { try? JSONDecoder().decode(AnnexOTLPConfiguration.self, from: $0) }
+        destination = decodedDestination
+        remoteEnabled = decodedDestination != nil && defaults.bool(forKey: Self.remoteKey)
         telemetry.setEnabled(mode != .off)
         telemetry.setRemoteExportEnabled(remoteEnabled)
     }

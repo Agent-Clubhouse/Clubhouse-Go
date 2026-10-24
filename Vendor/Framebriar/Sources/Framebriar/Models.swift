@@ -53,6 +53,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
     public init(configuration: Configuration, notes: String, reviewedScreenshotPNG: Data? = nil,
                 id: UUID = UUID(), capturedAt: Date = Date(), incident: FeedbackIncident? = nil) throws {
         try incident?.validate()
+        guard incident?.id != id.uuidString.lowercased() else { throw FramebriarError.invalidInput }
         guard matches(id.uuidString, "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89aAbB][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"),
               notes.utf16.count <= 2000 else { throw FramebriarError.invalidInput }
         if let png = reviewedScreenshotPNG {

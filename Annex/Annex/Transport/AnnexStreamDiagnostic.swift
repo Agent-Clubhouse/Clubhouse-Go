@@ -10,8 +10,9 @@ nonisolated public final class AnnexStreamDiagnostic: @unchecked Sendable {
     private var chunks = 0
     private var bytes = 0
     private var ended = false
-    public init(telemetry: AnnexTelemetry = .shared, parent: AnnexDiagnosticSpan? = nil, remoteParent: AnnexTraceContext? = nil) {
+    public init(telemetry: AnnexTelemetry = .shared, parent: AnnexDiagnosticSpan? = nil, remoteParent: AnnexTraceContext? = nil, binding: AnnexTelemetryHandshake? = nil) {
         span = telemetry.begin(.stream, parent: parent, remoteParent: remoteParent)
+        binding?.annotate(span)
     }
     public func chunk(byteCount: Int) {
         guard byteCount > 0 else { return }

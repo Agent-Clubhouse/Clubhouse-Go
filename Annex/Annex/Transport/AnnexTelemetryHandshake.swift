@@ -2,7 +2,7 @@ import Foundation
 
 /// Optional authenticated WebSocket capability negotiation. No REST endpoint,
 /// persistent registration, new permission, or change to controller authentication.
-nonisolated public struct AnnexTelemetryHandshake: Sendable {
+nonisolated public struct AnnexTelemetryHandshake: Sendable, Equatable {
     public struct Request: Encodable, Sendable {
         public let version = 1
         public let serviceName = "clubhouse-go"

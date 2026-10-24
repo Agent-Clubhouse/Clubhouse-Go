@@ -3,6 +3,9 @@ import ClubhouseTransport
 
 /// Explicit capture, reviewed local export and separately consented collector export.
 struct CompanionDiagnosticsView: View {
+    private let exporter: AnnexOTLPExporter?
+    @State private var exportHealth: AnnexOTLPExporter.Health?
+    init(exporter: AnnexOTLPExporter? = nil) { self.exporter = exporter }
     @State private var settings = AnnexDiagnosticSettings.shared
     @State private var snapshot = AnnexTelemetry.shared.snapshot()
     @State private var reviewedExport: String?
@@ -21,7 +24,12 @@ struct CompanionDiagnosticsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Export") {
-                Label(settings.remoteEnabled ? "Collector export enabled" : "Remote export disabled", systemImage: settings.remoteEnabled ? "network" : "network.slash")
+                Label(settings.remoteEnabled ? (settings.mode == .off ? "Collector paused (capture off)" : "Collector export enabled") : "Remote export disabled", systemImage: settings.remoteEnabled ? "network" : "network.slash")
+                if let exportHealth {
+                    Text("Collector accepted: \(exportHealth.delivered) · dropped: \(exportHealth.dropped) · latest result: \(exportHealth.failure.rawValue)")
+                        .font(.caption)
+                    Text("Acceptance does not prove downstream ingestion. Refresh to update; counts are process-local.").font(.caption).foregroundStyle(.secondary)
+                }
                 NavigationLink("Tracing destination") { CompanionTelemetryDestinationView() }
                 Text("A tracing collector is separate from developer feedback. Collection alone does not enable sharing. You can also review a sanitized JSON snapshot before sharing it yourself.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -75,7 +83,10 @@ struct CompanionDiagnosticsView: View {
         }
         .alert("Could not prepare bounded export", isPresented: $exportError) { Button("OK") {} }
     }
-    private func refresh() { snapshot = AnnexTelemetry.shared.snapshot() }
+    private func refresh() {
+        snapshot = AnnexTelemetry.shared.snapshot()
+        Task { exportHealth = await exporter?.health() }
+    }
 }
 
 struct CompanionTelemetryDestinationView: View {

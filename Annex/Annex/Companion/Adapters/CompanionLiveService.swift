@@ -375,7 +375,7 @@ import ClubhouseTransport
                 guard let agentID = payload["agentId"]?.string, let event = payload["event"], let target = target(agentID: agentID, hostID: hostID) else { return }
                 if envelope.replayed != true {
                     let context = envelope.tc?.string.flatMap { AnnexTraceContext(traceparent: $0) }
-                    streamDiagnostics.receive(event, target: target, context: context)
+                    streamDiagnostics.receive(event, target: target, context: context, binding: envelope.diagnosticBinding)
                 }
                 if buffers[target] != nil { buffers[target]?.append(event) }
                 else { project(event, target: target) }

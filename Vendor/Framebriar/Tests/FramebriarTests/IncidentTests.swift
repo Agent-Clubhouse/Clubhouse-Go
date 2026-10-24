@@ -65,3 +65,20 @@ func incident(_ date: Date) throws -> FeedbackIncident {
     try await client.flush()
     #expect(await client.status().queued == 0)
 }
+
+@Test func serviceCanonicalIncidentFixtureMatchesSDKWire() throws {
+    let url = try #require(Bundle.module.url(forResource: "incident-report-v1", withExtension: "json", subdirectory: "Fixtures"))
+    let data = try Data(contentsOf: url)
+    let value = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    let context = try JSONDecoder().decode(FeedbackIncident.self, from: JSONSerialization.data(withJSONObject: value["incident"]!))
+    try context.validate()
+    let report = try ReviewedFeedback(configuration: Configuration(gameID: "clubhouse"), notes: "Connection stopped responding",
+        id: UUID(uuidString: value["id"] as! String)!, capturedAt: parseDate(value["capturedAt"] as! String)!, incident: context)
+    let wire = try JSONSerialization.jsonObject(with: report.wire()) as! [String: Any]
+    #expect(NSDictionary(dictionary: wire["incident"] as! [String: Any]).isEqual(to: value["incident"] as! [AnyHashable: Any]))
+    #expect(wire["traceId"] as? String == value["traceId"] as? String)
+    #expect(wire["spanId"] as? String == value["spanId"] as? String)
+    #expect(throws: FramebriarError.invalidInput) {
+        try ReviewedFeedback(configuration: Configuration(gameID: "clubhouse"), notes: "Issue", id: UUID(uuidString: context.id)!, incident: context)
+    }
+}

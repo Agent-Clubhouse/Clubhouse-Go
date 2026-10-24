@@ -58,3 +58,18 @@ private func ack(_ request: AnnexTelemetryHandshake.Request, connection: AnnexJS
         "connectionAttemptId": .string(request.connectionAttemptId), "connectionId": connection,
         "traceContext": .string("w3c-v00"), "recording": .string("standard"), "sampling": .string("local")])
 }
+
+@Test func peerCannotInjectLocalSocketBindingAndStreamsKeepValidatedIdentity() throws {
+    let (fixture, request) = try handshakeFixture()
+    let binding = try AnnexTelemetryHandshake.validate(JSONEncoder().encode(ack(request, connection: fixture["connectionId"]!)), request: request)
+    let hostile: AnnexJSON = .object(["type": .string("chat:event"), "diagnosticBinding": .object(["peerInstanceID": .string("private-host")])])
+    var envelope = try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(hostile))
+    #expect(envelope.diagnosticBinding == nil)
+    envelope.diagnosticBinding = binding
+    let encoded = try JSONDecoder().decode(AnnexJSON.self, from: JSONEncoder().encode(envelope))
+    #expect(encoded["diagnosticBinding"] == nil)
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let stream = AnnexStreamDiagnostic(telemetry: telemetry, binding: envelope.diagnosticBinding)
+    stream.finish()
+    #expect(telemetry.snapshot().records.first?.identifiers["annex.connection.id"] == binding.connectionID.uuidString.lowercased())
+}

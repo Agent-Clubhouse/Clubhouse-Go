@@ -367,7 +367,7 @@ public actor AnnexTransport: AnnexTransporting {
 
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID) async throws {
         guard current == generation else { throw CancellationError() }
-        guard data.count <= 16 * 1024 * 1024, let envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
+        guard data.count <= 16 * 1024 * 1024, var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
         if envelope.type == "telemetry:hello:ack" {
@@ -394,6 +394,7 @@ public actor AnnexTransport: AnnexTransporting {
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
             transition(.connected)
         }
+        if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]

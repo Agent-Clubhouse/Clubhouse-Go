@@ -36,12 +36,17 @@ public struct FeedbackIncident: Codable, Sendable, Equatable {
     }
     public func validate() throws {
         func uuid(_ value: String) -> Bool { matches(value, "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$") }
+        func timestamp(_ value: String) -> Date? {
+            guard matches(value, "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,3})?Z$"),
+                  let date = parseDate(value), iso(date) == String(value.prefix(19)) + "Z" else { return nil }
+            return date
+        }
         guard version == 1, uuid(id), uuid(phoneInstanceId), hostInstanceIds.count <= 4, connectionIds.count <= 4,
               hostInstanceIds.allSatisfy(uuid), connectionIds.allSatisfy(uuid), backendRef.map(uuid) ?? true,
               Set(hostInstanceIds).count == hostInstanceIds.count, Set(connectionIds).count == connectionIds.count,
               traces.count <= 8, (availability == .recorded) == !traces.isEmpty,
-              let start = parseDate(windowStart), let end = parseDate(windowEnd),
-              windowEnd == capturedAt, start <= end, end.timeIntervalSince(start) <= 300 else { throw FramebriarError.invalidInput }
+              let start = timestamp(windowStart), let end = timestamp(windowEnd), let at = timestamp(capturedAt),
+              end == at, start <= end, end.timeIntervalSince(start) <= 300 else { throw FramebriarError.invalidInput }
         for trace in traces { _ = try Trace(traceId: trace.traceId, spanId: trace.spanId) }
         guard try JSONEncoder().encode(self).count <= 4096 else { throw FramebriarError.invalidInput }
     }

@@ -158,7 +158,7 @@ struct CompanionSettingsSheet: View {
         NavigationStack {
             List {
                 Section("Diagnostics") {
-                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView() }
+                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
                 }
                 CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Your desktops") {
