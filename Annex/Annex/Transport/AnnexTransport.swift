@@ -5,6 +5,7 @@ import Foundation
 public actor AnnexTransport: AnnexTransporting {
     public nonisolated let host: TrustedAnnexHost
     private let io: any AnnexIO
+    private let telemetry: AnnexTelemetry
     private let credentials: any AnnexCredentialStore
     private let backoff: AnnexBackoff
     private let eventCapacity: Int
@@ -13,6 +14,8 @@ public actor AnnexTransport: AnnexTransporting {
     private var loop: Task<Void, Never>?
     private var connectionDiagnostic: AnnexDiagnosticSpan?
     private var telemetryBinding: AnnexTelemetryHandshake?
+    private var telemetryHello: (request: AnnexTelemetryHandshake.Request, span: AnnexDiagnosticSpan)?
+    private var telemetryDeadline: Task<Void, Never>?
     private var socket: (any AnnexWebSocket)?
     private var generation = UUID()
     private var state: AnnexConnectionState = .disconnected
@@ -24,8 +27,9 @@ public actor AnnexTransport: AnnexTransporting {
     private var commands: [CommandKey: CommandRecord] = [:]
 
     public init(host: TrustedAnnexHost, credentials: any AnnexCredentialStore, clientIdentity: AnnexClientIdentity? = nil,
-                io: (any AnnexIO)? = nil, eventCapacity: Int = 256, commandCapacity: Int = 256, backoff: AnnexBackoff = AnnexBackoff()) {
-        self.host = host; self.credentials = credentials; self.io = io ?? PinnedAnnexIO(host: host, clientIdentity: clientIdentity)
+                io: (any AnnexIO)? = nil, eventCapacity: Int = 256, commandCapacity: Int = 256, backoff: AnnexBackoff = AnnexBackoff(), telemetry: AnnexTelemetry = .shared) {
+        self.telemetry = telemetry
+        self.host = host; self.credentials = credentials; self.io = io ?? PinnedAnnexIO(host: host, clientIdentity: clientIdentity, telemetry: telemetry)
         self.eventCapacity = max(1, eventCapacity); self.commandCapacity = max(1, commandCapacity); self.backoff = backoff
     }
 
@@ -46,7 +50,7 @@ public actor AnnexTransport: AnnexTransporting {
         for (id, continuation) in subscribers {
             switch continuation.yield(event) {
             case .dropped:
-                AnnexTelemetry.shared.record(.replay, event: .overflow)
+                telemetry.record(.replay, event: .overflow)
                 // No silent loss of permissions/tool deltas. Consumer must resnapshot.
                 continuation.finish(throwing: AnnexTransportError.queueOverflow)
                 subscribers.removeValue(forKey: id)
@@ -59,7 +63,7 @@ public actor AnnexTransport: AnnexTransporting {
     private func transition(_ state: AnnexConnectionState) { self.state = state; emit(.connection(state)) }
 
     public func connect() async throws {
-        return try await AnnexTelemetry.shared.measure(.connection) {
+        return try await telemetry.measure(.connection) {
             guard loop == nil else { return }
             let requestedGeneration = generation
             guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
@@ -73,7 +77,8 @@ public actor AnnexTransport: AnnexTransporting {
         }
     }
     public func disconnect() async {
-        AnnexTelemetry.shared.record(.disconnect)
+        telemetry.record(.disconnect)
+        endTelemetryHello(.cancelled)
         telemetryBinding = nil
         connectionDiagnostic?.fail(.cancelled); connectionDiagnostic?.end(); connectionDiagnostic = nil
         generation = UUID()
@@ -88,14 +93,13 @@ public actor AnnexTransport: AnnexTransporting {
         guard let credential = try await credentials.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
         var request = URLRequest(url: try host.endpoint.url(path: path, query: query, webSocket: webSocket))
         request.setValue("Bearer \(credential.bearerToken)", forHTTPHeaderField: "Authorization")
-        if AnnexTelemetry.shared.isEnabled, let telemetryBinding {
+        if telemetry.isEnabled, let telemetryBinding {
             telemetryBinding.annotate(AnnexTelemetry.current)
-            request.setValue(telemetryBinding.connectionID.uuidString.lowercased(), forHTTPHeaderField: "x-clubhouse-connection-id")
         }
         return request
     }
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
-        return try await AnnexTelemetry.shared.measure(route.diagnosticOperation) {
+        return try await telemetry.measure(route.diagnosticOperation) {
             let requestedGeneration = generation
             let path: [String]; var query: [URLQueryItem] = []
             switch route {
@@ -142,7 +146,7 @@ public actor AnnexTransport: AnnexTransporting {
     }
 
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
-        return try await AnnexTelemetry.shared.measure(command.diagnosticOperation) {
+        return try await telemetry.measure(command.diagnosticOperation) {
             let data = try command.encoded()
             let now = Date()
             let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
@@ -200,7 +204,7 @@ public actor AnnexTransport: AnnexTransporting {
     /// Explicit self-revocation only; no caller-selected path or target identity.
     /// Unknown outcomes retain local credentials so the UI can explain recovery.
     public func revokeSessionPairing() async throws {
-        return try await AnnexTelemetry.shared.measure(.revoke) {
+        return try await telemetry.measure(.revoke) {
             _ = try await read(.capabilities)
             guard let capabilities, capabilities.controlAvailable == true,
                   capabilities.pairing?.sessionRevokePath == "/api/v1/mobile/pairing" else {
@@ -230,8 +234,9 @@ public actor AnnexTransport: AnnexTransporting {
         var hasConnected = false
         while !Task.isCancelled && current == generation {
             let started = ContinuousClock.now
-            let diagnostic = AnnexTelemetry.shared.begin(hasConnected ? .reconnect : .connection, parent: nil)
+            let diagnostic = telemetry.begin(hasConnected ? .reconnect : .connection, parent: nil)
             connectionDiagnostic = diagnostic
+            endTelemetryHello(.cancelled)
             telemetryBinding = nil
             let attemptID = UUID()
             diagnostic.identifier(.connectionAttemptID, attemptID)
@@ -245,12 +250,12 @@ public actor AnnexTransport: AnnexTransporting {
                       identity["fingerprint"]?.string?.lowercased() == host.hostID else { throw AnnexTransportError.identityMismatch }
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _) { capabilities = nil }
-                await negotiateTelemetry(attemptID: attemptID, generation: current, diagnostic: diagnostic)
                 let request = try await authorizedRequest(path: ["ws"], webSocket: true)
                 guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)
                 guard current == generation && !Task.isCancelled else { await newSocket.close(); return }
                 socket = newSocket
+                try await sendTelemetryHello(on: newSocket, attemptID: attemptID, generation: current)
                 cursor.beginConnection()
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
@@ -258,6 +263,7 @@ public actor AnnexTransport: AnnexTransporting {
                 }
             } catch {
                 diagnostic.fail(error); diagnostic.end()
+                if current == generation { endTelemetryHello(AnnexDiagnosticFailure.classify(error)) }
                 guard current == generation && !Task.isCancelled else { return }
                 capabilities = nil
                 let oldSocket = socket; socket = nil; await oldSocket?.close()
@@ -268,7 +274,7 @@ public actor AnnexTransport: AnnexTransporting {
                 if ContinuousClock.now - started > .seconds(30) { attempt = 0 }
                 attempt += 1
                 let delay = backoff.delay(attempt: attempt)
-                let diagnostic = AnnexTelemetry.shared.begin(.backoff)
+                let diagnostic = telemetry.begin(.backoff)
                 diagnostic.fail(error); diagnostic.number(.attempt, Double(attempt)); diagnostic.number(.backoffMs, delay * 1000)
                 diagnostic.end()
                 transition(.reconnecting(attempt: attempt, delaySeconds: delay))
@@ -277,31 +283,45 @@ public actor AnnexTransport: AnnexTransporting {
         }
     }
 
-    /// Optional diagnostics negotiation never changes authentication or command behavior.
-    private func negotiateTelemetry(attemptID: UUID, generation current: UUID, diagnostic: AnnexDiagnosticSpan) async {
-        guard AnnexTelemetry.shared.isEnabled else { return }
-        guard capabilities?.telemetry?.version == 1,
-              capabilities?.telemetry?.handshakePath == AnnexTelemetryHandshake.path else {
-            diagnostic.event(.unsupported); return
+    /// Hello/ack is itself capability negotiation. Old hosts ignore unknown
+    /// messages; normal snapshots/chat never wait for this optional ack.
+    private func sendTelemetryHello(on socket: any AnnexWebSocket, attemptID: UUID, generation current: UUID) async throws {
+        guard telemetry.isEnabled, capabilities?.controlAvailable == true else { return }
+        let span = telemetry.begin(.handshake)
+        let request = AnnexTelemetryHandshake.Request(instanceID: telemetry.instanceID, attemptID: attemptID)
+        let payload = try JSONDecoder().decode(AnnexJSON.self, from: JSONEncoder().encode(request))
+        var message: [String: AnnexJSON] = ["type": .string("telemetry:hello"), "payload": payload]
+        if let tc = telemetry.traceparent(for: span) { message["tc"] = .string(tc) }
+        telemetryHello = (request, span)
+        do { try await socket.send(JSONEncoder().encode(AnnexJSON.object(message))) }
+        catch { endTelemetryHello(AnnexDiagnosticFailure.classify(error)); throw error }
+        guard current == generation else { endTelemetryHello(.cancelled); return }
+        telemetryDeadline = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            await self?.expireTelemetryHello(generation: current)
         }
+    }
+    private func expireTelemetryHello(generation current: UUID) {
+        guard current == generation else { return }
+        telemetryHello?.span.event(.unsupported)
+        endTelemetryHello(.timeout)
+    }
+    private func endTelemetryHello(_ failure: AnnexDiagnosticFailure) {
+        telemetryDeadline?.cancel(); telemetryDeadline = nil
+        telemetryHello?.span.fail(failure); telemetryHello?.span.end(); telemetryHello = nil
+    }
+    private func acceptTelemetryAck(_ payload: AnnexJSON?) {
+        guard let pending = telemetryHello, telemetry.isEnabled,
+              telemetry.traceparent(for: pending.span) != nil else { return }
         do {
-            try await AnnexTelemetry.shared.measure(.handshake) {
-                let body = AnnexTelemetryHandshake.Request(instanceID: AnnexTelemetry.shared.instanceID, attemptID: attemptID)
-                var request = try await authorizedRequest(path: ["api", "v1", "mobile", "telemetry", "handshake"])
-                request.httpMethod = "POST"; request.timeoutInterval = 5
-                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.httpBody = try JSONEncoder().encode(body)
-                let response = try await io.perform(request)
-                guard current == generation, !Task.isCancelled, AnnexTelemetry.shared.isEnabled else { throw CancellationError() }
-                guard response.status == 200 else { throw AnnexHTTPValidation.error(response) }
-                let binding = try AnnexTelemetryHandshake.validate(response.data, request: body)
-                telemetryBinding = binding
-                binding.annotate(diagnostic); binding.annotate(AnnexTelemetry.current)
-            }
+            guard let payload else { throw AnnexTransportError.malformedResponse }
+            let binding = try AnnexTelemetryHandshake.validate(JSONEncoder().encode(payload), request: pending.request)
+            telemetryBinding = binding
+            binding.annotate(pending.span); binding.annotate(connectionDiagnostic)
+            endTelemetryHello(.none)
         } catch {
-            // A malformed/unsupported diagnostic contract is visible locally but cannot
-            // take down a compatible Annex session or weaken existing trust checks.
-            diagnostic.event(.rejected)
+            pending.span.event(.rejected)
+            // A later valid ack may still arrive; never replace identities from bad data.
         }
     }
 
@@ -350,6 +370,10 @@ public actor AnnexTransport: AnnexTransporting {
         guard data.count <= 16 * 1024 * 1024, let envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
+        if envelope.type == "telemetry:hello:ack" {
+            acceptTelemetryAck(envelope.payload)
+            return
+        }
         if envelope.type == "snapshot" {
             guard let seq = envelope.snapshotSequence, seq >= 0,
                   envelope.epoch == nil || envelope.epoch == capabilities?.epoch else {
@@ -358,10 +382,10 @@ public actor AnnexTransport: AnnexTransporting {
         }
         switch cursor.accept(envelope) {
         case .duplicate:
-            AnnexTelemetry.shared.record(.replay, event: .duplicate)
+            telemetry.record(.replay, event: .duplicate)
             return
         case .resync(let reason):
-            AnnexTelemetry.shared.record(.replay, event: .gap)
+            telemetry.record(.replay, event: .gap)
             emit(.resyncRequired(reason))
             if envelope.type != "snapshot" { throw AnnexTransportError.disconnected }
         case .deliver: break
@@ -374,7 +398,7 @@ public actor AnnexTransport: AnnexTransporting {
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
             if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
-            AnnexTelemetry.shared.record(.replay, event: .replayRequested)
+            telemetry.record(.replay, event: .replayRequested)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }
     }

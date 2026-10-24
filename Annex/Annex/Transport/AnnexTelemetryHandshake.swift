@@ -1,38 +1,40 @@
 import Foundation
 
+/// Optional authenticated WebSocket capability negotiation. No REST endpoint,
+/// persistent registration, new permission, or change to controller authentication.
 nonisolated public struct AnnexTelemetryHandshake: Sendable {
-    public static let path = "/api/v1/mobile/telemetry/handshake"
-    public struct Service: Codable, Equatable, Sendable {
-        public let name: String
-        public let instanceId: String
-    }
     public struct Request: Encodable, Sendable {
         public let version = 1
-        public let service: Service
+        public let serviceName = "clubhouse-go"
+        public let serviceInstanceId: String
         public let connectionAttemptId: String
+        public let traceContext = "w3c-v00"
         public init(instanceID: UUID, attemptID: UUID) {
-            service = .init(name: "clubhouse-go", instanceId: instanceID.uuidString.lowercased())
+            serviceInstanceId = instanceID.uuidString.lowercased()
             connectionAttemptId = attemptID.uuidString.lowercased()
         }
     }
     private struct Response: Decodable {
         let version: Int
-        let service: Service
-        let peer: Service
+        let serviceName: String
+        let serviceInstanceId: String
+        let peerServiceInstanceId: String
         let connectionAttemptId: String
         let connectionId: String
+        let traceContext: String
     }
     public let peerInstanceID: UUID
     public let attemptID: UUID
     public let connectionID: UUID
     public static func validate(_ data: Data, request: Request) throws -> Self {
         guard data.count <= 4096, let value = try? JSONDecoder().decode(Response.self, from: data),
-              value.version == 1, value.service.name == "clubhouse", value.peer == request.service,
+              value.version == 1, value.serviceName == "clubhouse", value.traceContext == "w3c-v00",
+              value.peerServiceInstanceId == request.serviceInstanceId,
               value.connectionAttemptId == request.connectionAttemptId,
-              let peer = canonicalUUID(value.service.instanceId),
+              let peer = canonicalUUID(value.serviceInstanceId),
               let attempt = canonicalUUID(value.connectionAttemptId),
               let connection = canonicalUUID(value.connectionId),
-              value.service.instanceId != request.service.instanceId else { throw AnnexTransportError.malformedResponse }
+              value.serviceInstanceId != request.serviceInstanceId else { throw AnnexTransportError.malformedResponse }
         return Self(peerInstanceID: peer, attemptID: attempt, connectionID: connection)
     }
     static func canonicalUUID(_ value: String) -> UUID? {

@@ -102,7 +102,7 @@ feature. Physical network/device validation remains separate.
 
 The immutable phone resource is `service.name=clubhouse-go` with a UUIDv4
 `service.instance.id` per app process. Capture mode changes and reconnects do not
-change that instance; app restart does. A capability-gated, authenticated handshake
+change that instance; app restart does. An optional authenticated WebSocket hello/ack
 verifies echoed phone/attempt IDs and records a distinct host process instance plus
 a host-issued connection UUID. These are correlation metadata, never authentication.
 Each connection attempt and operation has an independent trace; metadata is bounded.

@@ -90,21 +90,6 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public let ttlMs: Int
     }
     public struct Pairing: Decodable, Sendable { public let sessionRevokePath: String? }
-    public struct Telemetry: Decodable, Sendable { public let version: Int; public let handshakePath: String }
-    public let telemetry: Telemetry?
     public let pairing: Pairing?
     public let idempotency: Idempotency
-    private enum CodingKeys: String, CodingKey { case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, telemetry }
-    public init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        version = try values.decode(Int.self, forKey: .version)
-        epoch = try values.decode(String.self, forKey: .epoch)
-        controlAuth = try values.decode(String.self, forKey: .controlAuth)
-        controlAvailable = try values.decodeIfPresent(Bool.self, forKey: .controlAvailable)
-        commands = try values.decode([String].self, forKey: .commands)
-        pairing = try values.decodeIfPresent(Pairing.self, forKey: .pairing)
-        idempotency = try values.decode(Idempotency.self, forKey: .idempotency)
-        // Optional diagnostics cannot make otherwise compatible control unavailable.
-        telemetry = try? values.decode(Telemetry.self, forKey: .telemetry)
-    }
 }

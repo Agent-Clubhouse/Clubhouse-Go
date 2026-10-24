@@ -1,23 +1,46 @@
 # Annex distributed tracing handshake v1
 
-Local immutable resources: phone service.name=clubhouse-go, desktop existing service.name=clubhouse. service.instance.id = lowercase UUIDv4 per app-process lifetime, fresh on restart, stable across reconnect/capture toggles. No hostname/hardware/user identifiers. Peer metadata never replaces local resource identity. Local capture off does not initiate telemetry handshake or send propagation headers.
+Aligned with desktop PR #2437's `docs/fixtures/annex-tracing-v1.json`; the same
+fixture is checked in at `Tests/ClubhouseTransportTests/Fixtures/telemetry-handshake-v1.json`.
 
-GET /api/v1/mobile/capabilities optional:
-telemetry: { version: 1, handshakePath: '/api/v1/mobile/telemetry/handshake' }
-Old host without field: normal connection, no handshake; local diagnostics mark distributed support unavailable. No fallback guess or unauthenticated probing.
+After existing pinned mTLS authentication and control capability verification,
+mobile sends one optional WebSocket message:
 
-POST exact advertised allowed path (same pinned TLS + bearer/mTLS auth, W3C traceparent header):
-{version:1, service:{name:'clubhouse-go',instanceId:'<phone process UUID>'}, connectionAttemptId:'<fresh UUID each reconnect>'}
-Response 200:
-{version:1, service:{name:'clubhouse',instanceId:'<host process UUID>'}, peer:{name:'clubhouse-go',instanceId:'<exact request phone UUID>'}, connectionAttemptId:'<exact request attempt UUID>', connectionId:'<new server UUID>'}
-Limit handshake response 4KiB; strict UUIDs and fixed service-name enums. Telemetry IDs are correlation only, NEVER auth. Server must bind connectionId to already authenticated pairing peer + phone instance + attempt, not allow arbitrary lookup/hijack by UUID. Connection metadata is ephemeral/bounded and cleared on Annex restart/revoke. Subsequent API/WS upgrade carries x-clubhouse-connection-id. Validate peer binding; do not reject legitimate old clients for missing header. Server control/auth semantics remain authoritative regardless tracing support.
+```json
+{"type":"telemetry:hello","payload":{"version":1,"serviceName":"clubhouse-go","serviceInstanceId":"11111111-1111-4111-8111-111111111111","connectionAttemptId":"22222222-2222-4222-8222-222222222222","traceContext":"w3c-v00"},"tc":"00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"}
+```
 
-Host restart: new service instance; next handshake fresh connection. Multiple phones/hosts: each process identity distinct, each transport connection binding independent. Reconnect gets new attempt/connection UUID and root trace; chat operations never parent to the connection-long span. Per-operation traceparent does not affect command idempotency digest/key. Replay preserves original turn traceContext; client dedups session/seq and never counts history as live streaming.
+Host `telemetry:hello:ack` payload contains `version:1`, `serviceName:"clubhouse"`,
+`serviceInstanceId`, echoed `peerServiceInstanceId` and `connectionAttemptId`,
+socket-lifetime `connectionId`, and `traceContext:"w3c-v00"`. Optional recording
+and sampling fields describe host choices; they never change mobile consent.
+Mobile accepts only matching current-socket/attempt echoes and canonical UUIDv4
+identifiers. Invalid, unsolicited and late acknowledgements are ignored. No REST
+handshake or connection-header registration exists. Hello/ack is the optional
+capability negotiation; an old host can ignore it. Mobile never delays normal
+snapshot/chat for an ack and expires the diagnostic attempt after five seconds.
 
-ALIGNED WITH DESKTOP: outer WebSocket envelope tc is the W3C traceparent STRING, especially for chat:event wrapping turn_started. Supersedes prior inner traceContext proposal. HTTP response traceparent accepted only if validated and trace ID matches the outgoing request. Represents per-turn host span, related to originating authenticated command when known. New unrelated turn = fresh trace. No baggage. Mobile checks strict lowercase v00 parent/nonzero IDs; malformed context ignored. tracestate bounded512B/32members, vendor values dropped until explicit vendor allowlist. Local capture samples bounded spans; current implementation uses always-on local sampler only while capture mode enabled. Host retains its own consent/export/sampling choices.
+Local immutable resources: `clubhouse-go` on phone, `clubhouse` on host, each with
+random process-lifetime `service.instance.id`. Restart changes it; reconnect and
+capture toggles do not. Every reconnect has new attempt/socket UUIDs. Multiple
+phones/hosts remain distinct. Peer metadata cannot replace local resource identity
+or grant auth; existing mTLS/pairing/revocation rules remain authoritative.
 
-Backend proof still needed: actual exported OTel resource service.name/service.instance.id and span traceId/spanId/parentSpanId retained by shared destination. Framebriar current service sanitization appears to whitelist resource fields and may DROP service.instance.id: investigating src/telemetry.mjs trustedResource/sanitizeSignal. This is a real potential end-to-end gap, not solved by payload IDs.
+Authenticated HTTP propagates W3C `traceparent`. A response observation uses a
+validated host parent only if its trace ID matches the request. WebSocket envelopes
+carry optional top-level `tc` as a traceparent string. Per-operation roots are
+independent; never parent all chats to the connection trace. A live `turn_started`
+can parent a mobile stream to host `tc`. Replayed envelopes retain original `tc`
+but do not create new live timing spans. Idempotency bodies/keys are unchanged.
 
+Strict version-00 validation: lowercase hex, exact length, nonzero IDs. No baggage.
+Tracestate is bounded to 512 bytes/32 members and syntax checked; opaque vendor
+values are discarded until an approved vendor policy exists. Local capture samples
+bounded spans only while enabled; host sampling/export choices remain independent.
 Reference: https://www.w3.org/TR/trace-context/
 
-Shared fixture: `Tests/ClubhouseTransportTests/Fixtures/telemetry-handshake-v1.json`.
+Backend gate: matching trace IDs in payloads are not proof of complete ingestion.
+Framebriar `src/telemetry.mjs` currently drops `service.instance.id`; preserve a
+validated UUIDv4 per resource group and test Azure mapping before claiming shared
+backend instance correlation. Destination configuration is independent of feedback.
+No remote exporter or credentials have been enabled by this change.

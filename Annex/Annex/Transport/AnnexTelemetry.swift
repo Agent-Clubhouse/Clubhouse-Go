@@ -265,10 +265,12 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         request.setValue(nil, forHTTPHeaderField: "traceparent")
         request.setValue(nil, forHTTPHeaderField: "tracestate")
         request.setValue(nil, forHTTPHeaderField: "baggage")
-        if !isEnabled { request.setValue(nil, forHTTPHeaderField: "x-clubhouse-connection-id") }
+        request.setValue(traceparent(for: span), forHTTPHeaderField: "traceparent")
+    }
+    public func traceparent(for span: AnnexDiagnosticSpan?) -> String? {
         guard let generation = exporter.captureGeneration(), span?.generation == generation,
-              let context = span?.span?.context, context.isValid else { return }
-        request.setValue("00-\(context.traceId.hexString)-\(context.spanId.hexString)-\(context.traceFlags.hexString)", forHTTPHeaderField: "traceparent")
+              let context = span?.span?.context, context.isValid else { return nil }
+        return "00-\(context.traceId.hexString)-\(context.spanId.hexString)-\(context.traceFlags.hexString)"
     }
     public func record(_ operation: AnnexDiagnosticOperation, event: AnnexDiagnosticEvent? = nil) {
         let span = begin(operation); if let event { span.event(event) }; span.end()

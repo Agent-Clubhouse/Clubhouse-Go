@@ -179,3 +179,81 @@ private func sessionFixture(unauthorized: Bool = false) async throws -> (AnnexTr
     #expect(sequence == [1, 2, 3])
     await transport.disconnect()
 }
+
+private actor HandshakeSocket: AnnexWebSocket {
+    let supported: Bool
+    private var messages = [Data(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#.utf8)]
+    private var pending: CheckedContinuation<Data, Error>?
+    private(set) var hellos: [AnnexJSON] = []
+    init(supported: Bool) { self.supported = supported }
+    func receive() async throws -> Data {
+        if !messages.isEmpty { return messages.removeFirst() }
+        return try await withCheckedThrowingContinuation { pending = $0 }
+    }
+    func send(_ data: Data) throws {
+        let message = try JSONDecoder().decode(AnnexJSON.self, from: data)
+        guard message["type"]?.string == "telemetry:hello", let incoming = message["payload"] else { return }
+        hellos.append(incoming)
+        guard supported else { return }
+        let ack: AnnexJSON = .object(["type": .string("telemetry:hello:ack"), "payload": .object([
+            "version": .integer(1), "serviceName": .string("clubhouse"), "serviceInstanceId": .string("33333333-3333-4333-8333-333333333333"),
+            "peerServiceInstanceId": incoming["serviceInstanceId"]!, "connectionAttemptId": incoming["connectionAttemptId"]!,
+            "connectionId": .string(UUID().uuidString.lowercased()), "traceContext": .string("w3c-v00")])])
+        messages.insert(try JSONEncoder().encode(ack), at: 0)
+    }
+    func ping() {}
+    func close() { pending?.resume(throwing: CancellationError()); pending = nil }
+}
+private actor HandshakeSessionIO: AnnexIO {
+    let identity: AnnexPairingIdentity
+    let supported: Bool
+    private(set) var sockets: [HandshakeSocket] = []
+    init(identity: AnnexPairingIdentity, supported: Bool) { self.identity = identity; self.supported = supported }
+    func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
+        let body: AnnexJSON
+        if request.url?.path.hasSuffix("/identity") == true {
+            body = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
+        } else {
+            body = .object(["version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"), "controlAvailable": .bool(true), "commands": .array([]),
+                "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(2048), "ttlMs": .integer(3600000)])])
+        }
+        return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
+    }
+    func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket {
+        let socket = HandshakeSocket(supported: supported); sockets.append(socket); return socket
+    }
+}
+
+@Test func transportNegotiatesPerSocketIdentityWithoutChangingLegacyOrOffBehavior() async throws {
+    for supported in [true, false] {
+        let identity = AnnexPairingIdentity()
+        let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64)
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: hostID,
+            verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "fixture-only"), for: hostID)
+        let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+        let io = HandshakeSessionIO(identity: identity, supported: supported)
+        let transport = AnnexTransport(host: host, credentials: credentials, io: io, telemetry: telemetry)
+        for iteration in 0..<3 {
+            if iteration == 2 { telemetry.setEnabled(false) }
+            let events = await transport.events()
+            try await transport.connect()
+            for try await event in events {
+                if case .connection(.connected) = event { break }
+            }
+            if iteration < 2 {
+                #expect(telemetry.snapshot().records.contains { $0.operation == .handshake && $0.identifiers["peer.service.instance.id"] != nil } == supported)
+            }
+            await transport.disconnect()
+        }
+        let sockets = await io.sockets
+        #expect(sockets.count == 3)
+        let first = await sockets[0].hellos, second = await sockets[1].hellos
+        #expect(first.count == 1); #expect(second.count == 1)
+        #expect(await sockets[2].hellos.isEmpty)
+        #expect(first[0]["serviceInstanceId"] == second[0]["serviceInstanceId"])
+        #expect(first[0]["connectionAttemptId"] != second[0]["connectionAttemptId"])
+        #expect(first[0]["serviceInstanceId"]?.string == telemetry.instanceID.uuidString.lowercased())
+    }
+}
