@@ -167,7 +167,12 @@ final class CompanionAdditionalProviderTests: XCTestCase {
         let deny = app.buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 60))
         if !deny.isHittable { app.swipeDown() }; deny.tap()
-        XCTAssertTrue(app.staticTexts["Mobile denial verified."].waitForExistence(timeout: 60))
+        if ProcessInfo.processInfo.environment["CLUBHOUSE_PROVIDER_CLIENT_QUEUE"] == "1" {
+            // Copilot cancels the operation on denial without another model turn.
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Operation cancelled by user")).firstMatch.waitForExistence(timeout: 60))
+        } else {
+            XCTAssertTrue(app.staticTexts["Mobile denial verified."].waitForExistence(timeout: 60))
+        }
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Real provider tool denial"
         shot.lifetime = .keepAlways; add(shot)
