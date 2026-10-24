@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 @main
 struct ClubhouseGoApp: App {
@@ -66,6 +67,8 @@ struct ClubhouseGoApp: App {
         }
 
     private func handleScenePhase(_ newPhase: ScenePhase) {
+            if newPhase == .active { AnnexTelemetry.shared.record(.foreground) }
+            if newPhase == .background { AnnexTelemetry.shared.record(.background) }
             guard usesLegacyInterface else { return }
             switch newPhase {
             case .background:
@@ -87,6 +90,8 @@ struct ClubhouseGoApp: App {
     }
 
     init() {
+        AnnexTelemetry.shared.setEnabled(UserDefaults.standard.bool(forKey: AnnexTelemetry.preferenceKey))
+        AnnexTelemetry.shared.record(.appLaunch)
         let store = _store
         let args = ProcessInfo.processInfo.arguments
 

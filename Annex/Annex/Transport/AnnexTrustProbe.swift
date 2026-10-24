@@ -6,22 +6,25 @@ import Security
 /// UI must compare the returned pin with the desktop before constructing trust.
 nonisolated public enum AnnexTrustProbe {
     public static func inspect(endpoint: AnnexEndpoint) async throws -> AnnexCertificatePin {
-        let delegate = ProbeDelegate(endpoint: endpoint)
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.urlCredentialStorage = nil
-        configuration.httpCookieStorage = nil
-        configuration.urlCache = nil
-        configuration.timeoutIntervalForRequest = 10
-        configuration.timeoutIntervalForResource = 10
-        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
-        defer { session.invalidateAndCancel() }
-        do { _ = try await session.data(for: URLRequest(url: endpoint.url(path: []))) }
-        catch {
-            try Task.checkCancellation()
-            if let pin = delegate.observedPin() { return pin }
-            throw error
+        return try await AnnexTelemetry.shared.measure(.trustInspection) {
+            let delegate = ProbeDelegate(endpoint: endpoint)
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.urlCredentialStorage = nil
+            configuration.httpCookieStorage = nil
+            configuration.urlCache = nil
+            configuration.timeoutIntervalForRequest = 10
+            configuration.timeoutIntervalForResource = 10
+            let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+            defer { session.invalidateAndCancel() }
+            do { _ = try await session.data(for: URLRequest(url: endpoint.url(path: []))) }
+            catch {
+                try Task.checkCancellation()
+                if let pin = delegate.observedPin() { return pin }
+                throw error
+            }
+            throw AnnexTransportError.trustRequired
+
         }
-        throw AnnexTransportError.trustRequired
     }
 }
 

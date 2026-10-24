@@ -11,6 +11,7 @@ public actor AnnexTransport: AnnexTransporting {
     private let commandCapacity: Int
     private var subscribers: [UUID: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation] = [:]
     private var loop: Task<Void, Never>?
+    private var connectionDiagnostic: AnnexDiagnosticSpan?
     private var socket: (any AnnexWebSocket)?
     private var generation = UUID()
     private var state: AnnexConnectionState = .disconnected
@@ -44,6 +45,7 @@ public actor AnnexTransport: AnnexTransporting {
         for (id, continuation) in subscribers {
             switch continuation.yield(event) {
             case .dropped:
+                AnnexTelemetry.shared.record(.replay, event: .overflow)
                 // No silent loss of permissions/tool deltas. Consumer must resnapshot.
                 continuation.finish(throwing: AnnexTransportError.queueOverflow)
                 subscribers.removeValue(forKey: id)
@@ -56,17 +58,22 @@ public actor AnnexTransport: AnnexTransporting {
     private func transition(_ state: AnnexConnectionState) { self.state = state; emit(.connection(state)) }
 
     public func connect() async throws {
-        guard loop == nil else { return }
-        let requestedGeneration = generation
-        guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
-        guard loop == nil, generation == requestedGeneration else { return }
-        try Task.checkCancellation()
-        generation = UUID()
-        let current = generation
-        transition(.connecting)
-        loop = Task { [weak self] in await self?.run(generation: current) }
+        return try await AnnexTelemetry.shared.measure(.connection) {
+            guard loop == nil else { return }
+            let requestedGeneration = generation
+            guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
+            guard loop == nil, generation == requestedGeneration else { return }
+            try Task.checkCancellation()
+            generation = UUID()
+            let current = generation
+            transition(.connecting)
+            loop = Task { [weak self] in await self?.run(generation: current) }
+
+        }
     }
     public func disconnect() async {
+        AnnexTelemetry.shared.record(.disconnect)
+        connectionDiagnostic?.fail(.cancelled); connectionDiagnostic?.end(); connectionDiagnostic = nil
         generation = UUID()
         loop?.cancel(); loop = nil
         let oldSocket = socket; socket = nil
@@ -82,124 +89,134 @@ public actor AnnexTransport: AnnexTransporting {
         return request
     }
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
-        let requestedGeneration = generation
-        let path: [String]; var query: [URLQueryItem] = []
-        switch route {
-        case .identity: path = ["api", "v1", "identity"]
-        case .status: path = ["api", "v1", "status"]
-        case .projects: path = ["api", "v1", "projects"]
-        case .capabilities: path = ["api", "v1", "mobile", "capabilities"]
-        case .chatContent(let agent, let reference, let file):
-            guard (reference != nil) != (file != nil) else { throw AnnexTransportError.invalidEndpoint }
-            path = ["api", "v1", "mobile", "agents", agent, "content"]
-            if let reference { query = [.init(name: "mediaRef", value: reference)] }
-            if let file { query = [.init(name: "path", value: file)] }
-        case .chat(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat"]
-        case .chatSessions(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat", "sessions"]
-        case .chatHistory(let agent, let session, let before, let limit):
-            path = ["api", "v1", "mobile", "agents", agent, "chat"]
-            query = [URLQueryItem(name: "limit", value: String(min(2000, max(1, limit))))]
-            if let session { query.append(URLQueryItem(name: "sessionId", value: session)) }
-            if let before { query.append(URLQueryItem(name: "beforeSeq", value: String(max(1, before)))) }
-        case .agents(let project): path = ["api", "v1", "projects", project, "agents"]
-        case .sessions(let agent): path = ["api", "v1", "agents", agent, "sessions"]
-        case .transcript(let agent, let session, let offset, let limit):
-            path = ["api", "v1", "agents", agent, "sessions", session, "transcript"]
-            query = [URLQueryItem(name: "offset", value: String(max(0, offset))), URLQueryItem(name: "limit", value: String(min(500, max(1, limit))))]
-        }
-        let request = try await authorizedRequest(path: path, query: query)
-        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
-        try Task.checkCancellation()
-        let response = try await io.perform(request)
-        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
-        try Task.checkCancellation()
-        guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
-        guard let value = try? JSONDecoder().decode(AnnexJSON.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
-        if case .capabilities = route {
-            let decoded = try value.decode(AnnexCapabilities.self)
-            guard decoded.version == 1, !decoded.epoch.isEmpty, decoded.controlAuth == "mtls-pinned-client" else {
-                throw AnnexTransportError.unsupportedCapability("mobile-control-v1")
+        return try await AnnexTelemetry.shared.measure(route.diagnosticOperation) {
+            let requestedGeneration = generation
+            let path: [String]; var query: [URLQueryItem] = []
+            switch route {
+            case .identity: path = ["api", "v1", "identity"]
+            case .status: path = ["api", "v1", "status"]
+            case .projects: path = ["api", "v1", "projects"]
+            case .capabilities: path = ["api", "v1", "mobile", "capabilities"]
+            case .chatContent(let agent, let reference, let file):
+                guard (reference != nil) != (file != nil) else { throw AnnexTransportError.invalidEndpoint }
+                path = ["api", "v1", "mobile", "agents", agent, "content"]
+                if let reference { query = [.init(name: "mediaRef", value: reference)] }
+                if let file { query = [.init(name: "path", value: file)] }
+            case .chat(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat"]
+            case .chatSessions(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat", "sessions"]
+            case .chatHistory(let agent, let session, let before, let limit):
+                path = ["api", "v1", "mobile", "agents", agent, "chat"]
+                query = [URLQueryItem(name: "limit", value: String(min(2000, max(1, limit))))]
+                if let session { query.append(URLQueryItem(name: "sessionId", value: session)) }
+                if let before { query.append(URLQueryItem(name: "beforeSeq", value: String(max(1, before)))) }
+            case .agents(let project): path = ["api", "v1", "projects", project, "agents"]
+            case .sessions(let agent): path = ["api", "v1", "agents", agent, "sessions"]
+            case .transcript(let agent, let session, let offset, let limit):
+                path = ["api", "v1", "agents", agent, "sessions", session, "transcript"]
+                query = [URLQueryItem(name: "offset", value: String(max(0, offset))), URLQueryItem(name: "limit", value: String(min(500, max(1, limit))))]
             }
-            capabilities = decoded
+            let request = try await authorizedRequest(path: path, query: query)
+            guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
+            try Task.checkCancellation()
+            let response = try await io.perform(request)
+            guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
+            try Task.checkCancellation()
+            guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+            guard let value = try? JSONDecoder().decode(AnnexJSON.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
+            if case .capabilities = route {
+                let decoded = try value.decode(AnnexCapabilities.self)
+                guard decoded.version == 1, !decoded.epoch.isEmpty, decoded.controlAuth == "mtls-pinned-client" else {
+                    throw AnnexTransportError.unsupportedCapability("mobile-control-v1")
+                }
+                capabilities = decoded
+            }
+            return value
+
         }
-        return value
     }
 
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
-        let data = try command.encoded()
-        let now = Date()
-        let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
-        guard now.timeIntervalSince(command.createdAt) < ttl else {
-            throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
-        }
-        commands = commands.filter { $0.value.expiresAt > now }
-        let digest = AnnexCertificatePin.digest(data)
-        let key = CommandKey(epoch: command.epoch, id: command.commandID)
-        if let recorded = commands[key] {
-            guard recorded.digest == digest else { throw AnnexTransportError.duplicateCommandConflict }
-            if let receipt = recorded.receipt { return receipt }
-            throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
-        }
-        guard !commandBusy else { throw AnnexTransportError.commandInFlight }
-        guard commands.count < commandCapacity else { throw AnnexTransportError.queueOverflow }
-        guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
-            throw AnnexTransportError.unsupportedCapability(command.type)
-        }
-        // Reserve before the first await so concurrent commands cannot overtake.
-        let requestedGeneration = generation
-        commandBusy = true
-        defer { commandBusy = false }
-        var request = try await authorizedRequest(path: ["api", "v1", "mobile", "commands"])
-        guard generation == requestedGeneration, self.capabilities?.epoch == command.epoch,
-              self.capabilities?.controlAvailable == true else { throw AnnexTransportError.disconnected }
-        try Task.checkCancellation()
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = data
-        commands[key] = CommandRecord(digest: digest, expiresAt: command.createdAt.addingTimeInterval(ttl), receipt: nil)
-        do {
-            let response = try await io.perform(request)
-            // A valid receipt wins even if cancellation races after dispatch.
-            guard let receipt = try? JSONDecoder().decode(AnnexCommandReceipt.self, from: response.data),
-                  receipt.version == 1,
-                  (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
-                  (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
-                  ((receipt.status == .completed && (200...299).contains(response.status))
-                   || (receipt.status == .rejected && (400...499).contains(response.status))
-                   || (receipt.status == .failed && (500...599).contains(response.status))) else {
+        return try await AnnexTelemetry.shared.measure(command.diagnosticOperation) {
+            let data = try command.encoded()
+            let now = Date()
+            let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
+            guard now.timeIntervalSince(command.createdAt) < ttl else {
                 throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
             }
+            commands = commands.filter { $0.value.expiresAt > now }
+            let digest = AnnexCertificatePin.digest(data)
+            let key = CommandKey(epoch: command.epoch, id: command.commandID)
+            if let recorded = commands[key] {
+                guard recorded.digest == digest else { throw AnnexTransportError.duplicateCommandConflict }
+                if let receipt = recorded.receipt { return receipt }
+                throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+            }
+            guard !commandBusy else { throw AnnexTransportError.commandInFlight }
+            guard commands.count < commandCapacity else { throw AnnexTransportError.queueOverflow }
+            guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
+                throw AnnexTransportError.unsupportedCapability(command.type)
+            }
+            // Reserve before the first await so concurrent commands cannot overtake.
+            let requestedGeneration = generation
+            commandBusy = true
+            defer { commandBusy = false }
+            var request = try await authorizedRequest(path: ["api", "v1", "mobile", "commands"])
+            guard generation == requestedGeneration, self.capabilities?.epoch == command.epoch,
+                  self.capabilities?.controlAvailable == true else { throw AnnexTransportError.disconnected }
+            try Task.checkCancellation()
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = data
+            commands[key] = CommandRecord(digest: digest, expiresAt: command.createdAt.addingTimeInterval(ttl), receipt: nil)
+            do {
+                let response = try await io.perform(request)
+                // A valid receipt wins even if cancellation races after dispatch.
+                guard let receipt = try? JSONDecoder().decode(AnnexCommandReceipt.self, from: response.data),
+                      receipt.version == 1,
+                      (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
+                      (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
+                      ((receipt.status == .completed && (200...299).contains(response.status))
+                       || (receipt.status == .rejected && (400...499).contains(response.status))
+                       || (receipt.status == .failed && (500...599).contains(response.status))) else {
+                    throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+                }
+                if receipt.status != .completed { AnnexTelemetry.current?.fail(receipt.status == .failed ? .server : .rejected) }
             commands[key]?.receipt = receipt
-            return receipt
-        } catch {
-            // Cancellation after dispatch cannot prove the server did not execute.
-            throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+                return receipt
+            } catch {
+                // Cancellation after dispatch cannot prove the server did not execute.
+                throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+            }
+
         }
     }
 
     /// Explicit self-revocation only; no caller-selected path or target identity.
     /// Unknown outcomes retain local credentials so the UI can explain recovery.
     public func revokeSessionPairing() async throws {
-        _ = try await read(.capabilities)
-        guard let capabilities, capabilities.controlAvailable == true,
-              capabilities.pairing?.sessionRevokePath == "/api/v1/mobile/pairing" else {
-            throw AnnexTransportError.unsupportedCapability("session-revocation")
+        return try await AnnexTelemetry.shared.measure(.revoke) {
+            _ = try await read(.capabilities)
+            guard let capabilities, capabilities.controlAvailable == true,
+                  capabilities.pairing?.sessionRevokePath == "/api/v1/mobile/pairing" else {
+                throw AnnexTransportError.unsupportedCapability("session-revocation")
+            }
+            let requestedGeneration = generation
+            var request = try await authorizedRequest(path: ["api", "v1", "mobile", "pairing"])
+            guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
+            try Task.checkCancellation()
+            request.httpMethod = "DELETE"
+            let response: AnnexHTTPResponse
+            do { response = try await io.perform(request) }
+            catch { throw AnnexTransportError.pairingRevocationOutcomeUnknown }
+            guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+            guard let receipt = try? JSONDecoder().decode(AnnexJSON.self, from: response.data),
+                  receipt["version"] == .integer(1), receipt["epoch"] == .string(capabilities.epoch),
+                  receipt["revoked"] == .bool(true), receipt["pairingMode"] == .string("session") else {
+                throw AnnexTransportError.pairingRevocationOutcomeUnknown
+            }
+            await disconnect()
+
         }
-        let requestedGeneration = generation
-        var request = try await authorizedRequest(path: ["api", "v1", "mobile", "pairing"])
-        guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
-        try Task.checkCancellation()
-        request.httpMethod = "DELETE"
-        let response: AnnexHTTPResponse
-        do { response = try await io.perform(request) }
-        catch { throw AnnexTransportError.pairingRevocationOutcomeUnknown }
-        guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
-        guard let receipt = try? JSONDecoder().decode(AnnexJSON.self, from: response.data),
-              receipt["version"] == .integer(1), receipt["epoch"] == .string(capabilities.epoch),
-              receipt["revoked"] == .bool(true), receipt["pairingMode"] == .string("session") else {
-            throw AnnexTransportError.pairingRevocationOutcomeUnknown
-        }
-        await disconnect()
     }
 
     private func run(generation current: UUID) async {
@@ -207,7 +224,11 @@ public actor AnnexTransport: AnnexTransporting {
         var hasConnected = false
         while !Task.isCancelled && current == generation {
             let started = ContinuousClock.now
+            let diagnostic = AnnexTelemetry.shared.begin(hasConnected ? .reconnect : .connection)
+            connectionDiagnostic = diagnostic
+            defer { diagnostic.end() }
             do {
+                try await AnnexTelemetry.$current.withValue(diagnostic) {
                 // Bind the stored host identity to the pinned endpoint on every connection.
                 let identity = try await read(.identity)
                 guard let publicKey = identity["publicKey"]?.string,
@@ -224,7 +245,9 @@ public actor AnnexTransport: AnnexTransporting {
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
+                }
             } catch {
+                diagnostic.fail(error); diagnostic.end()
                 guard current == generation && !Task.isCancelled else { return }
                 capabilities = nil
                 let oldSocket = socket; socket = nil; await oldSocket?.close()
@@ -235,6 +258,9 @@ public actor AnnexTransport: AnnexTransporting {
                 if ContinuousClock.now - started > .seconds(30) { attempt = 0 }
                 attempt += 1
                 let delay = backoff.delay(attempt: attempt)
+                let diagnostic = AnnexTelemetry.shared.begin(.backoff)
+                diagnostic.fail(error); diagnostic.number(.attempt, Double(attempt)); diagnostic.number(.backoffMs, delay * 1000)
+                diagnostic.end()
                 transition(.reconnecting(attempt: attempt, delaySeconds: delay))
                 do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             }
@@ -293,17 +319,24 @@ public actor AnnexTransport: AnnexTransporting {
             }
         }
         switch cursor.accept(envelope) {
-        case .duplicate: return
+        case .duplicate:
+            AnnexTelemetry.shared.record(.replay, event: .duplicate)
+            return
         case .resync(let reason):
+            AnnexTelemetry.shared.record(.replay, event: .gap)
             emit(.resyncRequired(reason))
             if envelope.type != "snapshot" { throw AnnexTransportError.disconnected }
         case .deliver: break
         }
-        if envelope.type == "snapshot" { transition(.connected) }
+        if envelope.type == "snapshot" {
+            connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
+            transition(.connected)
+        }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
             if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
+            AnnexTelemetry.shared.record(.replay, event: .replayRequested)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }
     }

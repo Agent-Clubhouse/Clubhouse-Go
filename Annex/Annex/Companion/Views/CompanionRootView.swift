@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 struct CompanionRootView: View {
     @Bindable var store: CompanionStore
@@ -41,6 +42,7 @@ struct CompanionRootView: View {
             CompanionSpawnSheet(store: store, initialProject: project)
         }
         .task { store.start() }
+        .onChange(of: store.selection) { _, _ in AnnexTelemetry.shared.record(.navigation) }
     }
 
     private var sidebar: some View {

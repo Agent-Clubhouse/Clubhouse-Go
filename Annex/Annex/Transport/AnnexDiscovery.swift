@@ -31,6 +31,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     private var hosts: [String: AnnexDiscoveredHost] = [:]
     private var continuations: [UUID: AsyncStream<AnnexDiscoveryState>.Continuation] = [:]
     private var errorCode: Int?
+    private var diagnostic: AnnexDiagnosticSpan?
     public override init() { makeBrowser = { NetServiceBrowser() }; super.init() }
     /// Injectable discovery engine; tests never browse the user's network.
     public init(makeBrowser: @escaping () -> NetServiceBrowser) { self.makeBrowser = makeBrowser; super.init() }
@@ -47,6 +48,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     public func start() {
         guard browser == nil else { return }
         errorCode = nil
+        diagnostic = AnnexTelemetry.shared.begin(.discovery)
         let browser = makeBrowser()
         browser.delegate = self
         self.browser = browser
@@ -54,6 +56,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         publish()
     }
     public func stop() {
+        diagnostic?.number(.discoveredCount, Double(hosts.count)); diagnostic?.end(); diagnostic = nil
         browser?.stop(); browser?.delegate = nil; browser = nil
         for service in services.values { service.stop(); service.delegate = nil }
         services.removeAll(); hosts.removeAll(); publish()
@@ -62,6 +65,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     public func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
         let id = key(service)
         guard self.browser === browser, services[id] == nil, services.count < 64 else { return }
+        diagnostic?.event(.found)
         services[id] = service
         service.delegate = self
         service.resolve(withTimeout: 10)
@@ -74,6 +78,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     }
     public func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
         guard self.browser === browser else { return }
+        diagnostic?.fail(.connection)
         errorCode = errorDict[NetService.errorCode]?.intValue
         stop()
     }
@@ -82,11 +87,13 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         guard services[id] === sender, let host = sender.hostName, let port = UInt16(exactly: sender.port), port != 0 else { return }
         let txt = sender.txtRecordData().map(NetService.dictionary(fromTXTRecord:)) ?? [:]
         guard let discovered = try? AnnexDiscoveredHost(id: id, name: sender.name, host: host, port: port, txt: txt) else { return }
+        diagnostic?.event(.resolved)
         hosts[id] = discovered; publish()
     }
     public func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
         let id = key(sender)
         guard services[id] === sender else { return }
+        let failure = AnnexTelemetry.shared.begin(.resolve, parent: diagnostic); failure.fail(.dns); failure.end()
         services.removeValue(forKey: id); hosts.removeValue(forKey: id); sender.stop(); publish()
     }
 }

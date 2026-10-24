@@ -26,7 +26,22 @@ nonisolated public protocol AnnexIO: Sendable {
 nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDelegate, Sendable {
     let host: TrustedAnnexHost
     let clientIdentity: AnnexClientIdentity?
-    init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity?) { self.host = host; self.clientIdentity = clientIdentity }
+    let diagnostic: AnnexDiagnosticSpan?
+    init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity?, diagnostic: AnnexDiagnosticSpan? = nil) {
+        self.host = host; self.clientIdentity = clientIdentity; self.diagnostic = diagnostic
+    }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        // Only durations, never metrics.request/response, network addresses, protocols or headers.
+        for transaction in metrics.transactionMetrics.prefix(4) {
+            func duration(_ key: AnnexDiagnosticNumber, _ start: Date?, _ end: Date?) {
+                if let start, let end { diagnostic?.number(key, end.timeIntervalSince(start) * 1000) }
+            }
+            duration(.dnsMs, transaction.domainLookupStartDate, transaction.domainLookupEndDate)
+            duration(.connectMs, transaction.connectStartDate, transaction.connectEndDate)
+            duration(.tlsMs, transaction.secureConnectionStartDate, transaction.secureConnectionEndDate)
+            duration(.firstByteMs, transaction.requestStartDate, transaction.responseStartDate)
+        }
+    }
 
     func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
         authenticate(challenge)
@@ -35,11 +50,15 @@ nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDele
         authenticate(challenge)
     }
     private func authenticate(_ challenge: URLAuthenticationChallenge) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        let trace = AnnexTelemetry.shared.begin(.tls, parent: diagnostic)
+        defer { trace.end() }
         if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodClientCertificate {
             guard challenge.protectionSpace.host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]")) == host.endpoint.host,
                   challenge.protectionSpace.port == Int(host.endpoint.port), let clientIdentity else {
+                trace.fail(.authentication)
                 return (.cancelAuthenticationChallenge, nil)
             }
+            trace.event(.authenticated)
             return (.useCredential, URLCredential(identity: clientIdentity.securityIdentity, certificates: nil, persistence: .none))
         }
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
@@ -49,8 +68,10 @@ nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDele
               let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
               let leaf = chain.first,
               host.certificatePin.matches(certificateDER: SecCertificateCopyData(leaf) as Data) else {
+            trace.fail(.trust)
             return (.cancelAuthenticationChallenge, nil)
         }
+        trace.event(.authenticated)
         return (.useCredential, URLCredential(trust: trust))
     }
     /// Even same-host redirects can transform a POST into a GET. All redirect
@@ -62,8 +83,10 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
     private let session: URLSession
     private let host: TrustedAnnexHost
     private let maximumResponseBytes: Int
+    private let clientIdentity: AnnexClientIdentity?
     public init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity? = nil, maximumResponseBytes: Int = 16 * 1024 * 1024) {
         self.host = host
+        self.clientIdentity = clientIdentity
         self.maximumResponseBytes = max(1, maximumResponseBytes)
         let config = URLSessionConfiguration.ephemeral
         config.urlCache = nil
@@ -85,24 +108,36 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         }
     }
     public func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
-        try validate(request, scheme: "https")
-        let (bytes, response) = try await session.bytes(for: request)
-        guard let http = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
-        guard response.expectedContentLength <= maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
-        var body = Data()
-        for try await byte in bytes {
-            try Task.checkCancellation()
-            guard body.count < maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
-            body.append(byte)
+        return try await AnnexTelemetry.shared.measure(.http) {
+            try validate(request, scheme: "https")
+            let diagnostic = AnnexTelemetry.current
+            diagnostic?.number(.requestBytes, Double(request.httpBody?.count ?? 0))
+            let delegate = AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, diagnostic: diagnostic)
+            let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
+            guard let http = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
+            diagnostic?.number(.statusCode, Double(http.statusCode))
+            guard response.expectedContentLength <= maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
+            var body = Data()
+            for try await byte in bytes {
+                try Task.checkCancellation()
+                guard body.count < maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
+                body.append(byte)
+            }
+            diagnostic?.number(.responseBytes, Double(body.count))
+            if http.statusCode >= 400 { diagnostic?.fail(http.statusCode >= 500 ? .server : http.statusCode == 401 ? .authentication : http.statusCode == 403 ? .forbidden : .rejected) }
+            return AnnexHTTPResponse(status: http.statusCode, data: body)
+
         }
-        return AnnexHTTPResponse(status: http.statusCode, data: body)
     }
     public func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket {
-        try validate(request, scheme: "wss")
-        let task = session.webSocketTask(with: request)
-        task.maximumMessageSize = maximumResponseBytes
-        task.resume()
-        return URLSessionAnnexWebSocket(task: task)
+        return try await AnnexTelemetry.shared.measure(.websocket) {
+            try validate(request, scheme: "wss")
+            let task = session.webSocketTask(with: request)
+            task.maximumMessageSize = maximumResponseBytes
+            task.resume()
+            return URLSessionAnnexWebSocket(task: task)
+
+        }
     }
 }
 
@@ -121,25 +156,28 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
         try await task.send(.string(text))
     }
     func ping() async throws {
-        let completion = AnnexPingCompletion()
-        let deadline = Task {
-            do {
-                try await Task.sleep(for: .seconds(10))
-                completion.resolve(.failure(URLError(.timedOut)))
-                task.cancel(with: .goingAway, reason: nil)
-            } catch { }
-        }
-        defer { deadline.cancel() }
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                completion.install(continuation)
-                task.sendPing { error in
-                    completion.resolve(error.map { .failure($0) } ?? .success(()))
-                }
+        return try await AnnexTelemetry.shared.measure(.ping) {
+            let completion = AnnexPingCompletion()
+            let deadline = Task {
+                do {
+                    try await Task.sleep(for: .seconds(10))
+                    completion.resolve(.failure(URLError(.timedOut)))
+                    task.cancel(with: .goingAway, reason: nil)
+                } catch { }
             }
-        } onCancel: {
-            completion.resolve(.failure(CancellationError()))
-            task.cancel(with: .goingAway, reason: nil)
+            defer { deadline.cancel() }
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    completion.install(continuation)
+                    task.sendPing { error in
+                        completion.resolve(error.map { .failure($0) } ?? .success(()))
+                    }
+                }
+            } onCancel: {
+                completion.resolve(.failure(CancellationError()))
+                task.cancel(with: .goingAway, reason: nil)
+            }
+
         }
     }
     func close() { task.cancel(with: .goingAway, reason: nil) }

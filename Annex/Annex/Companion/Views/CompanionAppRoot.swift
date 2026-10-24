@@ -144,6 +144,9 @@ struct CompanionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Diagnostics") {
+                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView() }
+                }
                 CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Your desktops") {
                     ForEach(runtime.store.hosts) { host in
@@ -180,6 +183,7 @@ struct CompanionSettingsSheet: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }
+            .onAppear { AnnexTelemetry.shared.record(.settings) }
             .navigationTitle("Desktops & settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
