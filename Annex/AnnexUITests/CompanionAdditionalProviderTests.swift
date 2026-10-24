@@ -9,6 +9,16 @@ final class CompanionAdditionalProviderTests: XCTestCase {
                           "Requires an isolated Claude or Copilot provider runtime with existing login")
     }
 
+    private func scrollToLatest(_ app: XCUIApplication) {
+        let latest = app.buttons["Latest"]
+        guard latest.exists else { return }
+        let frame = latest.frame
+        guard !frame.isEmpty, app.frame.contains(CGPoint(x: frame.midX, y: frame.midY)) else { return }
+        // During streaming SwiftUI can invalidate the AX activation point even
+        // though the visible button frame remains valid. Tap its observed center.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+    }
+
     func testProviderWakeResponseFollowUpReconnectAndFilePreview() {
         continueAfterFailure = false
         let app = XCUIApplication()
@@ -89,7 +99,7 @@ final class CompanionAdditionalProviderTests: XCTestCase {
         XCTAssertTrue(interrupt.exists, "A completed-turn follow-up does not establish in-flight steering")
         XCTAssertTrue(send.isEnabled)
         send.tap()
-        if app.buttons["Latest"].isHittable { app.buttons["Latest"].tap() }
+        scrollToLatest(app)
         if ProcessInfo.processInfo.environment["CLUBHOUSE_PROVIDER_CLIENT_QUEUE"] == "1" {
             let queued = app.staticTexts["Queued for the next turn"]
             XCTAssertTrue(queued.waitForExistence(timeout: 15), "ACP must truthfully queue while a turn is running")
@@ -104,7 +114,7 @@ final class CompanionAdditionalProviderTests: XCTestCase {
         // steer from Claude's next-boundary delivery or ACP's queued follow-up.
         for _ in 0..<90 {
             if changed.waitForExistence(timeout: 1) { break }
-            if app.buttons["Latest"].isHittable { app.buttons["Latest"].tap() }
+            scrollToLatest(app)
         }
         XCTAssertTrue(changed.exists, "The real provider must eventually apply the new direction")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
