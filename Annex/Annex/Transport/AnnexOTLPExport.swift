@@ -53,7 +53,7 @@ nonisolated public enum AnnexOTLPJSON {
                 var span: [String: AnnexJSON] = ["traceId": .string(record.traceID), "spanId": .string(record.id),
                     "name": .string(record.operation.rawValue), "kind": .integer(Int64([1, 3, 5].contains(record.spanKind) ? record.spanKind : 1)),
                     "startTimeUnixNano": .string(String(start)), "endTimeUnixNano": .string(String(end)),
-                    "attributes": .array(attrs), "status": .object(["code": .integer(record.failure == .none ? 1 : 2)])]
+                    "attributes": .array(attrs), "flags": .integer(1), "status": .object(["code": .integer(record.failure == .none ? 1 : 2)])]
                 if let parent = record.parentID { span["parentSpanId"] = .string(parent) }
                 // Local summary events have no retained timestamps; never invent OTLP event times.
                 return .object(span)
@@ -71,7 +71,11 @@ nonisolated public enum AnnexOTLPJSON {
 nonisolated public struct AnnexOTLPResponse: Sendable {
     public let status: Int
     public let rejectedSpans: Int
-    public init(status: Int, rejectedSpans: Int = 0) { self.status = status; self.rejectedSpans = max(0, rejectedSpans) }
+    public let retryAfter: TimeInterval
+    public init(status: Int, rejectedSpans: Int = 0, retryAfter: TimeInterval = 0) {
+        self.status = status; self.rejectedSpans = max(0, rejectedSpans)
+        self.retryAfter = retryAfter.isFinite ? max(0, min(86400, retryAfter)) : 0
+    }
 }
 nonisolated public protocol AnnexOTLPTransport: Sendable {
     func send(_ request: URLRequest) async throws -> AnnexOTLPResponse
@@ -89,7 +93,7 @@ nonisolated public final class AnnexOTLPHTTP: AnnexOTLPTransport, Sendable {
         defer { session.invalidateAndCancel() }
         let (bytes, response) = try await session.bytes(for: request)
         guard let http = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
-        guard (200...299).contains(http.statusCode) else { return .init(status: http.statusCode) }
+        guard (200...299).contains(http.statusCode) else { return .init(status: http.statusCode, retryAfter: Self.retryAfter(http.value(forHTTPHeaderField: "Retry-After"))) }
         var body = Data()
         for try await byte in bytes {
             try Task.checkCancellation()
@@ -100,6 +104,13 @@ nonisolated public final class AnnexOTLPHTTP: AnnexOTLPTransport, Sendable {
         guard !body.isEmpty else { return .init(status: http.statusCode) }
         guard let reply = try? JSONDecoder().decode(AnnexJSON.self, from: body) else { throw AnnexTransportError.malformedResponse }
         return try Self.parseResponse(reply, status: http.statusCode)
+    }
+    static func retryAfter(_ header: String?, now: Date = Date()) -> TimeInterval {
+        guard let header, header.utf8.count <= 128 else { return 0 }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        let delay = Double(header) ?? formatter.date(from: header)?.timeIntervalSince(now) ?? 0
+        return delay.isFinite ? max(0, min(86400, delay)) : 0
     }
     static func parseResponse(_ reply: AnnexJSON, status: Int) throws -> AnnexOTLPResponse {
         guard case .object = reply else { throw AnnexTransportError.malformedResponse }
@@ -116,6 +127,7 @@ public actor AnnexOTLPExporter {
     public struct Health: Sendable { public let delivered: Int; public let dropped: Int; public let failure: AnnexDiagnosticFailure }
     private let transport: any AnnexOTLPTransport
     private let now: @Sendable () -> TimeInterval
+    private let jitter: @Sendable () -> Double
     private var owner: UUID?
     private var configuration: AnnexOTLPConfiguration?
     private var seen: [String] = []
@@ -127,8 +139,8 @@ public actor AnnexOTLPExporter {
     private var delivered = 0
     private var dropped = 0
     private var failure = AnnexDiagnosticFailure.none
-    public init(transport: any AnnexOTLPTransport = AnnexOTLPHTTP(), now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
-        self.transport = transport; self.now = now
+    public init(transport: any AnnexOTLPTransport = AnnexOTLPHTTP(), now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, jitter: @escaping @Sendable () -> Double = { Double.random(in: 0.8...1.2) }) {
+        self.transport = transport; self.now = now; self.jitter = jitter
     }
     public func beginSession() -> UUID? {
         guard !Task.isCancelled else { return nil }
@@ -155,6 +167,7 @@ public actor AnnexOTLPExporter {
         }
         guard !batch.isEmpty else { return }
         let ticket = generation
+        var retryAfter = 0.0
         do {
             var request = URLRequest(url: desired.endpoint)
             request.httpMethod = "POST"; request.httpBody = try AnnexOTLPJSON.encode(batch)
@@ -171,7 +184,10 @@ public actor AnnexOTLPExporter {
                 delivered = min(1_000_000_000, delivered + batch.count - rejected); dropped = min(1_000_000_000, dropped + rejected)
                 failure = rejected == 0 ? .none : .rejected; finishBatch(); return
             }
-            if status == 429 || status >= 500 { throw AnnexTransportError.rejected(status: status, code: nil) }
+            if [429, 502, 503, 504].contains(status), response.retryAfter <= 300 {
+                retryAfter = response.retryAfter
+                throw AnnexTransportError.rejected(status: status, code: nil)
+            }
             failure = status == 401 ? .authentication : status == 403 ? .forbidden : .rejected
             dropped = min(1_000_000_000, dropped + batch.count); finishBatch()
         } catch {
@@ -181,7 +197,10 @@ public actor AnnexOTLPExporter {
             failure = AnnexDiagnosticFailure.classify(error)
             attempt += 1
             if attempt >= 3 { dropped = min(1_000_000_000, dropped + batch.count); finishBatch() }
-            else { nextAttempt = now() + min(300, pow(2, Double(attempt)) * 15) }
+            else {
+                let value = jitter(), factor = value.isFinite ? min(1.2, max(0.8, value)) : 1
+                nextAttempt = now() + max(retryAfter, min(300, pow(2, Double(attempt)) * 15 * factor))
+            }
         }
     }
     private func finishBatch() {

@@ -6,7 +6,7 @@ import ClubhouseTransport
 /// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
-    static func snapshotIncident(telemetry: AnnexTelemetry = .shared, now: Date = Date(), backend: UUID? = AnnexDiagnosticSettings.shared.destination?.backendReference) -> FeedbackIncident? {
+    static func snapshotIncident(telemetry: AnnexTelemetry = .shared, now: Date = Date(), backend: UUID? = nil) -> FeedbackIncident? {
         let snapshot = telemetry.snapshot()
         let start = now.addingTimeInterval(-300)
         let recent = snapshot.records.reversed().filter { $0.startedAt >= start && $0.startedAt <= now }
@@ -33,7 +33,7 @@ import ClubhouseTransport
             let client = try Client(configuration: config,
                                     enrollmentStore: KeychainEnrollmentStore(service: "ClubhouseGo.Framebriar"),
                                     feedbackStore: FileFeedbackStore(directory: root))
-            return FeedbackModel(client: client, incidentProvider: { snapshotIncident() })
+            return FeedbackModel(client: client, incidentProvider: { snapshotIncident(backend: AnnexDiagnosticSettings.shared.destination?.backendReference) })
         } catch {
             // Fail closed without logging credentials, private paths or stored content.
             return nil

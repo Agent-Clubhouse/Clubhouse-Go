@@ -36,6 +36,7 @@ private func exportConfiguration() throws -> AnnexOTLPConfiguration {
     #expect(attrs.contains(.object(["key": .string("service.instance.id"), "value": .object(["stringValue": .string(telemetry.instanceID.uuidString.lowercased())])])))
     #expect(spans[0]["traceId"]?.string == telemetry.snapshot().records[0].traceID)
     #expect(spans[0]["startTimeUnixNano"]?.string != nil)
+    #expect(spans[0]["flags"]?.integer == 1)
     #expect(attrs.count == 2)
 }
 @Test func OTLPRequiresConsentAndExcludesPreConsentRecords() async throws {
@@ -143,4 +144,25 @@ private actor HeldOTLP: AnnexOTLPTransport {
     await transport.release()
     await pending.value
     #expect(await exporter.health().delivered == 0)
+}
+
+@Test func nonRetryableHTTPFailuresAreNotRetriedAndRetryAfterIsBounded() async throws {
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true); telemetry.record(.http)
+    let config = try exportConfiguration()
+    for status in [400, 401, 403, 404, 500, 501] {
+        let transport = MockOTLP(status: status)
+        let clock = ExportClock()
+        let exporter = AnnexOTLPExporter(transport: transport, now: { clock.now() }, jitter: { 1 })
+        await exporter.flush(configuration: config, enabled: true, records: [])
+        await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
+        clock.advance(1000)
+        await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
+        #expect(await transport.requests.count == 1)
+        #expect(await exporter.health().dropped == 1)
+    }
+    #expect(AnnexOTLPHTTP.retryAfter("120") == 120)
+    #expect(AnnexOTLPHTTP.retryAfter("nan") == 0)
+    #expect(AnnexOTLPHTTP.retryAfter("-1") == 0)
+    #expect(AnnexOTLPHTTP.retryAfter("999999999") == 86400)
+    #expect(AnnexOTLPHTTP.retryAfter("Thu, 01 Jan 1970 00:01:00 GMT", now: Date(timeIntervalSince1970: 0)) == 60)
 }

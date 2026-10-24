@@ -72,6 +72,8 @@ and trace-derived numeric measurements, not an OTel metrics/logs pipeline.
 JSON, preserving trace/span/parent IDs and per-process `service.name` / `service.instance.id`.
 `AnnexOTLPHTTP` uses ephemeral URLSession, normal TLS, no cookies/credential storage,
 no redirects, 10-second request/15-second resource limits and a 64-KiB bounded response.
+Only OTLP-retryable 429/502/503/504 responses are retried, with jitter and bounded
+Retry-After handling; delays over five minutes drop the batch rather than retry early.
 Collector failures are categorized without retaining response/error strings. Partial-success
 rejects are dropped, never retried. Export requests are not recursively instrumented.
 
