@@ -7,7 +7,11 @@ import Framebriar
     public private(set) var status: ClientStatus?
     public private(set) var message: String?
     public private(set) var working = false
-    public init(client: Client) { self.client = client }
+    private let incidentProvider: @MainActor () -> FeedbackIncident?
+    public init(client: Client, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil }) {
+        self.client = client; self.incidentProvider = incidentProvider
+    }
+    public func snapshotIncident() -> FeedbackIncident? { incidentProvider() }
     public func update() async { status = await client.status() }
     public func setActive(_ active: Bool) async {
         if active { await client.resume() } else { await client.pause() }
@@ -69,7 +73,7 @@ public struct EnrollmentView: View {
     public var body: some View {
         Form {
             Section("Feedback enrollment") {
-                Text("Only feedback you choose to submit is shared. No prompts, agent content, logs, or telemetry are collected. Review images for private information before sending.")
+                Text("Only feedback you choose to submit is shared. No prompts, agent content or logs are collected. Optional reviewed trace references can link a report to separately configured tracing. Review images for private information before sending.")
                 Text("Status: \(model.status?.access.rawValue ?? "checking")")
                 if let end = model.status?.enrollmentExpiresAt { Text("Enrollment ends \(end.formatted())") }
                 SecureField("Invitation", text: $invitation).textContentType(.oneTimeCode)
@@ -83,6 +87,7 @@ public struct EnrollmentView: View {
             Section("On this device") {
                 Text("\(model.status?.queued ?? 0) of 10 reports · \(model.status?.queuedBytes ?? 0) of 33,554,432 attachment bytes")
                 Text("Unsent reports remain until delivered or explicitly cleared. Device loss or app removal can lose local reports. Server media and context expire after seven days, with possible cleanup delay.")
+                if let status = model.status, status.correlationWaiting > 0 { Text("\(status.correlationWaiting) reports are retained until the service supports incident correlation. No metadata is silently discarded.") }
                 if let status = model.status, status.blocked > 0 { Text("\(status.blocked) reports need review after service rejection.") }
                 Button("Retry delivery") { Task { await model.tick() } }.disabled(model.working)
                 Button("Clear queued feedback", role: .destructive) { confirmClear = true }.disabled(model.working)

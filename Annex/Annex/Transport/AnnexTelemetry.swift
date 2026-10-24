@@ -75,6 +75,7 @@ nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable
     public let operation: AnnexDiagnosticOperation
     public let startedAt: Date
     public let durationMs: Double
+    public let spanKind: Int
     public let failure: AnnexDiagnosticFailure
     public let measurements: [String: Double]
     public let events: [String]
@@ -93,6 +94,7 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     private let lock = NSLock()
     private var records: [AnnexDiagnosticRecord] = []
     private var enabled = false
+    private var remoteEnabled = false
     private var generation = 0
     private var dropped = 0
     private let capacity: Int
@@ -101,9 +103,10 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     func configure(enabled: Bool) -> Int {
         lock.withLock { self.enabled = enabled; generation += 1; records.removeAll(); dropped = 0; return generation }
     }
+    func setRemoteEnabled(_ value: Bool) { lock.withLock { remoteEnabled = value } }
     func captureGeneration() -> Int? { lock.withLock { enabled ? generation : nil } }
     func snapshot() -> AnnexDiagnosticSnapshot {
-        lock.withLock { .init(schemaVersion: 1, enabled: enabled, remoteExportEnabled: false, dropped: dropped, records: records) }
+        lock.withLock { .init(schemaVersion: 1, enabled: enabled, remoteExportEnabled: enabled && remoteEnabled, dropped: dropped, records: records) }
     }
     func drop() { lock.withLock { if enabled { dropped = min(Int.max - 1, dropped + 1) } } }
     private func receive(_ spans: [SpanData]) -> SpanExporterResultCode {
@@ -137,6 +140,7 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                     traceID: span.traceId.hexString, id: span.spanId.hexString,
                     parentID: span.parentSpanId?.hexString, operation: operation, startedAt: span.startTime,
                     durationMs: min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000)),
+                    spanKind: span.kind == .client ? 3 : span.kind == .consumer ? 5 : 1,
                     failure: failure, measurements: numbers, events: events))
             }
             return .success
@@ -218,6 +222,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             .add(spanProcessor: AnnexLocalSpanProcessor(exporter: exporter)).build()
         tracer = provider.get(instrumentationName: "clubhouse.annex", instrumentationVersion: "1")
     }
+    public func setRemoteExportEnabled(_ enabled: Bool) { exporter.setRemoteEnabled(enabled) }
     public func setEnabled(_ enabled: Bool) {
         lock.withLock {
             _ = exporter.configure(enabled: enabled) // Fence late completion before ending old scopes.

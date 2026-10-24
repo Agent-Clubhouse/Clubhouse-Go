@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 public actor Client {
     public nonisolated let configuration: Configuration
@@ -10,6 +11,7 @@ public actor Client {
     private var queue: [QueuedFeedback]
     private var accessToken: String?
     private var accessExpiry: Date?
+    private var correlationSupported = false
     private var paused = true
     private var busy = false
     private var generation = 0
@@ -43,12 +45,13 @@ public actor Client {
             accessExpiry.map { $0 > now() } == true ? .connected : (enrollment.notice == .connected ? .offline : enrollment.notice)
         return ClientStatus(access: state, canSubmit: enrollment.enrolled, enrollmentExpiresAt: enrollment.expiresAt,
                             queued: queue.count, queuedBytes: queue.reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
-                            blocked: queue.filter(\.blocked).count, lastReceivedID: lastReceivedID)
+                            blocked: queue.filter(\.blocked).count, lastReceivedID: lastReceivedID,
+                            correlationWaiting: correlationSupported ? 0 : queue.filter { $0.feedback.incident != nil }.count)
     }
 
     /// Lifecycle pause stops subsequent requests. Already transmitted bytes cannot be recalled.
     /// A late result never starts media upload or removes a retained report.
-    public func pause() { paused = true; generation += 1; accessToken = nil; accessExpiry = nil }
+    public func pause() { paused = true; generation += 1; accessToken = nil; accessExpiry = nil; correlationSupported = false }
     public func resume() { paused = false }
 
     /// Explicit user action only. On uncertainty, repeating the same invite in this process uses
@@ -103,6 +106,9 @@ public actor Client {
             do {
                 let bearer = try await token(ticket)
                 let report = item.feedback
+                // An old service silently drops unknown report fields. Retain this report
+                // unchanged until refreshed access explicitly advertises schema support.
+                guard report.incident == nil || correlationSupported else { continue }
                 var ack = try await request("v1/reports", data: report.wire(), bearer: bearer, generation: ticket)
                 guard ack["id"] as? String == report.id.uuidString.lowercased() else { throw FramebriarError.invalidResponse }
                 if ack["status"] as? String == "pending" {
@@ -131,7 +137,7 @@ public actor Client {
                 updated[index].blocked = permanent
                 var delay = min(300, 2 * pow(2, Double(min(updated[index].attempts, 8)) ))
                 if case .unavailable(let retryAfter) = fault { delay = max(delay, retryAfter) }
-                if fault == .accessRequired || fault == .expired { delay = max(delay, 300); accessToken = nil; accessExpiry = nil }
+                if fault == .accessRequired || fault == .expired { delay = max(delay, 300); accessToken = nil; accessExpiry = nil; correlationSupported = false }
                 updated[index].nextAttemptAt = now().addingTimeInterval(min(86400, delay))
                 try persist(updated)
                 // An access outage or service pause should not fan out into ten requests.
@@ -149,7 +155,7 @@ public actor Client {
         generation += 1; let ticket = generation
         let old = enrollment.refreshToken
         try saveEnrollment(EnrollmentRecord())
-        accessToken = nil; accessExpiry = nil; lastAttempt = nil
+        accessToken = nil; accessExpiry = nil; correlationSupported = false; lastAttempt = nil
         guard let old else { return true }
         do {
             let reply = try await request("v1/access/disconnect", json: ["v": 1, "refreshToken": old], generation: ticket, allowPaused: true)
@@ -173,7 +179,7 @@ public actor Client {
         try check(ticket)
         if let end = enrollment.expiresAt, end <= now() {
             var record = enrollment; record.refreshToken = nil; record.notice = .expired
-            try saveEnrollment(record); accessToken = nil; accessExpiry = nil
+            try saveEnrollment(record); accessToken = nil; accessExpiry = nil; correlationSupported = false
             throw FramebriarError.expired
         }
         if let accessToken, let expiry = accessExpiry, expiry.timeIntervalSince(now()) > 300 { return accessToken }
@@ -186,7 +192,7 @@ public actor Client {
             return accessToken!
         } catch {
             try check(ticket)
-            accessToken = nil; accessExpiry = nil
+            accessToken = nil; accessExpiry = nil; correlationSupported = false
             if error as? FramebriarError == .storage { throw FramebriarError.storage }
             var record = enrollment
             if error as? FramebriarError == .accessRequired { record.refreshToken = nil; record.notice = .accessRequired }
@@ -210,6 +216,7 @@ public actor Client {
               previous == nil || (previous?.refreshToken == refresh && previous?.expiresAt == end) else { throw FramebriarError.invalidResponse }
         try saveEnrollment(EnrollmentRecord(refreshToken: refresh, expiresAt: end, enrolled: true, notice: .connected))
         accessToken = token; accessExpiry = expiry
+        correlationSupported = (value["feedbackCorrelationVersion"] as? NSNumber).map { CFGetTypeID($0) != CFBooleanGetTypeID() && $0 == 1 } ?? false
     }
     private func request(_ path: String, json: [String: Any], generation: Int, allowPaused: Bool = false) async throws -> [String: Any] {
         try await request(path, data: JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]), generation: generation, allowPaused: allowPaused)

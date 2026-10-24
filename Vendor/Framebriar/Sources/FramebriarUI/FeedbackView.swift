@@ -14,6 +14,9 @@ public struct FeedbackView: View {
     @State private var review: ReviewedFeedback?
     @State private var error: String?
     @State private var loading = false
+    @State private var incident: FeedbackIncident?
+    @State private var incidentCaptured = false
+    @State private var includeIncident = true
     public init(model: FeedbackModel) { self.model = model }
     public var body: some View {
         Form {
@@ -27,8 +30,9 @@ public struct FeedbackView: View {
                     Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 260)
                     Button("Remove attachment", role: .destructive) { selection = nil; self.imageData = nil; review = nil }
                 }
+                if incident != nil { Toggle("Include incident trace references", isOn: $includeIncident) }
                 Button("Review feedback") {
-                    do { review = try ReviewedFeedback(configuration: model.client.configuration, notes: notes, reviewedScreenshotPNG: imageData); error = nil }
+                    do { review = try ReviewedFeedback(configuration: model.client.configuration, notes: notes, reviewedScreenshotPNG: imageData, incident: includeIncident ? incident : nil); error = nil }
                     catch { self.error = "Use at most 2000 characters and an image up to 8 MiB." }
                 }.disabled(loading || model.working)
             }
@@ -36,7 +40,16 @@ public struct FeedbackView: View {
                 Section("Review exactly what will be saved") {
                     Text(review.notes)
                     Text(review.screenshotPNG == nil ? "No attachment" : "The image shown above will be attached.")
-                    Text("Context: iOS, touch input, app identifier and configured build, submission time and random report/session IDs. No diagnostics are attached.")
+                    Text("Context: iOS, touch input, app identifier and configured build, submission time and random report/session IDs. No logs or message contents are attached.")
+                    if let incident = review.incident {
+                        Text("Incident: \(incident.id) · \(incident.availability.rawValue). \(incident.traces.count) recent local span references; remote availability is unverified.")
+                        Text("Window: \(incident.windowStart) – \(incident.windowEnd)")
+                        Text("Phone process: \(incident.phoneInstanceId)")
+                        ForEach(incident.hostInstanceIds, id: \.self) { Text("Host process: \($0)") }
+                        ForEach(incident.connectionIds, id: \.self) { Text("Connection: \($0)") }
+                        ForEach(incident.traces, id: \.spanId) { Text("Trace: \($0.traceId) / \($0.spanId)") }
+                        if let backend = incident.backendRef { Text("Logical tracing destination: \(backend)") }
+                    }
                     Button("Submit reviewed feedback") {
                         Task { if await model.submit(review) { dismiss() } }
                     }.disabled(model.working || loading || model.status?.canSubmit != true)
@@ -47,6 +60,7 @@ public struct FeedbackView: View {
         }
         .navigationTitle("Send feedback")
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.working) } }
+        .onChange(of: includeIncident) { _, _ in review = nil }
         .onChange(of: notes) { _, _ in review = nil }
         .task(id: selection) {
             review = nil; imageData = nil
@@ -68,6 +82,10 @@ public struct FeedbackView: View {
                 // Decode/re-encode to strip source metadata. Only the displayed PNG can be submitted.
                 imageData = png; error = nil
             } catch { if !Task.isCancelled { self.error = "Could not read that image." } }
+        }
+        .onAppear {
+            guard !incidentCaptured else { return }; incidentCaptured = true
+            incident = model.snapshotIncident()
         }
         .task { await model.update() }
     }

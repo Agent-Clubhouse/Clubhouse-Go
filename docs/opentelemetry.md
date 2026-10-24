@@ -1,12 +1,13 @@
-# Local OpenTelemetry diagnostics
+# OpenTelemetry diagnostics and independent export
 
 Clubhouse Go uses the official OpenTelemetry Swift Core **2.6.0** API and trace SDK,
 with explicit instrumentation and a synchronous bounded memory exporter. It does
 not use automatic URLSession instrumentation, device/resource detection or global
 SDK registration. Capture is **off by default**. Settings → Connection diagnostics
 offers Off / This session / Always, review, clear and explicit sharing of a sanitized JSON snapshot.
-Remote export is always disabled in this implementation. Framebriar feedback stays
-separate and does not receive traces.
+Remote export is disabled by default and configured separately through an existing HTTPS
+OTLP/HTTP JSON collector. Framebriar feedback enrollment does not authorize tracing export.
+Feedback can optionally include reviewed incident trace references; it does not contain spans.
 
 ## Coverage
 
@@ -58,32 +59,55 @@ minutes on begin/snapshot. At most 24 attributes and 32 fixed-name events per sp
 32 observed conversations; no per-chunk event allocation. Counts/timings clamp to
 finite bounded values. Opt-out/clear advances a generation fence so late callbacks
 cannot restore erased data. Export JSON is capped at 512 KiB and failure does not
-consume the buffer. No background export task, retry queue, disk spool or network
-connection exists. The SDK exporter independently rejects non-allowlisted data.
+consume the buffer. No background export or disk spool exists. A separately consented foreground exporter
+retains one batch of at most 64 spans/256 KiB, retries at most three times with bounded
+backoff, and keeps 512 dedup IDs. Disable, clear, mode/destination change or background
+cancels the request and fences late results. Bytes already transmitted cannot be recalled. The SDK exporter independently rejects non-allowlisted data.
 The diagnostic JSON is a review format, **not OTLP wire data**. These are traces
 and trace-derived numeric measurements, not an OTel metrics/logs pipeline.
 
 ## Collector enablement (not enabled here)
 
-OTel's official Swift exporter package supports OTLP/HTTP and OTLP/gRPC. A future
-remote exporter must apply this same sanitization boundary *before* transmission,
-use bounded batching/backoff, and require a separately approved HTTPS collector
-URL, authentication strategy, retention policy and explicit opt-in. Do not export
-raw SDK SpanData directly. No credentials or collector have been provisioned. Existing desktop code has
-Azure Monitor and generic OTLP/HTTP-JSON destinations under
-`src/main/telemetry/destinations/` and a separate opt-in Framebriar destination.
-Those are outbound exporters, not an Annex collector endpoint. Mobile must not
-copy desktop secrets/settings or assume the Annex port accepts OTLP. An approved
-OTLP collector could bridge mobile traces to the same backend later; phone
-loopback refers to the phone, not the desktop. No live configuration was read. Desktop's vendored Framebriar OTel adapter builds
-`<endpoint>/v1/otlp/v1/{traces,metrics,logs}` and uses a live bearer-token gate plus
-`session.id` resource correlation. With its `/api` endpoint this becomes
-`/api/v1/otlp/v1/traces`. The mobile Framebriar package exposes feedback reports,
-not this OTel adapter or telemetry consent/session binding. A mobile adapter must
-verify token scope/expiry/revocation and the configured service contract before
-using that route. Never infer telemetry permission from feedback enrollment.
+`AnnexOTLPJSON` converts the SDK exporter's sanitized records to standard OTLP/HTTP
+JSON, preserving trace/span/parent IDs and per-process `service.name` / `service.instance.id`.
+`AnnexOTLPHTTP` uses ephemeral URLSession, normal TLS, no cookies/credential storage,
+no redirects, 10-second request/15-second resource limits and a 64-KiB bounded response.
+Collector failures are categorized without retaining response/error strings. Partial-success
+rejects are dropped, never retried. Export requests are not recursively instrumented.
+
+In Settings → Connection diagnostics → Tracing destination, enter a **complete HTTPS
+OTLP/HTTP JSON `/v1/traces` route**, save it, then separately confirm export. Changing
+the destination requires fresh consent. Only future records after the foreground export
+session begins are eligible; pre-consent/background backlog is excluded. Collection must
+also be on. The destination URL is stored locally in settings, never in telemetry. A random
+logical backend UUID can be included in reviewed feedback so operators can map it to their
+collector without exposing URLs or secrets. No destination has been configured here.
+
+**App Insights route:** mobile → existing HTTPS OTLP/HTTP JSON receiver → OpenTelemetry
+Collector contrib `azuremonitor` exporter → the selected App Insights instance. Desktop can
+export to that same instance independently. This is a real mobile HTTP exporter, not an
+App Insights connection string parser; do not paste a connection string into the endpoint.
+The upstream Azure exporter is beta and maps OTel `service.name` to cloud role and
+`service.instance.id` to role instance; verify the deployed collector's version/mapping and
+sampling with the acceptance checklist below. This app sends no authentication header;
+a private collector requiring auth needs an approved auth adapter before use. Do not expose
+an unauthenticated public receiver to make this work. No resources or credentials were created.
+
+Existing desktop exporters under `src/main/telemetry/destinations/` are outbound clients,
+not an Annex ingest endpoint. Do not send OTLP to the pairing port or reuse pairing/feedback
+credentials. Framebriar's separately gated OTLP service currently drops `service.instance.id`;
+that is a known limitation of that alternative route, not a dependency for the App Insights route.
+
+Before claiming end-to-end backend validation: configure an approved collector on both ends;
+perform one benign operation; verify matching trace ID with distinct mobile/host span IDs,
+parent links, `cloud_RoleName`/`cloud_RoleInstance`; reconnect and confirm new socket/attempt
+IDs with stable process IDs; restart and confirm new process identity; verify two simultaneous
+phones are distinct; inspect one reviewed feedback report's incident references against that
+backend. No live ingestion proof is claimed by this PR or its fixtures.
 
 Official references:
+- https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azuremonitorexporter
+- https://opentelemetry.io/docs/specs/otlp/
 - https://opentelemetry.io/docs/languages/swift/
 - https://opentelemetry.io/docs/languages/swift/instrumentation/
 - https://github.com/open-telemetry/opentelemetry-swift-core/releases/tag/2.6.0
@@ -114,3 +138,18 @@ attributes. It prefixes service.name with registered app scope. A backend owner 
 add validated UUIDv4 instance preservation and test downstream Azure mapping before
 claiming complete shared-backend instance correlation. No remote ingestion test has
 been performed and no live exporter is configured.
+
+## Feedback correlation out
+
+The vendored Framebriar SDK includes a locally patched `FeedbackIncident` schema. On opening
+feedback (including shake), the app snapshots at most eight recent local trace/span references,
+phone process identity, up to four authenticated host and socket IDs, a five-minute time window,
+and optional logical backend UUID. Availability distinguishes recorded/unavailable/collection_off;
+remote availability is always unverified. The user can remove this metadata before review.
+The reviewed object is immutable in the existing offline queue; retry/upload never substitutes
+its own request trace. Legacy flat traceId/spanId mirror the first incident reference.
+
+Service redeem/refresh must advertise `feedbackCorrelationVersion:1`; otherwise incident-bearing
+reports remain queued without sending or dropping metadata. Ordinary reports remain compatible.
+The service owner owns normalization/storage and capability advertisement; no deployment is
+included. See [incident contract](feedback-incident-v1.md). Vendor SOURCE.json records local patches.

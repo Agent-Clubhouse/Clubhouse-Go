@@ -1,7 +1,7 @@
 import SwiftUI
 import ClubhouseTransport
 
-/// Explicit local capture and manual reviewed export. There is no remote destination.
+/// Explicit capture, reviewed local export and separately consented collector export.
 struct CompanionDiagnosticsView: View {
     @State private var settings = AnnexDiagnosticSettings.shared
     @State private var snapshot = AnnexTelemetry.shared.snapshot()
@@ -21,8 +21,9 @@ struct CompanionDiagnosticsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Export") {
-                Label("Remote export disabled", systemImage: "network.slash")
-                Text("No collector is configured. Nothing is uploaded automatically. Review a sanitized JSON snapshot before sharing it yourself.")
+                Label(settings.remoteEnabled ? "Collector export enabled" : "Remote export disabled", systemImage: settings.remoteEnabled ? "network" : "network.slash")
+                NavigationLink("Tracing destination") { CompanionTelemetryDestinationView() }
+                Text("A tracing collector is separate from developer feedback. Collection alone does not enable sharing. You can also review a sanitized JSON snapshot before sharing it yourself.")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Review diagnostic export") {
                     do {
@@ -30,7 +31,7 @@ struct CompanionDiagnosticsView: View {
                     } catch { exportError = true }
                 }.disabled(snapshot.records.isEmpty)
                 Button("Clear captured diagnostics", role: .destructive) {
-                    AnnexTelemetry.shared.clear(); reviewedExport = nil; refresh()
+                    settings.clear(); reviewedExport = nil; refresh()
                 }
             }
             Section("Recent operations") {
@@ -75,4 +76,44 @@ struct CompanionDiagnosticsView: View {
         .alert("Could not prepare bounded export", isPresented: $exportError) { Button("OK") {} }
     }
     private func refresh() { snapshot = AnnexTelemetry.shared.snapshot() }
+}
+
+struct CompanionTelemetryDestinationView: View {
+    @State private var settings = AnnexDiagnosticSettings.shared
+    @State private var address = ""
+    @State private var error = false
+    @State private var confirm = false
+    var body: some View {
+        Form {
+            Section("Separate tracing backend") {
+                Text("Use an existing HTTPS OTLP/HTTP JSON collector that forwards to your App Insights instance. An App Insights connection string is not an OTLP URL. This configuration is independent of Framebriar feedback.")
+                TextField("https://collector.example/v1/traces", text: $address)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                Button("Save destination without enabling") {
+                    do { try settings.configureDestination(address: address.trimmingCharacters(in: .whitespacesAndNewlines)); error = false }
+                    catch { self.error = true }
+                }
+                Text("HTTPS and the complete /v1/traces route are required. No secrets in the URL. This route uses standard TLS trust, refuses redirects, and sends no authorization credentials. A collector requiring authentication needs a separately approved auth adapter.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let destination = settings.destination {
+                Section("Reviewed destination") {
+                    Text(destination.endpoint.absoluteString).font(.caption).textSelection(.enabled)
+                    Text("Backend reference: \(destination.backendReference.uuidString.lowercased())").font(.caption.monospaced())
+                    Button(settings.remoteEnabled ? "Disable collector export" : "Enable reviewed collector export") {
+                        if settings.remoteEnabled { settings.setRemoteEnabled(false) } else { confirm = true }
+                    }
+                    Button("Remove destination", role: .destructive) { settings.removeDestination(); address = "" }
+                }
+            }
+            if error { Text("Enter an HTTPS traces endpoint without credentials, query parameters or fragments.").foregroundStyle(.red) }
+        }
+        .navigationTitle("Tracing destination")
+        .onAppear { address = settings.destination?.endpoint.absoluteString ?? "" }
+        .confirmationDialog("Send future sanitized traces to this collector?", isPresented: $confirm, titleVisibility: .visible) {
+            Button("I verified this collector — enable export") { settings.setRemoteEnabled(true) }
+        } message: {
+            Text("Confirm you control this destination and it accepts OTLP/HTTP JSON. Only traces collected after enabling are sent, while the app is active. Nothing from feedback enrollment is reused. Previously captured traces are excluded. Failed batches have bounded retries and may be dropped.")
+        }
+    }
 }

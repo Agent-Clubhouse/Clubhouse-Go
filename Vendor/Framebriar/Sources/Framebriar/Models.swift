@@ -34,22 +34,25 @@ public struct ClientStatus: Sendable {
     public let queuedBytes: Int
     public let blocked: Int
     public let lastReceivedID: UUID?
+    public var correlationWaiting: Int = 0
     public static let maxItems = 10
     public static let maxBytes = 32 * 1024 * 1024
 }
 
-/// Prepared only from explicit user input. This SDK collects no app context or telemetry.
+/// Prepared from explicit user input and optional reviewed incident references. No automatic capture.
 public struct ReviewedFeedback: Codable, Sendable, Equatable {
     public let id: UUID
     public let notes: String
     public let screenshotPNG: Data?
+    public let incident: FeedbackIncident?
     let gameID: String
     let buildSHA: String?
     let capturedAt: Date
     let sessionID: String
 
     public init(configuration: Configuration, notes: String, reviewedScreenshotPNG: Data? = nil,
-                id: UUID = UUID(), capturedAt: Date = Date()) throws {
+                id: UUID = UUID(), capturedAt: Date = Date(), incident: FeedbackIncident? = nil) throws {
+        try incident?.validate()
         guard matches(id.uuidString, "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89aAbB][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"),
               notes.utf16.count <= 2000 else { throw FramebriarError.invalidInput }
         if let png = reviewedScreenshotPNG {
@@ -57,6 +60,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
         }
         let clean = redact(notes)
         guard reviewedScreenshotPNG != nil || !clean.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw FramebriarError.invalidInput }
+        self.incident = incident
         self.id = id; self.notes = clean; screenshotPNG = reviewedScreenshotPNG
         gameID = configuration.gameID; buildSHA = configuration.buildSHA
         self.capturedAt = capturedAt; sessionID = UUID().uuidString
@@ -68,6 +72,11 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
             "seed": NSNull(), "platform": "ios", "input": "touch", "capturedAt": iso(capturedAt),
             "notes": notes, "breadcrumbs": [], "media": NSNull()]
         if let png = screenshotPNG { value["media"] = ["type": "image/png", "bytes": png.count, "sha256": digest(png)] }
+        if let incident {
+            try incident.validate()
+            value["incident"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(incident))
+            if let primary = incident.traces.first { value["traceId"] = primary.traceId; value["spanId"] = primary.spanId }
+        }
         let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         guard data.count <= 16384 else { throw FramebriarError.invalidInput }
         return data
@@ -75,7 +84,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
     func validate(for configuration: Configuration) throws {
         guard gameID == configuration.gameID else { throw FramebriarError.invalidInput }
         _ = try ReviewedFeedback(configuration: Configuration(gameID: gameID, buildSHA: buildSHA), notes: notes,
-                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt)
+                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt, incident: incident)
         guard notes == redact(notes), matches(sessionID, "^[a-zA-Z0-9_-]{1,64}$"), capturedAt.timeIntervalSince1970.isFinite else { throw FramebriarError.invalidInput }
         _ = try wire()
     }
