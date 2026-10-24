@@ -19,6 +19,10 @@ final class AnnexUITestsLaunchTests: XCTestCase {
 
     @MainActor
     func testLaunch() throws {
+        // Hosted simulator configuration changes have taken up to 78 seconds.
+        // Keep the launch matrix covered with a bounded allowance for that work.
+        executionTimeAllowance = 120
+        defer { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launch()
 
