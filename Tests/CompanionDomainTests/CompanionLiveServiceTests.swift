@@ -126,6 +126,27 @@ private actor LiveTestTransport: AnnexTransporting {
     }
 
 
+    @Test(arguments: ["waiting_input", "waiting_permission"])
+    func coarseRunningStatusCannotHidePendingInteraction(state: String) async throws {
+        let transport = LiveTestTransport()
+        await transport.setHistory(.object(["sessionId": .string("session"), "state": .string(state),
+            "events": .array([event("session", sequence: 1, text: "before")]),
+            "capabilities": .object(["chat": .bool(true)])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await store.load(target)
+        let expected: CompanionAgentStatus = state == "waiting_input" ? .waiting : .approval
+        try await waitUntil { store.agent(for: target)?.status == expected }
+        #expect(store.agent(for: target)?.status == expected)
+        await transport.emit(.message(.init(type: "agent:status", payload: .object(["id": .string("agent"), "status": .string("running")]))))
+        await transport.emit(chat(event("session", sequence: 2, text: "after-status")))
+        try await waitUntil { store.conversation(for: target).items.contains(where: { $0.id == "message:after-status" }) == true }
+        #expect(store.agent(for: target)?.status == expected)
+        await transport.emit(chat(.object(["sessionId": .string("session"), "seq": .integer(3), "type": .string("session_state"), "data": .object(["state": .string("running")])])))
+        try await waitUntil { store.agent(for: target)?.status == .working }
+    }
+
     @Test func sleepingDurableCanWakeOnlyAfterAuthoritativeSnapshot() async throws {
         let transport = LiveTestTransport()
         await transport.acceptCommands()

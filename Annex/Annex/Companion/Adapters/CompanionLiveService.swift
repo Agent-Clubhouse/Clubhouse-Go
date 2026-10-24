@@ -364,7 +364,14 @@ import ClubhouseTransport
                 scheduleRefresh(hostID: hostID)
             case "agent:status", "agent:completed":
                 if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
-                    projections[target]?.status = CompanionChatProjector.status(payload["status"]?.string)
+                    let status = CompanionChatProjector.status(payload["status"]?.string)
+                    // Desktop lifecycle status is coarser than the chat stream.
+                    // Keep an outstanding question/approval visible until its
+                    // authoritative chat event resolves it or the agent stops.
+                    let pendingInteraction = projections[target]?.status == .waiting || projections[target]?.status == .approval
+                    if !pendingInteraction || (status != .working && status != .idle) {
+                        projections[target]?.status = status
+                    }
                 }
                 scheduleRefresh(hostID: hostID)
             case "agent:deleted": scheduleRefresh(hostID: hostID)
