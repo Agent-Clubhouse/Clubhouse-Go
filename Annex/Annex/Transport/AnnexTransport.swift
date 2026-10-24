@@ -12,6 +12,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var subscribers: [UUID: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation] = [:]
     private var loop: Task<Void, Never>?
     private var connectionDiagnostic: AnnexDiagnosticSpan?
+    private var telemetryBinding: AnnexTelemetryHandshake?
     private var socket: (any AnnexWebSocket)?
     private var generation = UUID()
     private var state: AnnexConnectionState = .disconnected
@@ -73,6 +74,7 @@ public actor AnnexTransport: AnnexTransporting {
     }
     public func disconnect() async {
         AnnexTelemetry.shared.record(.disconnect)
+        telemetryBinding = nil
         connectionDiagnostic?.fail(.cancelled); connectionDiagnostic?.end(); connectionDiagnostic = nil
         generation = UUID()
         loop?.cancel(); loop = nil
@@ -86,6 +88,10 @@ public actor AnnexTransport: AnnexTransporting {
         guard let credential = try await credentials.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
         var request = URLRequest(url: try host.endpoint.url(path: path, query: query, webSocket: webSocket))
         request.setValue("Bearer \(credential.bearerToken)", forHTTPHeaderField: "Authorization")
+        if AnnexTelemetry.shared.isEnabled, let telemetryBinding {
+            telemetryBinding.annotate(AnnexTelemetry.current)
+            request.setValue(telemetryBinding.connectionID.uuidString.lowercased(), forHTTPHeaderField: "x-clubhouse-connection-id")
+        }
         return request
     }
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
@@ -226,6 +232,9 @@ public actor AnnexTransport: AnnexTransporting {
             let started = ContinuousClock.now
             let diagnostic = AnnexTelemetry.shared.begin(hasConnected ? .reconnect : .connection, parent: nil)
             connectionDiagnostic = diagnostic
+            telemetryBinding = nil
+            let attemptID = UUID()
+            diagnostic.identifier(.connectionAttemptID, attemptID)
             defer { diagnostic.end() }
             do {
                 try await AnnexTelemetry.$current.withValue(diagnostic) {
@@ -236,6 +245,7 @@ public actor AnnexTransport: AnnexTransporting {
                       identity["fingerprint"]?.string?.lowercased() == host.hostID else { throw AnnexTransportError.identityMismatch }
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _) { capabilities = nil }
+                await negotiateTelemetry(attemptID: attemptID, generation: current, diagnostic: diagnostic)
                 let request = try await authorizedRequest(path: ["ws"], webSocket: true)
                 guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)
@@ -264,6 +274,34 @@ public actor AnnexTransport: AnnexTransporting {
                 transition(.reconnecting(attempt: attempt, delaySeconds: delay))
                 do { try await Task.sleep(for: .seconds(delay)) } catch { return }
             }
+        }
+    }
+
+    /// Optional diagnostics negotiation never changes authentication or command behavior.
+    private func negotiateTelemetry(attemptID: UUID, generation current: UUID, diagnostic: AnnexDiagnosticSpan) async {
+        guard AnnexTelemetry.shared.isEnabled else { return }
+        guard capabilities?.telemetry?.version == 1,
+              capabilities?.telemetry?.handshakePath == AnnexTelemetryHandshake.path else {
+            diagnostic.event(.unsupported); return
+        }
+        do {
+            try await AnnexTelemetry.shared.measure(.handshake) {
+                let body = AnnexTelemetryHandshake.Request(instanceID: AnnexTelemetry.shared.instanceID, attemptID: attemptID)
+                var request = try await authorizedRequest(path: ["api", "v1", "mobile", "telemetry", "handshake"])
+                request.httpMethod = "POST"; request.timeoutInterval = 5
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONEncoder().encode(body)
+                let response = try await io.perform(request)
+                guard current == generation, !Task.isCancelled, AnnexTelemetry.shared.isEnabled else { throw CancellationError() }
+                guard response.status == 200 else { throw AnnexHTTPValidation.error(response) }
+                let binding = try AnnexTelemetryHandshake.validate(response.data, request: body)
+                telemetryBinding = binding
+                binding.annotate(diagnostic); binding.annotate(AnnexTelemetry.current)
+            }
+        } catch {
+            // A malformed/unsupported diagnostic contract is visible locally but cannot
+            // take down a compatible Annex session or weaken existing trust checks.
+            diagnostic.event(.rejected)
         }
     }
 

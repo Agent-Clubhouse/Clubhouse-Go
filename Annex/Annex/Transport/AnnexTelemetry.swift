@@ -5,14 +5,19 @@ import Foundation
 /// Closed vocabulary: no API accepts URLs, identities, paths, prompts or error descriptions.
 nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable, Sendable {
     case appLaunch, foreground, background, navigation, settings, discovery, resolve, manualAddress
-    case trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
+    case handshake, trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake
-    case http, httpTiming, tls, websocket, ping, replay, stream, legacyDiagnostic
+    case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
-    case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected
+    case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
+}
+nonisolated public enum AnnexDiagnosticIdentifier: String, CaseIterable, Sendable {
+    case peerInstanceID = "peer.service.instance.id"
+    case connectionAttemptID = "annex.connection.attempt.id"
+    case connectionID = "annex.connection.id"
 }
 nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case statusCode, requestBytes, responseBytes, firstTokenMs, interChunkMs, maxInterChunkMs
@@ -61,6 +66,9 @@ nonisolated public enum AnnexDiagnosticFailure: String, Codable, Sendable {
 }
 
 nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable {
+    public let serviceName: String
+    public let serviceInstanceID: String
+    public let identifiers: [String: String]
     public let traceID: String
     public let id: String
     public let parentID: String?
@@ -88,7 +96,8 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     private var generation = 0
     private var dropped = 0
     private let capacity: Int
-    init(capacity: Int) { self.capacity = min(512, max(1, capacity)) }
+    private let instanceID: UUID
+    init(capacity: Int, instanceID: UUID = UUID()) { self.capacity = min(512, max(1, capacity)); self.instanceID = instanceID }
     func configure(enabled: Bool) -> Int {
         lock.withLock { self.enabled = enabled; generation += 1; records.removeAll(); dropped = 0; return generation }
     }
@@ -113,12 +122,19 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                     }
                     if let value, value.isFinite { numbers[key.rawValue] = min(1_000_000_000, max(0, value)) }
                 }
+                var identifiers: [String: String] = [:]
+                for key in AnnexDiagnosticIdentifier.allCases {
+                    if case .string(let value) = span.attributes[key.rawValue], AnnexTelemetryHandshake.canonicalUUID(value) != nil {
+                        identifiers[key.rawValue] = value
+                    }
+                }
                 let failure: AnnexDiagnosticFailure
                 if case .string(let value) = span.attributes["failure"] { failure = AnnexDiagnosticFailure(rawValue: value) ?? .unknown }
                 else { failure = .none }
                 let events = span.events.prefix(32).compactMap { AnnexDiagnosticEvent(rawValue: $0.name)?.rawValue }
                 if records.count == capacity { records.removeFirst(); dropped = min(Int.max - 1, dropped + 1) }
-                records.append(.init(traceID: span.traceId.hexString, id: span.spanId.hexString,
+                records.append(.init(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
+                    traceID: span.traceId.hexString, id: span.spanId.hexString,
                     parentID: span.parentSpanId?.hexString, operation: operation, startedAt: span.startTime,
                     durationMs: min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000)),
                     failure: failure, measurements: numbers, events: events))
@@ -162,6 +178,9 @@ nonisolated public final class AnnexDiagnosticSpan: @unchecked Sendable {
         guard value.isFinite else { return }
         lock.withLock { if !ended { span?.setAttribute(key: key.rawValue, value: .double(min(1_000_000_000, max(0, value)))) } }
     }
+    public func identifier(_ key: AnnexDiagnosticIdentifier, _ value: UUID) {
+        lock.withLock { if !ended { span?.setAttribute(key: key.rawValue, value: .string(value.uuidString.lowercased())) } }
+    }
     public func event(_ event: AnnexDiagnosticEvent) { lock.withLock { if !ended { span?.addEvent(name: event.rawValue) } } }
     public func fail(_ error: Error) { fail(AnnexDiagnosticFailure.classify(error)) }
     public func fail(_ failure: AnnexDiagnosticFailure) {
@@ -178,6 +197,8 @@ nonisolated public final class AnnexDiagnosticSpan: @unchecked Sendable {
 
 nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public static let shared = AnnexTelemetry()
+    public let instanceID: UUID
+    public var isEnabled: Bool { exporter.captureGeneration() != nil }
     @TaskLocal public static var current: AnnexDiagnosticSpan?
     private let lock = NSLock()
     private let exporter: AnnexLocalSpanExporter
@@ -185,12 +206,13 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     private let tracer: any Tracer
     private var active: [AnnexDiagnosticSpan] = []
     private let clock: @Sendable () -> TimeInterval
-    public init(capacity: Int = 256, clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
-        self.clock = clock
-        let exporter = AnnexLocalSpanExporter(capacity: capacity); self.exporter = exporter
+    public init(capacity: Int = 256, instanceID: UUID = UUID(), clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        let instanceID = AnnexTelemetryHandshake.canonicalUUID(instanceID.uuidString.lowercased()) == nil ? UUID() : instanceID
+        self.clock = clock; self.instanceID = instanceID
+        let exporter = AnnexLocalSpanExporter(capacity: capacity, instanceID: instanceID); self.exporter = exporter
         provider = TracerProviderBuilder()
             .with(sampler: Samplers.alwaysOn)
-            .with(resource: Resource(attributes: ["service.name": .string("clubhouse-go")]))
+            .with(resource: Resource(attributes: ["service.name": .string("clubhouse-go"), "service.instance.id": .string(instanceID.uuidString.lowercased())]))
             .with(spanLimits: SpanLimits().settingAttributeCountLimit(24).settingEventCountLimit(32)
                 .settingLinkCountLimit(0).settingAttributeValueLengthLimit(64))
             .add(spanProcessor: AnnexLocalSpanProcessor(exporter: exporter)).build()
@@ -243,6 +265,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         request.setValue(nil, forHTTPHeaderField: "traceparent")
         request.setValue(nil, forHTTPHeaderField: "tracestate")
         request.setValue(nil, forHTTPHeaderField: "baggage")
+        if !isEnabled { request.setValue(nil, forHTTPHeaderField: "x-clubhouse-connection-id") }
         guard let generation = exporter.captureGeneration(), span?.generation == generation,
               let context = span?.span?.context, context.isValid else { return }
         request.setValue("00-\(context.traceId.hexString)-\(context.spanId.hexString)-\(context.traceFlags.hexString)", forHTTPHeaderField: "traceparent")

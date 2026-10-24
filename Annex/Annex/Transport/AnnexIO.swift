@@ -135,6 +135,12 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
                 body.append(byte)
             }
             diagnostic?.number(.responseBytes, Double(body.count))
+            if let parent = http.value(forHTTPHeaderField: "traceparent"),
+               let context = AnnexTraceContext(traceparent: parent, tracestate: http.value(forHTTPHeaderField: "tracestate")),
+               context.belongsToRequest(request.value(forHTTPHeaderField: "traceparent")) {
+                let received = telemetry.begin(.response, parent: diagnostic, remoteParent: context)
+                received.number(.statusCode, Double(http.statusCode)); received.end()
+            }
             if http.statusCode >= 400 { diagnostic?.fail(http.statusCode >= 500 ? .server : http.statusCode == 401 ? .authentication : http.statusCode == 403 ? .forbidden : .rejected) }
             return AnnexHTTPResponse(status: http.statusCode, data: body)
 

@@ -24,6 +24,10 @@ nonisolated public struct AnnexTraceContext: Sendable, Equatable {
         context = .createFromRemoteParent(traceId: TraceId(fromHexString: trace), spanId: SpanId(fromHexString: span),
             traceFlags: TraceFlags(fromHexString: String(decoding: bytes[53..<55], as: UTF8.self)), traceState: TraceState())
     }
+    public func belongsToRequest(_ requestParent: String?) -> Bool {
+        guard let requestParent, let request = Self(traceparent: requestParent) else { return false }
+        return context.traceId == request.context.traceId
+    }
     public static func from(_ value: AnnexJSON?) -> Self? {
         guard let parent = value?["traceparent"]?.string else { return nil }
         if let state = value?["tracestate"], state != .null, state.string == nil { return nil }

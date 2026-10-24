@@ -27,8 +27,8 @@ at a live `turn_started`, not prompt submission. Historical reads do not generat
 stream timings; duplicate session sequence numbers are ignored. Disconnect ends
 an observed turn rather than pretending its offline time was streaming latency.
 HTTP command and nested request spans share SDK trace context. Authenticated
-pinned HTTP/WS requests propagate standard W3C `traceparent`. Live `turn_started`
-can carry a validated `traceContext` from the host to parent the mobile stream;
+pinned HTTP/WS requests propagate standard W3C `traceparent`. The outer WebSocket envelope for a live `turn_started`
+can carry validated `tc` from the host to parent the mobile stream;
 without it the stream gets an independent trace rather than guessing a command.
 This requires the companion host implementation for complete distributed traces.
 No baggage is propagated. `tracestate` is bounded/syntax-checked but vendor values
@@ -40,7 +40,7 @@ absent values are not zero-duration claims.
 ## Privacy and limits
 
 Only closed operation/event/failure enums, numeric counts/timings, random SDK
-trace/span IDs and timestamps are exported. No URL, host/IP, device identity,
+trace/span IDs, random process/connection UUIDs and timestamps are exported. No URL, host/IP, hardware identity,
 project/agent/session ID, path, body, message, credentials, screenshot, exception
 description or SDK resource data is exported. Transient stream keys remain in the
 app's existing process memory and are not attributes. Legacy AppLog now discards
@@ -97,3 +97,20 @@ export failure, stream timing and replay suppression. Hosted CI must also compil
 the complete SwiftUI app and run existing app/UI suites. No local builds, tests,
 simulator launches, device signing or live remote exports were performed for this
 feature. Physical network/device validation remains separate.
+
+## Process and peer identity
+
+The immutable phone resource is `service.name=clubhouse-go` with a UUIDv4
+`service.instance.id` per app process. Capture mode changes and reconnects do not
+change that instance; app restart does. A capability-gated, authenticated handshake
+verifies echoed phone/attempt IDs and records a distinct host process instance plus
+a host-issued connection UUID. These are correlation metadata, never authentication.
+Each connection attempt and operation has an independent trace; metadata is bounded.
+See the handshake fixture and [wire contract](annex-trace-context.md).
+
+**Ingestion gap found:** Framebriar service source `src/telemetry.mjs` preserves
+traceId/spanId/parentSpanId but drops `service.instance.id` from client resource
+attributes. It prefixes service.name with registered app scope. A backend owner must
+add validated UUIDv4 instance preservation and test downstream Azure mapping before
+claiming complete shared-backend instance correlation. No remote ingestion test has
+been performed and no live exporter is configured.

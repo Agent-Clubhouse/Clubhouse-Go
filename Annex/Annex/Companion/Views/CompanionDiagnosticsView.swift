@@ -39,6 +39,10 @@ struct CompanionDiagnosticsView: View {
                 ForEach(snapshot.records.reversed()) { record in
                     DisclosureGroup {
                         Text("Trace \(record.traceID)").font(.caption.monospaced()).textSelection(.enabled)
+                        Text("\(record.serviceName) · \(record.serviceInstanceID)").font(.caption.monospaced())
+                        ForEach(record.identifiers.keys.sorted(), id: \.self) { key in
+                            LabeledContent(key, value: record.identifiers[key] ?? "").font(.caption.monospaced())
+                        }
                         ForEach(record.measurements.keys.sorted(), id: \.self) { key in
                             LabeledContent(key, value: String(format: "%.1f", record.measurements[key] ?? 0))
                         }

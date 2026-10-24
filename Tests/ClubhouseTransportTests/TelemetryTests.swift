@@ -218,3 +218,14 @@ private final class DiagnosticClock: @unchecked Sendable {
     #expect(telemetry.snapshot().records.count == 20)
     #expect(telemetry.snapshot().dropped == 80)
 }
+
+@Test func responseTraceMustMatchRequestTraceAndMalformedEnvelopeContextIsOptional() throws {
+    let request = "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+    let response = try #require(AnnexTraceContext(traceparent: "00-0123456789abcdef0123456789abcdef-aaaaaaaaaaaaaaaa-01"))
+    #expect(response.belongsToRequest(request))
+    #expect(!response.belongsToRequest("00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-0123456789abcdef-01"))
+    #expect(!response.belongsToRequest(nil))
+    let envelope = try JSONDecoder().decode(AnnexEnvelope.self, from: Data(#"{"type":"chat:event","payload":{},"tc":{"bad":"secret"}}"#.utf8))
+    #expect(envelope.type == "chat:event")
+    #expect(envelope.tc?.string == nil)
+}

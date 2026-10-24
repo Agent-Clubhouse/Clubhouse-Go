@@ -10,7 +10,7 @@ import ClubhouseTransport
     private var cursors: [CompanionTarget: Cursor] = [:]
     private let telemetry: AnnexTelemetry
     init(telemetry: AnnexTelemetry = .shared) { self.telemetry = telemetry }
-    func receive(_ event: AnnexJSON, target: CompanionTarget) {
+    func receive(_ event: AnnexJSON, target: CompanionTarget, context: AnnexTraceContext? = nil) {
         guard let session = event["sessionId"]?.string, session.utf8.count <= 256,
               let sequence = event["seq"]?.integer, sequence >= 0,
               let type = event["type"]?.string else { return }
@@ -23,7 +23,7 @@ import ClubhouseTransport
         let data = event["data"]
         switch type {
         case "turn_started":
-            cursor.turn?.finish(.abandoned); cursor.turn = AnnexStreamDiagnostic(telemetry: telemetry, remoteParent: AnnexTraceContext.from(event["traceContext"]))
+            cursor.turn?.finish(.abandoned); cursor.turn = AnnexStreamDiagnostic(telemetry: telemetry, remoteParent: context)
         case "agent_message_chunk": cursor.turn?.chunk(byteCount: data?["text"]?.string?.utf8.count ?? 0)
         case "turn_ended", "session_ended":
             let reason = data?["stopReason"]?.string ?? data?["reason"]?.string
