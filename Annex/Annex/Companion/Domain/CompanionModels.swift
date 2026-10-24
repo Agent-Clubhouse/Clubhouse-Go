@@ -51,6 +51,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var endpoint: String
     var connection: CompanionConnection
     var projects: [CompanionProject]
+    var richContentAvailable = false
     var canSpawn = false
     var canRevokeSession = false
 }
@@ -71,7 +72,7 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
 }
 
 enum CompanionAgentStatus: String, Sendable, Codable {
-    case idle, working, approval, waiting, completed, failed, stopped
+    case idle, working, approval, waiting, completed, failed, stopped, sleeping
     var label: String {
         switch self {
         case .idle: "Ready"
@@ -80,6 +81,7 @@ enum CompanionAgentStatus: String, Sendable, Codable {
         case .waiting: "Waiting for you"
         case .completed: "Completed"
         case .failed: "Needs attention"
+        case .sleeping: "Asleep"
         case .stopped: "Stopped"
         }
     }
@@ -91,6 +93,7 @@ enum CompanionAgentStatus: String, Sendable, Codable {
         case .waiting: "questionmark.bubble.fill"
         case .completed: "checkmark.circle.fill"
         case .failed: "exclamationmark.circle.fill"
+        case .sleeping: "moon.zzz"
         case .stopped: "stop.circle"
         }
     }
@@ -105,6 +108,7 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     static let answer = Self(rawValue: 1 << 4)
     static let queue = Self(rawValue: 1 << 5)
     static let removeQueued = Self(rawValue: 1 << 6)
+    static let wake = Self(rawValue: 1 << 7)
 }
 
 struct CompanionMessage: Identifiable, Sendable, Equatable {
@@ -139,6 +143,7 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
     var summary: String
     var output: String?
     var state: State
+    var images: [CompanionContentReference] = []
 }
 
 struct CompanionApproval: Identifiable, Sendable, Equatable {
@@ -265,6 +270,8 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary]
     func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt
+    func wake(_ target: CompanionTarget, clientCommandID: String) async throws
+    func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws
@@ -274,6 +281,12 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop does not support waking this agent.")
+    }
+    func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        throw CompanionServiceError.unavailable("Rich content is unavailable. Enable Rich chat content on your desktop and use a compatible Annex version.")
+    }
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
         throw CompanionServiceError.unavailable("This desktop does not support removing queued messages.")
     }

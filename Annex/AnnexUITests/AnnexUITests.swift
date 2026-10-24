@@ -138,8 +138,19 @@ final class ClubhouseGoUITests: XCTestCase {
 
         app.tabBars.buttons["Agents"].tap()
 
-        // faithful-urchin is a running agent in mock data
-        XCTAssertTrue(app.staticTexts["faithful-urchin"].waitForExistence(timeout: 5))
+        // Card mode exposes one agent at a time. Equal-status agents originate
+        // in project dictionaries, so the first card is not a stable fixture.
+        // Check the inventory in list mode; the separate default-mode test
+        // continues to verify that the tab initially presents cards.
+        let listView = app.buttons["List View"]
+        XCTAssertTrue(listView.waitForExistence(timeout: 5))
+        listView.tap()
+        let agent = app.staticTexts["faithful-urchin"]
+        for _ in 0..<5 {
+            if agent.waitForExistence(timeout: 1) { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(agent.exists, "The agent inventory should contain faithful-urchin")
     }
 
     @MainActor

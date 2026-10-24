@@ -39,10 +39,14 @@ struct CompanionPairingSheet: View {
                         Label(discoveryError == nil ? "Looking for desktops on your network…" : "Nearby discovery is unavailable", systemImage: "antenna.radiowaves.left.and.right")
                             .font(.subheadline).foregroundStyle(.secondary)
                         if discoveryError != nil {
-                            Text("Allow Local Network access in iOS Settings, or enter a direct address below.")
+                            Text("Discovery may be blocked by Local Network access or by this network. Check iOS Settings, or enter the desktop address and port below.")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    if discoveryError != nil {
+                        Button("Scan again") { discovery.stop(); discovery.start() }
+                    }
+                    Text("Nearby names are unverified. Tailscale peers and networks that block multicast may need manual entry.").font(.caption).foregroundStyle(.secondary)
                     ForEach(nearby) { host in
                         Button {
                             address = host.endpoint.host
@@ -62,15 +66,15 @@ struct CompanionPairingSheet: View {
                     }
                 }
                 Section("Desktop address") {
-                    TextField("Host or Tailscale address", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).focused($focused, equals: .address)
-                    TextField("Port", text: $port).keyboardType(.numberPad)
+                    TextField("IP address, hostname, or host:port", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).focused($focused, equals: .address)
+                    TextField("Port (unless included above)", text: $port).keyboardType(.numberPad)
                     TextField("Display name (optional)", text: $name)
                     Button {
                         Task { await inspect() }
                     } label: {
                         if isInspecting { ProgressView("Reading desktop certificate…") }
                         else { Label("Inspect desktop", systemImage: "checkmark.shield") }
-                    }.disabled(address.isEmpty || UInt16(port) == nil || isInspecting)
+                    }.disabled((try? AnnexEndpoint.manual(address: address, port: port)) == nil || isInspecting)
                 }
                 Section {
                     TextField("Desktop identity fingerprint", text: $identity, axis: .vertical)
@@ -89,6 +93,7 @@ struct CompanionPairingSheet: View {
                 }
                 if let error { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) } }
             }
+            .scrollDismissesKeyboard(.interactively)
             .disabled(isPairing)
             .navigationTitle("Pair a desktop")
             .navigationBarTitleDisplayMode(.inline)
@@ -98,7 +103,7 @@ struct CompanionPairingSheet: View {
                     Button { Task { await pair() } } label: {
                         if isPairing { ProgressView().accessibilityLabel("Pairing desktop") }
                         else { Text(remember ? "Pair & remember" : "Pair") }
-                    }.disabled(!verified || address.isEmpty || port.isEmpty || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
+                    }.disabled(!verified || (try? AnnexEndpoint.manual(address: address, port: port)) == nil || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
                 }
             }
             .interactiveDismissDisabled(isPairing)
@@ -107,6 +112,18 @@ struct CompanionPairingSheet: View {
             .onChange(of: identity) { _, _ in verified = false }
             .onChange(of: certificate) { _, _ in verified = false }
             .task {
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_MANUAL_TEST"] == "1",
+                   let json = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"],
+                   let bytes = json.data(using: .utf8),
+                   let fixture = try? JSONDecoder().decode(ManualFixture.self, from: bytes) {
+                    // Explicit simulator fixture only: never restore real sessions,
+                    // browse the LAN, auto-verify, or print the fixture PIN.
+                    address = "\(fixture.host):\(fixture.port)"; identity = fixture.hostID
+                    name = fixture.name ?? "Integration desktop"; pin = fixture.pin
+                    return
+                }
+                #endif
                 discovery.start()
                 for await state in discovery.states() {
                     if Task.isCancelled { break }
@@ -117,27 +134,30 @@ struct CompanionPairingSheet: View {
             .onDisappear { discovery.stop() }
         }
     }
+    #if DEBUG
+    private struct ManualFixture: Decodable { let host: String; let port: UInt16; let hostID: String; let name: String?; let pin: String }
+    #endif
     private func inspect() async {
-        guard let port = UInt16(port) else { error = "Enter the port shown on your desktop."; return }
         let inspectedAddress = address
+        let inspectedPort = port
         isInspecting = true; error = nil; verified = false
         defer { isInspecting = false }
         do {
-            let endpoint = try AnnexEndpoint(host: inspectedAddress, port: port)
+            let endpoint = try AnnexEndpoint.manual(address: inspectedAddress, port: inspectedPort)
             let candidate = try await AnnexTrustProbe.inspect(endpoint: endpoint)
-            guard address == inspectedAddress, self.port == String(port) else { return }
-            certificate = candidate.sha256
-            focused = .pin
+            guard address == inspectedAddress, self.port == inspectedPort else { return }
+            let digits = Array(candidate.sha256.uppercased())
+            certificate = stride(from: 0, to: digits.count, by: 2).map { String(digits[$0..<$0 + 2]) }.joined(separator: ":")
+            focused = nil
         } catch { self.error = CompanionLiveService.readableError(error) }
     }
 
     private func pair() async {
-        guard verified, let port = UInt16(port) else { error = "Enter the port shown on your desktop."; return }
+        guard verified else { return }
         isPairing = true; error = nil
         defer { isPairing = false }
         do {
-            let route: AnnexEndpoint.Route = address.contains(".ts.net") ? .tailscale : .manual
-            let endpoint = try AnnexEndpoint(host: address, port: port, route: route)
+            let endpoint = try AnnexEndpoint.manual(address: address, port: port)
             let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: identity.trimmingCharacters(in: .whitespacesAndNewlines),
                                            verifiedCertificatePin: AnnexCertificatePin(sha256: certificate.trimmingCharacters(in: .whitespacesAndNewlines)))
             try await runtime.pair(host: host, pin: pin, name: name.isEmpty ? address : name, remember: remember)

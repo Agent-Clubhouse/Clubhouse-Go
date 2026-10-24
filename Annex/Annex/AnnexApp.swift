@@ -12,7 +12,9 @@ struct ClubhouseGoApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
+            if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
+                FramebriarShakePreview()
+            } else if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
                 CompanionPreviewRoot()
             } else {
                 appContent

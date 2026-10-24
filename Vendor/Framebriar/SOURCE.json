@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/masra91/framebriar",
+  "commit": "d2a02f031225b6f72bad7c2808729c84beb8fdad",
+  "subdirectory": "adapters/swift",
+  "files": {
+    ".gitignore": "acc718146d21aae829cba1761475e05de39d73209d83af2ab8487a74843cead0",
+    "Package.swift": "812620e08c8ef53e1fb8618093771686f53d301543e3f92faa0703683e5738a1",
+    "README.md": "4303c31ff808c0ccb7bef046013e272cb69fb24ae56d5f87635ac973db2eef72",
+    "Sources/Framebriar/Client.swift": "365e0abf489e1a3f4b3ddc63deab54a6297fe61c4182a72686ea2c0e726cf243",
+    "Sources/Framebriar/Models.swift": "5ac69e877e9195e488181e010c358772fa51a97af1794adac80b1ac33df14f64",
+    "Sources/Framebriar/Storage.swift": "da7903741e3186d0b7db486a02b3fdad6e98125faa9b84efc70e734080f8b29e",
+    "Sources/Framebriar/Transport.swift": "91905f111b1111ad980c42755ea419c249798c833aac7e2f7bd4d948424d8249",
+    "Sources/FramebriarUI/FeedbackModel.swift": "d2bd2296315d3630e3ed923aa05eb214b1554dc31c557dbccfafa1e5664341a7",
+    "Sources/FramebriarUI/FeedbackView.swift": "c962567565956b02b3bd4fc82bb98bd3ee15daabb151dbf4894382162779e916",
+    "Sources/FramebriarUI/ShakeFeedback.swift": "86f5e81c368e9ba616c63b5908c549a1f03726a7e8cea85a2719d168751bfb53",
+    "Tests/FramebriarTests/ClientTests.swift": "92b04f053c79f366e8baf9f7b8e19d8f40729715e894d117ac1479ca9c9db455",
+    "Tests/FramebriarTests/Fixtures/text-report.json": "7f49061d916204838a9b44fcb2e5ce2c00c78b37af522aaa79bd71064010c4a2",
+    "Tests/FramebriarTests/ShakeFeedbackTests.swift": "eb2941674c0ba45e101268fb245dd0e6a84908e49f3d18bf77b8cc08cbcaa9b4"
+  }
+}

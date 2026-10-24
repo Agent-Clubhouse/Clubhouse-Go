@@ -44,6 +44,10 @@ struct CompanionConversationView: View {
                         Text(contextName)
                         if let model = agent.model { Text(model) }
                     }
+                    if agent.capabilities.contains(.wake) {
+                        Button("Wake agent", systemImage: "sun.max") { Task { await store.wake(target) } }
+                            .disabled(!store.canWake(target))
+                    }
                     if agent.status == .working {
                         Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
                             .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
@@ -162,7 +166,12 @@ struct CompanionConversationView: View {
                 Task { await store.retry(messageID: message.id, target: target) }
             }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
                removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil)
-        case .tool(let tool): CompanionToolCard(tool: tool)
+            if message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.files(in: message.text), store: store, target: target)
+            }
+        case .tool(let tool):
+            CompanionToolCard(tool: tool)
+            CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, canRespond: store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target)) { option in
                 Task { await store.respond(approval, option: option, target: target) }
@@ -179,6 +188,14 @@ struct CompanionConversationView: View {
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if agent.capabilities.contains(.wake) {
+                HStack {
+                    Text("This agent is asleep. Wake it or send a message to resume.").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Wake agent", systemImage: "sun.max") { Task { await store.wake(target) } }
+                        .disabled(!store.canWake(target)).accessibilityIdentifier("companion-wake")
+                }
+            }
             if agent.status == .working {
                 HStack {
                     if !dynamicTypeSize.isAccessibilitySize { Label("Agent is working", systemImage: "waveform").font(.caption).foregroundStyle(.secondary) }

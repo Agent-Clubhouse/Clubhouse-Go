@@ -90,6 +90,9 @@ jobs:
       - name: Test transport package
         run: swift test
 
+      - name: Test bundled Framebriar package
+        run: swift test --package-path Vendor/Framebriar
+
       # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
       # Verify the complete result bundle, not an individual passing suite in the log.
       - name: Run unit tests
