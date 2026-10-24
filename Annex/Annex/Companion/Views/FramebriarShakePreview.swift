@@ -11,8 +11,13 @@ struct FramebriarShakePreview: View {
     @State private var showingSettings = false
     @State private var showingOther = false
     private let transport: PreviewFeedbackTransport
-    init() {
+    // SwiftUI can recreate this value after a settings or scene update. Seed the
+    // fixture once per process, never overwrite the user's toggle on recreation.
+    private static let initializePreference: Void = {
         UserDefaults.standard.set(true, forKey: CompanionFeedback.shakePreferenceKey)
+    }()
+    init() {
+        _ = Self.initializePreference
         let transport = PreviewFeedbackTransport()
         self.transport = transport
         let client = try! Client(configuration: Configuration(gameID: "simulator-fixture"), transport: transport,
