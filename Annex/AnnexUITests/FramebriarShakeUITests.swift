@@ -3,6 +3,8 @@ import XCTest
 final class FramebriarShakeUITests: XCTestCase {
     @MainActor func testShakeOpensReviewWithoutSubmittingAndRespectsToggleAndPresentation() throws {
         continueAfterFailure = false
+        // Do not inherit landscape from the launch-configuration matrix.
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--framebriar-shake-ui-testing"]
         app.launch()
@@ -12,7 +14,9 @@ final class FramebriarShakeUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textViews["Feedback notes"].exists)
         XCTAssertEqual(app.textViews["Feedback notes"].value as? String, "")
-        XCTAssertTrue(app.buttons["Choose screenshot to review"].exists)
+        let chooseScreenshot = app.buttons["Choose screenshot to review"]
+        for _ in 0..<3 where !chooseScreenshot.exists { app.swipeUp() }
+        XCTAssertTrue(chooseScreenshot.exists)
         XCTAssertFalse(app.buttons["Submit reviewed feedback"].exists)
         XCTAssertFalse(app.buttons["Remove attachment"].exists)
         app.buttons["Cancel"].tap()
