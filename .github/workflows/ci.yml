@@ -86,8 +86,11 @@ jobs:
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
+      - name: Test transport package
+        run: swift test
+
       # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
-      # We capture the log and verify actual test outcomes instead of trusting the exit code.
+      # Verify the complete result bundle, not an individual passing suite in the log.
       - name: Run unit tests
         run: |
           xcodebuild test-without-building \
@@ -105,13 +108,7 @@ jobs:
             -resultBundlePath TestResults/UnitTests.xcresult \
             2>&1 | tee xcodebuild-unit.log || true
 
-          if grep -q "TEST EXECUTE SUCCEEDED" xcodebuild-unit.log || grep -q "with 0 failures" xcodebuild-unit.log; then
-            echo "✅ All unit tests passed"
-          else
-            echo "❌ Unit tests failed"
-            grep "failed" xcodebuild-unit.log || true
-            exit 1
-          fi
+          python3 scripts/verify-xcresult.py TestResults/UnitTests.xcresult
 
       # Skipped in CI:
       #   IntegrationTests — require NWListener mock server with local network access
@@ -133,13 +130,7 @@ jobs:
             -resultBundlePath TestResults/UITests.xcresult \
             2>&1 | tee xcodebuild-ui.log || true
 
-          if grep -q "TEST EXECUTE SUCCEEDED" xcodebuild-ui.log || grep -q "with 0 failures" xcodebuild-ui.log; then
-            echo "✅ All UI tests passed"
-          else
-            echo "❌ UI tests failed"
-            grep "failed" xcodebuild-ui.log || true
-            exit 1
-          fi
+          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult
 
       - name: Upload test results
         if: always()
