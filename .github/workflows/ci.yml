@@ -19,7 +19,7 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: macos-26
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -114,6 +114,8 @@ jobs:
       # Skipped in CI:
       #   IntegrationTests — require NWListener mock server with local network access
       #   testWelcomeScreenShowsOnFirstLaunch — pre-existing failure (onboarding state)
+      # Hosted simulator launches/termination exceeded the old 60-second rounded
+      # allowance. Keep assertions intact while allowing a bounded two minutes.
       - name: Run UI tests
         run: |
           xcodebuild test-without-building \
@@ -126,7 +128,7 @@ jobs:
             -skip-testing:ClubhouseGoUITests/ClubhouseGoUITests/testWelcomeScreenShowsOnFirstLaunch \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 30 \
+            -default-test-execution-time-allowance 120 \
             CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath TestResults/UITests.xcresult \
             2>&1 | tee xcodebuild-ui.log || true
