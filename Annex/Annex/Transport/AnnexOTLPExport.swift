@@ -128,6 +128,8 @@ public actor AnnexOTLPExporter {
     private let transport: any AnnexOTLPTransport
     private let now: @Sendable () -> TimeInterval
     private let jitter: @Sendable () -> Double
+    private let wallNow: @Sendable () -> Date
+    private var eligibleSince: Date?
     private var owner: UUID?
     private var configuration: AnnexOTLPConfiguration?
     private var seen: [String] = []
@@ -139,8 +141,8 @@ public actor AnnexOTLPExporter {
     private var delivered = 0
     private var dropped = 0
     private var failure = AnnexDiagnosticFailure.none
-    public init(transport: any AnnexOTLPTransport = AnnexOTLPHTTP(), now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, jitter: @escaping @Sendable () -> Double = { Double.random(in: 0.8...1.2) }) {
-        self.transport = transport; self.now = now; self.jitter = jitter
+    public init(transport: any AnnexOTLPTransport = AnnexOTLPHTTP(), now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, jitter: @escaping @Sendable () -> Double = { Double.random(in: 0.8...1.2) }, wallNow: @escaping @Sendable () -> Date = { Date() }) {
+        self.transport = transport; self.now = now; self.jitter = jitter; self.wallNow = wallNow
     }
     public func beginSession() -> UUID? {
         guard !Task.isCancelled else { return nil }
@@ -150,7 +152,7 @@ public actor AnnexOTLPExporter {
     public func health() -> Health { .init(delivered: delivered, dropped: dropped, failure: failure) }
     public func reset() {
         generation = UUID(); inFlight?.cancel(); inFlight = nil
-        configuration = nil; batch = []; seen = []; attempt = 0; nextAttempt = 0; failure = .none
+        configuration = nil; eligibleSince = nil; batch = []; seen = []; attempt = 0; nextAttempt = 0; failure = .none
     }
     /// Foreground pump only. One in-flight request, one batch, bounded retries and
     /// dedup IDs. Initial enable/destination change excludes pre-consent records.
@@ -158,12 +160,13 @@ public actor AnnexOTLPExporter {
         guard session == nil || session == owner else { return }
         guard enabled, let desired else { reset(); return }
         if configuration != desired {
-            reset(); configuration = desired; seen = Array(records.suffix(512).map(\.id)); return
+            reset(); configuration = desired; eligibleSince = wallNow()
+            seen = Array(records.suffix(512).map(\.id)); return
         }
-        guard inFlight == nil, now() >= nextAttempt else { return }
+        guard inFlight == nil, now() >= nextAttempt, let eligibleSince else { return }
         if batch.isEmpty {
             let known = Set(seen)
-            batch = Array(records.suffix(512).filter { !known.contains($0.id) }.prefix(64))
+            batch = Array(records.suffix(512).filter { $0.startedAt >= eligibleSince && !known.contains($0.id) }.prefix(64))
         }
         guard !batch.isEmpty else { return }
         let ticket = generation

@@ -43,11 +43,13 @@ private func exportConfiguration() throws -> AnnexOTLPConfiguration {
     let transport = MockOTLP(), telemetry = AnnexTelemetry()
     let exporter = AnnexOTLPExporter(transport: transport)
     telemetry.setEnabled(true); telemetry.record(.pairing)
+    let beforeConsent = telemetry.begin(.send)
     let config = try exportConfiguration()
     await exporter.flush(configuration: config, enabled: false, records: telemetry.snapshot().records)
     #expect(await transport.requests.isEmpty)
     await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
     #expect(await transport.requests.isEmpty)
+    beforeConsent.end()
     telemetry.record(.wake)
     await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
     #expect(await transport.requests.count == 1)
@@ -76,6 +78,7 @@ private func exportConfiguration() throws -> AnnexOTLPConfiguration {
     let partial = MockOTLP(rejected: 1)
     let receiver = AnnexOTLPExporter(transport: partial)
     await receiver.flush(configuration: config, enabled: true, records: [])
+    telemetry.record(.http)
     await receiver.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
     await receiver.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
     #expect(await partial.requests.count == 1)
@@ -147,13 +150,14 @@ private actor HeldOTLP: AnnexOTLPTransport {
 }
 
 @Test func nonRetryableHTTPFailuresAreNotRetriedAndRetryAfterIsBounded() async throws {
-    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true); telemetry.record(.http)
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let config = try exportConfiguration()
     for status in [400, 401, 403, 404, 500, 501] {
         let transport = MockOTLP(status: status)
         let clock = ExportClock()
         let exporter = AnnexOTLPExporter(transport: transport, now: { clock.now() }, jitter: { 1 })
         await exporter.flush(configuration: config, enabled: true, records: [])
+        telemetry.record(.http)
         await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
         clock.advance(1000)
         await exporter.flush(configuration: config, enabled: true, records: telemetry.snapshot().records)
