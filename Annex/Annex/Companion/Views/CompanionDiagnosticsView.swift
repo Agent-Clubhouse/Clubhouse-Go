@@ -13,7 +13,9 @@ struct CompanionDiagnosticsView: View {
                 Toggle("Capture local diagnostics", isOn: $enabled)
                     .accessibilityIdentifier("diagnostics.capture")
                     .onChange(of: enabled) { _, value in
-                        AnnexTelemetry.shared.setEnabled(value); refresh(); reviewedExport = nil
+                        AnnexTelemetry.shared.setEnabled(value)
+                        if value { AnnexTelemetry.shared.record(.settings) }
+                        refresh(); reviewedExport = nil
                     }
                 Text("Off by default. Captures operation names, timings, counts and categorized failures in memory. No messages, addresses, paths, credentials or screenshots. Turning off clears captured traces.")
                     .font(.caption).foregroundStyle(.secondary)

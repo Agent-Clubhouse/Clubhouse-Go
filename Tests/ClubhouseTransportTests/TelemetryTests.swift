@@ -30,6 +30,8 @@ private final class DiagnosticClock: @unchecked Sendable {
     let late = telemetry.begin(.http)
     telemetry.clear(); late.event(.connected); late.end()
     #expect(telemetry.snapshot().records.isEmpty)
+    telemetry.begin(.httpTiming, parent: late).end()
+    #expect(telemetry.snapshot().records.isEmpty)
     let disabled = telemetry.begin(.http)
     telemetry.setEnabled(false); disabled.end()
     #expect(telemetry.snapshot().records.isEmpty)

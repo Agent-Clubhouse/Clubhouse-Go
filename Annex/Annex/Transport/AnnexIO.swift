@@ -31,10 +31,15 @@ nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDele
         self.host = host; self.clientIdentity = clientIdentity; self.diagnostic = diagnostic
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        // Completion metrics can arrive after the HTTP span ended. A dedicated child
+        // preserves them; the generation fence rejects callbacks from cleared captures.
+        guard let diagnostic else { return }
+        let timing = AnnexTelemetry.shared.begin(.httpTiming, parent: diagnostic)
+        defer { timing.end() }
         // Only durations, never metrics.request/response, network addresses, protocols or headers.
         for transaction in metrics.transactionMetrics.prefix(4) {
             func duration(_ key: AnnexDiagnosticNumber, _ start: Date?, _ end: Date?) {
-                if let start, let end { diagnostic?.number(key, end.timeIntervalSince(start) * 1000) }
+                if let start, let end { timing.number(key, end.timeIntervalSince(start) * 1000) }
             }
             duration(.dnsMs, transaction.domainLookupStartDate, transaction.domainLookupEndDate)
             duration(.connectMs, transaction.connectStartDate, transaction.connectEndDate)
@@ -133,9 +138,11 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         return try await AnnexTelemetry.shared.measure(.websocket) {
             try validate(request, scheme: "wss")
             let task = session.webSocketTask(with: request)
+            let delegate = AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, diagnostic: AnnexTelemetry.current)
+            task.delegate = delegate
             task.maximumMessageSize = maximumResponseBytes
             task.resume()
-            return URLSessionAnnexWebSocket(task: task)
+            return URLSessionAnnexWebSocket(task: task, delegate: delegate)
 
         }
     }
@@ -143,7 +150,8 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
 
 nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendable {
     let task: URLSessionWebSocketTask
-    init(task: URLSessionWebSocketTask) { self.task = task }
+    private let delegate: AnnexPinnedSessionDelegate
+    init(task: URLSessionWebSocketTask, delegate: AnnexPinnedSessionDelegate) { self.task = task; self.delegate = delegate }
     func receive() async throws -> Data {
         switch try await task.receive() {
         case .data(let bytes): return bytes

@@ -8,7 +8,7 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake
-    case http, tls, websocket, ping, replay, stream, legacyDiagnostic
+    case http, httpTiming, tls, websocket, ping, replay, stream, legacyDiagnostic
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
@@ -222,6 +222,10 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         return lock.withLock {
             guard let generation = exporter.captureGeneration(), active.count < 128 else {
                 exporter.drop(); return AnnexDiagnosticSpan(span: nil, generation: nil, clock: clock)
+            }
+            // An explicit child of pre-clear/disabled work must not reappear in a new capture.
+            if let parent, parent.generation != generation {
+                return AnnexDiagnosticSpan(span: nil, generation: nil, clock: clock)
             }
             let builder = tracer.spanBuilder(spanName: operation.rawValue).setAttribute(key: "capture.generation", value: generation)
             if parent?.generation == generation, let span = parent?.span { builder.setParent(span) }

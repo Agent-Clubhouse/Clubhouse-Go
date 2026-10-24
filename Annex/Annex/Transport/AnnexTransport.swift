@@ -224,7 +224,7 @@ public actor AnnexTransport: AnnexTransporting {
         var hasConnected = false
         while !Task.isCancelled && current == generation {
             let started = ContinuousClock.now
-            let diagnostic = AnnexTelemetry.shared.begin(hasConnected ? .reconnect : .connection)
+            let diagnostic = AnnexTelemetry.shared.begin(hasConnected ? .reconnect : .connection, parent: nil)
             connectionDiagnostic = diagnostic
             defer { diagnostic.end() }
             do {

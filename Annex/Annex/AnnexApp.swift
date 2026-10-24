@@ -13,7 +13,9 @@ struct ClubhouseGoApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
+            if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
+                NavigationStack { CompanionDiagnosticsView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
                 FramebriarShakePreview()
             } else if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
                 CompanionPreviewRoot()
@@ -90,12 +92,17 @@ struct ClubhouseGoApp: App {
     }
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
+            UserDefaults.standard.removeObject(forKey: AnnexTelemetry.preferenceKey)
+        }
+        #endif
         AnnexTelemetry.shared.setEnabled(UserDefaults.standard.bool(forKey: AnnexTelemetry.preferenceKey))
         AnnexTelemetry.shared.record(.appLaunch)
         let store = _store
         let args = ProcessInfo.processInfo.arguments
 
-        if args.contains("--companion-preview") || !(args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")) {
+        if args.contains("--diagnostics-ui-testing") || args.contains("--companion-preview") || !(args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")) {
             // Explicit preview must not restore or contact any real paired desktop.
             return
         } else if args.contains("--reset-onboarding") {

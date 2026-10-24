@@ -59,7 +59,13 @@ OTel's official Swift exporter package supports OTLP/HTTP and OTLP/gRPC. A futur
 remote exporter must apply this same sanitization boundary *before* transmission,
 use bounded batching/backoff, and require a separately approved HTTPS collector
 URL, authentication strategy, retention policy and explicit opt-in. Do not export
-raw SDK SpanData directly. No credentials or collector have been provisioned.
+raw SDK SpanData directly. No credentials or collector have been provisioned. Existing desktop code has
+Azure Monitor and generic OTLP/HTTP-JSON destinations under
+`src/main/telemetry/destinations/` and a separate opt-in Framebriar destination.
+Those are outbound exporters, not an Annex collector endpoint. Mobile must not
+copy desktop secrets/settings or assume the Annex port accepts OTLP. An approved
+OTLP collector could bridge mobile traces to the same backend later; phone
+loopback refers to the phone, not the desktop. No live configuration was read.
 
 Official references:
 - https://opentelemetry.io/docs/languages/swift/
