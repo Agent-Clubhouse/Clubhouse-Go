@@ -32,6 +32,7 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     private var continuations: [UUID: AsyncStream<AnnexDiscoveryState>.Continuation] = [:]
     private var errorCode: Int?
     private var diagnostic: AnnexDiagnosticSpan?
+    private var resolutions: [String: AnnexDiagnosticSpan] = [:]
     public override init() { makeBrowser = { NetServiceBrowser() }; super.init() }
     /// Injectable discovery engine; tests never browse the user's network.
     public init(makeBrowser: @escaping () -> NetServiceBrowser) { self.makeBrowser = makeBrowser; super.init() }
@@ -56,6 +57,8 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         publish()
     }
     public func stop() {
+        for span in resolutions.values { span.fail(.cancelled); span.end() }
+        resolutions.removeAll()
         diagnostic?.number(.discoveredCount, Double(hosts.count)); diagnostic?.end(); diagnostic = nil
         browser?.stop(); browser?.delegate = nil; browser = nil
         for service in services.values { service.stop(); service.delegate = nil }
@@ -67,12 +70,14 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         guard self.browser === browser, services[id] == nil, services.count < 64 else { return }
         diagnostic?.event(.found)
         services[id] = service
+        resolutions[id] = AnnexTelemetry.shared.begin(.resolve, parent: diagnostic)
         service.delegate = self
         service.resolve(withTimeout: 10)
     }
     public func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
         guard self.browser === browser else { return }
         let id = key(service)
+        if let span = resolutions.removeValue(forKey: id) { span.fail(.cancelled); span.end() }
         services.removeValue(forKey: id)?.stop()
         hosts.removeValue(forKey: id); publish()
     }
@@ -87,13 +92,14 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         guard services[id] === sender, let host = sender.hostName, let port = UInt16(exactly: sender.port), port != 0 else { return }
         let txt = sender.txtRecordData().map(NetService.dictionary(fromTXTRecord:)) ?? [:]
         guard let discovered = try? AnnexDiscoveredHost(id: id, name: sender.name, host: host, port: port, txt: txt) else { return }
+        resolutions.removeValue(forKey: id)?.end()
         diagnostic?.event(.resolved)
         hosts[id] = discovered; publish()
     }
     public func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
         let id = key(sender)
         guard services[id] === sender else { return }
-        let failure = AnnexTelemetry.shared.begin(.resolve, parent: diagnostic); failure.fail(.dns); failure.end()
+        if let failure = resolutions.removeValue(forKey: id) { failure.fail(.dns); failure.end() }
         services.removeValue(forKey: id); hosts.removeValue(forKey: id); sender.stop(); publish()
     }
 }
