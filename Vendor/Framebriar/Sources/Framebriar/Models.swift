@@ -111,7 +111,9 @@ public struct QueuedFeedback: Codable, Sendable {
     }
 }
 
-func matches(_ value: String, _ pattern: String) -> Bool { value.range(of: pattern, options: .regularExpression) != nil }
+func matches(_ value: String, _ pattern: String) -> Bool {
+    value.range(of: pattern, options: .regularExpression) == value.startIndex..<value.endIndex
+}
 func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
 func iso(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
 func parseDate(_ value: String) -> Date? {

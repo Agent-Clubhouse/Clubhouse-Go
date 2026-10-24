@@ -21,8 +21,8 @@ import ClubhouseTransport
             traces: traces, backendRef: backend?.uuidString.lowercased())
     }
     static func makeModel() -> FeedbackModel? {
-        // Intentionally unconfigured. Set a server-approved game ID in the build's Info.plist
-        // only after the owner approves live enrollment. A missing value creates no client/network activity.
+        // The build supplies the registered mobile scope, not an invitation or credential.
+        // Enrollment remains an explicit user action. Missing configuration creates no client.
         guard let gameID = Bundle.main.object(forInfoDictionaryKey: "FramebriarGameID") as? String,
               !gameID.isEmpty else { return nil }
         do {

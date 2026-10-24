@@ -47,7 +47,7 @@ public struct FeedbackView: View {
                         Text("Phone process: \(incident.phoneInstanceId)")
                         ForEach(incident.hostInstanceIds, id: \.self) { Text("Host process: \($0)") }
                         ForEach(incident.connectionIds, id: \.self) { Text("Connection: \($0)") }
-                        ForEach(incident.traces, id: \.spanId) { Text("Trace: \($0.traceId) / \($0.spanId)") }
+                        ForEach(Array(incident.traces.enumerated()), id: \.offset) { _, trace in Text("Trace: \(trace.traceId) / \(trace.spanId)") }
                         if let backend = incident.backendRef { Text("Logical tracing destination: \(backend)") }
                     }
                     Button("Submit reviewed feedback") {
