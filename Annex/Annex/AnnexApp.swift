@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 @main
 struct ClubhouseGoApp: App {
@@ -12,7 +13,9 @@ struct ClubhouseGoApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
+            if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
+                NavigationStack { CompanionDiagnosticsView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
                 FramebriarShakePreview()
             } else if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
                 CompanionPreviewRoot()
@@ -66,6 +69,8 @@ struct ClubhouseGoApp: App {
         }
 
     private func handleScenePhase(_ newPhase: ScenePhase) {
+            if newPhase == .active { AnnexTelemetry.shared.record(.foreground) }
+            if newPhase == .background { AnnexTelemetry.shared.record(.background) }
             guard usesLegacyInterface else { return }
             switch newPhase {
             case .background:
@@ -87,10 +92,17 @@ struct ClubhouseGoApp: App {
     }
 
     init() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
+            UserDefaults.standard.removeObject(forKey: AnnexDiagnosticSettings.preferenceKey)
+        }
+        #endif
+        _ = AnnexDiagnosticSettings.shared
+        AnnexTelemetry.shared.record(.appLaunch)
         let store = _store
         let args = ProcessInfo.processInfo.arguments
 
-        if args.contains("--companion-preview") || !(args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")) {
+        if args.contains("--diagnostics-ui-testing") || args.contains("--companion-preview") || !(args.contains("--legacy-interface") || args.contains("--ui-testing") || args.contains("--test-server")) {
             // Explicit preview must not restore or contact any real paired desktop.
             return
         } else if args.contains("--reset-onboarding") {

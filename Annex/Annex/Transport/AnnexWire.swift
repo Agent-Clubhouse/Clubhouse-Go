@@ -49,11 +49,19 @@ nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
     public let toSeq: Int64?
     public let count: Int?
     public let epoch: String?
+    /// Optional outer W3C traceparent. Kept JSON-typed so malformed diagnostic
+    /// metadata is ignored without rejecting a valid application envelope.
+    public let tc: AnnexJSON?
+    /// Local authenticated socket binding only. Never decoded from or encoded to wire data.
+    public internal(set) var diagnosticBinding: AnnexTelemetryHandshake? = nil
+    private enum CodingKeys: String, CodingKey {
+        case type, payload, seq, replayed, oldestAvailable, lastSeq, fromSeq, toSeq, count, epoch, tc
+    }
 
-    public init(type: String, payload: AnnexJSON? = nil, seq: Int64? = nil, replayed: Bool? = nil, oldestAvailable: Int64? = nil, lastSeq: Int64? = nil, fromSeq: Int64? = nil, toSeq: Int64? = nil, count: Int? = nil, epoch: String? = nil) {
+    public init(type: String, payload: AnnexJSON? = nil, seq: Int64? = nil, replayed: Bool? = nil, oldestAvailable: Int64? = nil, lastSeq: Int64? = nil, fromSeq: Int64? = nil, toSeq: Int64? = nil, count: Int? = nil, epoch: String? = nil, tc: AnnexJSON? = nil) {
         self.type = type; self.payload = payload; self.seq = seq; self.replayed = replayed
         self.oldestAvailable = oldestAvailable; self.lastSeq = lastSeq; self.fromSeq = fromSeq
-        self.toSeq = toSeq; self.count = count; self.epoch = epoch
+        self.toSeq = toSeq; self.count = count; self.epoch = epoch; self.tc = tc
     }
     public var snapshotSequence: Int64? { lastSeq ?? payload?["lastSeq"]?.integer }
     public var replayUpperBound: Int64? { toSeq ?? payload?["toSeq"]?.integer }

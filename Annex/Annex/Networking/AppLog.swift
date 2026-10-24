@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import ClubhouseTransport
 
 /// In-app log buffer for on-device debugging.
 /// Captures key lifecycle events so the user can view and share logs
@@ -43,22 +44,22 @@ import OSLog
 
     func info(_ category: String, _ message: String) {
         append(.info, category, message)
-        osLog.info("[\(category)] \(message)")
+        osLog.info("Legacy diagnostic event; details omitted")
     }
 
     func warn(_ category: String, _ message: String) {
         append(.warn, category, message)
-        osLog.warning("[\(category)] \(message)")
+        osLog.warning("Legacy diagnostic event; details omitted")
     }
 
     func error(_ category: String, _ message: String) {
         append(.error, category, message)
-        osLog.error("[\(category)] \(message)")
+        osLog.error("Legacy diagnostic event; details omitted")
     }
 
     func debug(_ category: String, _ message: String) {
         append(.debug, category, message)
-        osLog.debug("[\(category)] \(message)")
+        osLog.debug("Legacy diagnostic event; details omitted")
     }
 
     // MARK: - Export
@@ -74,7 +75,11 @@ import OSLog
     // MARK: - Private
 
     private func append(_ level: Entry.Level, _ category: String, _ message: String) {
-        let entry = Entry(timestamp: Date(), level: level, category: category, message: message)
+        let safeCategory = AnnexLegacyDiagnostic.category(category)
+        let entry = Entry(timestamp: Date(), level: level, category: safeCategory, message: "Details omitted for privacy")
+        let diagnostic = AnnexTelemetry.shared.begin(.legacyDiagnostic)
+        if level == .error { diagnostic.fail(.unknown) }
+        diagnostic.end()
         entries.append(entry)
         if entries.count > Self.maxEntries {
             entries.removeFirst(entries.count - Self.maxEntries)

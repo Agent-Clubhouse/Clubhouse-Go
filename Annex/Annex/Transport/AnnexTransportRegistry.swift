@@ -34,32 +34,35 @@ public actor AnnexTransportRegistry {
     /// memory and is never installed in the simulator or system trust store.
     @discardableResult
     public func pair(host: TrustedAnnexHost, pin: String, alias: String, clientIdentity: AnnexClientIdentity? = nil, persistence: Persistence = .sessionOnly) async throws -> Registration {
-        guard !busyHosts.contains(host.hostID) else { throw AnnexTransportError.commandInFlight }
-        if persistence == .persistent && pairings == nil { throw AnnexTransportError.persistenceFailed(errSecNotAvailable) }
-        revision = UUID()
-        busyHosts.insert(host.hostID)
-        defer { busyHosts.remove(host.hostID) }
-        let identity = try clientIdentity ?? AnnexClientIdentity.ephemeral()
-        let io = pairingIO(host, identity)
-        let temporary = MemoryAnnexCredentialStore()
-        let result = try await AnnexPairingClient(host: host, clientIdentity: identity, credentials: temporary, io: io).pair(pin: pin, alias: alias, mode: persistence == .persistent ? .persistent : .session)
-        guard let credential = await temporary.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
-        if persistence == .persistent, let pairings {
-            try await pairings.save(AnnexSavedPairing(host: host, alias: result.alias, identity: identity, credential: credential))
-        } else {
-            // Choosing session-only must not leave an older durable pairing to
-            // silently reappear on the next app launch.
-            try await pairings?.remove(hostID: host.hostID)
-            try await credentials.remove(for: host.hostID)
+        return try await AnnexTelemetry.shared.measure(.pairing) {
+            guard !busyHosts.contains(host.hostID) else { throw AnnexTransportError.commandInFlight }
+            if persistence == .persistent && pairings == nil { throw AnnexTransportError.persistenceFailed(errSecNotAvailable) }
+            revision = UUID()
+            busyHosts.insert(host.hostID)
+            defer { busyHosts.remove(host.hostID) }
+            let identity = try clientIdentity ?? AnnexClientIdentity.ephemeral()
+            let io = pairingIO(host, identity)
+            let temporary = MemoryAnnexCredentialStore()
+            let result = try await AnnexPairingClient(host: host, clientIdentity: identity, credentials: temporary, io: io).pair(pin: pin, alias: alias, mode: persistence == .persistent ? .persistent : .session)
+            guard let credential = await temporary.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
+            if persistence == .persistent, let pairings {
+                try await pairings.save(AnnexSavedPairing(host: host, alias: result.alias, identity: identity, credential: credential))
+            } else {
+                // Choosing session-only must not leave an older durable pairing to
+                // silently reappear on the next app launch.
+                try await pairings?.remove(hostID: host.hostID)
+                try await credentials.remove(for: host.hostID)
+            }
+            let activeCredentials: any AnnexCredentialStore = persistence == .sessionOnly ? sessionCredentials : credentials
+            try await activeCredentials.save(credential, for: host.hostID)
+            let transport = AnnexTransport(host: host, credentials: activeCredentials, clientIdentity: identity, io: io)
+            if let old = registrations[host.hostID] { await old.transport.disconnect() }
+            let registration = Registration(host: host, alias: result.alias, transport: transport)
+            identities[host.hostID] = identity
+            registrations[host.hostID] = registration
+            return registration
+
         }
-        let activeCredentials: any AnnexCredentialStore = persistence == .sessionOnly ? sessionCredentials : credentials
-        try await activeCredentials.save(credential, for: host.hostID)
-        let transport = AnnexTransport(host: host, credentials: activeCredentials, clientIdentity: identity, io: io)
-        if let old = registrations[host.hostID] { await old.transport.disconnect() }
-        let registration = Registration(host: host, alias: result.alias, transport: transport)
-        identities[host.hostID] = identity
-        registrations[host.hostID] = registration
-        return registration
     }
 
     /// Inject an already approved identity and host at app restoration. The
@@ -84,28 +87,34 @@ public actor AnnexTransportRegistry {
     /// migrates legacy trust-all credentials. Caller invokes connect explicitly.
     @discardableResult
     public func restoreSaved() async throws -> [Registration] {
-        guard let pairings else { return [] }
-        let requestedRevision = revision
-        let saved = try await pairings.loadAll()
-        guard requestedRevision == revision else { return all() }
-        for pairing in saved where registrations[pairing.host.hostID] == nil {
-            guard requestedRevision == revision else { break }
-            guard !busyHosts.contains(pairing.host.hostID) else { continue }
-            busyHosts.insert(pairing.host.hostID)
-            do {
-                try await credentials.save(pairing.credential, for: pairing.host.hostID)
-                _ = try await restoreRegistration(host: pairing.host, alias: pairing.alias, clientIdentity: pairing.identity)
-                busyHosts.remove(pairing.host.hostID)
-            } catch { busyHosts.remove(pairing.host.hostID); throw error }
+        return try await AnnexTelemetry.shared.measure(.restore) {
+            guard let pairings else { return [] }
+            let requestedRevision = revision
+            let saved = try await pairings.loadAll()
+            guard requestedRevision == revision else { return all() }
+            for pairing in saved where registrations[pairing.host.hostID] == nil {
+                guard requestedRevision == revision else { break }
+                guard !busyHosts.contains(pairing.host.hostID) else { continue }
+                busyHosts.insert(pairing.host.hostID)
+                do {
+                    try await credentials.save(pairing.credential, for: pairing.host.hostID)
+                    _ = try await restoreRegistration(host: pairing.host, alias: pairing.alias, clientIdentity: pairing.identity)
+                    busyHosts.remove(pairing.host.hostID)
+                } catch { busyHosts.remove(pairing.host.hostID); throw error }
+            }
+            return all()
+
         }
-        return all()
     }
     public func remove(hostID: String) async throws {
-        guard !busyHosts.contains(hostID) else { throw AnnexTransportError.commandInFlight }
-        revision = UUID()
-        busyHosts.insert(hostID)
-        defer { busyHosts.remove(hostID) }
-        try await removeRegistration(hostID: hostID)
+        return try await AnnexTelemetry.shared.measure(.forget) {
+            guard !busyHosts.contains(hostID) else { throw AnnexTransportError.commandInFlight }
+            revision = UUID()
+            busyHosts.insert(hostID)
+            defer { busyHosts.remove(hostID) }
+            try await removeRegistration(hostID: hostID)
+
+        }
     }
     /// Explicit online self-revocation. Failure preserves local material.
     public func revokeSessionAndRemove(hostID: String) async throws {

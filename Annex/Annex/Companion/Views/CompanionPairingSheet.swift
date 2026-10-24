@@ -138,6 +138,8 @@ struct CompanionPairingSheet: View {
     private struct ManualFixture: Decodable { let host: String; let port: UInt16; let hostID: String; let name: String?; let pin: String }
     #endif
     private func inspect() async {
+        let diagnostic = AnnexTelemetry.shared.begin(.manualAddress)
+        defer { diagnostic.end() }
         let inspectedAddress = address
         let inspectedPort = port
         isInspecting = true; error = nil; verified = false
@@ -149,7 +151,7 @@ struct CompanionPairingSheet: View {
             let digits = Array(candidate.sha256.uppercased())
             certificate = stride(from: 0, to: digits.count, by: 2).map { String(digits[$0..<$0 + 2]) }.joined(separator: ":")
             focused = nil
-        } catch { self.error = CompanionLiveService.readableError(error) }
+        } catch { diagnostic.fail(error); self.error = CompanionLiveService.readableError(error) }
     }
 
     private func pair() async {

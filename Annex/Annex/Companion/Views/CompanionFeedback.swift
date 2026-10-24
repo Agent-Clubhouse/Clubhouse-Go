@@ -1,10 +1,25 @@
 import SwiftUI
 import Framebriar
 import FramebriarUI
+import ClubhouseTransport
 
-/// Composition-only adapter: has no access to agent conversations, prompts, transport or pairing credentials.
+/// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
+    static func snapshotIncident(telemetry: AnnexTelemetry = .shared, now: Date = Date(), backend: UUID? = nil) -> FeedbackIncident? {
+        let snapshot = telemetry.snapshot()
+        let start = now.addingTimeInterval(-300)
+        let recent = snapshot.records.reversed().filter { $0.startedAt >= start && $0.startedAt <= now }
+        let traces = recent.prefix(8).compactMap { try? FeedbackIncident.Trace(traceId: $0.traceID, spanId: $0.id) }
+        func identifiers(_ key: AnnexDiagnosticIdentifier) -> [String] {
+            Array(Set(recent.compactMap { $0.identifiers[key.rawValue] })).sorted().prefix(4).map { $0 }
+        }
+        return try? FeedbackIncident(capturedAt: now, windowStart: start,
+            availability: !snapshot.enabled ? .collection_off : traces.isEmpty ? .unavailable : .recorded,
+            phoneInstanceId: telemetry.instanceID.uuidString.lowercased(),
+            hostInstanceIds: identifiers(.peerInstanceID), connectionIds: identifiers(.connectionID),
+            traces: traces, backendRef: backend?.uuidString.lowercased())
+    }
     static func makeModel() -> FeedbackModel? {
         // Intentionally unconfigured. Set a server-approved game ID in the build's Info.plist
         // only after the owner approves live enrollment. A missing value creates no client/network activity.
@@ -18,7 +33,7 @@ import FramebriarUI
             let client = try Client(configuration: config,
                                     enrollmentStore: KeychainEnrollmentStore(service: "ClubhouseGo.Framebriar"),
                                     feedbackStore: FileFeedbackStore(directory: root))
-            return FeedbackModel(client: client)
+            return FeedbackModel(client: client, incidentProvider: { snapshotIncident(backend: AnnexDiagnosticSettings.shared.destination?.backendReference) })
         } catch {
             // Fail closed without logging credentials, private paths or stored content.
             return nil
@@ -44,7 +59,7 @@ struct CompanionFeedbackSettings: View {
             Toggle("Shake to open feedback", isOn: $shakeEnabled)
             Text("When enrolled, shake opens a blank feedback form. It never captures or sends automatically. You can also use Send feedback in Settings.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Only your submitted notes and optional reviewed image are shared. No agent content, prompts, diagnostics, or telemetry are collected.")
+            Text("Only submitted notes, an optional reviewed image and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

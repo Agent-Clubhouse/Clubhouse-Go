@@ -18,6 +18,7 @@ import ClubhouseTransport
     private var historyGenerations: [CompanionTarget: UUID] = [:]
     private var quickCatalog: [String: AnnexJSON] = [:]
     private var savedCommands: [String: AnnexCommand] = [:]
+    private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
 
     func events() -> AsyncStream<CompanionEvent> {
@@ -50,65 +51,71 @@ import ClubhouseTransport
     }
 
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
-        let transport = try transport(for: target.hostID)
-        let generation = UUID()
-        let previousSessionID = projections[target]?.sessionID
-        historyGenerations[target] = generation
-        if buffers[target] == nil { buffers[target] = [] }
-        do {
-            let snapshot = try await transport.read(.chat(agentID: target.agentID))
-            guard historyGenerations[target] == generation else { throw CancellationError() }
-            var projection = CompanionChatProjector()
-            projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
-            for event in snapshot["events"].arrayValue { projection.apply(event) }
-            if projection.sessionID == nil { projection.sessionID = snapshot["sessionId"]?.string }
-            for event in snapshot["pendingPermissions"].arrayValue + snapshot["pendingQuestions"].arrayValue {
-                projection.apply(event, allowOlderPending: true)
-            }
-            if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
-            projection.applyQueueSnapshot(snapshot)
-            projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
-            if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
-                readOnly.insert(target)
-                projection.capabilities = snapshot["canStart"].boolValue && capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat, .wake] : []
-            } else { readOnly.remove(target) }
-            // Live events received while HTTP was in flight are applied after its snapshot.
-            let buffered = buffers.removeValue(forKey: target) ?? []
-            var needsRefresh = false
-            for event in buffered {
-                if event["sessionId"]?.string == projection.sessionID { projection.apply(event) }
-                else if event["sessionId"]?.string != previousSessionID || projection.sessionID == previousSessionID {
-                    // Cross-session sequence numbers cannot establish whether a
-                    // different session began before or after the HTTP snapshot.
-                    needsRefresh = true
+        return try await AnnexTelemetry.shared.measure(.history) {
+            let transport = try transport(for: target.hostID)
+            let generation = UUID()
+            let previousSessionID = projections[target]?.sessionID
+            historyGenerations[target] = generation
+            if buffers[target] == nil { buffers[target] = [] }
+            do {
+                let snapshot = try await transport.read(.chat(agentID: target.agentID))
+                guard historyGenerations[target] == generation else { throw CancellationError() }
+                var projection = CompanionChatProjector()
+                projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
+                for event in snapshot["events"].arrayValue { projection.apply(event) }
+                if projection.sessionID == nil { projection.sessionID = snapshot["sessionId"]?.string }
+                for event in snapshot["pendingPermissions"].arrayValue + snapshot["pendingQuestions"].arrayValue {
+                    projection.apply(event, allowOlderPending: true)
                 }
-                // A buffered event from the previously displayed session cannot
-                // roll a newer authoritative snapshot back to that old session.
+                if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
+                projection.applyQueueSnapshot(snapshot)
+                projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
+                if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
+                    readOnly.insert(target)
+                    projection.capabilities = snapshot["canStart"].boolValue && capabilities[target.hostID]?.commands.contains("agent.start") == true ? [.chat, .wake] : []
+                } else { readOnly.remove(target) }
+                // Live events received while HTTP was in flight are applied after its snapshot.
+                let buffered = buffers.removeValue(forKey: target) ?? []
+                var needsRefresh = false
+                for event in buffered {
+                    if event["sessionId"]?.string == projection.sessionID { projection.apply(event) }
+                    else if event["sessionId"]?.string != previousSessionID || projection.sessionID == previousSessionID {
+                        // Cross-session sequence numbers cannot establish whether a
+                        // different session began before or after the HTTP snapshot.
+                        needsRefresh = true
+                    }
+                    // A buffered event from the previously displayed session cannot
+                    // roll a newer authoritative snapshot back to that old session.
+                }
+                if needsRefresh {
+                    emit(.resyncRequired(hostID: target.hostID))
+                    throw CompanionServiceError.unavailable("The conversation changed while loading. Refresh to synchronize its current session.")
+                }
+                projections[target] = projection
+                updateAgent(target, projection: projection)
+                emitHosts()
+                return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID)
+            } catch {
+                guard historyGenerations[target] == generation else { throw CancellationError() }
+                let pending = buffers.removeValue(forKey: target) ?? []
+                for event in pending { project(event, target: target) }
+                throw CompanionServiceError.unavailable(Self.readableError(error))
             }
-            if needsRefresh {
-                emit(.resyncRequired(hostID: target.hostID))
-                throw CompanionServiceError.unavailable("The conversation changed while loading. Refresh to synchronize its current session.")
-            }
-            projections[target] = projection
-            updateAgent(target, projection: projection)
-            emitHosts()
-            return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID)
-        } catch {
-            guard historyGenerations[target] == generation else { throw CancellationError() }
-            let pending = buffers.removeValue(forKey: target) ?? []
-            for event in pending { project(event, target: target) }
-            throw CompanionServiceError.unavailable(Self.readableError(error))
+
         }
     }
 
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] {
-        let value = try await transport(for: target.hostID).read(.chatSessions(agentID: target.agentID))
-        return value["sessions"].arrayValue.compactMap { session in
-            guard let id = session["sessionId"]?.string else { return nil }
-            return CompanionSessionSummary(id: id, title: session["title"]?.string ?? "Conversation",
-                lastActiveAt: session["lastActiveAt"]?.integer.map { Date(timeIntervalSince1970: Double($0) / 1000) },
-                provider: session["provider"]?.string)
-        }.sorted { ($0.lastActiveAt ?? .distantPast) > ($1.lastActiveAt ?? .distantPast) }
+        return try await AnnexTelemetry.shared.measure(.archive) {
+            let value = try await transport(for: target.hostID).read(.chatSessions(agentID: target.agentID))
+            return value["sessions"].arrayValue.compactMap { session in
+                guard let id = session["sessionId"]?.string else { return nil }
+                return CompanionSessionSummary(id: id, title: session["title"]?.string ?? "Conversation",
+                    lastActiveAt: session["lastActiveAt"]?.integer.map { Date(timeIntervalSince1970: Double($0) / 1000) },
+                    provider: session["provider"]?.string)
+            }.sorted { ($0.lastActiveAt ?? .distantPast) > ($1.lastActiveAt ?? .distantPast) }
+
+        }
     }
 
     func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading {
@@ -139,33 +146,39 @@ import ClubhouseTransport
     }
 
     func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
-        guard readOnly.contains(target), projections[target]?.capabilities.contains(.wake) == true else {
-            throw CompanionServiceError.rejected("Refresh the conversation before waking this agent.")
+        return try await AnnexTelemetry.shared.measure(.wake) {
+            guard readOnly.contains(target), projections[target]?.capabilities.contains(.wake) == true else {
+                throw CompanionServiceError.rejected("Refresh the conversation before waking this agent.")
+            }
+            _ = try await execute(.start(agentID: target.agentID, resume: true), id: clientCommandID, hostID: target.hostID)
+            await refresh(hostID: target.hostID)
+
         }
-        _ = try await execute(.start(agentID: target.agentID, resume: true), id: clientCommandID, hostID: target.hostID)
-        await refresh(hostID: target.hostID)
     }
 
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
-        guard hosts[target.hostID]?.richContentAvailable == true else {
-            throw CompanionServiceError.unavailable("Enable Rich chat content in desktop Experimental settings. A compatible Annex version is required.")
+        return try await AnnexTelemetry.shared.measure(.media) {
+            guard hosts[target.hostID]?.richContentAvailable == true else {
+                throw CompanionServiceError.unavailable("Enable Rich chat content in desktop Experimental settings. A compatible Annex version is required.")
+            }
+            let route: AnnexReadRoute
+            switch reference {
+            case .image(let ref):
+                guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
+                route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
+            case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+            }
+            let value = try await transport(for: target.hostID).read(route)
+            guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
+                  let name = value["name"]?.string else { throw AnnexTransportError.malformedResponse }
+            let encoded = value["base64"]?.string
+            guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
+            let bytes = encoded.flatMap { Data(base64Encoded: $0) }
+            guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
+            return .init(kind: kind, name: name, mimeType: value["mimeType"]?.string, bytes: bytes,
+                         text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
+
         }
-        let route: AnnexReadRoute
-        switch reference {
-        case .image(let ref):
-            guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
-            route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
-        case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
-        }
-        let value = try await transport(for: target.hostID).read(route)
-        guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
-              let name = value["name"]?.string else { throw AnnexTransportError.malformedResponse }
-        let encoded = value["base64"]?.string
-        guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
-        let bytes = encoded.flatMap { Data(base64Encoded: $0) }
-        guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
-        return .init(kind: kind, name: name, mimeType: value["mimeType"]?.string, bytes: bytes,
-                     text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
     }
 
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
@@ -217,6 +230,7 @@ import ClubhouseTransport
         }
     }
     func remove(hostID: String) {
+        streamDiagnostics.remove(hostID: hostID)
         invalidateEvents(hostID: hostID)
         transports.removeValue(forKey: hostID)
         hosts.removeValue(forKey: hostID)
@@ -240,6 +254,7 @@ import ClubhouseTransport
     }
 
     private func invalidateEvents(hostID: String) {
+        streamDiagnostics.disconnect(hostID: hostID)
         eventGenerations.removeValue(forKey: hostID)
         eventTasks.removeValue(forKey: hostID)?.cancel()
         cancelRefresh(hostID: hostID)
@@ -325,6 +340,7 @@ import ClubhouseTransport
     private func receive(_ event: AnnexTransportEvent, hostID: String) async {
         switch event {
         case .connection(let state):
+            if state != .connected { streamDiagnostics.disconnect(hostID: hostID) }
             switch state {
             case .connected:
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
@@ -357,6 +373,10 @@ import ClubhouseTransport
                 applyCatalog(payload, hostID: hostID); emitHosts()
             case "chat:event":
                 guard let agentID = payload["agentId"]?.string, let event = payload["event"], let target = target(agentID: agentID, hostID: hostID) else { return }
+                if envelope.replayed != true {
+                    let context = envelope.tc?.string.flatMap { AnnexTraceContext(traceparent: $0) }
+                    streamDiagnostics.receive(event, target: target, context: context, binding: envelope.diagnosticBinding)
+                }
                 if buffers[target] != nil { buffers[target]?.append(event) }
                 else { project(event, target: target) }
             case "agent:spawned":

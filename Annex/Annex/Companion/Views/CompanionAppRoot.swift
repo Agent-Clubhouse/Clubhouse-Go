@@ -6,6 +6,7 @@ import ClubhouseTransport
 #endif
 
 @MainActor @Observable final class CompanionRuntime {
+    let telemetryExporter = AnnexOTLPExporter()
     let feedback: FeedbackModel?
     let service: CompanionLiveService
     let store: CompanionStore
@@ -61,6 +62,7 @@ struct CompanionAppRoot: View {
     @State private var runtime: CompanionRuntime
     @State private var showPairing = false
     @State private var showSettings = false
+    @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
     @Environment(\.scenePhase) private var scenePhase
 
@@ -91,6 +93,17 @@ struct CompanionAppRoot: View {
                 #if DEBUG
                 await bootstrapIntegrationIfRequested()
                 #endif
+            }
+            .task(id: "\(scenePhase)-\(diagnostics.revision)-\(diagnostics.mode)-\(diagnostics.remoteEnabled)-\(diagnostics.destination?.backendReference.uuidString ?? "none")") {
+                guard let session = await runtime.telemetryExporter.beginSession() else { return }
+                guard scenePhase == .active else { await runtime.telemetryExporter.endSession(session); return }
+                while !Task.isCancelled {
+                    await runtime.telemetryExporter.flush(configuration: diagnostics.destination,
+                        enabled: diagnostics.remoteEnabled && diagnostics.mode != .off,
+                        records: AnnexTelemetry.shared.snapshot().records, session: session)
+                    do { try await Task.sleep(for: .seconds(30)) } catch { break }
+                }
+                await runtime.telemetryExporter.endSession(session)
             }
             .task(id: scenePhase) {
                 guard let feedback = runtime.feedback else { return }
@@ -144,6 +157,9 @@ struct CompanionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Diagnostics") {
+                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
+                }
                 CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Your desktops") {
                     ForEach(runtime.store.hosts) { host in
@@ -180,6 +196,7 @@ struct CompanionSettingsSheet: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }
+            .onAppear { AnnexTelemetry.shared.record(.settings) }
             .navigationTitle("Desktops & settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }

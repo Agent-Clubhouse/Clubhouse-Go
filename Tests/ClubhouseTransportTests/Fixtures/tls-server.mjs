@@ -21,7 +21,7 @@ const server = https.createServer({ cert, key: readFileSync(keyPath), requestCer
   if (req.url === '/large') { res.writeHead(200); res.end('x'.repeat(4096)); return; }
   const peer = req.socket.getPeerCertificate();
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ clientCN: peer.subject?.CN ?? null, certificateFingerprint: peer.fingerprint256 ?? null, authorized: req.headers.authorization === 'Bearer fake-only', received }));
+  res.end(JSON.stringify({ clientCN: peer.subject?.CN ?? null, certificateFingerprint: peer.fingerprint256 ?? null, traceparent: req.headers.traceparent ?? null, tracestate: req.headers.tracestate ?? null, baggage: req.headers.baggage ?? null, authorized: req.headers.authorization === 'Bearer fake-only', received }));
 });
 server.listen(0, '127.0.0.1', () => {
   const address = server.address();
