@@ -46,7 +46,7 @@ public actor Client {
         return ClientStatus(access: state, canSubmit: enrollment.enrolled, enrollmentExpiresAt: enrollment.expiresAt,
                             queued: queue.count, queuedBytes: queue.reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
                             blocked: queue.filter(\.blocked).count, lastReceivedID: lastReceivedID,
-                            correlationWaiting: correlationSupported ? 0 : queue.filter { $0.feedback.incident != nil }.count)
+                            correlationWaiting: correlationSupported && accessExpiry.map { $0 > now() } == true ? 0 : queue.filter { $0.feedback.incident != nil }.count)
     }
 
     /// Lifecycle pause stops subsequent requests. Already transmitted bytes cannot be recalled.

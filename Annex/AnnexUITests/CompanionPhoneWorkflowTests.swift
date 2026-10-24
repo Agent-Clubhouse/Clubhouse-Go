@@ -56,9 +56,10 @@ import XCTest
         app.buttons["Done"].tap()
         if !app.buttons["Settings"].isHittable { app.navigationBars.buttons.element(boundBy: 0).tap() }
         app.buttons["Settings"].tap()
-        let feedback = app.staticTexts["Feedback is not configured for this build or local storage is unavailable."]
+        let feedback = app.buttons["Invitation & enrollment"]
         for _ in 0..<5 where !feedback.isHittable { app.swipeUp() }
-        XCTAssertTrue(feedback.exists, "Unconfigured Framebriar must remain inactive and explain its status")
-        let feedbackShot = XCTAttachment(screenshot: app.screenshot()); feedbackShot.name = "Feedback remains opt-in and unconfigured"; feedbackShot.lifetime = .keepAlways; add(feedbackShot)
+        XCTAssertTrue(feedback.exists, "Configured Framebriar must offer explicit enrollment")
+        XCTAssertFalse(app.buttons["Send feedback"].exists, "The fresh fixture must not be enrolled automatically")
+        let feedbackShot = XCTAttachment(screenshot: app.screenshot()); feedbackShot.name = "Feedback remains opt-in before enrollment"; feedbackShot.lifetime = .keepAlways; add(feedbackShot)
     }
 }

@@ -2,7 +2,7 @@
 
 Native Swift 6.2 package, iOS 17+ (core also builds on macOS 14+). `Framebriar` contains the client, protocol, transport and storage; `FramebriarUI` is an optional SwiftUI enrollment form and iOS screenshot review form. There are no third-party dependencies or telemetry hooks.
 
-This adapter follows the existing service at source `e76e08a`: `src/access.mjs`, `src/access-http.mjs`, `src/protocol.mjs`, `src/service.mjs`, and the browser's `playtest-access.mjs` / `submit-feedback.mjs`. It does not introduce server endpoints. Source changes here do not deploy or enable the issuer.
+This adapter follows the existing service and the optional incident v1 contract merged in PR #11: `src/access.mjs`, `src/access-http.mjs`, `src/protocol.mjs`, `src/service.mjs`, and the browser's `playtest-access.mjs` / `submit-feedback.mjs`. It does not introduce server endpoints. Source changes here do not deploy or enable the issuer.
 
 ## Add the package
 
@@ -56,7 +56,7 @@ let reviewed = try ReviewedFeedback(configuration: config,
 let reportID = try await client.enqueue(reviewed)
 ```
 
-Each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp and random report/session identifiers. `seed` is null and `breadcrumbs` is empty. No automatic capture, prompts, conversations, agent output, logs, telemetry, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
+Without optional reviewed incident references, each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp and random report/session identifiers. `seed` is null and `breadcrumbs` is empty. No automatic capture, prompts, conversations, agent output, logs, telemetry, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
 
 ## Enrollment and transport
 
@@ -105,3 +105,23 @@ content.shakeToOpenFeedback(model: feedback, enabled: shakeEnabled,
 Pass all host presentation flags to cover the time before UIKit begins presenting. The receiver also checks UIKit's window/controller tree for nested presentations and checks for active text input. It does not steal the keyboard's first responder, swizzle UIApplication, collect motion samples, add analytics, or transmit anything. It is active only in the foreground and only while `canSubmit` is true (including previously enrolled users saving offline/expired feedback locally). Never-enrolled users cannot open the composer by shaking.
 
 Repeated motion is debounced for two seconds; known presentation/dismissal boundaries restart that delay. The SDK does not enable a preference by itself: the host supplies `enabled`. Clubhouse Go defaults this local shortcut on for eligible enrolled users and supplies a persistent Settings toggle to disable it. The existing Settings entry remains usable when disabled. A screenshot must still be explicitly picked, displayed, removable, and reviewed before Submit; notes and attachments start empty every time.
+
+## Independent incident correlation (v1)
+
+The optional `FeedbackIncident` value follows `docs/incident-correlation-v1.md`. It holds only bounded trace/span references, opaque process/socket IDs and an optional logical tracing-destination UUID. It never configures or exports telemetry. The service may use a different backend from the phone and host.
+
+Pass a synchronous main-actor provider to `FeedbackModel(client:incidentProvider:)`. `FeedbackView` calls `snapshotIncident()` once when the composer first appears, allows the user to remove correlation, displays the exact incident references during review, and persists the snapshot with `ReviewedFeedback.incident`. Hosts using a custom composer snapshot once at open, then pass `incident:` to `ReviewedFeedback` only after review. Do not refresh this value while reviewing, retrying or restoring the queue. A provider may return `nil`; old calls without a provider remain valid.
+
+```swift
+let model = FeedbackModel(client: client, incidentProvider: {
+    // Construct from validated process/socket IDs and already recorded local spans.
+    // No addresses, payloads, private text, automatic captures, or new tracing here.
+    localIncidentSnapshot()
+})
+```
+
+`FeedbackIncident` is immutable, Codable and Sendable. Its throwing initializer and `validate()` check v1 IDs/times/bounds; decoded queue data is validated again by the client. Existing queues decode without an incident. The report's legacy flat trace/span fields mirror the first incident trace, and are absent when no trace was recorded.
+
+`Client` holds incident-bearing feedback until the current redeem/refresh response advertises numeric `feedbackCorrelationVersion: 1`. `ClientStatus.correlationWaiting` exposes that hold. Capability is not persisted and is cleared on pause, token failure, disconnect and restart; ordinary reports continue to work against older services. A refresh can remove support and must hold reports again. No incident is stripped to force delivery. Queue retention remains until delivered or explicitly cleared.
+
+The service change must be separately deployed before incident feedback can upload. Merging SDK source or changing a vendor pin does not deploy the service or enable telemetry. There is no published Swift release; pin the entire `adapters/swift` directory to an immutable upstream commit and verify file hashes. Hosted CI tests the core/optional UI package on macOS and compiles the optional iOS UI without signing.

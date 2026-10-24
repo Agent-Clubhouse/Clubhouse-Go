@@ -146,7 +146,8 @@ been performed and no live exporter is configured.
 
 ## Feedback correlation out
 
-The vendored Framebriar SDK includes a locally patched `FeedbackIncident` schema. On opening
+The vendored Framebriar SDK includes the upstream `FeedbackIncident` schema pinned at
+`25c05f76e8ae05e5ff4b13d2caaf71a7abcfd17e`. On opening
 feedback (including shake), the app snapshots at most eight recent local trace/span references,
 phone process identity, up to four authenticated host and socket IDs, a five-minute time window,
 and optional logical backend UUID. Availability distinguishes recorded/unavailable/collection_off;
@@ -157,4 +158,4 @@ its own request trace. Legacy flat traceId/spanId mirror the first incident refe
 Service redeem/refresh must advertise `feedbackCorrelationVersion:1`; otherwise incident-bearing
 reports remain queued without sending or dropping metadata. Ordinary reports remain compatible.
 The service owner owns normalization/storage and capability advertisement; no deployment is
-included. See [incident contract](feedback-incident-v1.md). Vendor SOURCE.json records local patches.
+included. See [incident contract](feedback-incident-v1.md). Vendor SOURCE.json records the exact upstream commit and file hashes; there are no local SDK patches.

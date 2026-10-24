@@ -3,9 +3,20 @@ import Foundation
 @testable import ClubhouseGo
 
 @MainActor struct FramebriarIntegrationTests {
-    @Test func unconfiguredBuildCreatesNoFeedbackClient() {
-        #expect(Bundle.main.object(forInfoDictionaryKey: "FramebriarGameID") == nil)
-        #expect(CompanionFeedback.makeModel() == nil)
+    @Test func registeredMobileBuildRequiresExplicitEnrollment() async throws {
+        let gameID = try #require(Bundle.main.object(forInfoDictionaryKey: "FramebriarGameID") as? String)
+        #expect(gameID == "clubhouse-annex")
+        let config = try Configuration(gameID: gameID)
+        #expect(config.endpoint.absoluteString == "https://framebriar-masra91-poc.azurewebsites.net/api")
+        let network = FeedbackMockTransport()
+        let client = try Client(configuration: config, transport: network,
+                                enrollmentStore: FeedbackMemoryEnrollment(), feedbackStore: FeedbackMemoryQueue())
+        let model = FeedbackModel(client: client)
+        await model.setActive(true)
+        await model.tick()
+        #expect(model.status?.canSubmit == false)
+        #expect(model.status?.queued == 0)
+        #expect(await network.paths.isEmpty)
     }
 
 }

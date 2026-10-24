@@ -82,3 +82,98 @@ func incident(_ date: Date) throws -> FeedbackIncident {
         try ReviewedFeedback(configuration: Configuration(gameID: "clubhouse"), notes: "Issue", id: UUID(uuidString: context.id)!, incident: context)
     }
 }
+
+@Test func capabilityIsNumericAndNeverRestoredFromPersistentEnrollment() async throws {
+    for raw in ["true", "\"1\"", "2", "null"] {
+        let r = Rig(), client = try r.client()
+        await client.resume()
+        await r.network.add { _ in
+            var value = try JSONSerialization.jsonObject(with: access(r.clock).body) as! [String: Any]
+            value["feedbackCorrelationVersion"] = try JSONSerialization.jsonObject(with: Data(raw.utf8), options: .fragmentsAllowed)
+            return json(value)
+        }
+        try await client.connect(invitation: invitation)
+        let reviewed = try ReviewedFeedback(configuration: r.config, notes: "Issue", incident: incident(r.clock.now()))
+        try await client.enqueue(reviewed); try await client.flush()
+        #expect(await r.network.count() == 1)
+        #expect(await client.status().correlationWaiting == 1)
+        #expect(try r.queue.load(scope: r.config.storageScope)[0].attempts == 0)
+    }
+    let r = Rig(), client = try r.client()
+    await client.resume()
+    await r.network.add { _ in
+        var value = try JSONSerialization.jsonObject(with: access(r.clock).body) as! [String: Any]
+        value["feedbackCorrelationVersion"] = 1
+        return json(value)
+    }
+    try await client.connect(invitation: invitation)
+    let reviewed = try ReviewedFeedback(configuration: r.config, notes: "Issue", incident: incident(r.clock.now()))
+    try await client.enqueue(reviewed)
+    let restarted = try r.client()
+    #expect(await restarted.status().correlationWaiting == 1)
+    await restarted.resume()
+    await r.network.add { _ in access(r.clock) }
+    try await restarted.flush()
+    #expect(await r.network.count() == 2)
+    #expect(await restarted.status().correlationWaiting == 1)
+    #expect(try r.queue.load(scope: r.config.storageScope)[0].feedback == reviewed)
+}
+
+@Test func refreshedCapabilityLossHoldsIncidentAndPreservesReviewedBytes() async throws {
+    let r = Rig(), client = try r.client()
+    let deadline = iso(r.clock.now() + 30 * 86400)
+    await client.resume()
+    await r.network.add { _ in
+        var value = try JSONSerialization.jsonObject(with: access(r.clock).body) as! [String: Any]
+        value["feedbackCorrelationVersion"] = 1
+        return json(value)
+    }
+    try await client.connect(invitation: invitation)
+    let reviewed = try ReviewedFeedback(configuration: r.config, notes: "Issue", incident: incident(r.clock.now()))
+    try await client.enqueue(reviewed)
+    let before = try reviewed.wire()
+    r.clock.advance(56 * 60)
+    await r.network.add { _ in
+        var value = try JSONSerialization.jsonObject(with: access(r.clock).body) as! [String: Any]
+        value["refreshExpiresAt"] = deadline
+        return json(value)
+    }
+    try await client.flush()
+    #expect(await r.network.count() == 2)
+    #expect(await client.status().correlationWaiting == 1)
+    #expect(try r.queue.load(scope: r.config.storageScope)[0].feedback.wire() == before)
+    #expect(try r.queue.load(scope: r.config.storageScope)[0].attempts == 0)
+}
+
+@Test func incidentIdentifiersRejectTrailingNewlinesAndInvalidCalendarDates() throws {
+    #expect(throws: FramebriarError.invalidInput) {
+        try FeedbackIncident.Trace(traceId: String(repeating: "a", count: 32) + "\n", spanId: String(repeating: "b", count: 16))
+    }
+    #expect(throws: FramebriarError.invalidInput) {
+        try FeedbackIncident.Trace(traceId: String(repeating: "a", count: 32), spanId: String(repeating: "b", count: 16) + "\n")
+    }
+    let context = try incident(Date())
+    for (key, value) in [("phoneInstanceId", context.phoneInstanceId + "\n"),
+                         ("capturedAt", "2026-02-30T00:00:00Z"), ("backendRef", context.backendRef! + "\n")] {
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(context)) as! [String: Any]
+        object[key] = value
+        let decoded = try JSONDecoder().decode(FeedbackIncident.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(throws: FramebriarError.invalidInput) { try decoded.validate() }
+    }
+}
+
+@Test func expiredAccessCannotAdvertiseIncidentCapabilityInStatus() async throws {
+    let r = Rig(), client = try r.client()
+    await client.resume()
+    await r.network.add { _ in
+        var value = try JSONSerialization.jsonObject(with: access(r.clock).body) as! [String: Any]
+        value["feedbackCorrelationVersion"] = 1
+        return json(value)
+    }
+    try await client.connect(invitation: invitation)
+    try await client.enqueue(ReviewedFeedback(configuration: r.config, notes: "Issue", incident: incident(r.clock.now())))
+    #expect(await client.status().correlationWaiting == 0)
+    r.clock.advance(3601)
+    #expect(await client.status().correlationWaiting == 1)
+    #expect(await r.network.count() == 1)
+}
