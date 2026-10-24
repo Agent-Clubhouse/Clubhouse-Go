@@ -131,14 +131,17 @@ The immutable phone resource is `service.name=clubhouse-go` with a UUIDv4
 change that instance; app restart does. An optional authenticated WebSocket hello/ack
 verifies echoed phone/attempt IDs and records a distinct host process instance plus
 a host-issued connection UUID. These are correlation metadata, never authentication.
+If collection was off when an existing connection opened, reconnect that desktop
+after enabling collection to negotiate its peer identity. Normal per-request tracing
+starts immediately; no hidden reconnect disrupts an active chat.
 Each connection attempt and operation has an independent trace; metadata is bounded.
 See the handshake fixture and [wire contract](annex-trace-context.md).
 
 **Ingestion gap found:** Framebriar service source `src/telemetry.mjs` preserves
 traceId/spanId/parentSpanId but drops `service.instance.id` from client resource
-attributes. It prefixes service.name with registered app scope. A backend owner must
-add validated UUIDv4 instance preservation and test downstream Azure mapping before
-claiming complete shared-backend instance correlation. No remote ingestion test has
+attributes. It prefixes service.name with registered app scope. Using that optional
+OTLP route would require validated instance preservation and downstream mapping tests;
+this does not block the separate App Insights collector route or feedback correlation. No remote ingestion test has
 been performed and no live exporter is configured.
 
 ## Feedback correlation out

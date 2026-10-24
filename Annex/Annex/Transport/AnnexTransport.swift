@@ -294,8 +294,12 @@ public actor AnnexTransport: AnnexTransporting {
         if let tc = telemetry.traceparent(for: span) { message["tc"] = .string(tc) }
         telemetryHello = (request, span)
         do { try await socket.send(JSONEncoder().encode(AnnexJSON.object(message))) }
-        catch { endTelemetryHello(AnnexDiagnosticFailure.classify(error)); throw error }
-        guard current == generation else { endTelemetryHello(.cancelled); return }
+        catch {
+            if current == generation { endTelemetryHello(AnnexDiagnosticFailure.classify(error)) }
+            throw error
+        }
+        // A delayed old send must never clear a newer connection's pending hello.
+        guard current == generation else { return }
         telemetryDeadline = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
             await self?.expireTelemetryHello(generation: current)

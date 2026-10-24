@@ -169,7 +169,7 @@ public actor AnnexOTLPExporter {
         let ticket = generation
         var retryAfter = 0.0
         do {
-            var request = URLRequest(url: desired.endpoint)
+            var request = URLRequest(url: desired.endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
             request.httpMethod = "POST"; request.httpBody = try AnnexOTLPJSON.encode(batch)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
