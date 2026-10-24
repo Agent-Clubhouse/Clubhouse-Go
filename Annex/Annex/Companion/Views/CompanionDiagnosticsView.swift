@@ -3,21 +3,21 @@ import ClubhouseTransport
 
 /// Explicit local capture and manual reviewed export. There is no remote destination.
 struct CompanionDiagnosticsView: View {
-    @AppStorage(AnnexTelemetry.preferenceKey) private var enabled = false
+    @State private var settings = AnnexDiagnosticSettings.shared
     @State private var snapshot = AnnexTelemetry.shared.snapshot()
     @State private var reviewedExport: String?
     @State private var exportError = false
     var body: some View {
         List {
             Section {
-                Toggle("Capture local diagnostics", isOn: $enabled)
-                    .accessibilityIdentifier("diagnostics.capture")
-                    .onChange(of: enabled) { _, value in
-                        AnnexTelemetry.shared.setEnabled(value)
-                        if value { AnnexTelemetry.shared.record(.settings) }
-                        refresh(); reviewedExport = nil
+                Picker("Capture", selection: Binding(get: { settings.mode }, set: {
+                    settings.select($0); refresh(); reviewedExport = nil
+                })) {
+                    ForEach(AnnexDiagnosticCaptureMode.allCases, id: \.self) { mode in
+                        Text(mode.label).tag(mode)
                     }
-                Text("Off by default. Captures operation names, timings, counts and categorized failures in memory. No messages, addresses, paths, credentials or screenshots. Turning off clears captured traces.")
+                }.accessibilityIdentifier("diagnostics.capture")
+                Text("Off by default. This session stops on app restart; Always remembers collection on future launches. Both keep only bounded traces in memory. No messages, addresses, paths, credentials or screenshots. Off clears traces. Collection also sends random W3C trace IDs to your paired desktop for correlation, never to a collector automatically.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Export") {

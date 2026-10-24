@@ -7,20 +7,20 @@ import XCTest
         let app = XCUIApplication()
         app.launchArguments = ["--diagnostics-ui-testing"]
         app.launch()
-        let capture = app.switches["diagnostics.capture"]
+        let capture = app.descendants(matching: .any).matching(identifier: "diagnostics.capture").firstMatch
         XCTAssertTrue(capture.waitForExistence(timeout: 15))
-        XCTAssertEqual(capture.value as? String, "0")
+        XCTAssertTrue(app.staticTexts["Off"].exists)
         XCTAssertTrue(app.staticTexts["Remote export disabled"].exists)
         XCTAssertFalse(app.buttons["Review diagnostic export"].isEnabled)
         capture.tap()
-        XCTAssertEqual(capture.value as? String, "1")
+        app.buttons["This session"].tap()
         app.buttons["Review diagnostic export"].tap()
         XCTAssertTrue(app.navigationBars["Review export"].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         app.buttons["Clear captured diagnostics"].tap()
         XCTAssertFalse(app.buttons["Review diagnostic export"].isEnabled)
         capture.tap()
-        XCTAssertEqual(capture.value as? String, "0")
+        app.buttons["Off"].tap()
         app.terminate()
     }
 }

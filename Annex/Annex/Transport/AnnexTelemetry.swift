@@ -178,7 +178,6 @@ nonisolated public final class AnnexDiagnosticSpan: @unchecked Sendable {
 
 nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public static let shared = AnnexTelemetry()
-    public static let preferenceKey = "diagnostics.localCapture.enabled.v1"
     @TaskLocal public static var current: AnnexDiagnosticSpan?
     private let lock = NSLock()
     private let exporter: AnnexLocalSpanExporter
@@ -190,6 +189,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         self.clock = clock
         let exporter = AnnexLocalSpanExporter(capacity: capacity); self.exporter = exporter
         provider = TracerProviderBuilder()
+            .with(sampler: Samplers.alwaysOn)
             .with(resource: Resource(attributes: ["service.name": .string("clubhouse-go")]))
             .with(spanLimits: SpanLimits().settingAttributeCountLimit(24).settingEventCountLimit(32)
                 .settingLinkCountLimit(0).settingAttributeValueLengthLimit(64))
@@ -217,7 +217,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             }
         }
     }
-    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current) -> AnnexDiagnosticSpan {
+    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current, remoteParent: AnnexTraceContext? = nil) -> AnnexDiagnosticSpan {
         expire()
         return lock.withLock {
             guard let generation = exporter.captureGeneration(), active.count < 128 else {
@@ -228,11 +228,24 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
                 return AnnexDiagnosticSpan(span: nil, generation: nil, clock: clock)
             }
             let builder = tracer.spanBuilder(spanName: operation.rawValue).setAttribute(key: "capture.generation", value: generation)
-            if parent?.generation == generation, let span = parent?.span { builder.setParent(span) }
+            if operation == .http || operation == .websocket { builder.setSpanKind(spanKind: .client) }
+            if operation == .stream { builder.setSpanKind(spanKind: .consumer) }
+            if let remoteParent { builder.setParent(remoteParent.context) }
+            else if parent?.generation == generation, let span = parent?.span { builder.setParent(span) }
             else { builder.setNoParent() }
             let result = AnnexDiagnosticSpan(span: builder.startSpan(), generation: generation, clock: clock)
             active.append(result); return result
         }
+    }
+    /// Called only after the request's exact pinned endpoint has been validated.
+    /// Capture off strips all trace headers; no baggage is ever propagated.
+    public func inject(into request: inout URLRequest, span: AnnexDiagnosticSpan? = AnnexTelemetry.current) {
+        request.setValue(nil, forHTTPHeaderField: "traceparent")
+        request.setValue(nil, forHTTPHeaderField: "tracestate")
+        request.setValue(nil, forHTTPHeaderField: "baggage")
+        guard let generation = exporter.captureGeneration(), span?.generation == generation,
+              let context = span?.span?.context, context.isValid else { return }
+        request.setValue("00-\(context.traceId.hexString)-\(context.spanId.hexString)-\(context.traceFlags.hexString)", forHTTPHeaderField: "traceparent")
     }
     public func record(_ operation: AnnexDiagnosticOperation, event: AnnexDiagnosticEvent? = nil) {
         let span = begin(operation); if let event { span.event(event) }; span.end()

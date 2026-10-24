@@ -138,3 +138,83 @@ private final class DiagnosticClock: @unchecked Sendable {
     exporter.shutdown(explicitTimeout: nil)
     #expect(exporter.snapshot().records.isEmpty)
 }
+
+@MainActor @Test func diagnosticSettingsPersistOnlyAlwaysAndNeverEnableRemote() throws {
+    let suite = "diagnostics-tests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let telemetry = AnnexTelemetry()
+    let settings = AnnexDiagnosticSettings(defaults: defaults, telemetry: telemetry)
+    #expect(settings.mode == .off)
+    settings.select(.session)
+    #expect(telemetry.snapshot().enabled)
+    #expect(AnnexDiagnosticSettings(defaults: defaults, telemetry: AnnexTelemetry()).mode == .off)
+    settings.select(.always)
+    #expect(AnnexDiagnosticSettings(defaults: defaults, telemetry: AnnexTelemetry()).mode == .always)
+    #expect(!telemetry.snapshot().remoteExportEnabled)
+    settings.select(.off)
+    #expect(!telemetry.snapshot().enabled)
+    #expect(telemetry.snapshot().records.isEmpty)
+    #expect(AnnexDiagnosticSettings(defaults: defaults, telemetry: AnnexTelemetry()).mode == .off)
+    defaults.set("unknown-future-mode", forKey: AnnexDiagnosticSettings.preferenceKey)
+    #expect(AnnexDiagnosticSettings(defaults: defaults, telemetry: AnnexTelemetry()).mode == .off)
+}
+
+@Test func traceContextStrictValidationAndVendorStatePrivacy() throws {
+    let good = "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+    #expect(AnnexTraceContext(traceparent: good) != nil)
+    let context = try #require(AnnexTraceContext(traceparent: good, tracestate: "az=opaque-vendor-data"))
+    #expect(context.tracestate == nil)
+    for bad in ["", "zz" + good.dropFirst(2), good.uppercased(), good + "-extra", good + "\r\nsecret", String(repeating: "x", count: 10000),
+                "00-00000000000000000000000000000000-0123456789abcdef-01", "00-0123456789abcdef0123456789abcdef-0000000000000000-01"] {
+        #expect(AnnexTraceContext(traceparent: bad) == nil)
+    }
+    for bad in ["az=one,az=two", "bad=value\r\nsecret", "az=", "=value", "az=" + String(repeating: "x", count: 513), "a=b=c", "a@=value"] {
+        #expect(AnnexTraceContext(traceparent: good, tracestate: bad) == nil)
+    }
+}
+@Test func traceHeadersRespectOptOutAndGenerationWithoutBaggage() throws {
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let span = telemetry.begin(.send)
+    var request = URLRequest(url: URL(string: "https://example.invalid")!)
+    request.setValue("secret", forHTTPHeaderField: "baggage")
+    request.setValue("az=secret", forHTTPHeaderField: "tracestate")
+    telemetry.inject(into: &request, span: span)
+    let header = try #require(request.value(forHTTPHeaderField: "traceparent"))
+    #expect(AnnexTraceContext(traceparent: header) != nil)
+    #expect(request.value(forHTTPHeaderField: "baggage") == nil)
+    #expect(request.value(forHTTPHeaderField: "tracestate") == nil)
+    telemetry.clear()
+    telemetry.inject(into: &request, span: span)
+    #expect(request.value(forHTTPHeaderField: "traceparent") == nil)
+    telemetry.setEnabled(false)
+    request.setValue(header, forHTTPHeaderField: "traceparent")
+    telemetry.inject(into: &request, span: span)
+    #expect(request.value(forHTTPHeaderField: "traceparent") == nil)
+}
+@Test func remoteTurnContextCorrelatesWithoutLeakingStateOrLinkingUnrelatedTurns() throws {
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let remote = try #require(AnnexTraceContext(traceparent: "00-0123456789abcdef0123456789abcdef-0123456789abcdef-00", tracestate: "az=secret"))
+    AnnexStreamDiagnostic(telemetry: telemetry, remoteParent: remote).finish()
+    AnnexStreamDiagnostic(telemetry: telemetry).finish()
+    let records = telemetry.snapshot().records
+    #expect(records.count == 2)
+    #expect(records[0].traceID == "0123456789abcdef0123456789abcdef")
+    #expect(records[0].parentID == "0123456789abcdef")
+    #expect(records[1].traceID != records[0].traceID)
+    #expect(!String(decoding: try telemetry.exportJSON(), as: UTF8.self).contains("secret"))
+}
+
+@Test func concurrentSpanCompletionKeepsRingBoundedAndEndsOnce() async {
+    let telemetry = AnnexTelemetry(capacity: 20); telemetry.setEnabled(true)
+    await withTaskGroup(of: Void.self) { group in
+        for _ in 0..<100 {
+            group.addTask {
+                let span = telemetry.begin(.http)
+                span.number(.responseBytes, 123); span.end(); span.end()
+            }
+        }
+    }
+    #expect(telemetry.snapshot().records.count == 20)
+    #expect(telemetry.snapshot().dropped == 80)
+}

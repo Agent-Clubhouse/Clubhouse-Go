@@ -94,10 +94,10 @@ struct ClubhouseGoApp: App {
     init() {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
-            UserDefaults.standard.removeObject(forKey: AnnexTelemetry.preferenceKey)
+            UserDefaults.standard.removeObject(forKey: AnnexDiagnosticSettings.preferenceKey)
         }
         #endif
-        AnnexTelemetry.shared.setEnabled(UserDefaults.standard.bool(forKey: AnnexTelemetry.preferenceKey))
+        _ = AnnexDiagnosticSettings.shared
         AnnexTelemetry.shared.record(.appLaunch)
         let store = _store
         let args = ProcessInfo.processInfo.arguments

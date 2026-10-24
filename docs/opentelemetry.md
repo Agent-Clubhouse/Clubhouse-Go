@@ -4,7 +4,7 @@ Clubhouse Go uses the official OpenTelemetry Swift Core **2.6.0** API and trace 
 with explicit instrumentation and a synchronous bounded memory exporter. It does
 not use automatic URLSession instrumentation, device/resource detection or global
 SDK registration. Capture is **off by default**. Settings → Connection diagnostics
-allows opt-in, review, clear and explicit sharing of a sanitized JSON snapshot.
+offers Off / This session / Always, review, clear and explicit sharing of a sanitized JSON snapshot.
 Remote export is always disabled in this implementation. Framebriar feedback stays
 separate and does not receive traces.
 
@@ -26,10 +26,14 @@ First-token means first observed **text delta**, not model tokenization. It star
 at a live `turn_started`, not prompt submission. Historical reads do not generate
 stream timings; duplicate session sequence numbers are ignored. Disconnect ends
 an observed turn rather than pretending its offline time was streaming latency.
-HTTP command and nested request spans share SDK trace context; stream turns have
-separate traces because provider events do not reliably identify the initiating
-mobile command. No trace headers are sent to desktops. This is client-side
-correlation, not distributed server tracing. WebSocket creation is distinct from
+HTTP command and nested request spans share SDK trace context. Authenticated
+pinned HTTP/WS requests propagate standard W3C `traceparent`. Live `turn_started`
+can carry a validated `traceContext` from the host to parent the mobile stream;
+without it the stream gets an independent trace rather than guessing a command.
+This requires the companion host implementation for complete distributed traces.
+No baggage is propagated. `tracestate` is bounded/syntax-checked but vendor values
+are dropped until an approved exporter defines an allowlist. Invalid contexts are
+ignored without affecting chat. See [wire contract](annex-trace-context.md). WebSocket creation is distinct from
 connection-to-snapshot timing. URLSession may omit timings on reused connections;
 absent values are not zero-duration claims.
 
@@ -42,6 +46,12 @@ description or SDK resource data is exported. Transient stream keys remain in th
 app's existing process memory and are not attributes. Legacy AppLog now discards
 arbitrary text before its memory buffer and OSLog; it retains severity and an
 allowlisted category. No regular-expression redaction of raw retained data.
+
+Always persists only the collection preference and resumes on future launches;
+This session resets to Off on restart. No mode persists trace contents or enables
+sharing. Off clears captured records. Local spans are sampled while capture is
+enabled, including children of unsampled host context; bounded capacity limits
+retention. Changing collection mode resets the current capture generation.
 
 Default ring: 256 records, hard maximum 512. Active spans: 128, swept after ten
 minutes on begin/snapshot. At most 24 attributes and 32 fixed-name events per span;
@@ -65,7 +75,13 @@ Azure Monitor and generic OTLP/HTTP-JSON destinations under
 Those are outbound exporters, not an Annex collector endpoint. Mobile must not
 copy desktop secrets/settings or assume the Annex port accepts OTLP. An approved
 OTLP collector could bridge mobile traces to the same backend later; phone
-loopback refers to the phone, not the desktop. No live configuration was read.
+loopback refers to the phone, not the desktop. No live configuration was read. Desktop's vendored Framebriar OTel adapter builds
+`<endpoint>/v1/otlp/v1/{traces,metrics,logs}` and uses a live bearer-token gate plus
+`session.id` resource correlation. With its `/api` endpoint this becomes
+`/api/v1/otlp/v1/traces`. The mobile Framebriar package exposes feedback reports,
+not this OTel adapter or telemetry consent/session binding. A mobile adapter must
+verify token scope/expiry/revocation and the configured service contract before
+using that route. Never infer telemetry permission from feedback enrollment.
 
 Official references:
 - https://opentelemetry.io/docs/languages/swift/

@@ -30,6 +30,8 @@
 				Transport/AnnexTrustProbe.swift,
 				Transport/AnnexWire.swift,
                 Transport/AnnexTelemetry.swift,
+                Transport/AnnexDiagnosticSettings.swift,
+                Transport/AnnexTraceContext.swift,
                 Transport/AnnexStreamDiagnostic.swift,
             );
             target = ACF46E212F4A5C73007272FE /* ClubhouseGo */;

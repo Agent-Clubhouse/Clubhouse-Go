@@ -23,7 +23,7 @@ import ClubhouseTransport
         let data = event["data"]
         switch type {
         case "turn_started":
-            cursor.turn?.finish(.abandoned); cursor.turn = AnnexStreamDiagnostic(telemetry: telemetry)
+            cursor.turn?.finish(.abandoned); cursor.turn = AnnexStreamDiagnostic(telemetry: telemetry, remoteParent: AnnexTraceContext.from(event["traceContext"]))
         case "agent_message_chunk": cursor.turn?.chunk(byteCount: data?["text"]?.string?.utf8.count ?? 0)
         case "turn_ended", "session_ended":
             let reason = data?["stopReason"]?.string ?? data?["reason"]?.string

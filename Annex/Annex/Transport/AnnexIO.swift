@@ -115,6 +115,11 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
     public func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
         return try await AnnexTelemetry.shared.measure(.http) {
             try validate(request, scheme: "https")
+            var request = request
+            // Pairing has local spans only; authenticated API traffic carries context.
+            if request.value(forHTTPHeaderField: "Authorization") != nil {
+                AnnexTelemetry.shared.inject(into: &request)
+            }
             let diagnostic = AnnexTelemetry.current
             diagnostic?.number(.requestBytes, Double(request.httpBody?.count ?? 0))
             let delegate = AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, diagnostic: diagnostic)
@@ -137,6 +142,8 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
     public func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket {
         return try await AnnexTelemetry.shared.measure(.websocket) {
             try validate(request, scheme: "wss")
+            var request = request
+            AnnexTelemetry.shared.inject(into: &request)
             let task = session.webSocketTask(with: request)
             let delegate = AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, diagnostic: AnnexTelemetry.current)
             task.delegate = delegate
