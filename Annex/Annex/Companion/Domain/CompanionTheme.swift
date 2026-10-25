@@ -71,7 +71,7 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
     var gradient: [CompanionRGB]
 
     init(id: String, name: String, source: String, mode: Mode, colors: [String: String], gradient: [String]) {
-        func color(_ key: String, _ fallback: CompanionRGB) -> CompanionRGB { colors[key].flatMap(CompanionRGB.init(hex:)) ?? fallback }
+        func color(_ key: String, _ fallback: CompanionRGB) -> CompanionRGB { colors[key].flatMap { CompanionRGB(hex: $0) } ?? fallback }
         let dark = mode == .dark
         self.id = id; self.name = name; self.source = source; self.mode = mode
         base = color("base", dark ? CompanionRGB(red: 0.11, green: 0.11, blue: 0.12) : .white)
@@ -81,11 +81,11 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
         surface0 = color("surface0", base.mixed(with: text, amount: 0.1))
         surface1 = color("surface1", base.mixed(with: text, amount: 0.18))
         accent = color("accent", CompanionRGB(red: 0.55, green: 0.5, blue: 1))
-        accent2 = colors["accent2"].flatMap(CompanionRGB.init(hex:))
+        accent2 = colors["accent2"].flatMap { CompanionRGB(hex: $0) }
         warning = color("warning", CompanionRGB(red: 1, green: 0.62, blue: 0.04))
         self.error = color("error", CompanionRGB(red: 1, green: 0.27, blue: 0.23))
         success = color("success", CompanionRGB(red: 0.19, green: 0.82, blue: 0.35))
-        self.gradient = gradient.compactMap(CompanionRGB.init(hex:))
+        self.gradient = gradient.compactMap { CompanionRGB(hex: $0) }
     }
 }
 

@@ -91,6 +91,8 @@ struct CompanionRootView: View {
                 CompanionConversationView(store: store, agent: agent)
             }
             .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
+            // The composer owns the bottom edge in a chat, as in Messages.
+            .toolbar(.hidden, for: .tabBar)
             .id(target)
         } else {
             ContentUnavailableView("Agent unavailable", systemImage: "sparkle",
@@ -436,12 +438,16 @@ struct CompanionAttentionCard: View {
             let canRespond = store.canOperate(item.agent.id) && item.agent.capabilities.contains(.approve)
             HStack(spacing: 8) {
                 if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
-                    Button(deny.label) { Task { await store.respond(approval, option: deny, target: item.agent.id) } }
-                        .buttonStyle(.bordered).frame(maxWidth: .infinity)
+                    Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {
+                        Text(deny.label).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
-                    Button(allow.label) { Task { await store.respond(approval, option: allow, target: item.agent.id) } }
-                        .buttonStyle(.borderedProminent).frame(maxWidth: .infinity)
+                    Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {
+                        Text(allow.label).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
