@@ -12,3 +12,11 @@ xcuserdata/
 
 # Swift Package Manager local build products
 .build/
+
+# Per-agent files Clubhouse writes into each worktree (never commit)
+/CLAUDE.md
+/.mcp.json
+/.claude/skills/
+/.claude/settings.local.json
+.clubhouse/plugin-data-local/
+.clubhouse/agents.json.bak
