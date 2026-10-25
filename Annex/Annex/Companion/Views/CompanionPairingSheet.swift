@@ -99,7 +99,7 @@ struct CompanionPairingSheet: View {
                 Section("Desktop address") {
                     TextField("IP address, hostname, or host:port", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL).focused($focused, equals: .address)
                     TextField("Port (unless included above)", text: $port).keyboardType(.numberPad)
-                    TextField("Display name (optional)", text: $name)
+                    TextField("Desktop name on this phone (optional)", text: $name)
                     Button {
                         Task { await inspect() }
                     } label: {
@@ -116,6 +116,9 @@ struct CompanionPairingSheet: View {
                 } header: { Text("Verify your desktop") } footer: {
                     Text("Compare both fingerprints with the values shown on the desktop. A network name alone does not prove its identity.")
                 }
+                Section {
+                    CompanionDeviceNameField(preferences: runtime.preferences)
+                } header: { Text("This phone") } footer: { Text(CompanionDeviceNameField.footer) }
                 Section {
                     SecureField("Pairing PIN", text: $pin).keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused, equals: .pin)
                     Toggle("Remember this desktop", isOn: $remember)
@@ -192,8 +195,20 @@ struct CompanionPairingSheet: View {
             let endpoint = try AnnexEndpoint.manual(address: address, port: port)
             let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: identity.trimmingCharacters(in: .whitespacesAndNewlines),
                                            verifiedCertificatePin: AnnexCertificatePin(sha256: certificate.trimmingCharacters(in: .whitespacesAndNewlines)))
-            try await runtime.pair(host: host, pin: pin, name: name.isEmpty ? address : name, remember: remember)
+            try await runtime.pair(host: host, pin: pin, name: name, remember: remember)
             pin = ""; dismiss()
         } catch { self.error = CompanionLiveService.readableError(error) }
+    }
+}
+
+/// This phone's name, which a desktop shows while the phone controls it. Starts as the system name.
+struct CompanionDeviceNameField: View {
+    @Bindable var preferences: CompanionPreferences
+    static let footer = "Your desktop shows this name while this phone is in control."
+    var body: some View {
+        TextField(preferences.systemDeviceName, text: $preferences.deviceName)
+            .autocorrectionDisabled()
+            .accessibilityLabel("This phone's name")
+            .accessibilityIdentifier("companion.deviceName")
     }
 }

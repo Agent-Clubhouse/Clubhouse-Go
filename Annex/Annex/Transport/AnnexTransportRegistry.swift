@@ -32,8 +32,10 @@ public actor AnnexTransportRegistry {
     /// This call is the explicit user-authorized pairing action. For isolated
     /// integration use MemoryAnnexCredentialStore (default); identity remains in
     /// memory and is never installed in the simulator or system trust store.
+    /// `alias` is this device's own name, sent to the desktop. `label` is what this
+    /// device calls the desktop; without one the desktop's reported alias is kept.
     @discardableResult
-    public func pair(host: TrustedAnnexHost, pin: String, alias: String, clientIdentity: AnnexClientIdentity? = nil, persistence: Persistence = .sessionOnly) async throws -> Registration {
+    public func pair(host: TrustedAnnexHost, pin: String, alias: String, label: String? = nil, clientIdentity: AnnexClientIdentity? = nil, persistence: Persistence = .sessionOnly) async throws -> Registration {
         return try await AnnexTelemetry.shared.measure(.pairing) {
             guard !busyHosts.contains(host.hostID) else { throw AnnexTransportError.commandInFlight }
             if persistence == .persistent && pairings == nil { throw AnnexTransportError.persistenceFailed(errSecNotAvailable) }
@@ -45,8 +47,9 @@ public actor AnnexTransportRegistry {
             let temporary = MemoryAnnexCredentialStore()
             let result = try await AnnexPairingClient(host: host, clientIdentity: identity, credentials: temporary, io: io).pair(pin: pin, alias: alias, mode: persistence == .persistent ? .persistent : .session)
             guard let credential = await temporary.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
+            let hostLabel = label.flatMap { $0.isEmpty ? nil : $0 } ?? result.alias
             if persistence == .persistent, let pairings {
-                try await pairings.save(AnnexSavedPairing(host: host, alias: result.alias, identity: identity, credential: credential))
+                try await pairings.save(AnnexSavedPairing(host: host, alias: hostLabel, identity: identity, credential: credential))
             } else {
                 // Choosing session-only must not leave an older durable pairing to
                 // silently reappear on the next app launch.
@@ -57,7 +60,7 @@ public actor AnnexTransportRegistry {
             try await activeCredentials.save(credential, for: host.hostID)
             let transport = AnnexTransport(host: host, credentials: activeCredentials, clientIdentity: identity, io: io)
             if let old = registrations[host.hostID] { await old.transport.disconnect() }
-            let registration = Registration(host: host, alias: result.alias, transport: transport)
+            let registration = Registration(host: host, alias: hostLabel, transport: transport)
             identities[host.hostID] = identity
             registrations[host.hostID] = registration
             return registration

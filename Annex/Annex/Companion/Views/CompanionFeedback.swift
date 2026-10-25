@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import Framebriar
 import FramebriarUI
 import ClubhouseTransport
@@ -57,10 +58,132 @@ struct CompanionFeedbackSettings: View {
                 Text("Feedback is not configured for this build or local storage is unavailable.")
             }
             Toggle("Shake to open feedback", isOn: $shakeEnabled)
+            if let model, model.status != nil, model.status?.canSubmit != true {
+                Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
+                    .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
+            }
             Text("When enrolled, shake opens a blank feedback form. It never captures or sends automatically. You can also use Send feedback in Settings.")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Only submitted notes, an optional reviewed image and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
                 .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+extension View {
+    /// The Framebriar shortcut ignores shakes until the user is enrolled, which looked broken
+    /// because the preference defaults on. While unenrolled, explain why and offer enrollment.
+    /// Install next to `shakeToOpenFeedback`; the two receivers are never eligible together.
+    func shakeToExplainFeedbackEnrollment(model: FeedbackModel?, enabled: Binding<Bool>, isPresenting: Bool) -> some View {
+        modifier(ShakeEnrollmentPrompt(model: model, enabled: enabled, isPresenting: isPresenting))
+    }
+}
+
+private struct ShakeEnrollmentPrompt: ViewModifier {
+    let model: FeedbackModel?
+    @Binding var enabled: Bool
+    let isPresenting: Bool
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showingPrompt = false
+    @State private var showingEnrollment = false
+
+    private var unenrolled: Bool { model?.status != nil && model?.status?.canSubmit != true }
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if model != nil {
+                    EnrollmentShakeReceiver(eligible: enabled && unenrolled && scenePhase == .active
+                                                && !isPresenting && !showingPrompt && !showingEnrollment) {
+                        showingPrompt = true
+                    }.allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }
+            .alert("Feedback enrollment required", isPresented: $showingPrompt) {
+                Button("Set up feedback") { showingEnrollment = true }
+                Button("Turn off shake") { enabled = false }
+                Button("Not now", role: .cancel) {}
+            } message: {
+                Text("Shake opens the feedback form after you redeem a feedback invitation in Settings → Invitation & enrollment.")
+            }
+            .sheet(isPresented: $showingEnrollment) {
+                if let model {
+                    NavigationStack {
+                        EnrollmentView(model: model).toolbar {
+                            ToolbarItem(placement: .confirmationAction) { Button("Done") { showingEnrollment = false } }
+                        }
+                    }
+                }
+            }
+    }
+}
+
+/// Claims first responder only while eligible, never from active text input or a presentation,
+/// mirroring the Framebriar receiver so a real shake is delivered here while unenrolled.
+private struct EnrollmentShakeReceiver: UIViewControllerRepresentable {
+    let eligible: Bool
+    let onShake: @MainActor () -> Void
+    func makeUIViewController(context: Context) -> Receiver { Receiver() }
+    func updateUIViewController(_ controller: Receiver, context: Context) {
+        controller.eligible = eligible
+        controller.onShake = onShake
+        controller.updateEligibility()
+    }
+    static func dismantleUIViewController(_ controller: Receiver, coordinator: ()) { controller.stop() }
+
+    @MainActor final class Receiver: UIViewController {
+        var eligible = false
+        var onShake: (@MainActor () -> Void)?
+        private var observers: [NSObjectProtocol] = []
+        private var rearmTask: Task<Void, Never>?
+        override var canBecomeFirstResponder: Bool { eligible }
+        override func loadView() { view = UIView(); view.backgroundColor = .clear }
+        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); updateEligibility() }
+        override func viewWillDisappear(_ animated: Bool) { super.viewWillDisappear(animated); rearmTask?.cancel(); resignFirstResponder() }
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            for name in [UIResponder.keyboardDidHideNotification, UIWindow.didBecomeKeyNotification, UIApplication.didBecomeActiveNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    Task { @MainActor [weak self] in self?.updateEligibility() }
+                })
+            }
+        }
+        func stop() {
+            eligible = false; onShake = nil; rearmTask?.cancel(); rearmTask = nil; resignFirstResponder()
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
+            observers.removeAll()
+        }
+        func updateEligibility() {
+            rearmTask?.cancel(); rearmTask = nil
+            guard eligible else { if isFirstResponder { resignFirstResponder() }; return }
+            if claim() { return }
+            // A dismissal transition can still be finishing; retry briefly like the SDK receiver.
+            rearmTask = Task { @MainActor [weak self] in
+                for _ in 0..<30 {
+                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
+                    guard let self, !Task.isCancelled, self.eligible else { return }
+                    if self.claim() { return }
+                }
+            }
+        }
+        private func claim() -> Bool {
+            guard let window = viewIfLoaded?.window, window.isKeyWindow,
+                  window.windowScene?.activationState == .foregroundActive,
+                  !Self.hasPresentation(window.rootViewController), !Self.isEditing(window) else { return false }
+            return isFirstResponder || becomeFirstResponder()
+        }
+        override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+            guard motion == .motionShake, eligible, let onShake else { super.motionEnded(motion, with: event); return }
+            onShake()
+        }
+        private static func hasPresentation(_ controller: UIViewController?) -> Bool {
+            guard let controller else { return false }
+            if controller.presentedViewController != nil || controller.isBeingPresented || controller.isBeingDismissed { return true }
+            return controller.children.contains { hasPresentation($0) }
+        }
+        private static func isEditing(_ view: UIView) -> Bool {
+            if view.isFirstResponder && view is any UIKeyInput { return true }
+            return view.subviews.contains { isEditing($0) }
         }
     }
 }
