@@ -120,6 +120,8 @@ struct CompanionAppRoot: View {
             }
             .shakeToOpenFeedback(model: runtime.feedback, enabled: shakeFeedbackEnabled,
                                  isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
+            .shakeToExplainFeedbackEnrollment(model: runtime.feedback, enabled: $shakeFeedbackEnabled,
+                                              isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
             .overlay(alignment: .top) {
                 if runtime.isRestoring { ProgressView("Restoring desktops…").padding(.horizontal, 18).padding(.vertical, 12).glassEffect(.regular, in: .capsule).padding() }
             }
