@@ -199,7 +199,10 @@ struct CompanionTimelineFoldingTests {
         let queue = CompanionDecisionQueue(delay: .milliseconds(30)) { sent.append($0.id) }
         queue.schedule(pending("y"))
         queue.schedule(pending("y"))
-        try await Task.sleep(for: .milliseconds(200))
+        // Wait for the main-actor timer rather than a fixed sleep; parallel suites can starve it on CI.
+        let deadline = ContinuousClock.now + .seconds(5)
+        while sent.isEmpty && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        try await Task.sleep(for: .milliseconds(100))
         #expect(sent == ["y"])
         #expect(queue.pending.isEmpty)
     }
