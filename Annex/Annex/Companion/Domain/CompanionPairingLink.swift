@@ -45,3 +45,21 @@ struct CompanionPairingLink: Equatable, Sendable {
         return parts.count == 16 && parts.allSatisfy { $0.count == 2 && $0.allSatisfy(\.isHexDigit) }
     }
 }
+
+/// What one pairing sends to the desktop and what this phone calls that desktop afterwards.
+/// The desktop stores `alias` as the name of the phone controlling it, so it is always the phone's own name.
+/// Desktop names, typed, discovered, or read from a QR code, are only ever the local label.
+struct CompanionPairingNames: Equatable, Sendable {
+    /// This phone's name, sent as `alias` in `POST /pair`.
+    var alias: String
+    /// The desktop's name on this phone. Nil keeps the name the desktop reports when pairing.
+    var desktopLabel: String?
+
+    init(deviceName: String, desktopName: String?) {
+        alias = deviceName
+        desktopLabel = desktopName.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    /// A QR or `clubhousego://pair` invitation: its `name` is the desktop's.
+    init(deviceName: String, link: CompanionPairingLink) { self.init(deviceName: deviceName, desktopName: link.name) }
+}
