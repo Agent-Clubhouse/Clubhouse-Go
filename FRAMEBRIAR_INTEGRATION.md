@@ -10,7 +10,7 @@ The Companion interface uses the complete native SDK from `masra91/framebriar` c
 - `Annex.xcodeproj`: links the two local package products. Signing and network configuration are unchanged.
 - `FramebriarIntegrationTests`: checks the registered mobile scope and verifies, using memory stores and mock transport, that foreground activation does not enroll or send requests before explicit enrollment.
 
-The legacy interface is intentionally unchanged. The default Companion interface is the current mobile owner's integration target. Existing `--companion-preview` and nonpersistent test runtime do not start feedback.
+`--companion-preview` and nonpersistent test runtime do not start feedback.
 
 ## Registered mobile configuration and explicit enrollment
 
@@ -26,29 +26,16 @@ When the user chooses to enroll:
 
 Live enrollment/delivery and any service deployment remain separate validation. This consumer update does not issue invitations, register an app, modify credentials or deploy the service. `FramebriarBuildSHA` is optional and remains omitted.
 
-Runtime initialization fails closed on storage/Keychain errors. A protected-data lock may require recreating the runtime after device unlock/app relaunch; it never falls back to plaintext or empties the queue. Default file storage is single-client/process only; do not also initialize it from an extension or the legacy UI. No cross-platform migration is attempted.
+Runtime initialization fails closed on storage/Keychain errors. A protected-data lock may require recreating the runtime after device unlock/app relaunch; it never falls back to plaintext or empties the queue. Default file storage is single-client/process only; do not also initialize it from an extension. No cross-platform migration is attempted.
 
-## Historical integration validation
-
-The commands and results below describe the initial integration. The upstream SDK consumer/configuration follow-up is validated through hosted CI only; no local builds or tests are performed for that follow-up.
+## Validation
 
 ```sh
 swift test --package-path Vendor/Framebriar
 swift test
-xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
-  -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath /tmp/clubhouse-framebriar-build CODE_SIGNING_ALLOWED=NO build
 ```
 
-The SDK has 30 passing deterministic tests; tests use synthetic credentials and inject network/storage/clock. Existing transport tests use their own 127.0.0.1 TLS fixture; a restrictive process sandbox may prevent that fixture or ephemeral identities from working. Do not “fix” these tests by changing transport trust or credentials.
-
-The default unsigned simulator build passed. Existing transport/domain package tests passed (84). Full application unit run: 531 passed, 7 failed in existing Keychain/mTLS tests, 1 skipped; the new feedback configuration test passed. The untouched `0fce51f` baseline reproduced the exact same seven failures (4 passed / 7 failed / 1 skipped in the three selected suites), confirming they are not introduced by this integration. The exact failure list and baseline comparison are recorded in the parent workspace's `DELIVERY.md` and result bundles. No full-success app-test claim is made. Photo picker/accessibility flows, actual device Keychain/file protection and live enrollment remain acceptance gates.
-
-## Historical landing notes
-
-The integration depends on the owner's unmerged Go #105 → #106 → #107 chain. Rebase/cherry-pick this branch onto the owner's final integrated head after those changes settle; resolve any Settings/composition conflicts with the owner's architecture. Do not merge the historical checkpoint into current main blindly.
-
-GitHub writes previously returned HTTP 403 “Resource not accessible by integration.” This task made no GitHub write attempts and used no alternate route. Keep these commits local until authorized connector write access is restored. Do not publish the Swift package or release artifacts.
+The SDK tests use synthetic credentials and inject network/storage/clock. `FramebriarIntegrationTests` (app unit tests) and `FramebriarShakeUITests` (app UI tests) run in CI with the rest of the app suites; see `docs/testing.md`. Photo picker/accessibility flows, actual device Keychain/file protection and live enrollment remain device acceptance gates.
 
 ## Shake shortcut follow-up
 
