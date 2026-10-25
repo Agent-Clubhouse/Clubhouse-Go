@@ -35,19 +35,15 @@ swift test --package-path Vendor/Framebriar
 swift test
 ```
 
-The SDK tests use synthetic credentials and inject network/storage/clock. `FramebriarIntegrationTests` (app unit tests) and `FramebriarShakeUITests` (app UI tests) run in CI with the rest of the app suites; see `docs/testing.md`. Photo picker/accessibility flows, actual device Keychain/file protection and live enrollment remain device acceptance gates.
+The SDK tests use synthetic credentials and inject network/storage/clock. `FramebriarIntegrationTests` (app unit tests) `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests` (app UI tests) run in CI with the rest of the app suites; see `docs/testing.md`. Photo picker/accessibility flows, actual device Keychain/file protection and live enrollment remain device acceptance gates.
 
-## Shake shortcut follow-up
+## Shake shortcut
 
-The initial implementation used only Settings → Send feedback. The optional shortcut now opens that same blank composer on a recognized shake; it does not send, capture a screenshot, attach content, enroll, or start telemetry. The user still chooses any screenshot, can remove it, reviews the exact notes/image, and explicitly taps Submit reviewed feedback.
+The optional shortcut opens the same blank composer as Settings → Send feedback on a recognized shake; it does not send, capture a screenshot, attach content, enroll, or start telemetry. The user still chooses any screenshot, can remove it, reviews the exact notes/image, and explicitly taps Submit reviewed feedback.
 
 `CompanionFeedback.shakePreferenceKey` is a local `AppStorage` preference, default on for eligible enrolled users. The Settings toggle “Shake to open feedback” disables the shortcut; Settings → Send feedback remains available. The root `shakeToOpenFeedback` modifier is eligible only for an active scene and `canSubmit == true`. Host flags and UIKit presentation checks suppress sheets/alerts/pickers, active text input is not displaced, and repeated motion/presentation boundaries are debounced for two seconds.
 
-The follow-up touches only three lines in CompanionAppRoot (preference and modifier), the Settings preference/toggle, and the optional SDK UI. A separate DEBUG-only fixture has in-memory storage and a transport that always throws without opening a socket. The three-line selection branch in AnnexApp is only for `--framebriar-shake-ui-testing`; it never restores a paired desktop. `FramebriarShakeUITests` injects UIKit `motionEnded(.motionShake)` into the first responder and drives the actual composer/Settings presentation. Physical sensor detection remains a device acceptance check.
-
-For the mobile owner's `codex/mobile-phone-workflow` branch: apply the follow-up commit after initial integration `5a4414a`, preserving the owner's LAN/wake/media changes. The new preview/test files are independent. The tiny AnnexApp DEBUG fixture insertion can be adapted around any new debug preview selection without changing normal app composition. No production scope was configured by either original commit; the current registered mobile configuration is described above.
-
-Shake validation: all 30 SDK tests and all 30 exact-vendor tests passed. The targeted iOS 26 simulator UI test passed after exercising repeated motion, empty composer/no auto-submit, Settings access while disabled, presentation suppression, and responder restoration after dismissal. It verifies zero queued reports and zero network calls. Result: `../build/Framebriar-ShakeUITests-Final.xcresult`. The initial run caught a responder restoration issue; a bounded dismissal handoff fixed it. No physical motion sensor or live feedback was used.
+The DEBUG-only `--framebriar-shake-ui-testing` fixture (`FramebriarShakePreview`) has in-memory storage and a transport that always throws without opening a socket; it never restores a paired desktop. `--framebriar-shake-unenrolled` starts it unenrolled and `--framebriar-shake-companion-layout` wraps it in a Companion-like split view. `FramebriarShakeUITests` injects UIKit `motionEnded(.motionShake)` into the first responder and drives the actual composer/Settings presentation, verifying zero queued reports and zero network calls. Physical sensor detection remains a device acceptance check.
 
 ## Shake while unenrolled
 
