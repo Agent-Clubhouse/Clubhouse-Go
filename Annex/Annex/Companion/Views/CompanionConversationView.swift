@@ -266,6 +266,9 @@ struct CompanionConversationView: View {
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField(composerPlaceholder, text: draft, axis: .vertical)
                         .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
+                        // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
+                        // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, 12).padding(.leading, 16)
                         .focused($composerFocused)
                         .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
