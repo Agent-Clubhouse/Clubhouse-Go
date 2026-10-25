@@ -370,7 +370,12 @@ import ClubhouseTransport
             switch envelope.type {
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
-                applyCatalog(payload, hostID: hostID); emitHosts()
+                applyCatalog(payload, hostID: hostID)
+                if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
+                emitHosts()
+            case "theme:changed":
+                // The payload is the color set itself, with terminal colors alongside.
+                if let theme = Self.theme(from: payload) { hosts[hostID]?.theme = theme; emitHosts() }
             case "chat:event":
                 guard let agentID = payload["agentId"]?.string, let event = payload["event"], let target = target(agentID: agentID, hostID: hostID) else { return }
                 if envelope.replayed != true {
@@ -496,6 +501,15 @@ import ClubhouseTransport
         if !commands.contains("chat.question") { result.remove(.answer) }
         if !commands.contains("chat.queue.remove") { result.remove(.removeQueued) }
         return result
+    }
+
+    /// Reads the desktop's theme colors. A `gradients.accent` CSS gradient, if the desktop adds one, supplies the wash.
+    nonisolated static func theme(from json: AnnexJSON?) -> CompanionDesktopTheme? {
+        guard case .object(let values)? = json else { return nil }
+        let colors = values.compactMapValues(\.string)
+        let gradient = (json?["gradients"]?["accent"]?.string ?? "")
+            .matches(of: /#[0-9a-fA-F]{6}/).map { String($0.output) }
+        return .transported(colors, gradient: gradient)
     }
 
     static func readableError(_ error: Error) -> String {

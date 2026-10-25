@@ -54,8 +54,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var richContentAvailable = false
     var canSpawn = false
     var canRevokeSession = false
-    /// The desktop's active Clubhouse theme id, once the desktop reports it.
-    var themeID: String?
+    /// The desktop's active theme colors, from its snapshot and `theme:changed`.
+    var theme: CompanionDesktopTheme?
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {

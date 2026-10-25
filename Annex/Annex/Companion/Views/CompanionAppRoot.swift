@@ -172,7 +172,6 @@ struct CompanionSettingsSheet: View {
                             Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
                             Text(host.connection.label).font(.caption)
                             Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
-                            CompanionThemePicker(preferences: runtime.preferences, host: host)
                             DisclosureGroup("Connection details") {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
@@ -237,28 +236,3 @@ struct CompanionSettingsSheet: View {
     }
 }
 
-/// Which desktop theme the phone uses for a desktop. Until desktops report their theme, you can pick it here.
-struct CompanionThemePicker: View {
-    @Bindable var preferences: CompanionPreferences
-    let host: CompanionHost
-    private var sources: [String] {
-        var seen: [String] = []
-        for theme in CompanionThemeCatalog.all where !seen.contains(theme.source) { seen.append(theme.source) }
-        return seen
-    }
-    var body: some View {
-        Picker("Theme", selection: Binding(get: { preferences.themeOverrides[host.id] },
-                                           set: { preferences.themeOverrides[host.id] = $0 })) {
-            Text(host.themeID.map { "Desktop's theme (\(CompanionThemeCatalog.theme(id: $0).name))" } ?? "Desktop's theme").tag(String?.none)
-            ForEach(sources, id: \.self) { source in
-                Section(source) {
-                    ForEach(CompanionThemeCatalog.all.filter { $0.source == source }) { theme in
-                        Text(theme.name).tag(Optional(theme.id))
-                    }
-                }
-            }
-        }
-        .pickerStyle(.menu)
-        .font(.subheadline)
-    }
-}

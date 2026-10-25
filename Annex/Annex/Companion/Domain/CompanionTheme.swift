@@ -150,24 +150,20 @@ struct CompanionPalette: Sendable, Equatable {
     }
 }
 
-enum CompanionThemeCatalog {
-    /// Used when a desktop reports no theme, or one the phone doesn't know.
+extension CompanionDesktopTheme {
+    /// The colors a desktop sends in its snapshot `theme` and in `theme:changed`. Custom and plugin
+    /// themes arrive the same way, so the phone never needs to know a theme by name.
+    /// The payload has no light/dark flag; the mode follows the base color, as the desktop's own UI does.
+    static func transported(_ colors: [String: String], gradient: [String] = []) -> CompanionDesktopTheme? {
+        guard let base = colors["base"].flatMap({ CompanionRGB(hex: $0) }), colors["accent"].flatMap({ CompanionRGB(hex: $0) }) != nil else { return nil }
+        return CompanionDesktopTheme(id: "desktop", name: "Desktop theme", source: "Desktop", mode: base.luminance < 0.5 ? .dark : .light,
+                                     colors: colors, gradient: gradient)
+    }
+
+    /// Used until a desktop has sent its colors.
     static let clubhouse = CompanionDesktopTheme(
         id: "clubhouse", name: "Clubhouse", source: "Clubhouse Go", mode: .dark,
         colors: ["base": "#1c1c1e", "mantle": "#111113", "crust": "#000000", "text": "#ffffff", "subtext0": "#9d9da6",
                  "surface0": "#2c2c2e", "surface1": "#3a3a3c", "accent": "#8b7fff", "warning": "#ff9f0a", "error": "#ff453a", "success": "#30d158"],
         gradient: ["#7a6cff", "#00a3c4"])
-
-    static var all: [CompanionDesktopTheme] { desktopThemes }
-
-    static func theme(id: String?) -> CompanionDesktopTheme {
-        guard let id else { return clubhouse }
-        return desktopThemes.first { $0.id == id } ?? clubhouse
-    }
-
-    /// The theme for a desktop: a choice made on the phone wins, then what the desktop reports.
-    static func theme(forHost hostID: String?, hosts: [CompanionHost], overrides: [String: String]) -> CompanionDesktopTheme {
-        guard let hostID else { return clubhouse }
-        return theme(id: overrides[hostID] ?? hosts.first { $0.id == hostID }?.themeID)
-    }
 }

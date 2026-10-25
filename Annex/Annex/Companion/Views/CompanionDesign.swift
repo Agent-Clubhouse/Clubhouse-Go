@@ -5,7 +5,7 @@ extension Color {
 }
 
 private struct CompanionPaletteKey: EnvironmentKey {
-    static let defaultValue = CompanionPalette(theme: CompanionThemeCatalog.clubhouse, dark: true)
+    static let defaultValue = CompanionPalette(theme: .clubhouse, dark: true)
 }
 
 private struct CompanionOpenAgentKey: EnvironmentKey {

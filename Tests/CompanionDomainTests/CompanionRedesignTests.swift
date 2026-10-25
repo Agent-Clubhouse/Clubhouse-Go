@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ClubhouseTransport
 @testable import CompanionDomain
 
 @MainActor private final class StubService: CompanionService {
@@ -30,48 +31,64 @@ private func approval(_ id: String, deadline: Date?) -> CompanionApproval {
 }
 
 struct CompanionThemeTests {
+    // Colors as the desktop sends them in the snapshot `theme` and in `theme:changed`.
+    private let latte = ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69", "subtext0": "#6c6f85",
+                         "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5", "accent2": "#209fb5",
+                         "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"]
+    private let mocha = ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4", "subtext0": "#a6adc8",
+                         "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa", "accent2": "#74c7ec",
+                         "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"]
+
     @Test func hexRoundTrips() throws {
         let color = try #require(CompanionRGB(hex: "#89b4fa"))
         #expect(color.hex == "#89b4fa")
         #expect(CompanionRGB(hex: "nope") == nil)
     }
 
-    @Test func accentIsFittedForContrastOnLightCards() {
-        let latte = CompanionThemeCatalog.theme(id: "catppuccin-latte")
-        let palette = CompanionPalette(theme: latte, dark: false)
+    @Test func modeFollowsTheBaseColor() throws {
+        #expect(try #require(CompanionDesktopTheme.transported(latte)).mode == .light)
+        #expect(try #require(CompanionDesktopTheme.transported(mocha)).mode == .dark)
+        #expect(CompanionDesktopTheme.transported(["base": "#000000"]) == nil)
+    }
+
+    @Test func accentIsFittedForContrastOnLightCards() throws {
+        let palette = CompanionPalette(theme: try #require(CompanionDesktopTheme.transported(latte)), dark: false)
         #expect(palette.usesThemeGrounds)
         #expect(palette.tint.contrast(with: palette.card) >= 4.5)
         #expect(palette.secondaryLabel.contrast(with: palette.card) >= 4.5)
     }
 
-    @Test func darkThemeInLightModeKeepsAccentOnSystemGrounds() {
-        let mocha = CompanionThemeCatalog.theme(id: "catppuccin-mocha")
-        let palette = CompanionPalette(theme: mocha, dark: false)
+    @Test func darkThemeInLightModeKeepsAccentOnSystemGrounds() throws {
+        let palette = CompanionPalette(theme: try #require(CompanionDesktopTheme.transported(mocha)), dark: false)
         #expect(!palette.usesThemeGrounds)
         #expect(palette.card == .white)
         #expect(palette.accentWasAdjusted)
         #expect(palette.tint.contrast(with: .white) >= 4.5)
     }
 
-    @Test func gradientFeedsTheWash() {
-        let theme = CompanionThemeCatalog.theme(id: "plugin:neon-themes:synthwave")
-        let palette = CompanionPalette(theme: theme, dark: true)
-        #expect(palette.washStart == CompanionRGB(hex: "#ff7edb"))
-        #expect(palette.washEnd == CompanionRGB(hex: "#36f9f6"))
+    @Test func washUsesTheGradientOrTheAccentPair() throws {
+        let plain = CompanionPalette(theme: try #require(CompanionDesktopTheme.transported(mocha)), dark: true)
+        #expect(plain.washStart == CompanionRGB(hex: "#89b4fa") && plain.washEnd == CompanionRGB(hex: "#74c7ec"))
+        let gradient = CompanionPalette(theme: try #require(CompanionDesktopTheme.transported(mocha, gradient: ["#ff7edb", "#36f9f6"])), dark: true)
+        #expect(gradient.washStart == CompanionRGB(hex: "#ff7edb") && gradient.washEnd == CompanionRGB(hex: "#36f9f6"))
     }
 
-    @Test func catalogMatchesDesktopIds() {
-        let ids = CompanionThemeCatalog.all.map(\.id)
-        #expect(ids.count == 39)
-        #expect(Set(ids).count == ids.count)
-        #expect(ids.contains("cyberpunk") && ids.contains("plugin:neon-themes:cyberpunk"))
+    @MainActor @Test func liveServiceReadsTheSnapshotTheme() throws {
+        var payload = mocha.mapValues(AnnexJSON.string)
+        payload["gradients"] = .object(["accent": .string("linear-gradient(135deg, #e8a0bf, #94e2d5)")])
+        let theme = try #require(CompanionLiveService.theme(from: .object(payload)))
+        #expect(theme.accent == CompanionRGB(hex: "#89b4fa"))
+        #expect(theme.gradient == [CompanionRGB(hex: "#e8a0bf"), CompanionRGB(hex: "#94e2d5")].compactMap { $0 })
+        #expect(CompanionLiveService.theme(from: .string("nope")) == nil)
     }
 
-    @Test func unknownThemeFallsBackAndPhoneChoiceWins() {
-        let host = CompanionHost(id: "mac", name: "MacBook", endpoint: "", connection: .connected, projects: [], themeID: "nord")
-        #expect(CompanionThemeCatalog.theme(id: "plugin:someone:custom").id == "clubhouse")
-        #expect(CompanionThemeCatalog.theme(forHost: "mac", hosts: [host], overrides: [:]).id == "nord")
-        #expect(CompanionThemeCatalog.theme(forHost: "mac", hosts: [host], overrides: ["mac": "dracula"]).id == "dracula")
+    @MainActor @Test func hostWithoutColorsUsesTheDefault() throws {
+        let defaults = try #require(UserDefaults(suiteName: "companion-theme-\(UUID().uuidString)"))
+        let preferences = CompanionPreferences(defaults: defaults)
+        var host = CompanionHost(id: "mac", name: "MacBook", endpoint: "", connection: .connected, projects: [])
+        #expect(preferences.theme(forHost: "mac", hosts: [host]).id == "clubhouse")
+        host.theme = CompanionDesktopTheme.transported(latte)
+        #expect(preferences.sharedTheme(hosts: [host]).mode == .light)
     }
 }
 
