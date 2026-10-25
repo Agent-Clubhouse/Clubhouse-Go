@@ -54,6 +54,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var richContentAvailable = false
     var canSpawn = false
     var canRevokeSession = false
+    /// The desktop's active theme colors, from its snapshot and `theme:changed`.
+    var theme: CompanionDesktopTheme?
+    var providers: [CompanionProvider] = []
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {
@@ -69,6 +72,18 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var status: CompanionAgentStatus
     var model: String?
     var capabilities: CompanionCapabilities = []
+    /// `chat`, `pty` or `headless` while the agent runs; nil when the desktop doesn't say (a sleeping agent).
+    var executionMode: String?
+    /// The desktop's last-activity time for this agent, when it sends one.
+    var lastActivity: Date?
+    /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
+    var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
+}
+
+/// A provider the desktop can start agents with, from its snapshot `orchestrators`.
+struct CompanionProvider: Identifiable, Sendable, Equatable {
+    var id: String
+    var name: String
 }
 
 enum CompanionAgentStatus: String, Sendable, Codable {
@@ -97,6 +112,8 @@ enum CompanionAgentStatus: String, Sendable, Codable {
         case .stopped: "stop.circle"
         }
     }
+    /// Approvals, questions and failures wait on the person holding the phone.
+    var needsYou: Bool { self == .approval || self == .waiting || self == .failed }
 }
 
 struct CompanionCapabilities: OptionSet, Sendable, Equatable {
@@ -147,7 +164,7 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
 }
 
 struct CompanionApproval: Identifiable, Sendable, Equatable {
-    enum Resolution: Equatable, Sendable { case pending, submitting, allowed, denied, expired, uncertain }
+    enum Resolution: Equatable, Sendable { case pending, submitting, allowed, denied, expired, cancelled, uncertain }
     var id: String
     var toolName: String
     var summary: String
@@ -174,7 +191,7 @@ struct CompanionQuestion: Identifiable, Sendable, Equatable {
         var allowsMultiple: Bool
         var allowsFreeText: Bool
     }
-    enum Resolution: Sendable, Equatable { case pending, submitting, answered, uncertain }
+    enum Resolution: Sendable, Equatable { case pending, submitting, answered, cancelled, uncertain }
     var id: String
     var prompts: [Prompt]
     var resolution: Resolution = .pending

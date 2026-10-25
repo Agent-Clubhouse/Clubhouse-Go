@@ -38,7 +38,8 @@ struct CompanionChatProjector {
             status = data["stopReason"]?.string == "error" ? .failed : data["stopReason"]?.string == "cancelled" ? .stopped : .idle
             finishStreams()
         case "session_ended":
-            status = data["reason"]?.string == "error" ? .failed : .stopped
+            // An idle timeout puts the agent to sleep; it resumes on the next message or a wake.
+            switch data["reason"]?.string { case "error": status = .failed; case "idle_timeout": status = .sleeping; default: status = .stopped }
             capabilities = []; finishStreams()
         case "user_message":
             guard let messageID = data["messageId"]?.string else { return }
@@ -119,7 +120,7 @@ struct CompanionChatProjector {
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,
                   let index = items.firstIndex(where: { $0.id == "approval:\(requestID)" }), case .approval(var approval) = items[index] else { return }
-            approval.resolution = data["decision"]?.string == "allow" ? .allowed : .denied
+            switch data["decision"]?.string { case "allow": approval.resolution = .allowed; case "cancelled": approval.resolution = .cancelled; default: approval.resolution = .denied }
             items[index] = .approval(approval)
         case "question":
             guard let requestID = data["requestId"]?.string else { return }
@@ -135,7 +136,7 @@ struct CompanionChatProjector {
         case "question_resolved":
             guard let requestID = data["requestId"]?.string,
                   let index = items.firstIndex(where: { $0.id == "question:\(requestID)" }), case .question(var question) = items[index] else { return }
-            question.resolution = .answered; items[index] = .question(question)
+            question.resolution = data["cancelled"].boolValue ? .cancelled : .answered; items[index] = .question(question)
         case "plan":
             let plan = data["entries"].arrayValue.map { entry in
                 "\(entry["status"]?.string == "completed" ? "✓" : entry["status"]?.string == "in_progress" ? "→" : "○") \(entry["content"]?.string ?? "")"
@@ -151,21 +152,29 @@ struct CompanionChatProjector {
             upsert(.notice(id: "subagent-\(data["subagentId"]?.string ?? String(sequence))", text: "\(name) · \(status)"))
         case "error", "notice":
             if let message = data["message"]?.string { upsert(.notice(id: "event-\(session)-\(sequence)", text: message)) }
-            if type == "error" { status = .failed }
+            // Only a fatal error the runtime won't retry stops the agent; others are notices.
+            if type == "error", data["fatal"].boolValue, !data["willRetry"].boolValue { status = .failed }
         case "model_changed": model = data["modelId"]?.string
         default: break // Additive protocol events are safe to ignore.
         }
     }
 
+    /// `session_info` carries only the capabilities that changed (Claude reports them after the first prompt),
+    /// so keys that are absent keep their earlier value. A new session starts from empty.
     mutating func updateCapabilities(_ value: AnnexJSON) {
-        capabilities.insert(.chat)
-        if value["steer"].boolValue { capabilities.insert(.steer) } else { capabilities.remove(.steer) }
-        if value["interrupt"].boolValue { capabilities.insert(.cancel) } else { capabilities.remove(.cancel) }
-        if value["queue"]?.string != "none", value["queue"] != nil { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
-        queueRemovalSupported = value["queue"]?.string == "client"
-        if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
-        capabilities.insert(.approve)
-        if value["questions"].boolValue { capabilities.insert(.answer) } else { capabilities.remove(.answer) }
+        capabilities.formUnion([.chat, .approve])
+        func set(_ flag: CompanionCapabilities, _ key: String) {
+            guard case .bool(let enabled)? = value[key] else { return }
+            if enabled { capabilities.insert(flag) } else { capabilities.remove(flag) }
+        }
+        set(.steer, "steer")
+        set(.cancel, "interrupt")
+        set(.answer, "questions")
+        if let queue = value["queue"]?.string {
+            if queue != "none" { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
+            queueRemovalSupported = queue == "client"
+            if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
+        }
     }
 
     mutating func applyQueueSnapshot(_ snapshot: AnnexJSON) {
@@ -208,6 +217,19 @@ struct CompanionChatProjector {
     private mutating func finishStreams() {
         for index in items.indices {
             if case .message(var message) = items[index], message.isStreaming { message.isStreaming = false; items[index] = .message(message) }
+        }
+    }
+    /// The desktop reports chat agents as `running` for their whole session; what they're doing is in
+    /// `detailedStatus.state` (`idle`, `working`, `needs_permission`, `tool_error`).
+    static func status(_ value: String?, detailed: AnnexJSON?) -> CompanionAgentStatus {
+        let lifecycle = status(value)
+        guard lifecycle == .working, let state = detailed?["state"]?.string else { return lifecycle }
+        switch state {
+        case "idle": return .idle
+        case "needs_permission":
+            let message = (detailed?["message"]?.string ?? "").lowercased()
+            return message.contains("question") ? .waiting : .approval
+        default: return .working
         }
     }
     static func status(_ value: String?) -> CompanionAgentStatus {
