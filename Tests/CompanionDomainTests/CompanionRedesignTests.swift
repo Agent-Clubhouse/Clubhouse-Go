@@ -292,3 +292,29 @@ struct CompanionPairingLinkTests {
         #expect(CompanionPairingLink(string: "clubhousego://pair?\(good.replacingOccurrences(of: cert, with: "abc"))") == nil)
     }
 }
+
+struct CompanionInstallResetTests {
+    private func defaults() throws -> (UserDefaults, String) {
+        let name = "companion-install-\(UUID().uuidString)"
+        return (try #require(UserDefaults(suiteName: name)), name)
+    }
+
+    @Test func freshInstallClearsKeychainLeftoversOnce() throws {
+        let (defaults, name) = try defaults()
+        var deleted: [String] = []
+        #expect(CompanionInstallReset.clearLeftoversIfFreshInstall(defaults: defaults, domain: name) { deleted.append($0) })
+        #expect(deleted == CompanionInstallReset.keychainServices)
+        deleted = []
+        #expect(!CompanionInstallReset.clearLeftoversIfFreshInstall(defaults: defaults, domain: name) { deleted.append($0) })
+        #expect(deleted.isEmpty)
+    }
+
+    @Test func upgradeKeepsPairings() throws {
+        let (defaults, name) = try defaults()
+        defaults.set("draft", forKey: "clubhouse.companion.drafts.v1")
+        var deleted: [String] = []
+        #expect(!CompanionInstallReset.clearLeftoversIfFreshInstall(defaults: defaults, domain: name) { deleted.append($0) })
+        #expect(deleted.isEmpty)
+        #expect(defaults.bool(forKey: CompanionInstallReset.markerKey))
+    }
+}

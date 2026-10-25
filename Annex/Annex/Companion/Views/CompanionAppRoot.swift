@@ -95,8 +95,11 @@ struct CompanionAppRoot: View {
         // Only the integration worker supplies this explicit test invitation.
         // It selects an in-memory registry and never writes a saved pairing.
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
+        if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
         _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode))
         #else
+        // Before the runtime restores pairings or the feedback client reads its enrollment.
+        CompanionInstallReset.clearLeftoversIfFreshInstall()
         _runtime = State(initialValue: CompanionRuntime())
         #endif
     }
