@@ -87,6 +87,18 @@ jobs:
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
+      - name: Build Release
+        run: |
+          xcodebuild build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData-Release \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
+            -quiet
+
       - name: Test transport package
         run: swift test
 
@@ -103,9 +115,6 @@ jobs:
             -destination "$DEST" \
             -derivedDataPath DerivedData \
             -only-testing:ClubhouseGoTests \
-            -skip-testing:ClubhouseGoTests/KeychainHelperMultiInstanceTests \
-            -skip-testing:ClubhouseGoTests/MTLSIdentityTests \
-            -skip-testing:ClubhouseGoTests/TLSSessionDelegateTests \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 30 \
             CODE_SIGNING_ALLOWED=NO \
@@ -114,9 +123,6 @@ jobs:
 
           python3 scripts/verify-xcresult.py TestResults/UnitTests.xcresult
 
-      # Skipped in CI:
-      #   IntegrationTests — require NWListener mock server with local network access
-      #   testWelcomeScreenShowsOnFirstLaunch — pre-existing failure (onboarding state)
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       - name: Run UI tests
@@ -127,8 +133,6 @@ jobs:
             -destination "$DEST" \
             -derivedDataPath DerivedData \
             -only-testing:ClubhouseGoUITests \
-            -skip-testing:ClubhouseGoUITests/IntegrationTests \
-            -skip-testing:ClubhouseGoUITests/ClubhouseGoUITests/testWelcomeScreenShowsOnFirstLaunch \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
