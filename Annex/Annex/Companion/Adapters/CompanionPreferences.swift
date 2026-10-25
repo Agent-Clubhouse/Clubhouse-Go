@@ -14,7 +14,7 @@ import UIKit
         static let deviceName = "companion.deviceName"
     }
     @ObservationIgnored private let defaults: UserDefaults
-    /// The system's name for this phone. Without the user-assigned-device-name entitlement iOS reports only "iPhone".
+    /// The system's name for this phone (overridable in tests). Without the user-assigned-device-name entitlement iOS reports only "iPhone".
     let systemDeviceName: String
 
     var projectSort: CompanionProjectSort { didSet { defaults.set(projectSort.rawValue, forKey: Key.projectSort) } }
@@ -24,10 +24,10 @@ import UIKit
     /// What desktops call this phone, as typed. Starts as the system name and is saved once edited.
     var deviceName: String { didSet { defaults.set(deviceName, forKey: Key.deviceName) } }
 
-    init(defaults: UserDefaults = .standard, systemDeviceName: String = CompanionPreferences.currentDeviceName()) {
+    init(defaults: UserDefaults = .standard, systemDeviceName: String? = nil) {
         self.defaults = defaults
-        self.systemDeviceName = systemDeviceName
-        deviceName = defaults.string(forKey: Key.deviceName) ?? systemDeviceName
+        self.systemDeviceName = systemDeviceName ?? Self.currentDeviceName()
+        deviceName = defaults.string(forKey: Key.deviceName) ?? self.systemDeviceName
         projectSort = defaults.string(forKey: Key.projectSort).flatMap(CompanionProjectSort.init(rawValue:)) ?? .recent
         projectOrder = defaults.stringArray(forKey: Key.projectOrder) ?? []
         lastHostID = defaults.string(forKey: Key.lastHost)
