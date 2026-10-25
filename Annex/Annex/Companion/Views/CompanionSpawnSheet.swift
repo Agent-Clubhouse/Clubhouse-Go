@@ -25,8 +25,16 @@ struct CompanionSpawnSheet: View {
                     chips
                     if showOptions {
                         VStack(spacing: 0) {
-                            TextField("Provider default", text: $provider).textInputAutocapitalization(.never).autocorrectionDisabled()
-                                .accessibilityLabel("Provider, optional").padding(14)
+                            if let providers = selectedHost?.providers, !providers.isEmpty {
+                                Picker("Provider", selection: $provider) {
+                                    Text("Project default").tag("")
+                                    ForEach(providers) { Text($0.name).tag($0.id) }
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 6)
+                            } else {
+                                TextField("Provider default", text: $provider).textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    .accessibilityLabel("Provider, optional").padding(14)
+                            }
                             Divider().padding(.leading, 14)
                             TextField("Model default", text: $model).textInputAutocapitalization(.never).autocorrectionDisabled()
                                 .accessibilityLabel("Model, optional").padding(14)
@@ -146,7 +154,8 @@ struct CompanionSpawnSheet: View {
         return store.hosts.count > 1 ? "\(name) · \(host.name)" : name
     }
     private var optionsLabel: String {
-        let parts = [nonempty(provider), nonempty(model)].compactMap { $0 }
+        let providerName = selectedHost?.providers.first { $0.id == provider }?.name ?? nonempty(provider)
+        let parts = [providerName, nonempty(model)].compactMap { $0 }
         return parts.isEmpty ? "Default model" : parts.joined(separator: " · ")
     }
     private func nonempty(_ value: String) -> String? {

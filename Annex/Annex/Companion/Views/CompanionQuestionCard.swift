@@ -66,6 +66,7 @@ struct CompanionQuestionCard: View {
         case .pending: "The agent has a question"
         case .submitting: "Sending your answer"
         case .answered: "Answered"
+        case .cancelled: "Question withdrawn"
         case .uncertain: "Answer delivery unknown — refresh to check"
         }
     }

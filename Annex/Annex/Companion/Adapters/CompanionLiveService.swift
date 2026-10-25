@@ -389,7 +389,7 @@ import ClubhouseTransport
                 scheduleRefresh(hostID: hostID)
             case "agent:status", "agent:completed":
                 if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
-                    let status = CompanionChatProjector.status(payload["status"]?.string)
+                    let status = CompanionChatProjector.status(payload["status"]?.string, detailed: payload["detailedStatus"])
                     // Desktop lifecycle status is coarser than the chat stream.
                     // Keep an outstanding question/approval visible until its
                     // authoritative chat event resolves it or the agent stops.
@@ -458,16 +458,34 @@ import ClubhouseTransport
                 let name: String = value["name"]?.string ?? id
                 let mission: String? = value["mission"]?.string ?? value["prompt"]?.string
                 let subtitle: String = mission ?? value["branch"]?.string ?? ""
-                let status: CompanionAgentStatus = projection?.status ?? CompanionChatProjector.status(value["status"]?.string)
+                let meta = payload["agentsMeta"]?[id]
+                let detailed = value["detailedStatus"] ?? meta?["detailedStatus"]
+                let status: CompanionAgentStatus = projection?.status ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
                 let model: String? = projection?.model ?? value["model"]?.string
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
-                agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported))
+                let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
+                agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
+                                             executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity))
             }
             let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
             projects.append(CompanionProject(id: projectID, name: name, agents: agents))
         }
         host.projects = projects
+        if case .object(let orchestrators)? = payload["orchestrators"] {
+            host.providers = orchestrators.map { id, value in
+                CompanionProvider(id: id, name: value["displayName"]?.string ?? value["shortName"]?.string ?? id)
+            }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        }
         hosts[hostID] = host
+    }
+    /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings.
+    nonisolated static func date(from value: AnnexJSON) -> Date? {
+        switch value {
+        case .integer(let ms): Date(timeIntervalSince1970: Double(ms) / 1000)
+        case .number(let ms): Date(timeIntervalSince1970: ms / 1000)
+        case .string(let text): try? Date(text, strategy: .iso8601)
+        default: nil
+        }
     }
     private func target(agentID: String, hostID: String) -> CompanionTarget? {
         hosts[hostID]?.projects.flatMap(\.agents).first { $0.id.agentID == agentID }?.id

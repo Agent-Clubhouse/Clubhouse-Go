@@ -5,6 +5,9 @@ import ClubhouseTransport
 
 struct CompanionPairingSheet: View {
     let runtime: CompanionRuntime
+    /// A scanned or opened QR invitation. When set, the sheet confirms it instead of showing manual pairing.
+    @State private var invitation: CompanionPairingLink?
+    @State private var scanning = false
     @Environment(\.dismiss) private var dismiss
     @State private var address = ""
     @State private var port = ""
@@ -23,17 +26,45 @@ struct CompanionPairingSheet: View {
     @FocusState private var focused: Field?
     private enum Field { case address, pin }
 
+    init(runtime: CompanionRuntime, link: CompanionPairingLink? = nil) {
+        self.runtime = runtime
+        _invitation = State(initialValue: link)
+    }
+
     var body: some View {
         NavigationStack {
+            if let invitation {
+                CompanionInvitationView(runtime: runtime, link: invitation,
+                                        onScanAgain: { self.invitation = nil; scanning = true }, onPaired: { dismiss() })
+            } else {
+                manualPairing
+            }
+        }
+        .fullScreenCover(isPresented: $scanning) {
+            CompanionQRScannerView(onFound: { link in invitation = link; scanning = false }, onCancel: { scanning = false })
+        }
+    }
+
+    /// Nearby or typed address, then fingerprints and the PIN.
+    private var manualPairing: some View {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 12) {
                         Image(systemName: "desktopcomputer.and.arrow.down").font(.largeTitle).foregroundStyle(Color.accentColor)
                         Text("Bring your desktop along").font(.title2.weight(.semibold))
-                        Text("Open Clubhouse on your desktop, then go to Settings → Annex / Go to find its address, identity, and pairing PIN.")
+                        Text("Open Clubhouse on your desktop, then go to Settings → Annex to find its address, identity, and pairing PIN.")
                             .font(.subheadline).foregroundStyle(.secondary)
                     }.padding(.vertical, 12)
                 }.listRowBackground(Color.clear)
+                Section {
+                    Button { scanning = true } label: {
+                        Label("Scan the pairing code", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent).controlSize(.large)
+                } footer: {
+                    Text("Clubhouse shows the code in Settings → Annex. You can also scan it with the iPhone Camera. Or pair manually below.")
+                }
+                .listRowBackground(Color.clear)
                 Section("Nearby desktops") {
                     if nearby.isEmpty {
                         Label(discoveryError == nil ? "Looking for desktops on your network…" : "Nearby discovery is unavailable", systemImage: "antenna.radiowaves.left.and.right")
@@ -132,7 +163,6 @@ struct CompanionPairingSheet: View {
                 }
             }
             .onDisappear { discovery.stop() }
-        }
     }
     #if DEBUG
     private struct ManualFixture: Decodable { let host: String; let port: UInt16; let hostID: String; let name: String?; let pin: String }

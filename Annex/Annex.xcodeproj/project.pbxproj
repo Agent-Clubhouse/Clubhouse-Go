@@ -465,6 +465,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Clubhouse Go";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Clubhouse Go uses your local network to discover and connect to Clubhouse servers.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Clubhouse Go uses the camera to scan the pairing code that Clubhouse shows on your Mac.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -500,6 +501,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Clubhouse Go";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Clubhouse Go uses your local network to discover and connect to Clubhouse servers.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Clubhouse Go uses the camera to scan the pairing code that Clubhouse shows on your Mac.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

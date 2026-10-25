@@ -47,6 +47,25 @@ import ClubhouseTransport
         else { sessionHosts.insert(host.hostID) }
         await service.register(registration)
     }
+    /// Pairs from a scanned or opened QR invitation. Tries each advertised address in order and only pairs
+    /// with one whose TLS certificate is the one in the code; the identity is checked during pairing.
+    func pair(link: CompanionPairingLink, remember: Bool) async throws {
+        let pin = try AnnexCertificatePin(sha256: link.certificate)
+        var lastError: Error = CompanionServiceError.unavailable("Couldn't reach your desktop. Check that this phone is on the same network.")
+        for address in link.hosts {
+            do {
+                let endpoint = try AnnexEndpoint(host: address, port: link.port)
+                guard try await AnnexTrustProbe.inspect(endpoint: endpoint) == pin else {
+                    lastError = CompanionServiceError.rejected("The desktop at \(address) isn't the one that showed this code.")
+                    continue
+                }
+                let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: link.identity, verifiedCertificatePin: pin)
+                try await pair(host: host, pin: link.pin, name: link.name ?? address, remember: remember)
+                return
+            } catch { lastError = error }
+        }
+        throw lastError
+    }
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)
         sessionHosts.remove(hostID)
@@ -64,6 +83,8 @@ import ClubhouseTransport
 struct CompanionAppRoot: View {
     @State private var runtime: CompanionRuntime
     @State private var showPairing = false
+    /// A pairing invitation opened from the iPhone Camera (`clubhousego://pair?...`).
+    @State private var openedLink: CompanionPairingLink?
     @State private var showSettings = false
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
@@ -81,8 +102,14 @@ struct CompanionAppRoot: View {
     }
     var body: some View {
         CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
-            .sheet(isPresented: $showPairing) {
-                CompanionPairingSheet(runtime: runtime).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
+                CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
+            .onOpenURL { url in
+                guard let link = CompanionPairingLink(url: url) else { return }
+                showSettings = false
+                openedLink = link
+                showPairing = true
             }
             .sheet(isPresented: $showSettings) {
                 CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true })

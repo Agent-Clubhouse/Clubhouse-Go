@@ -4,16 +4,27 @@
 <dict>
 	<key>CFBundleDisplayName</key>
 	<string>Clubhouse Go</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.Agent-Clubhouse.Go.pairing</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>clubhousego</string>
+			</array>
+		</dict>
+	</array>
 	<key>FramebriarGameID</key>
 	<string>clubhouse-annex</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_clubhouse-annex._tcp.</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_clubhouse-annex._tcp.</string>
+	</array>
 </dict>
 </plist>

@@ -60,7 +60,9 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { otherAgentBanner }
-        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if agent.runsInTerminal { terminalNotice } else { composer }
+        }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
         .onChange(of: connection) { _, current in
@@ -299,6 +301,16 @@ struct CompanionConversationView: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+    }
+
+    /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).
+    private var terminalNotice: some View {
+        Label("\(agent.name) runs in a terminal on your desktop. Open it there to work with it.", systemImage: "terminal")
+            .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+            .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
     private var composerPlaceholder: String {

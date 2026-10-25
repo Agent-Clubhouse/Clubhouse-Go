@@ -93,18 +93,21 @@ extension CompanionStore {
 
     var needsYouCount: Int { allAgents.filter { $0.status.needsYou }.count }
 
-    /// The latest message time seen in any loaded conversation of the project.
+    /// An agent's latest activity: the desktop's `lastActivityAt`, or a newer message in its loaded conversation.
+    func lastActivity(of agent: CompanionAgent) -> Date? {
+        let seen = conversation(for: agent.id).items.compactMap { item -> Date? in if case .message(let message) = item { message.timestamp } else { nil } }.max()
+        return [agent.lastActivity, seen].compactMap { $0 }.max()
+    }
+
+    /// The latest activity of any agent in the project.
     func lastActivity(for project: CompanionProjectTarget) -> Date? {
-        conversations.filter { $0.key.hostID == project.hostID && $0.key.projectID == project.projectID }
-            .flatMap(\.value.items).compactMap { item -> Date? in if case .message(let message) = item { message.timestamp } else { nil } }
-            .max()
+        host(for: .init(hostID: project.hostID, projectID: project.projectID, agentID: ""))?
+            .projects.first { $0.id == project.projectID }?.agents.compactMap { lastActivity(of: $0) }.max()
     }
 
     /// Every agent, those waiting on you first, then by last activity, then in desktop order.
     func agentsNeedsYouFirst() -> [CompanionAgent] {
-        let activity = Dictionary(uniqueKeysWithValues: allAgents.map { agent in
-            (agent.id, conversation(for: agent.id).items.compactMap { item -> Date? in if case .message(let message) = item { message.timestamp } else { nil } }.max())
-        })
+        let activity = Dictionary(allAgents.map { ($0.id, lastActivity(of: $0)) }, uniquingKeysWith: { first, _ in first })
         return allAgents.enumerated().sorted { lhs, rhs in
             let left = lhs.element, right = rhs.element
             if left.status.needsYou != right.status.needsYou { return left.status.needsYou }

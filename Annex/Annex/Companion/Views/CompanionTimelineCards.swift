@@ -273,6 +273,7 @@ struct CompanionApprovalCard: View {
         case .allowed: "Allowed"
         case .denied: "Denied"
         case .expired: "Request expired"
+        case .cancelled: "Request withdrawn"
         case .uncertain: "Decision delivery unknown — refresh to check"
         }
     }

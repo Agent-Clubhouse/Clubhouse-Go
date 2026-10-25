@@ -204,3 +204,90 @@ struct CompanionTimelineFoldingTests {
         #expect(queue.pending.isEmpty)
     }
 }
+
+struct CompanionWireGroundingTests {
+    private func event(_ type: String, _ seq: Int64, _ data: [String: AnnexJSON] = [:]) -> AnnexJSON {
+        .object(["sessionId": .string("s1"), "seq": .integer(seq), "type": .string(type), "data": .object(data)])
+    }
+
+    @Test func runningChatAgentStatusComesFromDetailedStatus() {
+        let idle = AnnexJSON.object(["state": .string("idle"), "message": .string("Idle")])
+        let permission = AnnexJSON.object(["state": .string("needs_permission"), "message": .string("Needs permission")])
+        let question = AnnexJSON.object(["state": .string("needs_permission"), "message": .string("Has a question")])
+        #expect(CompanionChatProjector.status("running", detailed: idle) == .idle)
+        #expect(CompanionChatProjector.status("running", detailed: permission) == .approval)
+        #expect(CompanionChatProjector.status("running", detailed: question) == .waiting)
+        #expect(CompanionChatProjector.status("running", detailed: .object(["state": .string("tool_error")])) == .working)
+        #expect(CompanionChatProjector.status("running", detailed: nil) == .working)
+        #expect(CompanionChatProjector.status("sleeping", detailed: idle) == .sleeping)
+    }
+
+    @Test func partialSessionInfoKeepsEarlierCapabilities() {
+        var projector = CompanionChatProjector()
+        projector.apply(event("session_started", 1, ["capabilities": .object(["steer": .bool(true), "interrupt": .bool(true), "queue": .string("client"), "questions": .bool(true)])]))
+        projector.apply(event("session_info", 2, ["capabilities": .object(["questions": .bool(false)])]))
+        #expect(projector.capabilities.isSuperset(of: [.chat, .steer, .cancel, .queue, .removeQueued]))
+        #expect(!projector.capabilities.contains(.answer))
+    }
+
+    @Test func onlyFatalUnretriedErrorsFailTheAgent() {
+        var projector = CompanionChatProjector()
+        projector.apply(event("turn_started", 1))
+        projector.apply(event("error", 2, ["message": .string("Rate limited"), "fatal": .bool(false), "willRetry": .bool(true)]))
+        #expect(projector.status == .working)
+        projector.apply(event("error", 3, ["message": .string("Crashed"), "fatal": .bool(true)]))
+        #expect(projector.status == .failed)
+    }
+
+    @Test func idleTimeoutSleepsAndCancellationsAreWithdrawn() {
+        var projector = CompanionChatProjector()
+        projector.apply(event("permission_request", 1, ["requestId": .string("p"), "options": .array([.object(["optionId": .string("a"), "label": .string("Allow"), "kind": .string("allow_once")])])]))
+        projector.apply(event("permission_resolved", 2, ["requestId": .string("p"), "decision": .string("cancelled")]))
+        projector.apply(event("question", 3, ["requestId": .string("q"), "questions": .array([.object(["id": .string("1"), "prompt": .string("Which?")])])]))
+        projector.apply(event("question_resolved", 4, ["requestId": .string("q"), "cancelled": .bool(true)]))
+        projector.apply(event("session_ended", 5, ["reason": .string("idle_timeout")]))
+        #expect(projector.status == .sleeping)
+        if case .approval(let approval) = projector.items[0] { #expect(approval.resolution == .cancelled) } else { Issue.record("expected approval") }
+        if case .question(let question) = projector.items[1] { #expect(question.resolution == .cancelled) } else { Issue.record("expected question") }
+    }
+
+    @Test func desktopTimestampsParse() {
+        #expect(CompanionLiveService.date(from: .integer(1_000)) == Date(timeIntervalSince1970: 1))
+        #expect(CompanionLiveService.date(from: .string("2026-10-25T12:00:00Z")) != nil)
+        #expect(CompanionLiveService.date(from: .bool(true)) == nil)
+    }
+
+    @Test func terminalAgentsAreFlagged() {
+        var agent = CompanionAgent(id: .init(hostID: "h", projectID: "p", agentID: "a"), name: "a", subtitle: "", status: .idle)
+        #expect(!agent.runsInTerminal)
+        agent.executionMode = "pty"
+        #expect(agent.runsInTerminal)
+        agent.executionMode = "chat"
+        #expect(!agent.runsInTerminal)
+    }
+}
+
+struct CompanionPairingLinkTests {
+    private let id = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+    private let cert = String(repeating: "ab", count: 32)
+
+    @Test func parsesTheDesktopContract() throws {
+        let link = try #require(CompanionPairingLink(string: "clubhousego://pair?v=1&host=192.168.1.20&host=100.64.0.7&port=53123&id=\(id.uppercased())&cert=\(cert.uppercased())&pin=482913&name=Mason%27s%20MacBook%20Pro"))
+        #expect(link.hosts == ["192.168.1.20", "100.64.0.7"])
+        #expect(link.port == 53123)
+        #expect(link.identity == id)
+        #expect(link.certificate == cert)
+        #expect(link.pin == "482913")
+        #expect(link.name == "Mason's MacBook Pro")
+    }
+
+    @Test func rejectsAnythingElse() {
+        let good = "v=1&host=10.0.0.2&port=1&id=\(id)&cert=\(cert)&pin=1"
+        #expect(CompanionPairingLink(string: "clubhousego://pair?\(good)") != nil)
+        #expect(CompanionPairingLink(string: "https://pair?\(good)") == nil)
+        #expect(CompanionPairingLink(string: "clubhousego://pair?\(good.replacingOccurrences(of: "v=1", with: "v=2"))") == nil)
+        #expect(CompanionPairingLink(string: "clubhousego://pair?\(good.replacingOccurrences(of: "host=10.0.0.2&", with: ""))") == nil)
+        #expect(CompanionPairingLink(string: "clubhousego://pair?\(good.replacingOccurrences(of: "pin=1", with: "pin=12a"))") == nil)
+        #expect(CompanionPairingLink(string: "clubhousego://pair?\(good.replacingOccurrences(of: cert, with: "abc"))") == nil)
+    }
+}
