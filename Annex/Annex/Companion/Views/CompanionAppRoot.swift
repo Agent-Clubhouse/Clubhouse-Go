@@ -40,9 +40,14 @@ import ClubhouseTransport
             for registration in try await registry.restoreSaved() { await service.register(registration) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
     }
-    func pair(host: TrustedAnnexHost, pin: String, name: String, remember: Bool) async throws {
-        let registration = try await registry.pair(host: host, pin: pin, alias: name,
+    /// `name` is the desktop's, shown on this phone. The desktop is told this phone's own name.
+    func pair(host: TrustedAnnexHost, pin: String, name: String?, remember: Bool) async throws {
+        try await pair(host: host, pin: pin, names: CompanionPairingNames(deviceName: preferences.pairingAlias, desktopName: name), remember: remember)
+    }
+    private func pair(host: TrustedAnnexHost, pin: String, names: CompanionPairingNames, remember: Bool) async throws {
+        let registration = try await registry.pair(host: host, pin: pin, alias: names.alias, label: names.desktopLabel,
                                                    persistence: remember ? .persistent : .sessionOnly)
+        preferences.saveDeviceName()
         if remember { sessionHosts.remove(host.hostID) }
         else { sessionHosts.insert(host.hostID) }
         await service.register(registration)
@@ -60,7 +65,7 @@ import ClubhouseTransport
                     continue
                 }
                 let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: link.identity, verifiedCertificatePin: pin)
-                try await pair(host: host, pin: link.pin, name: link.name ?? address, remember: remember)
+                try await pair(host: host, pin: link.pin, names: CompanionPairingNames(deviceName: preferences.pairingAlias, link: link), remember: remember)
                 return
             } catch { lastError = error }
         }
@@ -222,6 +227,11 @@ struct CompanionSettingsSheet: View {
                         }.padding(.vertical, 6).disabled(removingHostID == host.id)
                     }
                     Button("Pair another desktop", systemImage: "plus", action: pair)
+                }
+                Section {
+                    CompanionDeviceNameField(preferences: runtime.preferences)
+                } header: { Text("This phone") } footer: {
+                    Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
                 }
                 CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Advanced") {

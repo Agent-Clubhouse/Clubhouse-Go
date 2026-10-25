@@ -118,6 +118,12 @@ struct CompanionInvitationView: View {
                     .font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16).background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 VStack(alignment: .leading, spacing: 6) {
+                    Text("This phone").font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                    CompanionDeviceNameField(preferences: runtime.preferences).font(.body)
+                    Text(CompanionDeviceNameField.footer).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                }
+                .padding(16).background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                VStack(alignment: .leading, spacing: 6) {
                     Toggle("Remember this desktop", isOn: $remember)
                     Text(remember ? "Reconnects on its own next time." : "Pairing ends when you close the app.")
                         .font(.caption).foregroundStyle(Color(palette.secondaryLabel))

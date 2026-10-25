@@ -15,7 +15,8 @@ let host = try TrustedAnnexHost(
     verifiedCertificatePin: AnnexCertificatePin(sha256: desktopTLSFingerprint)
 )
 // Invoke only after the user confirms both desktop fingerprints and chooses Pair.
-let registration = try await registry.pair(host: host, pin: pin, alias: "My iPhone", persistence: .persistent)
+// alias: this device's own name, shown on the desktop. label: what this device calls the desktop (defaults to its reported alias).
+let registration = try await registry.pair(host: host, pin: pin, alias: "My iPhone", label: "Studio Mac", persistence: .persistent)
 let events = await registration.transport.events()
 try await registration.transport.connect()
 ```
