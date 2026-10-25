@@ -19,7 +19,6 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   - `--companion-preview`: `CompanionPreviewSmokeTests`
   - `--diagnostics-ui-testing`: `DiagnosticSettingsTests`
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
-  - plain launch: `AnnexUITestsLaunchTests`
 
 The live and provider tests listed below skip unless you enable them.
 
