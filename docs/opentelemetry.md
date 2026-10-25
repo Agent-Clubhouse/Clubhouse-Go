@@ -44,9 +44,8 @@ Only closed operation/event/failure enums, numeric counts/timings, random SDK
 trace/span IDs, random process/connection UUIDs and timestamps are exported. No URL, host/IP, hardware identity,
 project/agent/session ID, path, body, message, credentials, screenshot, exception
 description or SDK resource data is exported. Transient stream keys remain in the
-app's existing process memory and are not attributes. Legacy AppLog now discards
-arbitrary text before its memory buffer and OSLog; it retains severity and an
-allowlisted category. No regular-expression redaction of raw retained data.
+app's existing process memory and are not attributes. No regular-expression
+redaction of raw retained data.
 
 Always persists only the collection preference and resumes on future launches;
 This session resets to Off on restart. No mode persists trace contents or enables
