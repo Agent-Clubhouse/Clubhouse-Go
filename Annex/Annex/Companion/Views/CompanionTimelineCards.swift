@@ -6,6 +6,7 @@ struct CompanionMessageView: View {
     var retry: () -> Void
     var canRemoveQueued = false
     var removeQueued: (() -> Void)?
+    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -38,8 +39,8 @@ struct CompanionMessageView: View {
         }
         .padding(message.role == .user ? 16 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(message.role == .user ? Color.accentColor.opacity(0.07) : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 20))
+        .background(message.role == .user ? Color(palette.tintSoft) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .accessibilityElement(children: .contain)
         .contextMenu {
             Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
@@ -129,6 +130,7 @@ struct CompanionRichText: View {
 struct CompanionToolCard: View {
     let tool: CompanionTool
     @State private var expanded = false
+    @Environment(\.companionPalette) private var palette
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
             VStack(alignment: .leading, spacing: 10) {
@@ -152,18 +154,64 @@ struct CompanionToolCard: View {
         }
         .tint(.secondary)
         .padding(14)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.07)))
     }
     private var symbol: String { tool.state == .running ? "terminal" : tool.state == .completed ? "checkmark.circle" : "exclamationmark.circle" }
-    private var color: Color { tool.state == .failed ? .red : tool.state == .completed ? .green : .accentColor }
+    private var color: Color { tool.state == .failed ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
+}
+
+/// A run of finished tool calls folded into one row, expanded on tap.
+struct CompanionToolGroupCard: View {
+    let tools: [CompanionTool]
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    @State private var expanded = false
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { expanded.toggle() } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bolt").foregroundStyle(Color(palette.secondaryLabel))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Ran \(tools.count) tools").font(.subheadline.weight(.semibold))
+                        Text(names).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(palette.secondaryLabel))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(expanded ? "Collapses the tool calls" : "Shows each tool call")
+            if expanded {
+                ForEach(tools) { tool in
+                    CompanionToolCard(tool: tool)
+                    CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var names: String {
+        var seen: [String] = []
+        for tool in tools where !seen.contains(tool.name) { seen.append(tool.name) }
+        return seen.joined(separator: ", ")
+    }
 }
 
 struct CompanionApprovalCard: View {
     let approval: CompanionApproval
     let canRespond: Bool
+    /// When the bar above the composer carries Deny and Allow once, the card keeps only the other options.
+    var actionsArePinned = false
     let respond: (CompanionApprovalOption) -> Void
     @State private var showDetails = false
+    @Environment(\.companionPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -171,7 +219,7 @@ struct CompanionApprovalCard: View {
             let expired = approval.isExpired(at: context.date)
             VStack(alignment: .leading, spacing: 14) {
                 Label(title(expired: expired), systemImage: "hand.raised.fill")
-                    .font(.headline).foregroundStyle(.orange)
+                    .font(.headline).foregroundStyle(Color(palette.warning))
                 Text(approval.toolName).font(.subheadline.weight(.semibold))
                 Text(approval.summary).font(.body).textSelection(.enabled)
                 if let detail = approval.detail, !detail.isEmpty {
@@ -198,13 +246,16 @@ struct CompanionApprovalCard: View {
                 }
             }
             .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.45), lineWidth: 1))
+            .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
             .accessibilityElement(children: .contain)
         }
     }
     @ViewBuilder private var decisionButtons: some View {
-        ForEach(approval.options) { option in
+        if actionsArePinned {
+            Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
+        }
+        ForEach(approval.options.filter { !actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce) }) { option in
             if option.kind == .allowOnce {
                 Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent)
             } else {

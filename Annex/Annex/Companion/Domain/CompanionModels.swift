@@ -54,6 +54,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var richContentAvailable = false
     var canSpawn = false
     var canRevokeSession = false
+    /// The desktop's active Clubhouse theme id, once the desktop reports it.
+    var themeID: String?
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {
@@ -97,6 +99,8 @@ enum CompanionAgentStatus: String, Sendable, Codable {
         case .stopped: "stop.circle"
         }
     }
+    /// Approvals, questions and failures wait on the person holding the phone.
+    var needsYou: Bool { self == .approval || self == .waiting || self == .failed }
 }
 
 struct CompanionCapabilities: OptionSet, Sendable, Equatable {

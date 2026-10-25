@@ -6,10 +6,11 @@ struct CompanionQuestionCard: View {
     var respond: ([String: CompanionAnswer]) -> Void
     @State private var selections: [String: Set<String>] = [:]
     @State private var text: [String: String] = [:]
+    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label(title, systemImage: "questionmark.bubble.fill").font(.headline).foregroundStyle(.orange)
+            Label(title, systemImage: "questionmark.bubble.fill").font(.headline).foregroundStyle(Color(palette.warning))
             ForEach(question.prompts) { prompt in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(prompt.text).font(.subheadline.weight(.semibold))
@@ -29,7 +30,7 @@ struct CompanionQuestionCard: View {
                                     if let detail = option.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
                                 }
                                 Spacer(minLength: 0)
-                            }.padding(12).background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                            }.padding(12).background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(selections[prompt.id]?.contains(option.id) == true ? .isSelected : [])
@@ -49,8 +50,8 @@ struct CompanionQuestionCard: View {
             } else if question.resolution == .submitting { ProgressView("Sending answers…") }
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.orange.opacity(0.45)))
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
     }
     private var answers: [String: CompanionAnswer] {
         Dictionary(uniqueKeysWithValues: question.prompts.map { prompt in

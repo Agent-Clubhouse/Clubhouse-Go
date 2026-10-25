@@ -13,7 +13,7 @@ struct CompanionPairingSheet: View {
     @State private var certificate = ""
     @State private var pin = ""
     @State private var verified = false
-    @State private var remember = false
+    @State private var remember = true
     @State private var isPairing = false
     @State private var error: String?
     @State private var discovery = AnnexDiscovery()

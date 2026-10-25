@@ -12,6 +12,7 @@ import ClubhouseTransport
     let store: CompanionStore
     let registry: AnnexTransportRegistry
     let lifecycle: CompanionLifecycle
+    let preferences: CompanionPreferences
     var restoreError: String?
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
@@ -20,6 +21,8 @@ import ClubhouseTransport
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
         self.registry = registry
+        // Integration runs keep their sort, order and theme choices out of the real app's defaults.
+        self.preferences = persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard)
         let service = CompanionLiveService()
         self.service = service
         self.lifecycle = CompanionLifecycle { active in
@@ -77,13 +80,18 @@ struct CompanionAppRoot: View {
         #endif
     }
     var body: some View {
-        CompanionRootView(store: runtime.store, onPair: { showPairing = true }, onSettings: { showSettings = true })
-            .sheet(isPresented: $showPairing) { CompanionPairingSheet(runtime: runtime) }
-            .sheet(isPresented: $showSettings) { CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true }) }
+        CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+            .sheet(isPresented: $showPairing) {
+                CompanionPairingSheet(runtime: runtime).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
+            .sheet(isPresented: $showSettings) {
+                CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true })
+                    .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
             .shakeToOpenFeedback(model: runtime.feedback, enabled: shakeFeedbackEnabled,
                                  isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
             .overlay(alignment: .top) {
-                if runtime.isRestoring { ProgressView("Restoring desktops…").padding().background(.regularMaterial, in: Capsule()).padding() }
+                if runtime.isRestoring { ProgressView("Restoring desktops…").padding(.horizontal, 18).padding(.vertical, 12).glassEffect(.regular, in: .capsule).padding() }
             }
             .alert("Could not restore desktops", isPresented: Binding(get: { runtime.restoreError != nil }, set: { if !$0 { runtime.restoreError = nil } })) {
                 Button("OK") { runtime.restoreError = nil }
@@ -157,10 +165,6 @@ struct CompanionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Diagnostics") {
-                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
-                }
-                CompanionFeedbackSettings(model: runtime.feedback)
                 Section("Your desktops") {
                     ForEach(runtime.store.hosts) { host in
                         VStack(alignment: .leading, spacing: 10) {
@@ -168,6 +172,7 @@ struct CompanionSettingsSheet: View {
                             Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
                             Text(host.connection.label).font(.caption)
                             Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
+                            CompanionThemePicker(preferences: runtime.preferences, host: host)
                             DisclosureGroup("Connection details") {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
@@ -189,7 +194,9 @@ struct CompanionSettingsSheet: View {
                     }
                     Button("Pair another desktop", systemImage: "plus", action: pair)
                 }
-                Section {
+                CompanionFeedbackSettings(model: runtime.feedback)
+                Section("Advanced") {
+                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
                     Label("Direct connection", systemImage: "network")
                     Text("Connect over the same local network or a direct Tailscale address. Your agents keep running on your desktop when you leave the app.")
                         .font(.subheadline).foregroundStyle(.secondary)
@@ -197,7 +204,7 @@ struct CompanionSettingsSheet: View {
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }
             .onAppear { AnnexTelemetry.shared.record(.settings) }
-            .navigationTitle("Desktops & settings")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .confirmationDialog("Forget \(hostToForget?.name ?? "desktop")?", isPresented: Binding(get: { hostToForget != nil }, set: { if !$0 { hostToForget = nil } }), titleVisibility: .visible) {
@@ -227,5 +234,31 @@ struct CompanionSettingsSheet: View {
                 }
             } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
         }
+    }
+}
+
+/// Which desktop theme the phone uses for a desktop. Until desktops report their theme, you can pick it here.
+struct CompanionThemePicker: View {
+    @Bindable var preferences: CompanionPreferences
+    let host: CompanionHost
+    private var sources: [String] {
+        var seen: [String] = []
+        for theme in CompanionThemeCatalog.all where !seen.contains(theme.source) { seen.append(theme.source) }
+        return seen
+    }
+    var body: some View {
+        Picker("Theme", selection: Binding(get: { preferences.themeOverrides[host.id] },
+                                           set: { preferences.themeOverrides[host.id] = $0 })) {
+            Text(host.themeID.map { "Desktop's theme (\(CompanionThemeCatalog.theme(id: $0).name))" } ?? "Desktop's theme").tag(String?.none)
+            ForEach(sources, id: \.self) { source in
+                Section(source) {
+                    ForEach(CompanionThemeCatalog.all.filter { $0.source == source }) { theme in
+                        Text(theme.name).tag(Optional(theme.id))
+                    }
+                }
+            }
+        }
+        .pickerStyle(.menu)
+        .font(.subheadline)
     }
 }
