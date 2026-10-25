@@ -478,11 +478,11 @@ import ClubhouseTransport
         }
         hosts[hostID] = host
     }
-    /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings.
+    /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings. Zero means unknown.
     nonisolated static func date(from value: AnnexJSON) -> Date? {
         switch value {
-        case .integer(let ms): Date(timeIntervalSince1970: Double(ms) / 1000)
-        case .number(let ms): Date(timeIntervalSince1970: ms / 1000)
+        case .integer(let ms) where ms > 0: Date(timeIntervalSince1970: Double(ms) / 1000)
+        case .number(let ms) where ms > 0: Date(timeIntervalSince1970: ms / 1000)
         case .string(let text): try? Date(text, strategy: .iso8601)
         default: nil
         }

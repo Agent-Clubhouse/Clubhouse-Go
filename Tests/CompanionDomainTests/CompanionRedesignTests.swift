@@ -255,6 +255,7 @@ struct CompanionWireGroundingTests {
         #expect(CompanionLiveService.date(from: .integer(1_000)) == Date(timeIntervalSince1970: 1))
         #expect(CompanionLiveService.date(from: .string("2026-10-25T12:00:00Z")) != nil)
         #expect(CompanionLiveService.date(from: .bool(true)) == nil)
+        #expect(CompanionLiveService.date(from: .integer(0)) == nil)
     }
 
     @Test func terminalAgentsAreFlagged() {
