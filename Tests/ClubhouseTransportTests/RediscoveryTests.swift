@@ -83,3 +83,93 @@ private actor ProbeLog {
         try await registry.relocate(hostID: otherID, to: moved)
     }
 }
+
+// MARK: - Routes (home Wi-Fi and Tailscale)
+
+private func lan() throws -> AnnexEndpoint { try .advertised(host: "192.168.1.26", port: 57696) }
+private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.200.13", port: 57696) }
+
+@Test func advertisedAddressesAreClassifiedAsTailscaleOrLocal() throws {
+    #expect(try lan().route == .localNetwork)
+    #expect(try tailnet().route == .tailscale)
+    #expect(try AnnexEndpoint.advertised(host: "mac.tail1234.ts.net", port: 1).route == .tailscale)
+    #expect(try AnnexEndpoint.advertised(host: "100.63.0.1", port: 1).route == .localNetwork)
+    #expect(try lan().sameAddress(as: AnnexEndpoint(host: "192.168.1.26", port: 57696, route: .manual)))
+}
+
+@Test func raceTakesTheFirstAnsweringRouteWhenHomeIsUnreachable() async throws {
+    let clock = ContinuousClock()
+    let start = clock.now
+    let best = await AnnexRediscovery.firstAnswering(try remembered("192.168.1.26"), routes: [try lan(), try tailnet()], timeout: .seconds(5)) { endpoint in
+        // Away from home: the LAN address never answers, Tailscale does quickly.
+        if endpoint.route == .localNetwork { try await Task.sleep(for: .seconds(30)) }
+        return pin
+    }
+    #expect(best?.host == "100.81.200.13")
+    #expect(clock.now - start < .seconds(2), "Must not wait for the dead home address")
+}
+
+@Test func racePrefersTheEarlierRouteWhenBothAnswerWithinGrace() async throws {
+    let best = await AnnexRediscovery.firstAnswering(try remembered("192.168.1.26"), routes: [try lan(), try tailnet()]) { endpoint in
+        // At home Tailscale may answer a moment sooner; the LAN route is still preferred.
+        if endpoint.route == .localNetwork { try await Task.sleep(for: .milliseconds(80)) }
+        return pin
+    }
+    #expect(best?.host == "192.168.1.26")
+}
+
+@Test func raceRejectsRoutesServingAnotherCertificateAndEndsWhenAllFail() async throws {
+    let clock = ContinuousClock()
+    let start = clock.now
+    let none = await AnnexRediscovery.firstAnswering(try remembered(), routes: [try lan(), try tailnet()], timeout: .seconds(5)) { endpoint in
+        if endpoint.route == .tailscale { return impostorPin }
+        throw AnnexTransportError.disconnected
+    }
+    #expect(none == nil)
+    #expect(clock.now - start < .seconds(2), "All probes failed, so it must not wait for the timeout")
+}
+
+@Test func pairingsSavedBeforeRoutesStillLoad() throws {
+    let record = AnnexSavedPairing(host: try remembered(), alias: "Mac", routes: [try tailnet()],
+                                   identity: try AnnexClientIdentity.ephemeral(), credential: try AnnexCredential(bearerToken: "fake-only"))
+    #expect(try AnnexSavedPairing.decode(record.encoded()).routes.map(\.host) == ["100.81.200.13"])
+    var archive = try #require(try JSONSerialization.jsonObject(with: record.encoded()) as? [String: Any])
+    archive.removeValue(forKey: "routes")
+    let legacy = try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: archive))
+    #expect(legacy.routes.isEmpty)
+    #expect(legacy.host == record.host)
+}
+
+@Test func registryRemembersLearnsAndKeepsRoutesAcrossMoves() async throws {
+    let host = try remembered("192.168.1.26")
+    let identity = try AnnexClientIdentity.ephemeral()
+    let credential = try AnnexCredential(bearerToken: "fake-only")
+    let pairings = MemoryAnnexPairingStore()
+    // Paired over nearby: only the home address is known at first.
+    await pairings.save(AnnexSavedPairing(host: host, alias: "Mac", identity: identity, credential: credential))
+    let registry = AnnexTransportRegistry(pairings: pairings)
+    _ = try await registry.restoreSaved()
+    #expect(await registry.routes(for: hostID).map(\.host) == ["192.168.1.26"])
+
+    // The connected desktop reports its routes; Tailscale is learned and saved.
+    let reported = AnnexCapabilities.Routes(hosts: ["192.168.1.26", "100.81.200.13"], port: 57696)
+    try await registry.learnRoutes(hostID: hostID, reported.endpoints)
+    #expect(await registry.routes(for: hostID).map(\.host) == ["192.168.1.26", "100.81.200.13"])
+    #expect(await pairings.loadAll().first?.routes.map(\.host) == ["100.81.200.13"])
+
+    // Away from home it moves to Tailscale and still knows the way back.
+    _ = try await registry.relocate(hostID: hostID, to: try tailnet())
+    #expect(await registry.routes(for: hostID).map(\.host) == ["100.81.200.13", "192.168.1.26"])
+    let saved = try #require(await pairings.loadAll().first)
+    #expect(saved.host.endpoint.host == "100.81.200.13")
+    #expect(saved.routes.map(\.host) == ["192.168.1.26"])
+    #expect(saved.host.certificatePin == pin)
+}
+
+@Test func capabilitiesDecodeRoutesAndToleratesTheirAbsence() throws {
+    let base = #"{"version":1,"epoch":"e","controlAuth":"mtls-pinned-client","commands":[],"idempotency":{"scope":"s","maxEntries":1,"ttlMs":1}"#
+    let with = try JSONDecoder().decode(AnnexCapabilities.self, from: Data((base + #","routes":{"hosts":["192.168.1.26","100.81.200.13"],"port":57696}}"#).utf8))
+    #expect(with.routes?.endpoints.map(\.route) == [.localNetwork, .tailscale])
+    let without = try JSONDecoder().decode(AnnexCapabilities.self, from: Data((base + "}").utf8))
+    #expect(without.routes == nil)
+}

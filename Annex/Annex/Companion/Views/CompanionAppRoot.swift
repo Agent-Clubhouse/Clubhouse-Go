@@ -38,17 +38,42 @@ import ClubhouseTransport
         started = true; isRestoring = true
         store.start()
         service.onUnreachable = { [weak self] hostID in Task { await self?.rediscover(hostID: hostID) } }
+        service.onRoutes = { [weak self] hostID, routes in
+            guard let self else { return }
+            Task { try? await self.registry.learnRoutes(hostID: hostID, routes.endpoints) }
+        }
+        service.prepareResume = { [weak self] in await self?.switchToAnsweringRoutes() ?? [] }
         defer { isRestoring = false }
         do {
-            for registration in try await registry.restoreSaved() { await service.register(registration) }
+            for registration in try await registry.restoreSaved() { await service.register(await answeringRoute(for: registration)) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
+    }
+    /// The desktop at the first of its saved routes that answers with its pinned certificate, so opening
+    /// the app away from home goes straight to Tailscale instead of waiting out the home address.
+    private func answeringRoute(for registration: AnnexTransportRegistry.Registration) async -> AnnexTransportRegistry.Registration {
+        let routes = await registry.routes(for: registration.host.hostID)
+        guard routes.count > 1,
+              let best = await AnnexRediscovery.firstAnswering(registration.host, routes: routes, probe: { try await AnnexTrustProbe.inspect(endpoint: $0) }),
+              !best.sameAddress(as: registration.host.endpoint) else { return registration }
+        return (try? await registry.relocate(hostID: registration.host.hostID, to: best)) ?? registration
+    }
+    /// Back in the foreground, maybe on another network: move each desktop to a route that answers.
+    private func switchToAnsweringRoutes() async -> Set<String> {
+        var moved: Set<String> = []
+        for registration in await registry.all() {
+            let best = await answeringRoute(for: registration)
+            guard !best.host.endpoint.sameAddress(as: registration.host.endpoint) else { continue }
+            await service.register(best)
+            moved.insert(best.host.hostID)
+        }
+        return moved
     }
     /// `name` is the desktop's, shown on this phone. The desktop is told this phone's own name.
     func pair(host: TrustedAnnexHost, pin: String, name: String?, remember: Bool) async throws {
         try await pair(host: host, pin: pin, names: CompanionPairingNames(deviceName: preferences.pairingAlias, desktopName: name), remember: remember)
     }
-    private func pair(host: TrustedAnnexHost, pin: String, names: CompanionPairingNames, remember: Bool) async throws {
-        let registration = try await registry.pair(host: host, pin: pin, alias: names.alias, label: names.desktopLabel,
+    private func pair(host: TrustedAnnexHost, pin: String, names: CompanionPairingNames, routes: [AnnexEndpoint] = [], remember: Bool) async throws {
+        let registration = try await registry.pair(host: host, pin: pin, alias: names.alias, label: names.desktopLabel, routes: routes,
                                                    persistence: remember ? .persistent : .sessionOnly)
         preferences.saveDeviceName()
         if remember { sessionHosts.remove(host.hostID) }
@@ -59,29 +84,32 @@ import ClubhouseTransport
     /// with one whose TLS certificate is the one in the code; the identity is checked during pairing.
     func pair(link: CompanionPairingLink, remember: Bool) async throws {
         let pin = try AnnexCertificatePin(sha256: link.certificate)
-        var lastError: Error = CompanionServiceError.unavailable("Couldn't reach your desktop. Check that this phone is on the same network.")
-        for address in link.hosts {
-            do {
-                let endpoint = try AnnexEndpoint(host: address, port: link.port)
-                guard try await AnnexTrustProbe.inspect(endpoint: endpoint) == pin else {
-                    lastError = CompanionServiceError.rejected("The desktop at \(address) isn't the one that showed this code.")
-                    continue
-                }
-                let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: link.identity, verifiedCertificatePin: pin)
-                try await pair(host: host, pin: link.pin, names: CompanionPairingNames(deviceName: preferences.pairingAlias, link: link), remember: remember)
-                return
-            } catch { lastError = error }
+        let routes = link.hosts.compactMap { try? AnnexEndpoint.advertised(host: $0, port: link.port) }
+        guard let first = routes.first else { throw CompanionServiceError.unavailable("This pairing code has no address. Show a new code on your desktop.") }
+        let candidate = try TrustedAnnexHost(endpoint: first, verifiedHostID: link.identity, verifiedCertificatePin: pin)
+        // Every address in the code at once (home Wi-Fi, Tailscale): only one serving the code's certificate counts.
+        guard let endpoint = await AnnexRediscovery.firstAnswering(candidate, routes: routes, timeout: .seconds(10), probe: {
+            try await AnnexTrustProbe.inspect(endpoint: $0)
+        }) else {
+            throw CompanionServiceError.unavailable("Couldn't reach the desktop that showed this code. Check that this phone is on the same Wi-Fi, or on Tailscale.")
         }
-        throw lastError
+        let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: link.identity, verifiedCertificatePin: pin)
+        try await pair(host: host, pin: link.pin, names: CompanionPairingNames(deviceName: preferences.pairingAlias, link: link), routes: routes, remember: remember)
     }
     /// A paired desktop stopped answering at its saved address, e.g. the Mac was renamed on the network.
     /// Look for it nearby for a few seconds, at most once a minute; it moves only to an address that
     /// serves the certificate pinned at pairing.
     private func rediscover(hostID: String) async {
-        guard !rediscovering.contains(hostID), Date() >= nextRediscovery[hostID, default: .distantPast],
-              let host = await registry.all().first(where: { $0.host.hostID == hostID })?.host else { return }
+        guard !rediscovering.contains(hostID),
+              let registration = await registry.all().first(where: { $0.host.hostID == hostID }) else { return }
+        let host = registration.host
         rediscovering.insert(hostID)
-        defer { rediscovering.remove(hostID); nextRediscovery[hostID] = Date().addingTimeInterval(60) }
+        defer { rediscovering.remove(hostID) }
+        // Known routes first (Tailscale away from home): fast, and works off the local network.
+        let moved = await answeringRoute(for: registration)
+        if !moved.host.endpoint.sameAddress(as: host.endpoint) { await service.register(moved); return }
+        guard Date() >= nextRediscovery[hostID, default: .distantPast] else { return }
+        defer { nextRediscovery[hostID] = Date().addingTimeInterval(60) }
         let discovery = AnnexDiscovery()
         discovery.start()
         defer { discovery.stop() }

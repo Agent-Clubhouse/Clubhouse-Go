@@ -22,6 +22,10 @@ import ClubhouseTransport
     private var isSuspended = false
     /// Called when a host stops answering at its saved address while the app is active.
     var onUnreachable: ((String) -> Void)?
+    /// Called with the addresses a connected desktop reports for itself (home Wi-Fi, Tailscale).
+    var onRoutes: ((String, AnnexCapabilities.Routes) -> Void)?
+    /// Runs on resume before reconnecting; returns the hosts it already reconnected on a better route.
+    var prepareResume: (() async -> Set<String>)?
 
     func events() -> AsyncStream<CompanionEvent> {
         let id = UUID()
@@ -252,7 +256,8 @@ import ClubhouseTransport
     }
     func resume() async {
         isSuspended = false
-        for id in Array(transports.keys) { await reconnect(hostID: id) }
+        let reconnected = await prepareResume?() ?? []
+        for id in Array(transports.keys) where !reconnected.contains(id) { await reconnect(hostID: id) }
     }
 
     private func invalidateEvents(hostID: String) {
@@ -429,6 +434,7 @@ import ClubhouseTransport
             hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
             hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
+            if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             hosts[hostID]?.connection = .connected
         } catch {

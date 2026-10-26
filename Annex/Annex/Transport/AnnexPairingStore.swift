@@ -6,12 +6,14 @@ import Security
 nonisolated public struct AnnexSavedPairing: Sendable, CustomStringConvertible, CustomDebugStringConvertible {
     public let host: TrustedAnnexHost
     public let alias: String
+    /// Other addresses the same desktop answers on (home Wi-Fi, Tailscale), best first.
+    public let routes: [AnnexEndpoint]
     let identity: AnnexClientIdentity
     let credential: AnnexCredential
     public var description: String { "AnnexSavedPairing(<redacted>)" }
     public var debugDescription: String { description }
-    init(host: TrustedAnnexHost, alias: String, identity: AnnexClientIdentity, credential: AnnexCredential) {
-        self.host = host; self.alias = alias; self.identity = identity; self.credential = credential
+    init(host: TrustedAnnexHost, alias: String, routes: [AnnexEndpoint] = [], identity: AnnexClientIdentity, credential: AnnexCredential) {
+        self.host = host; self.alias = alias; self.routes = routes; self.identity = identity; self.credential = credential
     }
     private struct Archive: Codable {
         let version: Int
@@ -19,14 +21,16 @@ nonisolated public struct AnnexSavedPairing: Sendable, CustomStringConvertible, 
         let alias: String
         let identity: AnnexClientIdentity.Archive
         let bearerToken: String
+        /// Absent in pairings saved before routes existed.
+        let routes: [AnnexEndpoint]?
     }
     func encoded() throws -> Data {
-        try JSONEncoder().encode(Archive(version: 1, host: host, alias: alias, identity: identity.archive(), bearerToken: credential.bearerToken))
+        try JSONEncoder().encode(Archive(version: 1, host: host, alias: alias, identity: identity.archive(), bearerToken: credential.bearerToken, routes: routes))
     }
     static func decode(_ data: Data) throws -> AnnexSavedPairing {
         let value = try JSONDecoder().decode(Archive.self, from: data)
         guard value.version == 1 else { throw AnnexTransportError.malformedResponse }
-        return try AnnexSavedPairing(host: value.host, alias: value.alias, identity: AnnexClientIdentity.restore(value.identity), credential: AnnexCredential(bearerToken: value.bearerToken))
+        return try AnnexSavedPairing(host: value.host, alias: value.alias, routes: value.routes ?? [], identity: AnnexClientIdentity.restore(value.identity), credential: AnnexCredential(bearerToken: value.bearerToken))
     }
 }
 
