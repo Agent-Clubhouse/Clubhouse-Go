@@ -315,7 +315,7 @@ import Observation
             })
             let local = conversation(for: target).items.filter { item in
                 guard case .message(let message) = item, let commandID = message.clientCommandID else { return false }
-                return message.delivery != .confirmed && !commandIDs.contains(commandID)
+                return message.delivery != .confirmed && !commandIDs.contains(commandID) && !Self.echoes(message, in: items)
             }
             let previous = Dictionary(conversation(for: target).items.map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
             let merged = items.map { item -> CompanionTimelineItem in
@@ -379,8 +379,23 @@ import Observation
         return true
     }
 
+    /// A message that wakes a sleeping agent starts its session, and the desktop's copy of it carries no
+    /// client command id. That copy, same text and no id, stands in for the phone's unconfirmed one.
+    static func echoes(_ local: CompanionMessage, in items: [CompanionTimelineItem]) -> Bool {
+        local.role == .user && items.contains { item in
+            guard case .message(let incoming) = item else { return false }
+            return incoming.role == .user && incoming.clientCommandID == nil && incoming.id != local.id && incoming.text == local.text
+        }
+    }
+
     private func upsert(_ item: CompanionTimelineItem, target: CompanionTarget) {
         var items = conversation(for: target).items
+        if case .message(let incoming) = item, incoming.role == .user, incoming.clientCommandID == nil {
+            items.removeAll { existing in
+                guard case .message(let local) = existing, local.clientCommandID != nil, local.delivery != .confirmed else { return false }
+                return Self.echoes(local, in: [item])
+            }
+        }
         // Reconcile optimistic sends using the server-echoed client command ID.
         if case .message(let incoming) = item, let commandID = incoming.clientCommandID {
             items.removeAll { item in

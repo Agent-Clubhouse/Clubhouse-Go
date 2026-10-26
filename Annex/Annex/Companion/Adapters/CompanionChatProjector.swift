@@ -85,7 +85,7 @@ struct CompanionChatProjector {
             let old = tool(id: toolID)
             let content = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             let output = content.isEmpty ? data["error"]?.string ?? data["rawOutput"]?.displayText : content
-            let input = data["rawInput"]?.displayText
+            let input = Self.inputSummary(data["rawInput"])
             let state: CompanionTool.State
             switch data["status"]?.string {
             case "completed": state = .completed
@@ -115,7 +115,7 @@ struct CompanionChatProjector {
             let detail = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.approval(.init(id: requestID, toolName: data["toolName"]?.string ?? "Approval request",
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
-                                   detail: detail.isEmpty ? data["rawInput"]?.displayText : detail, options: options)))
+                                   detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options)))
             status = .approval
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,
@@ -243,6 +243,18 @@ struct CompanionChatProjector {
         case "cancelled": .stopped
         default: .idle
         }
+    }
+    /// A tool's input as a person would read it: the command, or the file and what goes in it, rather than raw JSON.
+    static func inputSummary(_ value: AnnexJSON?) -> String? {
+        guard let value else { return nil }
+        if let command = value["command"]?.string { return "$ \(command)" }
+        if let path = value["file_path"]?.string ?? value["path"]?.string {
+            let name = (path as NSString).lastPathComponent
+            if let content = (value["content"] ?? value["new_string"])?.string { return "\(name)\n\(content.prefix(400))" }
+            return name
+        }
+        if let description = value["description"]?.string { return description }
+        return value.displayText
     }
     private static func contentText(_ value: AnnexJSON) -> String {
         switch value["type"]?.string {

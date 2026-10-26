@@ -247,7 +247,8 @@ struct CompanionApprovalCard: View {
             }
             .padding(18).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(approval.resolution == .pending && !expired ? Color(palette.warning).opacity(0.7) : Color(palette.separator), lineWidth: 1.5))
             .accessibilityElement(children: .contain)
         }
     }

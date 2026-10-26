@@ -321,3 +321,32 @@ struct CompanionInstallResetTests {
         #expect(defaults.bool(forKey: CompanionInstallReset.markerKey))
     }
 }
+
+@MainActor struct CompanionWakeEchoTests {
+    @Test func desktopCopyOfAWakingMessageReplacesTheLocalOne() async {
+        let sleeper = agent("sleeper", .sleeping)
+        let store = store([sleeper])
+        let local = CompanionMessage(id: "local-1", role: .user, text: "hello", delivery: .accepted, clientCommandID: "cmd-1")
+        store.apply(.timeline(sleeper.id, items: [.message(local)], sequence: 1, reset: true))
+        store.apply(.upsert(sleeper.id, .message(.init(id: "m-1", role: .user, text: "hello")), sequence: 2))
+        #expect(store.conversation(for: sleeper.id).items.map(\.id) == ["message:m-1"])
+    }
+
+    @Test func differentTextIsKept() {
+        let sleeper = agent("sleeper", .sleeping)
+        let store = store([sleeper])
+        let local = CompanionMessage(id: "local-1", role: .user, text: "hello", delivery: .accepted, clientCommandID: "cmd-1")
+        store.apply(.timeline(sleeper.id, items: [.message(local)], sequence: 1, reset: true))
+        store.apply(.upsert(sleeper.id, .message(.init(id: "m-1", role: .user, text: "something else")), sequence: 2))
+        #expect(store.conversation(for: sleeper.id).items.count == 2)
+    }
+}
+
+struct CompanionToolInputTests {
+    @Test func toolInputReadsLikeAPerson() {
+        #expect(CompanionChatProjector.inputSummary(.object(["command": .string("echo hi"), "description": .string("Print")])) == "$ echo hi")
+        #expect(CompanionChatProjector.inputSummary(.object(["file_path": .string("/Users/me/repo/notes.txt"), "content": .string("hi")])) == "notes.txt\nhi")
+        #expect(CompanionChatProjector.inputSummary(.object(["description": .string("Search the web")])) == "Search the web")
+        #expect(CompanionChatProjector.inputSummary(nil) == nil)
+    }
+}
