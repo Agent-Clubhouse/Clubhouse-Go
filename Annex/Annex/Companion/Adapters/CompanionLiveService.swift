@@ -498,6 +498,11 @@ import ClubhouseTransport
         var projection = projections[target] ?? .init()
         let oldSession = projection.sessionID
         projection.apply(event)
+        // A live session started after a read-only snapshot, as when history loads before a new agent's chat is up.
+        // Its start (with the capabilities) may have arrived before the agent was listed, so re-read the snapshot.
+        if let session = projection.sessionID, session != oldSession, readOnly.remove(target) != nil {
+            Task { _ = try? await history(for: target) }
+        }
         projections[target] = projection
         updateAgent(target, projection: projection)
         emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID, sessionID: projection.sessionID))
