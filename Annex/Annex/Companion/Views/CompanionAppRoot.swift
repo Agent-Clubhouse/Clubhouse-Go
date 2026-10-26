@@ -93,6 +93,10 @@ struct CompanionAppRoot: View {
     @State private var showSettings = false
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
+    /// Set once someone moves past the welcome screen; deleting the app shows it again.
+    @AppStorage("companion.welcomeDone") private var welcomeDone = false
+    @State private var showDemo = false
+    private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -101,6 +105,7 @@ struct CompanionAppRoot: View {
         // It selects an in-memory registry and never writes a saved pairing.
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
         if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
+        showsWelcome = !testMode
         _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode))
         #else
         // Before the runtime restores pairings or the feedback client reads its enrollment.
@@ -109,7 +114,18 @@ struct CompanionAppRoot: View {
         #endif
     }
     var body: some View {
-        CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+        ZStack {
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+            if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
+                CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
+                    .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+                    .transition(.opacity)
+            }
+        }
+            .fullScreenCover(isPresented: $showDemo) {
+                CompanionDemoView(onPair: { showDemo = false; welcomeDone = true; showPairing = true }, onClose: { showDemo = false })
+                    .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
             .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
                 CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }

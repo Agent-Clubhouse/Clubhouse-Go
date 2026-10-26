@@ -136,7 +136,7 @@ struct CompanionHomeView: View {
                 ContentUnavailableView {
                     Label("Pair a desktop", systemImage: "laptopcomputer")
                 } description: {
-                    Text("Open Clubhouse on your Mac, then go to Settings → Go to pair this phone.")
+                    Text("Open Clubhouse on your Mac, then go to Settings → Annex to pair this phone.")
                 } actions: {
                     Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).controlSize(.large)
                 }
@@ -157,7 +157,8 @@ struct CompanionHomeView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
-                    if let entry = store.projectEntries.first(where: { $0.host.connection.canOperate && $0.host.canSpawn }) { onNewAgent(entry.id) }
+                    // Start in the project at the top of Home, not the desktop's first.
+                    if let entry = orderedProjects.first(where: { $0.host.connection.canOperate && $0.host.canSpawn }) { onNewAgent(entry.id) }
                 }
                 .disabled(!store.hosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
                 .keyboardShortcut("n", modifiers: .command)
@@ -547,7 +548,8 @@ struct CompanionSearchView: View {
                     ForEach(agents) { agent in
                         let host = store.host(for: agent.id)
                         NavigationLink(value: agent.id) {
-                            CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil))
+                            CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
+                                                  detail: host?.projects.first { $0.id == agent.id.projectID }?.name)
                         }
                         .opacity(host?.connection.canOperate == false ? 0.5 : 1)
                         .listRowBackground(CompanionCardBackground())
