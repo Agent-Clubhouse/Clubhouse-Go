@@ -19,9 +19,15 @@ class ReliableUITestCase: XCTestCase {
         continueAfterFailure = false
         executionTimeAllowance = allowance
         deadline = Date().addingTimeInterval(allowance - Self.allowanceMargin)
-        // The launch-configuration matrix can leave the shared device in landscape.
-        XCUIDevice.shared.orientation = .portrait
+        // The launch-configuration matrix can leave the shared device in landscape. Requesting the
+        // orientation that is already active can leave XCTest waiting for a change that never comes (#122).
+        if XCUIDevice.shared.orientation != .portrait { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
+        // A previous test's fixture may still be shutting down; launching over it can time out (#122).
+        if app.state != .notRunning {
+            app.terminate()
+            _ = app.wait(for: .notRunning, timeout: 15)
+        }
         app.launchArguments = arguments + ["--ui-testing-fast"]
         let options = XCTExpectedFailure.Options()
         options.isStrict = false
