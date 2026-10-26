@@ -233,9 +233,11 @@ struct CompanionAppRoot: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
+                // Only when the person must act. Offline is temporary: reports stay queued and
+                // retry on their own, and Settings shows the state.
                 if let feedback = runtime.feedback, let status = feedback.status,
-                   status.canSubmit && [.expired, .accessRequired, .offline].contains(status.access) {
-                    Button("Feedback access: \(status.access.rawValue). Reports stay on this device. Open Settings.") { showSettings = true }
+                   status.canSubmit && [.expired, .accessRequired].contains(status.access) {
+                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { showSettings = true }
                         .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }

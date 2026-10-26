@@ -45,6 +45,16 @@ import ClubhouseTransport
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
+    static func label(_ access: AccessState) -> String {
+        switch access {
+        case .connected: "Connected"
+        case .disconnected: "Not enrolled"
+        case .offline: "Offline, will retry"
+        case .expired: "Expired"
+        case .accessRequired: "Needs a new invitation"
+        case .paused: "Paused"
+        }
+    }
     var body: some View {
         Section("Developer feedback") {
             if let model {
@@ -52,7 +62,7 @@ struct CompanionFeedbackSettings: View {
                 if model.status?.canSubmit == true {
                     NavigationLink("Send feedback") { FeedbackView(model: model) }
                 }
-                Text("Feedback access: \(model.status?.access.rawValue ?? "checking")")
+                Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
                 Text("\(model.status?.queued ?? 0) reports on this device")
             } else {
                 Text("Feedback is not configured for this build or local storage is unavailable.")
