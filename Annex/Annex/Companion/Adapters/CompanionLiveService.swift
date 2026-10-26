@@ -460,10 +460,11 @@ import ClubhouseTransport
                 let subtitle: String = mission ?? value["branch"]?.string ?? ""
                 let meta = payload["agentsMeta"]?[id]
                 let detailed = value["detailedStatus"] ?? meta?["detailedStatus"]
-                // Without a live chat session the chat snapshot only says "sleeping"; a terminal or headless
-                // run is still reported by the catalog, so the catalog wins for those agents.
-                let liveStatus = readOnly.contains(target) ? nil : projection?.status
-                let status: CompanionAgentStatus = liveStatus ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
+                // Without a live chat session the chat snapshot can only say "sleeping". When the catalog says
+                // the agent is running anyway (in a terminal or headless), the catalog is right.
+                let runsOutsideChat = readOnly.contains(target) && value["status"]?.string == "running"
+                let status: CompanionAgentStatus = (runsOutsideChat ? nil : projection?.status)
+                    ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
                 let model: String? = projection?.model ?? value["model"]?.string
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
@@ -505,7 +506,9 @@ import ClubhouseTransport
     private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
         guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
               let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
-        if !readOnly.contains(target) { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status }
+        // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
+        let runsOutsideChat = readOnly.contains(target) && hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].executionMode != nil
+        if !runsOutsideChat { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
         if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
     }
