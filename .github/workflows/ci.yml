@@ -41,6 +41,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # PinnedIOTests starts a Node TLS fixture through /usr/bin/env.
+      - name: Set up Node for transport TLS tests
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Report transport TLS test runtime
+        run: node --version
+
       - name: Select Xcode matching simulator runtime
         run: |
           # Find the installed iOS simulator runtime version
