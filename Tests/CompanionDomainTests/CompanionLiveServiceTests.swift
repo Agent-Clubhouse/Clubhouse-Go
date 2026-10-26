@@ -21,6 +21,8 @@ private actor LiveTestTransport: AnnexTransporting {
     private(set) var executedIDs: [String] = []
     private var startedHistory: AnnexJSON?
     func setStartedHistory(_ value: AnnexJSON) { startedHistory = value }
+    private var catalogAgent: AnnexJSON = .object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])
+    func setCatalogAgent(_ value: AnnexJSON) { catalogAgent = value }
     private var rejectNext = true
     private(set) var executedKinds: [String] = []
     func acceptCommands() { rejectNext = false }
@@ -69,7 +71,7 @@ private actor LiveTestTransport: AnnexTransporting {
             }
             return projects
         case .agents:
-            return .array([.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])])
+            return .array([catalogAgent])
         case .chat:
             if holdHistory {
                 historyWaiting = true
@@ -161,6 +163,24 @@ private actor LiveTestTransport: AnnexTransporting {
         await store.wake(target)
         #expect(await transport.executedKinds == ["agent.start"])
         store.stop()
+    }
+    @Test func newAgentBecomesSendableWhenItsChatStartsAfterHistoryLoaded() async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running"), "executionMode": .string("chat")]))
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(false)]))
+        let (_, store) = try await setup(transport)
+        defer { store.stop() }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await store.load(target)
+        #expect(!store.canSend(target))
+        // session_started (and its capabilities) went out before the agent was listed; only later events arrive.
+        await transport.setHistory(snapshot("new", text: "ready"))
+        await transport.emit(chat(event("new", sequence: 2, text: "ready")))
+        await transport.emit(chat(.object(["sessionId": .string("new"), "seq": .integer(3), "type": .string("turn_ended"),
+                                           "data": .object(["stopReason": .string("end_turn")])])))
+        try await waitUntil { store.canSend(target) }
+        #expect(store.agent(for: target)?.status == .idle)
     }
     @Test func messageWakesThenNextMessageUsesTheLiveSession() async throws {
         let transport = LiveTestTransport()

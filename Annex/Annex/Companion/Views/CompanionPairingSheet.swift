@@ -136,7 +136,7 @@ struct CompanionPairingSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button { Task { await pair() } } label: {
                         if isPairing { ProgressView().accessibilityLabel("Pairing desktop") }
-                        else { Text(remember ? "Pair & remember" : "Pair") }
+                        else { Text("Pair") }
                     }.disabled(!verified || (try? AnnexEndpoint.manual(address: address, port: port)) == nil || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
                 }
             }

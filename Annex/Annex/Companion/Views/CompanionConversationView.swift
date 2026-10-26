@@ -119,7 +119,8 @@ struct CompanionConversationView: View {
 
     /// While the app is open there are no system banners, so another agent that needs you shows here.
     @ViewBuilder private var otherAgentBanner: some View {
-        if let other = store.allAgents.first(where: { $0.status.needsYou && $0.id != target }) {
+        // Compare by agent, not list entry: a desktop can list one agent under more than one project.
+        if let other = store.allAgents.first(where: { $0.status.needsYou && ($0.id.agentID != target.agentID || $0.id.hostID != target.hostID) }) {
             CompanionGlassBanner(systemImage: other.status.symbol,
                                  text: Text("**\(other.name)** \(other.status.label.lowercased())")) {
                 Button("View") { openAgent(other.id) }.buttonStyle(.glass)

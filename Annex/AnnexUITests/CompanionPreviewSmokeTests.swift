@@ -34,6 +34,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// which reads as the text jittering until it wraps. One line must be exactly half of two lines.
     func testComposerSingleLineHeightMatchesWrappedLineHeight() {
         continueAfterFailure = false
+        // Each keystroke and frame read is a slow round trip on CI runners.
+        executionTimeAllowance = 240
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--companion-preview"]
@@ -49,8 +51,9 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         composer.tap()
         composer.typeText("Hey")
         let oneLine = composer.frame.height
-        for _ in 0..<20 where composer.frame.height <= oneLine + 1 {
-            composer.typeText(" steady")
+        // Two words at a time: fewer round trips, and still far short of a whole line, so it stops at two lines.
+        for _ in 0..<10 where composer.frame.height <= oneLine + 1 {
+            composer.typeText(" steady steady")
         }
         let twoLines = composer.frame.height
         XCTAssertGreaterThan(twoLines, oneLine + 1, "Composer must grow when the draft wraps")

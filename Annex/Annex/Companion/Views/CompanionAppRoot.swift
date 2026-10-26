@@ -17,6 +17,8 @@ import ClubhouseTransport
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
     private var started = false
+    private var rediscovering: Set<String> = []
+    private var nextRediscovery: [String: Date] = [:]
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
@@ -35,6 +37,7 @@ import ClubhouseTransport
         guard !started else { return }
         started = true; isRestoring = true
         store.start()
+        service.onUnreachable = { [weak self] hostID in Task { await self?.rediscover(hostID: hostID) } }
         defer { isRestoring = false }
         do {
             for registration in try await registry.restoreSaved() { await service.register(registration) }
@@ -71,6 +74,32 @@ import ClubhouseTransport
         }
         throw lastError
     }
+    /// A paired desktop stopped answering at its saved address, e.g. the Mac was renamed on the network.
+    /// Look for it nearby for a few seconds, at most once a minute; it moves only to an address that
+    /// serves the certificate pinned at pairing.
+    private func rediscover(hostID: String) async {
+        guard !rediscovering.contains(hostID), Date() >= nextRediscovery[hostID, default: .distantPast],
+              let host = await registry.all().first(where: { $0.host.hostID == hostID })?.host else { return }
+        rediscovering.insert(hostID)
+        defer { rediscovering.remove(hostID); nextRediscovery[hostID] = Date().addingTimeInterval(60) }
+        let discovery = AnnexDiscovery()
+        discovery.start()
+        defer { discovery.stop() }
+        var tried: Set<AnnexEndpoint> = []
+        for _ in 0..<16 {
+            try? await Task.sleep(for: .milliseconds(500))
+            let fresh = discovery.discovered.filter { !tried.contains($0.endpoint) }
+            tried.formUnion(fresh.map(\.endpoint))
+            guard !fresh.isEmpty, let endpoint = await AnnexRediscovery.locate(host, in: fresh, probe: {
+                try await AnnexTrustProbe.inspect(endpoint: $0)
+            }) else { continue }
+            // It may have come back on its own while we looked.
+            guard store.hosts.first(where: { $0.id == hostID })?.connection.canOperate != true,
+                  let registration = try? await registry.relocate(hostID: hostID, to: endpoint) else { return }
+            await service.register(registration)
+            return
+        }
+    }
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)
         sessionHosts.remove(hostID)
@@ -93,6 +122,10 @@ struct CompanionAppRoot: View {
     @State private var showSettings = false
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
+    /// Set once someone moves past the welcome screen; deleting the app shows it again.
+    @AppStorage("companion.welcomeDone") private var welcomeDone = false
+    @State private var showDemo = false
+    private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -101,6 +134,7 @@ struct CompanionAppRoot: View {
         // It selects an in-memory registry and never writes a saved pairing.
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
         if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
+        showsWelcome = !testMode
         _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode))
         #else
         // Before the runtime restores pairings or the feedback client reads its enrollment.
@@ -109,7 +143,18 @@ struct CompanionAppRoot: View {
         #endif
     }
     var body: some View {
-        CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+        ZStack {
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+            if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
+                CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
+                    .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+                    .transition(.opacity)
+            }
+        }
+            .fullScreenCover(isPresented: $showDemo) {
+                CompanionDemoView(onPair: { showDemo = false; welcomeDone = true; showPairing = true }, onClose: { showDemo = false })
+                    .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
             .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
                 CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }

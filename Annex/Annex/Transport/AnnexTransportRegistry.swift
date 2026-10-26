@@ -86,6 +86,27 @@ public actor AnnexTransportRegistry {
         identities[host.hostID] = clientIdentity; registrations[host.hostID] = registration
         return registration
     }
+    /// The paired desktop answered at a new address with its pinned certificate
+    /// (see AnnexRediscovery). Identity, credential and pin stay the same; only the
+    /// route changes, and a saved pairing is updated to match.
+    @discardableResult
+    public func relocate(hostID: String, to endpoint: AnnexEndpoint) async throws -> Registration {
+        guard !busyHosts.contains(hostID) else { throw AnnexTransportError.commandInFlight }
+        guard let current = registrations[hostID], let identity = identities[hostID] else { throw AnnexTransportError.credentialMissing }
+        revision = UUID()
+        busyHosts.insert(hostID)
+        defer { busyHosts.remove(hostID) }
+        let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: current.host.hostID, verifiedCertificatePin: current.host.certificatePin)
+        if let pairings, let saved = try await pairings.loadAll().first(where: { $0.host.hostID == hostID }) {
+            try await pairings.save(AnnexSavedPairing(host: host, alias: saved.alias, identity: saved.identity, credential: saved.credential))
+        }
+        let store: any AnnexCredentialStore = try await credentials.credential(for: hostID) != nil ? credentials : sessionCredentials
+        await current.transport.disconnect()
+        let transport = AnnexTransport(host: host, credentials: store, clientIdentity: identity)
+        let registration = Registration(host: host, alias: current.alias, transport: transport)
+        registrations[hostID] = registration
+        return registration
+    }
     /// Loads only already authorized saved pairings; never generates identity or
     /// migrates legacy trust-all credentials. Caller invokes connect explicitly.
     @discardableResult

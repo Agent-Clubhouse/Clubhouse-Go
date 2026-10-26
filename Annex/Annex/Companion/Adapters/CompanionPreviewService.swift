@@ -1,7 +1,7 @@
-#if DEBUG
 import Foundation
 
-/// Explicit UI preview adapter. Never selected by a normal launch or by production pairing.
+/// Sample desktop for the welcome screen's "Look around first" demo (and App Review), and the DEBUG preview launch.
+/// Never selected by pairing; every command fails with "Preview only".
 @MainActor final class CompanionPreviewService: CompanionService {
     private var continuation: AsyncStream<CompanionEvent>.Continuation?
     static let target = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
@@ -46,4 +46,3 @@ import Foundation
     func reconnect(hostID: String) async {}
     private var previewError: CompanionServiceError { .unavailable("Preview only. This action does not contact a desktop.") }
 }
-#endif

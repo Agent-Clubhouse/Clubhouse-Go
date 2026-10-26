@@ -20,6 +20,8 @@ import ClubhouseTransport
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
+    /// Called when a host stops answering at its saved address while the app is active.
+    var onUnreachable: ((String) -> Void)?
 
     func events() -> AsyncStream<CompanionEvent> {
         let id = UUID()
@@ -360,6 +362,10 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .failed(Self.readableError(error))
             }
             emitHosts()
+            switch state {
+            case .reconnecting, .failed: if !isSuspended { onUnreachable?(hostID) }
+            default: break
+            }
         case .resyncRequired:
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
@@ -460,7 +466,11 @@ import ClubhouseTransport
                 let subtitle: String = mission ?? value["branch"]?.string ?? ""
                 let meta = payload["agentsMeta"]?[id]
                 let detailed = value["detailedStatus"] ?? meta?["detailedStatus"]
-                let status: CompanionAgentStatus = projection?.status ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
+                // Without a live chat session the chat snapshot can only say "sleeping". When the catalog says
+                // the agent is running anyway (in a terminal or headless), the catalog is right.
+                let runsOutsideChat = readOnly.contains(target) && value["status"]?.string == "running"
+                let status: CompanionAgentStatus = (runsOutsideChat ? nil : projection?.status)
+                    ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
                 let model: String? = projection?.model ?? value["model"]?.string
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
@@ -494,6 +504,11 @@ import ClubhouseTransport
         var projection = projections[target] ?? .init()
         let oldSession = projection.sessionID
         projection.apply(event)
+        // A live session started after a read-only snapshot, as when history loads before a new agent's chat is up.
+        // Its start (with the capabilities) may have arrived before the agent was listed, so re-read the snapshot.
+        if let session = projection.sessionID, session != oldSession, readOnly.remove(target) != nil {
+            Task { _ = try? await history(for: target) }
+        }
         projections[target] = projection
         updateAgent(target, projection: projection)
         emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID, sessionID: projection.sessionID))
@@ -502,7 +517,9 @@ import ClubhouseTransport
     private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
         guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
               let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status
+        // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
+        let runsOutsideChat = readOnly.contains(target) && hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].executionMode != nil
+        if !runsOutsideChat { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
         if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
     }
