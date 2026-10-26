@@ -17,6 +17,8 @@ import ClubhouseTransport
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
     private var started = false
+    private var rediscovering: Set<String> = []
+    private var nextRediscovery: [String: Date] = [:]
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
@@ -35,6 +37,7 @@ import ClubhouseTransport
         guard !started else { return }
         started = true; isRestoring = true
         store.start()
+        service.onUnreachable = { [weak self] hostID in Task { await self?.rediscover(hostID: hostID) } }
         defer { isRestoring = false }
         do {
             for registration in try await registry.restoreSaved() { await service.register(registration) }
@@ -70,6 +73,32 @@ import ClubhouseTransport
             } catch { lastError = error }
         }
         throw lastError
+    }
+    /// A paired desktop stopped answering at its saved address, e.g. the Mac was renamed on the network.
+    /// Look for it nearby for a few seconds, at most once a minute; it moves only to an address that
+    /// serves the certificate pinned at pairing.
+    private func rediscover(hostID: String) async {
+        guard !rediscovering.contains(hostID), Date() >= nextRediscovery[hostID, default: .distantPast],
+              let host = await registry.all().first(where: { $0.host.hostID == hostID })?.host else { return }
+        rediscovering.insert(hostID)
+        defer { rediscovering.remove(hostID); nextRediscovery[hostID] = Date().addingTimeInterval(60) }
+        let discovery = AnnexDiscovery()
+        discovery.start()
+        defer { discovery.stop() }
+        var tried: Set<AnnexEndpoint> = []
+        for _ in 0..<16 {
+            try? await Task.sleep(for: .milliseconds(500))
+            let fresh = discovery.discovered.filter { !tried.contains($0.endpoint) }
+            tried.formUnion(fresh.map(\.endpoint))
+            guard !fresh.isEmpty, let endpoint = await AnnexRediscovery.locate(host, in: fresh, probe: {
+                try await AnnexTrustProbe.inspect(endpoint: $0)
+            }) else { continue }
+            // It may have come back on its own while we looked.
+            guard store.hosts.first(where: { $0.id == hostID })?.connection.canOperate != true,
+                  let registration = try? await registry.relocate(hostID: hostID, to: endpoint) else { return }
+            await service.register(registration)
+            return
+        }
     }
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)

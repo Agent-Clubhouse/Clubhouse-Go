@@ -22,8 +22,10 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
     public let errorCode: Int?
 }
 
-/// Explicit user-driven LAN discovery. Creates no client identity or connection
-/// credentials. Stop when the pairing sheet closes; never browse in background.
+/// LAN discovery for pairing, and for finding a remembered desktop that stopped
+/// answering at its saved address (AnnexRediscovery). Creates no client identity
+/// or connection credentials. Stop when the pairing sheet closes or the search
+/// ends; never browse while the app is in the background.
 @MainActor public final class AnnexDiscovery: NSObject, @preconcurrency NetServiceBrowserDelegate, @preconcurrency NetServiceDelegate {
     private let makeBrowser: () -> NetServiceBrowser
     private var browser: NetServiceBrowser?
@@ -45,6 +47,8 @@ nonisolated public struct AnnexDiscoveryState: Sendable {
         return stream
     }
     private var current: AnnexDiscoveryState { AnnexDiscoveryState(isSearching: browser != nil, hosts: hosts.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }, errorCode: errorCode) }
+    /// Hosts resolved so far, for a caller that polls during a bounded search.
+    public var discovered: [AnnexDiscoveredHost] { current.hosts }
     private func publish() { for continuation in continuations.values { continuation.yield(current) } }
     public func start() {
         guard browser == nil else { return }

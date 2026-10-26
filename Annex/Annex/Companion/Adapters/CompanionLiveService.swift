@@ -20,6 +20,8 @@ import ClubhouseTransport
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
+    /// Called when a host stops answering at its saved address while the app is active.
+    var onUnreachable: ((String) -> Void)?
 
     func events() -> AsyncStream<CompanionEvent> {
         let id = UUID()
@@ -360,6 +362,10 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .failed(Self.readableError(error))
             }
             emitHosts()
+            switch state {
+            case .reconnecting, .failed: if !isSuspended { onUnreachable?(hostID) }
+            default: break
+            }
         case .resyncRequired:
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()

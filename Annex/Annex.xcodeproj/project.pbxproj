@@ -24,6 +24,7 @@
 				Transport/AnnexIO.swift,
 				Transport/AnnexPairing.swift,
 				Transport/AnnexPairingStore.swift,
+				Transport/AnnexRediscovery.swift,
 				Transport/AnnexReplay.swift,
 				Transport/AnnexTransport.swift,
 				Transport/AnnexTransportRegistry.swift,
