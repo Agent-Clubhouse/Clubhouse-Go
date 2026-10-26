@@ -18,6 +18,10 @@ public actor AnnexTransportRegistry {
     private let pairingIO: @Sendable (TrustedAnnexHost, AnnexClientIdentity) -> any AnnexIO
     private var registrations: [String: Registration] = [:]
     private var identities: [String: AnnexClientIdentity] = [:]
+    /// Other addresses each desktop answers on, best first; the registration's endpoint is the current one.
+    private var alternates: [String: [AnnexEndpoint]] = [:]
+    /// Kept short: enough for home Wi-Fi, Tailscale and a couple of stale names.
+    static let maximumRoutes = 6
     public init(credentials: any AnnexCredentialStore = MemoryAnnexCredentialStore(), pairings: (any AnnexPairingStore)? = nil) { self.credentials = credentials; self.pairings = pairings
         self.pairingIO = { PinnedAnnexIO(host: $0, clientIdentity: $1) }
     }
@@ -28,6 +32,20 @@ public actor AnnexTransportRegistry {
     }
     public func all() -> [Registration] { Array(registrations.values) }
     public func transport(for hostID: String) -> (any AnnexTransporting)? { registrations[hostID]?.transport }
+    /// Every known address for a desktop, current first.
+    public func routes(for hostID: String) -> [AnnexEndpoint] {
+        guard let current = registrations[hostID]?.host.endpoint else { return [] }
+        return Self.merge([current], alternates[hostID] ?? [])
+    }
+    private static func merge(_ lists: [AnnexEndpoint]...) -> [AnnexEndpoint] {
+        var merged: [AnnexEndpoint] = []
+        for route in lists.joined() where !merged.contains(where: { $0.sameAddress(as: route) }) { merged.append(route) }
+        return Array(merged.prefix(maximumRoutes))
+    }
+    private func setAlternates(_ routes: [AnnexEndpoint], hostID: String) {
+        guard let current = registrations[hostID]?.host.endpoint else { return }
+        alternates[hostID] = Self.merge(routes).filter { !$0.sameAddress(as: current) }
+    }
 
     /// This call is the explicit user-authorized pairing action. For isolated
     /// integration use MemoryAnnexCredentialStore (default); identity remains in
@@ -35,7 +53,8 @@ public actor AnnexTransportRegistry {
     /// `alias` is this device's own name, sent to the desktop. `label` is what this
     /// device calls the desktop; without one the desktop's reported alias is kept.
     @discardableResult
-    public func pair(host: TrustedAnnexHost, pin: String, alias: String, label: String? = nil, clientIdentity: AnnexClientIdentity? = nil, persistence: Persistence = .sessionOnly) async throws -> Registration {
+    public func pair(host: TrustedAnnexHost, pin: String, alias: String, label: String? = nil, routes: [AnnexEndpoint] = [],
+                     clientIdentity: AnnexClientIdentity? = nil, persistence: Persistence = .sessionOnly) async throws -> Registration {
         return try await AnnexTelemetry.shared.measure(.pairing) {
             guard !busyHosts.contains(host.hostID) else { throw AnnexTransportError.commandInFlight }
             if persistence == .persistent && pairings == nil { throw AnnexTransportError.persistenceFailed(errSecNotAvailable) }
@@ -49,7 +68,8 @@ public actor AnnexTransportRegistry {
             guard let credential = await temporary.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
             let hostLabel = label.flatMap { $0.isEmpty ? nil : $0 } ?? result.alias
             if persistence == .persistent, let pairings {
-                try await pairings.save(AnnexSavedPairing(host: host, alias: hostLabel, identity: identity, credential: credential))
+                try await pairings.save(AnnexSavedPairing(host: host, alias: hostLabel, routes: Self.merge(routes).filter { !$0.sameAddress(as: host.endpoint) },
+                                                          identity: identity, credential: credential))
             } else {
                 // Choosing session-only must not leave an older durable pairing to
                 // silently reappear on the next app launch.
@@ -63,6 +83,7 @@ public actor AnnexTransportRegistry {
             let registration = Registration(host: host, alias: hostLabel, transport: transport)
             identities[host.hostID] = identity
             registrations[host.hostID] = registration
+            setAlternates(routes, hostID: host.hostID)
             return registration
 
         }
@@ -97,15 +118,32 @@ public actor AnnexTransportRegistry {
         busyHosts.insert(hostID)
         defer { busyHosts.remove(hostID) }
         let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: current.host.hostID, verifiedCertificatePin: current.host.certificatePin)
+        // The old address stays known: it is the right one again back at home.
+        let others = Self.merge([current.host.endpoint], alternates[hostID] ?? []).filter { !$0.sameAddress(as: endpoint) }
         if let pairings, let saved = try await pairings.loadAll().first(where: { $0.host.hostID == hostID }) {
-            try await pairings.save(AnnexSavedPairing(host: host, alias: saved.alias, identity: saved.identity, credential: saved.credential))
+            try await pairings.save(AnnexSavedPairing(host: host, alias: saved.alias, routes: others, identity: saved.identity, credential: saved.credential))
         }
         let store: any AnnexCredentialStore = try await credentials.credential(for: hostID) != nil ? credentials : sessionCredentials
         await current.transport.disconnect()
         let transport = AnnexTransport(host: host, credentials: store, clientIdentity: identity)
         let registration = Registration(host: host, alias: current.alias, transport: transport)
         registrations[hostID] = registration
+        alternates[hostID] = others
         return registration
+    }
+
+    /// The connected desktop reported where else it answers. Keeps known routes, adds
+    /// new ones after the desktop's own order, and saves them with a remembered pairing.
+    public func learnRoutes(hostID: String, _ reported: [AnnexEndpoint]) async throws {
+        guard let current = registrations[hostID]?.host.endpoint, !busyHosts.contains(hostID) else { return }
+        let before = alternates[hostID] ?? []
+        let after = Self.merge(reported, before).filter { !$0.sameAddress(as: current) }
+        guard !after.elementsEqual(before, by: { $0.sameAddress(as: $1) }) else { return }
+        alternates[hostID] = after
+        if let pairings, let saved = try await pairings.loadAll().first(where: { $0.host.hostID == hostID }),
+           saved.host.endpoint.sameAddress(as: current) {
+            try await pairings.save(AnnexSavedPairing(host: saved.host, alias: saved.alias, routes: after, identity: saved.identity, credential: saved.credential))
+        }
     }
     /// Loads only already authorized saved pairings; never generates identity or
     /// migrates legacy trust-all credentials. Caller invokes connect explicitly.
@@ -123,6 +161,7 @@ public actor AnnexTransportRegistry {
                 do {
                     try await credentials.save(pairing.credential, for: pairing.host.hostID)
                     _ = try await restoreRegistration(host: pairing.host, alias: pairing.alias, clientIdentity: pairing.identity)
+                    setAlternates(pairing.routes, hostID: pairing.host.hostID)
                     busyHosts.remove(pairing.host.hostID)
                 } catch { busyHosts.remove(pairing.host.hostID); throw error }
             }
@@ -154,6 +193,7 @@ public actor AnnexTransportRegistry {
         try await pairings?.remove(hostID: hostID)
         if let registration = registrations.removeValue(forKey: hostID) { await registration.transport.disconnect() }
         identities.removeValue(forKey: hostID)
+        alternates.removeValue(forKey: hostID)
         try await credentials.remove(for: hostID)
         await sessionCredentials.remove(for: hostID)
     }

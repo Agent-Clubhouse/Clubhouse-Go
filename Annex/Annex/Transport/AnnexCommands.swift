@@ -92,4 +92,12 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public struct Pairing: Decodable, Sendable { public let sessionRevokePath: String? }
     public let pairing: Pairing?
     public let idempotency: Idempotency
+    /// Every address the desktop answers on, LAN first then Tailscale. A hint: each is pin-checked before use.
+    public struct Routes: Decodable, Sendable, Equatable {
+        public let hosts: [String]
+        public let port: UInt16
+        public init(hosts: [String], port: UInt16) { self.hosts = hosts; self.port = port }
+        public var endpoints: [AnnexEndpoint] { hosts.compactMap { try? AnnexEndpoint.advertised(host: $0, port: port) } }
+    }
+    public let routes: Routes?
 }

@@ -62,6 +62,17 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
         return try .init(host: host, port: number, route: host.hasSuffix(".ts.net") ? .tailscale : .manual)
     }
 
+    /// An address the desktop advertised (QR code or capabilities): Tailscale for its
+    /// 100.64.0.0/10 range and MagicDNS names, otherwise the local network.
+    public static func advertised(host: String, port: UInt16) throws -> AnnexEndpoint {
+        let octets = host.split(separator: ".").compactMap { UInt8($0) }
+        let tailscale = (octets.count == 4 && octets[0] == 100 && (64...127).contains(octets[1])) || host.lowercased().hasSuffix(".ts.net")
+        return try .init(host: host, port: port, route: tailscale ? .tailscale : .localNetwork)
+    }
+
+    /// The same address, however it was learned.
+    public func sameAddress(as other: AnnexEndpoint) -> Bool { host == other.host && port == other.port }
+
     /// Path components are individually encoded, including slash, percent and query characters.
     public func url(path: [String], query: [URLQueryItem] = [], webSocket: Bool = false) throws -> URL {
         var components = URLComponents()

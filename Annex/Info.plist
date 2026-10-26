@@ -17,13 +17,22 @@
 	</array>
 	<key>FramebriarGameID</key>
 	<string>clubhouse-annex</string>
+	<!--
+	The desktop uses a self-signed certificate, reached over home Wi-Fi or Tailscale
+	(100.64.0.0/10), which ATS does not count as local. Every desktop connection pins
+	the exact certificate from pairing and presents a client certificate, so ATS adds
+	nothing there. The app's other connections (telemetry, feedback) accept only https
+	URLs in code and refuse redirects. NSAllowsLocalNetworking must stay out: when it is
+	present iOS ignores NSAllowsArbitraryLoads.
+	-->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsLocalNetworking</key>
+		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_clubhouse-annex._tcp</string>
 		<string>_clubhouse-annex._tcp.</string>
 	</array>
 </dict>
