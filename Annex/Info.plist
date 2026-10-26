@@ -24,6 +24,7 @@
 	</dict>
 	<key>NSBonjourServices</key>
 	<array>
+		<string>_clubhouse-annex._tcp</string>
 		<string>_clubhouse-annex._tcp.</string>
 	</array>
 </dict>
