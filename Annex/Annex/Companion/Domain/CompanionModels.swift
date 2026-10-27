@@ -76,6 +76,10 @@ struct CompanionProject: Identifiable, Sendable, Equatable {
     var id: String
     var name: String
     var agents: [CompanionAgent]
+    /// The desktop's identity for the project: an `AGENT_COLORS` id, an emoji, and its icon image.
+    var color: String? = nil
+    var emoji: String? = nil
+    var iconData: Data? = nil
 }
 
 struct CompanionAgent: Identifiable, Sendable, Equatable {
@@ -95,6 +99,12 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var turnStartedAt: Date?
     /// Context fill from the latest chat `usage` event that reported it.
     var contextUsage: CompanionContextUsage?
+    /// The desktop's identity for the agent: an `AGENT_COLORS` id, an emoji, and its icon image.
+    var color: String? = nil
+    var emoji: String? = nil
+    var iconData: Data? = nil
+    /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
+    var freeAgentMode = false
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }

@@ -19,6 +19,8 @@ import ClubhouseTransport
     private var quickCatalog: [String: AnnexJSON] = [:]
     /// Hosts whose snapshot says `ptyHost.platform == "win32"`, for matching content roots.
     private var windowsHosts: Set<String> = []
+    /// The snapshot's `projectIcons` and `agentIcons` per host, kept for catalog refreshes that don't carry them.
+    private var iconCatalog: [String: (projects: AnnexJSON, agents: AnnexJSON)] = [:]
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
@@ -335,6 +337,7 @@ import ClubhouseTransport
         hosts.removeValue(forKey: hostID)
         capabilities.removeValue(forKey: hostID)
         windowsHosts.remove(hostID)
+        iconCatalog.removeValue(forKey: hostID)
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
@@ -488,6 +491,9 @@ import ClubhouseTransport
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
+                if payload["projectIcons"] != nil || payload["agentIcons"] != nil {
+                    iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
+                }
                 applyCatalog(payload, hostID: hostID)
                 if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
@@ -568,6 +574,8 @@ import ClubhouseTransport
     private func applyCatalog(_ payload: AnnexJSON, hostID: String) {
         guard var host = hosts[hostID] else { return }
         var projects: [CompanionProject] = []
+        let projectIcons = payload["projectIcons"] ?? iconCatalog[hostID]?.projects
+        let agentIcons = payload["agentIcons"] ?? iconCatalog[hostID]?.agents
         for project in payload["projects"].arrayValue {
             guard let projectID = project["id"]?.string else { continue }
             let durableValues: [AnnexJSON] = (payload["agents"]?[projectID]).arrayValue
@@ -590,13 +598,14 @@ import ClubhouseTransport
                 let model: String? = projection?.model ?? value["model"]?.string
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
-                agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
-                                             executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
-                                             isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count),
-                                             turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage))
+                var agent = CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
+                                           executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
+                                           isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count),
+                                           turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
+                Self.applyIdentity(value, icon: agentIcons?[id], to: &agent)
+                agents.append(agent)
             }
-            let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
-            projects.append(CompanionProject(id: projectID, name: name, agents: agents))
+            projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
         }
         host.projects = projects
         if case .object(let orchestrators)? = payload["orchestrators"] {
@@ -609,6 +618,19 @@ import ClubhouseTransport
     /// The chat snapshot's `contentRoots` (desktop #2460). Older desktops omit it, which leaves relative paths only.
     nonisolated static func contentRoots(from snapshot: AnnexJSON, windows: Bool) -> CompanionContentRoots {
         .init(paths: snapshot["contentRoots"].arrayValue.prefix(16).compactMap { $0.string.flatMap { $0.isEmpty ? nil : $0 } }, windows: windows)
+    }
+    /// A project's name and identity. The desktop's `displayName` overrides its `name`.
+    nonisolated static func project(_ value: AnnexJSON, id: String, agents: [CompanionAgent], icon: AnnexJSON?) -> CompanionProject {
+        CompanionProject(id: id, name: value["displayName"]?.string ?? value["name"]?.string ?? id, agents: agents,
+                         color: value["color"]?.string, emoji: value["emoji"]?.string,
+                         iconData: CompanionIdentityColor.data(fromDataURL: icon?.string))
+    }
+    /// An agent's identity and Free Agent Mode from its catalog entry.
+    nonisolated static func applyIdentity(_ value: AnnexJSON, icon: AnnexJSON?, to agent: inout CompanionAgent) {
+        agent.color = value["color"]?.string
+        agent.emoji = value["emoji"]?.string
+        agent.iconData = CompanionIdentityColor.data(fromDataURL: icon?.string)
+        agent.freeAgentMode = value["freeAgentMode"].boolValue == true
     }
     /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings. Zero means unknown.
     nonisolated static func date(from value: AnnexJSON) -> Date? {

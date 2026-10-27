@@ -35,15 +35,7 @@ enum CompanionProjectOrdering {
                 return order == .orderedSame ? lhs.offset < rhs.offset : order == .orderedAscending
             }.map(\.element)
         case .recent:
-            let dates = indexed.map { lastActivity($0.element.id) }
-            return indexed.sorted { lhs, rhs in
-                switch (dates[lhs.offset], dates[rhs.offset]) {
-                case let (a?, b?) where a != b: return a > b
-                case (.some, nil): return true
-                case (nil, .some): return false
-                default: return lhs.offset < rhs.offset
-                }
-            }.map(\.element)
+            return newestFirst(entries) { lastActivity($0.id) }
         case .custom:
             let position = Dictionary(customOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
             return indexed.sorted { lhs, rhs in
@@ -54,6 +46,35 @@ enum CompanionProjectOrdering {
                 case (nil, nil): return lhs.offset < rhs.offset
                 }
             }.map(\.element)
+        }
+    }
+
+    /// Most recent first. Items with no activity go last, and ties keep the given order.
+    static func newestFirst<T>(_ items: [T], activity: (T) -> Date?) -> [T] {
+        let dates = items.map(activity)
+        return items.indices.sorted { lhs, rhs in
+            switch (dates[lhs], dates[rhs]) {
+            case let (a?, b?) where a != b: return a > b
+            case (.some, nil): return true
+            case (nil, .some): return false
+            default: return lhs < rhs
+            }
+        }.map { items[$0] }
+    }
+}
+
+/// Agents inside a project follow the Home sort, as in the desktop sidebar (#126): Recent is most
+/// recent first, A–Z by name, and Your order keeps the desktop's order (agents aren't reordered here).
+enum CompanionAgentOrdering {
+    static func ordered(_ agents: [CompanionAgent], sort: CompanionProjectSort, lastActivity: (CompanionAgent) -> Date?) -> [CompanionAgent] {
+        switch sort {
+        case .recent: return CompanionProjectOrdering.newestFirst(agents, activity: lastActivity)
+        case .alphabetical:
+            return agents.enumerated().sorted { lhs, rhs in
+                let order = lhs.element.name.localizedStandardCompare(rhs.element.name)
+                return order == .orderedSame ? lhs.offset < rhs.offset : order == .orderedAscending
+            }.map(\.element)
+        case .custom: return agents
         }
     }
 }
