@@ -349,8 +349,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let tab = app.tabBars.buttons["Needs you"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15))
         tab.tap()
-        XCTAssertTrue(app.staticTexts["Needs permission to use Run build"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Build the iOS application to verify the updated conversation layout."].exists)
+        XCTAssertTrue(app.staticTexts["Needs permission to use Bash"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The request's title goes under the reason")
         let countdown = app.descendants(matching: .any).matching(identifier: "companion-approval-countdown").firstMatch
         XCTAssertTrue(countdown.waitForExistence(timeout: 5))
         XCTAssertTrue(countdown.label.contains("Times out in"), countdown.label)

@@ -174,6 +174,8 @@ struct CompanionThemeTests {
         var mcp = approval("m", deadline: nil); mcp.toolName = "mcp__clubhouse__message_parent"; mcp.summary = "Review the requested action"
         #expect(item(.approval, .approval(mcp)).detail == "Needs permission to use message_parent")
         #expect(item(.approval, .approval(mcp)).prompt == nil)
+        mcp.title = "Message the orchestrator"
+        #expect(item(.approval, .approval(mcp)).prompt == "Message the orchestrator")
         #expect(item(.approval, .unreviewed, detail: .init(state: "needs_permission", toolName: "Bash")).detail == "Needs permission to use Bash")
         #expect(item(.approval, .unreviewed).detail == "Needs permission")
         #expect(item(.failed, .failure, detail: .init(state: "tool_error", toolName: "mcp__github__create_issue")).detail == "Tool call failed (create_issue)")

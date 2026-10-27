@@ -41,10 +41,11 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         }
     }
 
-    /// What is being asked, under the line above: the approval's own description, or the question.
+    /// What is being asked, under the line above: the request's title or description, or the question.
     var prompt: String? {
         switch kind {
         case .approval(let approval):
+            if let title = approval.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty { return title }
             let summary = approval.summary.trimmingCharacters(in: .whitespacesAndNewlines)
             return summary.isEmpty || summary == "Review the requested action" ? nil : summary
         case .question(let question): return question.prompts.first?.text
