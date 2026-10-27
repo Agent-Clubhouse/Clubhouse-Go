@@ -3,25 +3,17 @@ import XCTest
 /// Picks, removes and sends images in the preview conversation. `--companion-sample-images` replaces the system
 /// photo picker with generated images, so the test never depends on the photo library.
 @MainActor
-final class CompanionImageAttachmentUITests: XCTestCase {
+final class CompanionImageAttachmentUITests: ReliableUITestCase {
     func testPickRemoveAndSendImages() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview", "--companion-sample-images"]
-        app.launch()
+        let app = launchApp(["--companion-preview", "--companion-sample-images"])
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
+        scrollUntilExists(agent, in: app)
         XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
 
         let attach = app.buttons["companion-attach"]
         let send = app.buttons["companion-send"]
         let thumbnails = app.images.matching(identifier: "companion-attachment-thumbnail")
-        XCTAssertTrue(attach.waitForExistence(timeout: 10), "The preview desktop advertises attachments, so the attach button shows")
+        waitAndTap(agent, until: attach, timeout: 10, "The preview desktop advertises attachments, so the attach button shows")
         XCTAssertFalse(send.isEnabled, "Nothing to send yet")
 
         attach.tap()
@@ -54,11 +46,9 @@ final class CompanionImageAttachmentUITests: XCTestCase {
         sent.lifetime = .keepAlways
         add(sent)
 
-        sentImage.tap()
         let done = app.buttons["companion-preview-done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5), "Tapping the image opens the preview")
+        waitAndTap(sentImage, until: done, timeout: 5, "Tapping the image opens the preview")
         XCTAssertTrue(app.images["Image you sent"].waitForExistence(timeout: 5), "The phone's own copy shows without a desktop")
-        done.tap()
-        XCTAssertTrue(done.waitForNonExistence(timeout: 5))
+        waitAndTap(done, untilGone: done)
     }
 }
