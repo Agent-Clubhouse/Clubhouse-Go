@@ -92,6 +92,10 @@ nonisolated public enum AnnexReadRoute: Sendable {
     case createOptions(projectID: String)
     /// One durable agent's settings, each with when it can change.
     case agentSettings(agentID: String)
+    /// The project root's branch and uncommitted files (`git status --porcelain`).
+    case gitStatus(projectID: String)
+    /// One file's text at HEAD (or in the index when `staged`) and in the working tree, for a read-only diff.
+    case gitDiff(projectID: String, filePath: String, staged: Bool)
 }
 
 /// A gateway can implement this interface later without weakening direct-host trust.

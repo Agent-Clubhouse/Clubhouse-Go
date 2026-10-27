@@ -126,6 +126,10 @@ public actor AnnexTransport: AnnexTransporting {
                 query = [URLQueryItem(name: "offset", value: String(max(0, offset))), URLQueryItem(name: "limit", value: String(min(500, max(1, limit))))]
             case .createOptions(let project): path = ["api", "v1", "mobile", "projects", project, "create-options"]
             case .agentSettings(let agent): path = ["api", "v1", "mobile", "agents", agent, "settings"]
+            case .gitStatus(let project): path = ["api", "v1", "projects", project, "git", "info"]
+            case .gitDiff(let project, let file, let staged):
+                path = ["api", "v1", "projects", project, "git", "diff"]
+                query = [.init(name: "file", value: file), .init(name: "staged", value: staged ? "true" : "false")]
             }
             let request = try await authorizedRequest(path: path, query: query)
             guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
