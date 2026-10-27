@@ -542,7 +542,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         executionTimeAllowance = 240
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
+        app.launchArguments = ["--companion-preview", "--companion-preview-helper-requests"]
         app.launch()
         let tab = app.tabBars.buttons["Needs you"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15))

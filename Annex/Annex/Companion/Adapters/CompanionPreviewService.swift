@@ -9,11 +9,17 @@ import Foundation
     static let target = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
     /// A sleeping durable agent, whose settings can all change.
     static let sleepingTarget = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "juniper")
-    init(streamsUpdates: Bool = false) { self.streamsUpdates = streamsUpdates }
+    /// UI tests add River's helper requests to Needs you (`--companion-preview-helper-requests`). Off by default, so
+    /// Home's layout stays as the other previews expect.
+    private let showsHelperRequests: Bool
+    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false) {
+        self.streamsUpdates = streamsUpdates
+        self.showsHelperRequests = showsHelperRequests
+    }
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
-            continuation.yield(.hosts(Self.hosts(now: Date())))
+            continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [])))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -49,7 +55,7 @@ import Foundation
         }
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
-    static func hosts(now: Date) -> [CompanionHost] {
+    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = []) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
