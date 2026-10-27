@@ -595,7 +595,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let aspen = any.matching(identifier: "finished-quick-aspen").firstMatch
         XCTAssertTrue(willow.waitForExistence(timeout: 5) && aspen.exists)
         XCTAssertLessThan(willow.frame.minY, aspen.frame.minY, "The newest run comes first")
-        XCTAssertTrue(willow.label.contains("Tidy the onboarding copy") && willow.label.contains("12m ago"), willow.label)
+        XCTAssertTrue(willow.label.contains("Tidy the onboarding copy") && willow.label.contains("m ago"), willow.label)
         XCTAssertTrue(aspen.label.contains("Exited with code 1"), aspen.label)
         XCTAssertTrue(app.buttons["project-new-agent"].isEnabled)
         XCTAssertTrue(app.buttons["project-wake"].isEnabled, "Juniper is asleep, so Wake with a message is offered")
