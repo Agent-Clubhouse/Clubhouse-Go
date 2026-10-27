@@ -3,20 +3,22 @@ import XCTest
 /// Exercises the new SwiftUI navigation on a real simulator without enrolling
 /// any desktop, storing credentials, or pretending preview commands succeeded.
 @MainActor
-final class CompanionPreviewSmokeTests: XCTestCase {
-    func testPreviewOpensScopedConversationAndKeepsCommandsNonLive() {
-        continueAfterFailure = false
-        // The launch-configuration matrix can leave the shared device in landscape.
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
+final class CompanionPreviewSmokeTests: ReliableUITestCase {
+    /// Opens River's conversation from Home, tapping again if a slow runner drops the tap.
+    private func openRiver(_ app: XCUIApplication, maxSwipes: Int = 4, file: StaticString = #filePath, line: UInt = #line) {
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        scrollUntilExists(agent, in: app, maxSwipes: maxSwipes, file: file, line: line)
+        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear", file: file, line: line)
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        waitAndTap(agent, until: composer, timeout: 15, "Selecting an agent must open its conversation", file: file, line: line)
+    }
+
+    /// Home's New agent button, which shows only on Home.
+    private func homeNewAgent(_ app: XCUIApplication) -> XCUIElement { app.navigationBars.buttons["New agent"] }
+
+    func testPreviewOpensScopedConversationAndKeepsCommandsNonLive() {
+        let app = launchApp(["--companion-preview"])
+        openRiver(app)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10), "Selecting an agent must open its conversation")
         XCTAssertTrue(app.navigationBars["River"].exists)
@@ -33,19 +35,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// A one-line composer shorter than its text view's content scrolls to the caret as you type,
     /// which reads as the text jittering until it wraps. One line must be exactly half of two lines.
     func testComposerSingleLineHeightMatchesWrappedLineHeight() {
-        continueAfterFailure = false
-        // Each keystroke and frame read is a slow round trip on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview"])
+        openRiver(app)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let send = app.buttons["companion-send"]
@@ -68,19 +59,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
 
     /// Dynamic Type changes the line height but not the send button, so check centring at a large size too.
     func testComposerCentresOneLineAtLargeText() {
-        continueAfterFailure = false
-        // Keystrokes and frame reads at accessibility sizes are slow round trips on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<6 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
+        openRiver(app, maxSwipes: 6)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let send = app.buttons["companion-send"]
@@ -97,31 +77,19 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// A preview opened from a tool card must close while the agent keeps streaming, even as the card is
     /// re-projected and lookups around it fold into "Explored…" (#134).
     func testContentPreviewDismissesWhileToolUpdatesStream() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview", "--companion-preview-stream"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview", "--companion-preview-stream"])
+        openRiver(app)
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt")).firstMatch
         let done = app.buttons["companion-preview-done"]
         let title = app.navigationBars["test-log.txt"]
 
         // Done: wait through several updates, including a fold, before closing.
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
-        link.tap()
-        XCTAssertTrue(done.waitForExistence(timeout: 5), "Done must show while the preview loads")
+        waitAndTap(link, until: done, timeout: 5, "Done must show while the preview loads")
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         XCTAssertTrue(done.isHittable, "Done must stay reachable while updates stream")
-        done.tap()
-        XCTAssertTrue(done.waitForNonExistence(timeout: 5), "Done must close the preview while updates stream")
+        waitAndTap(done, untilGone: done, "Done must close the preview while updates stream")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "After closing preview with Done"
         add(screenshot)
@@ -141,25 +109,14 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// Agent replies render block Markdown natively: the sample reply's heading, table and list
     /// appear as elements, and none of the raw syntax (`## `, `|---|`) reaches the screen.
     func testAgentReplyRendersBlockMarkdown() {
-        continueAfterFailure = false
-        // Element queries over a long conversation are slow round trips on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview"])
+        openRiver(app)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.waitForExistence(timeout: 10))
 
         // The conversation opens at the latest item; the reply sits just above the approval.
         let heading = app.staticTexts["Reconnect status"]
         if !heading.waitForExistence(timeout: 10) {
-            for _ in 0..<3 where !heading.exists { app.swipeDown() }
+            scrollUntilExists(heading, in: app, up: false, maxSwipes: 3, wait: 0.5)
         }
         XCTAssertTrue(heading.exists, "The heading must render without its hashes")
         let row = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Row 1.' AND label CONTAINS 'Check: Resume after sleep'")).firstMatch
@@ -181,19 +138,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// the approval card shows its own title, "1 of 2", and the persistent option the desktop answers;
     /// the header shows what the agent waits on and its context fill.
     func testExploredFoldAndApprovalCardMatchDesktop() {
-        continueAfterFailure = false
-        // Scrolling and element queries over a long conversation are slow round trips on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview"])
+        openRiver(app)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         XCTAssertEqual(composer.placeholderValue, "Message River…", "The placeholder names the agent, like the desktop")
@@ -207,7 +153,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         // The approval card: the request's title, its place in the queue, and the desktop-only option.
         let position = app.staticTexts.matching(identifier: "companion-approval-position").firstMatch
         if !position.waitForExistence(timeout: 5) {
-            for _ in 0..<3 where !position.exists { app.swipeUp() }
+            scrollUntilExists(position, in: app, maxSwipes: 3, wait: 0.5)
         }
         XCTAssertTrue(position.exists, "Two waiting approvals must show their count")
         XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The card uses the request's title")
@@ -224,7 +170,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
 
         // The explored fold sits above the replies: scroll up to it.
         let fold = app.buttons.matching(identifier: "companion-explore-group").firstMatch
-        for _ in 0..<8 where !(fold.exists && fold.isHittable) { app.swipeDown() }
+        scrollTo(fold, in: app, up: false, maxSwipes: 8)
         XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
         XCTAssertTrue(fold.label.contains("Explored 2 files, 1 search"), "The fold counts like the desktop: \(fold.label)")
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
@@ -236,9 +182,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertFalse(links.matching(NSPredicate(format: "label == %@", "/tmp/scratch.txt")).firstMatch.exists, "A path outside the roots is not")
 
         // Each lookup's link opens from inside the fold, and its preview closes.
-        fold.tap()
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch
-        XCTAssertTrue(link.waitForExistence(timeout: 5), "An expanded fold offers each lookup's links")
+        waitAndTap(fold, until: link, timeout: 5, "An expanded fold offers each lookup's links")
         let foldShot = XCTAttachment(screenshot: app.screenshot())
         foldShot.name = "Explored fold expanded"
         foldShot.lifetime = .keepAlways
@@ -247,27 +192,17 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         fold.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)))
         XCTAssertTrue(link.waitForExistence(timeout: 5))
-        link.tap()
         let done = app.buttons["companion-preview-done"]
-        XCTAssertTrue(done.waitForExistence(timeout: 5), "A link inside the fold opens its preview")
-        done.tap()
-        XCTAssertTrue(done.waitForNonExistence(timeout: 5), "The preview closes")
+        waitAndTap(link, until: done, timeout: 5, "A link inside the fold opens its preview")
+        waitAndTap(done, untilGone: done, "The preview closes")
     }
 
     /// Home matches the desktop sidebar: idle projects fold into one section, sleeping and finished
     /// quick agents fold inside a project, and a pinned project moves to the top.
     func testHomeFoldsIdleProjectsAndPinsToTop() {
-        continueAfterFailure = false
-        // Scrolling and element queries are slow round trips on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
+        let app = launchApp(["--companion-preview"])
         func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: identifier).firstMatch }
-        func reveal(_ target: XCUIElement) {
-            for _ in 0..<5 where !(target.exists && target.isHittable) { app.swipeUp(velocity: .slow) }
-        }
+        func reveal(_ target: XCUIElement) { scrollTo(target, in: app, maxSwipes: 5, velocity: .slow) }
         func scrollToTop() { for _ in 0..<3 { app.swipeDown(velocity: .fast) } }
 
         XCTAssertTrue(element("agent-preview-studio-river").waitForExistence(timeout: 15), "Preview desktop must load")
@@ -280,22 +215,21 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertTrue(sleeping.label.contains("1 sleeping"))
         XCTAssertFalse(element("agent-preview-studio-juniper").exists, "Sleeping agents start folded")
         XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("3 finished quick agents"))
-        sleeping.tap()
+        tapToExpand(sleeping)
         XCTAssertTrue(element("agent-preview-studio-juniper").waitForExistence(timeout: 5), "Opening the fold shows the sleeping agent")
 
         let idle = element("idle-projects-fold")
         reveal(idle)
         XCTAssertTrue(idle.label.contains("1 idle project"))
         XCTAssertFalse(element("project-preview-studio-prototype").exists, "Idle projects start folded")
-        idle.tap()
+        tapToExpand(idle)
         XCTAssertTrue(element("project-preview-studio-prototype").waitForExistence(timeout: 5), "Opening the idle section shows the project")
 
         scrollToTop()
         let menu = element("project-menu-preview-studio-website")
         reveal(menu)
-        menu.tap()
         let pin = app.buttons["Pin project"]
-        XCTAssertTrue(pin.waitForExistence(timeout: 5))
+        waitAndTap(menu, until: pin, timeout: 5)
         pin.tap()
         scrollToTop()
         let website = element("project-preview-studio-website"), clubhouse = element("project-preview-studio-clubhouse")
@@ -310,26 +244,19 @@ final class CompanionPreviewSmokeTests: XCTestCase {
 
     /// A sleeping agent with a session offers both of the desktop's wake choices, in its chat and on its row.
     func testSleepingAgentOffersWakeAndResumeAndStartNewSession() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
+        let app = launchApp(["--companion-preview"])
         let juniper = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-juniper").firstMatch
         // Home folds sleeping agents; open the fold to reach Juniper.
         func unfoldJuniper() {
             let fold = app.descendants(matching: .any).matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch
-            for _ in 0..<4 where !(fold.waitForExistence(timeout: 2) && fold.isHittable) { app.swipeUp() }
-            if !juniper.exists { fold.tap() }
-            for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+            scrollUntilExists(fold, in: app)
+            expandFold(fold, revealing: juniper, in: app)
         }
         unfoldJuniper()
         XCTAssertTrue(juniper.waitForExistence(timeout: 15), "The sleeping preview agent must appear")
 
-        juniper.tap()
         let resume = app.buttons["companion-wake"]
-        XCTAssertTrue(resume.waitForExistence(timeout: 10), "The asleep bar must appear")
+        waitAndTap(juniper, until: resume, timeout: 10, "The asleep bar must appear")
         XCTAssertEqual(resume.label, "Wake & Resume")
         let fresh = app.buttons["companion-wake-newSession"]
         XCTAssertTrue(fresh.exists)
@@ -339,27 +266,20 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: homeNewAgent(app))
         if !juniper.waitForExistence(timeout: 5) { unfoldJuniper() }
         XCTAssertTrue(juniper.waitForExistence(timeout: 10))
-        juniper.press(forDuration: 1.2)
-        XCTAssertTrue(app.buttons["Wake & Resume"].waitForExistence(timeout: 5), "The long-press menu offers Wake & Resume")
+        longPressUntilMenu(juniper, shows: app.buttons["Wake & Resume"], "The long-press menu offers Wake & Resume")
         XCTAssertTrue(app.buttons["Start New Session"].exists, "The long-press menu offers Start New Session")
         XCTAssertTrue(app.buttons["Agent settings"].exists)
     }
 
     /// Needs you says why in the desktop's words, and shows how long an approval has.
     func testNeedsYouUsesTheDesktopWords() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
+        let app = launchApp(["--companion-preview"])
         let tab = app.tabBars.buttons["Needs you"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15))
-        tab.tap()
-        XCTAssertTrue(app.staticTexts["Needs permission to use Bash"].waitForExistence(timeout: 10))
+        waitAndTap(tab, until: app.staticTexts["Needs permission to use Bash"], timeout: 10)
         XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The request's title goes under the reason")
         let countdown = app.descendants(matching: .any).matching(identifier: "companion-approval-countdown").firstMatch
         XCTAssertTrue(countdown.waitForExistence(timeout: 5))
@@ -368,30 +288,22 @@ final class CompanionPreviewSmokeTests: XCTestCase {
 
     /// Agent details opens from the chat header and the long-press menu, shows the hover card's fields, and links to settings.
     func testAgentDetailsSheetMatchesTheDesktopHoverCard() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
+        let app = launchApp(["--companion-preview"])
         let any = app.descendants(matching: .any)
         func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
-        func scrollTo(_ target: XCUIElement) { for _ in 0..<6 where !(target.exists && target.isHittable) { app.swipeUp() } }
+        func scrollTo(_ target: XCUIElement) { self.scrollTo(target, in: app) }
 
         let river = element("agent-preview-studio-river")
-        for _ in 0..<4 where !river.waitForExistence(timeout: 2) { app.swipeUp() }
+        scrollUntilExists(river, in: app)
         XCTAssertTrue(river.waitForExistence(timeout: 15), "Preview agent must appear")
-        river.tap()
         let actions = app.buttons["Conversation actions"]
-        XCTAssertTrue(actions.waitForExistence(timeout: 10))
-        actions.tap()
+        waitAndTap(river, until: actions, timeout: 10)
         let details = app.buttons["Agent details"]
-        XCTAssertTrue(details.waitForExistence(timeout: 5), "The chat header offers the agent's details")
-        details.tap()
+        waitAndTap(actions, until: details, timeout: 5, "The chat header offers the agent's details")
 
         // The settings route's details fill in the workspace and changes.
         let branch = element("agent-details-branch")
-        XCTAssertTrue(branch.waitForExistence(timeout: 10))
+        waitAndTap(details, until: branch, timeout: 10)
         XCTAssertTrue(branch.label.contains("river/companion"), branch.label)
         XCTAssertTrue(element("agent-details-worktree").label.contains(".clubhouse/agents/river"))
         XCTAssertTrue(element("agent-details-cli").label.contains("Claude Code 2.1.4"), "Runs on with the session's CLI version")
@@ -418,28 +330,21 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         // Agent settings opens from the sheet, for editing.
         let openSettings = element("agent-details-open-settings")
         scrollTo(openSettings)
-        openSettings.tap()
-        XCTAssertTrue(element("agent-settings-summary").waitForExistence(timeout: 10), "Details links to the agent's settings")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(openSettings.waitForExistence(timeout: 5))
-        app.buttons["Done"].tap()
-        XCTAssertTrue(openSettings.waitForNonExistence(timeout: 5))
+        waitAndTap(openSettings, until: element("agent-settings-summary"), timeout: 10, "Details links to the agent's settings")
+        waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: openSettings, timeout: 5)
+        waitAndTap(app.buttons["Done"], untilGone: openSettings)
 
         // From an agent row's long-press menu: Juniper works in the project folder, with nothing changed.
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: homeNewAgent(app))
         // Sleeping agents start folded on Home.
         let sleeping = element("fold-sleeping-preview-studio-clubhouse")
-        for _ in 0..<4 where !(sleeping.exists && sleeping.isHittable) { app.swipeUp() }
-        sleeping.tap()
         let juniper = element("agent-preview-studio-juniper")
-        for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        expandFold(sleeping, revealing: juniper, in: app)
         XCTAssertTrue(juniper.waitForExistence(timeout: 10))
-        juniper.press(forDuration: 1.2)
         let rowDetails = app.buttons["Agent details"]
-        XCTAssertTrue(rowDetails.waitForExistence(timeout: 5), "The long-press menu offers the agent's details")
-        rowDetails.tap()
+        longPressUntilMenu(juniper, shows: rowDetails, "The long-press menu offers the agent's details")
         let worktree = element("agent-details-worktree")
-        XCTAssertTrue(worktree.waitForExistence(timeout: 10))
+        waitAndTap(rowDetails, until: worktree, timeout: 10)
         XCTAssertTrue(worktree.label.contains("Works in the project folder"), worktree.label)
         XCTAssertFalse(element("agent-details-effort").exists, "No session, so no effort is guessed")
         let juniperChanges = element("agent-details-changes")
@@ -450,19 +355,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// The desktop composer's pills (#155): level, model and effort menus with the desktop's labels, a confirmation
     /// before raising to Full access, and "Always allow" as a confirmed secondary action. Preview refuses every change.
     func testChatControlsMenusAndPersistentApproval() {
-        continueAfterFailure = false
-        // Menus, dialogs and scrolling are slow round trips on CI runners.
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
-            app.swipeUp()
-        }
-        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
-        agent.tap()
+        let app = launchApp(["--companion-preview"])
+        openRiver(app)
         let any = app.descendants(matching: .any)
         func item(_ label: String) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch }
         let previewError = app.staticTexts["Preview only. This action does not contact a desktop."]
@@ -476,18 +370,16 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         // Level: the ladder, with the driver's names, and a confirmation before Full access.
         let level = any.matching(identifier: "companion-level-menu").firstMatch
         XCTAssertTrue(level.waitForExistence(timeout: 5))
-        level.tap()
         let fullAccess = item("Full access")
-        XCTAssertTrue(fullAccess.waitForExistence(timeout: 5), "Every live level is offered")
+        waitAndTap(level, until: fullAccess, timeout: 5, "Every live level is offered")
         for label in ["Plan", "Ask first", "Auto-accept edits", "Auto"] { XCTAssertTrue(item(label).exists, label) }
         XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'bypassPermissions'")).firstMatch.exists, "The driver's own name is the subtitle")
         let levelShot = XCTAttachment(screenshot: app.screenshot())
         levelShot.name = "Permission level menu"
         levelShot.lifetime = .keepAlways
         add(levelShot)
-        fullAccess.tap()
         let confirmLevel = app.buttons["Switch to Full access"]
-        XCTAssertTrue(confirmLevel.waitForExistence(timeout: 5), "Raising to Full access asks first")
+        waitAndTap(fullAccess, until: confirmLevel, timeout: 5, "Raising to Full access asks first")
         confirmLevel.tap()
         XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the level changed")
         dismissError.tap()
@@ -496,9 +388,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let model = any.matching(identifier: "companion-model-menu").firstMatch
         XCTAssertTrue(model.exists)
         XCTAssertTrue(model.label.contains("Opus"), "The chip names the model: \(model.label)")
-        model.tap()
         let mini = item("Haiku")
-        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        waitAndTap(model, until: mini, timeout: 5)
         XCTAssertTrue(any.matching(NSPredicate(format: "label == 'Applies from the next message.'")).firstMatch.exists, "The switch note shows under the menu")
         let modelShot = XCTAttachment(screenshot: app.screenshot())
         modelShot.name = "Model menu"
@@ -512,9 +403,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let effort = any.matching(identifier: "companion-effort-menu").firstMatch
         XCTAssertTrue(effort.exists)
         XCTAssertTrue(effort.label.contains("High effort"), "The chip names the effort: \(effort.label)")
-        effort.tap()
         let extraHigh = item("Extra high")
-        XCTAssertTrue(extraHigh.waitForExistence(timeout: 5), "xhigh reads as Extra high")
+        waitAndTap(effort, until: extraHigh, timeout: 5, "xhigh reads as Extra high")
         XCTAssertTrue(item("Default").exists, "Default is offered when the provider has one")
         extraHigh.tap()
         XCTAssertTrue(previewError.waitForExistence(timeout: 5))
@@ -522,7 +412,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
 
         // Always allow: a secondary action, confirmed first.
         let always = app.buttons["companion-approval-option-allow-always"]
-        for _ in 0..<4 where !(always.exists && always.isHittable) { app.swipeUp() }
+        scrollTo(always, in: app, maxSwipes: 4)
         XCTAssertTrue(always.isHittable, "Always allow is tappable on a desktop that takes it")
         always.tap()
         let confirmAlways = app.buttons.matching(NSPredicate(format: "label == 'Always allow'")).firstMatch
@@ -538,25 +428,18 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// Helper requests show in Needs you with the desktop's line. A dispose with work at risk is "Dispose anyway",
     /// asks first as the desktop's dispose dialog does, and the preview never claims it reached a desktop.
     func testNeedsYouAnswersHelperRequestsWithTheDesktopRules() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview", "--companion-preview-helper-requests"]
-        app.launch()
+        let app = launchApp(["--companion-preview", "--companion-preview-helper-requests"])
         let tab = app.tabBars.buttons["Needs you"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15))
-        tab.tap()
-        XCTAssertTrue(app.staticTexts["Wants to start the helper docs-pass"].waitForExistence(timeout: 10))
+        waitAndTap(tab, until: app.staticTexts["Wants to start the helper docs-pass"], timeout: 10)
         XCTAssertTrue(app.staticTexts["Update the reconnect section of the README"].exists, "A start shows the helper's task")
         let summary = app.staticTexts["River asked to dispose this helper. 2 uncommitted files, 1 unpushed commit."]
         let disposeAnyway = app.buttons.matching(identifier: "helper-request-approve").matching(NSPredicate(format: "label == 'Dispose anyway'")).firstMatch
-        for _ in 0..<4 where !(disposeAnyway.exists && disposeAnyway.isHittable) { app.swipeUp() }
+        scrollTo(disposeAnyway, in: app, maxSwipes: 4)
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Dispose anyway deletes this work. To keep it, commit and push from Cedar first."].exists)
         XCTAssertTrue(disposeAnyway.waitForExistence(timeout: 5), "Work at risk makes the dispose \"Dispose anyway\"")
-        disposeAnyway.tap()
-        XCTAssertTrue(app.staticTexts["Dispose of Cedar?"].waitForExistence(timeout: 5), "Disposing asks first")
+        waitAndTap(disposeAnyway, until: app.staticTexts["Dispose of Cedar?"], timeout: 5, "Disposing asks first")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Helper dispose confirmation"
         screenshot.lifetime = .keepAlways

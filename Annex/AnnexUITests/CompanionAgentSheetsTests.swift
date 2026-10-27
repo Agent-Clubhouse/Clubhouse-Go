@@ -3,16 +3,8 @@ import XCTest
 /// The New agent sheet (#131) and the agent settings sheet (#132) against the preview desktop, which offers
 /// durable create and settings. Preview commands never reach a desktop, so Create and every edit must fail visibly.
 @MainActor
-final class CompanionAgentSheetsTests: XCTestCase {
-    private func launch() -> XCUIApplication {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        return app
-    }
+final class CompanionAgentSheetsTests: ReliableUITestCase {
+    private func launch() -> XCUIApplication { launchApp(["--companion-preview"]) }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
@@ -29,10 +21,10 @@ final class CompanionAgentSheetsTests: XCTestCase {
         let app = launch()
         let newAgent = app.navigationBars.buttons["New agent"]
         XCTAssertTrue(newAgent.waitForExistence(timeout: 15))
-        newAgent.tap()
+        let kind = element(app, "new-agent-kind")
+        waitAndTap(newAgent, until: kind, timeout: 10)
 
         XCTAssertTrue(app.navigationBars["New agent"].waitForExistence(timeout: 10), "A desktop that creates durable agents gets the full sheet")
-        let kind = element(app, "new-agent-kind")
         XCTAssertTrue(kind.waitForExistence(timeout: 5))
         XCTAssertTrue(kind.buttons["Durable"].isSelected, "Durable is the default, as on the desktop")
         XCTAssertTrue(app.staticTexts["Keeps its name, settings and history. You start it and talk to it whenever you like."].exists)
@@ -61,11 +53,11 @@ final class CompanionAgentSheetsTests: XCTestCase {
 
         // Form rows load as they scroll into view.
         let worktree = app.switches["new-agent-worktree"]
-        for _ in 0..<4 where !worktree.exists { app.swipeUp() }
+        scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
         XCTAssertEqual(worktree.value as? String, "1", "On by default")
         let freeAgent = app.switches["new-agent-free-agent-mode"]
-        for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
+        scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.isEnabled, "A desktop that takes Free Agent Mode offers it for a CLI with permission support")
         XCTAssertEqual(freeAgent.value as? String, "0", "Off by default")
         XCTAssertTrue(app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."].exists, "The desktop's help text")
@@ -74,12 +66,12 @@ final class CompanionAgentSheetsTests: XCTestCase {
         XCTAssertTrue(create.isEnabled)
         create.tap()
         let error = element(app, "new-agent-error")
-        for _ in 0..<5 where !error.exists { app.swipeDown() }
+        scrollUntilExists(error, in: app, up: false, maxSwipes: 5, wait: 0.5)
         XCTAssertTrue(error.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
 
         // Quick keeps the mission-first flow.
-        for _ in 0..<4 where !kind.isHittable { app.swipeDown() }
+        scrollTo(kind, in: app, up: false, maxSwipes: 4)
         kind.buttons["Quick"].tap()
         XCTAssertTrue(app.textFields["Agent task"].waitForExistence(timeout: 5) || app.textViews["Agent task"].waitForExistence(timeout: 1))
         XCTAssertTrue(app.staticTexts["Runs one mission, reports back, and finishes."].exists)
@@ -88,38 +80,34 @@ final class CompanionAgentSheetsTests: XCTestCase {
     func testAwakeAgentSettingsAreLockedExceptAutoSleep() {
         let app = launch()
         let river = element(app, "agent-preview-studio-river")
-        for _ in 0..<4 where !river.waitForExistence(timeout: 2) { app.swipeUp() }
+        scrollUntilExists(river, in: app)
         XCTAssertTrue(river.waitForExistence(timeout: 15))
-        river.tap()
         let actions = app.buttons["Conversation actions"]
-        XCTAssertTrue(actions.waitForExistence(timeout: 10))
-        actions.tap()
+        waitAndTap(river, until: actions, timeout: 10)
         let settings = app.buttons["Agent settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "The chat header offers the agent's settings")
-        settings.tap()
+        waitAndTap(actions, until: settings, timeout: 5, "The chat header offers the agent's settings")
 
         let hint = element(app, "agent-settings-locked-hint")
-        XCTAssertTrue(hint.waitForExistence(timeout: 10), "An awake agent says why its settings are locked")
+        waitAndTap(settings, until: hint, timeout: 10, "An awake agent says why its settings are locked")
         XCTAssertTrue(app.staticTexts["Sleep the agent to change these"].exists)
         XCTAssertTrue(app.staticTexts["Chat · Claude Code · Opus · Sleeps after 30 min"].exists, "The summary uses the desktop's words")
         XCTAssertFalse(app.buttons["agent-settings-model"].isEnabled, "Model waits for the agent to sleep")
         XCTAssertFalse(app.textFields["agent-settings-name"].isEnabled, "Name waits for the agent to sleep")
         let autoSleep = app.buttons["agent-settings-auto-sleep"]
-        for _ in 0..<4 where !autoSleep.isHittable { app.swipeUp() }
+        scrollTo(autoSleep, in: app, maxSwipes: 4)
         XCTAssertTrue(autoSleep.isEnabled, "Auto-sleep can change at any time")
         let freeAgent = element(app, "agent-settings-free-agent-mode")
-        for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
+        scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.exists, "Free Agent Mode is a toggle on a desktop that takes it")
         XCTAssertFalse(freeAgent.isEnabled, "It's a spawn setting, so it waits for the agent to sleep")
         XCTAssertTrue(app.staticTexts["Sleep the agent to change these. Skips every permission prompt. Off unless you trust this agent with the project."].exists)
         screenshot(app, "Awake agent settings")
 
         // Preview edits fail visibly and put the control back.
-        autoSleep.tap()
         let never = app.buttons["Never"]
-        XCTAssertTrue(never.waitForExistence(timeout: 5))
+        waitAndTap(autoSleep, until: never, timeout: 5)
         never.tap()
-        for _ in 0..<4 where !element(app, "agent-settings-error").exists { app.swipeDown() }
+        scrollUntilExists(element(app, "agent-settings-error"), in: app, up: false, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(element(app, "agent-settings-error").waitForExistence(timeout: 5))
     }
 
@@ -127,18 +115,15 @@ final class CompanionAgentSheetsTests: XCTestCase {
         let app = launch()
         // Juniper sleeps, so it's in its project's "1 sleeping" fold, as on the desktop.
         let fold = element(app, "fold-sleeping-preview-studio-clubhouse")
-        for _ in 0..<4 where !(fold.waitForExistence(timeout: 2) && fold.isHittable) { app.swipeUp() }
-        fold.tap()
         let juniper = element(app, "agent-preview-studio-juniper")
-        for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        scrollUntilExists(fold, in: app)
+        expandFold(fold, revealing: juniper, in: app)
         XCTAssertTrue(juniper.waitForExistence(timeout: 15))
-        juniper.press(forDuration: 1.2)
         let settings = app.buttons["Agent settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "The agent row's long-press menu offers its settings")
-        settings.tap()
+        longPressUntilMenu(juniper, shows: settings, "The agent row's long-press menu offers its settings")
 
         let name = app.textFields["agent-settings-name"]
-        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        waitAndTap(settings, until: name, timeout: 10)
         XCTAssertEqual(name.value as? String, "Juniper")
         XCTAssertTrue(name.isEnabled, "A sleeping agent's settings can change")
         XCTAssertTrue(app.buttons["agent-settings-model"].isEnabled)
@@ -147,7 +132,7 @@ final class CompanionAgentSheetsTests: XCTestCase {
 
         // Turning Free Agent Mode on is confirmed first; preview then refuses it visibly.
         let freeAgent = element(app, "agent-settings-free-agent-mode")
-        for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
+        scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.isEnabled, "A sleeping agent's Free Agent Mode can change")
         XCTAssertTrue(app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."].exists)
         freeAgent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
@@ -155,7 +140,7 @@ final class CompanionAgentSheetsTests: XCTestCase {
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Turning it on asks first")
         screenshot(app, "Free Agent Mode confirmation")
         confirm.tap()
-        for _ in 0..<4 where !element(app, "agent-settings-error").exists { app.swipeDown() }
+        scrollUntilExists(element(app, "agent-settings-error"), in: app, up: false, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(element(app, "agent-settings-error").waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))

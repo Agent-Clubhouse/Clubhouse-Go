@@ -3,13 +3,9 @@ import XCTest
 /// Covers the shake states the original fixture did not: an unenrolled user and the
 /// Companion layout (split view, searchable sidebar, focused composer). `fixture-responder`
 /// reports which responder UIKit would hand a real shake to.
-final class FramebriarShakeDiagnosticsUITests: XCTestCase {
+final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
     @MainActor private func launch(_ arguments: [String]) -> XCUIApplication {
-        continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--framebriar-shake-ui-testing"] + arguments
-        app.launch()
+        let app = launchApp(["--framebriar-shake-ui-testing"] + arguments)
         XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
         return app
     }
@@ -17,8 +13,6 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
     /// Root cause: while unenrolled the SDK receiver never takes first responder, so a shake
     /// reached no responder and nothing happened. The app now explains and offers enrollment.
     @MainActor func testUnenrolledShakeExplainsEnrollmentInsteadOfDoingNothing() throws {
-        // Hosted CI simulators can take over two minutes for this flow.
-        executionTimeAllowance = 240
         let app = launch(["--framebriar-shake-unenrolled"])
         let shake = app.buttons["fixture-shake"]
         let prompt = app.alerts["Feedback enrollment required"]
@@ -39,8 +33,7 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
         XCTAssertFalse(prompt.waitForExistence(timeout: 1))
 
         // Settings states the requirement next to the toggle.
-        app.buttons["Settings"].tap()
-        XCTAssertTrue(app.staticTexts["shake-enrollment-required"].waitForExistence(timeout: 5))
+        waitAndTap(app.buttons["Settings"], until: app.staticTexts["shake-enrollment-required"], timeout: 5)
         app.buttons["Done"].tap()
         XCTAssertTrue(shake.waitForExistence(timeout: 5))
 
@@ -51,9 +44,8 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
         XCTAssertTrue(shake.waitForExistence(timeout: 5))
         shake.tap()
         XCTAssertFalse(prompt.waitForExistence(timeout: 2))
-        app.buttons["Settings"].tap()
         let toggle = app.switches["Shake to open feedback"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        waitAndTap(app.buttons["Settings"], until: toggle, timeout: 5)
         XCTAssertEqual(toggle.value as? String, "0")
         app.buttons["Done"].tap()
         XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))
@@ -62,8 +54,6 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
     /// Enrolled shake keeps working across the Companion split view, navigation and keyboard;
     /// it is intentionally suppressed only while the composer holds first responder.
     @MainActor func testCompanionLayoutShakeAcrossNavigationAndComposerFocus() throws {
-        // Hosted CI simulators can take over two minutes for this flow.
-        executionTimeAllowance = 240
         let app = launch(["--framebriar-shake-companion-layout"])
         let composer = app.navigationBars["Send feedback"]
         func waitDebounce() { _ = composer.waitForExistence(timeout: 2.5) }
@@ -72,10 +62,9 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         app.buttons["Cancel"].tap()
 
-        app.buttons["Fixture conversation"].tap()
         let shake = app.buttons["Simulate shake in conversation"]
         let responder = app.staticTexts["fixture-detail-responder"]
-        XCTAssertTrue(shake.waitForExistence(timeout: 5))
+        waitAndTap(app.buttons["Fixture conversation"], until: shake, timeout: 5)
         waitDebounce()
         shake.tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5), "Shake after pushing a conversation; responder: \(responder.label)")

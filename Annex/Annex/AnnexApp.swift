@@ -32,6 +32,10 @@ struct ClubhouseGoApp: App {
         if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
             UserDefaults.standard.removeObject(forKey: AnnexDiagnosticSettings.preferenceKey)
         }
+        // UI tests wait for the app to go idle after every gesture; UIKit transitions make each wait longer.
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
+            UIView.setAnimationsEnabled(false)
+        }
         #endif
         _ = AnnexDiagnosticSettings.shared
         AnnexTelemetry.shared.record(.appLaunch)
