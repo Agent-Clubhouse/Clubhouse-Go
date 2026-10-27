@@ -101,4 +101,40 @@ final class CompanionPreviewSmokeTests: XCTestCase {
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
         XCTAssertTrue(done.waitForNonExistence(timeout: 5), "Swiping down must close the preview while updates stream")
     }
+
+    /// Agent replies render block Markdown natively: the sample reply's heading, table and list
+    /// appear as elements, and none of the raw syntax (`## `, `|---|`) reaches the screen.
+    func testAgentReplyRendersBlockMarkdown() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
+        agent.tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.waitForExistence(timeout: 10))
+
+        let heading = app.staticTexts["Reconnect status"]
+        for _ in 0..<4 where !heading.waitForExistence(timeout: 2) {
+            app.swipeDown()
+        }
+        XCTAssertTrue(heading.waitForExistence(timeout: 5), "The heading must render without its hashes")
+        let row = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Row 1.' AND label CONTAINS 'Check: Resume after sleep'")).firstMatch
+        XCTAssertTrue(row.exists, "The table must render as rows VoiceOver reads cell by cell")
+        XCTAssertTrue(app.staticTexts["Keep drafts per agent"].exists, "The task list item must render")
+        XCTAssertTrue(app.images["Done"].exists || app.descendants(matching: .any)["Done"].exists, "A checked task shows its checkbox")
+
+        let raw = NSPredicate(format: "label CONTAINS '|---' OR label CONTAINS '|:--' OR label CONTAINS '| Check' OR label BEGINSWITH '## ' OR label BEGINSWITH '- ['")
+        XCTAssertEqual(app.staticTexts.matching(raw).count, 0, "No raw Markdown syntax may reach the screen")
+        XCTAssertFalse(app.staticTexts["Agent"].exists, "Agent replies carry no author label, like the desktop")
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Block Markdown reply"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
 }

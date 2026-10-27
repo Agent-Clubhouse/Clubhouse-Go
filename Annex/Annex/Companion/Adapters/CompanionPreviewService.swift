@@ -45,17 +45,32 @@ import Foundation
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),
-            .message(.init(id: "user-1", role: .user, text: "Make it easy to continue a desktop agent from my phone. Focus on the conversation and the moments that need me.", timestamp: Date().addingTimeInterval(-180))),
+            .message(.init(id: "user-1", role: .user, text: "Make it easy to continue a desktop agent from my phone. Focus on the conversation and the moments that need me.", timestamp: Date().addingTimeInterval(-180), source: "mission")),
             .message(.init(id: "agent-1", role: .assistant, text: "I’ve mapped out the companion experience. Each desktop keeps its own projects and agents, so you can move between them without losing your place.\n\nThe first pass puts **conversation, progress, and approvals** together. I’m checking the reconnect behavior next.", timestamp: Date().addingTimeInterval(-150))),
             .tool(.init(id: "tool-1", name: "Read project files", summary: "Sources/Companion/Conversation.swift", output: "Read 246 lines from `Sources/Companion/Conversation.swift`.", state: .completed)),
             .tool(.init(id: "tool-2", name: "Run focused tests", summary: "swift test --filter ConversationTests", output: "8 tests passed. No failures.", state: .completed)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
+            .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
             .approval(.init(id: "approval-1", toolName: "Run build", summary: "Build the iOS application to verify the updated conversation layout.", detail: "xcodebuild -scheme ClubhouseGo -sdk iphonesimulator build", deadline: Date().addingTimeInterval(600), options: [
                 .init(id: "allow-once", label: "Allow once", kind: .allowOnce),
                 .init(id: "reject-once", label: "Deny", kind: .rejectOnce)
             ]))
         ])
     }
+    /// Exercises block Markdown: a heading, a GFM table with aligned columns, and a task list.
+    static let statusReply = """
+    ## Reconnect status
+
+    | Check | Result | Time |
+    |:------|:------:|-----:|
+    | Resume after sleep | Passed | 1.2 s |
+    | Missed events | Refreshed | 0.4 s |
+
+    - [x] Keep drafts per agent
+    - [ ] Retry when the network changes
+
+    > Commands wait until the history refresh finishes.
+    """
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         throw CompanionServiceError.unavailable("Preview only. Pair a desktop to send messages.")
     }

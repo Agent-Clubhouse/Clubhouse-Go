@@ -43,6 +43,7 @@ struct CompanionMessageView: View {
                 .font(.caption).foregroundStyle(.secondary)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(userCaption)
+                .accessibilityIdentifier("companion-message-source")
             }
             Text(message.text).textSelection(.enabled)
                 .padding(.horizontal, 14).padding(.vertical, 10)
