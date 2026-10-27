@@ -8,6 +8,9 @@ struct CompanionProjectPage: View {
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
     @State private var waking = false
+    /// The agent and message from Wake with a message, held until the sheet has gone. Opening the chat while the
+    /// sheet is still dismissing left its timeline blank on iOS 26.5 until it was scrolled.
+    @State private var pendingWake: (target: CompanionTarget, message: String)?
     @State private var changes: CompanionChanges?
     @State private var changesError: String?
     @Environment(\.companionPalette) private var palette
@@ -36,8 +39,12 @@ struct CompanionProjectPage: View {
                 ToolbarItem(placement: .topBarTrailing) { CompanionHostTag(name: host.name) }
             }
         }
-        .sheet(isPresented: $waking) {
-            CompanionWakeSheet(store: store, project: project)
+        .sheet(isPresented: $waking, onDismiss: {
+            guard let wake = pendingWake else { return }
+            pendingWake = nil
+            Task { await store.wake(wake.target, message: wake.message) }
+        }) {
+            CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
         }
         .task(id: canOperate) { if canOperate { await loadChanges() } }
     }
@@ -190,6 +197,8 @@ struct CompanionFinishedRow: View {
 struct CompanionWakeSheet: View {
     @Bindable var store: CompanionStore
     let project: CompanionProjectTarget
+    /// Called with the chosen agent and the message as the sheet closes; the page wakes it once the sheet has gone.
+    var onWake: (CompanionTarget, String) -> Void
     @State private var selection: CompanionTarget?
     @State private var message = ""
     @FocusState private var focused: Bool
@@ -229,9 +238,8 @@ struct CompanionWakeSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Wake") {
                         guard let target = selection else { return }
-                        let text = message
+                        onWake(target, message)
                         dismiss()
-                        Task { await store.wake(target, message: text) }
                     }
                     .disabled(!canWake)
                     .accessibilityIdentifier("wake-send")

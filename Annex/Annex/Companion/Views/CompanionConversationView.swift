@@ -227,6 +227,13 @@ struct CompanionConversationView: View {
             .onChange(of: conversation.items) { _, _ in
                 if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
             }
+            // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
+            // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
+            .task(id: conversation.isLoaded) {
+                guard conversation.isLoaded, followLatest else { return }
+                await Task.yield()
+                proxy.scrollTo("latest", anchor: .bottom)
+            }
         }
     }
 
