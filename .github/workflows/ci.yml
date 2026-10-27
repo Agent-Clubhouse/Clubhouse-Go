@@ -17,10 +17,27 @@ env:
 
 jobs:
   build-and-test:
-    name: Build & Test
+    # Four parallel jobs: builds, packages and unit tests in one; the UI suite split across three.
+    # A single job took ~25 min; each shard now builds (~6 min) and runs a third of the UI tests.
+    name: ${{ matrix.name }}
     runs-on: macos-26
-    # The UI suite grew to ~12 preview tests (~18 min on hosted runners, plus retries).
     timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Build & Test
+            kind: unit
+          - name: UI tests (preview smoke)
+            kind: ui
+            ui_selection: -only-testing:ClubhouseGoUITests/CompanionPreviewSmokeTests
+          - name: UI tests (sheets and attachments)
+            kind: ui
+            ui_selection: -only-testing:ClubhouseGoUITests/CompanionAgentSheetsTests -only-testing:ClubhouseGoUITests/CompanionImageAttachmentUITests
+          # Everything else, including any new UI test class, runs here by default.
+          - name: UI tests (other)
+            kind: ui
+            ui_selection: -only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/CompanionPreviewSmokeTests -skip-testing:ClubhouseGoUITests/CompanionAgentSheetsTests -skip-testing:ClubhouseGoUITests/CompanionImageAttachmentUITests
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +106,7 @@ jobs:
             -quiet
 
       - name: Build Release
+        if: matrix.kind == 'unit'
         run: |
           xcodebuild build \
             -project "$PROJECT" \
@@ -101,14 +119,17 @@ jobs:
             -quiet
 
       - name: Test transport package
+        if: matrix.kind == 'unit'
         run: swift test
 
       - name: Test bundled Framebriar package
+        if: matrix.kind == 'unit'
         run: swift test --package-path Vendor/Framebriar
 
       # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
       # Verify the complete result bundle, not an individual passing suite in the log.
       - name: Run unit tests
+        if: matrix.kind == 'unit'
         run: |
           xcodebuild test-without-building \
             -project "$PROJECT" \
@@ -129,13 +150,14 @@ jobs:
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
       # A UI test that fails is retried up to twice; the result only passes if a retry passes.
       - name: Run UI tests
+        if: matrix.kind == 'ui'
         run: |
           xcodebuild test-without-building \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
             -destination "$DEST" \
             -derivedDataPath DerivedData \
-            -only-testing:ClubhouseGoUITests \
+            ${{ matrix.ui_selection }} \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure \
             -test-iterations 3 \
@@ -151,7 +173,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ strategy.job-index }}
           path: |
             TestResults
             xcodebuild-*.log
