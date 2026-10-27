@@ -296,7 +296,7 @@ struct CompanionCreatedAgentNotice: View {
                 VStack(alignment: .leading, spacing: 8) {
                     text("\(agent.name) is ready", "It sleeps until you wake it.")
                     Button("Wake with a message", systemImage: "text.bubble", action: onWakeWithMessage)
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.glassProminent).companionProminentLabel()
                         .accessibilityIdentifier("companion-wake-with-message")
                 }
             }
