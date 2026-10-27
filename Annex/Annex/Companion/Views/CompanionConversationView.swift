@@ -3,6 +3,8 @@ import SwiftUI
 struct CompanionConversationView: View {
     @Bindable var store: CompanionStore
     let agent: CompanionAgent
+    /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
+    var showsActions = true
     @State private var followLatest = true
     @State private var confirmCancel = false
     @State private var showArchive = false
@@ -50,26 +52,28 @@ struct CompanionConversationView: View {
         .navigationTitle(agent.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
-                    Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                    if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
-                    Section("Conversation details") {
-                        Text(contextName)
-                        if let model = agent.model { Text(model) }
-                    }
-                    if agent.capabilities.contains(.wake) {
-                        ForEach(store.wakeChoices(for: target)) { choice in
-                            Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
-                                .disabled(!store.canWake(target))
+            if showsActions {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
+                        Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                        if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
+                        Section("Conversation details") {
+                            Text(contextName)
+                            if let model = agent.model { Text(model) }
                         }
-                    }
-                    if agent.status == .working {
-                        Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
-                            .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
-                    }
-                } label: { Label("Conversation actions", systemImage: "ellipsis") }
+                        if agent.capabilities.contains(.wake) {
+                            ForEach(store.wakeChoices(for: target)) { choice in
+                                Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
+                                    .disabled(!store.canWake(target))
+                            }
+                        }
+                        if agent.status == .working {
+                            Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
+                                .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
+                        }
+                    } label: { Label("Conversation actions", systemImage: "ellipsis") }
+                }
             }
         }
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.

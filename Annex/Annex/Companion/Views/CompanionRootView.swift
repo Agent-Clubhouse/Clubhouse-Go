@@ -16,6 +16,7 @@ struct CompanionRootView: View {
     @State private var spawnProject: CompanionProjectTarget?
     @State private var settingsTarget: CompanionTarget?
     @State private var detailsTarget: CompanionTarget?
+    @State private var review: CompanionReviewLaunch?
     @State private var decisions: CompanionDecisionQueue
 
     init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false) {
@@ -56,6 +57,14 @@ struct CompanionRootView: View {
                                                       openDetails: { detailsTarget = $0 }))
         .environment(\.companionAgentWake, .init(choices: { [store] in store.mayWake($0) ? store.wakeChoices(for: $0) : [] },
                                                    wake: { [store] target, choice in Task { await store.wake(target, choice) } }))
+        .environment(\.companionOpenReview) { review = $0 }
+        .fullScreenCover(item: $review) { launch in
+            CompanionReviewView(store: store, launch: launch, theme: { [store, preferences] in preferences.theme(forHost: $0.hostID, hosts: store.hosts) }) { target in
+                review = nil
+                open(target)
+            }
+            .companionTheme(preferences.sharedTheme(hosts: store.hosts))
+        }
         .sheet(item: $spawnProject) { project in
             CompanionSpawnSheet(store: store, initialProject: project)
                 .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
@@ -246,7 +255,12 @@ struct CompanionHomeView: View {
                 .listRowBackground(CompanionCardBackground())
             }
         } header: {
-            Text("Needs you").font(.title3.bold()).foregroundStyle(Color(palette.label)).textCase(nil)
+            HStack {
+                Text("Needs you").font(.title3.bold()).foregroundStyle(Color(palette.label))
+                Spacer()
+                CompanionReviewButton(needsYouOnly: false).labelStyle(.titleAndIcon).font(.subheadline.weight(.semibold))
+            }
+            .textCase(nil)
         }
     }
 
@@ -497,6 +511,7 @@ struct CompanionNeedsYouView: View {
         }
         .companionListStyle()
         .navigationTitle("Needs you")
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true) } }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 ForEach(decisions.pending) { pending in
