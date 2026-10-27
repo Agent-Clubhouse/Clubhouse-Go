@@ -81,15 +81,7 @@ struct CompanionCardBackground: View {
 }
 
 extension CompanionAgentStatus {
-    func color(in palette: CompanionPalette) -> Color {
-        switch self {
-        case .approval, .waiting: Color(palette.warning)
-        case .failed: Color(palette.error)
-        case .working: Color(palette.tint)
-        case .completed: Color(palette.success)
-        default: Color(palette.secondaryLabel)
-        }
-    }
+    func color(in palette: CompanionPalette) -> Color { Color(dot.color(in: palette)) }
 }
 
 /// Initials in a tinted rounded square, with the status dot on its corner.
@@ -105,9 +97,10 @@ struct CompanionAgentAvatar: View {
             .frame(width: size, height: size)
             .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: size * 0.31, style: .continuous))
             .overlay(alignment: .bottomTrailing) {
+                let hollow = agent.status.dot.isHollow
                 Circle()
-                    .fill(agent.status == .sleeping ? Color.clear : color)
-                    .overlay { if agent.status == .sleeping { Circle().stroke(color, lineWidth: 1.5) } }
+                    .fill(hollow ? Color.clear : color)
+                    .overlay { if hollow { Circle().strokeBorder(color, lineWidth: 1.5) } }
                     .frame(width: size * 0.34, height: size * 0.34)
                     .padding(2).background(Color(palette.card), in: Circle())
                     .offset(x: 3, y: 3)
@@ -121,7 +114,7 @@ struct CompanionAgentAvatar: View {
 struct CompanionStatusText: View {
     let status: CompanionAgentStatus
     @Environment(\.companionPalette) private var palette
-    var body: some View { Text(status.label).foregroundStyle(status.color(in: palette)) }
+    var body: some View { Text(status.label).foregroundStyle(Color(status.dot.textColor(in: palette))) }
 }
 
 /// The 30pt-style list row used by Home, Needs you, Agents and Search.

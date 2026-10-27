@@ -35,7 +35,8 @@ struct CompanionChatProjector {
         case "session_state": status = Self.status(data["state"]?.string)
         case "turn_started": status = .working
         case "turn_ended":
-            status = data["stopReason"]?.string == "error" ? .failed : data["stopReason"]?.string == "cancelled" ? .stopped : .idle
+            // A cancelled turn leaves the session alive between turns, which the desktop shows as Done.
+            status = data["stopReason"]?.string == "error" ? .failed : .idle
             finishStreams()
         case "session_ended":
             // An idle timeout puts the agent to sleep; it resumes on the next message or a wake.
@@ -220,21 +221,30 @@ struct CompanionChatProjector {
         }
     }
     /// The desktop reports chat agents as `running` for their whole session; what they're doing is in
-    /// `detailedStatus.state` (`idle`, `working`, `needs_permission`, `tool_error`).
+    /// `detailedStatus.state` (`idle`, `working`, `needs_permission`, `tool_error`). Follows the desktop's
+    /// `agentDot` (`agent-status.tsx`): an error or failed tool first, then a pending prompt, then the lifecycle.
     static func status(_ value: String?, detailed: AnnexJSON?) -> CompanionAgentStatus {
         let lifecycle = status(value)
-        guard lifecycle == .working, let state = detailed?["state"]?.string else { return lifecycle }
+        let state = detailed?["state"]?.string
+        let message = detailed?["message"]?.string ?? ""
+        if lifecycle == .failed || state == "tool_error" { return .failed }
+        if state == "needs_permission" {
+            let isQuestion = message.lowercased().contains("question") || detailed?["toolName"]?.string == "AskUserQuestion"
+            return isQuestion ? .waiting : .approval
+        }
+        guard lifecycle == .working else { return lifecycle }
         switch state {
-        case "idle": return .idle
-        case "needs_permission":
-            let message = (detailed?["message"]?.string ?? "").lowercased()
-            return message.contains("question") ? .waiting : .approval
+        // "Thinking" is the desktop's mid-turn idle (`isMidTurn`): still working.
+        case "idle": return message == "Thinking" ? .working : .idle
         default: return .working
         }
     }
+    /// A desktop agent status (`running`, `sleeping`, `waking`, `creating`, `spawning`, `error`) or a chat
+    /// session state (`starting`, `idle`, `running`, `waiting_permission`, `waiting_input`, `sleeping`, `error`).
     static func status(_ value: String?) -> CompanionAgentStatus {
         switch value {
-        case "running", "starting": .working
+        case "running": .working
+        case "starting", "creating", "spawning", "waking": .starting
         case "waiting_permission": .approval
         case "waiting_input": .waiting
         case "error", "failed": .failed

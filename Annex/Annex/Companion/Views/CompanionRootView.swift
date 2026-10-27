@@ -469,21 +469,7 @@ struct CompanionAgentsView: View {
     @State private var filter: Filter = .all
     @Environment(\.companionPalette) private var palette
 
-    enum Filter: Hashable, CaseIterable {
-        case all, working, needsYou, asleep, done
-        var label: String {
-            switch self { case .all: "All"; case .working: "Working"; case .needsYou: "Needs you"; case .asleep: "Asleep"; case .done: "Done" }
-        }
-        func matches(_ status: CompanionAgentStatus) -> Bool {
-            switch self {
-            case .all: true
-            case .working: status == .working
-            case .needsYou: status.needsYou
-            case .asleep: status == .sleeping
-            case .done: status == .completed || status == .stopped
-            }
-        }
-    }
+    typealias Filter = CompanionAgentFilter
 
     var body: some View {
         let agents = store.agentsNeedsYouFirst().filter { filter.matches($0.status) }

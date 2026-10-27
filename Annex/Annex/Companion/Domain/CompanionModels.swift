@@ -86,36 +86,6 @@ struct CompanionProvider: Identifiable, Sendable, Equatable {
     var name: String
 }
 
-enum CompanionAgentStatus: String, Sendable, Codable {
-    case idle, working, approval, waiting, completed, failed, stopped, sleeping
-    var label: String {
-        switch self {
-        case .idle: "Ready"
-        case .working: "Working"
-        case .approval: "Needs approval"
-        case .waiting: "Waiting for you"
-        case .completed: "Completed"
-        case .failed: "Needs attention"
-        case .sleeping: "Asleep"
-        case .stopped: "Stopped"
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .idle: "circle.dotted"
-        case .working: "waveform"
-        case .approval: "hand.raised.fill"
-        case .waiting: "questionmark.bubble.fill"
-        case .completed: "checkmark.circle.fill"
-        case .failed: "exclamationmark.circle.fill"
-        case .sleeping: "moon.zzz"
-        case .stopped: "stop.circle"
-        }
-    }
-    /// Approvals, questions and failures wait on the person holding the phone.
-    var needsYou: Bool { self == .approval || self == .waiting || self == .failed }
-}
-
 struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     let rawValue: Int
     static let chat = Self(rawValue: 1 << 0)
