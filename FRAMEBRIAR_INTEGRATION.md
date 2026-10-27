@@ -59,7 +59,7 @@ The DEBUG-only `--framebriar-shake-ui-testing` fixture (`FramebriarShakePreview`
 - a shake pre-attaches a removable screenshot;
 - reviewing and cancelling queues nothing, and only Submit queues a report;
 - with the screenshot toggle off, a shake attaches nothing;
-- there are zero network calls. Physical sensor detection remains a device acceptance check.
+- the fixture transport never opens a socket (zero network calls on every path that doesn't submit). Physical sensor detection remains a device acceptance check.
 
 ## Shake while unenrolled
 

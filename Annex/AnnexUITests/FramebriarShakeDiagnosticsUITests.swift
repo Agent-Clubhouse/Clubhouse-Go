@@ -68,6 +68,7 @@ final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
         waitDebounce()
         shake.tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5), "Shake after pushing a conversation; responder: \(responder.label)")
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5), "The conversation screen is pre-attached for review")
         app.buttons["Cancel"].tap()
 
         waitDebounce()
