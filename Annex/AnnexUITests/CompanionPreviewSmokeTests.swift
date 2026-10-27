@@ -315,7 +315,14 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         app.launchArguments = ["--companion-preview"]
         app.launch()
         let juniper = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-juniper").firstMatch
-        for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        // Home folds sleeping agents; open the fold to reach Juniper.
+        func unfoldJuniper() {
+            let fold = app.descendants(matching: .any).matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch
+            for _ in 0..<4 where !(fold.waitForExistence(timeout: 2) && fold.isHittable) { app.swipeUp() }
+            if !juniper.exists { fold.tap() }
+            for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        }
+        unfoldJuniper()
         XCTAssertTrue(juniper.waitForExistence(timeout: 15), "The sleeping preview agent must appear")
 
         juniper.tap()
@@ -331,6 +338,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         add(screenshot)
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
+        if !juniper.waitForExistence(timeout: 5) { unfoldJuniper() }
         XCTAssertTrue(juniper.waitForExistence(timeout: 10))
         juniper.press(forDuration: 1.2)
         XCTAssertTrue(app.buttons["Wake & Resume"].waitForExistence(timeout: 5), "The long-press menu offers Wake & Resume")
