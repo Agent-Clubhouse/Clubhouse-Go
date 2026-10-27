@@ -50,8 +50,10 @@ final class CompanionReviewUITests: XCTestCase {
         let title = app.descendants(matching: .any).matching(identifier: "review-title").firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         XCTAssertTrue(waitFor(title, label: "River, 1 of 1"), "From Needs you, Review starts with Needs you only on")
-        let allow = app.buttons.matching(NSPredicate(format: "label == %@", "Allow once")).firstMatch
-        XCTAssertTrue(allow.waitForExistence(timeout: 10), "River's chat must carry its approval")
+        // The preview gives every agent the same sample chat, and neighbouring pages stay loaded, so take River's own
+        // button: the one on screen. Tapping a neighbour's would scroll the pager to it.
+        let allows = app.buttons.matching(NSPredicate(format: "label == %@", "Allow once"))
+        XCTAssertTrue(allows.firstMatch.waitForExistence(timeout: 10), "River's chat must carry its approval")
         attach(app, "Review page: River's chat")
         // With nobody else waiting, a swipe has nowhere to go.
         swipe(app, left: true)
@@ -66,7 +68,7 @@ final class CompanionReviewUITests: XCTestCase {
         XCTAssertTrue(waitFor(title, label: "River, 4 of 4"), "Swiping left must go forward again")
 
         // A swipe never answers: River's approval is still waiting. Approve it with the chat's own button.
-        XCTAssertTrue(allow.waitForExistence(timeout: 5), "Swiping must not answer the approval")
+        guard let allow = onScreen(allows) else { return XCTFail("Swiping must not answer the approval") }
         allow.tap()
         // The preview desktop takes no commands, so the chat says so and River stays on screen.
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
@@ -89,6 +91,16 @@ final class CompanionReviewUITests: XCTestCase {
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.9 : 0.1, dy: 0.24))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.1 : 0.9, dy: 0.24))
         start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+    }
+
+    /// The first match that's visible and can be tapped, waiting briefly for a page turn to settle.
+    private func onScreen(_ query: XCUIElementQuery, timeout: TimeInterval = 5) -> XCUIElement? {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if let element = query.allElementsBoundByIndex.first(where: { $0.isHittable }) { return element }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        } while Date() < deadline
+        return nil
     }
 
     private func waitFor(_ element: XCUIElement, label: String, timeout: TimeInterval = 5) -> Bool {
