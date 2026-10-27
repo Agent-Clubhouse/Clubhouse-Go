@@ -228,6 +228,10 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
         XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Run' AND label CONTAINS 'swift test --filter'")).firstMatch.exists,
                       "The test run stays unfolded, labelled with the desktop's verb")
+        let links = app.buttons.matching(identifier: "companion-content-link")
+        XCTAssertTrue(links.matching(NSPredicate(format: "label == %@", "/Users/river/clubhouse/.build/test.log")).firstMatch.exists,
+                      "An absolute path inside the agent's content roots is offered")
+        XCTAssertFalse(links.matching(NSPredicate(format: "label == %@", "/tmp/scratch.txt")).firstMatch.exists, "A path outside the roots is not")
 
         // Each lookup's link opens from inside the fold, and its preview closes.
         fold.tap()

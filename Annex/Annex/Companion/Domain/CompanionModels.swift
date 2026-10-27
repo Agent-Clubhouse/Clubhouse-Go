@@ -341,6 +341,8 @@ struct CompanionHistory: Sendable {
     var hasEarlierMessages = false
     var lastSequence: Int?
     var sessionID: String?
+    /// The agent's `contentRoots` from the chat snapshot; empty from older desktops.
+    var contentRoots = CompanionContentRoots()
 }
 
 enum CompanionEvent: Sendable {

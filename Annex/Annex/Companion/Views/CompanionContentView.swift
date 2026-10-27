@@ -6,6 +6,8 @@ import WebKit
 /// Opens desktop previews for a conversation or archived session.
 struct CompanionContentPresenter {
     var richContentAvailable: Bool
+    /// Where absolute paths may be linked: the agent's `contentRoots`.
+    var contentRoots = CompanionContentRoots()
     var open: @MainActor (CompanionContentReference) -> Void
     /// The bytes for an image in a user message, for its inline thumbnail.
     var loadImage: @MainActor (CompanionMessageImage) async -> Data? = { $0.local?.data }
@@ -36,7 +38,8 @@ private struct CompanionContentPreviews: ViewModifier {
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
         content
-            .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target), open: { selected = $0 },
+            .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
+                                                             contentRoots: store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))
             .sheet(item: $selected) { reference in
                 CompanionContentView(reference: reference, store: store, target: target) { selected = nil }
@@ -52,7 +55,8 @@ struct CompanionContentLinks: View {
     @Environment(\.companionContentPresenter) private var presenter
     var body: some View {
         if let presenter {
-            let offered = CompanionContentReference.offered(references, richContentAvailable: presenter.richContentAvailable)
+            let offered = CompanionContentReference.offered(references, richContentAvailable: presenter.richContentAvailable,
+                                                                          roots: presenter.contentRoots)
             if !offered.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(offered) { reference in

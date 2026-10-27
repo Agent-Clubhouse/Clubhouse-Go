@@ -29,6 +29,8 @@ import Observation
     @ObservationIgnored private var uploadedAttachmentIDs: [String: String] = [:]
     /// Sessions that refused images (`images_not_supported`), by agent. A new session may take them.
     private var imagesRefused: [CompanionTarget: String] = [:]
+    /// Each agent's content roots, from its latest chat snapshot.
+    private var contentRoots: [CompanionTarget: CompanionContentRoots] = [:]
     @ObservationIgnored private var remoteImages: [String: CompanionImageBytes] = [:]
     @ObservationIgnored private var remoteImageOrder: [String] = []
 
@@ -86,12 +88,13 @@ import Observation
         guard host.richContentAvailable else {
             throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
         }
-        if case .file(let path) = reference, !CompanionContentReference.isInsideAgentFolders(path) {
+        if !reference.isOffered(roots: contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This file is outside the agent's folders, so \(host.name) won't share it.")
         }
         return try await service.content(reference, target: target)
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
+    func contentRoots(for target: CompanionTarget) -> CompanionContentRoots { contentRoots[target] ?? .init() }
     func canSend(_ target: CompanionTarget) -> Bool {
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)
@@ -144,6 +147,7 @@ import Observation
             var history = try await service.history(for: target)
             guard historyGenerations[target] == generation else { return }
             var current = conversation(for: target)
+            contentRoots[target] = history.contentRoots
             history.items = Self.carryingLocalImages(history.items, from: current.items)
             // Preserve local messages whose command has not yet appeared in server history.
             let acknowledged = Set(history.items.compactMap { item -> String? in
