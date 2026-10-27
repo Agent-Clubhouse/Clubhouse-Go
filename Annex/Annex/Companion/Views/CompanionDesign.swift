@@ -84,18 +84,15 @@ extension CompanionAgentStatus {
     func color(in palette: CompanionPalette) -> Color { Color(dot.color(in: palette)) }
 }
 
-/// Initials in a tinted rounded square, with the status dot on its corner.
+/// The agent's desktop identity (icon, emoji, or initials on its color) in a rounded square, with the status dot on its corner.
+/// Without an identity it falls back to initials on the theme tint.
 struct CompanionAgentAvatar: View {
     let agent: CompanionAgent
     var size: CGFloat = 32
     @Environment(\.companionPalette) private var palette
     var body: some View {
         let color = agent.status.color(in: palette)
-        Text(initials)
-            .font(.system(size: size * 0.4, weight: .bold, design: .rounded))
-            .foregroundStyle(Color(palette.tint))
-            .frame(width: size, height: size)
-            .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: size * 0.31, style: .continuous))
+        CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, size: size)
             .overlay(alignment: .bottomTrailing) {
                 let hollow = agent.status.dot.isHollow
                 Circle()
@@ -107,7 +104,80 @@ struct CompanionAgentAvatar: View {
             }
             .accessibilityHidden(true)
     }
-    private var initials: String { String(agent.name.filter(\.isLetter).prefix(2)).uppercased() }
+}
+
+/// A project's desktop identity, for its Home header.
+struct CompanionProjectBadge: View {
+    let project: CompanionProject
+    var size: CGFloat = 22
+    var body: some View {
+        CompanionIdentityFace(name: project.name, color: project.color, emoji: project.emoji, iconData: project.iconData, size: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// An icon image, else an emoji on a wash of the color, else initials on the color.
+struct CompanionIdentityFace: View {
+    let name: String
+    var color: String?
+    var emoji: String?
+    var iconData: Data?
+    var size: CGFloat
+    @Environment(\.companionPalette) private var palette
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.31, style: .continuous)
+        let identity = CompanionIdentityColor.rgb(color)
+        Group {
+            if let image = iconData.flatMap(CompanionIconCache.image(for:)) {
+                Image(uiImage: image).resizable().scaledToFill()
+            } else if let emoji, !emoji.isEmpty {
+                Text(emoji).font(.system(size: size * 0.6))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(identity.map { Color($0).opacity(0.22) } ?? Color(palette.tintSoft))
+            } else if let identity {
+                Text(initials).font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color(identity.contrast(with: .white) >= identity.contrast(with: .black) ? .white : .black))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(identity))
+            } else {
+                Text(initials).font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color(palette.tint))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(palette.tintSoft))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(shape)
+    }
+    private var initials: String { String(name.filter(\.isLetter).prefix(2)).uppercased() }
+}
+
+/// Decoded icon images, so list rows don't decode the same bytes on every render.
+@MainActor enum CompanionIconCache {
+    private static let cache = NSCache<NSData, UIImage>()
+    static func image(for data: Data) -> UIImage? {
+        if let image = cache.object(forKey: data as NSData) { return image }
+        guard let image = UIImage(data: data) else { return nil }
+        cache.setObject(image, forKey: data as NSData)
+        return image
+    }
+}
+
+/// Free Agent Mode skips every permission prompt. Shown in red wherever the agent is, as on the desktop.
+struct CompanionFreeAgentBadge: View {
+    @Environment(\.companionPalette) private var palette
+    var body: some View {
+        Label("Free Agent", systemImage: "exclamationmark.shield.fill")
+            .labelStyle(.titleAndIcon)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Color(palette.error))
+            .padding(.horizontal, 6).padding(.vertical, 1)
+            .background(Color(palette.error).opacity(0.14), in: Capsule())
+            .fixedSize()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Free Agent Mode: all permissions bypassed")
+            .accessibilityIdentifier("free-agent-badge")
+    }
 }
 
 /// Status always carries a word as well as a color, so it reads with Increase Contrast and for color-blind people.
@@ -129,6 +199,7 @@ struct CompanionAgentListRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(agent.name).font(.body).lineLimit(1)
+                    if agent.freeAgentMode { CompanionFreeAgentBadge() }
                     if let hostTag { CompanionHostTag(name: hostTag) }
                 }
                 HStack(spacing: 4) {
