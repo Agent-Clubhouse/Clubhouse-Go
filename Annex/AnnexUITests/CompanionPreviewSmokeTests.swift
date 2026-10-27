@@ -126,9 +126,11 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         screenshot.name = "After closing preview with Done"
         add(screenshot)
 
-        // Swipe down.
+        // Swipe down. New runs keep pushing older cards up under the header, so open the newest card's log,
+        // which stays next to the composer.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
-        link.tap()
+        let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
+        links.element(boundBy: max(0, links.count - 1)).tap()
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -212,8 +214,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let any = app.descendants(matching: .any)
         XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'Always allow' AND label CONTAINS 'xcodebuild:*'")).firstMatch.exists,
                       "Persistent options stay listed, with their scope")
-        XCTAssertTrue(app.staticTexts["Choose this on your desktop"].exists, "Persistent options say where to choose them")
-        XCTAssertFalse(app.buttons["Always allow"].exists, "A phone can't send a persistent option")
+        XCTAssertTrue(app.buttons["companion-approval-option-allow-always"].exists, "A desktop that takes lasting options gets a button")
+        XCTAssertFalse(app.staticTexts["Choose this on your desktop"].exists)
         XCTAssertFalse(app.staticTexts["Your approval is needed"].exists)
         let approvalShot = XCTAttachment(screenshot: app.screenshot())
         approvalShot.name = "Approval card with title, count and persistent option"
@@ -443,5 +445,93 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let juniperChanges = element("agent-details-changes")
         scrollTo(juniperChanges)
         XCTAssertTrue(juniperChanges.label.contains("No changes"), juniperChanges.label)
+    }
+
+    /// The desktop composer's pills (#155): level, model and effort menus with the desktop's labels, a confirmation
+    /// before raising to Full access, and "Always allow" as a confirmed secondary action. Preview refuses every change.
+    func testChatControlsMenusAndPersistentApproval() {
+        continueAfterFailure = false
+        // Menus, dialogs and scrolling are slow round trips on CI runners.
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
+        agent.tap()
+        let any = app.descendants(matching: .any)
+        func item(_ label: String) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch }
+        let previewError = app.staticTexts["Preview only. This action does not contact a desktop."]
+        let dismissError = app.buttons["Dismiss"]
+
+        // The header shows the current level.
+        let header = any.matching(identifier: "companion-chat-header").firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 10))
+        XCTAssertTrue(header.label.contains("Auto-accept edits"), "The header shows the level: \(header.label)")
+
+        // Level: the ladder, with the driver's names, and a confirmation before Full access.
+        let level = any.matching(identifier: "companion-level-menu").firstMatch
+        XCTAssertTrue(level.waitForExistence(timeout: 5))
+        level.tap()
+        let fullAccess = item("Full access")
+        XCTAssertTrue(fullAccess.waitForExistence(timeout: 5), "Every live level is offered")
+        for label in ["Plan", "Ask first", "Auto-accept edits", "Auto"] { XCTAssertTrue(item(label).exists, label) }
+        XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'bypassPermissions'")).firstMatch.exists, "The driver's own name is the subtitle")
+        let levelShot = XCTAttachment(screenshot: app.screenshot())
+        levelShot.name = "Permission level menu"
+        levelShot.lifetime = .keepAlways
+        add(levelShot)
+        fullAccess.tap()
+        let confirmLevel = app.buttons["Switch to Full access"]
+        XCTAssertTrue(confirmLevel.waitForExistence(timeout: 5), "Raising to Full access asks first")
+        confirmLevel.tap()
+        XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the level changed")
+        dismissError.tap()
+
+        // Model: the session's models, and when a change applies.
+        let model = any.matching(identifier: "companion-model-menu").firstMatch
+        XCTAssertTrue(model.exists)
+        XCTAssertTrue(model.label.contains("Opus"), "The chip names the model: \(model.label)")
+        model.tap()
+        let mini = item("Haiku")
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        XCTAssertTrue(any.matching(NSPredicate(format: "label == 'Applies from the next message.'")).firstMatch.exists, "The switch note shows under the menu")
+        let modelShot = XCTAttachment(screenshot: app.screenshot())
+        modelShot.name = "Model menu"
+        modelShot.lifetime = .keepAlways
+        add(modelShot)
+        mini.tap()
+        XCTAssertTrue(previewError.waitForExistence(timeout: 5))
+        dismissError.tap()
+
+        // Effort: sentence case, with Default when the provider has one.
+        let effort = any.matching(identifier: "companion-effort-menu").firstMatch
+        XCTAssertTrue(effort.exists)
+        XCTAssertTrue(effort.label.contains("High effort"), "The chip names the effort: \(effort.label)")
+        effort.tap()
+        let extraHigh = item("Extra high")
+        XCTAssertTrue(extraHigh.waitForExistence(timeout: 5), "xhigh reads as Extra high")
+        XCTAssertTrue(item("Default").exists, "Default is offered when the provider has one")
+        extraHigh.tap()
+        XCTAssertTrue(previewError.waitForExistence(timeout: 5))
+        dismissError.tap()
+
+        // Always allow: a secondary action, confirmed first.
+        let always = app.buttons["companion-approval-option-allow-always"]
+        for _ in 0..<4 where !(always.exists && always.isHittable) { app.swipeUp() }
+        XCTAssertTrue(always.isHittable, "Always allow is tappable on a desktop that takes it")
+        always.tap()
+        let confirmAlways = app.buttons.matching(NSPredicate(format: "label == 'Always allow'")).firstMatch
+        XCTAssertTrue(confirmAlways.waitForExistence(timeout: 5), "Always allow asks first")
+        let approvalShot = XCTAttachment(screenshot: app.screenshot())
+        approvalShot.name = "Always allow confirmation"
+        approvalShot.lifetime = .keepAlways
+        add(approvalShot)
+        confirmAlways.tap()
+        XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the approval was sent")
     }
 }

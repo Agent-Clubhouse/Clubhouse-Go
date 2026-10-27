@@ -69,8 +69,8 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     #expect(throws: AnnexTransportError.malformedResponse) { try decoded(.update(.init(agentID: "a1"))) }
 }
 
-/// Free Agent Mode can't be set from a phone (403 `free_agent_mode_not_allowed`), so no command ever carries it.
-@Test func freeAgentModeIsNeverSent() throws {
+/// Free Agent Mode is only sent when given: older desktops refuse the field (403 `free_agent_mode_not_allowed`).
+@Test func freeAgentModeIsSentOnlyWhenGiven() throws {
     let commands: [AnnexCommand.Kind] = [
         .create(.init(projectID: "p", name: "n", color: "indigo", orchestrator: "o", model: "m", persona: "p", useWorktree: true, mcpIDs: [], branchName: "b", branchFrom: "f", folderName: "d")),
         .update(.init(agentID: "a", name: "n", color: "rose", emoji: .set("x"), orchestrator: "o", model: "m", runtime: .chat, persona: .set("p"), clubhouseMode: true, idleSleep: .never)),
@@ -79,6 +79,12 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
         let data = try AnnexCommand(commandID: "c", epoch: "e", kind: kind).encoded()
         #expect(!String(decoding: data, as: UTF8.self).contains("freeAgentMode"))
     }
+    #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", freeAgentMode: true)))["freeAgentMode"] == .bool(true))
+    #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", freeAgentMode: false)))["freeAgentMode"] == .bool(false))
+    let update = try decoded(.update(.init(agentID: "a", freeAgentMode: true)))
+    #expect(keys(update) == envelope.union(["agentId", "freeAgentMode"]))
+    #expect(update["freeAgentMode"] == .bool(true))
+    #expect(!AnnexAgentUpdate(agentID: "a", freeAgentMode: false).isEmpty)
 }
 
 @Test func durableFeaturesNeedTheCommandAndVersionOne() throws {

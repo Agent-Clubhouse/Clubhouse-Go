@@ -319,6 +319,7 @@ nonisolated extension AnnexCommand {
         case .spawn: .spawn
         case .create: .createAgent
         case .update: .updateAgent
+        case .setModel, .setLevel: .command
         }
     }
 }

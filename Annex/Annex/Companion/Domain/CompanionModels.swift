@@ -68,6 +68,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// The desktop reads and changes durable agents' settings (`agent.update` and agent settings v1).
     var canEditSettings = false
     var canRevokeSession = false
+    /// The desktop answers "Allow always" and the other lasting options from a phone (`permissions.persistentApprovals`).
+    var canAnswerPersistentApprovals = false
+    /// The desktop takes Free Agent Mode from a phone (`permissions.freeAgentMode`).
+    var canSetFreeAgentMode = false
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.
     var theme: CompanionDesktopTheme?
     var providers: [CompanionProvider] = []
@@ -124,6 +128,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var orchestrator: String? = nil
     /// What the agent's chat session reported about itself. Nil without one.
     var session: CompanionSessionFacts? = nil
+    /// Model, effort and permission level, while a live session runs on a desktop that offers them. Nil hides the controls.
+    var chatControls: CompanionChatControls?
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }
@@ -340,7 +346,7 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
 struct CompanionApprovalOption: Identifiable, Sendable, Equatable {
     enum Kind: String, Sendable {
         case allowOnce, rejectOnce, cancelTurn
-        /// Persistent changes. The desktop refuses them from a phone (`persistent_approval_not_supported`).
+        /// Lasting changes. Older desktops refuse them from a phone (`persistent_approval_not_supported`).
         case allowSession, allowAlways, rejectAlways, other
     }
     var id: String
@@ -348,8 +354,15 @@ struct CompanionApprovalOption: Identifiable, Sendable, Equatable {
     var kind: Kind
     /// What an "always" option covers, when the desktop says (`npm install:*`).
     var scope: String?
-    /// Only one-off decisions can be sent from the phone: a remote can't raise an agent's permissions.
-    var isAnswerableHere: Bool { kind == .allowOnce || kind == .rejectOnce || kind == .cancelTurn }
+    /// A decision for this request only. Every desktop takes these from a phone.
+    var isOneOff: Bool { kind == .allowOnce || kind == .rejectOnce || kind == .cancelTurn }
+    /// Changes the agent's permissions for good ("Allow always"). Sent only to desktops with `permissions.persistentApprovals`.
+    var isPersistent: Bool { kind == .allowSession || kind == .allowAlways || kind == .rejectAlways }
+    /// Whether the phone can send it: one-off decisions always, lasting ones when the desktop takes them.
+    func isAnswerable(persistentApprovals: Bool) -> Bool { isOneOff || (persistentApprovals && isPersistent) }
+    /// A lasting allow is confirmed first.
+    var needsConfirmation: Bool { kind == .allowAlways || kind == .allowSession }
+    var allows: Bool { kind == .allowOnce || kind == .allowSession || kind == .allowAlways }
 }
 
 struct CompanionQuestion: Identifiable, Sendable, Equatable {
@@ -492,6 +505,9 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings
+    /// `chat.setModel`. A nil effort leaves it to the desktop: a chosen effort the new model offers is kept.
+    func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws
+    func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws
 }
 
 @MainActor extension CompanionService {
@@ -527,5 +543,11 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.")
+    }
+    func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop)
+    }
+    func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop)
     }
 }

@@ -16,6 +16,7 @@ struct CompanionSpawnSheet: View {
     @State private var showOptions = false
     @State private var confirmReviewedSpawn = false
     @State private var confirmReviewedCreate = false
+    @State private var confirmFreeAgentMode = false
     @State private var kind: Kind = .durable
     @State private var durable = DurableForm()
     @FocusState private var promptFocused: Bool
@@ -46,6 +47,9 @@ struct CompanionSpawnSheet: View {
             .confirmationDialog("Finish reviewing the previous request?", isPresented: $confirmReviewedCreate, titleVisibility: .visible) {
                 Button("Create another agent") { store.acknowledgeReviewedCreate() }
             } message: { Text("The earlier agent may already be on your desktop. Continue only after checking its agent list.") }
+            .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
+                Button("Turn on Free Agent Mode", role: .destructive) { durable.freeAgentMode = true }
+            } message: { Text(CompanionFreeAgentMode.help) }
             .onAppear {
                 project = initialProject
                 if store.uncertainSpawnRequest == nil { store.spawnError = nil }
@@ -207,6 +211,7 @@ struct CompanionSpawnSheet: View {
         var persona = ""
         var useWorktree = true
         var mcpIDs: Set<String> = []
+        var freeAgentMode = false
 
         mutating func reset(to options: CompanionCreateOptions) {
             self.options = options
@@ -217,6 +222,7 @@ struct CompanionSpawnSheet: View {
             persona = ""
             useWorktree = options.isGitRepo && options.defaultUseWorktree
             mcpIDs = Set(options.mcpDefaults)
+            freeAgentMode = false
         }
         var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
         /// With its own worktree the name becomes a folder and a branch, so it's checked as the desktop does.
@@ -316,6 +322,7 @@ struct CompanionSpawnSheet: View {
             .accessibilityIdentifier("new-agent-orchestrator")
             .onChange(of: durable.orchestrator) { _, id in
                 if !options.options.models(for: id).contains(where: { $0.id == durable.model }) { durable.model = "default" }
+                if options.options.orchestrator(id)?.permissions != true { durable.freeAgentMode = false }
             }
             Picker("Model", selection: $durable.model) {
                 ForEach(options.options.models(for: durable.orchestrator)) { Text($0.label).tag($0.id) }
@@ -345,11 +352,24 @@ struct CompanionSpawnSheet: View {
                      : "Works in the project folder, on whatever branch is checked out there.")
             }
         }
-        Section {
-            LabeledContent("Free Agent Mode", value: "Off")
-                .accessibilityIdentifier("new-agent-free-agent-mode")
-        } header: { Text("Permissions") } footer: {
-            Text("The agent asks before it edits. Free Agent Mode can only be turned on at the desktop.")
+        if offersFreeAgentMode(options) {
+            // As the desktop's New agent page: only for CLIs with permission support.
+            let supported = options.options.orchestrator(durable.orchestrator)?.permissions == true
+            Section {
+                Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { supported && durable.freeAgentMode },
+                                                                     set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
+                    .disabled(!supported)
+                    .accessibilityIdentifier("new-agent-free-agent-mode")
+            } header: { Text("Permissions") } footer: {
+                Text(supported ? CompanionFreeAgentMode.help : CompanionFreeAgentMode.unsupported)
+            }
+        } else {
+            Section {
+                LabeledContent("Free Agent Mode", value: "Off")
+                    .accessibilityIdentifier("new-agent-free-agent-mode")
+            } header: { Text("Permissions") } footer: {
+                Text("The agent asks before it edits. Free Agent Mode can only be turned on at the desktop.")
+            }
         }
         if !options.mcpCatalog.isEmpty {
             Section {
@@ -374,7 +394,9 @@ struct CompanionSpawnSheet: View {
             let request = CompanionCreateRequest(
                 project: project, name: durable.trimmedName, color: durable.color,
                 orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
-                persona: nonempty(durable.persona), useWorktree: options.isGitRepo ? durable.useWorktree : nil,
+                persona: nonempty(durable.persona),
+                freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
+                useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
                 clientCommandID: UUID().uuidString)
             Task { if await store.create(request) { dismiss() } }
@@ -403,6 +425,10 @@ struct CompanionSpawnSheet: View {
         }
     }
 
+    /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
+    private func offersFreeAgentMode(_ options: CompanionCreateOptions) -> Bool {
+        selectedHost?.canSetFreeAgentMode == true && options.freeAgentModeAllowed
+    }
     private var selectedHost: CompanionHost? { store.hosts.first { $0.id == project?.hostID } }
     private var selectedProjectName: String {
         guard let host = selectedHost, let name = host.projects.first(where: { $0.id == project?.projectID })?.name else { return "Choose a project" }

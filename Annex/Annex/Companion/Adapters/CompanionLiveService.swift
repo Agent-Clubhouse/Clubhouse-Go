@@ -78,6 +78,13 @@ import ClubhouseTransport
                     projection.apply(event, allowOlderPending: true)
                 }
                 if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
+                // The desktop's own fold is authoritative; live events after it fold on top.
+                if var controls = CompanionChatControls(snapshot: snapshot["chatControls"]) {
+                    if let previous = projections[target], previous.sessionID == projection.sessionID {
+                        controls.awaitingEfforts = previous.controls.awaitingEfforts && projection.effortsSequence <= previous.effortsSequence
+                    }
+                    projection.controls = controls
+                }
                 projection.applyQueueSnapshot(snapshot)
                 projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
                 if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
@@ -252,6 +259,27 @@ import ClubhouseTransport
                                         id: clientCommandID, hostID: target.hostID)
         return receipt.result?["removed"].arrayValue.contains(.string(messageID)) == true
     }
+    func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws {
+        guard capabilities[target.hostID]?.supportsModelSwitch == true else { throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop) }
+        let session = try session(for: target)
+        let before = projections[target]?.effortsSequence ?? 0
+        let switching = projections[target]?.controls.model != model
+        let wire: AnnexCommand.Effort? = switch effort {
+        case .set(let value)?: .set(value)
+        case .providerDefault?: .providerDefault
+        case nil: nil
+        }
+        let receipt = try await execute(.setModel(agentID: target.agentID, sessionID: session, model: model, effort: wire), id: clientCommandID, hostID: target.hostID)
+        // The new model's efforts come with its `session_info`; until then the old list doesn't apply.
+        guard switching, receipt.result?["changed"] != .bool(false), projections[target]?.sessionID == session,
+              (projections[target]?.effortsSequence ?? 0) <= before else { return }
+        projections[target]?.controls.awaitingEfforts = true
+        if let projection = projections[target] { updateAgent(target, projection: projection); emitHosts() }
+    }
+    func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws {
+        guard capabilities[target.hostID]?.supportsLevelSwitch == true else { throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop) }
+        _ = try await execute(.setLevel(agentID: target.agentID, sessionID: try session(for: target), level: level.rawValue), id: clientCommandID, hostID: target.hostID)
+    }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
         _ = try await execute(.permission(agentID: target.agentID, sessionID: try session(for: target), requestID: approvalID, optionID: optionID), id: clientCommandID, hostID: target.hostID)
     }
@@ -287,8 +315,10 @@ import ClubhouseTransport
     /// snapshot shows it leave `creating` for sleeping (or failed).
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
         guard capabilities[request.project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
+        // Older desktops refuse the field outright, so it's left out for them.
+        let freeAgentMode = capabilities[request.project.hostID]?.supportsFreeAgentMode == true ? request.freeAgentMode : nil
         let create = AnnexAgentCreate(projectID: request.project.projectID, name: request.name, color: request.color, orchestrator: request.orchestrator,
-                                      model: request.model, persona: request.persona, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs)
+                                      model: request.model, persona: request.persona, freeAgentMode: freeAgentMode, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs)
         let receipt = try await execute(.create(create), id: request.clientCommandID, hostID: request.project.hostID)
         guard let agentID = receipt.result?["agentId"]?.string else { throw CompanionServiceError.uncertain("The desktop created the agent but didn't say which one. Check its agent list.") }
         await refresh(hostID: request.project.hostID)
@@ -305,6 +335,9 @@ import ClubhouseTransport
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
         guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
+        if change.freeAgentMode != nil, capabilities[target.hostID]?.supportsFreeAgentMode != true {
+            throw CompanionServiceError.rejected(CompanionAgentCommandError.message(code: "free_agent_mode_not_allowed", message: nil) ?? "")
+        }
         let receipt = try await execute(.update(AnnexAgentUpdate(agentID: target.agentID, change: change)), id: clientCommandID, hostID: target.hostID)
         // The receipt carries the saved settings, without the option lists; the sheet keeps the ones it shows.
         if let result = receipt.result, let saved = try? CompanionAgentSettings(json: result) { return saved }
@@ -552,6 +585,8 @@ import ClubhouseTransport
             hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
             hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
+            hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
+            hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             hosts[hostID]?.connection = .connected
@@ -610,6 +645,7 @@ import ClubhouseTransport
                 agent.branch = value["branch"]?.string
                 agent.orchestrator = value["orchestrator"]?.string
                 agent.session = projection.map(\.session)
+                agent.chatControls = projection.flatMap { chatControls($0, target: target) }
                 agents.append(agent)
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
@@ -682,6 +718,20 @@ import ClubhouseTransport
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].turnStartedAt = projection.turnStartedAt
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].contextUsage = projection.contextUsage
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].session = projection.session
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].chatControls = chatControls(projection, target: target)
+    }
+    /// The composer's controls while the session is live, limited to the commands the desktop takes. Older desktops get none.
+    private func chatControls(_ projection: CompanionChatProjector, target: CompanionTarget) -> CompanionChatControls? {
+        Self.chatControls(projection.controls, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
+                          capabilities: capabilities[target.hostID])
+    }
+    nonisolated static func chatControls(_ controls: CompanionChatControls, live: Bool, capabilities: AnnexCapabilities?) -> CompanionChatControls? {
+        guard live, let capabilities, (capabilities.chatControls?.version ?? 0) >= 1,
+              capabilities.supportsModelSwitch || capabilities.supportsLevelSwitch else { return nil }
+        var offered = controls
+        if !capabilities.supportsModelSwitch { offered.modelSwitch = .none; offered.effortSwitch = .none }
+        if !capabilities.supportsLevelSwitch { offered.liveLevels = [] }
+        return offered
     }
     private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
         guard let commands = capabilities[hostID]?.commands else { return [] }

@@ -319,7 +319,7 @@ import Observation
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
         guard canOperate(target), agent(for: target)?.capabilities.contains(.approve) == true,
               !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option),
-              option.isAnswerableHere else { return } // The desktop refuses persistent options from a phone.
+              option.isAnswerable(persistentApprovals: canAnswerPersistentApprovals(target)) else { return }
         var submitted = approval
         submitted.resolution = .submitting
         upsert(.approval(submitted), target: target)
@@ -329,7 +329,7 @@ import Observation
         do {
             try await service.respond(to: approval.id, optionID: option.id, target: target, clientCommandID: UUID().uuidString)
             guard approvalIsSubmitting(approval.id, target: target) else { return }
-            submitted.resolution = option.kind == .allowOnce ? .allowed : .denied
+            submitted.resolution = option.allows ? .allowed : .denied
             upsert(.approval(submitted), target: target)
         } catch {
             guard approvalIsSubmitting(approval.id, target: target) else { return }
@@ -341,6 +341,40 @@ import Observation
                 conversations[target, default: .init()].requiresResync = true
             }
             operationErrors[target] = error.localizedDescription
+        }
+    }
+
+    /// Older desktops take one-off decisions only; "Allow always" and the like are chosen there.
+    func canAnswerPersistentApprovals(_ target: CompanionTarget) -> Bool { host(for: target)?.canAnswerPersistentApprovals == true }
+
+    // MARK: Model, effort and permission level (#155)
+
+    /// The composer's controls can send now: live, connected, and no other command in flight.
+    func canChangeChatControls(_ target: CompanionTarget) -> Bool {
+        canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.chatControls != nil
+    }
+    func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget) async {
+        guard canChangeChatControls(target), let controls = agent(for: target)?.chatControls else { return }
+        let switching = model != controls.model
+        guard switching ? controls.showsModelMenu && controls.models.contains(where: { $0.id == model }) : effort != nil && controls.showsEffortMenu,
+              effort != .providerDefault || controls.effortDefault else { return }
+        await runChatControl(target) { try await service.setModel(model, effort: effort, target: target, clientCommandID: $0) }
+    }
+    func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget) async {
+        guard canChangeChatControls(target), let controls = agent(for: target)?.chatControls,
+              level != controls.currentLevel, controls.liveLevels.contains(level) else { return }
+        await runChatControl(target) { try await service.setLevel(level, target: target, clientCommandID: $0) }
+    }
+    /// The change shows when the session's own event arrives. A refusal means the phone's view was stale, so read it again.
+    private func runChatControl(_ target: CompanionTarget, _ command: (String) async throws -> Void) async {
+        pendingCommands.insert(target)
+        operationErrors[target] = nil
+        defer { pendingCommands.remove(target) }
+        do { try await command(UUID().uuidString) }
+        catch {
+            operationErrors[target] = error.localizedDescription
+            if case CompanionServiceError.uncertain = error { conversations[target, default: .init()].requiresResync = true }
+            else if case CompanionServiceError.rejected = error { await load(target, force: true) }
         }
     }
 

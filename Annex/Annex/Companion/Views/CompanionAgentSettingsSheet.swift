@@ -146,6 +146,7 @@ struct CompanionAgentSettingsForm: View {
     @State private var saving = false
     @State private var nameDraft = ""
     @State private var emojiDraft = ""
+    @State private var confirmFreeAgentMode = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
     /// Re-read when the snapshot changes what the agent is doing, or its name, as the desktop broadcasts after an update.
@@ -169,6 +170,9 @@ struct CompanionAgentSettingsForm: View {
         .navigationTitle(agent?.name ?? "Agent settings")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: refreshKey) { await load() }
+        .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
+            Button("Turn on Free Agent Mode", role: .destructive) { save(.init(freeAgentMode: true)) }
+        } message: { Text(CompanionFreeAgentMode.help) }
     }
 
     @ViewBuilder private func form(_ settings: CompanionAgentSettings) -> some View {
@@ -281,11 +285,29 @@ struct CompanionAgentSettingsForm: View {
             } else {
                 LabeledContent("Clubhouse mode", value: clubhouseModeSummary(settings))
             }
-            LabeledContent("Free Agent Mode", value: settings.freeAgentMode.value ? "On" : "Off")
-                .accessibilityIdentifier("agent-settings-free-agent-mode")
+            if canSetFreeAgentMode {
+                Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { settings.freeAgentMode.value },
+                                                                     set: { if $0 { confirmFreeAgentMode = true } else { save(.init(freeAgentMode: false)) } }))
+                    .disabled(!settings.freeAgentMode.canEdit(sleeping: sleeping) || saving)
+                    .accessibilityIdentifier("agent-settings-free-agent-mode")
+            } else {
+                LabeledContent("Free Agent Mode", value: settings.freeAgentMode.value ? "On" : "Off")
+                    .accessibilityIdentifier("agent-settings-free-agent-mode")
+            }
         } header: { Text("Access") } footer: {
-            Text("Free Agent Mode can only be changed on the desktop.")
+            Text(freeAgentModeFooter(settings))
         }
+    }
+
+    /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
+    private var canSetFreeAgentMode: Bool { store.host(for: target)?.canSetFreeAgentMode == true }
+
+    /// Why the toggle can't change, else the desktop's help text.
+    private func freeAgentModeFooter(_ settings: CompanionAgentSettings) -> String {
+        guard canSetFreeAgentMode else { return "Free Agent Mode can only be changed on the desktop." }
+        if settings.freeAgentMode.editable == .never { return CompanionFreeAgentMode.unsupported }
+        if settings.freeAgentMode.isLocked(sleeping: settings.sleeping) { return "\(CompanionAgentSettings.lockedHint). \(CompanionFreeAgentMode.help)" }
+        return CompanionFreeAgentMode.help
     }
 
     /// "Chat · Opus · Sleeps after 30 min", as the Settings card's one line.
