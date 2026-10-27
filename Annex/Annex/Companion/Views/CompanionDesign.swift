@@ -198,3 +198,40 @@ struct CompanionChips<Value: Hashable>: View {
         }
     }
 }
+
+/// A round tinted button, such as Send. The glyph uses `onTint` so it reads on light accents in dark mode,
+/// and the disabled state has its own fill rather than a dimmed tint.
+struct CompanionTintedCircleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { TintedCircle(configuration: configuration) }
+
+    private struct TintedCircle: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.companionPalette) private var palette
+        var body: some View {
+            configuration.label
+                .foregroundStyle(Color(isEnabled ? palette.onTint : palette.secondaryLabel))
+                .background(Color(isEnabled ? palette.tint : palette.fill), in: Circle())
+                .opacity(configuration.isPressed ? 0.75 : 1)
+                .contentShape(Circle())
+        }
+    }
+}
+
+extension ButtonStyle where Self == CompanionTintedCircleButtonStyle {
+    static var companionTintedCircle: CompanionTintedCircleButtonStyle { .init() }
+}
+
+/// Text on system prominent buttons defaults to white, which is unreadable on the lighter tint used in dark mode.
+private struct CompanionProminentLabel: ViewModifier {
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.companionPalette) private var palette
+    func body(content: Content) -> some View {
+        content.foregroundStyle(Color(isEnabled ? palette.onTint : palette.secondaryLabel))
+    }
+}
+
+extension View {
+    /// Use after `.borderedProminent` or `.glassProminent` on buttons filled with the theme tint.
+    func companionProminentLabel() -> some View { modifier(CompanionProminentLabel()) }
+}

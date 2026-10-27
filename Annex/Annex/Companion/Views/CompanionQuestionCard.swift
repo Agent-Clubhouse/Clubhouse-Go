@@ -45,7 +45,7 @@ struct CompanionQuestionCard: View {
             }
             if question.resolution == .pending {
                 Button("Send answers", systemImage: "arrow.up") { respond(answers) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!canRespond || !CompanionStore.validAnswers(answers, for: question))
             } else if question.resolution == .submitting { ProgressView("Sending answers…") }
         }

@@ -6,12 +6,15 @@ struct CompanionConversationView: View {
     @State private var followLatest = true
     @State private var confirmCancel = false
     @State private var showArchive = false
+    @State private var showRefreshing = false
     @FocusState private var composerFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionAgentSettings) private var agentSettings
+    /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
+    @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
 
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
@@ -64,8 +67,9 @@ struct CompanionConversationView: View {
                 } label: { Label("Conversation actions", systemImage: "ellipsis") }
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) { otherAgentBanner }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
+        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
             if agent.runsInTerminal { terminalNotice } else { composer }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
@@ -139,7 +143,8 @@ struct CompanionConversationView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 22) {
-                    if conversation.isLoading { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
+                    // Refreshes of a transcript already on screen show in the composer instead.
+                    if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
                     if let error = conversation.error {
                         ContentUnavailableView {
                             Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
@@ -175,6 +180,7 @@ struct CompanionConversationView: View {
                 .frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(.bottom)
+            .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .overlay(alignment: .bottomTrailing) {
                 if !followLatest && !conversation.items.isEmpty {
@@ -236,7 +242,7 @@ struct CompanionConversationView: View {
                 }
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
                     Button(allow.label) { Task { await store.respond(approval, option: allow, target: target) } }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.borderedProminent).companionProminentLabel()
                 }
             }
             .buttonBorderShape(.capsule)
@@ -257,7 +263,7 @@ struct CompanionConversationView: View {
                     Text("\(agent.name) is sleeping. Wake it, or send a message to resume.").font(.subheadline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button("Wake", systemImage: "sun.max") { Task { await store.wake(target) } }
-                        .buttonStyle(.glassProminent)
+                        .buttonStyle(.glassProminent).companionProminentLabel()
                         .disabled(!store.canWake(target)).accessibilityIdentifier("companion-wake")
                 }
                 .padding(.leading, 16).padding(.trailing, 6).padding(.vertical, 6)
@@ -271,6 +277,7 @@ struct CompanionConversationView: View {
                     .buttonStyle(.glass).buttonBorderShape(.circle)
                     .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
                     .accessibilityLabel("Interrupt")
+                    .frame(height: composerRowHeight)
                 }
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField(composerPlaceholder, text: draft, axis: .vertical)
@@ -279,6 +286,8 @@ struct CompanionConversationView: View {
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.vertical, 12).padding(.leading, 16)
+                        // One line is centred in the row; longer drafts grow upward with Send on the last line.
+                        .frame(minHeight: composerRowHeight)
                         .focused($composerFocused)
                         .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
                         .accessibilityHint("Runs on your desktop. Command Return sends the message.")
@@ -289,30 +298,73 @@ struct CompanionConversationView: View {
                         Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
                             .font(.headline.weight(.bold)).frame(width: 36, height: 36)
                     }
-                    .buttonStyle(.borderedProminent).buttonBorderShape(.circle)
+                    .buttonStyle(.companionTintedCircle)
                     .disabled(!store.canSend(target) || draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
+                    .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : "")
                     .accessibilityIdentifier("companion-send")
-                    .padding(6)
+                    .padding(.horizontal, 6)
+                    .frame(height: composerRowHeight)
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
             }
-            if conversation.isLoading {
-                ProgressView("Refreshing…").font(.caption)
-            } else if !store.canSend(target) && connection.canOperate && !store.pendingCommands.contains(target) && !conversation.requiresResync {
-                Text("This desktop does not support chat control for this agent yet.")
-                    .font(.caption).foregroundStyle(.secondary)
-            } else if !connection.canOperate && !dynamicTypeSize.isAccessibilitySize {
-                Text("Draft saved while you reconnect").font(.caption).foregroundStyle(.secondary)
-            } else if !dynamicTypeSize.isAccessibilitySize {
-                Text(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : "Runs on your desktop • ⌘ Return to send")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            composerCaption
         }
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+        // Quick refreshes finish before the indicator would appear, so they don't flash.
+        .task(id: conversation.isLoading) {
+            guard conversation.isLoading else { showRefreshing = false; return }
+            guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
+            showRefreshing = true
+        }
+    }
+
+    /// The send button with its padding, or one line of text with the field's padding if that is taller.
+    private var composerRowHeight: CGFloat { max(36 + 12, composerLineHeight + 24) }
+
+    /// One caption line under the composer. Refresh state shows in the same line, so the composer doesn't move.
+    @ViewBuilder private var composerCaption: some View {
+        if let caption = composerCaptionText {
+            Group {
+                if isShowingRefresh {
+                    Label {
+                        Text(caption)
+                    } icon: {
+                        Image(systemName: "arrow.trianglehead.2.clockwise")
+                            .symbolEffect(.rotate, options: .repeat(.continuous), isActive: !reduceMotion)
+                    }
+                    .labelStyle(.titleAndIcon)
+                } else {
+                    Text(caption)
+                }
+            }
+            .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    /// Only for a transcript already on screen: a first load has its own indicator in the transcript.
+    private var isShowingRefresh: Bool { showRefreshing && conversation.isLoading && !conversation.items.isEmpty }
+
+    private var composerCaptionText: String? {
+        // Loading disables Send; say why rather than implying chat is unsupported.
+        if isShowingRefresh {
+            return dynamicTypeSize.isAccessibilitySize ? nil : "Refreshing… you can send in a moment"
+        }
+        if conversation.isLoading { return dynamicTypeSize.isAccessibilitySize ? nil : defaultCaption }
+        if !store.canSend(target) && connection.canOperate && !store.pendingCommands.contains(target) && !conversation.requiresResync {
+            return "This desktop does not support chat control for this agent yet."
+        }
+        if dynamicTypeSize.isAccessibilitySize { return nil }
+        return connection.canOperate ? defaultCaption : "Draft saved while you reconnect"
+    }
+
+    private var defaultCaption: String {
+        agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : "Runs on your desktop • ⌘ Return to send"
     }
 
     /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).

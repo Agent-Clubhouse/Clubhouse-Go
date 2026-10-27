@@ -60,7 +60,7 @@ struct CompanionPairingSheet: View {
                     Button { scanning = true } label: {
                         Label("Scan the pairing code", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent).controlSize(.large)
+                    .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
                 } footer: {
                     Text("Clubhouse shows the code in Settings → Annex. You can also scan it with the iPhone Camera. Or pair manually below.")
                 }

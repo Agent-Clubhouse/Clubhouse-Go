@@ -170,7 +170,7 @@ struct CompanionSpawnSheet: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.glassProminent).controlSize(.large)
+        .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
         .disabled(store.spawnInProgress || store.uncertainSpawnRequest != nil || selectedHost?.connection.canOperate != true || selectedHost?.canSpawn != true || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         .keyboardShortcut(.return, modifiers: .command)
     }

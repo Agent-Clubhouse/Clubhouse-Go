@@ -30,7 +30,7 @@ struct CompanionWelcomeView: View {
                 .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 VStack(spacing: 12) {
                     Button(action: onPair) { Text("Pair your Mac").frame(maxWidth: .infinity) }
-                        .buttonStyle(.glassProminent).controlSize(.large)
+                        .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
                     Button("Look around first", action: onDemo).buttonStyle(.glass).controlSize(.large)
                 }
                 VStack(spacing: 4) {
@@ -75,7 +75,7 @@ struct CompanionDemoView: View {
                     Label("Sample desktop", systemImage: "sparkles").font(.subheadline.weight(.semibold))
                         .padding(.leading, 6)
                     Spacer(minLength: 8)
-                    Button("Pair your Mac", action: onPair).buttonStyle(.glassProminent)
+                    Button("Pair your Mac", action: onPair).buttonStyle(.glassProminent).companionProminentLabel()
                     Button("Close demo", systemImage: "xmark", action: onClose).labelStyle(.iconOnly).buttonStyle(.glass)
                 }
                 .padding(8)
