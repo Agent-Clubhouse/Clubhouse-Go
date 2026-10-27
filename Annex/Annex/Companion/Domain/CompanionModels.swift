@@ -77,6 +77,60 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var providers: [CompanionProvider] = []
     /// Image upload limits. Nil when the desktop is too old to take images: messages are text only.
     var attachments: CompanionAttachmentLimits?
+    /// The desktop lists helper starts and disposes waiting on the user, and takes Approve and Decline (helper requests v1).
+    var canAnswerHelperRequests = false
+    /// Helper starts and disposes orchestrators asked the user to decide, oldest first, from the desktop's snapshot.
+    var helperRequests: [CompanionHelperRequest] = []
+}
+
+/// A helper start or dispose an orchestrator asked the user to decide (the snapshot's `helperRequests`).
+/// The desktop shows it under Needs you: a start on the orchestrator's row, a dispose on the helper's.
+struct CompanionHelperRequest: Identifiable, Sendable, Equatable {
+    enum Kind: String, Sendable { case start, dispose }
+    /// What disposing would lose, from the desktop's checks.
+    struct Dispose: Sendable, Equatable {
+        var uncommittedFiles = 0
+        var unpushedCommits = 0
+        /// Information only: disposing never deletes a remote branch. Nil when no base branch was found.
+        var unmergedCommits: Int?
+        /// A check that couldn't run. The helper can't be disposed then, only declined.
+        var checkError: String?
+        /// The orchestrator asked to force. The desktop refuses that; only the user's own Dispose anyway counts.
+        var forceRequested = false
+        /// Uncommitted files or unpushed commits: approving is "Dispose anyway".
+        var workAtRisk = false
+        var canDispose = true
+    }
+    /// The desktop's request id. A dispose gets a new one when its checks change.
+    var id: String
+    var hostID: String
+    var projectID: String
+    var kind: Kind
+    var requesterID: String
+    var requesterName: String
+    /// Nil for a start: the helper has no id until it is approved.
+    var helperID: String?
+    var helperName: String
+    var requestedAt: Date?
+    var expiresAt: Date?
+    /// The desktop's Needs you line.
+    var summary: String
+    /// For a start: what the helper is asked to do.
+    var task: String?
+    var dispose: Dispose?
+
+    /// The agent whose Needs you row shows it: the helper for a dispose, the orchestrator for a start.
+    var agentTarget: CompanionTarget {
+        .init(hostID: hostID, projectID: projectID, agentID: kind == .dispose ? (helperID ?? requesterID) : requesterID)
+    }
+    /// Stays the same when a dispose is reissued with new checks, so its error and progress stay with it.
+    var slot: String { kind == .dispose ? "dispose:\(hostID):\(helperID ?? id)" : "start:\(hostID):\(id)" }
+    /// Approving needs a confirmation first: a dispose deletes the helper's folder and branch.
+    var approveLabel: String {
+        guard kind == .dispose else { return "Approve" }
+        return dispose?.workAtRisk == true ? "Dispose anyway" : "Dispose"
+    }
+    var canApprove: Bool { kind == .start || dispose?.canDispose == true }
 }
 
 /// The desktop's `/mobile/capabilities.attachments`.
@@ -508,6 +562,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     /// `chat.setModel`. A nil effort leaves it to the desktop: a chosen effort the new model offers is kept.
     func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws
+    /// Approve or decline a helper request. `force` approves a dispose that would lose work.
+    func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws
 }
 
 @MainActor extension CompanionService {
@@ -549,5 +605,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop)
+    }
+    func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to answer helper requests from your phone.")
     }
 }

@@ -14,6 +14,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
         case create(AnnexAgentCreate)
         case update(AnnexAgentUpdate)
+        /// A helper start or dispose an orchestrator asked the user to decide. `force` is the desktop's "Dispose anyway".
+        case helperApprove(requestID: String, force: Bool = false)
+        case helperDecline(requestID: String)
         /// The composer's model and effort menus. `effort` nil leaves it out: the desktop keeps a chosen effort the new model offers.
         case setModel(agentID: String, sessionID: String, model: String, effort: Effort? = nil)
         /// The composer's permission level menu: `plan`, `ask`, `auto_edit`, `auto` or `full_access`.
@@ -49,6 +52,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .update: "agent.update"
         case .setModel: "chat.setModel"
         case .setLevel: "chat.setLevel"
+        case .helperApprove: "helper.approve"
+        case .helperDecline: "helper.decline"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -102,6 +107,10 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .setLevel(let agent, let session, let level):
             guard AnnexCommand.permissionLevels.contains(level) else { throw AnnexTransportError.malformedResponse }
             target(agent, session); v["level"] = .string(level)
+        case .helperApprove(let request, let force):
+            v["requestId"] = .string(request)
+            if force { v["force"] = .bool(true) }
+        case .helperDecline(let request): v["requestId"] = .string(request)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(AnnexJSON.object(v))
@@ -278,6 +287,12 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let permissions: Permissions?
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
     public var supportsFreeAgentMode: Bool { (permissions?.version ?? 0) >= 1 && permissions?.freeAgentMode == true }
+    /// Helper starts and disposes waiting on the user, in the snapshot's `helperRequests`.
+    public let helperRequests: Feature?
+    /// Helper requests are listed and can be answered (`helper.approve` and `helper.decline` with helper requests v1).
+    public var supportsHelperRequests: Bool {
+        commands.contains("helper.approve") && commands.contains("helper.decline") && (helperRequests?.version ?? 0) >= 1
+    }
     /// Image upload limits. Absent on desktops that can't take images: send text only.
     public struct Attachments: Decodable, Sendable, Equatable {
         public static let maximumCount = 10

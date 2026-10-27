@@ -8,16 +8,26 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         case failure
         /// The agent says it needs you but its conversation hasn't loaded yet.
         case unreviewed
+        /// An orchestrator asked to start a helper (on the orchestrator) or dispose one (on the helper).
+        case helperRequest(CompanionHelperRequest)
     }
     var agent: CompanionAgent
     var hostName: String
     var projectName: String
     var kind: Kind
-    var id: CompanionTarget { agent.id }
+    /// An agent's own wait, or one helper request: an agent can have both.
+    var id: String {
+        if case .helperRequest(let request) = kind { return "helper:\(request.slot)" }
+        return "agent:\(agent.id.hostID):\(agent.id.projectID):\(agent.id.agentID)"
+    }
+    var helperRequest: CompanionHelperRequest? { if case .helperRequest(let request) = kind { request } else { nil } }
 
     var deadline: Date? { if case .approval(let approval) = kind { approval.deadline } else { nil } }
-    /// When the agent began waiting, from the desktop's `detailedStatus.timestamp`.
-    var since: Date? { agent.detail?.since }
+    /// When the agent began waiting, from the desktop's `detailedStatus.timestamp`, or when the helper request came.
+    var since: Date? {
+        if let helperRequest { return helperRequest.requestedAt }
+        return agent.detail?.since
+    }
 
     /// An approval this close to timing out goes to the top of Needs you and shows its countdown.
     static let urgentWindow: TimeInterval = 120
@@ -32,6 +42,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         case .approval(let approval): Self.permissionLine(toolName: approval.toolName)
         case .question: Self.questionLine
         case .failure: failureLine
+        case .helperRequest(let request): request.summary
         case .unreviewed:
             switch agent.status {
             case .approval: Self.permissionLine(toolName: agent.detail?.toolName)
@@ -49,6 +60,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
             let summary = approval.summary.trimmingCharacters(in: .whitespacesAndNewlines)
             return summary.isEmpty || summary == "Review the requested action" ? nil : summary
         case .question(let question): return question.prompts.first?.text
+        case .helperRequest(let request): return request.task
         case .failure, .unreviewed: return nil
         }
     }
@@ -134,12 +146,16 @@ extension CompanionStore {
     }
 
     /// Needs you, as the desktop lists it: questions, permission requests, failed tools and errored agents on
-    /// connected desktops, oldest first. An approval about to time out goes first. An offline desktop's agents
-    /// are left to its reconnect card. (The desktop also lists helper start and dispose requests; its
-    /// snapshot doesn't send those yet.)
+    /// connected desktops, and helper start and dispose requests from desktops that send them, oldest first. An
+    /// approval about to time out goes first. An offline desktop's agents are left to its reconnect card.
     func attentionItems(now: Date = Date()) -> [CompanionAttentionItem] {
         var items: [CompanionAttentionItem] = []
         for host in hosts where host.connection.canOperate {
+            for request in helperRequests(on: host, now: now) {
+                guard let project = host.projects.first(where: { $0.id == request.projectID }),
+                      let agent = project.agents.first(where: { $0.id == request.agentTarget }) else { continue }
+                items.append(.init(agent: agent, hostName: host.name, projectName: project.name, kind: .helperRequest(request)))
+            }
             for project in host.projects {
                 for agent in project.agents where agent.status.needsYou {
                     let conversation = conversation(for: agent.id)
@@ -169,9 +185,20 @@ extension CompanionStore {
         }.map(\.element)
     }
 
-    /// The Needs you badge: agents waiting on you on a connected desktop.
+    /// The Needs you badge: agents waiting on you on a connected desktop, and helper requests.
     var needsYouCount: Int {
-        hosts.filter(\.connection.canOperate).flatMap(\.projects).flatMap(\.agents).filter { $0.status.needsYou }.count
+        let operable = hosts.filter(\.connection.canOperate)
+        return operable.flatMap(\.projects).flatMap(\.agents).filter { $0.status.needsYou }.count
+            + operable.reduce(0) { $0 + helperRequests(on: $1).count }
+    }
+
+    /// A desktop's waiting helper requests, when it can take answers: unexpired ones whose agent is listed.
+    func helperRequests(on host: CompanionHost, now: Date = Date()) -> [CompanionHelperRequest] {
+        guard host.canAnswerHelperRequests else { return [] }
+        let listed = Set(host.projects.flatMap(\.agents).map(\.id))
+        return host.helperRequests.filter { request in
+            listed.contains(request.agentTarget) && (request.expiresAt.map { $0 > now } ?? true)
+        }
     }
 
     /// An agent's latest activity: the desktop's `lastActivityAt`, or a newer message in its loaded conversation.

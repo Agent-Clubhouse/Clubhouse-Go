@@ -602,10 +602,84 @@ struct CompanionAttentionCard: View {
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!canRespond || approval.resolution != .pending)
+        case .helperRequest(let request):
+            CompanionHelperRequestActions(request: request, store: store)
         default:
             NavigationLink(value: item.agent.id) { Text(item.kind == .failure ? "Open chat" : "Answer in chat") }
                 .buttonStyle(.bordered).buttonBorderShape(.capsule)
         }
+    }
+}
+
+/// Approve and Decline for a helper start or dispose, with the desktop's rules: a dispose asks first, as the
+/// desktop's dispose dialog does; one with work at risk is "Dispose anyway"; one that couldn't be checked can
+/// only be declined.
+struct CompanionHelperRequestActions: View {
+    let request: CompanionHelperRequest
+    @Bindable var store: CompanionStore
+    @State private var confirmingDispose = false
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        let busy = store.helperRequestsInFlight.contains(request.slot)
+        let enabled = store.canAnswer(request)
+        VStack(alignment: .leading, spacing: 8) {
+            if let note = Self.note(for: request) {
+                Text(note).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("helper-request-note")
+            }
+            HStack(spacing: 8) {
+                Button { Task { await store.answer(request, approve: false) } } label: {
+                    Text("Decline").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("helper-request-decline")
+                if request.canApprove {
+                    Button {
+                        if request.kind == .dispose { confirmingDispose = true }
+                        else { Task { await store.answer(request, approve: true) } }
+                    } label: {
+                        Text(busy ? "Sending…" : request.approveLabel).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent).companionProminentLabel()
+                    .tint(request.kind == .dispose ? Color(palette.error) : nil)
+                    .accessibilityIdentifier("helper-request-approve")
+                }
+            }
+            .buttonBorderShape(.capsule).controlSize(.large)
+            .disabled(!enabled)
+            if let error = store.helperRequestErrors[request.slot] {
+                Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("helper-request-error")
+            }
+        }
+        .confirmationDialog("Dispose of \(request.helperName)?", isPresented: $confirmingDispose, titleVisibility: .visible) {
+            Button(request.approveLabel, role: .destructive) { Task { await store.answer(request, approve: true) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(Self.confirmation(for: request))
+        }
+    }
+
+    /// The desktop dispose dialog's notes.
+    static func note(for request: CompanionHelperRequest) -> String? {
+        guard request.kind == .dispose, let dispose = request.dispose else { return nil }
+        if !dispose.canDispose {
+            return dispose.checkError == nil
+                ? "This phone can't see what disposing would lose. Decline, or answer on the desktop."
+                : "Clubhouse can’t dispose of a helper it couldn’t check, even if you’re sure nothing would be lost."
+        }
+        if dispose.workAtRisk { return "Dispose anyway deletes this work. To keep it, commit and push from \(request.helperName) first." }
+        return nil
+    }
+
+    /// The desktop dispose dialog's intro, and what disposing does.
+    static func confirmation(for request: CompanionHelperRequest) -> String {
+        let name = request.helperName
+        let intro = request.dispose?.workAtRisk == true
+            ? "\(request.requesterName) asked to dispose of \(name), but it has work that would be lost."
+            : "\(request.requesterName) asked to dispose of \(name)."
+        return "\(intro) This stops \(name), deletes its folder and its local branch. Anything already pushed stays on the remote."
     }
 }
 

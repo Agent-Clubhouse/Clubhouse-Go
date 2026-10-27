@@ -307,6 +307,7 @@ enum CompanionAgentCommandError {
         case "unknown_mcp": return "One of those MCP servers is no longer in the project's catalog."
         case "agent_not_found": return "This agent is no longer on the desktop."
         case "project_not_found": return "This project is no longer on the desktop."
+        case "helper_request_not_found": return "This request was already answered, or what it would change has changed. Check Needs you again."
         default:
             if code.hasPrefix("invalid_") { return detail ?? "The desktop couldn't accept these settings." }
             return CompanionChatControlError.message(code: code)

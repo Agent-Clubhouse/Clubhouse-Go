@@ -343,6 +343,43 @@ import ClubhouseTransport
         if let result = receipt.result, let saved = try? CompanionAgentSettings(json: result) { return saved }
         return try await settings(for: target)
     }
+    func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws {
+        guard capabilities[request.hostID]?.supportsHelperRequests == true else {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to answer helper requests from your phone.")
+        }
+        let kind: AnnexCommand.Kind = approve ? .helperApprove(requestID: request.id, force: force) : .helperDecline(requestID: request.id)
+        _ = try await execute(kind, id: clientCommandID, hostID: request.hostID)
+        // The desktop broadcasts a snapshot without it; drop it now so it can't be answered twice.
+        hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
+        emitHosts()
+    }
+    /// The snapshot's `helperRequests`. An entry without an id, kind, project or requester is skipped.
+    nonisolated static func helperRequests(from value: AnnexJSON, hostID: String) -> [CompanionHelperRequest] {
+        Optional(value).arrayValue.compactMap { item -> CompanionHelperRequest? in
+            guard let id = item["requestId"]?.string, let kind = item["kind"]?.string.flatMap(CompanionHelperRequest.Kind.init(rawValue:)),
+                  let projectID = item["projectId"]?.string, let requesterID = item["requester"]?["agentId"]?.string else { return nil }
+            let helperID = item["helper"]?["agentId"]?.string
+            if kind == .dispose && helperID == nil { return nil }
+            let helperName = item["helper"]?["name"]?.string ?? helperID ?? "a helper"
+            let requesterName = item["requester"]?["name"]?.string ?? "An orchestrator"
+            var dispose: CompanionHelperRequest.Dispose?
+            if kind == .dispose, let facts = item["dispose"] {
+                func count(_ key: String) -> Int? { facts[key]?.integer.map(Int.init) ?? facts[key].flatMap { if case .number(let n) = $0 { Int(n) } else { nil } } }
+                let checkError = facts["checkError"]?.string
+                dispose = .init(uncommittedFiles: count("uncommittedFiles") ?? 0, unpushedCommits: count("unpushedCommits") ?? 0,
+                                unmergedCommits: count("unmergedCommits"), checkError: checkError, forceRequested: facts["forceRequested"].boolValue,
+                                workAtRisk: facts["workAtRisk"].boolValue, canDispose: facts["canDispose"].map { Optional($0).boolValue } ?? (checkError == nil))
+            } else if kind == .dispose {
+                // Without the facts the phone can't show what would be lost: only Decline.
+                dispose = .init(canDispose: false)
+            }
+            let summary = item["summary"]?.string ?? (kind == .start ? "Wants to start the helper \(helperName)" : "\(requesterName) asked to dispose this helper.")
+            return .init(id: id, hostID: hostID, projectID: projectID, kind: kind, requesterID: requesterID, requesterName: requesterName,
+                         helperID: helperID, helperName: helperName, requestedAt: item["requestedAt"].flatMap(date(from:)),
+                         expiresAt: item["expiresAt"].flatMap(date(from:)), summary: summary,
+                         task: item["start"]?["task"]?.string, dispose: dispose)
+        }
+    }
     static func agentReadError(_ error: Error) -> String {
         switch error as? AnnexTransportError {
         case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
@@ -530,6 +567,8 @@ import ClubhouseTransport
                     iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
                 }
                 applyCatalog(payload, hostID: hostID)
+                // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
+                if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID) }
                 if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
             case "theme:changed":
@@ -583,6 +622,7 @@ import ClubhouseTransport
             hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
             hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
             hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
+            hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
             hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
