@@ -13,6 +13,11 @@ import Observation
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
+    private(set) var createInProgress = false
+    var createError: String?
+    private(set) var uncertainCreateRequest: CompanionCreateRequest?
+    /// The durable agent just created from this phone, so its chat can offer "Wake with a message".
+    var justCreated: CompanionTarget?
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
@@ -278,6 +283,65 @@ import Observation
             spawnError = error.localizedDescription
             return false
         }
+    }
+
+    // MARK: Durable agents (#131, #132)
+
+    func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
+        try await service.createOptions(for: project)
+    }
+
+    /// Creates a durable agent and opens it. Its worktree is still being made when this returns.
+    func create(_ request: CompanionCreateRequest) async -> Bool {
+        guard !createInProgress, uncertainCreateRequest == nil, let host = hosts.first(where: { $0.id == request.project.hostID }),
+              host.connection.canOperate, host.canCreateDurable,
+              !request.name.isEmpty, request.useWorktree != true || CompanionAgentName.problem(request.name) == nil else { return false }
+        return await dispatchCreate(request)
+    }
+
+    /// Re-sends the same idempotent create, so an unconfirmed one never becomes two agents.
+    func checkCreateOutcome() async -> Bool {
+        guard !createInProgress, let request = uncertainCreateRequest,
+              hosts.first(where: { $0.id == request.project.hostID })?.connection.canOperate == true else { return false }
+        return await dispatchCreate(request)
+    }
+
+    func acknowledgeReviewedCreate() {
+        guard !createInProgress else { return }
+        uncertainCreateRequest = nil; createError = nil
+    }
+
+    private func dispatchCreate(_ request: CompanionCreateRequest) async -> Bool {
+        createInProgress = true
+        createError = nil
+        defer { createInProgress = false }
+        do {
+            let receipt = try await service.create(request)
+            uncertainCreateRequest = nil
+            justCreated = receipt.target
+            selection = receipt.target
+            return true
+        } catch {
+            if case CompanionServiceError.rejected = error { uncertainCreateRequest = nil }
+            else { uncertainCreateRequest = request }
+            createError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Settings are offered for durable agents on desktops that support them.
+    func canEditSettings(_ target: CompanionTarget) -> Bool {
+        host(for: target)?.canEditSettings == true && agent(for: target).map { !$0.isQuick } == true
+    }
+    func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
+        guard canEditSettings(target) else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
+        return try await service.settings(for: target)
+    }
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
+        guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
+            throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
+        }
+        return try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
     }
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }

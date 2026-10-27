@@ -88,6 +88,10 @@ nonisolated public enum AnnexReadRoute: Sendable {
     case agents(projectID: String)
     case sessions(agentID: String)
     case transcript(agentID: String, sessionID: String, offset: Int, limit: Int)
+    /// What the New agent form offers for one project.
+    case createOptions(projectID: String)
+    /// One durable agent's settings, each with when it can change.
+    case agentSettings(agentID: String)
 }
 
 /// A gateway can implement this interface later without weakening direct-host trust.

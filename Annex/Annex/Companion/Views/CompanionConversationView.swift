@@ -11,6 +11,7 @@ struct CompanionConversationView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionOpenAgent) private var openAgent
+    @Environment(\.companionAgentSettings) private var agentSettings
 
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
@@ -24,6 +25,7 @@ struct CompanionConversationView: View {
     var body: some View {
         VStack(spacing: 0) {
             contextHeader
+            if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { composerFocused = true } }
             if !connection.canOperate || conversation.requiresResync { connectionBanner }
             if let error = store.operationErrors[target] {
                 HStack(alignment: .top) {
@@ -44,6 +46,9 @@ struct CompanionConversationView: View {
                 Menu {
                     Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                     Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                    if let agentSettings, agentSettings.canOpen(target) {
+                        Button("Agent settings", systemImage: "slider.horizontal.3") { agentSettings.open(target) }
+                    }
                     Section("Conversation details") {
                         Text(contextName)
                         if let model = agent.model { Text(model) }

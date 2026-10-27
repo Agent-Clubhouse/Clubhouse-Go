@@ -142,6 +142,7 @@ struct CompanionAgentListRow: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
+        .modifier(CompanionAgentMenu(target: agent.id))
     }
 }
 
