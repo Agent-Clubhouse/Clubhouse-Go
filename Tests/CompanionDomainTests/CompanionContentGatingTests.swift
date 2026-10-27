@@ -23,7 +23,11 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite struct CompanionContentLinkFilteringTests {
     @Test func absoluteAndHomePathsAreNotOffered() {
         let text = "`/tmp/apple-shot.kqtP/apple.png` `~/Desktop/notes.md` `C:\\Users\\me\\a.txt` `C:/Users/me/b.txt` `src/app.swift` [log](build/test.log) `./README.md`"
-        #expect(CompanionContentReference.files(in: text) == [.file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
+        // Absolute paths are candidates for the agent's content roots; home paths never are.
+        let files = CompanionContentReference.files(in: text)
+        #expect(files == [.file("/tmp/apple-shot.kqtP/apple.png"), .file("C:\\Users\\me\\a.txt"), .file("C:/Users/me/b.txt"),
+                          .file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
+        #expect(CompanionContentReference.offered(files, richContentAvailable: true) == [.file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
     }
 
     @Test func onlyRelativePathsCountAsInsideTheAgentsFolders() {
@@ -35,7 +39,7 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 
     @Test func toolReferencesAreDedupedAndStable() {
         let tool = CompanionTool(id: "t", name: "Read", summary: "", output: "`b.txt` `a.txt` `b.txt` `/tmp/x.png`", state: .completed, images: [.image(mediaRef), .image(mediaRef)])
-        #expect(CompanionContentReference.references(in: .tool(tool)) == [.file("a.txt"), .file("b.txt"), .image(mediaRef)])
+        #expect(CompanionContentReference.references(in: .tool(tool)) == [.file("/tmp/x.png"), .file("a.txt"), .file("b.txt"), .image(mediaRef)])
     }
 
     @Test func onlyAssistantMessagesOfferFileLinks() {
@@ -70,6 +74,9 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         #expect(CompanionContentReference.hintRowID(in: rows, richContentAvailable: false) == "tool:t")
         #expect(CompanionContentReference.hintRowID(in: rows, richContentAvailable: true) == nil)
         #expect(CompanionContentReference.hintRowID(in: [rows[1], rows[3]], richContentAvailable: false) == nil)
+        // A row with only an absolute path had nothing to offer, since the roots are empty while the setting is off.
+        let absolute: CompanionTimelineRow = .item(.message(.init(id: "4", role: .assistant, text: "Wrote `/tmp/x.txt`")))
+        #expect(CompanionContentReference.hintRowID(in: [rows[0], absolute], richContentAvailable: false) == rows[0].id)
     }
 
     @Test func hintNamesTheDesktopSetting() {

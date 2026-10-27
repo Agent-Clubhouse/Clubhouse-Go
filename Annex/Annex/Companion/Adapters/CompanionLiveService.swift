@@ -17,6 +17,8 @@ import ClubhouseTransport
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
     private var historyGenerations: [CompanionTarget: UUID] = [:]
     private var quickCatalog: [String: AnnexJSON] = [:]
+    /// Hosts whose snapshot says `ptyHost.platform == "win32"`, for matching content roots.
+    private var windowsHosts: Set<String> = []
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
@@ -100,7 +102,8 @@ import ClubhouseTransport
                 projections[target] = projection
                 updateAgent(target, projection: projection)
                 emitHosts()
-                return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID)
+                return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID,
+                             contentRoots: Self.contentRoots(from: snapshot, windows: windowsHosts.contains(target.hostID)))
             } catch {
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 let pending = buffers.removeValue(forKey: target) ?? []
@@ -331,6 +334,7 @@ import ClubhouseTransport
         transports.removeValue(forKey: hostID)
         hosts.removeValue(forKey: hostID)
         capabilities.removeValue(forKey: hostID)
+        windowsHosts.remove(hostID)
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
@@ -483,6 +487,7 @@ import ClubhouseTransport
             switch envelope.type {
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
+                if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 applyCatalog(payload, hostID: hostID)
                 if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
@@ -600,6 +605,10 @@ import ClubhouseTransport
             }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
         hosts[hostID] = host
+    }
+    /// The chat snapshot's `contentRoots` (desktop #2460). Older desktops omit it, which leaves relative paths only.
+    nonisolated static func contentRoots(from snapshot: AnnexJSON, windows: Bool) -> CompanionContentRoots {
+        .init(paths: snapshot["contentRoots"].arrayValue.prefix(16).compactMap { $0.string.flatMap { $0.isEmpty ? nil : $0 } }, windows: windows)
     }
     /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings. Zero means unknown.
     nonisolated static func date(from value: AnnexJSON) -> Date? {

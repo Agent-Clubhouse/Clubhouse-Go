@@ -63,7 +63,7 @@ import Foundation
             .tool(.init(id: "tool-1-search", name: "Search for reconnect", summary: "reconnect", output: "12 matches in 4 files", state: .completed, kind: .search)),
             .tool(.init(id: "tool-1-read", name: "Read file", summary: "Reconnect.swift", output: "Read 88 lines.", state: .completed,
                         kind: .read, location: "Sources/Companion/Reconnect.swift")),
-            .tool(.init(id: "tool-2", name: "swift test --filter ConversationTests", summary: "", output: "8 tests passed. No failures.", state: .completed,
+            .tool(.init(id: "tool-2", name: "swift test --filter ConversationTests", summary: "", output: "8 tests passed. No failures.\nLog: `/Users/river/clubhouse/.build/test.log` (`/tmp/scratch.txt` stays unlinked)", state: .completed,
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
@@ -78,7 +78,7 @@ import Foundation
                 .init(id: "allow-once-2", label: "Allow once", kind: .allowOnce),
                 .init(id: "reject-once-2", label: "Deny", kind: .rejectOnce)
             ]))
-        ])
+        ], contentRoots: .init(paths: ["/Users/river/clubhouse"]))
     }
     /// Exercises block Markdown: a heading, a GFM table with aligned columns, and a task list.
     static let statusReply = """

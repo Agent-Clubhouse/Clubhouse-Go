@@ -149,6 +149,29 @@ private actor LiveTestTransport: AnnexTransporting {
         try await waitUntil { store.agent(for: target)?.status == .working }
     }
 
+    @Test func contentRootsComeFromEachChatSnapshotAndTheHostsPlatform() async throws {
+        let transport = LiveTestTransport()
+        var history = snapshot("session", text: "Hi")
+        if case .object(var fields) = history { fields["contentRoots"] = .array([.string("C:\\Proj")]); history = .object(fields) }
+        await transport.setHistory(history)
+        let (_, store) = try await setup(transport)
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(.message(.init(type: "snapshot", payload: .object([
+            "projects": .array([.object(["id": .string("project"), "name": .string("Project")])]),
+            "agents": .object(["project": .array([.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])])]),
+            "ptyHost": .object(["platform": .string("win32")])
+        ]))))
+        // The snapshot frame is handled asynchronously; reload until it has been seen.
+        try await waitUntil { await store.load(target, force: true); return store.contentRoots(for: target).windows }
+        #expect(store.contentRoots(for: target) == .init(paths: ["C:\\Proj"], windows: true))
+        #expect(store.contentRoots(for: target).covers("c:/proj/a.txt"))
+        // An older desktop omits the field: relative paths only.
+        await transport.setHistory(snapshot("session", text: "Hi"))
+        await store.load(target, force: true)
+        #expect(store.contentRoots(for: target).paths.isEmpty)
+        store.stop()
+    }
+
     @Test func sleepingDurableCanWakeOnlyAfterAuthoritativeSnapshot() async throws {
         let transport = LiveTestTransport()
         await transport.acceptCommands()
