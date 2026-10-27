@@ -25,6 +25,7 @@ private actor LiveTestTransport: AnnexTransporting {
     func setCatalogAgent(_ value: AnnexJSON) { catalogAgent = value }
     private var rejectNext = true
     private(set) var executedKinds: [String] = []
+    private(set) var executedCommands: [AnnexCommand] = []
     func acceptCommands() { rejectNext = false }
 
     func delaySubscription() { holdEvents = true }
@@ -84,6 +85,7 @@ private actor LiveTestTransport: AnnexTransporting {
     func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt {
         executedIDs.append(command.commandID)
         executedKinds.append(command.type)
+        executedCommands.append(command)
         if command.type == "agent.start", let startedHistory { historyResponse = startedHistory }
         if let receipt = commands[command.commandID] { return receipt }
         let status = rejectNext ? "rejected" : "completed"
@@ -186,6 +188,54 @@ private actor LiveTestTransport: AnnexTransporting {
         await store.wake(target)
         #expect(await transport.executedKinds == ["agent.start"])
         store.stop()
+    }
+    /// Wake & Resume sends `resume: true`; Start New Session sends `resume: false`.
+    @Test(arguments: [(CompanionWakeChoice.resume, true), (.newSession, false), (.wake, true)])
+    func wakeChoiceSetsResume(choice: CompanionWakeChoice, resume: Bool) async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping"), "hasSession": .bool(true)]))
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(true)]))
+        let (_, store) = try await setup(transport)
+        defer { store.stop() }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: target)?.hasSession == true)
+        #expect(store.wakeChoices(for: target) == [.resume, .newSession])
+        // From a row's menu the chat isn't read yet: waking reads it first.
+        #expect(store.mayWake(target))
+        await store.wake(target, choice)
+        let commands = await transport.executedCommands
+        #expect(commands.map(\.kind) == [.start(agentID: "agent", resume: resume)])
+        let body = try JSONSerialization.jsonObject(with: try #require(commands.first).encoded()) as? [String: Any]
+        #expect(body?["resume"] as? Bool == resume)
+    }
+    @Test func messageToAnAgentWithoutASessionStartsFresh() async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping"), "hasSession": .bool(false)]))
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(true)]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop() }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.wakeChoices(for: target) == [.newSession])
+        _ = try await service.history(for: target)
+        _ = try await service.send(.init(target: target, text: "hello", clientCommandID: "fresh", isSteering: false))
+        #expect(await transport.executedCommands.map(\.kind) == [.start(agentID: "agent", message: "hello", resume: false)])
+    }
+    @Test func catalogDetailedStatusReachesTheAgent() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running"),
+            "detailedStatus": .object(["state": .string("needs_permission"), "message": .string("Needs permission"),
+                                       "toolName": .string("mcp__clubhouse__message_parent"), "timestamp": .integer(1_700_000_000_000)])]))
+        let (_, store) = try await setup(transport)
+        defer { store.stop() }
+        try await waitUntil { store.hosts.first?.connection == .connected && store.agent(for: target) != nil }
+        let agent = try #require(store.agent(for: target))
+        #expect(agent.status == .approval)
+        #expect(agent.detail == .init(state: "needs_permission", message: "Needs permission", toolName: "mcp__clubhouse__message_parent",
+                                      since: Date(timeIntervalSince1970: 1_700_000_000)))
+        #expect(agent.hasSession == nil)
+        #expect(store.attentionItems().map(\.detail) == ["Needs permission to use message_parent"])
     }
     @Test func newAgentBecomesSendableWhenItsChatStartsAfterHistoryLoaded() async throws {
         let transport = LiveTestTransport()

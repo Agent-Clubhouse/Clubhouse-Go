@@ -17,17 +17,61 @@ extension EnvironmentValues {
     }
 }
 
-/// The long-press menu on an agent row: Agent settings, when its desktop offers them.
+/// Wakes a sleeping durable agent from an agent row's long-press menu.
+struct CompanionAgentWakeAction {
+    /// The ways to wake it, or none when it isn't asleep.
+    var choices: @MainActor (CompanionTarget) -> [CompanionWakeChoice]
+    var wake: @MainActor (CompanionTarget, CompanionWakeChoice) -> Void
+}
+
+private struct CompanionAgentWakeActionKey: EnvironmentKey {
+    static let defaultValue: CompanionAgentWakeAction? = nil
+}
+
+extension EnvironmentValues {
+    var companionAgentWake: CompanionAgentWakeAction? {
+        get { self[CompanionAgentWakeActionKey.self] }
+        set { self[CompanionAgentWakeActionKey.self] = newValue }
+    }
+}
+
+/// The long-press menu on an agent row: Wake & Resume and Start New Session for a sleeping agent,
+/// and Agent settings when its desktop offers them.
 struct CompanionAgentMenu: ViewModifier {
     let target: CompanionTarget
     @Environment(\.companionAgentSettings) private var settings
+    @Environment(\.companionAgentWake) private var wake
     func body(content: Content) -> some View {
-        if let settings, settings.canOpen(target) {
+        let choices = wake?.choices(target) ?? []
+        let canOpenSettings = settings?.canOpen(target) == true
+        if canOpenSettings || !choices.isEmpty {
             content.contextMenu {
-                Button("Agent settings", systemImage: "slider.horizontal.3") { settings.open(target) }
+                if let wake {
+                    ForEach(choices) { choice in
+                        Button(choice.label, systemImage: choice.systemImage) { wake.wake(target, choice) }
+                    }
+                }
+                if let settings, canOpenSettings {
+                    Button("Agent settings", systemImage: "slider.horizontal.3") { settings.open(target) }
+                }
             }
         } else {
             content
+        }
+    }
+}
+
+/// The wake buttons for a sleeping agent: Wake & Resume first when there's a session to resume, then Start New Session.
+struct CompanionWakeButtons: View {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    var body: some View {
+        let choices = store.wakeChoices(for: target)
+        ForEach(Array(choices.enumerated()), id: \.element) { index, choice in
+            let button = Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
+                .disabled(!store.canWake(target))
+                .accessibilityIdentifier(index == 0 ? "companion-wake" : "companion-wake-\(choice.rawValue)")
+            if index == 0 { button.buttonStyle(.glassProminent).companionProminentLabel() } else { button.buttonStyle(.glass) }
         }
     }
 }
@@ -298,6 +342,12 @@ struct CompanionCreatedAgentNotice: View {
                     Button("Wake with a message", systemImage: "text.bubble", action: onWakeWithMessage)
                         .buttonStyle(.glassProminent).companionProminentLabel()
                         .accessibilityIdentifier("companion-wake-with-message")
+                    // Or wake it without one. A new agent has no session yet, so this is Start New Session.
+                    ForEach(store.wakeChoices(for: agent.id)) { choice in
+                        Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(agent.id, choice) } }
+                            .buttonStyle(.glass).disabled(!store.mayWake(agent.id))
+                            .accessibilityIdentifier("companion-created-wake-\(choice.rawValue)")
+                    }
                 }
             }
             Spacer(minLength: 0)

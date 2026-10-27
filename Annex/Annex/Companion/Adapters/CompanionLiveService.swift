@@ -138,7 +138,9 @@ import ClubhouseTransport
         if readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {
             // `agent.start` carries text only; the desktop answers an image upload for a stopped agent with `not_chat`.
             guard request.attachmentIDs.isEmpty else { throw CompanionServiceError.rejected(Self.notChatMessage) }
-            kind = .start(agentID: request.target.agentID, message: request.text, resume: true)
+            // Resume the last session when there is one; the desktop starts fresh when asked to resume none.
+            let hasSession = hosts[request.target.hostID]?.projects.flatMap(\.agents).first { $0.id == request.target }?.hasSession
+            kind = .start(agentID: request.target.agentID, message: request.text, resume: hasSession ?? true)
         } else {
             kind = .send(agentID: request.target.agentID, sessionID: try session(for: request.target), text: request.text,
                          delivery: request.isSteering ? .steer : request.queueIfBusy ? .queued : .auto, attachmentIDs: request.attachmentIDs)
@@ -187,12 +189,12 @@ import ClubhouseTransport
         }
     }
 
-    func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
+    func wake(_ target: CompanionTarget, resume: Bool, clientCommandID: String) async throws {
         return try await AnnexTelemetry.shared.measure(.wake) {
             guard readOnly.contains(target), projections[target]?.capabilities.contains(.wake) == true else {
                 throw CompanionServiceError.rejected("Refresh the conversation before waking this agent.")
             }
-            _ = try await execute(.start(agentID: target.agentID, resume: true), id: clientCommandID, hostID: target.hostID)
+            _ = try await execute(.start(agentID: target.agentID, resume: resume), id: clientCommandID, hostID: target.hostID)
             await refresh(hostID: target.hostID)
 
         }
@@ -603,6 +605,8 @@ import ClubhouseTransport
                                            isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count),
                                            turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
                 Self.applyIdentity(value, icon: agentIcons?[id], to: &agent)
+                agent.detail = Self.detail(from: detailed)
+                if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
                 agents.append(agent)
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
@@ -631,6 +635,12 @@ import ClubhouseTransport
         agent.emoji = value["emoji"]?.string
         agent.iconData = CompanionIdentityColor.data(fromDataURL: icon?.string)
         agent.freeAgentMode = value["freeAgentMode"].boolValue == true
+    }
+    /// The desktop's `detailedStatus`, or nil when it sends none.
+    nonisolated static func detail(from value: AnnexJSON?) -> CompanionAgentDetail? {
+        guard let value, case .object = value else { return nil }
+        return .init(state: value["state"]?.string, message: value["message"]?.string, toolName: value["toolName"]?.string,
+                     since: value["timestamp"].flatMap(date(from:)))
     }
     /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings. Zero means unknown.
     nonisolated static func date(from value: AnnexJSON) -> Date? {

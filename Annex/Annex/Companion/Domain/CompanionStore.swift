@@ -69,11 +69,23 @@ import Observation
     func canWake(_ target: CompanionTarget) -> Bool {
         canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
     }
-    func wake(_ target: CompanionTarget) async {
+    /// The ways to wake this agent: Wake & Resume only when it has a session to resume, and Start New Session.
+    func wakeChoices(for target: CompanionTarget) -> [CompanionWakeChoice] {
+        CompanionWakeChoice.choices(hasSession: agent(for: target)?.hasSession)
+    }
+    /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
+    func mayWake(_ target: CompanionTarget) -> Bool {
+        guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
+        return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
+            && (!conversation(for: target).isLoaded || agent.capabilities.contains(.wake))
+    }
+    func wake(_ target: CompanionTarget, _ choice: CompanionWakeChoice = .wake) async {
+        // From a row's menu the chat may not be read yet, and only its snapshot says whether waking is allowed.
+        if !conversation(for: target).isLoaded { await load(target) }
         guard canWake(target) else { return }
         pendingCommands.insert(target); operationErrors.removeValue(forKey: target)
         defer { pendingCommands.remove(target) }
-        do { try await service.wake(target, clientCommandID: UUID().uuidString); await load(target, force: true) }
+        do { try await service.wake(target, resume: choice.resume, clientCommandID: UUID().uuidString); await load(target, force: true) }
         catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {

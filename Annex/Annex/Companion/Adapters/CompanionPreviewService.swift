@@ -52,6 +52,8 @@ import Foundation
                                        capabilities: capabilities.union(extra),
                                        lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
+            // Sleeping preview agents have run before, so they offer Wake & Resume and Start New Session.
+            if status == .sleeping { agent.hasSession = true }
             return agent
         }
         return [
