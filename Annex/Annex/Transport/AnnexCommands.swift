@@ -14,6 +14,14 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
         case create(AnnexAgentCreate)
         case update(AnnexAgentUpdate)
+        /// The composer's model and effort menus. `effort` nil leaves it out: the desktop keeps a chosen effort the new model offers.
+        case setModel(agentID: String, sessionID: String, model: String, effort: Effort? = nil)
+        /// The composer's permission level menu: `plan`, `ask`, `auto_edit`, `auto` or `full_access`.
+        case setLevel(agentID: String, sessionID: String, level: String)
+    }
+    /// A reasoning effort to switch to, or the provider's default (sent as `null`; needs `effortDefault`).
+    public enum Effort: Sendable, Equatable {
+        case set(String), providerDefault
     }
     public let createdAt: Date
     public let commandID: String
@@ -39,8 +47,12 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .spawn: "agent.spawn"
         case .create: "agent.create"
         case .update: "agent.update"
+        case .setModel: "chat.setModel"
+        case .setLevel: "chat.setLevel"
         }
     }
+    /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
+    public static let permissionLevels = ["plan", "ask", "auto_edit", "auto", "full_access"]
     public func encoded() throws -> Data {
         guard !commandID.isEmpty, commandID.count <= 128, !epoch.isEmpty, epoch.count <= 128 else {
             throw AnnexTransportError.malformedResponse
@@ -77,6 +89,19 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             // The desktop refuses an update that changes nothing.
             guard !update.isEmpty else { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
+        case .setModel(let agent, let session, let model, let effort):
+            guard !model.isEmpty, model.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent, session); v["model"] = .string(model)
+            switch effort {
+            case .set(let value)?:
+                guard !value.isEmpty, value.count <= 64 else { throw AnnexTransportError.malformedResponse }
+                v["effort"] = .string(value)
+            case .providerDefault?: v["effort"] = .null
+            case nil: break
+            }
+        case .setLevel(let agent, let session, let level):
+            guard AnnexCommand.permissionLevels.contains(level) else { throw AnnexTransportError.malformedResponse }
+            target(agent, session); v["level"] = .string(level)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(AnnexJSON.object(v))
@@ -85,8 +110,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
     }
 }
 
-/// `agent.create`: a durable agent, as the desktop's New agent page makes one. There is deliberately no
-/// Free Agent Mode field: the desktop refuses it from a phone (403 `free_agent_mode_not_allowed`).
+/// `agent.create`: a durable agent, as the desktop's New agent page makes one. Send `freeAgentMode` only to a desktop
+/// that advertises `permissions.freeAgentMode`; older ones refuse the field (403 `free_agent_mode_not_allowed`).
 nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var projectID: String
     public var name: String
@@ -95,15 +120,18 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var orchestrator: String?
     public var model: String?
     public var persona: String?
+    /// Skip every permission prompt. Omitted follows the project's agent defaults.
+    public var freeAgentMode: Bool?
     public var useWorktree: Bool?
     public var mcpIDs: [String]?
     public var branchName: String?
     public var branchFrom: String?
     public var folderName: String?
     public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil, persona: String? = nil,
-                useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil, folderName: String? = nil) {
+                freeAgentMode: Bool? = nil, useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil,
+                folderName: String? = nil) {
         self.projectID = projectID; self.name = name; self.color = color; self.orchestrator = orchestrator; self.model = model
-        self.persona = persona; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
+        self.persona = persona; self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
         self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName
     }
     var fields: [String: AnnexJSON] {
@@ -111,6 +139,7 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
         if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         if let model { v["model"] = .string(model) }
         if let persona { v["persona"] = .string(persona) }
+        if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let useWorktree { v["useWorktree"] = .bool(useWorktree) }
         if let mcpIDs { v["mcpIds"] = .array(mcpIDs.map(AnnexJSON.string)) }
         if let branchName { v["branchName"] = .string(branchName) }
@@ -120,7 +149,7 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     }
 }
 
-/// `agent.update`: only the settings that changed. Free Agent Mode is read-only from a phone, so it has no field.
+/// `agent.update`: only the settings that changed. `freeAgentMode` needs a desktop that advertises `permissions.freeAgentMode`.
 nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// A value that can also be cleared, sent as `null`.
     public enum Clearable: Sendable, Equatable {
@@ -150,11 +179,14 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// Clearing it means the project default.
     public var persona: Clearable?
     public var clubhouseMode: Bool?
+    /// A spawn setting: the desktop refuses it while the agent is awake (409 `agent_running`).
+    public var freeAgentMode: Bool?
     public var idleSleep: IdleSleep?
     public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil,
-                runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, idleSleep: IdleSleep? = nil) {
+                runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil) {
         self.agentID = agentID; self.name = name; self.color = color; self.emoji = emoji; self.orchestrator = orchestrator
-        self.model = model; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode; self.idleSleep = idleSleep
+        self.model = model; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode
+        self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep
     }
     /// True when it changes nothing; the desktop needs at least one setting.
     public var isEmpty: Bool { fields.count == 1 }
@@ -168,6 +200,7 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
         if let runtime { v["runtime"] = .string(runtime.rawValue) }
         if let persona { v["persona"] = persona.json }
         if let clubhouseMode { v["clubhouseMode"] = .bool(clubhouseMode) }
+        if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let idleSleep { v["idleSleep"] = idleSleep.json }
         return v
     }
@@ -219,6 +252,32 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAgentCreate: Bool { commands.contains("agent.create") && (createOptions?.version ?? 0) >= 1 }
     /// An agent's settings can be read and changed (`agent.update` with agent settings v1).
     public var supportsAgentSettings: Bool { commands.contains("agent.update") && (agentSettings?.version ?? 0) >= 1 }
+    /// The composer's model, effort and level controls (`chatControls` v1). Absent on older desktops.
+    public let chatControls: Feature?
+    public var supportsModelSwitch: Bool { commands.contains("chat.setModel") && (chatControls?.version ?? 0) >= 1 }
+    public var supportsLevelSwitch: Bool { commands.contains("chat.setLevel") && (chatControls?.version ?? 0) >= 1 }
+    /// What a paired phone may do with permissions. Older desktops have no block: one-off approvals only, and no Free Agent Mode.
+    public struct Permissions: Decodable, Sendable, Equatable {
+        public let version: Int
+        /// `chat.permission` answers `allow_session`, `allow_always` and `reject_always`.
+        public let persistentApprovals: Bool
+        /// `agent.create` and `agent.update` take `freeAgentMode`.
+        public let freeAgentMode: Bool
+        public init(version: Int = 1, persistentApprovals: Bool, freeAgentMode: Bool) {
+            self.version = version; self.persistentApprovals = persistentApprovals; self.freeAgentMode = freeAgentMode
+        }
+        /// A malformed block grants nothing rather than failing the whole capability document.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = (try? c.decode(Int.self, forKey: .version)) ?? 0
+            persistentApprovals = (try? c.decode(Bool.self, forKey: .persistentApprovals)) ?? false
+            freeAgentMode = (try? c.decode(Bool.self, forKey: .freeAgentMode)) ?? false
+        }
+        private enum CodingKeys: String, CodingKey { case version, persistentApprovals, freeAgentMode }
+    }
+    public let permissions: Permissions?
+    public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
+    public var supportsFreeAgentMode: Bool { (permissions?.version ?? 0) >= 1 && permissions?.freeAgentMode == true }
     /// Image upload limits. Absent on desktops that can't take images: send text only.
     public struct Attachments: Decodable, Sendable, Equatable {
         public static let maximumCount = 10

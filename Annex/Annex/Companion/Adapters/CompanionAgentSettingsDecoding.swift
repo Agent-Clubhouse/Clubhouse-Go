@@ -47,6 +47,7 @@ extension CompanionCreateOptions {
         defaultColor = defaults?["color"]?.string ?? options.colors.first?.id ?? "indigo"
         defaultModel = defaults?["model"]?.string ?? "default"
         defaultUseWorktree = defaults?["useWorktree"]?.boolOrNil ?? isGitRepo
+        freeAgentModeAllowed = json["freeAgentMode"]?["allowed"].boolValue ?? false
     }
 }
 
@@ -72,7 +73,8 @@ extension CompanionAgentSettings {
         persona = .init(value: string("persona"), editable: editable("persona"))
         clubhouseMode = .init(value: settings["clubhouseMode"]?["value"]?.boolOrNil, editable: editable("clubhouseMode"))
         clubhouseModeProjectEnabled = settings["clubhouseMode"]?["projectEnabled"].boolValue ?? false
-        freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: .never)
+        // `never` on desktops that keep it for themselves; `sleeping` when the CLI has permission support and the phone may set it.
+        freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: editable("freeAgentMode") == .never ? .never : .sleeping)
         let idle = settings["idleSleep"]
         idleSleep = .init(value: Self.idleSleep(idle?["value"]), editable: editable("idleSleep"))
         idleSleepApplies = idle?["applies"]?.boolOrNil ?? true
@@ -130,7 +132,7 @@ extension AnnexAgentUpdate {
         }
         self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
                   model: change.model, runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
-                  clubhouseMode: change.clubhouseMode, idleSleep: idle)
+                  clubhouseMode: change.clubhouseMode, freeAgentMode: change.freeAgentMode, idleSleep: idle)
     }
 }
 
