@@ -81,7 +81,8 @@ struct CompanionHomeLayout: Sendable, Equatable {
 
     /// Running in any way, idle between turns included: the desktop's `running`.
     static func isAwake(_ agent: CompanionAgent) -> Bool { ![.sleeping, .completed, .stopped].contains(agent.status) }
-    static func isSleeping(_ agent: CompanionAgent) -> Bool { !agent.isQuick && agent.status == .sleeping }
+    /// Durable agents the status dot shows as Sleeping (asleep, or stopped).
+    static func isSleeping(_ agent: CompanionAgent) -> Bool { !agent.isQuick && agent.status.dot == .sleeping }
     static func isFinishedQuick(_ agent: CompanionAgent) -> Bool { agent.isQuick && (agent.status == .completed || agent.status == .stopped) }
 }
 

@@ -161,10 +161,11 @@ struct CompanionAgentFoldingTests {
     @Test func sleepingAndFinishedQuickAgentsFold() {
         let list = entries([("p1", [agent("awake", .working, activity: ago(minutes: 1)), agent("napping", .sleeping, activity: ago(minutes: 2)),
                                     agent("done", .completed, activity: ago(minutes: 3), quick: true), agent("quickRunning", .working, quick: true),
-                                    agent("cancelled", .stopped, quick: true), agent("finishedDurable", .completed)])])
+                                    agent("cancelled", .stopped, quick: true), agent("finishedDurable", .completed),
+                                    agent("stoppedDurable", .stopped), agent("startingUp", .starting)])])
         let group = layout(list).projects[0]
-        #expect(group.agents.map(\.name) == ["awake", "quickRunning", "finishedDurable"])
-        #expect(group.sleeping.map(\.name) == ["napping"])
+        #expect(group.agents.map(\.name) == ["awake", "quickRunning", "finishedDurable", "startingUp"])
+        #expect(group.sleeping.map(\.name) == ["napping", "stoppedDurable"])
         #expect(group.finishedQuick.map(\.name) == ["done", "cancelled"])
     }
 }
