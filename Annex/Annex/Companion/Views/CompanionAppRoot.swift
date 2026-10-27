@@ -31,7 +31,8 @@ import ClubhouseTransport
             if active { await service.resume() }
             else { await service.suspend() }
         }
-        self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil)
+        self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
+                                    finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
     }
     func start() async {
         guard !started else { return }

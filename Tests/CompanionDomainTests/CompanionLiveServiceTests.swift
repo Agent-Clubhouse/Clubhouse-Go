@@ -83,9 +83,16 @@ private actor LiveTestTransport: AnnexTransporting {
                 return await withCheckedContinuation { historyGate = $0 }
             }
             return historyResponse
+        case .gitStatus(let project):
+            return .object(["hasGit": .bool(true), "branch": .string("main-\(project)"),
+                            "status": .array([.object(["path": .string("gone.txt"), "status": .string("D"), "staged": .bool(true)])])])
+        case .gitDiff(_, let file, let staged):
+            diffReads.append("\(file):\(staged)")
+            return .object(["original": .string("a\nb\n"), "modified": .string("")])
         default: throw AnnexTransportError.unsupportedCapability("fixture")
         }
     }
+    private(set) var diffReads: [String] = []
     func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt {
         executedIDs.append(command.commandID)
         executedKinds.append(command.type)
@@ -208,6 +215,45 @@ private actor LiveTestTransport: AnnexTransporting {
         await store.load(target, force: true)
         #expect(store.contentRoots(for: target).paths.isEmpty)
         store.stop()
+    @Test func aQuickAgentsExitIsKeptForTheFinishedList() async throws {
+        let transport = LiveTestTransport()
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        let project = CompanionProjectTarget(hostID: target.hostID, projectID: "project")
+        let quick: AnnexJSON = .object(["id": .string("quick-1"), "kind": .string("quick"), "name": .string("brave-otter"), "prompt": .string("Fix the build"),
+                                        "status": .string("running"), "projectId": .string("project")])
+        await transport.emit(.message(.init(type: "snapshot", payload: .object([
+            "projects": .array([.object(["id": .string("project"), "name": .string("Project")])]),
+            "agents": .object(["project": .array([])]), "quickAgents": .object(["project": .array([quick])])
+        ]))))
+        try await waitUntil { store.hosts.first?.projects.first?.agents.contains { $0.id.agentID == "quick-1" } == true }
+        #expect(store.finished(in: project).isEmpty)
+        await transport.emit(.message(.init(type: "agent:completed", payload: .object([
+            "id": .string("quick-1"), "kind": .string("quick"), "status": .string("failed"), "exitCode": .integer(2), "projectId": .string("project")
+        ]))))
+        try await waitUntil { store.finished(in: project).first?.exitCode == 2 }
+        let run = try #require(store.finished(in: project).first)
+        #expect(run.title == "Fix the build" && run.detail == "Exited with code 2")
+        // The catalog refresh that follows keeps the exit, so the agent still reads as exited.
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        let agent = store.hosts.first?.projects.first?.agents.first { $0.id.agentID == "quick-1" }
+        #expect(agent?.hasExited == true && agent?.exitCode == 2)
+    }
+
+    @Test func changesReadTheProjectRootAndDiffADeletedFileAgainstNothing() async throws {
+        let transport = LiveTestTransport()
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        let project = CompanionProjectTarget(hostID: target.hostID, projectID: "project")
+        let changes = try await store.changes(for: project)
+        #expect(changes.branch == "main-project")
+        let file = try #require(changes.files.first)
+        #expect(file.status == .deleted && file.diffsStaged)
+        let diff = try await store.diff(of: file, in: project)
+        #expect(diff.isDeleted && diff.removed == 2 && diff.added == 0)
+        #expect(await transport.diffReads == ["gone.txt:true"])
     }
 
     @Test func sleepingDurableCanWakeOnlyAfterAuthoritativeSnapshot() async throws {

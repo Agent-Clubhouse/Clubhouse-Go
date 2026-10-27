@@ -61,7 +61,7 @@ import Foundation
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
                    turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil, executionMode: String? = nil,
                    branch: String? = nil, orchestrator: String? = nil, session: CompanionSessionFacts? = nil,
-                   chatControls: CompanionChatControls? = nil) -> CompanionAgent {
+                   chatControls: CompanionChatControls? = nil, exitCode: Int? = nil) -> CompanionAgent {
             let capabilities: CompanionCapabilities = switch status {
             case .sleeping: [.chat, .wake]
             case .completed: []
@@ -75,6 +75,8 @@ import Foundation
             agent.chatControls = chatControls
             // Sleeping preview agents have run before, so they offer Wake & Resume and Start New Session.
             if status == .sleeping { agent.hasSession = true }
+            // A finished quick agent has exited, so it shows in the project page's "Finished, waiting on you".
+            agent.hasExited = quick && (status == .completed || status == .failed); agent.exitCode = exitCode
             return agent
         }
         return [
@@ -88,6 +90,8 @@ import Foundation
                     agent("clubhouse", sleepingTarget.agentID, "Juniper", "Release notes", .sleeping, model: "Claude", minutesAgo: 60 * 30, color: "violet",
                           orchestrator: "claude-code"),
                     agent("clubhouse", "lint", "Fix lint warnings", "Fix lint warnings", .completed, minutesAgo: 45, quick: true),
+                    agent("clubhouse", "quick-willow", "willow", "Tidy the onboarding copy", .completed, minutesAgo: 12, quick: true, exitCode: 0),
+                    agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .failed, minutesAgo: 180, quick: true, exitCode: 1),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
                           contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
                           session: riverSession, chatControls: chatControls)
@@ -226,5 +230,29 @@ import Foundation
         colors: [("indigo", "Indigo", "#6366f1"), ("emerald", "Emerald", "#10b981"), ("amber", "Amber", "#f59e0b"), ("rose", "Rose", "#f43f5e"),
                  ("cyan", "Cyan", "#06b6d4"), ("violet", "Violet", "#8b5cf6"), ("orange", "Orange", "#f97316"), ("teal", "Teal", "#14b8a6")]
             .map { CompanionColorOption(id: $0.0, label: $0.1, hex: $0.2) })
+    /// The project root's changes: one of each status, with a long line to scroll sideways.
+    func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
+        try await Task.sleep(for: .milliseconds(200))
+        return .init(isRepository: true, branch: "main", files: [
+            .init(path: "Sources/Companion/Conversation.swift", code: "M", staged: false),
+            .init(path: "Sources/Companion/ProjectPage.swift", code: "??", staged: false),
+            .init(path: "Docs/Old notes.md", code: "D", staged: true),
+            .init(path: "Sources/Companion/Reconnect.swift", originalPath: "Sources/Companion/Retry.swift", code: "R", staged: true)
+        ], ahead: 2)
+    }
+    func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff {
+        try await Task.sleep(for: .milliseconds(200))
+        switch file.status {
+        case .added: return .make(path: file.path, original: "", modified: "struct ProjectPage {\n    var finished: [Run]\n}\n")
+        case .deleted: return .make(path: file.path, original: "# Old notes\n\nNothing to keep.\n", modified: nil)
+        case .modified, .renamed:
+            let base = (1...12).map { "    // line \($0)" }
+            var edited = base
+            edited[5] = "    // line 6, edited to explain why a reconnect refreshes the conversation before another command can be sent to the desktop"
+            edited.insert("    let target: ConversationTarget", at: 1)
+            return .make(path: file.path, original: (["struct Conversation {"] + base + ["}"]).joined(separator: "\n"),
+                         modified: (["struct Conversation {"] + edited + ["}"]).joined(separator: "\n"))
+        }
+    }
     private var previewError: CompanionServiceError { .unavailable("Preview only. This action does not contact a desktop.") }
 }

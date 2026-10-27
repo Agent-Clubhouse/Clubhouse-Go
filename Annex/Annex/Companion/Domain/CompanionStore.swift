@@ -23,8 +23,13 @@ import Observation
     private(set) var uncertainCreateRequest: CompanionCreateRequest?
     /// The durable agent just created from this phone, so its chat can offer "Wake with a message".
     var justCreated: CompanionTarget?
+    /// Quick agents that exited, until dismissed: each project's "Finished, waiting on you".
+    private(set) var finishedRuns = CompanionFinishedRuns() {
+        didSet { finishedPersistence?.save(finishedRuns) }
+    }
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
+    @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
@@ -37,10 +42,13 @@ import Observation
     @ObservationIgnored private var remoteImages: [String: CompanionImageBytes] = [:]
     @ObservationIgnored private var remoteImageOrder: [String] = []
 
-    init(service: any CompanionService, draftPersistence: (any CompanionDraftPersistence)? = nil) {
+    init(service: any CompanionService, draftPersistence: (any CompanionDraftPersistence)? = nil,
+         finishedPersistence: (any CompanionFinishedPersistence)? = nil) {
         self.service = service
         self.draftPersistence = draftPersistence
+        self.finishedPersistence = finishedPersistence
         self.drafts = draftPersistence?.load() ?? [:]
+        self.finishedRuns = finishedPersistence?.load() ?? .init()
     }
 
     func start() {
@@ -544,6 +552,44 @@ import Observation
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }
 
+    // MARK: Project page (#158)
+
+    /// The project's "Finished, waiting on you", newest first.
+    func finished(in project: CompanionProjectTarget) -> [CompanionFinishedRun] { finishedRuns.runs(in: project) }
+    func dismissFinished(_ target: CompanionTarget) { finishedRuns.dismiss(target) }
+    func clearFinished(in project: CompanionProjectTarget) { finishedRuns.clear(project) }
+
+    /// Durable agents asleep in a project, which a first message wakes (the desktop's "Wake a sleeping agent").
+    func sleepingAgents(in project: CompanionProjectTarget) -> [CompanionAgent] {
+        (hosts.first { $0.id == project.hostID }?.projects.first { $0.id == project.projectID }?.agents ?? [])
+            .filter { !$0.isQuick && $0.status.dot == .sleeping }
+    }
+
+    /// Wakes a sleeping agent with a message and opens its chat, where the message's delivery shows.
+    /// A message to a sleeping agent starts its session; the chat has to be read first to know it can.
+    func wake(_ target: CompanionTarget, message: String) async {
+        let text = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, host(for: target)?.connection.canOperate == true else { return }
+        drafts[target] = text
+        selection = target
+        await load(target)
+        if canSend(target) { await sendDraft(to: target) }
+        else if operationErrors[target] == nil { operationErrors[target] = "\(agent(for: target)?.name ?? "This agent") can't be woken from your phone. Your message is in its composer." }
+    }
+
+    func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
+        guard hosts.first(where: { $0.id == project.hostID })?.connection.canOperate == true else {
+            throw CompanionServiceError.unavailable("Reconnect to your desktop to see its changes.")
+        }
+        return try await service.changes(for: project)
+    }
+    func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff {
+        guard hosts.first(where: { $0.id == project.hostID })?.connection.canOperate == true else {
+            throw CompanionServiceError.unavailable("Reconnect to your desktop to see this file's changes.")
+        }
+        return try await service.diff(of: file, in: project)
+    }
+
     func removeQueuedMessage(_ messageID: String, target: CompanionTarget) async {
         guard canOperate(target), !pendingCommands.contains(target), agent(for: target)?.capabilities.contains(.removeQueued) == true,
               conversation(for: target).items.contains(where: {
@@ -576,7 +622,10 @@ import Observation
 
     func apply(_ event: CompanionEvent) {
         switch event {
-        case .hosts(let hosts): self.hosts = hosts
+        case .hosts(let hosts):
+            self.hosts = hosts
+            var runs = finishedRuns
+            if runs.observe(hosts, now: Date()) { finishedRuns = runs }
         case .timeline(let target, let incoming, let sequence, let reset, let sessionID):
             if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
             let items = Self.carryingLocalImages(incoming, from: conversation(for: target).items)

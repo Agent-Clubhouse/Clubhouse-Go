@@ -163,6 +163,10 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var lastActivity: Date?
     /// Quick agents run one task and finish; durable agents sleep and wake.
     var isQuick = false
+    /// A quick agent's process has exited (the desktop's `completed`, `failed` or `cancelled`).
+    var hasExited = false
+    /// Its exit code, from the desktop's `agent:completed`.
+    var exitCode: Int?
     /// When the current turn started, from chat events. Nil between turns.
     var turnStartedAt: Date?
     /// Context fill from the latest chat `usage` event that reported it.
@@ -564,6 +568,10 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws
     /// Approve or decline a helper request. `force` approves a dispose that would lose work.
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws
+    /// The project root's uncommitted files. Read-only.
+    func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges
+    /// One uncommitted file's diff.
+    func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff
 }
 
 @MainActor extension CompanionService {
@@ -608,5 +616,11 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to answer helper requests from your phone.")
+    }
+    func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
+        throw CompanionServiceError.unavailable("This desktop can't show its changes.")
+    }
+    func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff {
+        throw CompanionServiceError.unavailable("This desktop can't show its changes.")
     }
 }
