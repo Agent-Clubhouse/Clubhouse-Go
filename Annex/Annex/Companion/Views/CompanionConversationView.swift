@@ -93,6 +93,7 @@ struct CompanionConversationView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
                 CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
+                if agent.freeAgentMode { CompanionFreeAgentBadge() }
                 if !dynamicTypeSize.isAccessibilitySize {
                     Text("· \(contextName)").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
                     Spacer(minLength: 8)

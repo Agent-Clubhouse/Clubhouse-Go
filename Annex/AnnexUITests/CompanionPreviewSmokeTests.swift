@@ -251,4 +251,58 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         done.tap()
         XCTAssertTrue(done.waitForNonExistence(timeout: 5), "The preview closes")
     }
+
+    /// Home matches the desktop sidebar: idle projects fold into one section, sleeping and finished
+    /// quick agents fold inside a project, and a pinned project moves to the top.
+    func testHomeFoldsIdleProjectsAndPinsToTop() {
+        continueAfterFailure = false
+        // Scrolling and element queries are slow round trips on CI runners.
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        func element(_ identifier: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: identifier).firstMatch }
+        func reveal(_ target: XCUIElement) {
+            for _ in 0..<5 where !(target.exists && target.isHittable) { app.swipeUp(velocity: .slow) }
+        }
+        func scrollToTop() { for _ in 0..<3 { app.swipeDown(velocity: .fast) } }
+
+        XCTAssertTrue(element("agent-preview-studio-river").waitForExistence(timeout: 15), "Preview desktop must load")
+        let cedar = element("agent-preview-studio-cedar")
+        reveal(cedar)
+        XCTAssertTrue(cedar.label.contains("Free Agent Mode"), "A Free Agent Mode agent must say so on its row")
+
+        let sleeping = element("fold-sleeping-preview-studio-clubhouse")
+        reveal(sleeping)
+        XCTAssertTrue(sleeping.label.contains("1 sleeping"))
+        XCTAssertFalse(element("agent-preview-studio-juniper").exists, "Sleeping agents start folded")
+        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("1 finished quick agent"))
+        sleeping.tap()
+        XCTAssertTrue(element("agent-preview-studio-juniper").waitForExistence(timeout: 5), "Opening the fold shows the sleeping agent")
+
+        let idle = element("idle-projects-fold")
+        reveal(idle)
+        XCTAssertTrue(idle.label.contains("1 idle project"))
+        XCTAssertFalse(element("project-preview-studio-prototype").exists, "Idle projects start folded")
+        idle.tap()
+        XCTAssertTrue(element("project-preview-studio-prototype").waitForExistence(timeout: 5), "Opening the idle section shows the project")
+
+        scrollToTop()
+        let menu = element("project-menu-preview-studio-website")
+        reveal(menu)
+        menu.tap()
+        let pin = app.buttons["Pin project"]
+        XCTAssertTrue(pin.waitForExistence(timeout: 5))
+        pin.tap()
+        scrollToTop()
+        let website = element("project-preview-studio-website"), clubhouse = element("project-preview-studio-clubhouse")
+        reveal(website)
+        XCTAssertTrue(clubhouse.waitForExistence(timeout: 5))
+        XCTAssertLessThan(website.frame.minY, clubhouse.frame.minY, "A pinned project goes first")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Home with a pinned project and the idle section"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
 }

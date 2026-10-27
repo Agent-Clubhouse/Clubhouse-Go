@@ -13,22 +13,7 @@ import Foundation
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
-            continuation.yield(.hosts([
-                .init(id: Self.target.hostID, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
-                    .init(id: "clubhouse", name: "Clubhouse", agents: [
-                        .init(id: Self.target, name: "River", subtitle: "Build the mobile companion", status: .approval, model: "Codex", capabilities: [.chat, .steer, .cancel, .approve, .images],
-                              contextUsage: .init(used: 84_000, size: 200_000)),
-                        .init(id: .init(hostID: Self.target.hostID, projectID: "clubhouse", agentID: "cedar"), name: "Cedar", subtitle: "Investigate reconnect behavior", status: .working, model: "Claude", capabilities: [.chat, .steer, .cancel, .approve],
-                              turnStartedAt: Date().addingTimeInterval(-65)),
-                        .init(id: Self.sleepingTarget, name: "Juniper", subtitle: "Release notes", status: .sleeping, model: "Claude", capabilities: [.chat, .wake])
-                    ])
-                ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, attachments: Self.attachments),
-                .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
-                    .init(id: "notes", name: "Field notes", agents: [
-                        .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
-                    ])
-                ])
-            ]))
+            continuation.yield(.hosts(Self.hosts(now: Date())))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -51,6 +36,47 @@ import Foundation
                 guard case .enqueued = continuation?.yield(.upsert(Self.target, .tool(tool), sequence: nil)) else { return }
             }
         }
+    }
+    /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
+    static func hosts(now: Date) -> [CompanionHost] {
+        let host = target.hostID
+        func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
+                   minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
+                   turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil) -> CompanionAgent {
+            let capabilities: CompanionCapabilities = switch status {
+            case .sleeping: [.chat, .wake]
+            case .completed: []
+            default: [.chat, .steer, .cancel, .approve]
+            }
+            var agent = CompanionAgent(id: .init(hostID: host, projectID: project, agentID: id), name: name, subtitle: subtitle, status: status, model: model,
+                                       capabilities: capabilities.union(extra),
+                                       lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
+            agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
+            return agent
+        }
+        return [
+            .init(id: host, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
+                .init(id: "website", name: "Website", agents: [
+                    agent("website", "maple", "Maple", "Refresh the pricing page", .idle, minutesAgo: 90, color: "teal")
+                ], color: "teal", emoji: "🌐"),
+                .init(id: "clubhouse", name: "Clubhouse", agents: [
+                    agent("clubhouse", "cedar", "Cedar", "Investigate reconnect behavior", .working, model: "Claude", minutesAgo: 4, color: "emerald", freeAgent: true,
+                          turnStartedAt: now.addingTimeInterval(-65)),
+                    agent("clubhouse", sleepingTarget.agentID, "Juniper", "Release notes", .sleeping, model: "Claude", minutesAgo: 60 * 30, color: "violet"),
+                    agent("clubhouse", "lint", "Fix lint warnings", "Fix lint warnings", .completed, minutesAgo: 45, quick: true),
+                    agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Codex", minutesAgo: 1, color: "indigo", extra: .images,
+                          contextUsage: .init(used: 84_000, size: 200_000))
+                ], color: "indigo"),
+                .init(id: "prototype", name: "Old prototype", agents: [
+                    agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
+                ], color: "amber", emoji: "🧪")
+            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, attachments: attachments),
+            .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
+                .init(id: "notes", name: "Field notes", agents: [
+                    .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
+                ])
+            ])
+        ]
     }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         .init(items: [

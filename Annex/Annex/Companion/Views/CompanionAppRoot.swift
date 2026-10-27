@@ -306,6 +306,15 @@ struct CompanionSettingsSheet: View {
                     Button("Pair another desktop", systemImage: "plus", action: pair)
                 }
                 Section {
+                    Picker("Fold idle projects after", selection: Bindable(runtime.preferences).idleDays) {
+                        ForEach(CompanionIdleRule.dayChoices, id: \.self) { days in
+                            Text(days == 0 ? "Never" : "\(days) days").tag(days)
+                        }
+                    }
+                } header: { Text("Home") } footer: {
+                    Text("Unpinned projects with no running agent and no activity for this long fold into one idle section. Kept on this phone.")
+                }
+                Section {
                     CompanionDeviceNameField(preferences: runtime.preferences)
                 } header: { Text("This phone") } footer: {
                     Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")

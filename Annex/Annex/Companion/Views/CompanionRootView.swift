@@ -44,7 +44,7 @@ struct CompanionRootView: View {
                 stack(.agents) { CompanionAgentsView(store: store, onNewAgent: { spawnProject = $0 }) }
             }
             Tab(value: CompanionTab.search, role: .search) {
-                stack(.search) { CompanionSearchView(store: store) }
+                stack(.search) { CompanionSearchView(store: store, agentSort: preferences.projectSort) }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -127,7 +127,12 @@ struct CompanionHomeView: View {
     var onNewAgent: (CompanionProjectTarget) -> Void
     var isPreview = false
     @State private var arranging = false
+    /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
+    @State private var hold: CompanionListHold?
+    /// Open "N sleeping" and "N finished quick agents" folds, by project.
+    @State private var openFolds: Set<String> = []
     @Environment(\.companionPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var multipleHosts: Bool { store.hosts.count > 1 }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
@@ -155,6 +160,11 @@ struct CompanionHomeView: View {
             }
         }
         .companionListStyle()
+        .onScrollPhaseChange { _, phase in
+            if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
+            else if hold == nil { hold = layout.hold }
+        }
+        .animation(reduceMotion ? nil : .snappy, value: layout.hold)
         .navigationTitle("Clubhouse")
         .safeAreaInset(edge: .top) { reconnectingBanner }
         .toolbar {
@@ -164,7 +174,7 @@ struct CompanionHomeView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
                     // Start in the project at the top of Home, not the desktop's first.
-                    if let entry = orderedProjects.first(where: { $0.host.connection.canOperate && $0.host.canSpawn }) { onNewAgent(entry.id) }
+                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: { $0.host.connection.canOperate && $0.host.canSpawn }) { onNewAgent(entry.id) }
                 }
                 .disabled(!store.hosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
                 .keyboardShortcut("n", modifiers: .command)
@@ -232,12 +242,26 @@ struct CompanionHomeView: View {
         }
     }
 
+    private var listedEntries: [CompanionProjectEntry] { store.projectEntries.filter { isListed($0.host) } }
+
     private var orderedProjects: [CompanionProjectEntry] {
-        CompanionProjectOrdering.ordered(store.projectEntries.filter { isListed($0.host) }, sort: preferences.projectSort,
-                                         customOrder: preferences.projectOrder, lastActivity: store.lastActivity(for:))
+        CompanionProjectOrdering.ordered(listedEntries, sort: preferences.projectSort,
+                                         customOrder: preferences.projectOrder, lastActivity: projectActivity)
+    }
+
+    /// Agent and chat activity, or the last time the project was marked active here.
+    private func projectActivity(_ target: CompanionProjectTarget) -> Date? {
+        [store.lastActivity(for: target), preferences.projectActivity[CompanionProjectOrdering.key(target)]].compactMap { $0 }.max()
+    }
+
+    private var layout: CompanionHomeLayout {
+        CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
+                                  rule: preferences.idleRule, hold: hold,
+                                  projectActivity: projectActivity, agentActivity: store.lastActivity(of:))
     }
 
     @ViewBuilder private var projects: some View {
+        let layout = layout
         Section {
         } header: {
             HStack {
@@ -258,32 +282,128 @@ struct CompanionHomeView: View {
             }
             .textCase(nil)
         }
-        ForEach(orderedProjects) { entry in
+        ForEach(layout.projects) { group in projectSection(group) }
+        if !layout.idle.isEmpty {
             Section {
-                ForEach(entry.project.agents) { agent in
-                    NavigationLink(value: agent.id) { CompanionAgentListRow(agent: agent) }
-                        .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
-                        .listRowBackground(CompanionCardBackground())
+                Button {
+                    withAnimation(reduceMotion ? nil : .snappy) { preferences.idleExpanded.toggle() }
+                } label: {
+                    CompanionFoldLabel(text: "\(layout.idle.count) idle project\(layout.idle.count == 1 ? "" : "s")", isOpen: preferences.idleExpanded)
                 }
-                if entry.project.agents.isEmpty {
-                    Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
-                        .listRowBackground(CompanionCardBackground())
+                .accessibilityIdentifier("idle-projects-fold")
+                .listRowBackground(CompanionCardBackground())
+            } footer: {
+                if preferences.idleExpanded { EmptyView() } else {
+                    Text(preferences.idleDays > 0 ? "No activity for \(preferences.idleDays) days, or marked inactive." : "Marked inactive.")
                 }
-            } header: {
-                HStack(spacing: 6) {
-                    Text(entry.project.name)
-                    if multipleHosts { CompanionHostTag(name: entry.host.name) }
-                    Spacer()
-                    Button { onNewAgent(entry.id) } label: { Image(systemName: "plus") }
-                        .buttonStyle(.borderless)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .disabled(!entry.host.connection.canOperate || !entry.host.canSpawn)
-                        .accessibilityLabel("New agent in \(entry.project.name) on \(entry.host.name)")
-                }
-                .font(.subheadline.weight(.semibold))
-                .textCase(nil)
             }
+            if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group) } }
         }
+    }
+
+    private func projectSection(_ group: CompanionProjectGroup) -> some View {
+        let entry = group.entry
+        let projectID = "\(entry.host.id)-\(entry.project.id)"
+        return Section {
+            ForEach(group.agents) { agentRow($0) }
+            if !group.sleeping.isEmpty {
+                fold("sleeping", projectID: projectID, text: "\(group.sleeping.count) sleeping", agents: group.sleeping)
+            }
+            if !group.finishedQuick.isEmpty {
+                fold("finished", projectID: projectID,
+                     text: "\(group.finishedQuick.count) finished quick agent\(group.finishedQuick.count == 1 ? "" : "s")", agents: group.finishedQuick)
+            }
+            if group.isEmpty {
+                Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
+                    .listRowBackground(CompanionCardBackground())
+            }
+        } header: {
+            HStack(spacing: 6) {
+                CompanionProjectBadge(project: entry.project)
+                Text(entry.project.name).lineLimit(1)
+                if group.isPinned {
+                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
+                        .accessibilityLabel("Pinned")
+                }
+                if multipleHosts { CompanionHostTag(name: entry.host.name) }
+                Spacer()
+                projectMenu(group)
+                Button { onNewAgent(entry.id) } label: { Image(systemName: "plus") }
+                    .buttonStyle(.borderless)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .disabled(!entry.host.connection.canOperate || !entry.host.canSpawn)
+                    .accessibilityLabel("New agent in \(entry.project.name) on \(entry.host.name)")
+            }
+            .font(.subheadline.weight(.semibold))
+            .textCase(nil)
+            .opacity(group.isIdle ? 0.7 : 1)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("project-\(projectID)")
+        }
+    }
+
+    /// Pin and the idle marks, kept on this phone only.
+    private func projectMenu(_ group: CompanionProjectGroup) -> some View {
+        let key = group.entry.orderKey
+        return Menu {
+            Button(group.isPinned ? "Unpin project" : "Pin project", systemImage: group.isPinned ? "pin.slash" : "pin") {
+                withAnimation(reduceMotion ? nil : .snappy) { preferences.togglePinned(key) }
+            }
+            if group.isIdle {
+                Button("Mark active", systemImage: "sun.max") {
+                    withAnimation(reduceMotion ? nil : .snappy) { preferences.markActive(key) }
+                }
+            } else if !group.isPinned {
+                Button("Mark inactive", systemImage: "moon.zzz") {
+                    withAnimation(reduceMotion ? nil : .snappy) { preferences.markInactive(key) }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("\(group.entry.project.name) options")
+        .accessibilityIdentifier("project-menu-\(group.entry.host.id)-\(group.entry.project.id)")
+    }
+
+    private func agentRow(_ agent: CompanionAgent) -> some View {
+        NavigationLink(value: agent.id) { CompanionAgentListRow(agent: agent) }
+            .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
+            .listRowBackground(CompanionCardBackground())
+    }
+
+    @ViewBuilder private func fold(_ kind: String, projectID: String, text: String, agents: [CompanionAgent]) -> some View {
+        let key = "\(kind):\(projectID)"
+        let isOpen = openFolds.contains(key)
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy) { if isOpen { openFolds.remove(key) } else { openFolds.insert(key) } }
+        } label: {
+            CompanionFoldLabel(text: text, isOpen: isOpen)
+        }
+        .accessibilityIdentifier("fold-\(kind)-\(projectID)")
+        .listRowBackground(CompanionCardBackground())
+        if isOpen { ForEach(agents) { agentRow($0) } }
+    }
+}
+
+/// A row that opens and closes a fold, with a turning chevron.
+private struct CompanionFoldLabel: View {
+    let text: String
+    let isOpen: Bool
+    @Environment(\.companionPalette) private var palette
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                .rotationEffect(.degrees(isOpen ? 90 : 0))
+            Text(text)
+            Spacer()
+        }
+        .font(.subheadline)
+        .foregroundStyle(Color(palette.secondaryLabel))
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(text)
+        .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+        .accessibilityHint(isOpen ? "Hides them" : "Shows them")
     }
 }
 
@@ -520,6 +640,8 @@ struct CompanionAgentsView: View {
 /// Agent names and tasks, and projects, across every paired desktop. Offline desktops' results stay, dimmed.
 struct CompanionSearchView: View {
     @Bindable var store: CompanionStore
+    /// Projects' agents follow the Home sort.
+    var agentSort: CompanionProjectSort = .recent
     @State private var query = ""
     @Environment(\.companionPalette) private var palette
 
@@ -552,7 +674,8 @@ struct CompanionSearchView: View {
                 Section("Projects") {
                     ForEach(projects) { entry in
                         NavigationLink {
-                            CompanionProjectAgentsView(entry: entry)
+                            CompanionProjectAgentsView(entry: entry, agents: CompanionAgentOrdering.ordered(entry.project.agents, sort: agentSort,
+                                                                                                            lastActivity: store.lastActivity(of:)))
                         } label: {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -574,9 +697,10 @@ struct CompanionSearchView: View {
 
 struct CompanionProjectAgentsView: View {
     let entry: CompanionProjectEntry
+    var agents: [CompanionAgent]
     var body: some View {
         List {
-            ForEach(entry.project.agents) { agent in
+            ForEach(agents) { agent in
                 NavigationLink(value: agent.id) { CompanionAgentListRow(agent: agent) }
                     .listRowBackground(CompanionCardBackground())
             }

@@ -119,6 +119,10 @@ final class CompanionAgentSheetsTests: XCTestCase {
 
     func testSleepingAgentSettingsOpenFromLongPressAndAreEditable() {
         let app = launch()
+        // Juniper sleeps, so it's in its project's "1 sleeping" fold, as on the desktop.
+        let fold = element(app, "fold-sleeping-preview-studio-clubhouse")
+        for _ in 0..<4 where !(fold.waitForExistence(timeout: 2) && fold.isHittable) { app.swipeUp() }
+        fold.tap()
         let juniper = element(app, "agent-preview-studio-juniper")
         for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
         XCTAssertTrue(juniper.waitForExistence(timeout: 15))
