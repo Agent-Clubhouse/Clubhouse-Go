@@ -305,4 +305,54 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
     }
+
+    /// A sleeping agent with a session offers both of the desktop's wake choices, in its chat and on its row.
+    func testSleepingAgentOffersWakeAndResumeAndStartNewSession() {
+        continueAfterFailure = false
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let juniper = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-juniper").firstMatch
+        for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        XCTAssertTrue(juniper.waitForExistence(timeout: 15), "The sleeping preview agent must appear")
+
+        juniper.tap()
+        let resume = app.buttons["companion-wake"]
+        XCTAssertTrue(resume.waitForExistence(timeout: 10), "The asleep bar must appear")
+        XCTAssertEqual(resume.label, "Wake & Resume")
+        let fresh = app.buttons["companion-wake-newSession"]
+        XCTAssertTrue(fresh.exists)
+        XCTAssertEqual(fresh.label, "Start New Session")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Wake choices"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(juniper.waitForExistence(timeout: 10))
+        juniper.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Wake & Resume"].waitForExistence(timeout: 5), "The long-press menu offers Wake & Resume")
+        XCTAssertTrue(app.buttons["Start New Session"].exists, "The long-press menu offers Start New Session")
+        XCTAssertTrue(app.buttons["Agent settings"].exists)
+    }
+
+    /// Needs you says why in the desktop's words, and shows how long an approval has.
+    func testNeedsYouUsesTheDesktopWords() {
+        continueAfterFailure = false
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let tab = app.tabBars.buttons["Needs you"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 15))
+        tab.tap()
+        XCTAssertTrue(app.staticTexts["Needs permission to use Run build"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Build the iOS application to verify the updated conversation layout."].exists)
+        let countdown = app.descendants(matching: .any).matching(identifier: "companion-approval-countdown").firstMatch
+        XCTAssertTrue(countdown.waitForExistence(timeout: 5))
+        XCTAssertTrue(countdown.label.contains("Times out in"), countdown.label)
+    }
 }

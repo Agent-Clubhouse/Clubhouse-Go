@@ -530,8 +530,10 @@ struct CompanionApprovalCountdown: View {
             Label(Self.text(remaining: remaining), systemImage: urgent ? "exclamationmark.triangle.fill" : "clock")
                 .font(.caption.weight(urgent ? .semibold : .regular).monospacedDigit())
                 .foregroundStyle(Color(urgent ? palette.error : palette.secondaryLabel))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Self.text(remaining: remaining))
+                .accessibilityIdentifier("companion-approval-countdown")
         }
-        .accessibilityIdentifier("companion-approval-countdown")
     }
     static func text(remaining: TimeInterval) -> String {
         guard remaining > 0 else { return "Timed out" }

@@ -71,7 +71,7 @@ struct CompanionWakeButtons: View {
             let button = Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
                 .disabled(!store.canWake(target))
                 .accessibilityIdentifier(index == 0 ? "companion-wake" : "companion-wake-\(choice.rawValue)")
-            if index == 0 { button.buttonStyle(.glassProminent).companionProminentLabel() } else { button.buttonStyle(.glass) }
+            if index == 0 { button.buttonStyle(.glassProminent).companionProminentLabel() } else { button.buttonStyle(.bordered).buttonBorderShape(.capsule) }
         }
     }
 }

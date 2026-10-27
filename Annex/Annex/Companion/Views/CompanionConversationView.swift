@@ -304,7 +304,7 @@ struct CompanionConversationView: View {
                     }
                 }
                 .padding(12)
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .accessibilityElement(children: .contain)
             }
             CompanionAttachmentStrip(store: store, target: target)
