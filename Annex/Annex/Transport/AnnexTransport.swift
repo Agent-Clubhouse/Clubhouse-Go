@@ -203,6 +203,33 @@ public actor AnnexTransport: AnnexTransporting {
         }
     }
 
+    /// Raw bytes over the pinned client certificate, like commands. Never retried here: an upload whose reply
+    /// is lost only leaves an unused id on the desktop, and the caller decides whether to upload again.
+    public func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload {
+        return try await telemetry.measure(.upload) {
+            guard let capabilities, capabilities.controlAvailable == true, let limits = capabilities.attachments, limits.isUsable,
+                  capabilities.commands.contains("chat.send") else { throw AnnexTransportError.unsupportedCapability("attachments") }
+            guard limits.imageTypes.contains(mimeType), !data.isEmpty else { throw AnnexTransportError.rejected(status: 415, code: "unsupported_media_type") }
+            guard data.count <= limits.maxImageBytes else { throw AnnexTransportError.rejected(status: 413, code: "too_large") }
+            let requestedGeneration = generation
+            let epoch = capabilities.epoch
+            var request = try await authorizedRequest(path: ["api", "v1", "mobile", "agents", agentID, "attachments"])
+            guard generation == requestedGeneration, self.capabilities?.epoch == epoch else { throw AnnexTransportError.disconnected }
+            try Task.checkCancellation()
+            request.httpMethod = "POST"
+            request.setValue(mimeType, forHTTPHeaderField: "Content-Type")
+            request.httpBody = data
+            // A few megabytes over a slow route can take longer than a command; the session caps it at 60 s.
+            request.timeoutInterval = 60
+            let response = try await io.perform(request)
+            guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+            guard let receipt = try? JSONDecoder().decode(AnnexAttachmentUpload.self, from: response.data), receipt.version == 1,
+                  !receipt.attachmentId.isEmpty, receipt.attachmentId.count <= 128 else { throw AnnexTransportError.malformedResponse }
+            return receipt
+
+        }
+    }
+
     /// Explicit self-revocation only; no caller-selected path or target identity.
     /// Unknown outcomes retain local credentials so the UI can explain recovery.
     public func revokeSessionPairing() async throws {

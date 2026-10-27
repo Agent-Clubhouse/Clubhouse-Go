@@ -61,6 +61,15 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.
     var theme: CompanionDesktopTheme?
     var providers: [CompanionProvider] = []
+    /// Image upload limits. Nil when the desktop is too old to take images: messages are text only.
+    var attachments: CompanionAttachmentLimits?
+}
+
+/// The desktop's `/mobile/capabilities.attachments`.
+struct CompanionAttachmentLimits: Sendable, Equatable {
+    var imageTypes: [String]
+    var maxImageBytes: Int
+    var maxCount: Int
 }
 
 struct CompanionProject: Identifiable, Sendable, Equatable {
@@ -102,6 +111,42 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     static let queue = Self(rawValue: 1 << 5)
     static let removeQueued = Self(rawValue: 1 << 6)
     static let wake = Self(rawValue: 1 << 7)
+    /// The running session takes images (`capabilities.images`).
+    static let images = Self(rawValue: 1 << 8)
+}
+
+/// Image bytes held on the phone. Compared by identity, so timeline diffs never compare megabytes.
+final class CompanionImageBytes: Sendable, Hashable {
+    let data: Data
+    init(_ data: Data) { self.data = data }
+    static func == (lhs: CompanionImageBytes, rhs: CompanionImageBytes) -> Bool { lhs === rhs }
+    func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
+}
+
+/// An image ready to upload: re-encoded without metadata and within the desktop's limits.
+struct CompanionImageAttachment: Identifiable, Sendable, Equatable {
+    var id = UUID().uuidString
+    var bytes: CompanionImageBytes
+    var mimeType: String
+    var width: Int
+    var height: Int
+}
+
+enum CompanionImageLimits {
+    /// The wire maximum for `chat.send.attachmentIds`, whatever a desktop advertises.
+    static let maximumPerMessage = 10
+}
+
+/// An image in a user message. The phone keeps its own copy of what it sent; the desktop's echo adds a `mediaRef`.
+struct CompanionMessageImage: Identifiable, Sendable, Equatable {
+    var id: String
+    var mimeType: String?
+    var mediaRef: String?
+    /// A file name only, never a desktop path.
+    var name: String?
+    var width: Int?
+    var height: Int?
+    var local: CompanionImageBytes?
 }
 
 struct CompanionMessage: Identifiable, Sendable, Equatable {
@@ -109,10 +154,13 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     enum Role: String, Sendable { case user, assistant, system }
     enum Delivery: Equatable, Sendable {
         case confirmed, sending, accepted, failed(String), uncertain(String)
+        /// Images go up one at a time before the message is sent.
+        case uploading(completed: Int, total: Int)
         var label: String? {
             switch self {
             case .confirmed: nil
             case .sending: "Sending…"
+            case .uploading(let completed, let total): total == 1 ? "Uploading image…" : "Uploading image \(min(total, completed + 1)) of \(total)…"
             case .accepted: "Accepted by desktop"
             case .failed: "Not sent"
             case .uncertain: "Delivery unknown"
@@ -146,6 +194,7 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
         let parts = [origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
+    var images: [CompanionMessageImage] = []
 }
 
 struct CompanionTool: Identifiable, Sendable, Equatable {
@@ -248,6 +297,8 @@ struct CompanionSendRequest: Sendable {
     var clientCommandID: String
     var isSteering: Bool
     var queueIfBusy = false
+    /// Uploaded images, in order. Part of the command: a retry with the same id sends the same ids.
+    var attachmentIDs: [String] = []
 }
 
 struct CompanionSpawnRequest: Sendable {
@@ -275,6 +326,23 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     }
 }
 
+/// Image failures with a recovery the store acts on, rather than only text to show.
+enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
+    /// An uploaded id expired, or the desktop restarted: upload again and send as a new command.
+    case attachmentUnavailable
+    /// The agent's session can't take images.
+    case imagesNotSupported
+    /// The desktop is limiting uploads; `Retry-After` seconds when it said.
+    case rateLimited(retryAfter: Int?)
+    var errorDescription: String? {
+        switch self {
+        case .attachmentUnavailable: "The desktop no longer has these images. Try sending again."
+        case .imagesNotSupported: "This agent can't take images. Send your message as text."
+        case .rateLimited(let seconds): seconds.map { "The desktop is limiting image uploads. Try again in \($0) seconds." } ?? "The desktop is limiting image uploads. Try again shortly."
+        }
+    }
+}
+
 /// Presentation boundary. Wire decoding, credentials and reconnect policy belong to the transport adapter.
 @MainActor protocol CompanionService: AnyObject {
     func events() -> AsyncStream<CompanionEvent>
@@ -282,6 +350,8 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary]
     func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt
+    /// Uploads one image for a later send and returns its desktop id.
+    func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String
     func wake(_ target: CompanionTarget, clientCommandID: String) async throws
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
@@ -297,6 +367,9 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String {
+        throw CompanionServiceError.unavailable("This desktop can't take images. Update Clubhouse on your desktop.")
+    }
     func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not support waking this agent.")
     }

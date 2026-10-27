@@ -4,7 +4,9 @@ import Security
 nonisolated public struct AnnexHTTPResponse: Sendable {
     public let status: Int
     public let data: Data
-    public init(status: Int, data: Data) { self.status = status; self.data = data }
+    /// Seconds from a `Retry-After` header, when the host sends one (429s).
+    public let retryAfter: Int?
+    public init(status: Int, data: Data, retryAfter: Int? = nil) { self.status = status; self.data = data; self.retryAfter = retryAfter }
 }
 
 nonisolated public protocol AnnexWebSocket: Sendable {
@@ -142,7 +144,8 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
                 received.number(.statusCode, Double(http.statusCode)); received.end()
             }
             if http.statusCode >= 400 { diagnostic?.fail(http.statusCode >= 500 ? .server : http.statusCode == 401 ? .authentication : http.statusCode == 403 ? .forbidden : .rejected) }
-            return AnnexHTTPResponse(status: http.statusCode, data: body)
+            let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }.map { max(0, $0) }
+            return AnnexHTTPResponse(status: http.statusCode, data: body, retryAfter: retryAfter)
 
         }
     }

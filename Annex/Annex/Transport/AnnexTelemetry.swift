@@ -7,7 +7,7 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case appLaunch, foreground, background, navigation, settings, discovery, resolve, manualAddress
     case handshake, trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
-    case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake
+    case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake, upload
     case createAgent, agentOptions, agentSettings, updateAgent
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
 }
@@ -47,6 +47,7 @@ nonisolated public enum AnnexDiagnosticFailure: String, Codable, Sendable {
             case .duplicateCommandConflict: return .conflict
             case .persistenceFailed: return .storage
             case .rejected(let status, _): return status >= 500 ? .server : .rejected
+            case .rateLimited: return .busy
             }
         }
         if let error = error as? URLError {
@@ -309,7 +310,7 @@ nonisolated extension AnnexReadRoute {
 nonisolated extension AnnexCommand {
     var diagnosticOperation: AnnexDiagnosticOperation {
         switch kind {
-        case .send(_, _, _, let delivery): delivery == .steer ? .steer : delivery == .queued ? .queued : .send
+        case .send(_, _, _, let delivery, _): delivery == .steer ? .steer : delivery == .queued ? .queued : .send
         case .start: .start
         case .stop, .interrupt: .interrupt
         case .removeQueued: .removeQueued
