@@ -78,8 +78,11 @@ private struct CompanionArchivedSessionView: View {
                         Button("Load earlier messages", systemImage: "arrow.up.circle") { Task { await transcript.loadEarlier() } }
                             .disabled(transcript.isLoading).frame(maxWidth: .infinity)
                     }
+                    let hintItemID = CompanionContentReference.hintRowID(in: transcript.items.map { .item($0) },
+                                                                         richContentAvailable: store.richContentAvailable(for: target))
                     ForEach(transcript.items) { item in
                         archiveItem(item).id(item.id)
+                        if item.id == hintItemID { CompanionContentHint() }
                     }
                     if transcript.isLoaded && transcript.items.isEmpty {
                         ContentUnavailableView("No messages", systemImage: "bubble.left",
@@ -89,6 +92,7 @@ private struct CompanionArchivedSessionView: View {
             }.padding(22).frame(maxWidth: 860).frame(maxWidth: .infinity)
         }
         .defaultScrollAnchor(.bottom)
+        .companionContentPreviews(store: store, target: target)
         .background(Color(.systemGroupedBackground))
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -106,10 +110,10 @@ private struct CompanionArchivedSessionView: View {
         switch item {
         case .message(let message):
             CompanionMessageView(message: archived(message), canRetry: false, retry: {})
-            if message.role == .assistant { CompanionContentLinks(references: CompanionContentReference.files(in: message.text), store: store, target: target) }
+            CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .tool(let tool):
             CompanionToolCard(tool: tool)
-            CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
+            CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             VStack(alignment: .leading, spacing: 8) {
                 Label(approval.toolName, systemImage: "hand.raised").font(.headline)

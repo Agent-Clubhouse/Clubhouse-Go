@@ -34,7 +34,7 @@ struct CompanionConversationView: View {
                 .padding().background(Color(palette.warning).opacity(0.12))
                 .accessibilityElement(children: .contain)
             }
-            timeline
+            timeline.companionContentPreviews(store: store, target: target)
         }
         .companionBackground()
         .navigationTitle(agent.name)
@@ -154,8 +154,11 @@ struct CompanionConversationView: View {
                         }
                     }
                     let pinnedID = store.pinnedApproval(for: target)?.id
-                    ForEach(CompanionTimelineFolding.rows(for: conversation.items)) { row in
+                    let rows = CompanionTimelineFolding.rows(for: conversation.items)
+                    let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
+                    ForEach(rows) { row in
                         timelineRow(row, pinnedApprovalID: pinnedID).id(row.id)
+                        if row.id == hintRowID { CompanionContentHint() }
                     }
                     Color.clear.frame(height: 1).id("latest")
                         .onAppear { followLatest = true }
@@ -197,11 +200,11 @@ struct CompanionConversationView: View {
             }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
                removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil)
             if message.role == .assistant {
-                CompanionContentLinks(references: CompanionContentReference.files(in: message.text), store: store, target: target)
+                CompanionContentLinks(references: CompanionContentReference.references(in: item))
             }
         case .tool(let tool):
             CompanionToolCard(tool: tool)
-            CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
+            CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID) { option in
                 Task { await store.respond(approval, option: option, target: target) }

@@ -4,7 +4,6 @@ import Foundation
 /// Never selected by pairing; every command fails with "Preview only".
 @MainActor final class CompanionPreviewService: CompanionService {
     private var continuation: AsyncStream<CompanionEvent>.Continuation?
-    private var streaming: Task<Void, Never>?
     /// UI tests stream tool updates into River's conversation (`--companion-preview-stream`).
     private let streamsUpdates: Bool
     static let target = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
@@ -12,7 +11,6 @@ import Foundation
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
-            continuation.onTermination = { [weak self] _ in Task { @MainActor in self?.streaming?.cancel() } }
             continuation.yield(.hosts([
                 .init(id: Self.target.hostID, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
                     .init(id: "clubhouse", name: "Clubhouse", agents: [
@@ -26,19 +24,19 @@ import Foundation
                     ])
                 ])
             ]))
-            if self.streamsUpdates { self.streaming = Task { await self.streamToolUpdates() } }
+            if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
     /// A running tool whose output grows, then folds away with the next finished tool, while new ones keep starting.
     private func streamToolUpdates() async {
         var step = 0
-        while !Task.isCancelled {
+        while true {
             try? await Task.sleep(for: .milliseconds(400))
             step += 1
             let run = step / 10
             let output = "Step \(step % 10) of 10\nLog: `build/test-log.txt`"
-            continuation?.yield(.upsert(Self.target, .tool(.init(id: "live-\(run)", name: "Run focused tests", summary: "swift test",
-                                                               output: output, state: step % 10 == 9 ? .completed : .running)), sequence: nil))
+            let tool = CompanionTool(id: "live-\(run)", name: "Run focused tests", summary: "swift test", output: output, state: step % 10 == 9 ? .completed : .running)
+            guard case .enqueued = continuation?.yield(.upsert(Self.target, .tool(tool), sequence: nil)) else { return }
         }
     }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {

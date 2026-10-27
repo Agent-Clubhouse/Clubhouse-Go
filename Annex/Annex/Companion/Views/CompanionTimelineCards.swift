@@ -189,7 +189,7 @@ struct CompanionToolGroupCard: View {
             if expanded {
                 ForEach(tools) { tool in
                     CompanionToolCard(tool: tool)
-                    CompanionContentLinks(references: tool.images + CompanionContentReference.files(in: tool.output ?? ""), store: store, target: target)
+                    CompanionContentLinks(references: CompanionContentReference.references(in: .tool(tool)))
                 }
             }
         }
