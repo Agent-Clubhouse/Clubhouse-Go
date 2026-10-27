@@ -208,6 +208,9 @@ struct CompanionHomeView: View {
         }
         .animation(reduceMotion ? nil : .snappy, value: layout.hold)
         .navigationTitle("Clubhouse")
+        .alert("Couldn't change the project", isPresented: Binding(get: { store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(store.projectStateError ?? "") }
         .safeAreaInset(edge: .top) { reconnectingBanner }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -297,13 +300,16 @@ struct CompanionHomeView: View {
     }
 
     /// Agent and chat activity, or the last time the project was marked active here.
+    /// Agent and chat activity, plus the project's own activity: the desktop's when it shares project state,
+    /// otherwise the last time it was marked active here.
     private func projectActivity(_ target: CompanionProjectTarget) -> Date? {
-        [store.lastActivity(for: target), preferences.projectActivity[CompanionProjectOrdering.key(target)]].compactMap { $0 }.max()
+        let marked = store.sharedProjectState(target).map(\.lastActivity) ?? preferences.projectActivity[CompanionProjectOrdering.key(target)]
+        return [store.lastActivity(for: target), marked].compactMap { $0 }.max()
     }
 
     private var layout: CompanionHomeLayout {
         CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
-                                  rule: preferences.idleRule, hold: hold,
+                                  rule: preferences.idleRule, hold: hold, shared: { store.sharedProjectState($0.id) },
                                   projectActivity: projectActivity, agentActivity: store.lastActivity(of:))
     }
 
@@ -341,7 +347,7 @@ struct CompanionHomeView: View {
                 .listRowBackground(CompanionCardBackground())
             } footer: {
                 if preferences.idleExpanded { EmptyView() } else {
-                    Text(preferences.idleDays > 0 ? "No activity for \(preferences.idleDays) days, or marked inactive." : "Marked inactive.")
+                    Text(idleFooter(layout.idle))
                 }
             }
             if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group) } }
@@ -389,25 +395,42 @@ struct CompanionHomeView: View {
         }
     }
 
-    /// Pin and the idle marks, kept on this phone only.
+    /// The idle window the folded projects use: their desktop's when it shares project state, else this phone's.
+    private func idleFooter(_ idle: [CompanionProjectGroup]) -> String {
+        let windows = Set(idle.map { group in
+            store.sharedProjectState(group.id) != nil ? group.entry.host.idleDays : preferences.idleDays
+        })
+        guard windows.count == 1, let days = windows.first ?? nil else { return "No recent activity, or marked inactive." }
+        return days > 0 ? "No activity for \(days) days, or marked inactive." : "Marked inactive."
+    }
+
+    /// Pin and the idle marks. A desktop that shares project state keeps them; otherwise they stay on this phone.
     private func projectMenu(_ group: CompanionProjectGroup) -> some View {
-        let key = group.entry.orderKey
+        let key = group.entry.orderKey, project = group.id
+        let shared = store.sharedProjectState(project)
+        let isMarked = shared?.inactive ?? preferences.inactiveProjects.contains(key)
+        func change(local: @escaping () -> Void, remote: @escaping () async -> Void) {
+            if shared == nil { withAnimation(reduceMotion ? nil : .snappy) { local() } }
+            else { Task { await remote() } }
+        }
         return Menu {
             Button(group.isPinned ? "Unpin project" : "Pin project", systemImage: group.isPinned ? "pin.slash" : "pin") {
-                withAnimation(reduceMotion ? nil : .snappy) { preferences.togglePinned(key) }
+                change(local: { preferences.togglePinned(key) }, remote: { await store.setProject(project, pinned: !group.isPinned) })
             }
-            if group.isIdle {
+            if group.isIdle || isMarked {
                 Button("Mark active", systemImage: "sun.max") {
-                    withAnimation(reduceMotion ? nil : .snappy) { preferences.markActive(key) }
+                    change(local: { preferences.markActive(key) }, remote: { await store.setProject(project, inactive: false) })
                 }
             } else if !group.isPinned {
                 Button("Mark inactive", systemImage: "moon.zzz") {
-                    withAnimation(reduceMotion ? nil : .snappy) { preferences.markInactive(key) }
+                    change(local: { preferences.markInactive(key) }, remote: { await store.setProject(project, inactive: true) })
                 }
             }
         } label: {
             Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
         }
+        // Shared changes go to the desktop, so they wait for a connection.
+        .disabled(shared != nil && !group.entry.host.connection.canOperate)
         .accessibilityLabel("\(group.entry.project.name) options")
         .accessibilityIdentifier("project-menu-\(group.entry.host.id)-\(group.entry.project.id)")
     }

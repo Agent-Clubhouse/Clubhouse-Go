@@ -8,7 +8,7 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case handshake, trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake, upload
-    case createAgent, agentOptions, agentSettings, updateAgent, helperRequest, changes
+    case createAgent, agentOptions, agentSettings, updateAgent, helperRequest, changes, updateProject
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
@@ -322,6 +322,7 @@ nonisolated extension AnnexCommand {
         case .update: .updateAgent
         case .setModel, .setLevel: .command
         case .helperApprove, .helperDecline: .helperRequest
+        case .setProjectPinned, .setProjectInactive: .updateProject
         }
     }
 }

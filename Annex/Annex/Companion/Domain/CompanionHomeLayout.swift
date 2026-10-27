@@ -1,4 +1,5 @@
 import Foundation
+import ClubhouseTransport
 
 /// The desktop sidebar's idle rule (Clubhouse `projectActivity.ts`), applied on this phone only.
 /// A project is idle when it's unpinned, no agent in it is awake, and it has had no activity for
@@ -17,6 +18,45 @@ struct CompanionIdleRule: Sendable, Equatable {
         if inactive.contains(key) { return true }
         guard days > 0, let lastActivity else { return false }
         return now.timeIntervalSince(lastActivity) > Double(days) * 86_400
+    }
+}
+
+/// One project's pins, mark and idle flag, as the desktop shares them (`projectState` v1). `idle` is the
+/// desktop's own rule, so the phone uses it as sent instead of working it out.
+struct CompanionProjectState: Sendable, Equatable {
+    var pinned = false
+    var inactive = false
+    var idle = false
+    var lastActivity: Date?
+
+    /// One entry of the snapshot's `projectState`, or a command's result. Nil when it isn't an object.
+    init?(json: AnnexJSON?) {
+        guard case .object? = json else { return nil }
+        pinned = json?["pinned"].boolValue == true
+        inactive = json?["inactive"].boolValue == true
+        idle = json?["idle"].boolValue == true
+        lastActivity = json?["lastActivityAt"].flatMap(CompanionLiveService.date(from:))
+    }
+    init(pinned: Bool = false, inactive: Bool = false, idle: Bool = false, lastActivity: Date? = nil) {
+        self.pinned = pinned; self.inactive = inactive; self.idle = idle; self.lastActivity = lastActivity
+    }
+
+    /// The snapshot's `projectState`, by project id. Nil when the desktop didn't send it.
+    static func map(from json: AnnexJSON?) -> [String: CompanionProjectState]? {
+        guard case .object(let entries)? = json else { return nil }
+        return entries.compactMapValues { CompanionProjectState(json: $0) }
+    }
+
+    /// What the phone shows while a change is on its way, following the desktop's rules:
+    /// a pinned project is never idle, and marking active clears the mark and counts as activity now.
+    func with(pinned: Bool? = nil, inactive: Bool? = nil, now: Date = Date()) -> Self {
+        var next = self
+        if let pinned { next.pinned = pinned; if pinned { next.idle = false } }
+        if let inactive {
+            next.inactive = inactive
+            if inactive { next.idle = !next.pinned } else { next.idle = false; next.lastActivity = now }
+        }
+        return next
     }
 }
 
@@ -49,7 +89,8 @@ struct CompanionListHold: Sendable, Equatable {
 }
 
 /// Home's project list, as in the desktop sidebar: pinned projects first, then the rest in the chosen
-/// sort, then everything idle folded into one "N idle projects" section.
+/// sort, then everything idle folded into one "N idle projects" section. A project whose desktop shares its
+/// state (`shared`) takes its pin and idle flag from there; the rest follow this phone's `rule`.
 struct CompanionHomeLayout: Sendable, Equatable {
     var projects: [CompanionProjectGroup]
     var idle: [CompanionProjectGroup]
@@ -62,6 +103,7 @@ struct CompanionHomeLayout: Sendable, Equatable {
 
     static func build(_ entries: [CompanionProjectEntry], sort: CompanionProjectSort, customOrder: [String], rule: CompanionIdleRule,
                       now: Date = Date(), hold: CompanionListHold? = nil,
+                      shared: (CompanionProjectEntry) -> CompanionProjectState? = { _ in nil },
                       projectActivity: (CompanionProjectTarget) -> Date?, agentActivity: (CompanionAgent) -> Date?) -> Self {
         var ordered = CompanionProjectOrdering.ordered(entries, sort: sort, customOrder: customOrder, lastActivity: projectActivity)
         if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
@@ -69,8 +111,12 @@ struct CompanionHomeLayout: Sendable, Equatable {
         for entry in ordered {
             var agents = CompanionAgentOrdering.ordered(entry.project.agents, sort: sort, lastActivity: agentActivity)
             if let held = hold?.agents[entry.id] { agents = CompanionListHold.apply(agents, order: held, id: \.id) }
-            let isPinned = rule.pinned.contains(entry.orderKey)
-            let isIdle = rule.isIdle(entry.orderKey, running: agents.contains(where: isAwake), lastActivity: projectActivity(entry.id), now: now)
+            let running = agents.contains(where: isAwake)
+            let state = shared(entry)
+            let isPinned = state?.pinned ?? rule.pinned.contains(entry.orderKey)
+            // The desktop's flag already leaves running projects out; checking again covers a change still on its way.
+            let isIdle = state.map { $0.idle && !running }
+                ?? rule.isIdle(entry.orderKey, running: running, lastActivity: projectActivity(entry.id), now: now)
             let group = CompanionProjectGroup(entry: entry, isPinned: isPinned, isIdle: isIdle,
                                               agents: agents.filter { !isSleeping($0) && !isFinishedQuick($0) },
                                               sleeping: agents.filter(isSleeping), finishedQuick: agents.filter(isFinishedQuick))

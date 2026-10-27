@@ -81,6 +81,14 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canAnswerHelperRequests = false
     /// Helper starts and disposes orchestrators asked the user to decide, oldest first, from the desktop's snapshot.
     var helperRequests: [CompanionHelperRequest] = []
+    /// The desktop offers `projectState` v1 with `project.setPinned` and `project.setInactive`.
+    var canSyncProjectState = false
+    /// Each project's pins, mark and idle flag from the snapshot. Nil until the desktop sends it (after its one-time migration).
+    var projectState: [String: CompanionProjectState]?
+    /// The desktop's idle window in days, for display. 0 is never.
+    var idleDays: Int?
+    /// Pins and idle projects come from the desktop. Otherwise this phone keeps its own.
+    var sharesProjectState: Bool { canSyncProjectState && projectState != nil }
 }
 
 /// A helper start or dispose an orchestrator asked the user to decide (the snapshot's `helperRequests`).
@@ -572,6 +580,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges
     /// One uncommitted file's diff.
     func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff
+    func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState
+    func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState
 }
 
 @MainActor extension CompanionService {
@@ -622,5 +632,11 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff {
         throw CompanionServiceError.unavailable("This desktop can't show its changes.")
+    }
+    func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
+    }
+    func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
     }
 }

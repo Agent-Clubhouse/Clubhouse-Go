@@ -406,6 +406,31 @@ import ClubhouseTransport
         default: readableError(error)
         }
     }
+    func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        try await setProjectState(.setProjectPinned(projectID: project.projectID, pinned: pinned), project: project, id: clientCommandID)
+    }
+    func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        try await setProjectState(.setProjectInactive(projectID: project.projectID, inactive: inactive), project: project, id: clientCommandID)
+    }
+    private func setProjectState(_ kind: AnnexCommand.Kind, project: CompanionProjectTarget, id: String) async throws -> CompanionProjectState {
+        guard capabilities[project.hostID]?.supportsProjectState == true else {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
+        }
+        let receipt = try await execute(kind, id: id, hostID: project.hostID)
+        // A fresh snapshot follows every change; the result covers the moment before it arrives.
+        guard let state = CompanionProjectState(json: receipt.result) else {
+            throw CompanionServiceError.uncertain("The desktop took the change but didn't confirm it. It will show when the desktop next updates.")
+        }
+        if hosts[project.hostID]?.projectState != nil { hosts[project.hostID]?.projectState?[project.projectID] = state; emitHosts() }
+        return state
+    }
+    nonisolated static func idleDays(from value: AnnexJSON?) -> Int? {
+        switch value {
+        case .integer(let days)?: Int(days)
+        case .number(let days)?: Int(days)
+        default: nil
+        }
+    }
     static func agentReadError(_ error: Error) -> String {
         switch error as? AnnexTransportError {
         case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
@@ -595,6 +620,9 @@ import ClubhouseTransport
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID) }
+                // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
+                hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])
+                hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
                 if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
             case "theme:changed":
@@ -650,6 +678,7 @@ import ClubhouseTransport
             hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
             hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
             hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
+            hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
             hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true

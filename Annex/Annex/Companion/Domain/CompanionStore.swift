@@ -27,6 +27,10 @@ import Observation
     private(set) var finishedRuns = CompanionFinishedRuns() {
         didSet { finishedPersistence?.save(finishedRuns) }
     }
+    /// Pin and inactive changes sent to a desktop, shown until it confirms them.
+    private(set) var pendingProjectStates: [CompanionProjectTarget: CompanionProjectState] = [:]
+    /// Why the last pin or inactive change didn't reach the desktop.
+    var projectStateError: String?
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
@@ -588,6 +592,43 @@ import Observation
             throw CompanionServiceError.unavailable("Reconnect to your desktop to see this file's changes.")
         }
         return try await service.diff(of: file, in: project)
+    }
+    /// A project's pins, mark and idle flag when its desktop shares them, with any change still on its way.
+    /// Nil when this phone keeps its own (an older desktop, or one that hasn't moved its pins over yet).
+    func sharedProjectState(_ project: CompanionProjectTarget) -> CompanionProjectState? {
+        guard let host = hosts.first(where: { $0.id == project.hostID }), host.sharesProjectState else { return nil }
+        return pendingProjectStates[project] ?? host.projectState?[project.projectID] ?? .init()
+    }
+    /// Pins or unpins a project on its desktop: shown at once, then confirmed by the desktop.
+    func setProject(_ project: CompanionProjectTarget, pinned: Bool) async {
+        await changeProjectState(project, to: { $0.with(pinned: pinned) }) { [service] id in
+            try await service.setProject(project, pinned: pinned, clientCommandID: id)
+        }
+    }
+    /// Marks a project inactive or active on its desktop. Marking active counts as activity there.
+    func setProject(_ project: CompanionProjectTarget, inactive: Bool) async {
+        await changeProjectState(project, to: { $0.with(inactive: inactive) }) { [service] id in
+            try await service.setProject(project, inactive: inactive, clientCommandID: id)
+        }
+    }
+    private func changeProjectState(_ project: CompanionProjectTarget, to change: (CompanionProjectState) -> CompanionProjectState,
+                                    send: (String) async throws -> CompanionProjectState) async {
+        guard let current = sharedProjectState(project) else { return }
+        guard host(for: .init(hostID: project.hostID, projectID: project.projectID, agentID: ""))?.connection.canOperate == true else {
+            projectStateError = "Reconnect to your desktop to change this project."
+            return
+        }
+        projectStateError = nil
+        pendingProjectStates[project] = change(current)
+        defer { pendingProjectStates[project] = nil }
+        do {
+            let confirmed = try await send(UUID().uuidString)
+            if let index = hosts.firstIndex(where: { $0.id == project.hostID }), hosts[index].projectState != nil {
+                hosts[index].projectState?[project.projectID] = confirmed
+            }
+        } catch {
+            projectStateError = error.localizedDescription
+        }
     }
 
     func removeQueuedMessage(_ messageID: String, target: CompanionTarget) async {
