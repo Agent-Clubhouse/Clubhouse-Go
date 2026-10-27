@@ -3,7 +3,8 @@ import Foundation
 nonisolated public struct AnnexCommand: Sendable, Equatable {
     public enum Delivery: String, Sendable { case auto, prompt, steer, queued }
     public enum Kind: Sendable, Equatable {
-        case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto)
+        /// `attachmentIDs` name images uploaded with `AnnexTransporting.upload`; `text` may then be empty.
+        case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto, attachmentIDs: [String] = [])
         case interrupt(agentID: String, sessionID: String)
         case removeQueued(agentID: String, sessionID: String, messageIDs: [String])
         case permission(agentID: String, sessionID: String, requestID: String, optionID: String)
@@ -21,6 +22,10 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
     public init(commandID: String = UUID().uuidString, epoch: String, kind: Kind) {
         self.createdAt = Date()
         self.commandID = commandID; self.epoch = epoch; self.kind = kind
+    }
+    /// Images named by a `chat.send`.
+    public var attachmentCount: Int {
+        if case .send(_, _, _, _, let ids) = kind { ids.count } else { 0 }
     }
     public var type: String {
         switch kind {
@@ -46,8 +51,14 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             if let session { v["sessionId"] = .string(session) }
         }
         switch kind {
-        case .send(let agent, let session, let text, let delivery):
+        case .send(let agent, let session, let text, let delivery, let attachments):
             target(agent, session); v["text"] = .string(text); v["delivery"] = .string(delivery.rawValue)
+            // Part of the desktop's idempotency fingerprint: a retry repeats the same ids in the same order.
+            if !attachments.isEmpty {
+                guard attachments.count <= AnnexCapabilities.Attachments.maximumCount, Set(attachments).count == attachments.count,
+                      attachments.allSatisfy({ !$0.isEmpty && $0.count <= 128 }) else { throw AnnexTransportError.malformedResponse }
+                v["attachmentIds"] = .array(attachments.map(AnnexJSON.string))
+            }
         case .interrupt(let agent, let session): target(agent, session)
         case .removeQueued(let agent, let session, let ids):
             target(agent, session); v["messageIds"] = .array(ids.map(AnnexJSON.string))
@@ -208,4 +219,36 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAgentCreate: Bool { commands.contains("agent.create") && (createOptions?.version ?? 0) >= 1 }
     /// An agent's settings can be read and changed (`agent.update` with agent settings v1).
     public var supportsAgentSettings: Bool { commands.contains("agent.update") && (agentSettings?.version ?? 0) >= 1 }
+    /// Image upload limits. Absent on desktops that can't take images: send text only.
+    public struct Attachments: Decodable, Sendable, Equatable {
+        public static let maximumCount = 10
+        public let version: Int
+        public let imageTypes: [String]
+        public let maxImageBytes: Int
+        public let maxCount: Int
+        public init(version: Int = 1, imageTypes: [String], maxImageBytes: Int, maxCount: Int) {
+            self.version = version; self.imageTypes = imageTypes; self.maxImageBytes = maxImageBytes; self.maxCount = maxCount
+        }
+        /// A malformed block reads as unusable rather than failing the whole capability document.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = (try? c.decode(Int.self, forKey: .version)) ?? 0
+            imageTypes = (try? c.decode([String].self, forKey: .imageTypes)) ?? []
+            maxImageBytes = (try? c.decode(Int.self, forKey: .maxImageBytes)) ?? 0
+            maxCount = min(Self.maximumCount, (try? c.decode(Int.self, forKey: .maxCount)) ?? 0)
+        }
+        private enum CodingKeys: String, CodingKey { case version, imageTypes, maxImageBytes, maxCount }
+        public var isUsable: Bool { version == 1 && maxImageBytes > 0 && maxCount > 0 && !imageTypes.isEmpty }
+    }
+    public let attachments: Attachments?
+}
+
+/// The desktop's reply to an image upload. The id is bound to this phone and agent, and expires.
+nonisolated public struct AnnexAttachmentUpload: Decodable, Sendable, Equatable {
+    public let version: Int
+    public let attachmentId: String
+    public let mimeType: String
+    public let bytes: Int
+    public let width: Int?
+    public let height: Int?
 }

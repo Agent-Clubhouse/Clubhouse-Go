@@ -131,10 +131,12 @@ import ClubhouseTransport
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         let kind: AnnexCommand.Kind
         if readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {
+            // `agent.start` carries text only; the desktop answers an image upload for a stopped agent with `not_chat`.
+            guard request.attachmentIDs.isEmpty else { throw CompanionServiceError.rejected(Self.notChatMessage) }
             kind = .start(agentID: request.target.agentID, message: request.text, resume: true)
         } else {
             kind = .send(agentID: request.target.agentID, sessionID: try session(for: request.target), text: request.text,
-                         delivery: request.isSteering ? .steer : request.queueIfBusy ? .queued : .auto)
+                         delivery: request.isSteering ? .steer : request.queueIfBusy ? .queued : .auto, attachmentIDs: request.attachmentIDs)
         }
         let receipt = try await execute(kind, id: request.clientCommandID, hostID: request.target.hostID)
         if case .start = kind {
@@ -149,6 +151,35 @@ import ClubhouseTransport
             }
         }
         return .init(clientCommandID: request.clientCommandID)
+    }
+
+    func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String {
+        return try await AnnexTelemetry.shared.measure(.upload) {
+            guard capabilities[target.hostID]?.attachments?.isUsable == true else {
+                throw CompanionServiceError.unavailable("This desktop can't take images. Update Clubhouse on your desktop.")
+            }
+            do {
+                return try await transport(for: target.hostID).upload(agentID: target.agentID, data: image.bytes.data, mimeType: image.mimeType).attachmentId
+            } catch { throw Self.uploadError(error) }
+        }
+    }
+
+    static let notChatMessage = "Start this agent before sending images."
+
+    /// An upload whose reply was lost is harmless (the next try gets a new id), so every failure here can be retried.
+    static func uploadError(_ error: Error) -> Error {
+        switch error as? AnnexTransportError {
+        case .rejected(409, "not_chat"): return CompanionServiceError.rejected(notChatMessage)
+        case .rejected(409, "images_not_supported"): return CompanionAttachmentError.imagesNotSupported
+        case .rejected(413, _): return CompanionServiceError.rejected("This image is too large for the desktop.")
+        case .rejected(415, _): return CompanionServiceError.rejected("The desktop can't read this image.")
+        case .rejected(404, "agent_not_found"): return CompanionServiceError.rejected("This agent is no longer on your desktop.")
+        case .rateLimited(_, let seconds): return CompanionAttachmentError.rateLimited(retryAfter: seconds)
+        case .some(let error): return CompanionServiceError.rejected(readableError(error))
+        case nil:
+            if error is CancellationError { return error }
+            return CompanionServiceError.rejected("The image couldn't be uploaded. Check the connection and try again.")
+        }
     }
 
     func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
@@ -180,6 +211,7 @@ import ClubhouseTransport
             guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
             route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
         case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+        case .localImage: throw AnnexTransportError.invalidEndpoint
             }
             let value = try await transport(for: target.hostID).read(route)
             guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
@@ -383,10 +415,17 @@ import ClubhouseTransport
             let receipt = try await transport(for: hostID).execute(command)
             switch receipt.status {
             case .completed: return receipt
-            case .rejected: throw CompanionServiceError.rejected(Self.rejectionMessage(receipt.error))
+            case .rejected:
+                switch receipt.error?.code {
+                case "attachment_unavailable": throw CompanionAttachmentError.attachmentUnavailable
+                case "images_not_supported": throw CompanionAttachmentError.imagesNotSupported
+                case "not_chat" where command.attachmentCount > 0: throw CompanionServiceError.rejected(Self.notChatMessage)
+                default: throw CompanionServiceError.rejected(Self.rejectionMessage(receipt.error))
+                }
             case .failed: throw CompanionServiceError.uncertain(receipt.error?.message ?? "The command may have partially run. Refresh to check its result.")
             }
         } catch let error as CompanionServiceError { throw error }
+        catch let error as CompanionAttachmentError { throw error }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
@@ -498,6 +537,7 @@ import ClubhouseTransport
             hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
             hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
             hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
+            hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
@@ -598,6 +638,7 @@ import ClubhouseTransport
     private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
         guard let commands = capabilities[hostID]?.commands else { return [] }
         var result = proposed
+        if !commands.contains("chat.send") || capabilities[hostID].flatMap(Self.attachmentLimits) == nil { result.remove(.images) }
         if !commands.contains("chat.send") {
             result.subtract([.steer, .queue])
             if !commands.contains("agent.start") { result.remove(.chat) }
@@ -608,6 +649,12 @@ import ClubhouseTransport
         if !commands.contains("chat.question") { result.remove(.answer) }
         if !commands.contains("chat.queue.remove") { result.remove(.removeQueued) }
         return result
+    }
+
+    /// Images need the upload route and `chat.send`; an older desktop advertises neither and gets text only.
+    nonisolated static func attachmentLimits(_ capabilities: AnnexCapabilities) -> CompanionAttachmentLimits? {
+        guard let value = capabilities.attachments, value.isUsable, capabilities.commands.contains("chat.send") else { return nil }
+        return .init(imageTypes: value.imageTypes, maxImageBytes: value.maxImageBytes, maxCount: min(value.maxCount, CompanionImageLimits.maximumPerMessage))
     }
 
     /// Reads the desktop's theme colors. A `gradients.accent` CSS gradient, if the desktop adds one, supplies the wash.
@@ -631,6 +678,7 @@ import ClubhouseTransport
         case .pairingRevocationOutcomeUnknown: return "The desktop may have ended this pairing, but its reply was lost. Access is kept here so you can check desktop settings before forgetting this device."
         case .commandInFlight: return "Another command is being sent to this desktop. Try again when it finishes."
         case .invalidEndpoint: return "Enter a valid desktop address and port."
+        case .rateLimited: return "The desktop is busy. Try again in a moment."
         case .rejected(_, let code) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
         case .rejected(let status, let code): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
         default: return "The desktop connection could not complete. Reconnect and try again."

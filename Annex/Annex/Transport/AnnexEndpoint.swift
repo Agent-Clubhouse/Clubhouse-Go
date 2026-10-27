@@ -12,6 +12,8 @@ nonisolated public enum AnnexTransportError: Error, Sendable, Equatable {
     case pairingRevocationOutcomeUnknown
     case unsupportedCapability(String)
     case rejected(status: Int, code: String?)
+    /// HTTP 429 with the host's machine code and `Retry-After` seconds.
+    case rateLimited(code: String?, retryAfterSeconds: Int?)
     case malformedResponse
     case responseTooLarge
     case queueOverflow

@@ -45,10 +45,13 @@ struct CompanionMessageView: View {
                 .accessibilityLabel(userCaption)
                 .accessibilityIdentifier("companion-message-source")
             }
-            Text(message.text).textSelection(.enabled)
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.text)" : message.text)
+            if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
+            if !message.text.isEmpty || message.images.isEmpty {
+                Text(message.text).textSelection(.enabled)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
+                    .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.text)" : message.text)
+            }
             deliveryStatus
             if let state = message.queueState {
                 VStack(alignment: .trailing, spacing: 8) {
@@ -92,6 +95,7 @@ struct CompanionMessageView: View {
     private var deliverySymbol: String {
         switch message.delivery {
         case .sending: "clock"
+        case .uploading: "arrow.up.circle"
         case .accepted, .confirmed: "checkmark"
         case .failed: "exclamationmark.circle"
         case .uncertain: "questionmark.circle"

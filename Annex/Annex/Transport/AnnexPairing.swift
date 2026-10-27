@@ -83,6 +83,7 @@ nonisolated enum AnnexHTTPValidation {
             // Only known machine codes are retained, never server-provided content.
             let code = (try? JSONDecoder().decode(AnnexJSON.self, from: response.data))?["error"]?.string
             let safe = code.flatMap { $0.count <= 80 && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }) ? $0 : nil }
+            if response.status == 429 { return .rateLimited(code: safe, retryAfterSeconds: response.retryAfter) }
             return .rejected(status: response.status, code: safe)
         }
     }

@@ -4,8 +4,10 @@ import Foundation
 enum CompanionContentReference: Hashable, Sendable, Identifiable {
     case image(String)
     case file(String)
-    var id: String { switch self { case .image(let v): "image:" + v; case .file(let v): "file:" + v } }
-    var label: String { switch self { case .image: "View image"; case .file(let p): p } }
+    /// An image this phone sent, shown from its own copy (`CompanionMessageImage.id`).
+    case localImage(String)
+    var id: String { switch self { case .image(let v): "image:" + v; case .file(let v): "file:" + v; case .localImage(let v): "local-image:" + v } }
+    var label: String { switch self { case .image, .localImage: "View image"; case .file(let p): p } }
     static func validMediaReference(_ value: String) -> Bool {
         let parts = value.split(separator: ".", omittingEmptySubsequences: false)
         return parts.count == 2 && parts[0].count == 64 && parts[0].allSatisfy { $0.isASCII && ($0.isNumber || ("a"..."f").contains(String($0))) }

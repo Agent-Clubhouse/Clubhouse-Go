@@ -7,6 +7,8 @@ import Observation
     var drafts: [CompanionTarget: String] = [:] {
         didSet { draftPersistence?.save(drafts) }
     }
+    /// Images picked for each agent's next message. Kept for this session only, not across launches.
+    var attachmentDrafts: [CompanionTarget: [CompanionImageAttachment]] = [:]
     private(set) var conversations: [CompanionTarget: CompanionConversation] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
     private(set) var operationErrors: [CompanionTarget: String] = [:]
@@ -23,6 +25,12 @@ import Observation
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
+    /// Desktop ids of uploaded images, by `CompanionMessageImage.id`, so a retry doesn't upload them again.
+    @ObservationIgnored private var uploadedAttachmentIDs: [String: String] = [:]
+    /// Sessions that refused images (`images_not_supported`), by agent. A new session may take them.
+    private var imagesRefused: [CompanionTarget: String] = [:]
+    @ObservationIgnored private var remoteImages: [String: CompanionImageBytes] = [:]
+    @ObservationIgnored private var remoteImageOrder: [String] = []
 
     init(service: any CompanionService, draftPersistence: (any CompanionDraftPersistence)? = nil) {
         self.service = service
@@ -67,6 +75,13 @@ import Observation
         catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        if case .localImage(let id) = reference {
+            // The phone's own copy of an image it sent: no desktop setting or connection needed.
+            guard let image = messageImage(id: id, target: target), let local = image.local else {
+                throw CompanionServiceError.unavailable("This image is no longer on your phone.")
+            }
+            return .init(kind: "image", name: image.name ?? "Image", mimeType: image.mimeType, bytes: local.data)
+        }
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
         guard host.richContentAvailable else {
             throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
@@ -82,6 +97,43 @@ import Observation
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)
     }
 
+    /// Limits for the attach button. It shows only when the desktop takes uploads and the agent's live session takes images.
+    func attachmentLimits(for target: CompanionTarget) -> CompanionAttachmentLimits? {
+        guard let limits = host(for: target)?.attachments, agent(for: target)?.capabilities.contains(.images) == true,
+              imagesRefused[target] != (conversation(for: target).sessionID ?? "") else { return nil }
+        return limits
+    }
+    func addAttachments(_ images: [CompanionImageAttachment], to target: CompanionTarget) {
+        guard let limits = attachmentLimits(for: target), !images.isEmpty else { return }
+        let current = attachmentDrafts[target] ?? []
+        attachmentDrafts[target] = current + images.prefix(max(0, limits.maxCount - current.count))
+    }
+    func removeAttachment(_ id: String, from target: CompanionTarget) {
+        attachmentDrafts[target]?.removeAll { $0.id == id }
+    }
+    func reportAttachmentProblem(_ text: String, target: CompanionTarget) { operationErrors[target] = text }
+
+    /// The bytes behind a message image: the phone's own copy, or the desktop's when its Rich chat content is on.
+    func imageData(_ image: CompanionMessageImage, target: CompanionTarget) async -> Data? {
+        if let local = image.local { return local.data }
+        guard let reference = image.mediaRef, richContentAvailable(for: target), host(for: target)?.connection.canOperate == true else { return nil }
+        if let cached = remoteImages[reference] { return cached.data }
+        guard let content = try? await service.content(.image(reference), target: target), content.kind == "image",
+              let data = content.bytes else { return nil }
+        remoteImages[reference] = .init(data)
+        remoteImageOrder.removeAll { $0 == reference }
+        remoteImageOrder.append(reference)
+        while remoteImageOrder.count > 24 { remoteImages.removeValue(forKey: remoteImageOrder.removeFirst()) }
+        return data
+    }
+
+    private func messageImage(id: String, target: CompanionTarget) -> CompanionMessageImage? {
+        for case .message(let message) in conversation(for: target).items {
+            if let image = message.images.first(where: { $0.id == id }) { return image }
+        }
+        return nil
+    }
+
     func load(_ target: CompanionTarget, force: Bool = false) async {
         guard force || (!conversation(for: target).isLoaded && !conversation(for: target).isLoading) else { return }
         let generation = UUID()
@@ -89,9 +141,10 @@ import Observation
         conversations[target, default: .init()].isLoading = true
         conversations[target, default: .init()].error = nil
         do {
-            let history = try await service.history(for: target)
+            var history = try await service.history(for: target)
             guard historyGenerations[target] == generation else { return }
             var current = conversation(for: target)
+            history.items = Self.carryingLocalImages(history.items, from: current.items)
             // Preserve local messages whose command has not yet appeared in server history.
             let acknowledged = Set(history.items.compactMap { item -> String? in
                 guard case .message(let message) = item else { return nil }
@@ -128,12 +181,19 @@ import Observation
 
     func sendDraft(to target: CompanionTarget) async {
         let text = (drafts[target] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, canSend(target) else { return }
+        let attachments = attachmentDrafts[target] ?? []
+        guard !text.isEmpty || !attachments.isEmpty, canSend(target) else { return }
+        guard attachments.isEmpty || attachmentLimits(for: target) != nil else {
+            operationErrors[target] = CompanionAttachmentError.imagesNotSupported.localizedDescription
+            return
+        }
         let commandID = UUID().uuidString
         let message = CompanionMessage(id: "local-\(commandID)", role: .user, text: text,
-                                       timestamp: Date(), delivery: .sending, clientCommandID: commandID)
+                                       timestamp: Date(), delivery: .sending, clientCommandID: commandID,
+                                       images: attachments.map { .init(id: $0.id, mimeType: $0.mimeType, width: $0.width, height: $0.height, local: $0.bytes) })
         conversations[target, default: .init()].items.append(.message(message))
         drafts[target] = ""
+        attachmentDrafts[target] = nil
         await submit(message, to: target)
     }
 
@@ -152,24 +212,83 @@ import Observation
     }
 
     private func submit(_ message: CompanionMessage, to target: CompanionTarget) async {
-        guard let commandID = message.clientCommandID else { return }
+        guard var commandID = message.clientCommandID else { return }
         pendingCommands.insert(target)
         operationErrors[target] = nil
         updateDelivery(commandID, target: target, delivery: .sending)
         defer { pendingCommands.remove(target) }
         do {
-            let request = sendRequests[commandID] ?? CompanionSendRequest(target: target, text: message.text, clientCommandID: commandID,
+            var request = sendRequests[commandID] ?? CompanionSendRequest(target: target, text: message.text, clientCommandID: commandID,
                                                                           isSteering: agent(for: target)?.status == .working && agent(for: target)?.capabilities.contains(.steer) == true,
                                                                           queueIfBusy: agent(for: target)?.status == .working && agent(for: target)?.capabilities.contains(.steer) != true)
+            // Every image goes up first; then one send names them all.
+            if !message.images.isEmpty && request.attachmentIDs.isEmpty {
+                request.attachmentIDs = try await upload(message.images, commandID: commandID, target: target)
+                updateDelivery(commandID, target: target, delivery: .sending)
+            }
             sendRequests[commandID] = request
-            _ = try await service.send(request)
+            do { _ = try await service.send(request) }
+            catch CompanionAttachmentError.attachmentUnavailable where !message.images.isEmpty {
+                // The ids expired or the desktop restarted. The old command id is fingerprinted with the old ids,
+                // so upload again and send as a new command.
+                for image in message.images { uploadedAttachmentIDs.removeValue(forKey: image.id) }
+                sendRequests.removeValue(forKey: commandID)
+                let renewed = UUID().uuidString
+                renameCommand(commandID, to: renewed, target: target)
+                commandID = renewed
+                request.clientCommandID = renewed
+                request.attachmentIDs = try await upload(message.images, commandID: renewed, target: target)
+                updateDelivery(renewed, target: target, delivery: .sending)
+                sendRequests[renewed] = request
+                _ = try await service.send(request)
+            }
             updateDelivery(commandID, target: target, delivery: .accepted)
+        } catch let error as CompanionAttachmentError {
+            if error == .imagesNotSupported { imagesRefused[target] = conversation(for: target).sessionID ?? "" }
+            updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
         } catch let error as CompanionServiceError {
             if case .uncertain(let detail) = error { updateDelivery(commandID, target: target, delivery: .uncertain(detail)) }
             else { updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription)) }
         } catch {
             updateDelivery(commandID, target: target, delivery: .uncertain(error.localizedDescription))
         }
+    }
+
+    /// Uploads in order, reusing ids from an earlier try. Waits out a short `Retry-After` up to twice.
+    private func upload(_ images: [CompanionMessageImage], commandID: String, target: CompanionTarget) async throws -> [String] {
+        var ids: [String] = []
+        for (index, image) in images.enumerated() {
+            updateDelivery(commandID, target: target, delivery: .uploading(completed: index, total: images.count))
+            if let id = uploadedAttachmentIDs[image.id] { ids.append(id); continue }
+            guard let bytes = image.local, let mimeType = image.mimeType else {
+                throw CompanionServiceError.rejected("This image is no longer on your phone. Pick it again.")
+            }
+            let attachment = CompanionImageAttachment(id: image.id, bytes: bytes, mimeType: mimeType, width: image.width ?? 0, height: image.height ?? 0)
+            var waits = 0
+            while true {
+                do {
+                    let id = try await service.upload(attachment, target: target)
+                    uploadedAttachmentIDs[image.id] = id
+                    ids.append(id)
+                    break
+                } catch CompanionAttachmentError.rateLimited(let seconds) where waits < 2 && (seconds ?? 5) <= 30 {
+                    waits += 1
+                    try await Task.sleep(for: .seconds(max(1, seconds ?? 5)))
+                }
+            }
+        }
+        return ids
+    }
+
+    private func renameCommand(_ old: String, to new: String, target: CompanionTarget) {
+        var items = conversation(for: target).items
+        for index in items.indices {
+            if case .message(var message) = items[index], message.clientCommandID == old {
+                message.clientCommandID = new
+                items[index] = .message(message)
+            }
+        }
+        conversations[target, default: .init()].items = items
     }
 
     func cancel(_ target: CompanionTarget) async {
@@ -379,8 +498,9 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts): self.hosts = hosts
-        case .timeline(let target, let items, let sequence, let reset, let sessionID):
+        case .timeline(let target, let incoming, let sequence, let reset, let sessionID):
             if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
+            let items = Self.carryingLocalImages(incoming, from: conversation(for: target).items)
             let commandIDs = Set(items.compactMap { item -> String? in
                 if case .message(let message) = item { return message.clientCommandID }; return nil
             })
@@ -456,11 +576,34 @@ import Observation
         local.role == .user && items.contains { item in
             guard case .message(let incoming) = item else { return false }
             return incoming.role == .user && incoming.clientCommandID == nil && incoming.id != local.id && incoming.text == local.text
+                && incoming.images.count == local.images.count
         }
     }
 
-    private func upsert(_ item: CompanionTimelineItem, target: CompanionTarget) {
+    /// The desktop's echo replaces the phone's bubble. Each image keeps the phone's copy, so it still shows
+    /// when the desktop's Rich chat content is off, and without a fetch when it's on. Matched by command id, then message id.
+    static func carryingLocalImages(_ items: [CompanionTimelineItem], from previous: [CompanionTimelineItem]) -> [CompanionTimelineItem] {
+        var byCommand: [String: [CompanionMessageImage]] = [:]
+        var byMessage: [String: [CompanionMessageImage]] = [:]
+        for case .message(let message) in previous where message.images.contains(where: { $0.local != nil }) {
+            if let commandID = message.clientCommandID { byCommand[commandID] = message.images }
+            byMessage[message.id] = message.images
+        }
+        guard !byMessage.isEmpty else { return items }
+        return items.map { item in
+            guard case .message(var message) = item, message.role == .user, !message.images.isEmpty,
+                  let local = message.clientCommandID.flatMap({ byCommand[$0] }) ?? byMessage[message.id] else { return item }
+            for index in message.images.indices where message.images[index].local == nil && index < local.count {
+                message.images[index].local = local[index].local
+                message.images[index].mimeType = message.images[index].mimeType ?? local[index].mimeType
+            }
+            return .message(message)
+        }
+    }
+
+    private func upsert(_ incoming: CompanionTimelineItem, target: CompanionTarget) {
         var items = conversation(for: target).items
+        let item = Self.carryingLocalImages([incoming], from: items)[0]
         if case .message(let incoming) = item, incoming.role == .user, incoming.clientCommandID == nil {
             items.removeAll { existing in
                 guard case .message(let local) = existing, local.clientCommandID != nil, local.delivery != .confirmed else { return false }

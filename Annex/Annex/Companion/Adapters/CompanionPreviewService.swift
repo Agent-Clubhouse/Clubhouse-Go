@@ -16,11 +16,11 @@ import Foundation
             continuation.yield(.hosts([
                 .init(id: Self.target.hostID, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
                     .init(id: "clubhouse", name: "Clubhouse", agents: [
-                        .init(id: Self.target, name: "River", subtitle: "Build the mobile companion", status: .approval, model: "Codex", capabilities: [.chat, .steer, .cancel, .approve]),
+                        .init(id: Self.target, name: "River", subtitle: "Build the mobile companion", status: .approval, model: "Codex", capabilities: [.chat, .steer, .cancel, .approve, .images]),
                         .init(id: .init(hostID: Self.target.hostID, projectID: "clubhouse", agentID: "cedar"), name: "Cedar", subtitle: "Investigate reconnect behavior", status: .working, model: "Claude", capabilities: [.chat, .steer, .cancel, .approve]),
                         .init(id: Self.sleepingTarget, name: "Juniper", subtitle: "Release notes", status: .sleeping, model: "Claude", capabilities: [.chat, .wake])
                     ])
-                ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true),
+                ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, attachments: Self.attachments),
                 .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                     .init(id: "notes", name: "Field notes", agents: [
                         .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -73,6 +73,12 @@ import Foundation
     """
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         throw CompanionServiceError.unavailable("Preview only. Pair a desktop to send messages.")
+    }
+    /// The desktop's advertised limits, so the attach button shows. Uploads are kept on the phone; the send then fails as above.
+    static let attachments = CompanionAttachmentLimits(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10)
+    func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String {
+        try await Task.sleep(for: .milliseconds(200))
+        return "preview-\(image.id)"
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         guard case .file(let path) = reference else { throw previewError }

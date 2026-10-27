@@ -23,6 +23,11 @@ struct CompanionConversationView: View {
         Binding(get: { store.drafts[target] ?? "" }, set: { store.drafts[target] = $0 })
     }
     private var canRespond: Bool { store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target) }
+    private var attachmentLimits: CompanionAttachmentLimits? { store.attachmentLimits(for: target) }
+    /// Text, images, or both.
+    private var hasMessage: Bool {
+        !draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !(store.attachmentDrafts[target] ?? []).isEmpty
+    }
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
 
     var body: some View {
@@ -269,6 +274,7 @@ struct CompanionConversationView: View {
                 .padding(.leading, 16).padding(.trailing, 6).padding(.vertical, 6)
                 .glassEffect(.regular, in: .capsule)
             }
+            CompanionAttachmentStrip(store: store, target: target)
             HStack(alignment: .bottom, spacing: 8) {
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {
@@ -280,12 +286,15 @@ struct CompanionConversationView: View {
                     .frame(height: composerRowHeight)
                 }
                 HStack(alignment: .bottom, spacing: 6) {
+                    if let limits = attachmentLimits {
+                        CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, 8).frame(height: composerRowHeight)
+                    }
                     TextField(composerPlaceholder, text: draft, axis: .vertical)
                         .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
                         // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, 12).padding(.leading, 16)
+                        .padding(.vertical, 12).padding(.leading, attachmentLimits == nil ? 16 : 2)
                         // One line is centred in the row; longer drafts grow upward with Send on the last line.
                         .frame(minHeight: composerRowHeight)
                         .focused($composerFocused)
@@ -299,7 +308,7 @@ struct CompanionConversationView: View {
                             .font(.headline.weight(.bold)).frame(width: 36, height: 36)
                     }
                     .buttonStyle(.companionTintedCircle)
-                    .disabled(!store.canSend(target) || draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!store.canSend(target) || !hasMessage)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
                     .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : "")

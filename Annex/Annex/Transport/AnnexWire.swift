@@ -102,8 +102,13 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON
     func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt
     func revokeSessionPairing() async throws
+    /// Uploads one image's raw bytes for a later `chat.send`. Not idempotent: each call returns a new id.
+    func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload
 }
 
 nonisolated public extension AnnexTransporting {
     func revokeSessionPairing() async throws { throw AnnexTransportError.unsupportedCapability("session-revocation") }
+    func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload {
+        throw AnnexTransportError.unsupportedCapability("attachments")
+    }
 }

@@ -7,6 +7,8 @@ import WebKit
 struct CompanionContentPresenter {
     var richContentAvailable: Bool
     var open: @MainActor (CompanionContentReference) -> Void
+    /// The bytes for an image in a user message, for its inline thumbnail.
+    var loadImage: @MainActor (CompanionMessageImage) async -> Data? = { $0.local?.data }
 }
 
 private struct CompanionContentPresenterKey: EnvironmentKey {
@@ -34,7 +36,8 @@ private struct CompanionContentPreviews: ViewModifier {
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
         content
-            .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target)) { selected = $0 })
+            .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target), open: { selected = $0 },
+                                                             loadImage: { await store.imageData($0, target: target) }))
             .sheet(item: $selected) { reference in
                 CompanionContentView(reference: reference, store: store, target: target) { selected = nil }
                     .interactiveDismissDisabled(false)
@@ -99,7 +102,8 @@ private struct CompanionContentView: View {
                         if content.tooLarge {
                             Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
                         } else if let image {
-                            Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Chat image from your desktop")
+                            Image(uiImage: image).resizable().scaledToFit()
+                                .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())
                             HStack {
                                 Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }
                                 ShareLink(item: Image(uiImage: image), preview: SharePreview(content.name, image: Image(uiImage: image))) {

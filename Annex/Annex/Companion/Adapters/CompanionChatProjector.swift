@@ -44,11 +44,13 @@ struct CompanionChatProjector {
             capabilities = []; finishStreams()
         case "user_message":
             guard let messageID = data["messageId"]?.string else { return }
-            let text = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
+            let content = data["content"].arrayValue
+            let text = content.filter { $0["type"]?.string != "image" }.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.message(.init(id: messageID, role: .user, text: text, timestamp: time,
                                   clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
                                   queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil,
-                                  source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer")))
+                                  source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer",
+                                  images: Self.userImages(content, messageID: messageID))))
         case "queue_state":
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence
@@ -172,6 +174,7 @@ struct CompanionChatProjector {
         set(.steer, "steer")
         set(.cancel, "interrupt")
         set(.answer, "questions")
+        set(.images, "images")
         if let queue = value["queue"]?.string {
             if queue != "none" { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
             queueRemovalSupported = queue == "client"
@@ -266,6 +269,17 @@ struct CompanionChatProjector {
         }
         if let description = value["description"]?.string { return description }
         return value.displayText
+    }
+    /// Image blocks the desktop echoes in a user message. Older desktops send no `mediaRef`: those show as a placeholder.
+    static func userImages(_ content: [AnnexJSON], messageID: String) -> [CompanionMessageImage] {
+        content.filter { $0["type"]?.string == "image" }.prefix(CompanionImageLimits.maximumPerMessage).enumerated().map { index, block in
+            let reference = block["mediaRef"]?.string.flatMap { CompanionContentReference.validMediaReference($0) ? $0 : nil }
+            // Only ever a file name, even if a desktop sends more.
+            let name = block["path"]?.string.map { ($0.replacingOccurrences(of: "\\", with: "/") as NSString).lastPathComponent }.flatMap { $0.isEmpty ? nil : String($0.prefix(120)) }
+            func dimension(_ key: String) -> Int? { block[key]?.integer.flatMap { $0 > 0 && $0 < 100_000 ? Int($0) : nil } }
+            return .init(id: "\(messageID)-image-\(index)", mimeType: block["mimeType"]?.string, mediaRef: reference, name: name,
+                         width: dimension("width"), height: dimension("height"))
+        }
     }
     private static func contentText(_ value: AnnexJSON) -> String {
         switch value["type"]?.string {
