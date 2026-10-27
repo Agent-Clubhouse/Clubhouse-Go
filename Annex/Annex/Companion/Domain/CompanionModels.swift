@@ -91,8 +91,20 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var lastActivity: Date?
     /// Quick agents run one task and finish; durable agents sleep and wake.
     var isQuick = false
+    /// When the current turn started, from chat events. Nil between turns.
+    var turnStartedAt: Date?
+    /// Context fill from the latest chat `usage` event that reported it.
+    var contextUsage: CompanionContextUsage?
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
+}
+
+/// How full an agent's context window is (`usage.context`).
+struct CompanionContextUsage: Sendable, Equatable {
+    var used: Int
+    var size: Int
+    /// Rounded, capped at 100 (`chatUsage`). Nil without a window size.
+    var percent: Int? { size > 0 ? min(100, Int((Double(used) / Double(size) * 100).rounded())) : nil }
 }
 
 /// A provider the desktop can start agents with, from its snapshot `orchestrators`.
@@ -199,12 +211,51 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
 
 struct CompanionTool: Identifiable, Sendable, Equatable {
     enum State: String, Sendable { case running, completed, failed }
+    /// The desktop's `ToolKind`. Older desktops don't send one.
+    enum Kind: String, Sendable {
+        case read, edit, delete, move, search, execute, think, fetch
+        case switchMode = "switch_mode", other
+        /// The desktop's `KIND_VERBS` (`ToolBlocks.tsx`).
+        var verb: String {
+            switch self {
+            case .read: "Read"
+            case .edit: "Edit"
+            case .delete: "Delete"
+            case .move: "Move"
+            case .search: "Search"
+            case .execute: "Run"
+            case .think: "Think"
+            case .fetch: "Fetch"
+            case .switchMode: "Mode"
+            case .other: "Tool"
+            }
+        }
+        /// Kinds that only look around, and fold into "Explored…" (`READ_ONLY_KINDS`).
+        var isReadOnly: Bool { [.read, .search, .fetch, .think].contains(self) }
+    }
     var id: String
     var name: String
     var summary: String
     var output: String?
     var state: State
     var images: [CompanionContentReference] = []
+    var kind: Kind?
+    /// The first location the tool touches, shown after its verb.
+    var location: String?
+    /// The tool returned a diff or terminal output, so it's worth seeing on its own.
+    var hasChanges = false
+    /// Waiting for your approval, not yet running.
+    var awaitsApproval = false
+
+    /// "Read", "Run"…, or nil when the desktop didn't say what kind of tool this is.
+    var verb: String? { kind?.verb }
+    /// What follows the verb: the file it touches, else its title (`toolTarget`).
+    var target: String { location ?? name }
+    /// A tool call that only looks around and didn't fail (`isExploreTool`). Images are worth seeing, so they stay out.
+    var isExplore: Bool {
+        guard let kind, kind.isReadOnly else { return false }
+        return state != .failed && !awaitsApproval && !hasChanges && images.isEmpty
+    }
 }
 
 struct CompanionApproval: Identifiable, Sendable, Equatable {
@@ -212,6 +263,8 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
     var id: String
     var toolName: String
     var summary: String
+    /// The request's own title ("Run `npm test`"), when the desktop sends one.
+    var title: String?
     var detail: String?
     var deadline: Date?
     var resolution: Resolution = .pending
@@ -220,10 +273,18 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
 }
 
 struct CompanionApprovalOption: Identifiable, Sendable, Equatable {
-    enum Kind: String, Sendable { case allowOnce, rejectOnce, cancelTurn }
+    enum Kind: String, Sendable {
+        case allowOnce, rejectOnce, cancelTurn
+        /// Persistent changes. The desktop refuses them from a phone (`persistent_approval_not_supported`).
+        case allowSession, allowAlways, rejectAlways, other
+    }
     var id: String
     var label: String
     var kind: Kind
+    /// What an "always" option covers, when the desktop says (`npm install:*`).
+    var scope: String?
+    /// Only one-off decisions can be sent from the phone: a remote can't raise an agent's permissions.
+    var isAnswerableHere: Bool { kind == .allowOnce || kind == .rejectOnce || kind == .cancelTurn }
 }
 
 struct CompanionQuestion: Identifiable, Sendable, Equatable {

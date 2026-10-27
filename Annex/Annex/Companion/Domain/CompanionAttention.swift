@@ -18,7 +18,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     var deadline: Date? { if case .approval(let approval) = kind { approval.deadline } else { nil } }
 }
 
-/// A row in the conversation: either one timeline item or a run of finished tool calls folded together.
+/// A row in the conversation: either one timeline item or a run of read-only tool calls folded together.
 enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     case item(CompanionTimelineItem)
     case tools([CompanionTool])
@@ -31,8 +31,10 @@ enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     }
 }
 
+/// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
 enum CompanionTimelineFolding {
-    /// Folds runs of two or more completed tool calls. Running and failed tools always stay visible.
+    /// Folds runs of two or more read-only tool calls, running ones included, into one "Explored" row.
+    /// Failed tools, tools waiting for approval and tools that changed something stay on their own.
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
         var rows: [CompanionTimelineRow] = []
         var run: [CompanionTool] = []
@@ -41,12 +43,27 @@ enum CompanionTimelineFolding {
             run = []
         }
         for item in items {
-            if case .tool(let tool) = item, tool.state == .completed { run.append(tool); continue }
+            if case .tool(let tool) = item, tool.isExplore { run.append(tool); continue }
             flush()
             rows.append(.item(item))
         }
         flush()
         return rows
+    }
+
+    /// "Explored 3 files, 2 searches", or "Exploring…" while one of them runs.
+    static func exploreLabel(_ tools: [CompanionTool]) -> String {
+        var files = 0, searches = 0, other = 0
+        for tool in tools {
+            switch tool.kind {
+            case .read: files += 1
+            case .search: searches += 1
+            default: other += 1
+            }
+        }
+        func count(_ n: Int, _ one: String, _ many: String) -> String? { n == 0 ? nil : "\(n) \(n == 1 ? one : many)" }
+        let parts = [count(files, "file", "files"), count(searches, "search", "searches"), count(other, "lookup", "lookups")].compactMap { $0 }
+        return "\(tools.contains { $0.state == .running } ? "Exploring" : "Explored") \(parts.joined(separator: ", "))"
     }
 }
 

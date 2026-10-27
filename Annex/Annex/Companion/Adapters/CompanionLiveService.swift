@@ -587,7 +587,8 @@ import ClubhouseTransport
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
                 agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
                                              executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
-                                             isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count)))
+                                             isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count),
+                                             turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage))
             }
             let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
             projects.append(CompanionProject(id: projectID, name: name, agents: agents))
@@ -634,6 +635,8 @@ import ClubhouseTransport
         if !runsOutsideChat { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
         if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].turnStartedAt = projection.turnStartedAt
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].contextUsage = projection.contextUsage
     }
     private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
         guard let commands = capabilities[hostID]?.commands else { return [] }

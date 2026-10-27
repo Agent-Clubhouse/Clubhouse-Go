@@ -12,6 +12,9 @@ struct CompanionChatProjector {
     var status: CompanionAgentStatus = .idle
     var capabilities: CompanionCapabilities = []
     var model: String?
+    /// When the running turn started (`turn_started`), for the header's elapsed time.
+    var turnStartedAt: Date?
+    var contextUsage: CompanionContextUsage?
     var commandIDsByMessage: [String: String] = [:]
     var queueStateSequence: Int64 = 0
     var queuedMessageIDs: Set<String> = []
@@ -21,7 +24,7 @@ struct CompanionChatProjector {
         guard let session = event["sessionId"]?.string,
               let sequence = event["seq"]?.integer, let type = event["type"]?.string else { return }
         if sessionID != session {
-            sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil
+            sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
         }
         guard allowOlderPending || sequence > lastSequence else { return }
@@ -32,16 +35,19 @@ struct CompanionChatProjector {
         case "session_started", "session_info":
             if let caps = data["capabilities"] { updateCapabilities(caps) }
             if let model = data["model"]?.string { self.model = model }
-        case "session_state": status = Self.status(data["state"]?.string)
-        case "turn_started": status = .working
+        case "session_state":
+            status = Self.status(data["state"]?.string)
+            if status != .working && status != .approval && status != .waiting { turnStartedAt = nil }
+        case "turn_started": status = .working; turnStartedAt = time ?? turnStartedAt
         case "turn_ended":
+            turnStartedAt = nil
             // A cancelled turn leaves the session alive between turns, which the desktop shows as Done.
             status = data["stopReason"]?.string == "error" ? .failed : .idle
             finishStreams()
         case "session_ended":
             // An idle timeout puts the agent to sleep; it resumes on the next message or a wake.
             switch data["reason"]?.string { case "error": status = .failed; case "idle_timeout": status = .sleeping; default: status = .stopped }
-            capabilities = []; finishStreams()
+            capabilities = []; turnStartedAt = nil; finishStreams()
         case "user_message":
             guard let messageID = data["messageId"]?.string else { return }
             let content = data["content"].arrayValue
@@ -87,22 +93,32 @@ struct CompanionChatProjector {
         case "tool_call", "tool_call_update":
             guard let toolID = data["toolCallId"]?.string else { return }
             let old = tool(id: toolID)
-            let content = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
+            let blocks = data["content"].arrayValue
+            let content = blocks.map { Self.contentText($0) }.joined(separator: "\n")
             let output = content.isEmpty ? data["error"]?.string ?? data["rawOutput"]?.displayText : content
             let input = Self.inputSummary(data["rawInput"])
             let state: CompanionTool.State
-            switch data["status"]?.string {
+            let rawStatus = data["status"]?.string
+            switch rawStatus {
             case "completed": state = .completed
             case "failed", "cancelled": state = .failed
             case "pending", "in_progress": state = .running
             default: state = old?.state ?? .running
             }
-            upsert(.tool(.init(id: toolID, name: data["title"]?.string ?? data["toolName"]?.string ?? old?.name ?? "Tool activity",
-                               summary: input ?? old?.summary ?? "", output: data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output,
-                               state: state, images: data["media"] == nil ? old?.images ?? [] : data["media"].arrayValue.prefix(16).compactMap { image in
-                                   guard let reference = image["mediaRef"]?.string, CompanionContentReference.validMediaReference(reference) else { return nil }
-                                   return .image(reference)
-                               })))
+            // A diff or terminal output makes the call worth seeing on its own. An update without content keeps what came before.
+            let changes = data["content"] == nil ? old?.hasChanges ?? false
+                : blocks.contains { ["diff", "terminal"].contains($0["type"]?.string) } || (data["contentMode"]?.string == "append" && old?.hasChanges == true)
+            let images: [CompanionContentReference] = data["media"] == nil ? old?.images ?? [] : data["media"].arrayValue.prefix(16).compactMap { image in
+                guard let reference = image["mediaRef"]?.string, CompanionContentReference.validMediaReference(reference) else { return nil }
+                return .image(reference)
+            }
+            let kind: CompanionTool.Kind? = data["kind"]?.string.map { CompanionTool.Kind(rawValue: $0) ?? .other } ?? old?.kind
+            let location: String? = data["locations"].arrayValue.first?["path"]?.string ?? old?.location
+            let awaitsApproval: Bool = rawStatus.map { $0 == "pending" } ?? old?.awaitsApproval ?? false
+            let name: String = data["title"]?.string ?? data["toolName"]?.string ?? old?.name ?? "Tool activity"
+            let combined: String? = data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output
+            upsert(.tool(.init(id: toolID, name: name, summary: input ?? old?.summary ?? "", output: combined, state: state, images: images,
+                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval)))
         case "permission_request":
             guard let requestID = data["requestId"]?.string else { return }
             let options = data["options"].arrayValue.compactMap { value -> CompanionApprovalOption? in
@@ -112,13 +128,18 @@ struct CompanionChatProjector {
                 case "allow_once": kind = .allowOnce
                 case "reject_once": kind = .rejectOnce
                 case "cancel_turn": kind = .cancelTurn
-                default: return nil // Persistent permission changes are not mobile actions.
+                // Persistent changes are listed, as on the desktop, but are answered there.
+                case "allow_session": kind = .allowSession
+                case "allow_always": kind = .allowAlways
+                case "reject_always": kind = .rejectAlways
+                default: kind = .other
                 }
-                return .init(id: id, label: label, kind: kind)
+                return .init(id: id, label: label, kind: kind, scope: value["scope"]?.string)
             }
             let detail = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.approval(.init(id: requestID, toolName: data["toolName"]?.string ?? "Approval request",
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
+                                   title: data["title"]?.string.flatMap { $0.isEmpty ? nil : $0 },
                                    detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options)))
             status = .approval
         case "permission_resolved":
@@ -159,6 +180,10 @@ struct CompanionChatProjector {
             // Only a fatal error the runtime won't retry stops the agent; others are notices.
             if type == "error", data["fatal"].boolValue, !data["willRetry"].boolValue { status = .failed }
         case "model_changed": model = data["modelId"]?.string
+        case "usage":
+            if let context = data["context"], let used = context["used"]?.integer, let size = context["size"]?.integer, used >= 0, size > 0 {
+                contextUsage = .init(used: Int(used), size: Int(size))
+            }
         default: break // Additive protocol events are safe to ignore.
         }
     }

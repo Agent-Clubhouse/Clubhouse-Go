@@ -317,8 +317,8 @@ struct CompanionToolCard: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: symbol).foregroundStyle(color).padding(.top, 2)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(tool.name).font(.subheadline.weight(.semibold))
-                    Text(tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
+                    CompanionToolTitle(tool: tool)
+                    Text(tool.awaitsApproval ? "Waiting for approval" : tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
                         .font(.caption).foregroundStyle(.secondary)
                     if !tool.summary.isEmpty { Text(tool.summary).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2) }
                 }
@@ -333,7 +333,25 @@ struct CompanionToolCard: View {
     private var color: Color { tool.state == .failed ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
 }
 
-/// A run of finished tool calls folded into one row, expanded on tap.
+/// A tool's verb and what it acts on ("Read Sources/App.swift"), as the desktop labels tool rows.
+/// Without a kind from the desktop, the tool's own title.
+struct CompanionToolTitle: View {
+    let tool: CompanionTool
+    var body: some View {
+        if let verb = tool.verb {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(verb).font(.subheadline.weight(.semibold))
+                Text(tool.target).font(.subheadline).lineLimit(2)
+            }
+            .accessibilityElement(children: .combine)
+        } else {
+            Text(tool.name).font(.subheadline.weight(.semibold))
+        }
+    }
+}
+
+/// A run of read-only tool calls folded into one "Explored 3 files, 2 searches" row, expanded on tap.
+/// Each call's content links stay reachable inside; previews open from the conversation, not from this row.
 struct CompanionToolGroupCard: View {
     let tools: [CompanionTool]
     @Bindable var store: CompanionStore
@@ -345,12 +363,14 @@ struct CompanionToolGroupCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Button { expanded.toggle() } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: "bolt").foregroundStyle(Color(palette.secondaryLabel))
+                    Image(systemName: "magnifyingglass").foregroundStyle(Color(palette.secondaryLabel))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Ran \(tools.count) tools").font(.subheadline.weight(.semibold))
+                        Text(CompanionTimelineFolding.exploreLabel(tools)).font(.subheadline.weight(.semibold))
+                            .accessibilityIdentifier("companion-explore-label")
                         Text(names).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
                     }
                     Spacer()
+                    if isRunning { ProgressView().controlSize(.small).accessibilityLabel("Running") }
                     Image(systemName: expanded ? "chevron.up" : "chevron.down").font(.caption.weight(.semibold))
                         .foregroundStyle(Color(palette.secondaryLabel))
                 }
@@ -358,6 +378,7 @@ struct CompanionToolGroupCard: View {
             }
             .buttonStyle(.plain)
             .accessibilityHint(expanded ? "Collapses the tool calls" : "Shows each tool call")
+            .accessibilityIdentifier("companion-explore-group")
             if expanded {
                 ForEach(tools) { tool in
                     CompanionToolCard(tool: tool)
@@ -369,15 +390,23 @@ struct CompanionToolGroupCard: View {
         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private var isRunning: Bool { tools.contains { $0.state == .running } }
+
+    /// What was looked at, once each: file names rather than full paths.
     private var names: String {
         var seen: [String] = []
-        for tool in tools where !seen.contains(tool.name) { seen.append(tool.name) }
+        for tool in tools {
+            let name = tool.location.map { ($0 as NSString).lastPathComponent } ?? tool.name
+            if !seen.contains(name) { seen.append(name) }
+        }
         return seen.joined(separator: ", ")
     }
 }
 
 struct CompanionApprovalCard: View {
     let approval: CompanionApproval
+    /// "1 of 3" when several approvals are waiting.
+    var queuePosition: String?
     let canRespond: Bool
     /// When the bar above the composer carries Deny and Allow once, the card keeps only the other options.
     var actionsArePinned = false
@@ -389,11 +418,27 @@ struct CompanionApprovalCard: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let expired = approval.isExpired(at: context.date)
+            let live = approval.resolution == .pending && !expired
             VStack(alignment: .leading, spacing: 14) {
-                Label(title(expired: expired), systemImage: "hand.raised.fill")
-                    .font(.headline).foregroundStyle(Color(palette.warning))
-                Text(approval.toolName).font(.subheadline.weight(.semibold))
-                Text(approval.summary).font(.body).textSelection(.enabled)
+                HStack(alignment: .firstTextBaseline) {
+                    // Like the desktop's dock: the request's title, with the warning colour on the icon only.
+                    Label {
+                        Text(live ? requestTitle : title(expired: expired))
+                            .foregroundStyle(live ? Color.primary : Color(palette.warning))
+                    } icon: {
+                        Image(systemName: "hand.raised.fill").foregroundStyle(Color(palette.warning))
+                    }
+                    .font(.headline)
+                    .accessibilityIdentifier("companion-approval-title")
+                    if live, let queuePosition {
+                        Spacer(minLength: 8)
+                        Text(queuePosition).font(.caption).foregroundStyle(.secondary).fixedSize()
+                            .accessibilityLabel("Request \(queuePosition)")
+                            .accessibilityIdentifier("companion-approval-position")
+                    }
+                }
+                if !live { Text(requestTitle).font(.subheadline.weight(.semibold)) }
+                if approval.summary != requestTitle { Text(approval.summary).font(.body).textSelection(.enabled) }
                 if let detail = approval.detail, !detail.isEmpty {
                     DisclosureGroup("Review details", isExpanded: $showDetails) {
                         ScrollView(.horizontal) {
@@ -407,12 +452,13 @@ struct CompanionApprovalCard: View {
                         Text(deadline, style: .relative)
                     }.font(.caption).foregroundStyle(.secondary)
                 }
-                if approval.resolution == .pending && !expired {
+                if live {
                     ViewThatFits(in: .horizontal) {
                         HStack { decisionButtons }
                         VStack(alignment: .leading) { decisionButtons }
                     }
                     .disabled(!canRespond)
+                    persistentOptions
                 } else if approval.resolution == .submitting {
                     ProgressView("Sending decision…").font(.subheadline)
                 }
@@ -420,7 +466,7 @@ struct CompanionApprovalCard: View {
             .padding(18).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(approval.resolution == .pending && !expired ? Color(palette.warning).opacity(0.7) : Color(palette.separator), lineWidth: 1.5))
+                .stroke(live ? Color(palette.warning).opacity(0.7) : Color(palette.separator), lineWidth: 1.5))
             .accessibilityElement(children: .contain)
         }
     }
@@ -428,7 +474,7 @@ struct CompanionApprovalCard: View {
         if actionsArePinned {
             Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
         }
-        ForEach(approval.options.filter { !actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce) }) { option in
+        ForEach(approval.options.filter { $0.isAnswerableHere && (!actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce)) }) { option in
             if option.kind == .allowOnce {
                 Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel()
             } else {
@@ -439,6 +485,30 @@ struct CompanionApprovalCard: View {
             Text("Review this request on desktop.").font(.caption).foregroundStyle(.secondary)
         }
     }
+    /// Options that change the agent's permissions for good ("Allow always"). The desktop lists them with the rest,
+    /// numbered; a phone can't raise permissions, so they show here as a reminder of what the desktop offers.
+    @ViewBuilder private var persistentOptions: some View {
+        let persistent = approval.options.enumerated().filter { !$0.element.isAnswerableHere }
+        if !persistent.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(persistent, id: \.element.id) { index, option in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(index + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(option.label).font(.subheadline)
+                        if let scope = option.scope { Text(scope).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1) }
+                    }
+                    .foregroundStyle(.secondary)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityHint("Choose this on your desktop")
+                }
+                Text("Choose this on your desktop").font(.caption).foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("companion-approval-persistent")
+        }
+    }
+    /// The request's own title, else the tool asking.
+    private var requestTitle: String { approval.title ?? approval.toolName }
     private func title(expired: Bool) -> String {
         switch approval.resolution {
         case .pending: expired ? "Request expired" : "Your approval is needed"
