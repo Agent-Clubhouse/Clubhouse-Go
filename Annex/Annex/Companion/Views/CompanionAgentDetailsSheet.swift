@@ -41,7 +41,7 @@ struct CompanionAgentDetailsSheet: View {
         List {
             Section {
                 LabeledContent("Status") {
-                    Label(details.status.label, systemImage: details.status.symbol)
+                    Label(details.status.label, systemImage: details.status.symbol).foregroundStyle(Color(palette.secondaryLabel))
                 }
                 .accessibilityIdentifier("agent-details-status")
                 if loading && settings == nil {
@@ -67,7 +67,7 @@ struct CompanionAgentDetailsSheet: View {
                     if let worktree = details.worktree {
                         LabeledContent("Worktree") {
                             Text(worktree).font(.subheadline.monospaced()).lineLimit(2).truncationMode(.middle)
-                                .textSelection(.enabled)
+                                .foregroundStyle(Color(palette.secondaryLabel)).textSelection(.enabled)
                         }
                         .accessibilityIdentifier("agent-details-worktree")
                     } else if details.hasWorkspace {
@@ -92,7 +92,7 @@ struct CompanionAgentDetailsSheet: View {
                 if let servers = details.mcpServers, !servers.isEmpty {
                     ForEach(servers) { server in
                         LabeledContent {
-                            Text(server.status.label)
+                            Text(server.status.label).foregroundStyle(Color(palette.secondaryLabel))
                         } label: {
                             Label {
                                 Text(server.displayName)
@@ -147,6 +147,7 @@ struct CompanionAgentDetailsSheet: View {
         if let value {
             LabeledContent(label) {
                 Text(value).font(monospaced ? .subheadline.monospaced() : nil).lineLimit(2).truncationMode(.middle)
+                    .foregroundStyle(Color(palette.secondaryLabel))
             }
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier(id)
