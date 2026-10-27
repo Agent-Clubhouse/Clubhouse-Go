@@ -2,34 +2,35 @@ import SwiftUI
 
 /// The desktop composer's level, model and effort pills (`Composer.tsx`), as menus above the phone's composer.
 /// Changes show once the session's own event arrives, from the phone or the desktop alike.
-struct CompanionChatControlsBar: View {
-    @Bindable var store: CompanionStore
-    let agent: CompanionAgent
+/// Equatable on its inputs, so streamed transcript updates don't rebuild the menus (each rebuild is costly mid-stream).
+struct CompanionChatControlsBar: View, Equatable {
+    let agentName: String
     let controls: CompanionChatControls
+    let enabled: Bool
+    let setLevel: @MainActor (CompanionPermissionLevel) -> Void
+    let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
     @State private var pendingLevel: CompanionPermissionLevel?
     @Environment(\.companionPalette) private var palette
 
-    private var target: CompanionTarget { agent.id }
-    private var enabled: Bool { store.canChangeChatControls(target) }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled
+    }
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                levelMenu
-                if let label = controls.modelLabel { modelMenu(label) }
-                if controls.showsEffortChip { effortMenu }
-            }
-            .padding(.horizontal, 2)
+        // One row; long names truncate rather than scroll, so the composer has no nested scroll view.
+        HStack(spacing: 8) {
+            levelMenu
+            if let label = controls.modelLabel { modelMenu(label) }
+            if controls.showsEffortChip { effortMenu }
         }
-        .scrollIndicators(.hidden)
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .confirmationDialog(pendingLevel.map { "Switch to \($0.label)?" } ?? "", isPresented: Binding(get: { pendingLevel != nil }, set: { if !$0 { pendingLevel = nil } }),
                             titleVisibility: .visible, presenting: pendingLevel) { level in
-            Button("Switch to \(level.label)") { Task { await store.setLevel(level, target: target) } }
+            Button("Switch to \(level.label)") { setLevel(level) }
         } message: { level in
             Text(level == .fullAccess
-                 ? "\(agent.name) will edit files and run commands without asking you first."
-                 : "\(agent.name) will decide for itself what needs your approval.")
+                 ? "\(agentName) will edit files and run commands without asking you first."
+                 : "\(agentName) will decide for itself what needs your approval.")
         }
     }
 
@@ -41,11 +42,14 @@ struct CompanionChatControlsBar: View {
                     Button {
                         guard level != current else { return }
                         if level.needsConfirmation(from: current) { pendingLevel = level }
-                        else { Task { await store.setLevel(level, target: target) } }
+                        else { setLevel(level) }
                     } label: {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
-                        Text(controls.levelNames[level].map { "\(level.detail) · \($0)" } ?? level.detail)
+                        Text(subtitle(level))
                     }
+                    // Menus don't read subtitles aloud; the label carries them.
+                    .accessibilityLabel("\(level.label), \(subtitle(level))")
+                    .accessibilityAddTraits(level == current ? .isSelected : [])
                     .accessibilityIdentifier("companion-level-\(level.rawValue)")
                 }
             }
@@ -58,17 +62,28 @@ struct CompanionChatControlsBar: View {
         .accessibilityIdentifier("companion-level-menu")
     }
 
+    private func modelDetail(_ model: CompanionChatModel) -> String? {
+        [model.description, model.costHint].compactMap { $0 }.joined(separator: " · ").nonEmpty
+    }
+
+    /// What the level does, then the driver's own name for it.
+    private func subtitle(_ level: CompanionPermissionLevel) -> String {
+        controls.levelNames[level].map { "\(level.detail) · \($0)" } ?? level.detail
+    }
+
     private func modelMenu(_ label: String) -> some View {
         Menu {
             Section("Model") {
                 ForEach(controls.models) { model in
                     Button {
                         guard model.id != controls.model else { return }
-                        Task { await store.setModel(model.id, effort: controls.keptEffort, target: target) }
+                        setModel(model.id, controls.keptEffort)
                     } label: {
                         if model.id == controls.model { Label(model.label, systemImage: "checkmark") } else { Text(model.label) }
-                        if let detail = [model.description, model.costHint].compactMap({ $0 }).joined(separator: " · ").nonEmpty { Text(detail) }
+                        if let detail = modelDetail(model) { Text(detail) }
                     }
+                    .accessibilityLabel([model.label, modelDetail(model)].compactMap { $0 }.joined(separator: ", "))
+                    .accessibilityAddTraits(model.id == controls.model ? .isSelected : [])
                 }
             }
             note
@@ -86,21 +101,24 @@ struct CompanionChatControlsBar: View {
                 Section("Effort") {
                     if controls.effortDefault {
                         Button {
-                            if !controls.isOnDefaultEffort { Task { await store.setModel(model, effort: .providerDefault, target: target) } }
+                            if !controls.isOnDefaultEffort { setModel(model, .providerDefault) }
                         } label: {
                             if controls.isOnDefaultEffort { Label("Default", systemImage: "checkmark") } else { Text("Default") }
                             Text("The model's own default")
                         }
+                        .accessibilityLabel("Default, the model's own default")
+                        .accessibilityAddTraits(controls.isOnDefaultEffort ? .isSelected : [])
                     }
                     ForEach(controls.offeredEfforts, id: \.self) { effort in
                         let word = CompanionChatControls.effortWord(effort)
                         Button {
                             // Choosing the level the default resolved to pins it, so it isn't a no-op.
-                            if effort != controls.chosenEffort { Task { await store.setModel(model, effort: .set(effort), target: target) } }
+                            if effort != controls.chosenEffort { setModel(model, .set(effort)) }
                         } label: {
                             if effort == controls.chosenEffort { Label(word, systemImage: "checkmark") } else { Text(word) }
                             if controls.effortIsDefault && effort == controls.effort { Text("Default") }
                         }
+                        .accessibilityAddTraits(effort == controls.chosenEffort ? .isSelected : [])
                     }
                 }
             }
@@ -126,7 +144,7 @@ struct CompanionChatControlsBar: View {
         }
         .font(.footnote)
         .padding(.horizontal, 12).padding(.vertical, 7)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .glassEffect(.regular, in: .capsule)
         .contentShape(.capsule)
     }
 }

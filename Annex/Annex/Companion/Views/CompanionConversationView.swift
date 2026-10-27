@@ -306,7 +306,12 @@ struct CompanionConversationView: View {
                 .glassEffect(.regular, in: .capsule)
             }
             CompanionAttachmentStrip(store: store, target: target)
-            if let controls = agent.chatControls, !isAsleep { CompanionChatControlsBar(store: store, agent: agent, controls: controls) }
+            if let controls = agent.chatControls, !isAsleep {
+                CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
+                                         setLevel: { level in Task { await store.setLevel(level, target: target) } },
+                                         setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } })
+                    .equatable()
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {

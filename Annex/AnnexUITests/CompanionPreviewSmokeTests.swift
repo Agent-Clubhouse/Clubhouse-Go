@@ -126,9 +126,11 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         screenshot.name = "After closing preview with Done"
         add(screenshot)
 
-        // Swipe down.
+        // Swipe down. New runs keep pushing older cards up under the header, so open the newest card's log,
+        // which stays next to the composer.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
-        link.tap()
+        let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
+        links.element(boundBy: max(0, links.count - 1)).tap()
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
