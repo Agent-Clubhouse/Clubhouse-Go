@@ -549,14 +549,14 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         tab.tap()
         XCTAssertTrue(app.staticTexts["Wants to start the helper docs-pass"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Update the reconnect section of the README"].exists, "A start shows the helper's task")
-        let summary = app.staticTexts["Cedar asked to dispose this helper. 2 uncommitted files, 1 unpushed commit."]
+        let summary = app.staticTexts["River asked to dispose this helper. 2 uncommitted files, 1 unpushed commit."]
         let disposeAnyway = app.buttons.matching(identifier: "helper-request-approve").matching(NSPredicate(format: "label == 'Dispose anyway'")).firstMatch
         for _ in 0..<4 where !(disposeAnyway.exists && disposeAnyway.isHittable) { app.swipeUp() }
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Dispose anyway deletes this work. To keep it, commit and push from Juniper first."].exists)
+        XCTAssertTrue(app.staticTexts["Dispose anyway deletes this work. To keep it, commit and push from Cedar first."].exists)
         XCTAssertTrue(disposeAnyway.waitForExistence(timeout: 5), "Work at risk makes the dispose \"Dispose anyway\"")
         disposeAnyway.tap()
-        XCTAssertTrue(app.staticTexts["Dispose of Juniper?"].waitForExistence(timeout: 5), "Disposing asks first")
+        XCTAssertTrue(app.staticTexts["Dispose of Cedar?"].waitForExistence(timeout: 5), "Disposing asks first")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Helper dispose confirmation"
         screenshot.lifetime = .keepAlways
