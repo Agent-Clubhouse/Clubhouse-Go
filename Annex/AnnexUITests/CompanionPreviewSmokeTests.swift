@@ -534,4 +534,38 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         confirmAlways.tap()
         XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the approval was sent")
     }
+
+    /// Helper requests show in Needs you with the desktop's line. A dispose with work at risk is "Dispose anyway",
+    /// asks first as the desktop's dispose dialog does, and the preview never claims it reached a desktop.
+    func testNeedsYouAnswersHelperRequestsWithTheDesktopRules() {
+        continueAfterFailure = false
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let tab = app.tabBars.buttons["Needs you"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 15))
+        tab.tap()
+        XCTAssertTrue(app.staticTexts["Wants to start the helper docs-pass"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Update the reconnect section of the README"].exists, "A start shows the helper's task")
+        let summary = app.staticTexts["Cedar asked to dispose this helper. 2 uncommitted files, 1 unpushed commit."]
+        let disposeAnyway = app.buttons.matching(identifier: "helper-request-approve").matching(NSPredicate(format: "label == 'Dispose anyway'")).firstMatch
+        for _ in 0..<4 where !(disposeAnyway.exists && disposeAnyway.isHittable) { app.swipeUp() }
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Dispose anyway deletes this work. To keep it, commit and push from Juniper first."].exists)
+        XCTAssertTrue(disposeAnyway.waitForExistence(timeout: 5), "Work at risk makes the dispose \"Dispose anyway\"")
+        disposeAnyway.tap()
+        XCTAssertTrue(app.staticTexts["Dispose of Juniper?"].waitForExistence(timeout: 5), "Disposing asks first")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Helper dispose confirmation"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let confirm = app.buttons.matching(NSPredicate(format: "label == 'Dispose anyway' AND identifier != 'helper-request-approve'")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        let error = app.descendants(matching: .any).matching(identifier: "helper-request-error").firstMatch
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "Preview must never claim a command reached a desktop")
+        XCTAssertEqual(error.label, "Preview only. This action does not contact a desktop.")
+    }
 }
