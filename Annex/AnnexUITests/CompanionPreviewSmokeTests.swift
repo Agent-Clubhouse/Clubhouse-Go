@@ -94,8 +94,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         add(screenshot)
     }
 
-    /// A preview opened from a tool card must close while the agent keeps streaming, even after its
-    /// card is re-projected or folded into "Ran N tools" (#134).
+    /// A preview opened from a tool card must close while the agent keeps streaming, even as the card is
+    /// re-projected and lookups around it fold into "Explored…" (#134).
     func testContentPreviewDismissesWhileToolUpdatesStream() {
         continueAfterFailure = false
         executionTimeAllowance = 240
@@ -173,5 +173,78 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         screenshot.name = "Block Markdown reply"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+    }
+
+    /// Desktop parity (#149): read-only lookups fold into "Explored 2 files, 1 search" and keep their links;
+    /// the approval card shows its own title, "1 of 2", and the persistent option the desktop answers;
+    /// the header shows what the agent waits on and its context fill.
+    func testExploredFoldAndApprovalCardMatchDesktop() {
+        continueAfterFailure = false
+        // Scrolling and element queries over a long conversation are slow round trips on CI runners.
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        for _ in 0..<4 where !agent.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
+        agent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        XCTAssertEqual(composer.placeholderValue, "Message River…", "The placeholder names the agent, like the desktop")
+
+        // Header: what River waits on, and how full its context is.
+        let activity = app.staticTexts.matching(identifier: "companion-chat-activity").firstMatch
+        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        XCTAssertEqual(activity.label, "Run xcodebuild", "The activity line names the oldest waiting request")
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-context-usage").firstMatch.label.contains("42%"))
+
+        // The approval card: the request's title, its place in the queue, and the desktop-only option.
+        let position = app.staticTexts.matching(identifier: "companion-approval-position").firstMatch
+        if !position.waitForExistence(timeout: 5) {
+            for _ in 0..<3 where !position.exists { app.swipeUp() }
+        }
+        XCTAssertTrue(position.exists, "Two waiting approvals must show their count")
+        XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The card uses the request's title")
+        let any = app.descendants(matching: .any)
+        XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'Always allow' AND label CONTAINS 'xcodebuild:*'")).firstMatch.exists,
+                      "Persistent options stay listed, with their scope")
+        XCTAssertTrue(app.staticTexts["Choose this on your desktop"].exists, "Persistent options say where to choose them")
+        XCTAssertFalse(app.buttons["Always allow"].exists, "A phone can't send a persistent option")
+        XCTAssertFalse(app.staticTexts["Your approval is needed"].exists)
+        let approvalShot = XCTAttachment(screenshot: app.screenshot())
+        approvalShot.name = "Approval card with title, count and persistent option"
+        approvalShot.lifetime = .keepAlways
+        add(approvalShot)
+
+        // The explored fold sits above the replies: scroll up to it.
+        let fold = app.buttons.matching(identifier: "companion-explore-group").firstMatch
+        for _ in 0..<8 where !(fold.exists && fold.isHittable) { app.swipeDown() }
+        XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
+        XCTAssertTrue(fold.label.contains("Explored 2 files, 1 search"), "The fold counts like the desktop: \(fold.label)")
+        XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
+        XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Run' AND label CONTAINS 'swift test --filter'")).firstMatch.exists,
+                      "The test run stays unfolded, labelled with the desktop's verb")
+
+        // Each lookup's link opens from inside the fold, and its preview closes.
+        fold.tap()
+        let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 5), "An expanded fold offers each lookup's links")
+        let foldShot = XCTAttachment(screenshot: app.screenshot())
+        foldShot.name = "Explored fold expanded"
+        foldShot.lifetime = .keepAlways
+        add(foldShot)
+        // The expanded calls open under the composer: bring the fold's header up near the top first.
+        fold.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)))
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        link.tap()
+        let done = app.buttons["companion-preview-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "A link inside the fold opens its preview")
+        done.tap()
+        XCTAssertTrue(done.waitForNonExistence(timeout: 5), "The preview closes")
     }
 }

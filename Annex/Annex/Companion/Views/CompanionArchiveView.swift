@@ -116,7 +116,7 @@ private struct CompanionArchivedSessionView: View {
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             VStack(alignment: .leading, spacing: 8) {
-                Label(approval.toolName, systemImage: "hand.raised").font(.headline)
+                Label(approval.title ?? approval.toolName, systemImage: "hand.raised").font(.headline)
                 Text(approval.summary)
                 if let detail = approval.detail { CompanionRichText(text: detail) }
                 Text("Approval recorded in this session").font(.caption).foregroundStyle(.secondary)

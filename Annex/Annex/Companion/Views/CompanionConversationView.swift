@@ -90,18 +90,41 @@ struct CompanionConversationView: View {
     }
 
     private var contextHeader: some View {
-        HStack(spacing: 6) {
-            CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
-            if !dynamicTypeSize.isAccessibilitySize {
-                Text("· \(contextName)").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
-                Spacer(minLength: 8)
-                if let model = agent.model { Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1) }
-            } else {
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text("· \(contextName)").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if let model = agent.model { Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1) }
+                } else {
+                    Spacer(minLength: 0)
+                }
             }
+            .accessibilityElement(children: .combine)
+            activityLine
         }
         .padding(.horizontal, 20).padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
+    }
+
+    /// Elapsed time and the running tool, or what the agent waits on, with context fill: the desktop's chat header.
+    @ViewBuilder private var activityLine: some View {
+        let percent = agent.contextUsage?.percent
+        let ticking = agent.status == .working && agent.turnStartedAt != nil
+        TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
+            let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date)
+            if activity != nil || percent != nil {
+                HStack(spacing: 6) {
+                    if let activity {
+                        Text(activity).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                            .accessibilityIdentifier("companion-chat-activity")
+                    }
+                    Spacer(minLength: 8)
+                    if let percent { CompanionContextRing(percent: percent) }
+                }
+            }
+        }
     }
 
     private var contextName: String {
@@ -162,17 +185,15 @@ struct CompanionConversationView: View {
                             .font(.caption).frame(maxWidth: .infinity)
                     }
                     if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
-                        ContentUnavailableView {
-                            Label("A fresh conversation", systemImage: "bubble.left.and.text.bubble.right")
-                        } description: {
-                            Text("Give this agent a task, ask a question, or pick up where you left off on desktop.")
-                        }
+                        ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
+                            .accessibilityIdentifier("companion-empty-conversation")
                     }
                     let pinnedID = store.pinnedApproval(for: target)?.id
+                    let items = conversation.items
                     let rows = CompanionTimelineFolding.rows(for: conversation.items)
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
                     ForEach(rows) { row in
-                        timelineRow(row, pinnedApprovalID: pinnedID).id(row.id)
+                        timelineRow(row, pinnedApprovalID: pinnedID, items: items).id(row.id)
                         if row.id == hintRowID { CompanionContentHint() }
                     }
                     Color.clear.frame(height: 1).id("latest")
@@ -201,14 +222,14 @@ struct CompanionConversationView: View {
         }
     }
 
-    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?) -> some View {
+    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
         switch row {
-        case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID)
+        case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID, items: items)
         case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
         }
     }
 
-    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, pinnedApprovalID: String?) -> some View {
+    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
         switch item {
         case .message(let message):
             CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
@@ -222,7 +243,8 @@ struct CompanionConversationView: View {
             CompanionToolCard(tool: tool)
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
-            CompanionApprovalCard(approval: approval, canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID) { option in
+            CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
+                                  canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID) { option in
                 Task { await store.respond(approval, option: option, target: target) }
             }
         case .question(let question):
@@ -239,8 +261,14 @@ struct CompanionConversationView: View {
     @ViewBuilder private var pinnedApprovalBar: some View {
         if let approval = store.pinnedApproval(for: target) {
             HStack(spacing: 8) {
-                Text(approval.toolName).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                    .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 8)
+                HStack(spacing: 6) {
+                    Text(approval.title ?? approval.toolName).lineLimit(1)
+                    if let position = CompanionChatActivity.queuePosition(of: approval, in: conversation.items) {
+                        Text(position).foregroundStyle(.tertiary).fixedSize()
+                    }
+                }
+                .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 8)
                 if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
                     Button(deny.label) { Task { await store.respond(approval, option: deny, target: target) } }
                         .buttonStyle(.bordered)
@@ -255,7 +283,7 @@ struct CompanionConversationView: View {
             .padding(8)
             .glassEffect(.regular, in: .capsule)
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Approval needed: \(approval.toolName)")
+            .accessibilityLabel("Approval needed: \(approval.title ?? approval.toolName)")
         }
     }
 
@@ -386,10 +414,35 @@ struct CompanionConversationView: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
     }
 
+    /// The desktop's "Message {name}…". Mid-turn, the desktop's send actions name what happens: Steer or Queue.
     private var composerPlaceholder: String {
+        let steers = agent.capabilities.contains(.steer)
         if dynamicTypeSize.isAccessibilitySize {
-            return agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer…" : "Follow up…") : "Message…"
+            return agent.status == .working ? (steers ? "Steer…" : "Queue…") : "Message…"
         }
-        return agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steer this agent…" : "Queue a follow-up…") : "Message this agent…"
+        return agent.status == .working ? (steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…") : "Message \(agent.name)…"
+    }
+}
+
+/// Context fill as a small ring with its percentage, like the desktop's usage ring. Hot from 90%.
+struct CompanionContextRing: View {
+    let percent: Int
+    @Environment(\.companionPalette) private var palette
+    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 11
+    var body: some View {
+        let hot = percent >= 90
+        HStack(spacing: 4) {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.15), lineWidth: 2)
+                Circle().trim(from: 0, to: CGFloat(percent) / 100)
+                    .stroke(hot ? Color(palette.error) : Color(palette.secondaryLabel), style: .init(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+            .frame(width: size, height: size)
+            Text("\(percent)%").font(.caption.monospacedDigit()).foregroundStyle(hot ? Color(palette.error) : Color(palette.secondaryLabel))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Context \(percent)% full")
+        .accessibilityIdentifier("companion-context-usage")
     }
 }

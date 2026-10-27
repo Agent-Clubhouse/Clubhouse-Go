@@ -27,7 +27,8 @@ import ClubhouseTransport
         #expect(projection.items.map(\.id) == ["message:new"])
     }
 
-    @Test func persistentPermissionOptionsAreNotPresented() {
+    /// The desktop lists every option; a phone can only send the one-off ones (`persistent_approval_not_supported`).
+    @Test func persistentPermissionOptionsAreListedButNotAnswerableHere() {
         var projection = CompanionChatProjector()
         projection.apply(event("permission_request", seq: 1, data: [
             "requestId": .string("p"), "title": .string("Run command"), "options": .array([
@@ -36,7 +37,10 @@ import ClubhouseTransport
                 .object(["optionId": .string("reject-native"), "kind": .string("reject_once"), "label": .string("Reject")])
             ])]))
         guard case .approval(let approval) = projection.items[0] else { Issue.record("Expected approval"); return }
-        #expect(approval.options.map(\.id) == ["once-native", "reject-native"])
+        #expect(approval.options.map(\.id) == ["once-native", "always-native", "reject-native"])
+        #expect(approval.options.filter(\.isAnswerableHere).map(\.id) == ["once-native", "reject-native"])
+        #expect(approval.options[1].kind == .allowAlways)
+        #expect(approval.title == "Run command")
     }
 
     @Test func pendingInteractionOutsideHistoryTailSurvives() {

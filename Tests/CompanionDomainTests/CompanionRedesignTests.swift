@@ -145,24 +145,6 @@ struct CompanionThemeTests {
     }
 }
 
-struct CompanionTimelineFoldingTests {
-    private func tool(_ id: String, _ state: CompanionTool.State) -> CompanionTimelineItem {
-        .tool(.init(id: id, name: "Read", summary: "", state: state))
-    }
-
-    @Test func foldsRunsOfCompletedTools() {
-        let message = CompanionTimelineItem.message(.init(id: "m", role: .assistant, text: "hi"))
-        let rows = CompanionTimelineFolding.rows(for: [tool("1", .completed), tool("2", .completed), tool("3", .completed), message])
-        #expect(rows.count == 2)
-        if case .tools(let tools) = rows[0] { #expect(tools.map(\.id) == ["1", "2", "3"]) } else { Issue.record("expected a folded run") }
-    }
-
-    @Test func failedAndRunningToolsStayVisibleAndSingleToolsDontFold() {
-        let rows = CompanionTimelineFolding.rows(for: [tool("1", .completed), tool("2", .failed), tool("3", .completed), tool("4", .running)])
-        #expect(rows.map(\.id) == ["tool:1", "tool:2", "tool:3", "tool:4"])
-    }
-}
-
 @MainActor struct CompanionProjectOrderingTests {
     private func entries() -> [CompanionProjectEntry] {
         let host = CompanionHost(id: "mac", name: "MacBook", endpoint: "", connection: .connected,
