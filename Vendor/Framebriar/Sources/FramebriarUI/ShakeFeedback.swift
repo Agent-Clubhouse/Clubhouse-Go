@@ -22,11 +22,15 @@ import SwiftUI
 import UIKit
 
 extension View {
-    /// Optional local motion shortcut. Opens an empty composer; never captures or submits anything.
+    /// Optional local motion shortcut. Opens the composer; never submits anything.
+    /// With `captureScreen`, the key window is captured on the device before the composer opens and is
+    /// pre-attached for review. The user can remove or replace it; it is sent only on Submit. No capture
+    /// is taken while a secure text field is first responder.
     /// Install once at the scene root. Host presentation flags cover SwiftUI's pre-presentation window;
     /// UIKit checks also suppress this shortcut for nested sheets, alerts, pickers and text input.
-    public func shakeToOpenFeedback(model: FeedbackModel?, enabled: Bool, isPresenting: Bool = false) -> some View {
-        modifier(ShakeFeedbackModifier(model: model, enabled: enabled, isPresenting: isPresenting))
+    public func shakeToOpenFeedback(model: FeedbackModel?, enabled: Bool, isPresenting: Bool = false,
+                                    captureScreen: Bool = true) -> some View {
+        modifier(ShakeFeedbackModifier(model: model, enabled: enabled, isPresenting: isPresenting, captureScreen: captureScreen))
     }
 }
 
@@ -34,8 +38,10 @@ private struct ShakeFeedbackModifier: ViewModifier {
     let model: FeedbackModel?
     let enabled: Bool
     let isPresenting: Bool
+    let captureScreen: Bool
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingComposer = false
+    @State private var capturedPNG: Data?
     @State private var gate = ShakeFeedbackGate()
 
     func body(content: Content) -> some View {
@@ -43,23 +49,25 @@ private struct ShakeFeedbackModifier: ViewModifier {
             .background {
                 if model != nil {
                     ShakeMotionReceiver(enabled: enabled && scenePhase == .active && model?.status?.canSubmit == true,
-                                        hostIsPresenting: isPresenting || showingComposer) { presenting, editing in
+                                        hostIsPresenting: isPresenting || showingComposer) { presenting, editing, capture in
                         guard gate.shouldOpen(at: ProcessInfo.processInfo.systemUptime,
                                               enabled: enabled, canSubmit: model?.status?.canSubmit == true,
                                               isActive: scenePhase == .active,
                                               isPresenting: presenting || isPresenting || showingComposer,
                                               isEditing: editing) else { return false }
+                        // Capture before presenting so the composer itself is never in the image.
+                        capturedPNG = captureScreen ? capture() : nil
                         showingComposer = true
                         return true
                     }.allowsHitTesting(false).accessibilityHidden(true)
                 }
             }
             .onChange(of: showingComposer) { _, showing in
-                if !showing { recordPresentationBoundary() }
+                if !showing { capturedPNG = nil; recordPresentationBoundary() }
             }
             .onChange(of: isPresenting) { _, _ in recordPresentationBoundary() }
             .sheet(isPresented: $showingComposer) {
-                if let model { NavigationStack { FeedbackView(model: model) } }
+                if let model { NavigationStack { FeedbackView(model: model, initialScreenshotPNG: capturedPNG) } }
             }
     }
     private func recordPresentationBoundary() {
@@ -72,7 +80,8 @@ private struct ShakeFeedbackModifier: ViewModifier {
 private struct ShakeMotionReceiver: UIViewControllerRepresentable {
     let enabled: Bool
     let hostIsPresenting: Bool
-    let onShake: @MainActor (Bool, Bool) -> Bool
+    /// (presenting, editing, capture) -> handled. `capture` applies the screenshot policy and returns a PNG or nil.
+    let onShake: @MainActor (Bool, Bool, @MainActor () -> Data?) -> Bool
     func makeUIViewController(context: Context) -> MotionController { MotionController() }
     func updateUIViewController(_ controller: MotionController, context: Context) {
         controller.enabled = enabled
@@ -85,7 +94,7 @@ private struct ShakeMotionReceiver: UIViewControllerRepresentable {
     @MainActor final class MotionController: UIViewController {
         var enabled = false
         var hostIsPresenting = false
-        var onShake: (@MainActor (Bool, Bool) -> Bool)?
+        var onShake: (@MainActor (Bool, Bool, @MainActor () -> Data?) -> Bool)?
         private var observers: [NSObjectProtocol] = []
         private var rearmTask: Task<Void, Never>?
         override var canBecomeFirstResponder: Bool { enabled && !hostIsPresenting }
@@ -139,7 +148,24 @@ private struct ShakeMotionReceiver: UIViewControllerRepresentable {
                 super.motionEnded(motion, with: event); return
             }
             let presenting = hostIsPresenting || Self.hasPresentation(window.rootViewController)
-            if onShake?(presenting, Self.isEditing(window)) != true { super.motionEnded(motion, with: event) }
+            let capture: @MainActor () -> Data? = { [weak window] in window.flatMap(Self.capture) }
+            if onShake?(presenting, Self.isEditing(window), capture) != true { super.motionEnded(motion, with: event) }
+        }
+        /// Renders what is currently on screen without forcing a new layout pass, then encodes it within the caps.
+        private static func capture(_ window: UIWindow) -> Data? {
+            guard ShakeScreenshot.shouldCapture(captureScreen: true, secureFieldActive: hasSecureFirstResponder(window)),
+                  window.bounds.width > 0, window.bounds.height > 0 else { return nil }
+            let format = UIGraphicsImageRendererFormat(for: window.traitCollection)
+            format.opaque = true
+            let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
+                _ = window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+            }
+            return image.cgImage.flatMap { ShakeScreenshot.encodePNG($0) }
+        }
+        private static func hasSecureFirstResponder(_ view: UIView) -> Bool {
+            if view.isFirstResponder,
+               (view as? UITextField)?.isSecureTextEntry == true || (view as? UITextView)?.isSecureTextEntry == true { return true }
+            return view.subviews.contains { hasSecureFirstResponder($0) }
         }
         private static func hasPresentation(_ controller: UIViewController?) -> Bool {
             guard let controller else { return false }

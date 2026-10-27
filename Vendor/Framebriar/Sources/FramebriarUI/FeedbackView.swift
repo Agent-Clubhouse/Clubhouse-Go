@@ -4,7 +4,9 @@ import Framebriar
 import PhotosUI
 import UIKit
 
-/// Uses the system photo picker only after a user tap. Never captures an app screen.
+/// Uses the system photo picker only after a user tap. It never captures the screen itself; a host
+/// (such as the shake shortcut) may pass a screenshot it captured, which starts pre-attached for review
+/// and can be removed or replaced. Nothing is saved until the user taps "Submit reviewed feedback".
 public struct FeedbackView: View {
     @Bindable private var model: FeedbackModel
     @Environment(\.dismiss) private var dismiss
@@ -17,7 +19,10 @@ public struct FeedbackView: View {
     @State private var incident: FeedbackIncident?
     @State private var incidentCaptured = false
     @State private var includeIncident = true
-    public init(model: FeedbackModel) { self.model = model }
+    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil) {
+        self.model = model
+        _imageData = State(initialValue: ShakeScreenshot.validatedAttachment(initialScreenshotPNG))
+    }
     public var body: some View {
         Form {
             Section {
@@ -27,7 +32,11 @@ public struct FeedbackView: View {
                 PhotosPicker("Choose screenshot to review", selection: $selection, matching: .images)
                 if loading { ProgressView("Preparing image…") }
                 if let imageData, let image = UIImage(data: imageData) {
+                    if selection == nil {
+                        Text("This is the screen you were on. It stays on this device unless you submit it. Check it for private information, then keep, remove or replace it.").font(.caption).accessibilityIdentifier("framebriar-captured-screen-note")
+                    }
                     Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 260)
+                        .accessibilityLabel("Attached screenshot").accessibilityIdentifier("framebriar-attachment")
                     Button("Remove attachment", role: .destructive) { selection = nil; self.imageData = nil; review = nil }
                 }
                 if incident != nil { Toggle("Include incident trace references", isOn: $includeIncident) }
@@ -63,8 +72,10 @@ public struct FeedbackView: View {
         .onChange(of: includeIncident) { _, _ in review = nil }
         .onChange(of: notes) { _, _ in review = nil }
         .task(id: selection) {
-            review = nil; imageData = nil
+            review = nil
+            // A nil selection (first appearance, or Remove) must not discard a pre-attached capture.
             guard let selected = selection else { return }
+            imageData = nil
             loading = true; defer { loading = false }
             do {
                 guard let data = try await selected.loadTransferable(type: Data.self), !Task.isCancelled,
