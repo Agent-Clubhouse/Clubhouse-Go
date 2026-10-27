@@ -237,7 +237,10 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         foldShot.name = "Explored fold expanded"
         foldShot.lifetime = .keepAlways
         add(foldShot)
-        if !link.isHittable { app.swipeUp() }
+        // The expanded calls open under the composer: bring the fold's header up near the top first.
+        fold.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)))
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
         link.tap()
         let done = app.buttons["companion-preview-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5), "A link inside the fold opens its preview")
