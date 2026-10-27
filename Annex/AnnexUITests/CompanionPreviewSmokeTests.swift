@@ -666,6 +666,16 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertTrue(send.wait(for: \.isEnabled, toEqual: true, timeout: 5), "A message enables Wake")
         send.tap()
         XCTAssertTrue(app.navigationBars["Juniper"].waitForExistence(timeout: 10), "Waking opens the agent's chat")
+        // DIAGNOSTIC (do not merge): what iOS 26.5 shows after the wake, and whether scrolling materialises the rows.
+        func snap(_ name: String) {
+            let tree = XCTAttachment(string: app.debugDescription); tree.name = "DIAG \(name) tree"; tree.lifetime = .keepAlways; add(tree)
+            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "DIAG \(name) shot"; shot.lifetime = .keepAlways; add(shot)
+        }
+        snap("0s")
+        sleep(3); snap("3s")
+        let scroll = app.scrollViews.firstMatch
+        scroll.swipeDown(); sleep(1); snap("after swipe down")
+        scroll.swipeUp(); scroll.swipeUp(); sleep(1); snap("after swipe up")
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
                       "The message is sent, and a preview says it never reached a desktop")
     }
