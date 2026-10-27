@@ -391,7 +391,7 @@ import ClubhouseTransport
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
     /// Durable agent refusals branch on the code; others keep the desktop's message as before.
-    static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
+    nonisolated static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
         guard let failure else { return "The desktop rejected this command." }
         return CompanionAgentCommandError.message(code: failure.code, message: failure.message) ?? failure.message
     }
