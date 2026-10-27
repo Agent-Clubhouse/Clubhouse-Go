@@ -409,7 +409,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let dismissError = app.buttons["Dismiss"]
 
         // The header shows the current level.
-        let header = any.matching(identifier: "companion-header-level").firstMatch
+        let header = any.matching(identifier: "companion-chat-header").firstMatch
         XCTAssertTrue(header.waitForExistence(timeout: 10))
         XCTAssertTrue(header.label.contains("Ask first"), "The header shows the level: \(header.label)")
 

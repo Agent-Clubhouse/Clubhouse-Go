@@ -103,6 +103,7 @@ struct CompanionConversationView: View {
                 }
             }
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("companion-chat-header")
             activityLine
         }
         .padding(.horizontal, 20).padding(.vertical, 8)
