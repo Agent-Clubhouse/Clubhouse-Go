@@ -145,14 +145,23 @@ struct CompanionPalette: Sendable, Equatable {
         tint = theme.accent.adjusted(toContrast: 4.5, against: card)
         accentWasAdjusted = tint != theme.accent
         tintSoft = tint.mixed(with: card, amount: 0.84)
-        onTint = CompanionRGB.white.contrast(with: tint) >= CompanionRGB(red: 0.067, green: 0.067, blue: 0.067).contrast(with: tint)
-            ? .white : CompanionRGB(red: 0.067, green: 0.067, blue: 0.067)
+        onTint = CompanionPalette.glyph(on: tint)
         warning = theme.warning.adjusted(toContrast: 3, against: card)
         error = theme.error.adjusted(toContrast: 3, against: card)
         success = theme.success.adjusted(toContrast: 3, against: card)
         info = theme.info.adjusted(toContrast: 3, against: card)
         washStart = theme.gradient.first ?? theme.accent
         washEnd = theme.gradient.dropFirst().first ?? theme.accent2 ?? theme.accent.mixed(with: dark ? .white : .black, amount: 0.35)
+    }
+}
+
+extension CompanionPalette {
+    /// White or near-black, whichever reads better on `fill`. The better of white and black always reaches 4.58:1,
+    /// but near-black can fall short on mid-luminance fills, so pure black is used there.
+    static func glyph(on fill: CompanionRGB) -> CompanionRGB {
+        if CompanionRGB.white.contrast(with: fill) >= CompanionRGB.black.contrast(with: fill) { return .white }
+        let nearBlack = CompanionRGB(red: 0.067, green: 0.067, blue: 0.067)
+        return nearBlack.contrast(with: fill) >= 4.5 ? nearBlack : .black
     }
 }
 

@@ -144,7 +144,7 @@ struct CompanionHomeView: View {
                 } description: {
                     Text("Open Clubhouse on your Mac, then go to Settings → Annex to pair this phone.")
                 } actions: {
-                    Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).controlSize(.large)
+                    Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
                 }
                 .listRowBackground(Color.clear)
             } else {
@@ -454,7 +454,7 @@ struct CompanionAttentionCard: View {
                     Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {
                         Text(allow.label).frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.borderedProminent).companionProminentLabel()
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)

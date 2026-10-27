@@ -66,6 +66,28 @@ struct CompanionThemeTests {
         #expect(palette.tint.contrast(with: .white) >= 4.5)
     }
 
+    /// Glyphs on tinted buttons (the send arrow, Allow) use `onTint`. Dark mode lightens the accent, so white can fail there.
+    @Test(arguments: ["#8b7fff", "#89b4fa", "#1e66f5", "#f5c2e7", "#a6e3a1", "#f9e2af", "#ff9f0a", "#7f7f7f", "#00a3c4", "#ff453a"])
+    func onTintReadsOnTheTintInBothModes(accent: String) throws {
+        for (base, dark) in [("#1e1e2e", true), ("#eff1f5", false), ("#1e1e2e", false), ("#eff1f5", true)] {
+            let theme = try #require(CompanionDesktopTheme.transported(["base": base, "accent": accent]))
+            let palette = CompanionPalette(theme: theme, dark: dark)
+            #expect(palette.onTint.contrast(with: palette.tint) >= 4.5, "\(accent) on \(base), dark: \(dark)")
+        }
+    }
+
+    @Test(arguments: ["#777777", "#797979", "#7b7b7b"])
+    func glyphReachesContrastOnMidGreys(hex: String) throws {
+        // Luminance ~0.19: white and near-black both miss 4.5:1 here, black reaches it.
+        let fill = try #require(CompanionRGB(hex: hex))
+        #expect(CompanionPalette.glyph(on: fill).contrast(with: fill) >= 4.5)
+    }
+
+    @Test func glyphKeepsWhiteOnDarkAndNearBlackOnLightFills() {
+        #expect(CompanionPalette.glyph(on: .black) == .white)
+        #expect(CompanionPalette.glyph(on: .white) != .white)
+    }
+
     @Test func washUsesTheGradientOrTheAccentPair() throws {
         let plain = CompanionPalette(theme: try #require(CompanionDesktopTheme.transported(mocha)), dark: true)
         #expect(plain.washStart == CompanionRGB(hex: "#89b4fa") && plain.washEnd == CompanionRGB(hex: "#74c7ec"))

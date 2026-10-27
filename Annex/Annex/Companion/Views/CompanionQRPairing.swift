@@ -26,7 +26,7 @@ struct CompanionQRScannerView: View {
                          : "This device can't scan codes. Pair manually instead.")
                 } actions: {
                     if DataScannerViewController.isSupported, let url = URL(string: UIApplication.openSettingsURLString) {
-                        Link("Open Settings", destination: url).buttonStyle(.glassProminent)
+                        Link("Open Settings", destination: url).buttonStyle(.glassProminent).companionProminentLabel()
                     }
                 }
                 .foregroundStyle(.white)
@@ -138,7 +138,7 @@ struct CompanionInvitationView: View {
                 Button { Task { await pair() } } label: {
                     Group { if isPairing { ProgressView() } else { Text("Pair") } }.frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent).controlSize(.large).disabled(isPairing)
+                .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large).disabled(isPairing)
                 Button("Scan again", action: onScanAgain).disabled(isPairing)
             }
             .padding(20)

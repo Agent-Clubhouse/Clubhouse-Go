@@ -48,9 +48,12 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         agent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        let send = app.buttons["companion-send"]
+        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "The placeholder must be centred against the send button")
         composer.tap()
         composer.typeText("Hey")
         let oneLine = composer.frame.height
+        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "One line of text must be centred against the send button")
         // Two words at a time: fewer round trips, and still far short of a whole line, so it stops at two lines.
         for _ in 0..<10 where composer.frame.height <= oneLine + 1 {
             composer.typeText(" steady steady")
@@ -58,6 +61,37 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let twoLines = composer.frame.height
         XCTAssertGreaterThan(twoLines, oneLine + 1, "Composer must grow when the draft wraps")
         XCTAssertEqual(oneLine, twoLines / 2, accuracy: 0.5, "A single line must use the same line height as wrapped lines")
+        // The field's padding, not the row, sets the bottom of a long draft, so allow the ~1pt difference.
+        XCTAssertEqual(composer.frame.maxY - send.frame.maxY, (oneLine - send.frame.height) / 2, accuracy: 1.5,
+                       "As the draft grows, Send must stay level with the last line")
+    }
+
+    /// Dynamic Type changes the line height but not the send button, so check centring at a large size too.
+    func testComposerCentresOneLineAtLargeText() {
+        continueAfterFailure = false
+        // Keystrokes and frame reads at accessibility sizes are slow round trips on CI runners.
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
+        app.launch()
+        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        for _ in 0..<6 where !agent.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear")
+        agent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        let send = app.buttons["companion-send"]
+        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "The placeholder must be centred against the send button")
+        composer.tap()
+        composer.typeText("Hey")
+        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "One line of text must be centred against the send button")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Composer at accessibility text size"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     /// A preview opened from a tool card must close while the agent keeps streaming, even after its

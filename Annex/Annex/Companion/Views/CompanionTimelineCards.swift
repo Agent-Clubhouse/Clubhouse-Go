@@ -426,7 +426,7 @@ struct CompanionApprovalCard: View {
         }
         ForEach(approval.options.filter { !actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce) }) { option in
             if option.kind == .allowOnce {
-                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent)
+                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel()
             } else {
                 Button(option.label, systemImage: "xmark", role: .destructive) { respond(option) }.buttonStyle(.bordered)
             }
