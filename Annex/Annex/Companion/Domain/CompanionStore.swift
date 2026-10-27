@@ -62,9 +62,16 @@ import Observation
         catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
-        guard host(for: target)?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
+        guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
+        guard host.richContentAvailable else {
+            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
+        }
+        if case .file(let path) = reference, !CompanionContentReference.isInsideAgentFolders(path) {
+            throw CompanionServiceError.unavailable("This file is outside the agent's folders, so \(host.name) won't share it.")
+        }
         return try await service.content(reference, target: target)
     }
+    func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
     func canSend(_ target: CompanionTarget) -> Bool {
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)

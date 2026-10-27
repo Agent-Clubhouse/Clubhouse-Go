@@ -3,26 +3,73 @@ import AVKit
 import ImageIO
 import WebKit
 
-/// Explicit taps only: no remote URL fetches, filesystem probing or media prefetch.
-struct CompanionContentLinks: View {
-    let references: [CompanionContentReference]
+/// Opens desktop previews for a conversation or archived session.
+struct CompanionContentPresenter {
+    var richContentAvailable: Bool
+    var open: @MainActor (CompanionContentReference) -> Void
+}
+
+private struct CompanionContentPresenterKey: EnvironmentKey {
+    static let defaultValue: CompanionContentPresenter? = nil
+}
+
+extension EnvironmentValues {
+    var companionContentPresenter: CompanionContentPresenter? {
+        get { self[CompanionContentPresenterKey.self] }
+        set { self[CompanionContentPresenterKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// Presents previews from here, once, rather than from timeline rows. Streaming updates re-create
+    /// and fold rows, and a sheet owned by a row closed or got stuck with it (#134).
+    func companionContentPreviews(store: CompanionStore, target: CompanionTarget) -> some View {
+        modifier(CompanionContentPreviews(store: store, target: target))
+    }
+}
+
+private struct CompanionContentPreviews: ViewModifier {
     let store: CompanionStore
     let target: CompanionTarget
     @State private var selected: CompanionContentReference?
+    func body(content: Content) -> some View {
+        content
+            .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target)) { selected = $0 })
+            .sheet(item: $selected) { reference in
+                CompanionContentView(reference: reference, store: store, target: target) { selected = nil }
+                    .interactiveDismissDisabled(false)
+            }
+    }
+}
+
+/// Explicit taps only: no remote URL fetches, filesystem probing or media prefetch.
+/// Nothing shows when the desktop can't serve content; the conversation shows one hint instead.
+struct CompanionContentLinks: View {
+    let references: [CompanionContentReference]
+    @Environment(\.companionContentPresenter) private var presenter
     var body: some View {
-        if !references.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(Array(Set(references)).sorted { $0.id < $1.id }) { reference in
-                    Button { selected = reference } label: {
-                        Label(reference.label, systemImage: reference.id.hasPrefix("image:") ? "photo" : "doc.text.magnifyingglass")
-                            .lineLimit(2).font(.subheadline)
-                    }.buttonStyle(.bordered).accessibilityIdentifier("companion-content-link")
+        if let presenter {
+            let offered = CompanionContentReference.offered(references, richContentAvailable: presenter.richContentAvailable)
+            if !offered.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(offered) { reference in
+                        Button { presenter.open(reference) } label: {
+                            Label(reference.label, systemImage: reference.id.hasPrefix("image:") ? "photo" : "doc.text.magnifyingglass")
+                                .lineLimit(2).font(.subheadline)
+                        }.buttonStyle(.bordered).accessibilityIdentifier("companion-content-link")
+                    }
                 }
             }
-            .sheet(item: $selected) { reference in
-                CompanionContentView(reference: reference, store: store, target: target)
-            }
         }
+    }
+}
+
+/// Stands in for every image and file link while the desktop's Rich chat content is off.
+struct CompanionContentHint: View {
+    var body: some View {
+        Label(CompanionContentReference.richContentOffHint, systemImage: "photo.on.rectangle.angled")
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityIdentifier("companion-content-hint")
     }
 }
 
@@ -30,7 +77,7 @@ private struct CompanionContentView: View {
     let reference: CompanionContentReference
     let store: CompanionStore
     let target: CompanionTarget
-    @Environment(\.dismiss) private var dismiss
+    let close: () -> Void
     @State private var content: CompanionContent?
     @State private var image: UIImage?
     @State private var error: String?
@@ -79,7 +126,7 @@ private struct CompanionContentView: View {
             .privacySensitive()
             .navigationTitle(content?.name ?? "Desktop preview")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }
             .task { await load() }
             .onDisappear { loadID = UUID(); clearPlayback() }
         }

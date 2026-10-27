@@ -164,15 +164,22 @@ import ClubhouseTransport
 
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         return try await AnnexTelemetry.shared.measure(.media) {
+            let hostName = hosts[target.hostID]?.name ?? "your desktop"
             guard hosts[target.hostID]?.richContentAvailable == true else {
-                throw CompanionServiceError.unavailable("Enable Rich chat content in desktop Experimental settings. A compatible Annex version is required.")
+                throw CompanionServiceError.unavailable("Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files.")
             }
-            let route: AnnexReadRoute
-            switch reference {
-            case .image(let ref):
-                guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
-                route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
-            case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+            do { return try await fetchContent(reference, target: target) }
+            catch { throw CompanionServiceError.unavailable(Self.contentErrorMessage(error, reference: reference, hostName: hostName)) }
+        }
+    }
+
+    private func fetchContent(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        let route: AnnexReadRoute
+        switch reference {
+        case .image(let ref):
+            guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
+            route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
+        case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
             }
             let value = try await transport(for: target.hostID).read(route)
             guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
@@ -183,7 +190,18 @@ import ClubhouseTransport
             guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
             return .init(kind: kind, name: name, mimeType: value["mimeType"]?.string, bytes: bytes,
                          text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
+    }
 
+    /// The desktop answers every refused preview with the same code, so name the likely reason for this reference.
+    static func contentErrorMessage(_ error: Error, reference: CompanionContentReference, hostName: String) -> String {
+        switch error as? AnnexTransportError {
+        case .rejected(404, "agent_not_found"): return "This agent is no longer on \(hostName)."
+        case .rejected(404, _):
+            if case .image = reference { return "This image is no longer available on \(hostName)." }
+            return "\(hostName) couldn't share this file. It may have moved, or be outside the agent's folders."
+        case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
+        case .malformedResponse: return "\(hostName) sent a preview this phone can't read. Updating the desktop may help."
+        default: return readableError(error)
         }
     }
 
