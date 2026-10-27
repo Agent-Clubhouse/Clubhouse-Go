@@ -187,6 +187,25 @@ private actor LiveTestTransport: AnnexTransporting {
         #expect(await transport.executedKinds == ["agent.start"])
         store.stop()
     }
+    @Test func snapshotAndChatSessionFeedAgentDetails() async throws {
+        let transport = LiveTestTransport()
+        await transport.acceptCommands()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running"), "executionMode": .string("chat"),
+                                                 "branch": .string("agent/standby"), "orchestrator": .string("claude-code"), "freeAgentMode": .bool(true)]))
+        await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(false)]))
+        let (_, store) = try await setup(transport)
+        defer { store.stop() }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        let agent = try #require(store.agent(for: target))
+        #expect(agent.branch == "agent/standby")
+        #expect(agent.orchestrator == "claude-code")
+        #expect(agent.freeAgentMode)
+        await transport.emit(chat(.object(["sessionId": .string("live"), "seq": .integer(1), "type": .string("session_started"),
+                                           "data": .object(["cliVersion": .string("2.1.4"), "level": .string("plan"),
+                                                            "capabilities": .object([:])])])))
+        try await waitUntil { store.agent(for: target)?.session?.cliVersion == "2.1.4" }
+        #expect(store.agent(for: target)?.session?.level == "plan")
+    }
     @Test func newAgentBecomesSendableWhenItsChatStartsAfterHistoryLoaded() async throws {
         let transport = LiveTestTransport()
         await transport.acceptCommands()

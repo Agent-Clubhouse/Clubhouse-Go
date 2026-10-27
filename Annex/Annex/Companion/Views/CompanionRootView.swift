@@ -15,6 +15,7 @@ struct CompanionRootView: View {
     @State private var paths: [CompanionTab: [CompanionTarget]] = [:]
     @State private var spawnProject: CompanionProjectTarget?
     @State private var settingsTarget: CompanionTarget?
+    @State private var detailsTarget: CompanionTarget?
     @State private var decisions: CompanionDecisionQueue
 
     init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false) {
@@ -51,13 +52,18 @@ struct CompanionRootView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .companionTheme(preferences.sharedTheme(hosts: store.hosts))
         .environment(\.companionOpenAgent) { target in open(target) }
-        .environment(\.companionAgentSettings, .init(canOpen: { [store] in store.canEditSettings($0) }, open: { settingsTarget = $0 }))
+        .environment(\.companionAgentSettings, .init(canOpen: { [store] in store.canEditSettings($0) }, open: { settingsTarget = $0 },
+                                                      openDetails: { detailsTarget = $0 }))
         .sheet(item: $spawnProject) { project in
             CompanionSpawnSheet(store: store, initialProject: project)
                 .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
         }
         .sheet(item: $settingsTarget) { target in
             CompanionAgentSettingsSheet(store: store, target: target)
+                .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
+        }
+        .sheet(item: $detailsTarget) { target in
+            CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
         .task { store.start() }

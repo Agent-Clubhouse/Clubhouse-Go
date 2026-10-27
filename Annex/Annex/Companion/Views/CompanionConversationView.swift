@@ -54,9 +54,7 @@ struct CompanionConversationView: View {
                 Menu {
                     Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                     Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                    if let agentSettings, agentSettings.canOpen(target) {
-                        Button("Agent settings", systemImage: "slider.horizontal.3") { agentSettings.open(target) }
-                    }
+                    if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                     Section("Conversation details") {
                         Text(contextName)
                         if let model = agent.model { Text(model) }

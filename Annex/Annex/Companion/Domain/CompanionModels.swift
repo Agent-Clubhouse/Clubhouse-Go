@@ -105,6 +105,11 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var iconData: Data? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
+    /// The snapshot's branch and CLI id, for Agent details.
+    var branch: String? = nil
+    var orchestrator: String? = nil
+    /// What the agent's chat session reported about itself. Nil without one.
+    var session: CompanionSessionFacts? = nil
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }
