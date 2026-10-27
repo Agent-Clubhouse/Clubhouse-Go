@@ -162,6 +162,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var options = CompanionAgentOptions()
     var idleSleepMinutes: [Int] = [15, 30, 60, 240]
     var appIdleMinutes = 30
+    /// Branch, worktree, MCP servers and changes for Agent details. Nil from desktops that don't send them.
+    var workspace: CompanionAgentWorkspace?
 
     /// Any setting is waiting for the agent to sleep, so the sheet shows the desktop's hint.
     var hasLockedSettings: Bool {
@@ -191,6 +193,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
         merged.options = previous.options
         merged.idleSleepMinutes = previous.idleSleepMinutes
         merged.appIdleMinutes = previous.appIdleMinutes
+        merged.workspace = workspace ?? previous.workspace
         return merged
     }
 }
