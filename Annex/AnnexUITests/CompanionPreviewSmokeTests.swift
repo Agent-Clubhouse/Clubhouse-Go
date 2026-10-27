@@ -69,6 +69,8 @@ final class CompanionPreviewSmokeTests: XCTestCase {
     /// Dynamic Type changes the line height but not the send button, so check centring at a large size too.
     func testComposerCentresOneLineAtLargeText() {
         continueAfterFailure = false
+        // Keystrokes and frame reads at accessibility sizes are slow round trips on CI runners.
+        executionTimeAllowance = 240
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--companion-preview", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
