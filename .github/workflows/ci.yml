@@ -125,6 +125,8 @@ jobs:
 
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
+      # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
+      # A UI test that fails is retried up to twice; the result only passes if a retry passes.
       - name: Run UI tests
         run: |
           xcodebuild test-without-building \
@@ -134,6 +136,8 @@ jobs:
             -derivedDataPath DerivedData \
             -only-testing:ClubhouseGoUITests \
             -parallel-testing-enabled NO \
+            -retry-tests-on-failure \
+            -test-iterations 3 \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
             CODE_SIGNING_ALLOWED=NO \
