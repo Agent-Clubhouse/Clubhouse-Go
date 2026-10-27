@@ -382,7 +382,7 @@ struct CompanionSpawnSheet: View {
             if store.createInProgress { ProgressView().accessibilityLabel("Creating agent") }
             else { Text("Create") }
         }
-        .buttonStyle(.glassProminent)
+        .buttonStyle(.glassProminent).companionProminentLabel()
         .disabled(store.createInProgress || store.uncertainCreateRequest != nil || selectedHost?.connection.canOperate != true
                   || durable.options == nil || durable.nameProblem != nil)
         .keyboardShortcut(.return, modifiers: .command)
