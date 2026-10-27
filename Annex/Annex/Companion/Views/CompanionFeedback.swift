@@ -7,6 +7,8 @@ import ClubhouseTransport
 /// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
+    /// Whether a shake pre-attaches a screenshot of the screen that was showing, for review.
+    static let shakeScreenshotPreferenceKey = "framebriar.shakeAttachesScreenshot"
     static func snapshotIncident(telemetry: AnnexTelemetry = .shared, now: Date = Date(), backend: UUID? = nil) -> FeedbackIncident? {
         let snapshot = telemetry.snapshot()
         let start = now.addingTimeInterval(-300)
@@ -45,6 +47,7 @@ import ClubhouseTransport
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
+    @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     static func label(_ access: AccessState) -> String {
         switch access {
         case .connected: "Connected"
@@ -68,13 +71,14 @@ struct CompanionFeedbackSettings: View {
                 Text("Feedback is not configured for this build or local storage is unavailable.")
             }
             Toggle("Shake to open feedback", isOn: $shakeEnabled)
+            Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)
             if let model, model.status != nil, model.status?.canSubmit != true {
                 Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
                     .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
             }
-            Text("When enrolled, shake opens a blank feedback form. It never captures or sends automatically. You can also use Send feedback in Settings.")
+            Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. No screenshot is taken while a password field is in use. You can also use Send feedback in Settings.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Only submitted notes, an optional reviewed image and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
+            Text("Only submitted notes, an optional reviewed image (including a shake screenshot you kept) and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

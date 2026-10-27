@@ -151,6 +151,7 @@ struct CompanionAppRoot: View {
     @State private var showSettings = false
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
+    @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     /// Set once someone moves past the welcome screen; deleting the app shows it again.
     @AppStorage("companion.welcomeDone") private var welcomeDone = false
     @State private var showDemo = false
@@ -198,7 +199,8 @@ struct CompanionAppRoot: View {
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
             .shakeToOpenFeedback(model: runtime.feedback, enabled: shakeFeedbackEnabled,
-                                 isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
+                                 isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring,
+                                 captureScreen: shakeAttachesScreenshot)
             .shakeToExplainFeedbackEnrollment(model: runtime.feedback, enabled: $shakeFeedbackEnabled,
                                               isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
             .overlay(alignment: .top) {
