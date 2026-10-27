@@ -91,7 +91,8 @@ import Foundation
                           orchestrator: "claude-code"),
                     agent("clubhouse", "lint", "Fix lint warnings", "Fix lint warnings", .completed, minutesAgo: 45, quick: true),
                     agent("clubhouse", "quick-willow", "willow", "Tidy the onboarding copy", .completed, minutesAgo: 12, quick: true, exitCode: 0),
-                    agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .failed, minutesAgo: 180, quick: true, exitCode: 1),
+                    // Completed rather than failed, so it folds on Home instead of joining Needs you; its exit code still shows.
+                    agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .completed, minutesAgo: 180, quick: true, exitCode: 1),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
                           contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
                           session: riverSession, chatControls: chatControls)

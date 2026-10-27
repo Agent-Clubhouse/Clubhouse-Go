@@ -279,7 +279,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         reveal(sleeping)
         XCTAssertTrue(sleeping.label.contains("1 sleeping"))
         XCTAssertFalse(element("agent-preview-studio-juniper").exists, "Sleeping agents start folded")
-        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("2 finished quick agents"))
+        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("3 finished quick agents"))
         sleeping.tap()
         XCTAssertTrue(element("agent-preview-studio-juniper").waitForExistence(timeout: 5), "Opening the fold shows the sleeping agent")
 
