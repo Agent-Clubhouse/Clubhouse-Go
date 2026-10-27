@@ -584,10 +584,13 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let header = any.matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         for _ in 0..<4 where !(header.waitForExistence(timeout: 2) && header.isHittable) { app.swipeUp() }
         XCTAssertTrue(header.isHittable, "A project header must open its page")
-        header.tap()
-
-        // Finished, waiting on you: newest first, with how each ended.
-        XCTAssertTrue(app.staticTexts["Finished, waiting on you"].waitForExistence(timeout: 10))
+        // A tap while the list is still settling from the swipes only stops it, so tap again if nothing opened.
+        let finishedHeader = app.staticTexts["Finished, waiting on you"]
+        for _ in 0..<3 where !finishedHeader.exists {
+            header.tap()
+            _ = finishedHeader.waitForExistence(timeout: 3)
+        }
+        XCTAssertTrue(finishedHeader.waitForExistence(timeout: 10))
         let willow = any.matching(identifier: "finished-quick-willow").firstMatch
         let aspen = any.matching(identifier: "finished-quick-aspen").firstMatch
         XCTAssertTrue(willow.waitForExistence(timeout: 5) && aspen.exists)
