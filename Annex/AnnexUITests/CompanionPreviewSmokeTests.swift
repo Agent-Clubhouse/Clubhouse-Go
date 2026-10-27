@@ -413,7 +413,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         // The header shows the current level.
         let header = any.matching(identifier: "companion-chat-header").firstMatch
         XCTAssertTrue(header.waitForExistence(timeout: 10))
-        XCTAssertTrue(header.label.contains("Ask first"), "The header shows the level: \(header.label)")
+        XCTAssertTrue(header.label.contains("Auto-accept edits"), "The header shows the level: \(header.label)")
 
         // Level: the ladder, with the driver's names, and a confirmation before Full access.
         let level = any.matching(identifier: "companion-level-menu").firstMatch
@@ -422,7 +422,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let fullAccess = item("Full access")
         XCTAssertTrue(fullAccess.waitForExistence(timeout: 5), "Every live level is offered")
         for label in ["Plan", "Ask first", "Auto-accept edits", "Auto"] { XCTAssertTrue(item(label).exists, label) }
-        XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'danger-full-access'")).firstMatch.exists, "The driver's own name is the subtitle")
+        XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'bypassPermissions'")).firstMatch.exists, "The driver's own name is the subtitle")
         let levelShot = XCTAttachment(screenshot: app.screenshot())
         levelShot.name = "Permission level menu"
         levelShot.lifetime = .keepAlways
@@ -437,9 +437,9 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         // Model: the session's models, and when a change applies.
         let model = any.matching(identifier: "companion-model-menu").firstMatch
         XCTAssertTrue(model.exists)
-        XCTAssertTrue(model.label.contains("GPT-5.5 Codex"), "The chip names the model: \(model.label)")
+        XCTAssertTrue(model.label.contains("Opus"), "The chip names the model: \(model.label)")
         model.tap()
-        let mini = item("GPT-5.5 mini")
+        let mini = item("Haiku")
         XCTAssertTrue(mini.waitForExistence(timeout: 5))
         XCTAssertTrue(any.matching(NSPredicate(format: "label == 'Applies from the next message.'")).firstMatch.exists, "The switch note shows under the menu")
         let modelShot = XCTAttachment(screenshot: app.screenshot())
