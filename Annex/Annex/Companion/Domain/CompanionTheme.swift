@@ -67,6 +67,8 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
     var warning: CompanionRGB
     var error: CompanionRGB
     var success: CompanionRGB
+    /// The desktop's `info` color, which it uses for Done and Starting.
+    var info: CompanionRGB
     /// Stops of the theme's accent gradient, when it has one.
     var gradient: [CompanionRGB]
 
@@ -85,6 +87,8 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
         warning = color("warning", CompanionRGB(red: 1, green: 0.62, blue: 0.04))
         self.error = color("error", CompanionRGB(red: 1, green: 0.27, blue: 0.23))
         success = color("success", CompanionRGB(red: 0.19, green: 0.82, blue: 0.35))
+        // Older desktops don't send `info`; a system blue stands in, fitted for contrast like the others.
+        info = color("info", CompanionRGB(red: 0.04, green: 0.52, blue: 1))
         self.gradient = gradient.compactMap { CompanionRGB(hex: $0) }
     }
 }
@@ -107,6 +111,7 @@ struct CompanionPalette: Sendable, Equatable {
     var warning: CompanionRGB
     var error: CompanionRGB
     var success: CompanionRGB
+    var info: CompanionRGB
     var washStart: CompanionRGB
     var washEnd: CompanionRGB
     /// True when the theme's accent was darkened or lightened to stay readable.
@@ -145,6 +150,7 @@ struct CompanionPalette: Sendable, Equatable {
         warning = theme.warning.adjusted(toContrast: 3, against: card)
         error = theme.error.adjusted(toContrast: 3, against: card)
         success = theme.success.adjusted(toContrast: 3, against: card)
+        info = theme.info.adjusted(toContrast: 3, against: card)
         washStart = theme.gradient.first ?? theme.accent
         washEnd = theme.gradient.dropFirst().first ?? theme.accent2 ?? theme.accent.mixed(with: dark ? .white : .black, amount: 0.35)
     }
@@ -164,6 +170,6 @@ extension CompanionDesktopTheme {
     static let clubhouse = CompanionDesktopTheme(
         id: "clubhouse", name: "Clubhouse", source: "Clubhouse Go", mode: .dark,
         colors: ["base": "#1c1c1e", "mantle": "#111113", "crust": "#000000", "text": "#ffffff", "subtext0": "#9d9da6",
-                 "surface0": "#2c2c2e", "surface1": "#3a3a3c", "accent": "#8b7fff", "warning": "#ff9f0a", "error": "#ff453a", "success": "#30d158"],
+                 "surface0": "#2c2c2e", "surface1": "#3a3a3c", "accent": "#8b7fff", "warning": "#ff9f0a", "error": "#ff453a", "success": "#30d158", "info": "#0a84ff"],
         gradient: ["#7a6cff", "#00a3c4"])
 }

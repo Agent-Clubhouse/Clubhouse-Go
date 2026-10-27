@@ -122,7 +122,7 @@ struct CompanionConversationView: View {
         // Compare by agent, not list entry: a desktop can list one agent under more than one project.
         if let other = store.allAgents.first(where: { $0.status.needsYou && ($0.id.agentID != target.agentID || $0.id.hostID != target.hostID) }) {
             CompanionGlassBanner(systemImage: other.status.symbol,
-                                 text: Text("**\(other.name)** \(other.status.label.lowercased())")) {
+                                 text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
                 Button("View") { openAgent(other.id) }.buttonStyle(.glass)
                     .accessibilityLabel("View \(other.name)")
             }
@@ -246,7 +246,7 @@ struct CompanionConversationView: View {
             if isAsleep {
                 HStack(spacing: 10) {
                     Image(systemName: "moon.zzz").foregroundStyle(Color(palette.secondaryLabel))
-                    Text("\(agent.name) is asleep. Wake it, or send a message to resume.").font(.subheadline)
+                    Text("\(agent.name) is sleeping. Wake it, or send a message to resume.").font(.subheadline)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Button("Wake", systemImage: "sun.max") { Task { await store.wake(target) } }
                         .buttonStyle(.glassProminent)

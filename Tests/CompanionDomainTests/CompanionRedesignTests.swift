@@ -220,7 +220,7 @@ struct CompanionWireGroundingTests {
         #expect(CompanionChatProjector.status("running", detailed: idle) == .idle)
         #expect(CompanionChatProjector.status("running", detailed: permission) == .approval)
         #expect(CompanionChatProjector.status("running", detailed: question) == .waiting)
-        #expect(CompanionChatProjector.status("running", detailed: .object(["state": .string("tool_error")])) == .working)
+        #expect(CompanionChatProjector.status("running", detailed: .object(["state": .string("tool_error")])) == .failed)
         #expect(CompanionChatProjector.status("running", detailed: nil) == .working)
         #expect(CompanionChatProjector.status("sleeping", detailed: idle) == .sleeping)
     }
