@@ -17,6 +17,17 @@ import Foundation
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
+    /// River orchestrates: it asks to start a helper, and to dispose Cedar, which has work that would be lost.
+    /// (Not a sleeping agent: those start folded on Home.)
+    static let helperRequests: [CompanionHelperRequest] = [
+        .init(id: "hstart_preview", hostID: target.hostID, projectID: "clubhouse", kind: .start, requesterID: target.agentID, requesterName: "River",
+              helperName: "docs-pass", requestedAt: Date().addingTimeInterval(-240), expiresAt: Date().addingTimeInterval(86_000),
+              summary: "Wants to start the helper docs-pass", task: "Update the reconnect section of the README"),
+        .init(id: "hdispose_preview", hostID: target.hostID, projectID: "clubhouse", kind: .dispose, requesterID: target.agentID, requesterName: "River",
+              helperID: "cedar", helperName: "Cedar", requestedAt: Date().addingTimeInterval(-120),
+              summary: "River asked to dispose this helper. 2 uncommitted files, 1 unpushed commit.",
+              dispose: .init(uncommittedFiles: 2, unpushedCommits: 1, unmergedCommits: 1, workAtRisk: true)),
+    ]
     /// A running test command whose output grows, while read-only lookups start after it and fold into
     /// "Explored…" around it. The command, with its log link, is never folded; new ones keep starting.
     private func streamToolUpdates() async {
@@ -79,7 +90,8 @@ import Foundation
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
-               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments),
+               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
+               canAnswerHelperRequests: true, helperRequests: helperRequests),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                 .init(id: "notes", name: "Field notes", agents: [
                     .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -166,6 +178,7 @@ import Foundation
               defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true, freeAgentModeAllowed: true)
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
+    func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
     /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything can change.
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         let sleeping = target == Self.sleepingTarget

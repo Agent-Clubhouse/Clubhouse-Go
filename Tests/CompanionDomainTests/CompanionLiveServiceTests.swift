@@ -27,6 +27,8 @@ private actor LiveTestTransport: AnnexTransporting {
     private(set) var executedKinds: [String] = []
     private(set) var executedCommands: [AnnexCommand] = []
     func acceptCommands() { rejectNext = false }
+    private var helperRequests = false
+    func enableHelperRequests() { helperRequests = true }
 
     func delaySubscription() { holdEvents = true }
     func releaseSubscription() { holdEvents = false; eventsWaiting = false; eventsGate?.resume(); eventsGate = nil }
@@ -64,7 +66,9 @@ private actor LiveTestTransport: AnnexTransporting {
         switch route {
         case .capabilities:
             return .object(["version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"),
-                            "controlAvailable": .bool(true), "idempotency": .object(["scope": .string("client"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]), "commands": .array([.string("chat.send"), .string("agent.start")])])
+                            "controlAvailable": .bool(true), "idempotency": .object(["scope": .string("client"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
+                            "commands": .array([.string("chat.send"), .string("agent.start")] + (helperRequests ? [.string("helper.approve"), .string("helper.decline")] : [])),
+                            "helperRequests": helperRequests ? .object(["version": .integer(1), "snapshotField": .string("helperRequests")]) : .null])
         case .projects:
             if holdProjects {
                 projectsWaiting = true
@@ -129,6 +133,38 @@ private actor LiveTestTransport: AnnexTransporting {
         .message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": event])))
     }
 
+
+    /// Helper requests come in the WebSocket snapshot, survive a REST refresh, and are answered with helper.approve.
+    @Test func helperRequestsFromTheSnapshotAreAnswered() async throws {
+        let transport = LiveTestTransport()
+        await transport.enableHelperRequests()
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.hosts.first?.canAnswerHelperRequests == true)
+        let request: AnnexJSON = .object(["requestId": .string("hdispose_1"), "kind": .string("dispose"), "projectId": .string("project"),
+            "requester": .object(["agentId": .string("agent"), "name": .string("Agent")]), "helper": .object(["agentId": .string("agent"), "name": .string("Agent")]),
+            "requestedAt": .string("2026-10-26T10:00:00.000Z"), "summary": .string("Agent asked to dispose this helper. 1 uncommitted file."),
+            "dispose": .object(["uncommittedFiles": .integer(1), "unpushedCommits": .integer(0), "workAtRisk": .bool(true), "canDispose": .bool(true)])])
+        await transport.emit(.message(.init(type: "snapshot", payload: .object([
+            "projects": .array([.object(["id": .string("project"), "name": .string("Project")])]),
+            "agents": .object(["project": .array([.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])])]),
+            "helperRequests": .array([request])]))))
+        try await waitUntil { store.attentionItems().contains { $0.helperRequest != nil } }
+        let pending = try #require(store.attentionItems().compactMap(\.helperRequest).first)
+        #expect(pending.summary == "Agent asked to dispose this helper. 1 uncommitted file.")
+
+        // The fixture rejects the first command, as a desktop refusal; the request stays and says why.
+        await store.answer(pending, approve: true)
+        #expect(store.helperRequestErrors[pending.slot] == "Try later")
+        #expect(store.hosts.first?.helperRequests.count == 1)
+        await transport.acceptCommands()
+        await store.answer(pending, approve: true)
+        let sent = try #require(await transport.executedCommands.last)
+        #expect(sent.kind == .helperApprove(requestID: "hdispose_1", force: true))
+        try await waitUntil { store.hosts.first?.helperRequests.isEmpty == true }
+        #expect(store.needsYouCount == 0)
+    }
 
     @Test(arguments: ["waiting_input", "waiting_permission"])
     func coarseRunningStatusCannotHidePendingInteraction(state: String) async throws {

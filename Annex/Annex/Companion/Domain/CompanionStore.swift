@@ -12,6 +12,9 @@ import Observation
     private(set) var conversations: [CompanionTarget: CompanionConversation] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
     private(set) var operationErrors: [CompanionTarget: String] = [:]
+    /// Helper requests being answered, and why an answer failed, by `CompanionHelperRequest.slot`.
+    private(set) var helperRequestsInFlight: Set<String> = []
+    private(set) var helperRequestErrors: [String: String] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
@@ -375,6 +378,31 @@ import Observation
             operationErrors[target] = error.localizedDescription
             if case CompanionServiceError.uncertain = error { conversations[target, default: .init()].requiresResync = true }
             else if case CompanionServiceError.rejected = error { await load(target, force: true) }
+        }
+    }
+
+    func canAnswer(_ request: CompanionHelperRequest) -> Bool {
+        guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
+        return host.connection.canOperate && host.canAnswerHelperRequests && !helperRequestsInFlight.contains(request.slot)
+            && host.helperRequests.contains { $0.id == request.id }
+    }
+
+    /// Approve or decline a helper request, as the desktop's Needs you does. Approving a dispose with work at risk is
+    /// the desktop's "Dispose anyway"; one whose checks couldn't run can only be declined.
+    func answer(_ request: CompanionHelperRequest, approve: Bool) async {
+        guard canAnswer(request), !approve || request.canApprove else { return }
+        let force = approve && request.kind == .dispose && request.dispose?.workAtRisk == true
+        helperRequestsInFlight.insert(request.slot)
+        helperRequestErrors[request.slot] = nil
+        defer { helperRequestsInFlight.remove(request.slot) }
+        do {
+            try await service.answerHelperRequest(request, approve: approve, force: force, clientCommandID: UUID().uuidString)
+            // The desktop's next snapshot drops it too; don't leave it answerable until then.
+            if let index = hosts.firstIndex(where: { $0.id == request.hostID }) {
+                hosts[index].helperRequests.removeAll { $0.id == request.id }
+            }
+        } catch {
+            helperRequestErrors[request.slot] = error.localizedDescription
         }
     }
 
