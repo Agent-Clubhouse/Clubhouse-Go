@@ -20,6 +20,17 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   - `--diagnostics-ui-testing`: `DiagnosticSettingsTests`
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
 
+### Writing UI tests for hosted runners
+
+GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch, and sometimes drop a tap or long-press. Fixture-mode UI tests subclass `ReliableUITestCase` (`Annex/AnnexUITests/UITestSupport.swift`):
+
+- `launchApp(_:)` launches in portrait with `--ui-testing-fast` (UIKit animations off, DEBUG only) and relaunches after a launch or terminate timeout.
+- `waitAndTap(_:until:)` and `waitAndTap(_:untilGone:)` tap again only if the expected change didn't happen. `longPressUntilMenu(_:shows:)` does the same for context menus.
+- `scrollTo`, `scrollUntilExists` and `expandFold` stop as soon as the target is there. Don't write `for _ in 0..<n where !condition { swipe }`: `where` doesn't end the loop, so the slow lookup in `condition` still runs on every remaining iteration.
+- Each step fails with a message 30 s before the test's execution time allowance. A test the allowance kills restarts the runner and isn't retried.
+
+Don't retry a tap whose repeat changes the result, such as adding an attachment or toggling a switch.
+
 The live and provider tests listed below skip unless you enable them.
 
 ## Live integration (opt-in)
