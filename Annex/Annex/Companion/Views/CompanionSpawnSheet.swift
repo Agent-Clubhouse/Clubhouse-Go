@@ -32,6 +32,9 @@ struct CompanionSpawnSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", systemImage: "xmark") { dismiss() }.disabled(store.spawnInProgress || store.createInProgress)
                 }
+                if effectiveKind == .durable {
+                    ToolbarItem(placement: .confirmationAction) { createButton }
+                }
             }
             .interactiveDismissDisabled(store.spawnInProgress || store.createInProgress || !prompt.isEmpty)
             .confirmationDialog("Finish reviewing the previous request?", isPresented: $confirmReviewedSpawn, titleVisibility: .visible) {
@@ -248,6 +251,20 @@ struct CompanionSpawnSheet: View {
         Form {
             Section { kindPicker }
             Section { LabeledContent("Project") { projectMenu } }
+            // Problems show at the top, next to Create in the toolbar, rather than below a long form.
+            if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
+                Section {
+                    if let host = selectedHost, !host.connection.canOperate {
+                        Label("\(host.name) is \(host.connection.label.lowercased()). Reconnect before creating an agent.", systemImage: "wifi.exclamationmark")
+                            .font(.subheadline).foregroundStyle(Color(palette.warning))
+                    }
+                    if let error = store.createError {
+                        Label(error, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
+                            .accessibilityIdentifier("new-agent-error")
+                    }
+                    if store.uncertainCreateRequest != nil { uncertainCreate }
+                }
+            }
             if let options = durable.options {
                 durableFields(options)
             } else if let error = durable.error {
@@ -259,16 +276,7 @@ struct CompanionSpawnSheet: View {
                 Section { ProgressView("Loading the desktop's options…").frame(maxWidth: .infinity) }
             }
             Section {
-                if let host = selectedHost, !host.connection.canOperate {
-                    Label("\(host.name) is \(host.connection.label.lowercased()). Reconnect before creating an agent.", systemImage: "wifi.exclamationmark")
-                        .font(.subheadline).foregroundStyle(Color(palette.warning))
-                }
-                if let error = store.createError {
-                    Label(error, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
-                        .accessibilityIdentifier("new-agent-error")
-                }
-                if store.uncertainCreateRequest != nil { uncertainCreate }
-                createButton
+                EmptyView()
             } footer: {
                 Text("There's no mission for a durable agent. Once it's created, wake it with a message.")
             }
@@ -371,18 +379,14 @@ struct CompanionSpawnSheet: View {
                 clientCommandID: UUID().uuidString)
             Task { if await store.create(request) { dismiss() } }
         } label: {
-            Group {
-                if store.createInProgress { ProgressView().accessibilityLabel("Creating agent") }
-                else { Text("Create") }
-            }
-            .frame(maxWidth: .infinity)
+            if store.createInProgress { ProgressView().accessibilityLabel("Creating agent") }
+            else { Text("Create") }
         }
-        .buttonStyle(.glassProminent).controlSize(.large)
+        .buttonStyle(.glassProminent)
         .disabled(store.createInProgress || store.uncertainCreateRequest != nil || selectedHost?.connection.canOperate != true
                   || durable.options == nil || durable.nameProblem != nil)
+        .keyboardShortcut(.return, modifiers: .command)
         .accessibilityIdentifier("new-agent-create")
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets())
     }
 
     private var uncertainCreate: some View {
