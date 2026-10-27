@@ -16,6 +16,60 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     var id: CompanionTarget { agent.id }
 
     var deadline: Date? { if case .approval(let approval) = kind { approval.deadline } else { nil } }
+    /// When the agent began waiting, from the desktop's `detailedStatus.timestamp`.
+    var since: Date? { agent.detail?.since }
+
+    /// An approval this close to timing out goes to the top of Needs you and shows its countdown.
+    static let urgentWindow: TimeInterval = 120
+    func isUrgent(at now: Date) -> Bool {
+        guard let deadline else { return false }
+        return deadline > now && deadline.timeIntervalSince(now) <= Self.urgentWindow
+    }
+
+    /// One line saying why the agent needs you, in the desktop's words (`treeModel.ts` selectNeedsAttention).
+    var detail: String {
+        switch kind {
+        case .approval(let approval): Self.permissionLine(toolName: approval.toolName)
+        case .question: Self.questionLine
+        case .failure: failureLine
+        case .unreviewed:
+            switch agent.status {
+            case .approval: Self.permissionLine(toolName: agent.detail?.toolName)
+            case .waiting: Self.questionLine
+            default: failureLine
+            }
+        }
+    }
+
+    /// What is being asked, under the line above: the request's title or description, or the question.
+    var prompt: String? {
+        switch kind {
+        case .approval(let approval):
+            if let title = approval.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty { return title }
+            let summary = approval.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            return summary.isEmpty || summary == "Review the requested action" ? nil : summary
+        case .question(let question): return question.prompts.first?.text
+        case .failure, .unreviewed: return nil
+        }
+    }
+
+    static let questionLine = "Has a question for you"
+    static func permissionLine(toolName: String?) -> String {
+        guard let toolName, !toolName.isEmpty else { return "Needs permission" }
+        return "Needs permission to use \(shortToolName(toolName))"
+    }
+    /// A failed tool is named as a failure, never just the tool, so it isn't read as a permission prompt.
+    private var failureLine: String {
+        guard agent.detail?.state == "tool_error" else { return "Stopped with an error" }
+        if let tool = agent.detail?.toolName, !tool.isEmpty { return "Tool call failed (\(Self.shortToolName(tool)))" }
+        return agent.detail?.message.flatMap { $0.isEmpty ? nil : $0 } ?? "Tool call failed"
+    }
+    /// A tool's own name, without an MCP server prefix (`mcp__clubhouse__message_parent` → `message_parent`).
+    static func shortToolName(_ name: String) -> String {
+        guard name.hasPrefix("mcp__"), let range = name.range(of: "__", options: .backwards) else { return name }
+        let short = name[range.upperBound...]
+        return short.isEmpty ? name : String(short)
+    }
 }
 
 /// A row in the conversation: either one timeline item or a run of read-only tool calls folded together.
@@ -79,10 +133,13 @@ extension CompanionStore {
         }.first
     }
 
-    /// Needs you, soonest-expiring approval first, then everything else in desktop order.
+    /// Needs you, as the desktop lists it: questions, permission requests, failed tools and errored agents on
+    /// connected desktops, oldest first. An approval about to time out goes first. An offline desktop's agents
+    /// are left to its reconnect card. (The desktop also lists helper start and dispose requests; its
+    /// snapshot doesn't send those yet.)
     func attentionItems(now: Date = Date()) -> [CompanionAttentionItem] {
         var items: [CompanionAttentionItem] = []
-        for host in hosts where host.connection.canOperate || !host.projects.isEmpty {
+        for host in hosts where host.connection.canOperate {
             for project in host.projects {
                 for agent in project.agents where agent.status.needsYou {
                     let conversation = conversation(for: agent.id)
@@ -99,16 +156,23 @@ extension CompanionStore {
             }
         }
         return items.enumerated().sorted { lhs, rhs in
-            switch (lhs.element.deadline, rhs.element.deadline) {
-            case let (left?, right?): return left == right ? lhs.offset < rhs.offset : left < right
-            case (.some, nil): return true
-            case (nil, .some): return false
-            case (nil, nil): return lhs.offset < rhs.offset
+            let left = lhs.element, right = rhs.element
+            switch (left.isUrgent(at: now), right.isUrgent(at: now)) {
+            case (true, true): if left.deadline != right.deadline { return left.deadline! < right.deadline! }
+            case (true, false): return true
+            case (false, true): return false
+            case (false, false): break
             }
+            // Oldest first; an agent with no start time sorts as the oldest, as on the desktop.
+            let leftSince = left.since ?? .distantPast, rightSince = right.since ?? .distantPast
+            return leftSince == rightSince ? lhs.offset < rhs.offset : leftSince < rightSince
         }.map(\.element)
     }
 
-    var needsYouCount: Int { allAgents.filter { $0.status.needsYou }.count }
+    /// The Needs you badge: agents waiting on you on a connected desktop.
+    var needsYouCount: Int {
+        hosts.filter(\.connection.canOperate).flatMap(\.projects).flatMap(\.agents).filter { $0.status.needsYou }.count
+    }
 
     /// An agent's latest activity: the desktop's `lastActivityAt`, or a newer message in its loaded conversation.
     func lastActivity(of agent: CompanionAgent) -> Date? {

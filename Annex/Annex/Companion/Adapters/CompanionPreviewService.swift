@@ -56,6 +56,8 @@ import Foundation
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
             agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
             agent.chatControls = chatControls
+            // Sleeping preview agents have run before, so they offer Wake & Resume and Start New Session.
+            if status == .sleeping { agent.hasSession = true }
             return agent
         }
         return [

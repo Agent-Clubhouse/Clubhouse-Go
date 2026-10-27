@@ -54,6 +54,8 @@ struct CompanionRootView: View {
         .environment(\.companionOpenAgent) { target in open(target) }
         .environment(\.companionAgentSettings, .init(canOpen: { [store] in store.canEditSettings($0) }, open: { settingsTarget = $0 },
                                                       openDetails: { detailsTarget = $0 }))
+        .environment(\.companionAgentWake, .init(choices: { [store] in store.mayWake($0) ? store.wakeChoices(for: $0) : [] },
+                                                   wake: { [store] target, choice in Task { await store.wake(target, choice) } }))
         .sheet(item: $spawnProject) { project in
             CompanionSpawnSheet(store: store, initialProject: project)
                 .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
@@ -209,11 +211,11 @@ struct CompanionHomeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "wifi.slash").foregroundStyle(Color(palette.secondaryLabel))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(host.name) is \(host.connection.label.lowercased())").font(.headline)
+                    Text(host.connection.sentence(hostName: host.name)).font(.headline)
                     Text(host.connection.detail).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
                 }
                 Spacer(minLength: 8)
-                Button("Reconnect") { Task { await store.reconnect(hostID: host.id) } }
+                Button("Retry") { Task { await store.reconnect(hostID: host.id) } }
                     .buttonStyle(.bordered).buttonBorderShape(.capsule)
             }
             .listRowBackground(CompanionCardBackground())
@@ -422,18 +424,6 @@ private struct CompanionDotLabelStyle: LabelStyle {
     }
 }
 
-extension CompanionAttentionItem {
-    /// One line saying what is being asked.
-    var detail: String {
-        switch kind {
-        case .approval(let approval): approval.summary.isEmpty ? approval.toolName : approval.summary
-        case .question(let question): question.prompts.first?.text ?? "Has a question"
-        case .failure: agent.subtitle.isEmpty ? "Stopped with an error" : agent.subtitle
-        case .unreviewed: agent.subtitle
-        }
-    }
-}
-
 /// Drag projects into your own order. The order is kept on this phone and covers every desktop.
 struct CompanionArrangeProjectsView: View {
     @Bindable var preferences: CompanionPreferences
@@ -511,7 +501,7 @@ struct CompanionNeedsYouView: View {
             VStack(spacing: 8) {
                 ForEach(decisions.pending) { pending in
                     CompanionGlassBanner(systemImage: pending.allows ? "checkmark" : "xmark",
-                                         text: Text("\(pending.allows ? "Allowing" : "Denying") \(pending.approval.toolName) for \(pending.agentName)")) {
+                                         text: Text("\(pending.allows ? "Allowing" : "Denying") \(CompanionAttentionItem.shortToolName(pending.approval.toolName)) for \(pending.agentName)")) {
                         Button("Undo") { decisions.undo(pending.id) }.buttonStyle(.glass)
                     }
                 }
@@ -535,6 +525,29 @@ struct CompanionNeedsYouView: View {
     }
 }
 
+/// How long an approval has before it times out. Within the last two minutes it turns red, and Needs you lists it first.
+struct CompanionApprovalCountdown: View {
+    let deadline: Date
+    @Environment(\.companionPalette) private var palette
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = deadline.timeIntervalSince(context.date)
+            let urgent = remaining <= CompanionAttentionItem.urgentWindow
+            Label(Self.text(remaining: remaining), systemImage: urgent ? "exclamationmark.triangle.fill" : "clock")
+                .font(.caption.weight(urgent ? .semibold : .regular).monospacedDigit())
+                .foregroundStyle(Color(urgent ? palette.error : palette.secondaryLabel))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Self.text(remaining: remaining))
+                .accessibilityIdentifier("companion-approval-countdown")
+        }
+    }
+    static func text(remaining: TimeInterval) -> String {
+        guard remaining > 0 else { return "Timed out" }
+        let seconds = Int(remaining.rounded(.up))
+        return seconds < 60 ? "Times out in \(seconds) s" : "Times out in \(Int((Double(seconds) / 60).rounded(.up))) min"
+    }
+}
+
 struct CompanionAttentionCard: View {
     let item: CompanionAttentionItem
     @Bindable var store: CompanionStore
@@ -552,6 +565,10 @@ struct CompanionAttentionCard: View {
                 CompanionStatusText(status: item.agent.status).font(.caption.weight(.medium))
             }
             Text(item.detail).font(.headline).fixedSize(horizontal: false, vertical: true)
+            if let prompt = item.prompt {
+                Text(prompt).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
+            }
+            if let deadline = item.deadline { CompanionApprovalCountdown(deadline: deadline) }
             if case .approval(let approval) = item.kind, let detail = approval.detail, !detail.isEmpty {
                 Text(detail).font(.caption.monospaced()).lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)

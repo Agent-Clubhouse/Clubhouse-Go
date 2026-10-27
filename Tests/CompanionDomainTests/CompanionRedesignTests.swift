@@ -115,7 +115,7 @@ struct CompanionThemeTests {
 }
 
 @MainActor struct CompanionAttentionTests {
-    @Test func soonestExpiringApprovalComesFirst() {
+    @Test func approvalAboutToTimeOutComesFirst() {
         let late = agent("late", .approval), soon = agent("soon", .approval), broken = agent("broken", .failed), idle = agent("idle", .working)
         let store = store([late, broken, soon, idle])
         let now = Date()
@@ -123,8 +123,68 @@ struct CompanionThemeTests {
         store.apply(.timeline(soon.id, items: [.approval(approval("a2", deadline: now.addingTimeInterval(60)))], sequence: 1, reset: true))
         let items = store.attentionItems(now: now)
         #expect(items.map(\.agent.name) == ["soon", "late", "broken"])
+        #expect(items.first?.isUrgent(at: now) == true)
+        #expect(items[1].isUrgent(at: now) == false)
         #expect(items.last?.kind == .failure)
         #expect(store.needsYouCount == 3)
+    }
+
+    @Test func oldestRequestFirstAsOnTheDesktop() {
+        let now = Date()
+        func waiting(_ id: String, _ status: CompanionAgentStatus, since seconds: TimeInterval?) -> CompanionAgent {
+            var agent = agent(id, status)
+            agent.detail = .init(state: status == .failed ? "tool_error" : "needs_permission", since: seconds.map { now.addingTimeInterval(-$0) })
+            return agent
+        }
+        let store = store([waiting("new", .approval, since: 10), waiting("old", .waiting, since: 600),
+                           waiting("mid", .failed, since: 120), waiting("unknown", .approval, since: nil)])
+        // A far-off deadline doesn't jump the queue; an unknown start sorts oldest, like the desktop's 0.
+        store.apply(.timeline(.init(hostID: "mac", projectID: "p1", agentID: "new"), items: [.approval(approval("a", deadline: now.addingTimeInterval(900)))], sequence: 1, reset: true))
+        #expect(store.attentionItems(now: now).map(\.agent.name) == ["unknown", "old", "mid", "new"])
+        // Within two minutes of timing out, it goes first.
+        #expect(store.attentionItems(now: now.addingTimeInterval(800)).first?.agent.name == "new")
+    }
+
+    @Test func offlineDesktopsAreLeftToTheirReconnectCard() {
+        let here = agent("here", .approval), away = agent("away", .waiting, host: "laptop")
+        let store = CompanionStore(service: StubService())
+        store.apply(.hosts([
+            .init(id: "mac", name: "MacBook", endpoint: "", connection: .connected, projects: [.init(id: "p1", name: "P1", agents: [here])]),
+            .init(id: "laptop", name: "Laptop", endpoint: "", connection: .offline, projects: [.init(id: "p1", name: "P1", agents: [away])]),
+        ]))
+        #expect(store.attentionItems().map(\.agent.name) == ["here"])
+        #expect(store.needsYouCount == 1)
+        for state in [CompanionConnection.reconnecting, .synchronizing, .failed("lost")] {
+            store.apply(.hosts([.init(id: "laptop", name: "Laptop", endpoint: "", connection: state, projects: [.init(id: "p1", name: "P1", agents: [away])])]))
+            #expect(store.attentionItems().isEmpty, "\(state)")
+        }
+    }
+
+    @Test func wordsMatchTheDesktop() {
+        func item(_ status: CompanionAgentStatus, _ kind: CompanionAttentionItem.Kind, detail: CompanionAgentDetail? = nil, subtitle: String = "Mission") -> CompanionAttentionItem {
+            var agent = agent("a", status); agent.subtitle = subtitle; agent.detail = detail
+            return .init(agent: agent, hostName: "Mac", projectName: "P", kind: kind)
+        }
+        let question = CompanionQuestion(id: "q", prompts: [.init(id: "p", text: "Which branch?", options: [], allowsMultiple: false, allowsFreeText: true)])
+        #expect(item(.waiting, .question(question)).detail == "Has a question for you")
+        #expect(item(.waiting, .question(question)).prompt == "Which branch?")
+        #expect(item(.waiting, .unreviewed).detail == "Has a question for you")
+        #expect(item(.approval, .approval(approval("x", deadline: nil))).detail == "Needs permission to use Edit")
+        #expect(item(.approval, .approval(approval("x", deadline: nil))).prompt == "Edit Package.swift")
+        var mcp = approval("m", deadline: nil); mcp.toolName = "mcp__clubhouse__message_parent"; mcp.summary = "Review the requested action"
+        #expect(item(.approval, .approval(mcp)).detail == "Needs permission to use message_parent")
+        #expect(item(.approval, .approval(mcp)).prompt == nil)
+        mcp.title = "Message the orchestrator"
+        #expect(item(.approval, .approval(mcp)).prompt == "Message the orchestrator")
+        #expect(item(.approval, .unreviewed, detail: .init(state: "needs_permission", toolName: "Bash")).detail == "Needs permission to use Bash")
+        #expect(item(.approval, .unreviewed).detail == "Needs permission")
+        #expect(item(.failed, .failure, detail: .init(state: "tool_error", toolName: "mcp__github__create_issue")).detail == "Tool call failed (create_issue)")
+        #expect(item(.failed, .failure, detail: .init(state: "tool_error", message: "Exit code 1")).detail == "Exit code 1")
+        #expect(item(.failed, .failure, detail: .init(state: "tool_error")).detail == "Tool call failed")
+        // An errored agent says so; it never shows its mission as the reason.
+        #expect(item(.failed, .failure).detail == "Stopped with an error")
+        #expect(CompanionAttentionItem.shortToolName("Read") == "Read")
+        #expect(CompanionAttentionItem.shortToolName("mcp__") == "mcp__")
     }
 
     @Test func approvalWithoutLoadedConversationIsUnreviewed() {
@@ -343,6 +403,46 @@ struct CompanionInstallResetTests {
         store.apply(.timeline(sleeper.id, items: [.message(local)], sequence: 1, reset: true))
         store.apply(.upsert(sleeper.id, .message(.init(id: "m-1", role: .user, text: "something else")), sequence: 2))
         #expect(store.conversation(for: sleeper.id).items.count == 2)
+    }
+}
+
+struct CompanionWakeChoiceTests {
+    @Test func resumeOnlyWhenThereIsASession() {
+        #expect(CompanionWakeChoice.choices(hasSession: true) == [.resume, .newSession])
+        #expect(CompanionWakeChoice.choices(hasSession: false) == [.newSession])
+        #expect(CompanionWakeChoice.choices(hasSession: nil) == [.wake])
+        #expect(CompanionWakeChoice.resume.label == "Wake & Resume")
+        #expect(CompanionWakeChoice.newSession.label == "Start New Session")
+        #expect(CompanionWakeChoice.resume.resume && !CompanionWakeChoice.newSession.resume && CompanionWakeChoice.wake.resume)
+    }
+
+    @Test func startCommandEncodesResume() throws {
+        for resume in [true, false] {
+            let data = try AnnexCommand(commandID: "c", epoch: "e", kind: .start(agentID: "a", resume: resume)).encoded()
+            let body = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            #expect(body?["type"] as? String == "agent.start")
+            #expect(body?["resume"] as? Bool == resume)
+        }
+    }
+
+    @MainActor @Test func mayWakeOnlyASleepingDurableOnAConnectedDesktop() {
+        var quick = agent("quick", .sleeping); quick.isQuick = true
+        let store = store([agent("sleeper", .sleeping), agent("busy", .working), quick])
+        #expect(store.mayWake(.init(hostID: "mac", projectID: "p1", agentID: "sleeper")))
+        #expect(!store.mayWake(.init(hostID: "mac", projectID: "p1", agentID: "busy")))
+        #expect(!store.mayWake(.init(hostID: "mac", projectID: "p1", agentID: "quick")))
+    }
+}
+
+struct CompanionHostCopyTests {
+    @Test func connectionWordsMatchTheDesktop() {
+        #expect(CompanionConnection.connecting.label == "Connecting…")
+        #expect(CompanionConnection.synchronizing.label == "Connecting…")
+        #expect(CompanionConnection.reconnecting.label == "Looking for it…")
+        #expect(CompanionConnection.offline.label == "Offline")
+        #expect(CompanionConnection.reconnecting.sentence(hostName: "Studio Mac") == "Looking for Studio Mac…")
+        #expect(CompanionConnection.offline.sentence(hostName: "Studio Mac") == "Studio Mac is offline")
+        #expect(CompanionConnection.offline.detail.contains("Retry"))
     }
 }
 

@@ -89,25 +89,25 @@ struct CompanionSpawnSheet: View {
                     if showOptions {
                         VStack(spacing: 0) {
                             if let providers = selectedHost?.providers, !providers.isEmpty {
-                                Picker("Provider", selection: $provider) {
+                                Picker("Runs on", selection: $provider) {
                                     Text("Project default").tag("")
                                     ForEach(providers) { Text($0.name).tag($0.id) }
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 6)
                             } else {
-                                TextField("Provider default", text: $provider).textInputAutocapitalization(.never).autocorrectionDisabled()
-                                    .accessibilityLabel("Provider, optional").padding(14)
+                                TextField("Runs on: project default", text: $provider).textInputAutocapitalization(.never).autocorrectionDisabled()
+                                    .accessibilityLabel("Runs on, optional").padding(14)
                             }
                             Divider().padding(.leading, 14)
                             TextField("Model default", text: $model).textInputAutocapitalization(.never).autocorrectionDisabled()
                                 .accessibilityLabel("Model, optional").padding(14)
                         }
                         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        Text("Leave these blank to use the project's configured provider and model.")
+                        Text("Leave these blank to use the project's default CLI and model.")
                             .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     }
                     if let host = selectedHost, !host.connection.canOperate {
-                        Label("\(host.name) is \(host.connection.label.lowercased()). Reconnect before starting an agent.", systemImage: "wifi.exclamationmark")
+                        Label("\(host.connection.sentence(hostName: host.name)). Retry before starting an agent.", systemImage: "wifi.exclamationmark")
                             .font(.subheadline).foregroundStyle(Color(palette.warning))
                     }
                     if let error = store.spawnError {
@@ -130,7 +130,7 @@ struct CompanionSpawnSheet: View {
                 chip(systemImage: "slider.horizontal.3", text: optionsLabel)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Provider and model, \(optionsLabel)")
+            .accessibilityLabel("Runs on and model, \(optionsLabel)")
         }
     }
 
@@ -261,7 +261,7 @@ struct CompanionSpawnSheet: View {
             if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
                 Section {
                     if let host = selectedHost, !host.connection.canOperate {
-                        Label("\(host.name) is \(host.connection.label.lowercased()). Reconnect before creating an agent.", systemImage: "wifi.exclamationmark")
+                        Label("\(host.connection.sentence(hostName: host.name)). Retry before creating an agent.", systemImage: "wifi.exclamationmark")
                             .font(.subheadline).foregroundStyle(Color(palette.warning))
                     }
                     if let error = store.createError {

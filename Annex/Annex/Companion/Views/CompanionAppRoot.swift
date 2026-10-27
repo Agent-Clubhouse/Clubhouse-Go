@@ -290,7 +290,7 @@ struct CompanionSettingsSheet: View {
                                     Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
                                     // Explicit styles keep each action independent inside this List row.
                                     // Automatic row activation can otherwise invoke sibling buttons too.
-                                    Button("Reconnect") { Task { await runtime.store.reconnect(hostID: host.id) } }
+                                    Button("Retry") { Task { await runtime.store.reconnect(hostID: host.id) } }
                                         .buttonStyle(.borderless)
                                     if runtime.sessionHosts.contains(host.id), host.canRevokeSession {
                                         Button("End session pairing", role: .destructive) { hostToEnd = host }

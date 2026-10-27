@@ -60,8 +60,10 @@ struct CompanionConversationView: View {
                         if let model = agent.model { Text(model) }
                     }
                     if agent.capabilities.contains(.wake) {
-                        Button("Wake agent", systemImage: "sun.max") { Task { await store.wake(target) } }
-                            .disabled(!store.canWake(target))
+                        ForEach(store.wakeChoices(for: target)) { choice in
+                            Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
+                                .disabled(!store.canWake(target))
+                        }
                     }
                     if agent.status == .working {
                         Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
@@ -141,7 +143,7 @@ struct CompanionConversationView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(conversation.requiresResync ? "Conversation needs a refresh" : connection.label).font(.subheadline.weight(.semibold))
                 Text(conversation.requiresResync ? "Some updates were missed. Refresh before sending another command." : connection.detail).font(.caption)
-                Button(conversation.requiresResync ? "Refresh conversation" : "Reconnect") {
+                Button(conversation.requiresResync ? "Refresh conversation" : "Retry") {
                     Task {
                         if conversation.requiresResync { await store.load(target, force: true) }
                         else { await store.reconnect(hostID: target.hostID) }
@@ -294,16 +296,18 @@ struct CompanionConversationView: View {
         VStack(alignment: .leading, spacing: 10) {
             pinnedApprovalBar
             if isAsleep {
-                HStack(spacing: 10) {
-                    Image(systemName: "moon.zzz").foregroundStyle(Color(palette.secondaryLabel))
-                    Text("\(agent.name) is sleeping. Wake it, or send a message to resume.").font(.subheadline)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Button("Wake", systemImage: "sun.max") { Task { await store.wake(target) } }
-                        .buttonStyle(.glassProminent).companionProminentLabel()
-                        .disabled(!store.canWake(target)).accessibilityIdentifier("companion-wake")
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(agent.hasSession == false ? "\(agent.name) is sleeping. Start a new session, or send a message to start one."
+                                                     : "\(agent.name) is sleeping. Wake it, or send a message to resume.", systemImage: "moon.zzz")
+                        .font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { CompanionWakeButtons(store: store, target: target) }
+                        VStack(alignment: .leading, spacing: 8) { CompanionWakeButtons(store: store, target: target) }
+                    }
                 }
-                .padding(.leading, 16).padding(.trailing, 6).padding(.vertical, 6)
-                .glassEffect(.regular, in: .capsule)
+                .padding(12)
+                .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .accessibilityElement(children: .contain)
             }
             CompanionAttachmentStrip(store: store, target: target)
             if let controls = agent.chatControls, !isAsleep {

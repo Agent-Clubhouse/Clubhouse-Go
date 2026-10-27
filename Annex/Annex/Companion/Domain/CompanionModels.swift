@@ -26,16 +26,26 @@ enum CompanionConnection: Equatable, Sendable {
     var label: String {
         switch self {
         case .offline: "Offline"
-        case .connecting: "Connecting"
-        case .reconnecting: "Reconnecting"
-        case .synchronizing: "Catching up"
+        // The desktop's host words (`HostSwitcher.tsx` STATE_LABEL): still finding it, then connecting to it.
+        case .connecting, .synchronizing: "Connecting…"
+        case .reconnecting: "Looking for it…"
         case .connected: "Connected"
         case .failed: "Connection issue"
         }
     }
+    /// The state as a sentence about one desktop, such as "Looking for Mac…".
+    func sentence(hostName name: String) -> String {
+        switch self {
+        case .offline: "\(name) is offline"
+        case .connecting, .synchronizing: "Connecting to \(name)…"
+        case .reconnecting: "Looking for \(name)…"
+        case .connected: "\(name) is connected"
+        case .failed: "\(name) has a connection issue"
+        }
+    }
     var detail: String {
         switch self {
-        case .offline: "Your conversation and draft stay here. Reconnect to continue."
+        case .offline: "Your conversation and draft stay here. Retry to continue."
         case .connecting: "Connecting securely to your desktop."
         case .reconnecting: "Waiting for your desktop. Your draft is safe."
         case .synchronizing: "Refreshing the conversation before you continue."
@@ -109,6 +119,10 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var iconData: Data? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
+    /// What the desktop says the agent is doing (`detailedStatus`), for Needs you's wording and order.
+    var detail: CompanionAgentDetail?
+    /// The desktop has a previous session to resume (`hasSession`). Nil when the desktop doesn't say.
+    var hasSession: Bool?
     /// The snapshot's branch and CLI id, for Agent details.
     var branch: String? = nil
     var orchestrator: String? = nil
@@ -126,6 +140,42 @@ struct CompanionContextUsage: Sendable, Equatable {
     var size: Int
     /// Rounded, capped at 100 (`chatUsage`). Nil without a window size.
     var percent: Int? { size > 0 ? min(100, Int((Double(used) / Double(size) * 100).rounded())) : nil }
+}
+
+/// The desktop's `AgentDetailedStatus`: its state (`needs_permission`, `tool_error`…), message, tool and when it began.
+struct CompanionAgentDetail: Sendable, Equatable {
+    var state: String?
+    var message: String?
+    var toolName: String?
+    var since: Date?
+}
+
+/// How to wake a sleeping durable agent, as the desktop's row menu offers it.
+enum CompanionWakeChoice: String, Sendable, CaseIterable, Identifiable {
+    /// Resume the last session (`agent.start` with `resume: true`).
+    case resume
+    /// Start a fresh session (`resume: false`).
+    case newSession
+    /// The desktop doesn't say whether there's a session, so let it decide (`resume: true` falls back to fresh).
+    case wake
+    var id: Self { self }
+    var resume: Bool { self != .newSession }
+    var label: String {
+        switch self {
+        case .resume: "Wake & Resume"
+        case .newSession: "Start New Session"
+        case .wake: "Wake"
+        }
+    }
+    var systemImage: String { self == .newSession ? "plus" : "sun.max" }
+    /// Resume only when there's a session to resume; both when there is, as the desktop does.
+    static func choices(hasSession: Bool?) -> [Self] {
+        switch hasSession {
+        case true?: [.resume, .newSession]
+        case false?: [.newSession]
+        case nil: [.wake]
+        }
+    }
 }
 
 /// A provider the desktop can start agents with, from its snapshot `orchestrators`.
@@ -443,7 +493,7 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt
     /// Uploads one image for a later send and returns its desktop id.
     func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String
-    func wake(_ target: CompanionTarget, clientCommandID: String) async throws
+    func wake(_ target: CompanionTarget, resume: Bool, clientCommandID: String) async throws
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool
@@ -464,7 +514,7 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String {
         throw CompanionServiceError.unavailable("This desktop can't take images. Update Clubhouse on your desktop.")
     }
-    func wake(_ target: CompanionTarget, clientCommandID: String) async throws {
+    func wake(_ target: CompanionTarget, resume: Bool, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not support waking this agent.")
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
