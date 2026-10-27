@@ -43,7 +43,8 @@ import Foundation
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
                    turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil, executionMode: String? = nil,
-                   branch: String? = nil, orchestrator: String? = nil, session: CompanionSessionFacts? = nil) -> CompanionAgent {
+                   branch: String? = nil, orchestrator: String? = nil, session: CompanionSessionFacts? = nil,
+                   chatControls: CompanionChatControls? = nil) -> CompanionAgent {
             let capabilities: CompanionCapabilities = switch status {
             case .sleeping: [.chat, .wake]
             case .completed: []
@@ -54,6 +55,7 @@ import Foundation
                                        lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
             agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
+            agent.chatControls = chatControls
             return agent
         }
         return [
@@ -69,13 +71,13 @@ import Foundation
                     agent("clubhouse", "lint", "Fix lint warnings", "Fix lint warnings", .completed, minutesAgo: 45, quick: true),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
                           contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
-                          session: riverSession)
+                          session: riverSession, chatControls: chatControls)
                 ], color: "indigo"),
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
-               providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments),
+               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                 .init(id: "notes", name: "Field notes", agents: [
                     .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -98,7 +100,7 @@ import Foundation
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
-            // Two waiting approvals show "1 of 2"; "Always allow" is the desktop's to choose.
+            // Two waiting approvals show "1 of 2"; "Always allow" is a secondary action, confirmed first.
             .approval(.init(id: "approval-1", toolName: "Bash", summary: "Build the iOS application to verify the updated conversation layout.", title: "Run xcodebuild",
                             detail: "xcodebuild -scheme ClubhouseGo -sdk iphonesimulator build", deadline: Date().addingTimeInterval(600), options: [
                 .init(id: "allow-once", label: "Allow once", kind: .allowOnce),
@@ -141,6 +143,17 @@ import Foundation
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    /// River's composer controls, matching its session: every level is live, and model and effort changes apply from the next message.
+    static let chatControls = CompanionChatControls(
+        model: "opus", effort: "high", effortReported: true, level: .autoEdit,
+        models: [.init(id: "opus", label: "Opus", description: "Most capable for complex work", costHint: "1x"),
+                 .init(id: "sonnet", label: "Sonnet", description: "Fast for everyday tasks", costHint: "0.6x"),
+                 .init(id: "haiku", label: "Haiku", description: "Fastest for quick answers", costHint: "0.2x")],
+        efforts: ["low", "medium", "high", "xhigh"],
+        levelNames: [.plan: "plan", .ask: "default", .autoEdit: "acceptEdits", .auto: "auto", .fullAccess: "bypassPermissions"],
+        liveLevels: CompanionPermissionLevel.allCases, modelSwitch: .perTurn, effortSwitch: .perTurn, effortDefault: true)
+    func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw previewError }
     func reconnect(hostID: String) async {}
@@ -148,10 +161,10 @@ import Foundation
         .init(options: Self.agentOptions,
               mcpCatalog: [.init(id: "github", name: "GitHub", description: "Issues and pull requests"), .init(id: "ado", name: "Azure DevOps", description: nil)],
               mcpDefaults: ["github"], isGitRepo: true, suggestedName: "brave-otter", defaultOrchestrator: "claude-code",
-              defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true)
+              defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true, freeAgentModeAllowed: true)
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
-    /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything but Free Agent Mode can change.
+    /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything can change.
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         let sleeping = target == Self.sleepingTarget
         let name = sleeping ? "Juniper" : "River"
@@ -163,7 +176,7 @@ import Foundation
                      runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
                      persona: .init(value: nil, editable: .sleeping),
                      clubhouseMode: .init(value: nil, editable: .never),
-                     freeAgentMode: .init(value: false, editable: .never),
+                     freeAgentMode: .init(value: false, editable: .sleeping),
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace)
