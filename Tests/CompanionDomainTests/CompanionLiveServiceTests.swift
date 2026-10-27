@@ -215,6 +215,8 @@ private actor LiveTestTransport: AnnexTransporting {
         await store.load(target, force: true)
         #expect(store.contentRoots(for: target).paths.isEmpty)
         store.stop()
+    }
+
     @Test func aQuickAgentsExitIsKeptForTheFinishedList() async throws {
         let transport = LiveTestTransport()
         let (service, store) = try await setup(transport)

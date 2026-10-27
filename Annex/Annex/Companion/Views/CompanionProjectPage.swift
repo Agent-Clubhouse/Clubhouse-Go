@@ -92,7 +92,7 @@ struct CompanionProjectPage: View {
     }
 
     @ViewBuilder private func finishedRow(_ run: CompanionFinishedRun) -> some View {
-        let label = TimelineView(.everyMinute) { context in CompanionFinishedRow(run: run, now: context.date) }
+        let label = TimelineView(.periodic(from: .now, by: 60)) { context in CompanionFinishedRow(run: run, now: context.date) }
         Group {
             // A run the desktop has forgotten has no chat left to open.
             if store.agent(for: run.target) != nil {
