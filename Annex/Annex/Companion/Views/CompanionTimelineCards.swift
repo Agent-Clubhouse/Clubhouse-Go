@@ -8,26 +8,50 @@ struct CompanionMessageView: View {
     var removeQueued: (() -> Void)?
     @Environment(\.companionPalette) private var palette
 
+    /// Like the desktop: agent replies have no author label; your messages sit on the right with their source.
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Image(systemName: message.role == .user ? "person.crop.circle" : "sparkle")
-                    .accessibilityHidden(true)
-                Text(message.role == .user ? "You" : message.role == .assistant ? "Agent" : "Activity")
-                    .font(.subheadline.weight(.semibold))
-                if let timestamp = message.timestamp {
-                    Text(timestamp, style: .time).font(.caption).foregroundStyle(.tertiary)
+        Group {
+            switch message.role {
+            case .user: userMessage
+            case .assistant:
+                VStack(alignment: .leading, spacing: 10) {
+                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
+                    if message.isStreaming { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
                 }
-                if message.isStreaming { ProgressView().controlSize(.mini).accessibilityLabel("Responding") }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            case .system:
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Activity", systemImage: "sparkle").font(.subheadline.weight(.semibold))
+                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if message.role == .user {
-                Text(message.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                CompanionRichText(text: message.text)
+        }
+        .accessibilityElement(children: .contain)
+        .contextMenu {
+            Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
+        }
+    }
+
+    private var userMessage: some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            if message.sourceLabel != nil || message.timestamp != nil {
+                HStack(spacing: 6) {
+                    if let label = message.sourceLabel { Text(label) }
+                    if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
+                }
+                .font(.caption).foregroundStyle(.secondary)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(userCaption)
+                .accessibilityIdentifier("companion-message-source")
             }
+            Text(message.text).textSelection(.enabled)
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.text)" : message.text)
             deliveryStatus
             if let state = message.queueState {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .trailing, spacing: 8) {
                     Label(queueLabel(state), systemImage: state == .removed ? "minus.circle" : "clock.arrow.circlepath")
                         .font(.caption).foregroundStyle(.secondary)
                     if state == .queued, let removeQueued {
@@ -37,14 +61,16 @@ struct CompanionMessageView: View {
                 }
             }
         }
-        .padding(message.role == .user ? 16 : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(message.role == .user ? Color(palette.tintSoft) : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .contextMenu {
-            Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
-        }
+        .multilineTextAlignment(.leading)
+        .padding(.leading, 40)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private var userCaption: String {
+        var parts = ["You"]
+        if let label = message.sourceLabel { parts.append(label) }
+        if let timestamp = message.timestamp { parts.append(timestamp.formatted(date: .omitted, time: .shortened)) }
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder private var deliveryStatus: some View {
@@ -90,40 +116,182 @@ struct CompanionMessageView: View {
     }
 }
 
-/// Native text remains selectable and accessible. Fenced code scrolls horizontally
-/// instead of forcing the entire conversation wider than the device.
+/// Native text remains selectable and accessible. Block Markdown (headings, lists, quotes, rules, GFM tables)
+/// maps to SwiftUI views; fenced code and tables scroll horizontally instead of widening the conversation.
 struct CompanionRichText: View {
     let text: String
-    private var segments: [String] { text.components(separatedBy: "```") }
+    var isStreaming = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                if index.isMultiple(of: 2) {
-                    Text(markdown(segment)).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    let parts = segment.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-                    let language = parts.count > 1 ? String(parts[0]) : "Code"
-                    let code = parts.count > 1 ? String(parts[1]) : segment
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack {
-                            Text(language.isEmpty ? "Code" : language).font(.caption).foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = code }
-                                .font(.caption).accessibilityLabel("Copy code")
-                        }.padding(12)
-                        Divider()
-                        ScrollView(.horizontal) {
-                            Text(code).font(.system(.callout, design: .monospaced)).textSelection(.enabled).padding(12)
-                        }
-                    }
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        CompanionMarkdownBlocks(blocks: CompanionMarkdown.document(text, streaming: isStreaming).blocks, depth: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct CompanionMarkdownBlocks: View {
+    let blocks: [CompanionMarkdownBlock]
+    let depth: Int
+    var spacing: CGFloat = 12
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                CompanionMarkdownBlockView(block: block, depth: depth)
+            }
+        }
+    }
+}
+
+struct CompanionMarkdownBlockView: View {
+    let block: CompanionMarkdownBlock
+    let depth: Int
+    var body: some View {
+        switch block {
+        case .paragraph(let text):
+            Text(text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        case .heading(let level, let text):
+            Text(text).font(Self.headingFont(level)).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, level <= 2 ? 4 : 0)
+                .accessibilityAddTraits(.isHeader)
+        case .list(let list):
+            CompanionMarkdownListView(list: list, depth: depth)
+        case .quote(let blocks):
+            CompanionMarkdownBlocks(blocks: blocks, depth: depth, spacing: 8)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 1.5).fill(Color.secondary.opacity(0.45)).frame(width: 3)
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Quote")
+        case .rule:
+            Divider().padding(.vertical, 4)
+        case .code(let language, let code):
+            CompanionCodeBlock(language: language, code: code)
+        case .table(let table):
+            CompanionMarkdownTableView(table: table)
+        case .plain(let text):
+            Text(text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    static func headingFont(_ level: Int) -> Font {
+        switch level {
+        case 1: .title2.bold()
+        case 2: .title3.bold()
+        case 3: .headline
+        default: .subheadline.bold()
+        }
+    }
+}
+
+struct CompanionMarkdownListView: View {
+    let list: CompanionMarkdownList
+    let depth: Int
+    @ScaledMetric(relativeTo: .body) private var markerWidth: CGFloat = 20
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(list.items.enumerated()), id: \.offset) { index, item in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    marker(index: index, item: item).frame(minWidth: markerWidth, alignment: .trailing)
+                    CompanionMarkdownBlocks(blocks: item.blocks, depth: depth + 1, spacing: 6)
                 }
             }
         }
     }
-    private func markdown(_ text: String) -> AttributedString {
-        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
+
+    @ViewBuilder private func marker(index: Int, item: CompanionMarkdownList.Item) -> some View {
+        if let checkbox = item.checkbox {
+            Image(systemName: checkbox == .checked ? "checkmark.square.fill" : "square")
+                .foregroundStyle(checkbox == .checked ? Color.accentColor : .secondary)
+                .accessibilityLabel(checkbox == .checked ? "Done" : "Not done")
+        } else if let start = list.start {
+            Text("\(start + index).").monospacedDigit().foregroundStyle(.secondary)
+        } else {
+            Text(["•", "◦", "▪"][depth % 3]).foregroundStyle(.secondary).accessibilityHidden(true)
+        }
+    }
+}
+
+/// A GFM table in a horizontally scrolling `Grid`. Long cells wrap at a readable width rather than
+/// stretching a column off screen. VoiceOver reads it row by row, pairing each cell with its column.
+struct CompanionMarkdownTableView: View {
+    let table: CompanionMarkdownTable
+    @ScaledMetric(relativeTo: .body) private var maxCellWidth: CGFloat = 240
+    var body: some View {
+        ScrollView(.horizontal) {
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                GridRow {
+                    ForEach(0..<table.columnCount, id: \.self) { column in
+                        cell(table.header[column], column: column).font(.subheadline.weight(.semibold))
+                            .gridColumnAlignment(Self.horizontal(table.alignments[column]))
+                    }
+                }
+                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
+                    Divider().gridCellUnsizedAxes(.horizontal)
+                    GridRow {
+                        ForEach(0..<table.columnCount, id: \.self) { column in
+                            cell(row[column], column: column).font(.subheadline)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+        }
+        .scrollIndicators(.automatic)
+        .background(Color(.secondarySystemGroupedBackground).opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08)))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Table, \(table.rows.count) rows, \(table.columnCount) columns")
+        .accessibilityChildren {
+            VStack {
+                Text("Columns: " + table.header.map { String($0.characters) }.joined(separator: ", "))
+                ForEach(Array(table.rows.enumerated()), id: \.offset) { index, row in
+                    Text(rowLabel(index: index, row: row))
+                }
+            }
+        }
+    }
+
+    private func cell(_ text: AttributedString, column: Int) -> some View {
+        Text(text).textSelection(.enabled)
+            .multilineTextAlignment(Self.text(table.alignments[column]))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: maxCellWidth, alignment: Alignment(horizontal: Self.horizontal(table.alignments[column]), vertical: .top))
+    }
+
+    private func rowLabel(index: Int, row: [AttributedString]) -> String {
+        let cells = zip(table.header, row).map { header, cell in
+            let name = String(header.characters)
+            return name.isEmpty ? String(cell.characters) : "\(name): \(String(cell.characters))"
+        }
+        return "Row \(index + 1). " + cells.joined(separator: ", ")
+    }
+
+    static func horizontal(_ alignment: CompanionMarkdownTable.Alignment) -> HorizontalAlignment {
+        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
+    }
+    static func text(_ alignment: CompanionMarkdownTable.Alignment) -> TextAlignment {
+        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
+    }
+}
+
+struct CompanionCodeBlock: View {
+    let language: String?
+    let code: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(language ?? "Code").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = code }
+                    .font(.caption).accessibilityLabel("Copy code")
+            }.padding(12)
+            Divider()
+            ScrollView(.horizontal) {
+                Text(code).font(.system(.callout, design: .monospaced)).textSelection(.enabled).padding(12)
+            }
+        }
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
