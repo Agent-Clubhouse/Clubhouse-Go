@@ -157,7 +157,8 @@ struct CompanionTimelineFoldingTests {
         #expect(approval.title == "Run swift test" && approval.toolName == "Bash")
         #expect(approval.options.map(\.kind) == [.allowSession, .rejectAlways])
         #expect(approval.options[1].scope == "rm:*")
-        #expect(approval.options.allSatisfy { !$0.isAnswerableHere })
+        #expect(approval.options.allSatisfy { !$0.isOneOff && $0.isPersistent })
+        #expect(approval.options.allSatisfy { !$0.isAnswerable(persistentApprovals: false) && $0.isAnswerable(persistentApprovals: true) })
     }
 }
 
