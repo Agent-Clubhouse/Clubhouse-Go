@@ -17,16 +17,17 @@ final class CompanionReviewUITests: XCTestCase {
         XCTAssertTrue(open.waitForExistence(timeout: 15), "Home must offer Review")
         open.tap()
 
-        // Needs you only and Sleeping are off. The sleeping agents and the offline laptop's agent are left out.
+        // Needs you only and Sleeping are off. The sleeping agents and the offline laptop's agent are left out, and so are
+        // the finished quick runs (Fix lint warnings, willow, aspen), which the desktop's Review never shows.
         let title = app.descendants(matching: .any).matching(identifier: "review-title").firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 10), "Review must open on an agent")
-        XCTAssertTrue(waitFor(title, label: "Maple, 1 of 4"), "Review must start at the first agent in desktop order")
+        XCTAssertTrue(waitFor(title, label: "Maple, 1 of 3"), "Review must start at the first agent in desktop order")
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.waitForExistence(timeout: 10),
                       "Each page must be the agent's full chat")
         swipe(app, left: true)
-        XCTAssertTrue(waitFor(title, label: "Cedar, 2 of 4"), "Swiping left must show the next agent's chat")
+        XCTAssertTrue(waitFor(title, label: "Cedar, 2 of 3"), "Swiping left must show the next agent's chat")
         swipe(app, left: false)
-        XCTAssertTrue(waitFor(title, label: "Maple, 1 of 4"), "Swiping right must go back")
+        XCTAssertTrue(waitFor(title, label: "Maple, 1 of 3"), "Swiping right must go back")
 
         app.buttons["review-done"].tap()
         XCTAssertTrue(open.waitForExistence(timeout: 5), "Done must close Review")
@@ -61,24 +62,24 @@ final class CompanionReviewUITests: XCTestCase {
 
         // Everyone awake: River stays on screen, now last in desktop order.
         app.descendants(matching: .any).matching(identifier: "review-filter-needs-you").firstMatch.tap()
-        XCTAssertTrue(waitFor(title, label: "River, 4 of 4"), "Turning off Needs you only must add the other awake agents")
+        XCTAssertTrue(waitFor(title, label: "River, 3 of 3"), "Turning off Needs you only must add the other awake agents")
         swipe(app, left: false)
-        XCTAssertTrue(waitFor(title, label: "Fix lint warnings, 3 of 4"), "Swiping right must show the previous agent's chat")
+        XCTAssertTrue(waitFor(title, label: "Cedar, 2 of 3"), "Swiping right must show the previous agent's chat")
         swipe(app, left: true)
-        XCTAssertTrue(waitFor(title, label: "River, 4 of 4"), "Swiping left must go forward again")
+        XCTAssertTrue(waitFor(title, label: "River, 3 of 3"), "Swiping left must go forward again")
 
         // A swipe never answers: River's approval is still waiting. Approve it with the chat's own button.
         guard let allow = onScreen(allows) else { return XCTFail("Swiping must not answer the approval") }
         allow.tap()
         // The preview desktop takes no commands, so the chat says so and River stays on screen.
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
-        XCTAssertTrue(waitFor(title, label: "River, 4 of 4"), "Answering in the chat must not change the page")
+        XCTAssertTrue(waitFor(title, label: "River, 3 of 3"), "Answering in the chat must not change the page")
 
         // Sleeping adds Juniper before River and Birch after.
         app.descendants(matching: .any).matching(identifier: "review-filter-sleeping").firstMatch.tap()
-        XCTAssertTrue(waitFor(title, label: "River, 5 of 6"), "Sleeping must add the sleeping agents")
+        XCTAssertTrue(waitFor(title, label: "River, 4 of 5"), "Sleeping must add the sleeping agents")
         swipe(app, left: true)
-        XCTAssertTrue(waitFor(title, label: "Birch, 6 of 6"))
+        XCTAssertTrue(waitFor(title, label: "Birch, 5 of 5"))
 
         // Needs you only drops Birch, who is on screen, and lands on River, the only one waiting.
         app.descendants(matching: .any).matching(identifier: "review-filter-needs-you").firstMatch.tap()
