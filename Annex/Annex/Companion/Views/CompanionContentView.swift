@@ -102,7 +102,8 @@ private struct CompanionContentView: View {
                         if content.tooLarge {
                             Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
                         } else if let image {
-                            Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Chat image from your desktop")
+                            Image(uiImage: image).resizable().scaledToFit()
+                                .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())
                             HStack {
                                 Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }
                                 ShareLink(item: Image(uiImage: image), preview: SharePreview(content.name, image: Image(uiImage: image))) {
