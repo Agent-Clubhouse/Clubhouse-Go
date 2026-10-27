@@ -662,7 +662,9 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertTrue(app.buttons["wake-agent-picker"].label.contains("Juniper") || any.matching(NSPredicate(format: "label CONTAINS 'Juniper'")).firstMatch.exists)
         XCTAssertFalse(app.buttons["wake-send"].isEnabled, "Wake needs a message")
         message.typeText("Draft the release notes")
-        app.buttons["wake-send"].tap()
+        let send = app.buttons["wake-send"]
+        XCTAssertTrue(send.wait(for: \.isEnabled, toEqual: true, timeout: 5), "A message enables Wake")
+        send.tap()
         XCTAssertTrue(app.navigationBars["Juniper"].waitForExistence(timeout: 10), "Waking opens the agent's chat")
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
                       "The message is sent, and a preview says it never reached a desktop")
