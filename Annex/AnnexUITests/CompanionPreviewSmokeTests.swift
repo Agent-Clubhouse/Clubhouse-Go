@@ -279,7 +279,7 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         reveal(sleeping)
         XCTAssertTrue(sleeping.label.contains("1 sleeping"))
         XCTAssertFalse(element("agent-preview-studio-juniper").exists, "Sleeping agents start folded")
-        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("1 finished quick agent"))
+        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("2 finished quick agents"))
         sleeping.tap()
         XCTAssertTrue(element("agent-preview-studio-juniper").waitForExistence(timeout: 5), "Opening the fold shows the sleeping agent")
 
@@ -567,5 +567,101 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         let error = app.descendants(matching: .any).matching(identifier: "helper-request-error").firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 5), "Preview must never claim a command reached a desktop")
         XCTAssertEqual(error.label, "Preview only. This action does not contact a desktop.")
+    }
+
+    /// The project page (#158): a project header on Home opens it. Finished quick agents can be dismissed, the
+    /// Changes list opens a native diff that scrolls sideways, agents open and come back, and a sleeping agent wakes
+    /// with a message.
+    func testProjectPageFinishedChangesAndWake() {
+        continueAfterFailure = false
+        // Swipes, sheets and element queries are slow round trips on CI runners.
+        executionTimeAllowance = 300
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let any = app.descendants(matching: .any)
+        let header = any.matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
+        for _ in 0..<4 where !(header.waitForExistence(timeout: 2) && header.isHittable) { app.swipeUp() }
+        XCTAssertTrue(header.isHittable, "A project header must open its page")
+        header.tap()
+
+        // Finished, waiting on you: newest first, with how each ended.
+        XCTAssertTrue(app.staticTexts["Finished, waiting on you"].waitForExistence(timeout: 10))
+        let willow = any.matching(identifier: "finished-quick-willow").firstMatch
+        let aspen = any.matching(identifier: "finished-quick-aspen").firstMatch
+        XCTAssertTrue(willow.waitForExistence(timeout: 5) && aspen.exists)
+        XCTAssertLessThan(willow.frame.minY, aspen.frame.minY, "The newest run comes first")
+        XCTAssertTrue(willow.label.contains("Tidy the onboarding copy") && willow.label.contains("12m ago"), willow.label)
+        XCTAssertTrue(aspen.label.contains("Exited with code 1"), aspen.label)
+        XCTAssertTrue(app.buttons["project-new-agent"].isEnabled)
+        XCTAssertTrue(app.buttons["project-wake"].isEnabled, "Juniper is asleep, so Wake with a message is offered")
+        let pageShot = XCTAttachment(screenshot: app.screenshot())
+        pageShot.name = "Project page"
+        pageShot.lifetime = .keepAlways
+        add(pageShot)
+
+        willow.swipeLeft()
+        let dismiss = app.buttons["Dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "A finished run swipes to Dismiss")
+        dismiss.tap()
+        XCTAssertTrue(willow.waitForNonExistence(timeout: 5), "A dismissed run leaves the list")
+        XCTAssertTrue(aspen.exists)
+
+        // An agent opens from the page and Back returns to it.
+        let river = any.matching(identifier: "agent-preview-studio-river").firstMatch
+        for _ in 0..<3 where !(river.exists && river.isHittable) { app.swipeUp() }
+        river.tap()
+        XCTAssertTrue(any.matching(identifier: "companion-composer").firstMatch.waitForExistence(timeout: 10))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons["project-changes"].waitForExistence(timeout: 5), "Back returns to the project page")
+
+        // Changes: each file with its status, and a tap opens its diff.
+        let changes = app.buttons["project-changes"]
+        for _ in 0..<3 where !changes.isHittable { app.swipeUp() }
+        changes.tap()
+        let modified = any.matching(identifier: "changed-file-Sources/Companion/Conversation.swift").firstMatch
+        XCTAssertTrue(modified.waitForExistence(timeout: 10))
+        XCTAssertTrue(modified.label.hasPrefix("Modified, Conversation.swift"), modified.label)
+        XCTAssertTrue(any.matching(identifier: "changed-file-Sources/Companion/ProjectPage.swift").firstMatch.label.hasPrefix("Added"))
+        XCTAssertTrue(any.matching(identifier: "changed-file-Docs/Old notes.md").firstMatch.label.hasPrefix("Deleted"))
+        XCTAssertTrue(any.matching(identifier: "changed-file-Sources/Companion/Reconnect.swift").firstMatch.label.contains("Renamed, Reconnect.swift, from Sources/Companion/Retry.swift"))
+        let changesShot = XCTAttachment(screenshot: app.screenshot())
+        changesShot.name = "Project changes"
+        changesShot.lifetime = .keepAlways
+        add(changesShot)
+        modified.tap()
+
+        let summary = any.matching(identifier: "diff-summary").firstMatch
+        XCTAssertTrue(summary.waitForExistence(timeout: 10))
+        XCTAssertTrue(summary.label.contains("+2") && summary.label.contains("−1"), summary.label)
+        XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Added, line 3: ' AND label CONTAINS 'let target: ConversationTarget'")).firstMatch.exists)
+        XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Removed, line 7: '")).firstMatch.exists)
+        let long = any.matching(NSPredicate(format: "label CONTAINS 'edited to explain why'")).firstMatch
+        XCTAssertTrue(long.exists)
+        let before = long.frame.minX
+        let diffShot = XCTAttachment(screenshot: app.screenshot())
+        diffShot.name = "File diff"
+        diffShot.lifetime = .keepAlways
+        add(diffShot)
+        any.matching(identifier: "diff-lines").firstMatch.swipeLeft()
+        XCTAssertLessThan(long.frame.minX, before - 20, "Long lines scroll sideways rather than wrapping")
+
+        // Wake with a message: Juniper's chat opens with the message, which a preview never delivers.
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(modified.waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        let wake = app.buttons["project-wake"]
+        for _ in 0..<3 where !(wake.exists && wake.isHittable) { app.swipeDown() }
+        wake.tap()
+        let message = any.matching(identifier: "wake-message").firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["wake-agent-picker"].label.contains("Juniper") || any.matching(NSPredicate(format: "label CONTAINS 'Juniper'")).firstMatch.exists)
+        XCTAssertFalse(app.buttons["wake-send"].isEnabled, "Wake needs a message")
+        message.typeText("Draft the release notes")
+        app.buttons["wake-send"].tap()
+        XCTAssertTrue(app.navigationBars["Juniper"].waitForExistence(timeout: 10), "Waking opens the agent's chat")
+        XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
+                      "The message is sent, and a preview says it never reached a desktop")
     }
 }
