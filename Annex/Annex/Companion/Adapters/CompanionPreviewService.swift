@@ -42,7 +42,8 @@ import Foundation
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
-                   turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil) -> CompanionAgent {
+                   turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil, executionMode: String? = nil,
+                   branch: String? = nil, orchestrator: String? = nil, session: CompanionSessionFacts? = nil) -> CompanionAgent {
             let capabilities: CompanionCapabilities = switch status {
             case .sleeping: [.chat, .wake]
             case .completed: []
@@ -52,6 +53,7 @@ import Foundation
                                        capabilities: capabilities.union(extra),
                                        lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
+            agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
             // Sleeping preview agents have run before, so they offer Wake & Resume and Start New Session.
             if status == .sleeping { agent.hasSession = true }
             return agent
@@ -64,15 +66,18 @@ import Foundation
                 .init(id: "clubhouse", name: "Clubhouse", agents: [
                     agent("clubhouse", "cedar", "Cedar", "Investigate reconnect behavior", .working, model: "Claude", minutesAgo: 4, color: "emerald", freeAgent: true,
                           turnStartedAt: now.addingTimeInterval(-65)),
-                    agent("clubhouse", sleepingTarget.agentID, "Juniper", "Release notes", .sleeping, model: "Claude", minutesAgo: 60 * 30, color: "violet"),
+                    agent("clubhouse", sleepingTarget.agentID, "Juniper", "Release notes", .sleeping, model: "Claude", minutesAgo: 60 * 30, color: "violet",
+                          orchestrator: "claude-code"),
                     agent("clubhouse", "lint", "Fix lint warnings", "Fix lint warnings", .completed, minutesAgo: 45, quick: true),
-                    agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Codex", minutesAgo: 1, color: "indigo", extra: .images,
-                          contextUsage: .init(used: 84_000, size: 200_000))
+                    agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
+                          contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
+                          session: riverSession)
                 ], color: "indigo"),
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
-            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, attachments: attachments),
+            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
+               providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                 .init(id: "notes", name: "Field notes", agents: [
                     .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -162,8 +167,19 @@ import Foundation
                      clubhouseMode: .init(value: nil, editable: .never),
                      freeAgentMode: .init(value: false, editable: .never),
                      idleSleep: .init(value: .inherit, editable: .always),
-                     options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
+                     options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
+                     workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace)
     }
+    /// What River's chat session reported: the CLI version, effort, permission level and the MCP servers it loaded.
+    static let riverSession = CompanionSessionFacts(cliVersion: "2.1.4", effort: "high", level: "auto_edit", mcpServers: [
+        .init(name: "clubhouse", status: .connected), .init(name: "github", status: .connected), .init(name: "linear", status: .needsAuth),
+    ])
+    static let riverWorkspace = CompanionAgentWorkspace(
+        branch: "river/companion", worktreePath: "/Users/preview/Clubhouse/.clubhouse/agents/river", worktree: ".clubhouse/agents/river",
+        mcpIDs: ["github", "figma"],
+        changes: .init(base: "main", files: 6, additions: 94, deletions: 51, ahead: 2, uncommitted: 1))
+    /// Juniper works in the project folder, with nothing changed.
+    static let juniperWorkspace = CompanionAgentWorkspace(branch: "main", changes: .init(base: "main", ahead: 0, uncommitted: 0))
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         throw previewError
     }

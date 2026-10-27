@@ -607,6 +607,9 @@ import ClubhouseTransport
                 Self.applyIdentity(value, icon: agentIcons?[id], to: &agent)
                 agent.detail = Self.detail(from: detailed)
                 if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
+                agent.branch = value["branch"]?.string
+                agent.orchestrator = value["orchestrator"]?.string
+                agent.session = projection.map(\.session)
                 agents.append(agent)
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
@@ -678,6 +681,7 @@ import ClubhouseTransport
         if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].turnStartedAt = projection.turnStartedAt
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].contextUsage = projection.contextUsage
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].session = projection.session
     }
     private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
         guard let commands = capabilities[hostID]?.commands else { return [] }

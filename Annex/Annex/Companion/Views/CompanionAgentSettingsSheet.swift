@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Opens a durable agent's settings from anywhere: the chat header, or an agent row's long-press menu.
+/// Opens an agent's details, and a durable agent's settings, from anywhere: the chat header, or an agent row's long-press menu.
 struct CompanionAgentSettingsAction {
     var canOpen: @MainActor (CompanionTarget) -> Bool
     var open: @MainActor (CompanionTarget) -> Void
+    /// Agent details, for any agent. Nil hides the menu item.
+    var openDetails: (@MainActor (CompanionTarget) -> Void)?
 }
 
 private struct CompanionAgentSettingsActionKey: EnvironmentKey {
@@ -36,24 +38,22 @@ extension EnvironmentValues {
 }
 
 /// The long-press menu on an agent row: Wake & Resume and Start New Session for a sleeping agent,
-/// and Agent settings when its desktop offers them.
+/// Agent details, and Agent settings when its desktop offers them.
 struct CompanionAgentMenu: ViewModifier {
     let target: CompanionTarget
     @Environment(\.companionAgentSettings) private var settings
     @Environment(\.companionAgentWake) private var wake
     func body(content: Content) -> some View {
         let choices = wake?.choices(target) ?? []
-        let canOpenSettings = settings?.canOpen(target) == true
-        if canOpenSettings || !choices.isEmpty {
+        let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
+        if hasSettingsItems || !choices.isEmpty {
             content.contextMenu {
                 if let wake {
                     ForEach(choices) { choice in
                         Button(choice.label, systemImage: choice.systemImage) { wake.wake(target, choice) }
                     }
                 }
-                if let settings, canOpenSettings {
-                    Button("Agent settings", systemImage: "slider.horizontal.3") { settings.open(target) }
-                }
+                if let settings { CompanionAgentMenuItems(target: target, actions: settings) }
             }
         } else {
             content
@@ -72,6 +72,20 @@ struct CompanionWakeButtons: View {
                 .disabled(!store.canWake(target))
                 .accessibilityIdentifier(index == 0 ? "companion-wake" : "companion-wake-\(choice.rawValue)")
             if index == 0 { button.buttonStyle(.glassProminent).companionProminentLabel() } else { button.buttonStyle(.bordered).buttonBorderShape(.capsule) }
+        }
+    }
+}
+
+/// Agent details and Agent settings, for the long-press menu and the chat header's menu.
+struct CompanionAgentMenuItems: View {
+    let target: CompanionTarget
+    let actions: CompanionAgentSettingsAction
+    var body: some View {
+        if let openDetails = actions.openDetails {
+            Button("Agent details", systemImage: "info.circle") { openDetails(target) }
+        }
+        if actions.canOpen(target) {
+            Button("Agent settings", systemImage: "slider.horizontal.3") { actions.open(target) }
         }
     }
 }
@@ -106,12 +120,25 @@ struct CompanionColorSwatches: View {
     }
 }
 
-/// A durable agent's settings, as the desktop's Details → Settings card and the General page of Agent settings.
-/// Every change saves at once. Settings read at spawn wait for the agent to sleep; auto-sleep changes any time.
+/// A durable agent's settings in a sheet of their own.
 struct CompanionAgentSettingsSheet: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
     @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            CompanionAgentSettingsForm(store: store, target: target)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+/// A durable agent's settings, as the desktop's Details → Settings card and the General page of Agent settings.
+/// Every change saves at once. Settings read at spawn wait for the agent to sleep; auto-sleep changes any time.
+/// Shown in its own sheet, or pushed from Agent details.
+struct CompanionAgentSettingsForm: View {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
     @Environment(\.companionPalette) private var palette
     @State private var settings: CompanionAgentSettings?
     @State private var loadError: String?
@@ -127,24 +154,21 @@ struct CompanionAgentSettingsSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                if let settings { form(settings) }
-                else if let loadError {
-                    ContentUnavailableView {
-                        Label("Settings unavailable", systemImage: "slider.horizontal.3")
-                    } description: { Text(loadError) } actions: {
-                        Button("Try again") { Task { await load() } }
-                    }
-                } else {
-                    ProgressView("Loading settings…").frame(maxWidth: .infinity)
+        Form {
+            if let settings { form(settings) }
+            else if let loadError {
+                ContentUnavailableView {
+                    Label("Settings unavailable", systemImage: "slider.horizontal.3")
+                } description: { Text(loadError) } actions: {
+                    Button("Try again") { Task { await load() } }
                 }
+            } else {
+                ProgressView("Loading settings…").frame(maxWidth: .infinity)
             }
-            .navigationTitle(agent?.name ?? "Agent settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task(id: refreshKey) { await load() }
         }
+        .navigationTitle(agent?.name ?? "Agent settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: refreshKey) { await load() }
     }
 
     @ViewBuilder private func form(_ settings: CompanionAgentSettings) -> some View {

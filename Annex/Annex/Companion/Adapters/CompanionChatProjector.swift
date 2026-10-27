@@ -15,6 +15,8 @@ struct CompanionChatProjector {
     /// When the running turn started (`turn_started`), for the header's elapsed time.
     var turnStartedAt: Date?
     var contextUsage: CompanionContextUsage?
+    /// CLI version, effort, permission level and MCP servers, for Agent details.
+    var session = CompanionSessionFacts()
     var commandIDsByMessage: [String: String] = [:]
     var queueStateSequence: Int64 = 0
     var queuedMessageIDs: Set<String> = []
@@ -25,6 +27,7 @@ struct CompanionChatProjector {
               let sequence = event["seq"]?.integer, let type = event["type"]?.string else { return }
         if sessionID != session {
             sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
+            self.session = .init()
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
         }
         guard allowOlderPending || sequence > lastSequence else { return }
@@ -35,6 +38,7 @@ struct CompanionChatProjector {
         case "session_started", "session_info":
             if let caps = data["capabilities"] { updateCapabilities(caps) }
             if let model = data["model"]?.string { self.model = model }
+            applySessionFacts(data)
         case "session_state":
             status = Self.status(data["state"]?.string)
             if status != .working && status != .approval && status != .waiting { turnStartedAt = nil }
@@ -179,12 +183,28 @@ struct CompanionChatProjector {
             if let message = data["message"]?.string { upsert(.notice(id: "event-\(session)-\(sequence)", text: message)) }
             // Only a fatal error the runtime won't retry stops the agent; others are notices.
             if type == "error", data["fatal"].boolValue, !data["willRetry"].boolValue { status = .failed }
-        case "model_changed": model = data["modelId"]?.string
+        case "model_changed":
+            model = data["modelId"]?.string
+            self.session.effort = data["effort"]?.string
+            self.session.effortIsDefault = data["effortIsDefault"].boolValue
+        case "mode_changed": if let level = data["level"]?.string { self.session.level = level }
         case "usage":
             if let context = data["context"], let used = context["used"]?.integer, let size = context["size"]?.integer, used >= 0, size > 0 {
                 contextUsage = .init(used: Int(used), size: Int(size))
             }
         default: break // Additive protocol events are safe to ignore.
+        }
+    }
+
+    /// Fields present replace earlier ones; absent ones keep them (`session_info`).
+    mutating func applySessionFacts(_ data: AnnexJSON) {
+        if let version = data["cliVersion"]?.string { session.cliVersion = version }
+        if let level = data["level"]?.string { session.level = level }
+        if case .object(let names)? = data["levelNames"] { session.levelNames = names.compactMapValues(\.string) }
+        if case .array(let servers)? = data["mcpServers"] {
+            session.mcpServers = servers.compactMap { server in
+                server["name"]?.string.map { CompanionMCPServer(name: $0, status: server["status"]?.string.flatMap(CompanionMCPServer.Status.init(rawValue:)) ?? .unknown) }
+            }
         }
     }
 

@@ -363,4 +363,85 @@ final class CompanionPreviewSmokeTests: XCTestCase {
         XCTAssertTrue(countdown.waitForExistence(timeout: 5))
         XCTAssertTrue(countdown.label.contains("Times out in"), countdown.label)
     }
+
+    /// Agent details opens from the chat header and the long-press menu, shows the hover card's fields, and links to settings.
+    func testAgentDetailsSheetMatchesTheDesktopHoverCard() {
+        continueAfterFailure = false
+        executionTimeAllowance = 240
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--companion-preview"]
+        app.launch()
+        let any = app.descendants(matching: .any)
+        func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
+        func scrollTo(_ target: XCUIElement) { for _ in 0..<6 where !(target.exists && target.isHittable) { app.swipeUp() } }
+
+        let river = element("agent-preview-studio-river")
+        for _ in 0..<4 where !river.waitForExistence(timeout: 2) { app.swipeUp() }
+        XCTAssertTrue(river.waitForExistence(timeout: 15), "Preview agent must appear")
+        river.tap()
+        let actions = app.buttons["Conversation actions"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        actions.tap()
+        let details = app.buttons["Agent details"]
+        XCTAssertTrue(details.waitForExistence(timeout: 5), "The chat header offers the agent's details")
+        details.tap()
+
+        // The settings route's details fill in the workspace and changes.
+        let branch = element("agent-details-branch")
+        XCTAssertTrue(branch.waitForExistence(timeout: 10))
+        XCTAssertTrue(branch.label.contains("river/companion"), branch.label)
+        XCTAssertTrue(element("agent-details-worktree").label.contains(".clubhouse/agents/river"))
+        XCTAssertTrue(element("agent-details-cli").label.contains("Claude Code 2.1.4"), "Runs on with the session's CLI version")
+        XCTAssertTrue(element("agent-details-effort").label.contains("High"))
+        XCTAssertTrue(element("agent-details-access").label.contains("Auto-accept edits"), "The live permission level")
+        let freeAgent = element("agent-details-free-agent-mode")
+        scrollTo(freeAgent)
+        XCTAssertTrue(freeAgent.label.contains("Off"))
+        let autoSleep = element("agent-details-auto-sleep")
+        scrollTo(autoSleep)
+        XCTAssertTrue(autoSleep.label.contains("Sleeps after 30 min"))
+        let mcp = element("agent-details-mcp-summary")
+        scrollTo(mcp)
+        XCTAssertEqual(mcp.label, "2 connected · 1 needs sign-in · 1 configured", "The MCP card's summary")
+        let changes = element("agent-details-changes")
+        scrollTo(changes)
+        XCTAssertTrue(changes.label.contains("6 files +94 −51"), changes.label)
+        XCTAssertTrue(app.staticTexts["2 commits ahead of main · 1 uncommitted"].exists)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Agent details"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // Agent settings opens from the sheet, for editing.
+        let openSettings = element("agent-details-open-settings")
+        scrollTo(openSettings)
+        openSettings.tap()
+        XCTAssertTrue(element("agent-settings-summary").waitForExistence(timeout: 10), "Details links to the agent's settings")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(openSettings.waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(openSettings.waitForNonExistence(timeout: 5))
+
+        // From an agent row's long-press menu: Juniper works in the project folder, with nothing changed.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // Sleeping agents start folded on Home.
+        let sleeping = element("fold-sleeping-preview-studio-clubhouse")
+        for _ in 0..<4 where !(sleeping.exists && sleeping.isHittable) { app.swipeUp() }
+        sleeping.tap()
+        let juniper = element("agent-preview-studio-juniper")
+        for _ in 0..<4 where !juniper.waitForExistence(timeout: 2) { app.swipeUp() }
+        XCTAssertTrue(juniper.waitForExistence(timeout: 10))
+        juniper.press(forDuration: 1.2)
+        let rowDetails = app.buttons["Agent details"]
+        XCTAssertTrue(rowDetails.waitForExistence(timeout: 5), "The long-press menu offers the agent's details")
+        rowDetails.tap()
+        let worktree = element("agent-details-worktree")
+        XCTAssertTrue(worktree.waitForExistence(timeout: 10))
+        XCTAssertTrue(worktree.label.contains("Works in the project folder"), worktree.label)
+        XCTAssertFalse(element("agent-details-effort").exists, "No session, so no effort is guessed")
+        let juniperChanges = element("agent-details-changes")
+        scrollTo(juniperChanges)
+        XCTAssertTrue(juniperChanges.label.contains("No changes"), juniperChanges.label)
+    }
 }

@@ -82,6 +82,7 @@ extension CompanionAgentSettings {
             idleSleepMinutes = minutes.isEmpty ? [15, 30, 60, 240] : minutes
             appIdleMinutes = options["idleSleep"]?["appMinutes"]?.integer.map(Int.init) ?? 30
         }
+        if let details = json["details"], case .object = details { workspace = CompanionAgentWorkspace(json: details) }
     }
 
     /// `"inherit"`, `"never"` or a number of minutes; anything else inherits, as the desktop's `normalizeIdleSleep`.
@@ -91,6 +92,23 @@ extension CompanionAgentSettings {
         case .integer(let minutes) where minutes > 0: .minutes(Int(minutes))
         case .number(let minutes) where minutes > 0 && minutes.isFinite: .minutes(Int(minutes.rounded()))
         default: .inherit
+        }
+    }
+}
+
+extension CompanionAgentWorkspace {
+    /// The settings route's `details` (#157). Anything missing or of the wrong type is left out.
+    init(json: AnnexJSON) {
+        func text(_ key: String) -> String? { json[key]?.string.flatMap { $0.isEmpty ? nil : $0 } }
+        branch = text("branch")
+        worktreePath = text("worktreePath")
+        worktree = text("worktree") ?? worktreePath
+        mcpIDs = json["mcpIds"].arrayValue.compactMap(\.string)
+        if let changes = json["changes"], case .object = changes {
+            func count(_ key: String) -> Int? { changes[key]?.integer.map { max(0, Int($0)) } }
+            self.changes = .init(available: changes["available"]?.boolOrNil ?? true, base: changes["base"]?.string, noBase: changes["noBase"].boolValue,
+                                 files: count("files") ?? 0, additions: count("additions") ?? 0, deletions: count("deletions") ?? 0,
+                                 ahead: count("ahead"), uncommitted: count("uncommitted"))
         }
     }
 }

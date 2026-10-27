@@ -119,6 +119,11 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var detail: CompanionAgentDetail?
     /// The desktop has a previous session to resume (`hasSession`). Nil when the desktop doesn't say.
     var hasSession: Bool?
+    /// The snapshot's branch and CLI id, for Agent details.
+    var branch: String? = nil
+    var orchestrator: String? = nil
+    /// What the agent's chat session reported about itself. Nil without one.
+    var session: CompanionSessionFacts? = nil
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }
