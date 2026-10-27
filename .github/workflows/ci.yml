@@ -19,7 +19,8 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: macos-26
-    timeout-minutes: 30
+    # The UI suite grew to ~12 preview tests (~18 min on hosted runners, plus retries).
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
