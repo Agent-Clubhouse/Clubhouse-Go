@@ -8,7 +8,7 @@ The legacy app talked to Annex through its own client (`Networking/`), which dup
 
 - **Canvas**: `Views/CanvasTabView.swift`, `Views/CanvasLayout.swift`. Rendered the desktop's canvases (agent/plugin nodes at server-sent positions) with pan, zoom and recentering.
 - **File browser and file viewer**: `Views/FileBrowserView.swift`, `Views/FileContentView.swift`. Browsed a project's file tree (`getFileTree`) and showed files with a small syntax highlighter (`getFileContent`). The Companion only previews files that an agent links in chat.
-- **Git log and diffs**: `Views/GitLogView.swift`. Listed recent commits, a commit's changed files and the diff for each file (`getGitLog`, `getGitShowCommit`, `getGitDiff`).
+- **Git log and diffs**: `Views/GitLogView.swift`. Listed recent commits, a commit's changed files and the diff for each file (`getGitLog`, `getGitShowCommit`, `getGitDiff`). The project page's Changes view (#158) now shows the project root's uncommitted files and their diffs, read-only, through `AnnexReadRoute.gitStatus` and `.gitDiff`. Commit history is still missing.
 - **Live agent terminal**: `Views/LiveTerminalView.swift`, `Terminal/ANSITerminal.swift`, `Terminal/PTYInputSubmit.swift`. Streamed an agent's PTY buffer through an ANSI/VT parser and sent keystrokes back over the WebSocket (`pty:input`, resize).
 - **Remote shell**: `Views/RemoteShellView.swift`. Spawned an interactive shell at the project root over the mTLS WebSocket.
 - **Plugin views**: `Views/HomePluginView.swift`, `Views/TerminalPluginView.swift`, `Views/ClubhousePluginVisibility.swift`. Mobile versions of the desktop's Home plugin (project overview) and Terminal plugin (agents grouped by status, with terminal and wake actions), plus the rules for which app plugins to show.

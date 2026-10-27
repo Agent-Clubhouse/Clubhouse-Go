@@ -380,6 +380,32 @@ import ClubhouseTransport
                          task: item["start"]?["task"]?.string, dispose: dispose)
         }
     }
+    func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
+        do { return try CompanionChanges(json: try await transport(for: project.hostID).read(.gitStatus(projectID: project.projectID))) }
+        catch let error as CompanionServiceError { throw error }
+        catch { throw CompanionServiceError.unavailable(Self.changesReadError(error)) }
+    }
+    func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff {
+        let json: AnnexJSON
+        do { json = try await transport(for: project.hostID).read(.gitDiff(projectID: project.projectID, filePath: file.path, staged: file.diffsStaged)) }
+        catch { throw CompanionServiceError.unavailable(Self.changesReadError(error)) }
+        guard let original = json["original"]?.string, let modified = json["modified"]?.string else {
+            throw CompanionServiceError.unavailable("The desktop sent a diff this phone can't read.")
+        }
+        // Whole files: work out the lines away from the main actor.
+        let deleted = file.status == .deleted
+        return await Task.detached(priority: .userInitiated) {
+            CompanionFileDiff.make(path: file.path, original: original, modified: deleted ? nil : modified)
+        }.value
+    }
+    static func changesReadError(_ error: Error) -> String {
+        switch error as? AnnexTransportError {
+        case .responseTooLarge: "This file is too large to show on your phone."
+        case .rejected(404, _): "The desktop no longer has this project."
+        case .rejected(500, _): "The desktop couldn't read this project's changes."
+        default: readableError(error)
+        }
+    }
     static func agentReadError(_ error: Error) -> String {
         switch error as? AnnexTransportError {
         case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
@@ -586,6 +612,7 @@ import ClubhouseTransport
                 rememberQuick(payload, hostID: hostID)
                 scheduleRefresh(hostID: hostID)
             case "agent:status", "agent:completed":
+                if envelope.type == "agent:completed" { rememberExit(payload, hostID: hostID) }
                 if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
                     let status = CompanionChatProjector.status(payload["status"]?.string, detailed: payload["detailedStatus"])
                     // Desktop lifecycle status is coarser than the chat stream.
@@ -648,6 +675,22 @@ import ClubhouseTransport
         quickCatalog[hostID] = .object(projects)
     }
 
+    /// A quick agent's exit, kept on its catalog entry: the desktop drops the agent a minute later, and catalog
+    /// refreshes between snapshots reuse these entries.
+    private func rememberExit(_ payload: AnnexJSON, hostID: String) {
+        guard payload["kind"]?.string == "quick", let agentID = payload["id"]?.string,
+              case .object(var projects)? = quickCatalog[hostID] else { return }
+        for (projectID, list) in projects {
+            var agents = Optional(list).arrayValue
+            guard let index = agents.firstIndex(where: { $0["id"]?.string == agentID }), case .object(var entry) = agents[index] else { continue }
+            entry["status"] = payload["status"] ?? .string("completed")
+            if let code = payload["exitCode"] { entry["exitCode"] = code }
+            agents[index] = .object(entry)
+            projects[projectID] = .array(agents)
+        }
+        quickCatalog[hostID] = .object(projects)
+    }
+
     private func applyCatalog(_ payload: AnnexJSON, hostID: String) {
         guard var host = hosts[hostID] else { return }
         var projects: [CompanionProject] = []
@@ -675,9 +718,11 @@ import ClubhouseTransport
                 let model: String? = projection?.model ?? value["model"]?.string
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
+                let isQuick = value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count)
                 var agent = CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
                                            executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
-                                           isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count),
+                                           isQuick: isQuick, hasExited: isQuick && Self.exitedStatuses.contains(value["status"]?.string ?? ""),
+                                           exitCode: value["exitCode"]?.integer.map(Int.init),
                                            turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
                 Self.applyIdentity(value, icon: agentIcons?[id], to: &agent)
                 agent.detail = Self.detail(from: detailed)
@@ -721,6 +766,8 @@ import ClubhouseTransport
         return .init(state: value["state"]?.string, message: value["message"]?.string, toolName: value["toolName"]?.string,
                      since: value["timestamp"].flatMap(date(from:)))
     }
+    /// A tracked quick agent's status once its process has exited (`trackedQuickAgents` in `annex-server.ts`).
+    nonisolated static let exitedStatuses: Set<String> = ["completed", "failed", "cancelled"]
     /// Desktop timestamps are milliseconds since 1970, or ISO 8601 strings. Zero means unknown.
     nonisolated static func date(from value: AnnexJSON) -> Date? {
         switch value {

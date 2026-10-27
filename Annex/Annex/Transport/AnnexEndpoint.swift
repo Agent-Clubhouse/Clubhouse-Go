@@ -75,7 +75,7 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
     /// The same address, however it was learned.
     public func sameAddress(as other: AnnexEndpoint) -> Bool { host == other.host && port == other.port }
 
-    /// Path components are individually encoded, including slash, percent and query characters.
+    /// Path components are individually encoded, including slash, percent and query characters. Query values keep a literal "+".
     public func url(path: [String], query: [URLQueryItem] = [], webSocket: Bool = false) throws -> URL {
         var components = URLComponents()
         components.scheme = webSocket ? "wss" : "https"
@@ -87,6 +87,8 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
         }
         components.percentEncodedPath = "/" + path.map { $0.addingPercentEncoding(withAllowedCharacters: allowed)! }.joined(separator: "/")
         components.queryItems = query.isEmpty ? nil : query
+        // URLComponents leaves "+" as is, and the desktop's URLSearchParams reads it as a space.
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         guard let url = components.url else { throw AnnexTransportError.invalidEndpoint }
         return url
     }

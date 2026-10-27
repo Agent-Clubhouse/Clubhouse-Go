@@ -12,7 +12,7 @@ struct CompanionRootView: View {
     var onSettings: () -> Void
     var isPreview = false
     @State private var tab: CompanionTab = .home
-    @State private var paths: [CompanionTab: [CompanionTarget]] = [:]
+    @State private var paths: [CompanionTab: [CompanionRoute]] = [:]
     @State private var spawnProject: CompanionProjectTarget?
     @State private var settingsTarget: CompanionTarget?
     @State private var detailsTarget: CompanionTarget?
@@ -78,11 +78,11 @@ struct CompanionRootView: View {
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
         .task { store.start() }
-        .onChange(of: tab) { _, current in store.selection = paths[current]?.last }
+        .onChange(of: tab) { _, current in store.selection = paths[current]?.last?.agent }
         .onChange(of: store.selection) { _, target in
             AnnexTelemetry.shared.record(.navigation)
             // A selection made elsewhere (a newly started agent) opens in the current tab.
-            guard let target, paths[tab]?.last != target else { return }
+            guard let target, paths[tab]?.last != .agent(target) else { return }
             open(target)
         }
         .onChange(of: store.hosts.map(\.id)) { _, ids in
@@ -94,15 +94,22 @@ struct CompanionRootView: View {
         NavigationStack(path: Binding(get: { paths[which] ?? [] }, set: { path in
             paths[which] = path
             guard which == tab else { return }
-            store.selection = path.last
+            store.selection = path.last?.agent
             if let hostID = path.last?.hostID { preferences.lastHostID = hostID }
         })) {
-            content().navigationDestination(for: CompanionTarget.self) { destination($0) }
+            content().navigationDestination(for: CompanionRoute.self) { route in
+                switch route {
+                case .agent(let target): destination(target)
+                case .project(let project):
+                    CompanionProjectPage(store: store, project: project, onNewAgent: { spawnProject = $0 })
+                        .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
+                }
+            }
         }
     }
 
     private func open(_ target: CompanionTarget) {
-        paths[tab] = [target]
+        paths[tab] = [.agent(target)]
         store.selection = target
         preferences.lastHostID = target.hostID
     }
@@ -130,6 +137,24 @@ struct CompanionPreviewLabel: View {
         Text(dynamicTypeSize.isAccessibilitySize ? "Preview" : "UI PREVIEW · NO DESKTOP CONNECTED")
             .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             .accessibilityLabel("UI preview. No desktop connected. Actions are disabled.")
+    }
+}
+
+/// What a tab's stack holds: agents' chats, and project pages (#158).
+enum CompanionRoute: Hashable {
+    case agent(CompanionTarget)
+    case project(CompanionProjectTarget)
+    var agent: CompanionTarget? { if case .agent(let target) = self { target } else { nil } }
+    var hostID: String {
+        switch self { case .agent(let target): target.hostID; case .project(let project): project.hostID }
+    }
+}
+
+extension NavigationLink where Destination == Never {
+    /// `NavigationLink(value: agent.id)` pushes the agent's chat route. More specific than SwiftUI's generic
+    /// initializer, so every agent link picks it up.
+    init(value: CompanionTarget, @ViewBuilder label: () -> Label) {
+        self.init(value: CompanionRoute.agent(value), label: label)
     }
 }
 
@@ -342,7 +367,7 @@ struct CompanionHomeView: View {
         } header: {
             HStack(spacing: 6) {
                 CompanionProjectBadge(project: entry.project)
-                Text(entry.project.name).lineLimit(1)
+                projectLink(entry)
                 if group.isPinned {
                     Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
                         .accessibilityLabel("Pinned")
@@ -426,6 +451,22 @@ private struct CompanionFoldLabel: View {
         .accessibilityLabel(text)
         .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
         .accessibilityHint(isOpen ? "Hides them" : "Shows them")
+    }
+}
+
+extension CompanionHomeView {
+    /// A project's name opens its page (#158).
+    func projectLink(_ entry: CompanionProjectEntry) -> some View {
+        NavigationLink(value: CompanionRoute.project(entry.id)) {
+            HStack(spacing: 4) {
+                Text(entry.project.name).lineLimit(1)
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(Color(palette.secondaryLabel))
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(entry.project.name)")
+        .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
     }
 }
 
