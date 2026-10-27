@@ -8,6 +8,7 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case handshake, trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake
+    case createAgent, agentOptions, agentSettings, updateAgent
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
@@ -300,6 +301,8 @@ nonisolated extension AnnexReadRoute {
         case .chat, .chatHistory: .history
         case .chatSessions, .sessions, .transcript: .archive
         case .chatContent: .media
+        case .createOptions: .agentOptions
+        case .agentSettings: .agentSettings
         }
     }
 }
@@ -313,6 +316,8 @@ nonisolated extension AnnexCommand {
         case .permission: .permission
         case .question: .question
         case .spawn: .spawn
+        case .create: .createAgent
+        case .update: .updateAgent
         }
     }
 }

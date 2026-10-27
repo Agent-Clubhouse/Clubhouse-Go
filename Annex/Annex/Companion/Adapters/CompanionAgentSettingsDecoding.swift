@@ -1,0 +1,121 @@
+import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
+
+/// Wire shapes for create options and agent settings (`docs/mobile-control-v1.md` → Durable agents).
+/// A setting the desktop leaves out reads as `never`, so the phone never offers an edit it can't make.
+extension CompanionAgentOptions {
+    init(json: AnnexJSON?) {
+        orchestrators = json?["orchestrators"].arrayValue.compactMap { value -> CompanionOrchestratorOption? in
+            guard let id = value["id"]?.string else { return nil }
+            let models = value["models"].arrayValue.compactMap { model -> CompanionModelOption? in
+                guard let id = model["id"]?.string else { return nil }
+                return .init(id: id, label: model["label"]?.string ?? id)
+            }
+            return .init(id: id, displayName: value["displayName"]?.string ?? id, shortName: value["shortName"]?.string ?? id,
+                         badge: value["badge"]?.string, available: value["available"]?.boolOrNil ?? true,
+                         unavailableReason: value["unavailableReason"]?.string, permissions: value["permissions"].boolValue,
+                         chat: value["chat"].boolValue, models: models)
+        } ?? []
+        personas = json?["personas"].arrayValue.compactMap { value -> CompanionPersonaOption? in
+            guard let id = value["id"]?.string else { return nil }
+            return .init(id: id, name: value["name"]?.string ?? id, source: value["source"]?.string ?? "")
+        } ?? []
+        colors = json?["colors"].arrayValue.compactMap { value -> CompanionColorOption? in
+            guard let id = value["id"]?.string else { return nil }
+            return .init(id: id, label: value["label"]?.string ?? id, hex: value["hex"]?.string ?? "")
+        } ?? []
+    }
+}
+
+extension CompanionCreateOptions {
+    init(json: AnnexJSON) throws {
+        guard case .object = json, !json["orchestrators"].arrayValue.isEmpty || json["defaults"] != nil else {
+            throw AnnexTransportError.malformedResponse
+        }
+        options = CompanionAgentOptions(json: json)
+        mcpCatalog = json["mcp"]?["catalog"].arrayValue.compactMap { value -> CompanionMCPOption? in
+            guard let id = value["id"]?.string else { return nil }
+            return .init(id: id, name: value["name"]?.string ?? id, description: value["description"]?.string)
+        } ?? []
+        mcpDefaults = json["mcp"]?["defaults"].arrayValue.compactMap(\.string) ?? []
+        isGitRepo = json["isGitRepo"].boolValue
+        suggestedName = json["suggestedName"]?.string ?? ""
+        let defaults = json["defaults"]
+        defaultOrchestrator = defaults?["orchestrator"]?.string ?? options.orchestrators.first?.id
+        defaultColor = defaults?["color"]?.string ?? options.colors.first?.id ?? "indigo"
+        defaultModel = defaults?["model"]?.string ?? "default"
+        defaultUseWorktree = defaults?["useWorktree"]?.boolOrNil ?? isGitRepo
+    }
+}
+
+extension CompanionAgentSettings {
+    /// A settings read, or an `agent.update` result (which has no `options`; see `keepingOptions(of:)`).
+    init(json: AnnexJSON) throws {
+        guard let settings = json["settings"], let name = settings["name"]?["value"]?.string else { throw AnnexTransportError.malformedResponse }
+        func editable(_ key: String) -> CompanionSettingEditable {
+            settings[key]?["editable"]?.string.flatMap(CompanionSettingEditable.init(rawValue:)) ?? .never
+        }
+        func string(_ key: String) -> String? { settings[key]?["value"]?.string }
+        state = json["state"]?.string ?? "sleeping"
+        sleeping = json["sleeping"].boolValue
+        self.name = .init(value: name, editable: editable("name"))
+        color = .init(value: string("color") ?? "indigo", editable: editable("color"))
+        emoji = .init(value: string("emoji"), editable: editable("emoji"))
+        hasImageIcon = settings["hasImageIcon"].boolValue
+        orchestrator = .init(value: string("orchestrator"), editable: editable("orchestrator"))
+        resolvedOrchestrator = settings["orchestrator"]?["resolved"]?.string ?? string("orchestrator") ?? ""
+        model = .init(value: string("model") ?? "default", editable: editable("model"))
+        runtime = .init(value: string("runtime") ?? "default", editable: editable("runtime"))
+        resolvedRuntime = settings["runtime"]?["resolved"]?.string ?? "chat"
+        persona = .init(value: string("persona"), editable: editable("persona"))
+        clubhouseMode = .init(value: settings["clubhouseMode"]?["value"]?.boolOrNil, editable: editable("clubhouseMode"))
+        clubhouseModeProjectEnabled = settings["clubhouseMode"]?["projectEnabled"].boolValue ?? false
+        freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: .never)
+        let idle = settings["idleSleep"]
+        idleSleep = .init(value: Self.idleSleep(idle?["value"]), editable: editable("idleSleep"))
+        idleSleepApplies = idle?["applies"]?.boolOrNil ?? true
+        if let options = json["options"] {
+            self.options = CompanionAgentOptions(json: options)
+            let minutes = options["idleSleep"]?["minutes"].arrayValue.compactMap(\.integer).map(Int.init) ?? []
+            idleSleepMinutes = minutes.isEmpty ? [15, 30, 60, 240] : minutes
+            appIdleMinutes = options["idleSleep"]?["appMinutes"]?.integer.map(Int.init) ?? 30
+        }
+    }
+
+    /// `"inherit"`, `"never"` or a number of minutes; anything else inherits, as the desktop's `normalizeIdleSleep`.
+    static func idleSleep(_ value: AnnexJSON?) -> CompanionIdleSleep {
+        switch value {
+        case .string("never"): .never
+        case .integer(let minutes) where minutes > 0: .minutes(Int(minutes))
+        case .number(let minutes) where minutes > 0 && minutes.isFinite: .minutes(Int(minutes.rounded()))
+        default: .inherit
+        }
+    }
+}
+
+extension AnnexAgentUpdate {
+    init(agentID: String, change: CompanionSettingsChange) {
+        func clearable(_ value: CompanionSettingsChange.Clearable?) -> Clearable? {
+            switch value {
+            case .set(let text): .set(text)
+            case .clear: .clear
+            case nil: nil
+            }
+        }
+        let idle: IdleSleep? = switch change.idleSleep {
+        case .inherit: .inherit
+        case .never: .never
+        case .minutes(let minutes): .minutes(minutes)
+        case nil: nil
+        }
+        self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
+                  model: change.model, runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
+                  clubhouseMode: change.clubhouseMode, idleSleep: idle)
+    }
+}
+
+extension AnnexJSON {
+    var boolOrNil: Bool? { if case .bool(let value) = self { value } else { nil } }
+}

@@ -238,6 +238,46 @@ import ClubhouseTransport
             .init(hostID: request.project.hostID, projectID: request.project.projectID, agentID: $0)
         })
     }
+    func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
+        guard capabilities[project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
+        do { return try CompanionCreateOptions(json: try await transport(for: project.hostID).read(.createOptions(projectID: project.projectID))) }
+        catch let error as CompanionServiceError { throw error }
+        catch { throw CompanionServiceError.unavailable(Self.agentReadError(error)) }
+    }
+    /// The receipt comes as soon as the agent's record exists; its worktree is made in the background, and the
+    /// snapshot shows it leave `creating` for sleeping (or failed).
+    func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
+        guard capabilities[request.project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
+        let create = AnnexAgentCreate(projectID: request.project.projectID, name: request.name, color: request.color, orchestrator: request.orchestrator,
+                                      model: request.model, persona: request.persona, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs)
+        let receipt = try await execute(.create(create), id: request.clientCommandID, hostID: request.project.hostID)
+        guard let agentID = receipt.result?["agentId"]?.string else { throw CompanionServiceError.uncertain("The desktop created the agent but didn't say which one. Check its agent list.") }
+        await refresh(hostID: request.project.hostID)
+        let projectID = receipt.result?["projectId"]?.string ?? request.project.projectID
+        return .init(target: .init(hostID: request.project.hostID, projectID: projectID, agentID: agentID),
+                     isCreating: receipt.result?["state"]?.string == "creating")
+    }
+    func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
+        guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
+        do { return try CompanionAgentSettings(json: try await transport(for: target.hostID).read(.agentSettings(agentID: target.agentID))) }
+        catch let error as CompanionServiceError { throw error }
+        catch { throw CompanionServiceError.unavailable(Self.agentReadError(error)) }
+    }
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
+        guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
+        guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
+        let receipt = try await execute(.update(AnnexAgentUpdate(agentID: target.agentID, change: change)), id: clientCommandID, hostID: target.hostID)
+        // The receipt carries the saved settings, without the option lists; the sheet keeps the ones it shows.
+        if let result = receipt.result, let saved = try? CompanionAgentSettings(json: result) { return saved }
+        return try await settings(for: target)
+    }
+    static func agentReadError(_ error: Error) -> String {
+        switch error as? AnnexTransportError {
+        case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
+        case .malformedResponse: "The desktop sent settings this phone can't read. Updating the desktop may help."
+        default: readableError(error)
+        }
+    }
     func reconnect(hostID: String) async {
         guard !isSuspended, let transport = transports[hostID] else { return }
         invalidateEvents(hostID: hostID)
@@ -343,12 +383,17 @@ import ClubhouseTransport
             let receipt = try await transport(for: hostID).execute(command)
             switch receipt.status {
             case .completed: return receipt
-            case .rejected: throw CompanionServiceError.rejected(receipt.error?.message ?? "The desktop rejected this command.")
+            case .rejected: throw CompanionServiceError.rejected(Self.rejectionMessage(receipt.error))
             case .failed: throw CompanionServiceError.uncertain(receipt.error?.message ?? "The command may have partially run. Refresh to check its result.")
             }
         } catch let error as CompanionServiceError { throw error }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
+    }
+    /// Durable agent refusals branch on the code; others keep the desktop's message as before.
+    static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
+        guard let failure else { return "The desktop rejected this command." }
+        return CompanionAgentCommandError.message(code: failure.code, message: failure.message) ?? failure.message
     }
     private func session(for target: CompanionTarget) throws -> String {
         guard let session = projections[target]?.sessionID else { throw CompanionServiceError.unavailable("Refresh the conversation before sending a command.") }
@@ -451,6 +496,8 @@ import ClubhouseTransport
             capabilities[hostID] = newCapabilities
             hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
             hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
+            hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
+            hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
@@ -481,7 +528,7 @@ import ClubhouseTransport
             let durableValues: [AnnexJSON] = (payload["agents"]?[projectID]).arrayValue
             let quickValues: [AnnexJSON] = (payload["quickAgents"]?[projectID]).arrayValue
             var agents: [CompanionAgent] = []
-            for value in durableValues + quickValues {
+            for (index, value) in (durableValues + quickValues).enumerated() {
                 guard let id = value["id"]?.string else { continue }
                 let target = CompanionTarget(hostID: hostID, projectID: projectID, agentID: id)
                 let projection = projections[target]
@@ -499,7 +546,8 @@ import ClubhouseTransport
                 let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
                 let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
                 agents.append(CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
-                                             executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity))
+                                             executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
+                                             isQuick: value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count)))
             }
             let name: String = project["displayName"]?.string ?? project["name"]?.string ?? projectID
             projects.append(CompanionProject(id: projectID, name: name, agents: agents))

@@ -53,6 +53,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var projects: [CompanionProject]
     var richContentAvailable = false
     var canSpawn = false
+    /// The desktop creates durable agents (`agent.create` and create options v1). Older ones offer quick agents only.
+    var canCreateDurable = false
+    /// The desktop reads and changes durable agents' settings (`agent.update` and agent settings v1).
+    var canEditSettings = false
     var canRevokeSession = false
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.
     var theme: CompanionDesktopTheme?
@@ -76,6 +80,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var executionMode: String?
     /// The desktop's last-activity time for this agent, when it sends one.
     var lastActivity: Date?
+    /// Quick agents run one task and finish; durable agents sleep and wake.
+    var isQuick = false
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }
@@ -265,6 +271,10 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt
     func reconnect(hostID: String) async
+    func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions
+    func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt
+    func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings
 }
 
 @MainActor extension CompanionService {
@@ -285,5 +295,17 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     }
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not support answering questions yet.")
+    }
+    func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.")
+    }
+    func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.")
+    }
+    func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.")
+    }
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.")
     }
 }
