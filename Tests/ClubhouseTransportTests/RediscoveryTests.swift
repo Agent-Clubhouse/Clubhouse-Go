@@ -100,14 +100,15 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
 @Test func raceTakesTheFirstAnsweringRouteWhenHomeIsUnreachable() async throws {
     let clock = ContinuousClock()
     let start = clock.now
-    let best = await AnnexRediscovery.firstAnswering(try remembered("192.168.1.26"), routes: [try lan(), try tailnet()], timeout: .seconds(5)) { endpoint in
+    let best = await AnnexRediscovery.firstAnswering(try remembered("192.168.1.26"), routes: [try lan(), try tailnet()], timeout: .seconds(30)) { endpoint in
         // Away from home: the LAN address never answers, Tailscale does quickly.
         if endpoint.route == .localNetwork { try await Task.sleep(for: .seconds(30)) }
         return pin
     }
     #expect(best?.host == "100.81.200.13")
-    // Under the 5 s timeout (and the dead route's 30 s): proves it didn't wait, with headroom for slow CI runners.
-    #expect(clock.now - start < .seconds(4), "Must not wait for the dead home address")
+    // Well under the 30 s timeout and the dead route's 30 s sleep: proves it didn't wait for either,
+    // with headroom for loaded CI runners (which measured up to 5 s against the old 4 s bound).
+    #expect(clock.now - start < .seconds(20), "Must not wait for the dead home address")
 }
 
 @Test func racePrefersTheEarlierRouteWhenBothAnswerWithinGrace() async throws {
@@ -122,12 +123,12 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
 @Test func raceRejectsRoutesServingAnotherCertificateAndEndsWhenAllFail() async throws {
     let clock = ContinuousClock()
     let start = clock.now
-    let none = await AnnexRediscovery.firstAnswering(try remembered(), routes: [try lan(), try tailnet()], timeout: .seconds(5)) { endpoint in
+    let none = await AnnexRediscovery.firstAnswering(try remembered(), routes: [try lan(), try tailnet()], timeout: .seconds(30)) { endpoint in
         if endpoint.route == .tailscale { return impostorPin }
         throw AnnexTransportError.disconnected
     }
     #expect(none == nil)
-    #expect(clock.now - start < .seconds(4), "All probes failed, so it must not wait for the 5 s timeout")
+    #expect(clock.now - start < .seconds(20), "All probes failed, so it must not wait for the 30 s timeout")
 }
 
 @Test func pairingsSavedBeforeRoutesStillLoad() throws {

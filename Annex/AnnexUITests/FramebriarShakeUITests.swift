@@ -2,6 +2,8 @@ import XCTest
 
 final class FramebriarShakeUITests: XCTestCase {
     @MainActor func testShakeOpensReviewWithoutSubmittingAndRespectsToggleAndPresentation() throws {
+        // Hosted CI simulators can take over two minutes for this flow.
+        executionTimeAllowance = 240
         continueAfterFailure = false
         // Do not inherit landscape from the launch-configuration matrix.
         XCUIDevice.shared.orientation = .portrait

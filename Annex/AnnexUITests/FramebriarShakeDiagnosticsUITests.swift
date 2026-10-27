@@ -17,6 +17,8 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
     /// Root cause: while unenrolled the SDK receiver never takes first responder, so a shake
     /// reached no responder and nothing happened. The app now explains and offers enrollment.
     @MainActor func testUnenrolledShakeExplainsEnrollmentInsteadOfDoingNothing() throws {
+        // Hosted CI simulators can take over two minutes for this flow.
+        executionTimeAllowance = 240
         let app = launch(["--framebriar-shake-unenrolled"])
         let shake = app.buttons["fixture-shake"]
         let prompt = app.alerts["Feedback enrollment required"]
@@ -60,6 +62,8 @@ final class FramebriarShakeDiagnosticsUITests: XCTestCase {
     /// Enrolled shake keeps working across the Companion split view, navigation and keyboard;
     /// it is intentionally suppressed only while the composer holds first responder.
     @MainActor func testCompanionLayoutShakeAcrossNavigationAndComposerFocus() throws {
+        // Hosted CI simulators can take over two minutes for this flow.
+        executionTimeAllowance = 240
         let app = launch(["--framebriar-shake-companion-layout"])
         let composer = app.navigationBars["Send feedback"]
         func waitDebounce() { _ = composer.waitForExistence(timeout: 2.5) }
