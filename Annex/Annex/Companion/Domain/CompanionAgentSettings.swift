@@ -4,12 +4,12 @@ import Foundation
 // Shapes follow `docs/mobile-control-v1.md` → Durable agents.
 
 /// When a setting can change from the phone: at any time, only while the agent sleeps, or not from a phone.
-enum CompanionSettingEditable: String, Sendable, Equatable {
+nonisolated enum CompanionSettingEditable: String, Sendable, Equatable {
     case always, sleeping, never
 }
 
 /// One setting's value and when it can change.
-struct CompanionSetting<Value: Sendable & Equatable>: Sendable, Equatable {
+nonisolated struct CompanionSetting<Value: Sendable & Equatable>: Sendable, Equatable {
     var value: Value
     var editable: CompanionSettingEditable
     /// Read at spawn, so it waits for the agent to sleep: the desktop's "Sleep the agent to change these".
@@ -17,13 +17,13 @@ struct CompanionSetting<Value: Sendable & Equatable>: Sendable, Equatable {
     func canEdit(sleeping: Bool) -> Bool { editable == .always || (editable == .sleeping && sleeping) }
 }
 
-struct CompanionModelOption: Identifiable, Sendable, Equatable, Hashable {
+nonisolated struct CompanionModelOption: Identifiable, Sendable, Equatable, Hashable {
     var id: String
     var label: String
 }
 
 /// A CLI the agent can run on ("Runs on").
-struct CompanionOrchestratorOption: Identifiable, Sendable, Equatable {
+nonisolated struct CompanionOrchestratorOption: Identifiable, Sendable, Equatable {
     var id: String
     var displayName: String
     var shortName: String
@@ -38,13 +38,13 @@ struct CompanionOrchestratorOption: Identifiable, Sendable, Equatable {
     var warning: String? { available ? nil : (unavailableReason ?? "CLI not found. The agent may fail to start.") }
 }
 
-struct CompanionPersonaOption: Identifiable, Sendable, Equatable {
+nonisolated struct CompanionPersonaOption: Identifiable, Sendable, Equatable {
     var id: String
     var name: String
     var source: String
 }
 
-struct CompanionColorOption: Identifiable, Sendable, Equatable {
+nonisolated struct CompanionColorOption: Identifiable, Sendable, Equatable {
     var id: String
     var label: String
     var hex: String
@@ -56,14 +56,14 @@ struct CompanionColorOption: Identifiable, Sendable, Equatable {
     }
 }
 
-struct CompanionMCPOption: Identifiable, Sendable, Equatable {
+nonisolated struct CompanionMCPOption: Identifiable, Sendable, Equatable {
     var id: String
     var name: String
     var description: String?
 }
 
 /// What both the New agent form and the settings sheet pick from.
-struct CompanionAgentOptions: Sendable, Equatable {
+nonisolated struct CompanionAgentOptions: Sendable, Equatable {
     var orchestrators: [CompanionOrchestratorOption] = []
     var personas: [CompanionPersonaOption] = []
     var colors: [CompanionColorOption] = []
@@ -78,7 +78,7 @@ struct CompanionAgentOptions: Sendable, Equatable {
 }
 
 /// The New agent form for one project.
-struct CompanionCreateOptions: Sendable, Equatable {
+nonisolated struct CompanionCreateOptions: Sendable, Equatable {
     var options: CompanionAgentOptions
     var mcpCatalog: [CompanionMCPOption] = []
     var mcpDefaults: [String] = []
@@ -91,7 +91,7 @@ struct CompanionCreateOptions: Sendable, Equatable {
 }
 
 /// An agent's own auto-sleep: follow the app's chat idle timeout, never sleep, or sleep after this many minutes idle.
-enum CompanionIdleSleep: Sendable, Equatable, Hashable {
+nonisolated enum CompanionIdleSleep: Sendable, Equatable, Hashable {
     case inherit, never, minutes(Int)
 
     /// "30 min", "4 h" or "Never", as the desktop's `formatIdleMinutes`.
@@ -134,7 +134,7 @@ enum CompanionIdleSleep: Sendable, Equatable, Hashable {
 }
 
 /// One durable agent's settings, as the desktop's Settings card shows them.
-struct CompanionAgentSettings: Sendable, Equatable {
+nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// `sleeping`, `running`, `starting`, `creating` or `failed`.
     var state: String
     /// Settings marked `sleeping` can change now.
@@ -196,7 +196,7 @@ struct CompanionAgentSettings: Sendable, Equatable {
 }
 
 /// The settings a phone may change, sending only what changed. Free Agent Mode is never one of them.
-struct CompanionSettingsChange: Sendable, Equatable {
+nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     enum Clearable: Sendable, Equatable { case set(String), clear }
     var name: String?
     var color: String?
@@ -211,7 +211,7 @@ struct CompanionSettingsChange: Sendable, Equatable {
 }
 
 /// A durable agent to create, as the New agent page sends it.
-struct CompanionCreateRequest: Sendable, Equatable {
+nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var project: CompanionProjectTarget
     var name: String
     var color: String
@@ -224,7 +224,7 @@ struct CompanionCreateRequest: Sendable, Equatable {
 }
 
 /// The agent's record exists; its worktree is still being made while `isCreating`.
-struct CompanionCreateReceipt: Sendable, Equatable {
+nonisolated struct CompanionCreateReceipt: Sendable, Equatable {
     var target: CompanionTarget
     var isCreating: Bool
 }

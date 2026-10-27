@@ -7,6 +7,8 @@ import Foundation
     /// UI tests stream tool updates into River's conversation (`--companion-preview-stream`).
     private let streamsUpdates: Bool
     static let target = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
+    /// A sleeping durable agent, whose settings can all change.
+    static let sleepingTarget = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "juniper")
     init(streamsUpdates: Bool = false) { self.streamsUpdates = streamsUpdates }
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
@@ -15,9 +17,10 @@ import Foundation
                 .init(id: Self.target.hostID, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
                     .init(id: "clubhouse", name: "Clubhouse", agents: [
                         .init(id: Self.target, name: "River", subtitle: "Build the mobile companion", status: .approval, model: "Codex", capabilities: [.chat, .steer, .cancel, .approve]),
-                        .init(id: .init(hostID: Self.target.hostID, projectID: "clubhouse", agentID: "cedar"), name: "Cedar", subtitle: "Investigate reconnect behavior", status: .working, model: "Claude", capabilities: [.chat, .steer, .cancel, .approve])
+                        .init(id: .init(hostID: Self.target.hostID, projectID: "clubhouse", agentID: "cedar"), name: "Cedar", subtitle: "Investigate reconnect behavior", status: .working, model: "Claude", capabilities: [.chat, .steer, .cancel, .approve]),
+                        .init(id: Self.sleepingTarget, name: "Juniper", subtitle: "Release notes", status: .sleeping, model: "Claude", capabilities: [.chat, .wake])
                     ])
-                ], richContentAvailable: true),
+                ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true),
                 .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                     .init(id: "notes", name: "Field notes", agents: [
                         .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -66,5 +69,42 @@ import Foundation
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw previewError }
     func reconnect(hostID: String) async {}
+    func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
+        .init(options: Self.agentOptions,
+              mcpCatalog: [.init(id: "github", name: "GitHub", description: "Issues and pull requests"), .init(id: "ado", name: "Azure DevOps", description: nil)],
+              mcpDefaults: ["github"], isGitRepo: true, suggestedName: "brave-otter", defaultOrchestrator: "claude-code",
+              defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true)
+    }
+    func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
+    /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything but Free Agent Mode can change.
+    func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
+        let sleeping = target == Self.sleepingTarget
+        let name = sleeping ? "Juniper" : "River"
+        return .init(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
+                     name: .init(value: name, editable: .sleeping), color: .init(value: sleeping ? "violet" : "indigo", editable: .sleeping),
+                     emoji: .init(value: nil, editable: .sleeping),
+                     orchestrator: .init(value: nil, editable: .sleeping), resolvedOrchestrator: "claude-code",
+                     model: .init(value: "opus", editable: .sleeping),
+                     runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
+                     persona: .init(value: nil, editable: .sleeping),
+                     clubhouseMode: .init(value: nil, editable: .never),
+                     freeAgentMode: .init(value: false, editable: .never),
+                     idleSleep: .init(value: .inherit, editable: .always),
+                     options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
+    }
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
+        throw previewError
+    }
+    private static let agentOptions = CompanionAgentOptions(
+        orchestrators: [
+            .init(id: "claude-code", displayName: "Claude Code", shortName: "CC", available: true, permissions: true, chat: true,
+                  models: [.init(id: "default", label: "Default"), .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")]),
+            .init(id: "codex", displayName: "Codex", shortName: "CX", available: false, unavailableReason: nil, permissions: false, chat: false,
+                  models: [.init(id: "default", label: "Default")]),
+        ],
+        personas: [.init(id: "qa", name: "QA", source: "builtin"), .init(id: "reviewer", name: "Reviewer", source: "project")],
+        colors: [("indigo", "Indigo", "#6366f1"), ("emerald", "Emerald", "#10b981"), ("amber", "Amber", "#f59e0b"), ("rose", "Rose", "#f43f5e"),
+                 ("cyan", "Cyan", "#06b6d4"), ("violet", "Violet", "#8b5cf6"), ("orange", "Orange", "#f97316"), ("teal", "Teal", "#14b8a6")]
+            .map { CompanionColorOption(id: $0.0, label: $0.1, hex: $0.2) })
     private var previewError: CompanionServiceError { .unavailable("Preview only. This action does not contact a desktop.") }
 }
