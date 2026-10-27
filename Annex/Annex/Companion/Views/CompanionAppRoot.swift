@@ -313,7 +313,9 @@ struct CompanionSettingsSheet: View {
                         }
                     }
                 } header: { Text("Home") } footer: {
-                    Text("Unpinned projects with no running agent and no activity for this long fold into one idle section. Kept on this phone.")
+                    let shared = runtime.store.hosts.filter(\.sharesProjectState).map(\.name)
+                    Text("Unpinned projects with no running agent and no activity for this long fold into one idle section. Kept on this phone."
+                         + (shared.isEmpty ? "" : " \(shared.formatted(.list(type: .and))) \(shared.count == 1 ? "shares its" : "share their") pins and idle projects, and \(shared.count == 1 ? "uses its" : "use their") own setting."))
                 }
                 Section {
                     CompanionDeviceNameField(preferences: runtime.preferences)
