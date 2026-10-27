@@ -47,7 +47,8 @@ struct CompanionChatProjector {
             let text = data["content"].arrayValue.map { Self.contentText($0) }.joined(separator: "\n")
             upsert(.message(.init(id: messageID, role: .user, text: text, timestamp: time,
                                   clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
-                                  queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil)))
+                                  queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil,
+                                  source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer")))
         case "queue_state":
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence

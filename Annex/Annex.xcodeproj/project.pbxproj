@@ -10,6 +10,7 @@
         202610230000000000000001 /* ClubhouseTransport in Frameworks */ = {isa = PBXBuildFile; productRef = 202610230000000000000002 /* ClubhouseTransport */; };
         FB2026102300000000000001 /* FramebriarUI in Frameworks */ = {isa = PBXBuildFile; productRef = FB2026102300000000000002 /* FramebriarUI */; };
         FB2026102300000000000004 /* Framebriar in Frameworks */ = {isa = PBXBuildFile; productRef = FB2026102300000000000005 /* Framebriar */; };
+        CB2026102600000000000001 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = CB2026102600000000000002 /* Markdown */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -91,6 +92,7 @@
                 202610230000000000000001 /* ClubhouseTransport in Frameworks */,
                 FB2026102300000000000001 /* FramebriarUI in Frameworks */,
                 FB2026102300000000000004 /* Framebriar in Frameworks */,
+                CB2026102600000000000001 /* Markdown in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -154,6 +156,7 @@
                 202610230000000000000002 /* ClubhouseTransport */,
                 FB2026102300000000000002 /* FramebriarUI */,
                 FB2026102300000000000005 /* Framebriar */,
+                CB2026102600000000000002 /* Markdown */,
 			);
 			productName = Annex;
 			productReference = ACF46E222F4A5C73007272FE /* ClubhouseGo.app */;
@@ -237,7 +240,7 @@
 			);
 			mainGroup = ACF46E192F4A5C73007272FE;
 			minimizedProjectReferenceProxies = 1;
-            packageReferences = (202610230000000000000003 /* Local transport package */, FB2026102300000000000003 /* Framebriar local package */,);
+            packageReferences = (202610230000000000000003 /* Local transport package */, FB2026102300000000000003 /* Framebriar local package */, CB2026102600000000000003 /* XCRemoteSwiftPackageReference "swift-markdown" */,);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = ACF46E232F4A5C73007272FE /* Products */;
 			projectDirPath = "";
@@ -322,6 +325,17 @@
         };
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+        CB2026102600000000000003 /* XCRemoteSwiftPackageReference "swift-markdown" */ = {
+            isa = XCRemoteSwiftPackageReference;
+            repositoryURL = "https://github.com/swiftlang/swift-markdown.git";
+            requirement = {
+                kind = exactVersion;
+                version = 0.9.0;
+            };
+        };
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
         202610230000000000000002 /* ClubhouseTransport */ = {
             isa = XCSwiftPackageProductDependency;
@@ -329,6 +343,7 @@
         };
         FB2026102300000000000002 /* FramebriarUI */ = {isa = XCSwiftPackageProductDependency; productName = FramebriarUI; };
         FB2026102300000000000005 /* Framebriar */ = {isa = XCSwiftPackageProductDependency; productName = Framebriar; };
+        CB2026102600000000000002 /* Markdown */ = {isa = XCSwiftPackageProductDependency; package = CB2026102600000000000003 /* XCRemoteSwiftPackageReference "swift-markdown" */; productName = Markdown; };
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */

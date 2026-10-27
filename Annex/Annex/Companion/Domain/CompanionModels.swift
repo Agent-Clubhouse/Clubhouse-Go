@@ -127,6 +127,25 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var delivery: Delivery = .confirmed
     var clientCommandID: String?
     var queueState: QueueState?
+    /// The desktop's `MessageSource` for user messages: `user` (typed), `mission`, `mcp`, `annex`, …
+    var source: String?
+    /// The message joined the running turn instead of starting one.
+    var isSteered = false
+
+    /// The desktop's caption above a user message, such as "Mission · Steered into the running turn".
+    var sourceLabel: String? {
+        let origin: String? = switch source {
+        case "mission": "Mission"
+        case "mcp": "From another agent"
+        case "shoulder_tap": "Shoulder tap"
+        case "group_project": "Group project"
+        case "annex": "From Annex"
+        case "system": "Clubhouse"
+        default: nil
+        }
+        let parts = [origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 }
 
 struct CompanionTool: Identifiable, Sendable, Equatable {
