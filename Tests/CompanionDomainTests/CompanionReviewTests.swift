@@ -49,6 +49,22 @@ struct CompanionReviewTests {
         #expect(entries[3].projectName == "Notes")
     }
 
+    /// The desktop drops an exited quick agent from its agent list, so Review never pages to it. A quick agent
+    /// that's still running stays, and so does a durable agent that completed its turn.
+    @MainActor @Test func finishedQuickAgentsAreLeftOut() {
+        let store = CompanionStore(service: StubService())
+        var running = agent("running", .working); running.isQuick = true
+        var done = agent("done", .completed); done.isQuick = true; done.hasExited = true
+        var failed = agent("failed", .failed); failed.isQuick = true; failed.hasExited = true; failed.exitCode = 1
+        let durable = agent("durable", .completed)
+        store.apply(.hosts([
+            .init(id: "mac", name: "MacBook", endpoint: "", connection: .connected, projects: [
+                .init(id: "p1", name: "P1", agents: [running, done, failed, durable])
+            ])
+        ]))
+        #expect(ids(store.reviewEntries) == ["running", "durable"])
+    }
+
     // MARK: Filters
 
     @Test func sleepingIsOffAndNeedsYouOnlyDependsOnTheEntryPoint() {

@@ -95,13 +95,16 @@ enum CompanionReviewModel {
 
 extension CompanionStore {
     /// Every agent on a connected desktop, in desktop order, as the desktop's Review steps through them.
-    /// An offline desktop's agents are left out, as Home leaves them out: their state is stale.
+    /// An offline desktop's agents are left out, as Home leaves them out: their state is stale. So are finished quick
+    /// agents: the desktop moves an exited quick agent out of its agent list (`removeAgent` in `app-event-bridge.ts`),
+    /// so its Review never shows one, though the phone keeps it in the catalog for the project page's Finished list.
     var reviewEntries: [CompanionReviewEntry] {
         hosts.filter { host in
             switch host.connection { case .offline, .failed: false; default: true }
         }.flatMap { host in
             host.projects.flatMap { project in
-                project.agents.map { CompanionReviewEntry(agent: $0, hostName: host.name, projectName: project.name) }
+                project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }
+                    .map { CompanionReviewEntry(agent: $0, hostName: host.name, projectName: project.name) }
             }
         }
     }
