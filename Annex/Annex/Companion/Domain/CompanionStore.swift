@@ -302,7 +302,8 @@ import Observation
 
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
         guard canOperate(target), agent(for: target)?.capabilities.contains(.approve) == true,
-              !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option) else { return }
+              !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option),
+              option.isAnswerableHere else { return } // The desktop refuses persistent options from a phone.
         var submitted = approval
         submitted.resolution = .submitting
         upsert(.approval(submitted), target: target)

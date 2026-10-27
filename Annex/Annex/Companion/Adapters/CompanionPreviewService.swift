@@ -41,7 +41,7 @@ import Foundation
             step += 1
             let run = step / 10
             let output = "Step \(step % 10) of 10\nLog: `build/test-log.txt`"
-            var updates = [CompanionTool(id: "live-\(run)", name: "Run focused tests", summary: "$ swift test", output: output, state: step % 10 == 9 ? .completed : .running,
+            var updates = [CompanionTool(id: "live-\(run)", name: "swift test", summary: "", output: output, state: step % 10 == 9 ? .completed : .running,
                                          kind: .execute, hasChanges: true)]
             for (index, at) in [2, 5].enumerated() where step % 10 >= at {
                 updates.append(.init(id: "live-\(run)-read-\(index)", name: "Read file", summary: "Fixture\(index).swift", output: nil, state: step % 10 == at ? .running : .completed,
@@ -63,7 +63,7 @@ import Foundation
             .tool(.init(id: "tool-1-search", name: "Search for reconnect", summary: "reconnect", output: "12 matches in 4 files", state: .completed, kind: .search)),
             .tool(.init(id: "tool-1-read", name: "Read file", summary: "Reconnect.swift", output: "Read 88 lines.", state: .completed,
                         kind: .read, location: "Sources/Companion/Reconnect.swift")),
-            .tool(.init(id: "tool-2", name: "Run focused tests", summary: "$ swift test --filter ConversationTests", output: "8 tests passed. No failures.", state: .completed,
+            .tool(.init(id: "tool-2", name: "swift test --filter ConversationTests", summary: "", output: "8 tests passed. No failures.", state: .completed,
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
