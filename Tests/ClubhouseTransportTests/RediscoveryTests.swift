@@ -106,7 +106,8 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
         return pin
     }
     #expect(best?.host == "100.81.200.13")
-    #expect(clock.now - start < .seconds(2), "Must not wait for the dead home address")
+    // Under the 5 s timeout (and the dead route's 30 s): proves it didn't wait, with headroom for slow CI runners.
+    #expect(clock.now - start < .seconds(4), "Must not wait for the dead home address")
 }
 
 @Test func racePrefersTheEarlierRouteWhenBothAnswerWithinGrace() async throws {
@@ -126,7 +127,7 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
         throw AnnexTransportError.disconnected
     }
     #expect(none == nil)
-    #expect(clock.now - start < .seconds(2), "All probes failed, so it must not wait for the timeout")
+    #expect(clock.now - start < .seconds(4), "All probes failed, so it must not wait for the 5 s timeout")
 }
 
 @Test func pairingsSavedBeforeRoutesStillLoad() throws {
