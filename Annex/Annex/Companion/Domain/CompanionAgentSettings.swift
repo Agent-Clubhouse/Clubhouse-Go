@@ -88,6 +88,8 @@ nonisolated struct CompanionCreateOptions: Sendable, Equatable {
     var defaultColor = "indigo"
     var defaultModel = "default"
     var defaultUseWorktree = false
+    /// `agent.create` takes `freeAgentMode` (`freeAgentMode.allowed`). Offer it only for CLIs with permission support.
+    var freeAgentModeAllowed = false
 }
 
 /// An agent's own auto-sleep: follow the app's chat idle timeout, never sleep, or sleep after this many minutes idle.
@@ -169,7 +171,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var hasLockedSettings: Bool {
         [name.isLocked(sleeping: sleeping), color.isLocked(sleeping: sleeping), emoji.isLocked(sleeping: sleeping),
          orchestrator.isLocked(sleeping: sleeping), model.isLocked(sleeping: sleeping), runtime.isLocked(sleeping: sleeping),
-         persona.isLocked(sleeping: sleeping), clubhouseMode.isLocked(sleeping: sleeping)].contains(true)
+         persona.isLocked(sleeping: sleeping), clubhouseMode.isLocked(sleeping: sleeping), freeAgentMode.isLocked(sleeping: sleeping)].contains(true)
     }
     /// The Settings card's Auto-sleep summary.
     var autoSleepSummary: String { idleSleep.value.summary(appMinutes: appIdleMinutes) }
@@ -198,7 +200,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     }
 }
 
-/// The settings a phone may change, sending only what changed. Free Agent Mode is never one of them.
+/// The settings a phone may change, sending only what changed.
 nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     enum Clearable: Sendable, Equatable { case set(String), clear }
     var name: String?
@@ -209,6 +211,8 @@ nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     var runtime: String?
     var persona: Clearable?
     var clubhouseMode: Bool?
+    /// Only to desktops that take it (`permissions.freeAgentMode`).
+    var freeAgentMode: Bool?
     var idleSleep: CompanionIdleSleep?
     var isEmpty: Bool { self == .init() }
 }
@@ -221,6 +225,8 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var orchestrator: String?
     var model: String?
     var persona: String?
+    /// Nil leaves it to the project's agent defaults. Only sent to desktops that take it.
+    var freeAgentMode: Bool? = nil
     var useWorktree: Bool?
     var mcpIDs: [String]?
     var clientCommandID: String
@@ -291,6 +297,7 @@ enum CompanionAgentCommandError {
         case "invalid_name": return detail ?? "Choose a different agent name."
         case "invalid_color": return detail ?? "Choose one of the colours offered."
         case "free_agent_mode_not_allowed": return "Free Agent Mode can only be changed on the desktop."
+        case "free_agent_mode_unavailable": return CompanionFreeAgentMode.unsupported
         case "agent_creating": return "This agent is still being set up. Try again when it's ready."
         case "orchestrator_unavailable": return "That CLI isn't enabled for this project on the desktop."
         case "runtime_unavailable": return "Chat isn't available for this agent's CLI."
@@ -302,7 +309,7 @@ enum CompanionAgentCommandError {
         case "project_not_found": return "This project is no longer on the desktop."
         default:
             if code.hasPrefix("invalid_") { return detail ?? "The desktop couldn't accept these settings." }
-            return nil
+            return CompanionChatControlError.message(code: code)
         }
     }
 }

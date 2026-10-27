@@ -64,6 +64,11 @@ final class CompanionAgentSheetsTests: XCTestCase {
         for _ in 0..<4 where !worktree.exists { app.swipeUp() }
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
         XCTAssertEqual(worktree.value as? String, "1", "On by default")
+        let freeAgent = app.switches["new-agent-free-agent-mode"]
+        for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
+        XCTAssertTrue(freeAgent.isEnabled, "A desktop that takes Free Agent Mode offers it for a CLI with permission support")
+        XCTAssertEqual(freeAgent.value as? String, "0", "Off by default")
+        XCTAssertTrue(app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."].exists, "The desktop's help text")
 
         // Preview never pretends the desktop created anything. The refusal shows at the top of the form.
         XCTAssertTrue(create.isEnabled)
@@ -104,8 +109,9 @@ final class CompanionAgentSheetsTests: XCTestCase {
         XCTAssertTrue(autoSleep.isEnabled, "Auto-sleep can change at any time")
         let freeAgent = element(app, "agent-settings-free-agent-mode")
         for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
-        XCTAssertTrue(freeAgent.exists, "Free Agent Mode is shown, read-only")
-        XCTAssertTrue(app.staticTexts["Free Agent Mode can only be changed on the desktop."].exists)
+        XCTAssertTrue(freeAgent.exists, "Free Agent Mode is a toggle on a desktop that takes it")
+        XCTAssertFalse(freeAgent.isEnabled, "It's a spawn setting, so it waits for the agent to sleep")
+        XCTAssertTrue(app.staticTexts["Sleep the agent to change these. Skips every permission prompt. Off unless you trust this agent with the project."].exists)
         screenshot(app, "Awake agent settings")
 
         // Preview edits fail visibly and put the control back.
@@ -138,6 +144,19 @@ final class CompanionAgentSheetsTests: XCTestCase {
         XCTAssertTrue(app.buttons["agent-settings-model"].isEnabled)
         XCTAssertFalse(element(app, "agent-settings-locked-hint").exists, "Nothing is locked while it sleeps")
         screenshot(app, "Sleeping agent settings")
+
+        // Turning Free Agent Mode on is confirmed first; preview then refuses it visibly.
+        let freeAgent = element(app, "agent-settings-free-agent-mode")
+        for _ in 0..<4 where !freeAgent.isHittable { app.swipeUp() }
+        XCTAssertTrue(freeAgent.isEnabled, "A sleeping agent's Free Agent Mode can change")
+        XCTAssertTrue(app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."].exists)
+        freeAgent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let confirm = app.buttons["Turn on Free Agent Mode"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Turning it on asks first")
+        screenshot(app, "Free Agent Mode confirmation")
+        confirm.tap()
+        for _ in 0..<4 where !element(app, "agent-settings-error").exists { app.swipeDown() }
+        XCTAssertTrue(element(app, "agent-settings-error").waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))
     }

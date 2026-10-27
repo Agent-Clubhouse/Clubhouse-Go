@@ -410,8 +410,11 @@ struct CompanionApprovalCard: View {
     let canRespond: Bool
     /// When the bar above the composer carries Deny and Allow once, the card keeps only the other options.
     var actionsArePinned = false
+    /// The desktop takes lasting options ("Allow always") from the phone (`permissions.persistentApprovals`).
+    var persistentApprovals = false
     let respond: (CompanionApprovalOption) -> Void
     @State private var showDetails = false
+    @State private var confirming: CompanionApprovalOption?
     @Environment(\.companionPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -469,12 +472,20 @@ struct CompanionApprovalCard: View {
                 .stroke(live ? Color(palette.warning).opacity(0.7) : Color(palette.separator), lineWidth: 1.5))
             .accessibilityElement(children: .contain)
         }
+        .confirmationDialog(confirming.map { "\($0.label)?" } ?? "", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+                            titleVisibility: .visible, presenting: confirming) { option in
+            Button(option.label) { respond(option) }
+        } message: { option in
+            Text(option.kind == .allowSession
+                 ? "The agent won't ask again for \(option.scope ?? "this") until the session ends."
+                 : "The agent won't ask again for \(option.scope ?? "this"). You can change this on your desktop.")
+        }
     }
     @ViewBuilder private var decisionButtons: some View {
         if actionsArePinned {
             Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
         }
-        ForEach(approval.options.filter { $0.isAnswerableHere && (!actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce)) }) { option in
+        ForEach(approval.options.filter { $0.isOneOff && (!actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce)) }) { option in
             if option.kind == .allowOnce {
                 Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel()
             } else {
@@ -485,13 +496,34 @@ struct CompanionApprovalCard: View {
             Text("Review this request on desktop.").font(.caption).foregroundStyle(.secondary)
         }
     }
-    /// Options that change the agent's permissions for good ("Allow always"). The desktop lists them with the rest,
-    /// numbered; a phone can't raise permissions, so they show here as a reminder of what the desktop offers.
+    /// Options that change the agent's permissions for good ("Allow always"). The desktop lists them with the rest, numbered.
+    /// Desktops that take them from a phone get secondary buttons; older ones show what to choose there.
     @ViewBuilder private var persistentOptions: some View {
-        let persistent = approval.options.enumerated().filter { !$0.element.isAnswerableHere }
-        if !persistent.isEmpty {
+        let persistent = approval.options.enumerated().filter { !$0.element.isOneOff }
+        let answerable = persistent.filter { $0.element.isAnswerable(persistentApprovals: persistentApprovals) }
+        if !answerable.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(answerable, id: \.element.id) { _, option in
+                    Button {
+                        if option.needsConfirmation { confirming = option } else { respond(option) }
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(option.label)
+                            if let scope = option.scope { Text(scope).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1) }
+                        }
+                    }
+                    .buttonStyle(.bordered).font(.subheadline)
+                    .accessibilityIdentifier("companion-approval-option-\(option.id)")
+                }
+            }
+            .disabled(!canRespond)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("companion-approval-persistent-actions")
+        }
+        let readOnly = persistent.filter { !$0.element.isAnswerable(persistentApprovals: persistentApprovals) }
+        if !readOnly.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(persistent, id: \.element.id) { index, option in
+                ForEach(readOnly, id: \.element.id) { index, option in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("\(index + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         Text(option.label).font(.subheadline)

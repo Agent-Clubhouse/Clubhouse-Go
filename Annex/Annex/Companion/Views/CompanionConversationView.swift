@@ -95,12 +95,15 @@ struct CompanionConversationView: View {
                 if !dynamicTypeSize.isAccessibilitySize {
                     Text("· \(contextName)").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
                     Spacer(minLength: 8)
-                    if let model = agent.model { Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1) }
+                    if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+                    else if let model = agent.model { Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1) }
                 } else {
                     Spacer(minLength: 0)
+                    if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
                 }
             }
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("companion-chat-header")
             activityLine
         }
         .padding(.horizontal, 20).padding(.vertical, 8)
@@ -243,7 +246,8 @@ struct CompanionConversationView: View {
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
-                                  canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID) { option in
+                                  canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID,
+                                  persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
                 Task { await store.respond(approval, option: option, target: target) }
             }
         case .question(let question):
@@ -302,6 +306,12 @@ struct CompanionConversationView: View {
                 .glassEffect(.regular, in: .capsule)
             }
             CompanionAttachmentStrip(store: store, target: target)
+            if let controls = agent.chatControls, !isAsleep {
+                CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
+                                         setLevel: { level in Task { await store.setLevel(level, target: target) } },
+                                         setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } })
+                    .equatable()
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {

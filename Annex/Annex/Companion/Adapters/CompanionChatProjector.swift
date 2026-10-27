@@ -21,6 +21,10 @@ struct CompanionChatProjector {
     var queueStateSequence: Int64 = 0
     var queuedMessageIDs: Set<String> = []
     var queueRemovalSupported = false
+    /// The composer's model, effort and level, folded from this session's events. Shown only while the session is live.
+    var controls = CompanionChatControls()
+    /// The sequence of the latest `session_info` that listed efforts, so a model switch can wait for the new list.
+    var effortsSequence = 0
 
     mutating func apply(_ event: AnnexJSON, allowOlderPending: Bool = false) {
         guard let session = event["sessionId"]?.string,
@@ -29,10 +33,13 @@ struct CompanionChatProjector {
             sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
             self.session = .init()
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
+            controls = .init(); effortsSequence = 0
         }
         guard allowOlderPending || sequence > lastSequence else { return }
         lastSequence = max(lastSequence, Int(sequence))
         let data = event["data"] ?? .object([:])
+        controls.apply(type: type, data: data)
+        if type == "session_info", data["efforts"] != nil { effortsSequence = Int(sequence) }
         let time = event["ts"]?.integer.map { Date(timeIntervalSince1970: Double($0) / 1000) }
         switch type {
         case "session_started", "session_info":
@@ -212,6 +219,7 @@ struct CompanionChatProjector {
     /// so keys that are absent keep their earlier value. A new session starts from empty.
     mutating func updateCapabilities(_ value: AnnexJSON) {
         capabilities.formUnion([.chat, .approve])
+        controls.applyCapabilities(value)
         func set(_ flag: CompanionCapabilities, _ key: String) {
             guard case .bool(let enabled)? = value[key] else { return }
             if enabled { capabilities.insert(flag) } else { capabilities.remove(flag) }
