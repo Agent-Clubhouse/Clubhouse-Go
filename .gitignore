@@ -20,3 +20,6 @@ xcuserdata/
 /.claude/settings.local.json
 .clubhouse/plugin-data-local/
 .clubhouse/agents.json.bak
+
+# scripts/testflight.sh output
+/build/

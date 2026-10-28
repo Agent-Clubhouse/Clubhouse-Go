@@ -30,6 +30,11 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- The image preview's Share button offers "Save Image"; iOS requires this string for it. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Clubhouse Go saves images you choose to share from your agents' conversations to your photo library.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_clubhouse-annex._tcp</string>
