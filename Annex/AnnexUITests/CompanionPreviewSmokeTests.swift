@@ -9,6 +9,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         scrollUntilExists(agent, in: app, maxSwipes: maxSwipes, file: file, line: line)
         XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear", file: file, line: line)
+        // At large text sizes River's row exists below the fold before it can be tapped.
+        XCTAssertTrue(scrollTo(agent, in: app, maxSwipes: maxSwipes, file: file, line: line), "River's row must be on screen", file: file, line: line)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         waitAndTap(agent, until: composer, timeout: 15, "Selecting an agent must open its conversation", file: file, line: line)
     }
