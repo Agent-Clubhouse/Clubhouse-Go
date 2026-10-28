@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/masra91/framebriar",
-  "commit": "9a1175e61e0bd5738add9197974c48d3c5caa1e3",
+  "commit": "798838ebc3aa8a6d49f2f6c0c6801106ca1d9a47",
   "subdirectory": "adapters/swift",
   "files": {
     ".gitignore": "acc718146d21aae829cba1761475e05de39d73209d83af2ab8487a74843cead0",

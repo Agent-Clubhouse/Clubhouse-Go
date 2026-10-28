@@ -14,7 +14,7 @@ final class FramebriarShakeUITests: ReliableUITestCase {
         XCTAssertTrue(attachment.waitForExistence(timeout: 5), "A shake pre-attaches a screenshot")
         XCTAssertTrue(app.staticTexts["framebriar-captured-screen-note"].exists)
         let remove = app.buttons["Remove attachment"]
-        for _ in 0..<3 where !remove.isHittable { app.swipeUp() }
+        scrollTo(remove, in: app, maxSwipes: 3)
         XCTAssertTrue(remove.exists)
         XCTAssertFalse(app.buttons["Submit reviewed feedback"].exists)
         remove.tap()
@@ -75,10 +75,10 @@ final class FramebriarShakeUITests: ReliableUITestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
         let review = app.buttons["Review feedback"]
-        for _ in 0..<3 where !review.isHittable { app.swipeUp() }
+        scrollTo(review, in: app, maxSwipes: 3)
         review.tap()
         let submit = app.buttons["Submit reviewed feedback"]
-        for _ in 0..<4 where !submit.isHittable { app.swipeUp() }
+        scrollTo(submit, in: app, maxSwipes: 4)
         XCTAssertTrue(submit.exists, "Review shows the Submit step")
         XCTAssertTrue(app.staticTexts["The image shown above will be attached."].exists)
         app.buttons["Cancel"].tap()
@@ -90,9 +90,9 @@ final class FramebriarShakeUITests: ReliableUITestCase {
         shake.tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
         XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
-        for _ in 0..<3 where !review.isHittable { app.swipeUp() }
+        scrollTo(review, in: app, maxSwipes: 3)
         review.tap()
-        for _ in 0..<4 where !submit.isHittable { app.swipeUp() }
+        scrollTo(submit, in: app, maxSwipes: 4)
         submit.tap()
         // A successful local save dismisses the composer.
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: composer)
