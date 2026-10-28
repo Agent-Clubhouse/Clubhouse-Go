@@ -122,14 +122,15 @@ class ReliableUITestCase: XCTestCase {
         return target.exists
     }
 
-    /// Scrolls to a Home fold such as "1 sleeping", opens it if it is collapsed, and scrolls to `target` inside it.
+    /// Scrolls to a Home fold such as "1 sleeping", opens it if it is collapsed, and scrolls until `target` inside it is on screen.
     @discardableResult
     func expandFold(_ fold: XCUIElement, revealing target: XCUIElement, in app: XCUIApplication,
                     file: StaticString = #filePath, line: UInt = #line) -> Bool {
-        if target.exists { return true }
+        if target.exists { return scrollTo(target, in: app, file: file, line: line) }
         XCTAssertTrue(scrollTo(fold, in: app, file: file, line: line), "\(fold) must be on screen", file: file, line: line)
         tapToExpand(fold, file: file, line: line)
-        return scrollUntilExists(target, in: app, file: file, line: line)
+        // A row can exist below the fold before it can be tapped or long-pressed, so bring it on screen too.
+        return scrollUntilExists(target, in: app, file: file, line: line) && scrollTo(target, in: app, file: file, line: line)
     }
 
     /// Taps a fold until it reports Expanded. The fold says whether it is open, so a retried tap never closes it.
