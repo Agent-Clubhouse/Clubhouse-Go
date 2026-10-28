@@ -17,6 +17,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         /// The desktop owns project pins and inactive marks when it offers `projectState`.
         case setProjectPinned(projectID: String, pinned: Bool)
         case setProjectInactive(projectID: String, inactive: Bool)
+        /// The desktop owns "Finished, waiting on you" when it offers `finishedQuickAgents`.
+        case dismissFinishedQuick(projectID: String, agentID: String)
+        case clearFinishedQuick(projectID: String)
         /// A helper start or dispose an orchestrator asked the user to decide. `force` is the desktop's "Dispose anyway".
         case helperApprove(requestID: String, force: Bool = false)
         case helperDecline(requestID: String)
@@ -59,6 +62,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .helperDecline: "helper.decline"
         case .setProjectPinned: "project.setPinned"
         case .setProjectInactive: "project.setInactive"
+        case .dismissFinishedQuick: "quick.dismiss"
+        case .clearFinishedQuick: "quick.clear"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -120,6 +125,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             v["projectId"] = .string(project); v["pinned"] = .bool(pinned)
         case .setProjectInactive(let project, let inactive):
             v["projectId"] = .string(project); v["inactive"] = .bool(inactive)
+        case .dismissFinishedQuick(let project, let agent):
+            v["projectId"] = .string(project); v["agentId"] = .string(agent)
+        case .clearFinishedQuick(let project): v["projectId"] = .string(project)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(AnnexJSON.object(v))
@@ -268,6 +276,8 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let agentSettings: Feature?
     /// Project pins, inactive marks and the idle rule, owned by the desktop (`projectState` v1).
     public let projectState: Feature?
+    /// "Finished, waiting on you", owned by the desktop (`finishedQuickAgents` v1).
+    public let finishedQuickAgents: Feature?
     /// Durable agents can be created (`agent.create` with create options v1). Older desktops offer quick agents only.
     public var supportsAgentCreate: Bool { commands.contains("agent.create") && (createOptions?.version ?? 0) >= 1 }
     /// An agent's settings can be read and changed (`agent.update` with agent settings v1).
@@ -303,6 +313,10 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// Helper requests are listed and can be answered (`helper.approve` and `helper.decline` with helper requests v1).
     public var supportsHelperRequests: Bool {
         commands.contains("helper.approve") && commands.contains("helper.decline") && (helperRequests?.version ?? 0) >= 1
+    }
+    /// Finished quick agents are shared with the desktop. Older desktops leave the list on the phone.
+    public var supportsFinishedQuickAgents: Bool {
+        commands.contains("quick.dismiss") && commands.contains("quick.clear") && (finishedQuickAgents?.version ?? 0) >= 1
     }
     /// Pins and inactive marks are shared with the desktop. Older desktops leave them on the phone.
     public var supportsProjectState: Bool {
