@@ -412,6 +412,26 @@ import ClubhouseTransport
     func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
         try await setProjectState(.setProjectInactive(projectID: project.projectID, inactive: inactive), project: project, id: clientCommandID)
     }
+    func dismissFinishedQuick(_ target: CompanionTarget, clientCommandID: String) async throws -> [CompanionFinishedRun] {
+        try await changeFinishedQuick(.dismissFinishedQuick(projectID: target.projectID, agentID: target.agentID),
+                                      project: .init(hostID: target.hostID, projectID: target.projectID), id: clientCommandID)
+    }
+    func clearFinishedQuick(_ project: CompanionProjectTarget, clientCommandID: String) async throws -> [CompanionFinishedRun] {
+        try await changeFinishedQuick(.clearFinishedQuick(projectID: project.projectID), project: project, id: clientCommandID)
+    }
+    private func changeFinishedQuick(_ kind: AnnexCommand.Kind, project: CompanionProjectTarget, id: String) async throws -> [CompanionFinishedRun] {
+        guard capabilities[project.hostID]?.supportsFinishedQuickAgents == true else {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share its finished list with your phone.")
+        }
+        let receipt = try await execute(kind, id: id, hostID: project.hostID)
+        // The reply is the project's list after the change; a fresh snapshot follows.
+        guard let list = receipt.result?["finishedQuickAgents"], case .array = list else {
+            throw CompanionServiceError.uncertain("The desktop took the change but didn't confirm it. It will show when the desktop next updates.")
+        }
+        let runs = CompanionFinishedRun.desktopList(list, project: project)
+        if hosts[project.hostID]?.finishedQuickAgents != nil { hosts[project.hostID]?.finishedQuickAgents?[project.projectID] = runs; emitHosts() }
+        return runs
+    }
     private func setProjectState(_ kind: AnnexCommand.Kind, project: CompanionProjectTarget, id: String) async throws -> CompanionProjectState {
         guard capabilities[project.hostID]?.supportsProjectState == true else {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
@@ -622,6 +642,8 @@ import ClubhouseTransport
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID) }
                 // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
                 hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])
+                // Also sent only after the desktop's one-time migration; without it the phone keeps its own finished list.
+                hosts[hostID]?.finishedQuickAgents = CompanionFinishedRun.desktopLists(payload["finishedQuickAgents"], hostID: hostID)
                 hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
                 if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
@@ -679,6 +701,7 @@ import ClubhouseTransport
             hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
             hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
             hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
+            hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
             hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true

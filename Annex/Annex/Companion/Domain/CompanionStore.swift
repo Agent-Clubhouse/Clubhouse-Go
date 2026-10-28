@@ -31,6 +31,10 @@ import Observation
     private(set) var pendingProjectStates: [CompanionProjectTarget: CompanionProjectState] = [:]
     /// Why the last pin or inactive change didn't reach the desktop.
     var projectStateError: String?
+    /// Finished runs dismissed or cleared on a desktop, hidden until it confirms.
+    private(set) var pendingFinishedRemovals: Set<CompanionTarget> = []
+    /// Why the last Dismiss or Clear all didn't reach the desktop.
+    var finishedError: String?
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
@@ -558,10 +562,53 @@ import Observation
 
     // MARK: Project page (#158)
 
-    /// The project's "Finished, waiting on you", newest first.
-    func finished(in project: CompanionProjectTarget) -> [CompanionFinishedRun] { finishedRuns.runs(in: project) }
-    func dismissFinished(_ target: CompanionTarget) { finishedRuns.dismiss(target) }
-    func clearFinished(in project: CompanionProjectTarget) { finishedRuns.clear(project) }
+    /// The project's "Finished, waiting on you", newest first: the desktop's list when it shares one (#167), else this phone's.
+    func finished(in project: CompanionProjectTarget) -> [CompanionFinishedRun] {
+        guard let host = hosts.first(where: { $0.id == project.hostID }), host.sharesFinishedQuick else { return finishedRuns.runs(in: project) }
+        let exited = host.projects.first { $0.id == project.projectID }?.agents ?? []
+        return CompanionFinishedRuns.merged(desktop: host.finishedQuickAgents?[project.projectID] ?? [], exited: exited,
+                                            dismissed: finishedRuns.dismissed, now: Date())
+            .filter { !pendingFinishedRemovals.contains($0.target) }
+    }
+    /// The project's desktop keeps the finished list, so Dismiss and Clear all change it there.
+    func sharesFinished(_ project: CompanionProjectTarget) -> Bool {
+        hosts.first { $0.id == project.hostID }?.sharesFinishedQuick == true
+    }
+    /// Dismisses a run: on its desktop when it shares the list (gone at once, back with the reason if the desktop refuses).
+    func dismissFinished(_ target: CompanionTarget) async {
+        let project = CompanionProjectTarget(hostID: target.hostID, projectID: target.projectID)
+        await changeFinished(project, removing: [target]) { [service] id in
+            try await service.dismissFinishedQuick(target, clientCommandID: id)
+        } local: { $0.dismiss(target) }
+    }
+    /// The desktop's "Clear all", for one project.
+    func clearFinished(in project: CompanionProjectTarget) async {
+        let shown = finished(in: project).map(\.target)
+        await changeFinished(project, removing: shown) { [service] id in
+            try await service.clearFinishedQuick(project, clientCommandID: id)
+        } local: { $0.clear(project) }
+    }
+    private func changeFinished(_ project: CompanionProjectTarget, removing targets: [CompanionTarget],
+                                send: (String) async throws -> [CompanionFinishedRun], local: (inout CompanionFinishedRuns) -> Void) async {
+        guard sharesFinished(project) else { local(&finishedRuns); return }
+        guard hosts.first(where: { $0.id == project.hostID })?.connection.canOperate == true else {
+            finishedError = "Reconnect to your desktop to change its finished list."
+            return
+        }
+        finishedError = nil
+        pendingFinishedRemovals.formUnion(targets)
+        defer { pendingFinishedRemovals.subtract(targets) }
+        do {
+            let confirmed = try await send(UUID().uuidString)
+            if let index = hosts.firstIndex(where: { $0.id == project.hostID }), hosts[index].finishedQuickAgents != nil {
+                hosts[index].finishedQuickAgents?[project.projectID] = confirmed
+            }
+            // The catalog may still list an exited agent for a minute; this keeps it from coming back.
+            local(&finishedRuns)
+        } catch {
+            finishedError = error.localizedDescription
+        }
+    }
 
     /// Durable agents asleep in a project, which a first message wakes (the desktop's "Wake a sleeping agent").
     func sleepingAgents(in project: CompanionProjectTarget) -> [CompanionAgent] {

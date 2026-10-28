@@ -89,6 +89,12 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var idleDays: Int?
     /// Pins and idle projects come from the desktop. Otherwise this phone keeps its own.
     var sharesProjectState: Bool { canSyncProjectState && projectState != nil }
+    /// The desktop offers `finishedQuickAgents` v1 with `quick.dismiss` and `quick.clear`.
+    var canSyncFinishedQuick = false
+    /// Each project's "Finished, waiting on you", newest first, from the snapshot. Nil until the desktop sends it (after its one-time migration).
+    var finishedQuickAgents: [String: [CompanionFinishedRun]]?
+    /// The finished list comes from the desktop. Otherwise this phone keeps its own.
+    var sharesFinishedQuick: Bool { canSyncFinishedQuick && finishedQuickAgents != nil }
 }
 
 /// A helper start or dispose an orchestrator asked the user to decide (the snapshot's `helperRequests`).
@@ -582,6 +588,10 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func diff(of file: CompanionChangedFile, in project: CompanionProjectTarget) async throws -> CompanionFileDiff
     func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState
     func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState
+    /// Removes one run from the desktop's finished list, and returns the project's list after it.
+    func dismissFinishedQuick(_ target: CompanionTarget, clientCommandID: String) async throws -> [CompanionFinishedRun]
+    /// Empties a project's finished list on the desktop.
+    func clearFinishedQuick(_ project: CompanionProjectTarget, clientCommandID: String) async throws -> [CompanionFinishedRun]
 }
 
 @MainActor extension CompanionService {
@@ -638,5 +648,11 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
+    }
+    func dismissFinishedQuick(_ target: CompanionTarget, clientCommandID: String) async throws -> [CompanionFinishedRun] {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share its finished list with your phone.")
+    }
+    func clearFinishedQuick(_ project: CompanionProjectTarget, clientCommandID: String) async throws -> [CompanionFinishedRun] {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share its finished list with your phone.")
     }
 }

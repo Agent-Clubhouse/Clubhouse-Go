@@ -169,7 +169,7 @@ private func host(_ agents: [CompanionAgent], connection: CompanionConnection = 
 }
 
 @Suite @MainActor struct CompanionProjectPageStoreTests {
-    @Test func hostUpdatesRecordFinishedRunsAndPersistThem() {
+    @Test func hostUpdatesRecordFinishedRunsAndPersistThem() async {
         let persistence = MemoryFinished()
         let store = CompanionStore(service: ProjectPageService(), finishedPersistence: persistence)
         store.apply(.hosts([host([quick("a", finishedAgo: 30), quick("running", status: .working, exited: false, exitCode: nil)])]))
@@ -180,19 +180,19 @@ private func host(_ agents: [CompanionAgent], connection: CompanionConnection = 
         store.apply(.hosts([host([quick("a", finishedAgo: 30)])]))
         #expect(persistence.saves == saves)
 
-        store.dismissFinished(.init(hostID: "host", projectID: "project", agentID: "a"))
+        await store.dismissFinished(.init(hostID: "host", projectID: "project", agentID: "a"))
         #expect(store.finished(in: project).isEmpty)
         let relaunched = CompanionStore(service: ProjectPageService(), finishedPersistence: persistence)
         relaunched.apply(.hosts([host([quick("a", finishedAgo: 30)])]))
         #expect(relaunched.finished(in: project).isEmpty, "A dismissal is remembered across launches")
     }
 
-    @Test func runsOutliveTheDesktopForgettingTheAgent() {
+    @Test func runsOutliveTheDesktopForgettingTheAgent() async {
         let store = CompanionStore(service: ProjectPageService())
         store.apply(.hosts([host([quick("a")])]))
         store.apply(.hosts([host([])]))
         #expect(store.finished(in: project).map(\.target.agentID) == ["a"])
-        store.clearFinished(in: project)
+        await store.clearFinished(in: project)
         #expect(store.finished(in: project).isEmpty)
     }
 

@@ -87,13 +87,20 @@ struct CompanionProjectPage: View {
                     Text("Finished, waiting on you").font(.headline).foregroundStyle(Color(palette.label))
                     Text("\(runs.count)").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
                     Spacer()
-                    Button("Clear all") { withAnimation { store.clearFinished(in: project) } }
+                    Button("Clear all") { Task { await store.clearFinished(in: project) } }
                         .font(.subheadline)
                         .accessibilityIdentifier("finished-clear-all")
                 }
                 .textCase(nil)
             } footer: {
-                Text("Swipe a run to dismiss it. This list is kept on your phone.")
+                VStack(alignment: .leading, spacing: 4) {
+                    if let error = store.finishedError {
+                        Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Color(palette.warning))
+                            .accessibilityIdentifier("finished-error")
+                    }
+                    Text(store.sharesFinished(project) ? "Swipe a run to dismiss it. This list is shared with your desktop."
+                                                       : "Swipe a run to dismiss it. This list is kept on your phone.")
+                }
             }
         }
     }
@@ -111,12 +118,16 @@ struct CompanionProjectPage: View {
         .listRowBackground(CompanionCardBackground())
         .accessibilityIdentifier("finished-\(run.target.agentID)")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Dismiss", systemImage: "xmark", role: .destructive) { withAnimation { store.dismissFinished(run.target) } }
+            Button("Dismiss", systemImage: "xmark", role: .destructive) { dismiss(run) }
         }
         .contextMenu {
-            Button("Dismiss", systemImage: "xmark") { withAnimation { store.dismissFinished(run.target) } }
+            Button("Dismiss", systemImage: "xmark") { dismiss(run) }
         }
-        .accessibilityAction(named: "Dismiss") { store.dismissFinished(run.target) }
+        .accessibilityAction(named: "Dismiss") { dismiss(run) }
+    }
+
+    private func dismiss(_ run: CompanionFinishedRun) {
+        Task { await store.dismissFinished(run.target) }
     }
 
     /// Every agent except quick agents that exited: those are in Finished until dismissed.
