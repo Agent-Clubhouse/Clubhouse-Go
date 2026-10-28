@@ -3,10 +3,7 @@ import XCTest
 @MainActor final class DiagnosticSettingsTests: XCTestCase {
     func testCaptureDefaultsOffAndExportRequiresReview() {
         continueAfterFailure = false
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--diagnostics-ui-testing"]
-        app.launch()
+        let app = launchReadyApplication(arguments: ["--diagnostics-ui-testing"])
         let capture = app.descendants(matching: .any).matching(identifier: "diagnostics.capture").firstMatch
         XCTAssertTrue(capture.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["Off"].exists)

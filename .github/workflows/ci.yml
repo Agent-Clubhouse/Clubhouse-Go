@@ -41,6 +41,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # PinnedIOTests starts a Node TLS fixture through /usr/bin/env.
+      - name: Set up Node for transport TLS tests
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Report transport TLS test runtime
+        run: node --version
+
       - name: Select Xcode matching simulator runtime
         run: |
           # Find the installed iOS simulator runtime version
@@ -78,21 +87,26 @@ jobs:
 
       - name: Resolve simulator
         run: |
-          DEVICE_NAME=$(xcrun simctl list devices available -j | \
+          SIMULATOR_UDID=$(xcrun simctl list devices available -j | \
             python3 -c "
           import json, sys
           data = json.load(sys.stdin)
           for runtime in sorted(data['devices'].keys(), reverse=True):
               if 'iOS' not in runtime:
                   continue
-              for d in data['devices'][runtime]:
+              for d in sorted(data['devices'][runtime], key=lambda device: device['name']):
                   if 'iPhone' in d['name']:
-                      print(d['name'])
+                      print(d['udid'])
                       sys.exit(0)
           sys.exit(1)
           ")
-          echo "DEST=platform=iOS Simulator,name=$DEVICE_NAME" >> "$GITHUB_ENV"
-          echo "Using simulator: $DEVICE_NAME"
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "DEST=platform=iOS Simulator,id=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "Using simulator: $SIMULATOR_UDID"
+
+      - name: Wait for simulator boot
+        timeout-minutes: 5
+        run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
       - name: Build for testing
         run: |
