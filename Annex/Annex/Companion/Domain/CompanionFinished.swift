@@ -1,10 +1,12 @@
 import Foundation
+import Markdown
 
 /// A quick agent that has exited, kept until it's dismissed: one row of the desktop's "Finished, waiting on you"
 /// (Clubhouse `ProjectStartPage.tsx`, `quickAgentStore.ts`).
 ///
-/// The desktop keeps its list in its own window, not on the Annex surface, and forgets a quick agent a minute after
-/// it exits. So the phone keeps its own list of the quick agents it saw exit, under the desktop's rules.
+/// A desktop that offers `finishedQuickAgents` (Clubhouse #2468) sends its own list in the snapshot, and the phone
+/// shows that. Older desktops keep the list in their window and forget a quick agent a minute after it exits, so
+/// there the phone keeps its own list of the quick agents it saw exit, under the desktop's rules.
 struct CompanionFinishedRun: Codable, Identifiable, Sendable, Equatable {
     var target: CompanionTarget
     var name: String
@@ -13,21 +15,40 @@ struct CompanionFinishedRun: Codable, Identifiable, Sendable, Equatable {
     var exitCode: Int?
     var status: CompanionAgentStatus
     var completedAt: Date
+    /// The agent's own summary, in Markdown. Only the desktop's list has it.
+    var summary: String?
     var id: CompanionTarget { target }
 
     /// The desktop shows the mission, or the name when there is none.
     var title: String { mission.isEmpty ? name : mission }
-    /// The desktop's second line is "Exited with code N" for a non-zero exit, else the agent's summary or its file
-    /// count. Neither of those reaches the phone, so a clean exit just says it finished.
+    /// The desktop's second line is "Exited with code N" for a non-zero exit, else the agent's summary as plain text.
+    /// The desktop falls back to a file count, which doesn't reach the phone, so a run without a summary says it finished.
     var detail: String {
+        if status == .stopped { return "Cancelled" }
         if let exitCode, exitCode != 0 { return "Exited with code \(exitCode)" }
-        switch status {
-        case .failed: return "Stopped with an error"
-        case .stopped: return "Cancelled"
-        default: return "Finished"
-        }
+        if status == .failed { return "Stopped with an error" }
+        return summary.map(Self.plainText).flatMap { $0.isEmpty ? nil : $0 } ?? "Finished"
     }
-    var failed: Bool { (exitCode ?? 0) != 0 || status == .failed }
+    /// A non-zero exit, unless the user stopped it.
+    var failed: Bool { status != .stopped && ((exitCode ?? 0) != 0 || status == .failed) }
+
+    /// Markdown as one line of text, as the desktop's `markdownToPlainText`: formatting, links and code fences dropped.
+    static func plainText(_ markdown: String) -> String {
+        var words: [String] = []
+        func walk(_ markup: any Markup) {
+            switch markup {
+            case let text as Text: words.append(text.string)
+            case let code as InlineCode: words.append(code.code)
+            case let block as CodeBlock: words.append(block.code)
+            case is SoftBreak, is LineBreak: words.append(" ")
+            default:
+                for child in markup.children { walk(child) }
+                if markup is BlockMarkup { words.append(" ") }
+            }
+        }
+        walk(Document(parsing: markdown))
+        return words.joined().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
 
     /// The desktop's `ago`: "just now", then minutes, hours and days, each rounded.
     static func ago(_ date: Date, now: Date) -> String {
@@ -52,6 +73,18 @@ struct CompanionFinishedRuns: Codable, Sendable, Equatable {
 
     /// A quick agent whose process has exited, however it ended.
     static func hasFinished(_ agent: CompanionAgent) -> Bool { agent.isQuick && agent.hasExited }
+
+    /// A project's list when its desktop shares one: the desktop's entries in its order, then any quick agent the phone
+    /// has seen exit that the desktop hasn't listed yet (its snapshot follows the exit). For an agent in both, the desktop's
+    /// entry wins. Agents dismissed on this phone stay out.
+    static func merged(desktop: [CompanionFinishedRun], exited agents: [CompanionAgent], dismissed: [CompanionTarget], now: Date) -> [CompanionFinishedRun] {
+        let listed = Set(desktop.map(\.target))
+        var extra = CompanionFinishedRuns()
+        for agent in agents where !listed.contains(agent.id) && !dismissed.contains(agent.id) { extra.record(agent, now: now) }
+        var runs = desktop
+        for run in extra.runs { runs.insert(run, at: runs.firstIndex { $0.completedAt <= run.completedAt } ?? runs.endIndex) }
+        return runs
+    }
 
     func runs(in project: CompanionProjectTarget) -> [CompanionFinishedRun] {
         runs.filter { $0.target.hostID == project.hostID && $0.target.projectID == project.projectID }

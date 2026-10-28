@@ -29,6 +29,11 @@ private actor LiveTestTransport: AnnexTransporting {
     func acceptCommands() { rejectNext = false }
     private var helperRequests = false
     func enableHelperRequests() { helperRequests = true }
+    private var finishedQuick = false
+    func enableFinishedQuick() { finishedQuick = true }
+    /// The `result` of the next command that succeeds.
+    private var nextResult: AnnexJSON?
+    func setNextResult(_ value: AnnexJSON) { nextResult = value }
 
     func delaySubscription() { holdEvents = true }
     func releaseSubscription() { holdEvents = false; eventsWaiting = false; eventsGate?.resume(); eventsGate = nil }
@@ -67,8 +72,10 @@ private actor LiveTestTransport: AnnexTransporting {
         case .capabilities:
             return .object(["version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"),
                             "controlAvailable": .bool(true), "idempotency": .object(["scope": .string("client"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
-                            "commands": .array([.string("chat.send"), .string("agent.start")] + (helperRequests ? [.string("helper.approve"), .string("helper.decline")] : [])),
-                            "helperRequests": helperRequests ? .object(["version": .integer(1), "snapshotField": .string("helperRequests")]) : .null])
+                            "commands": .array([.string("chat.send"), .string("agent.start")] + (helperRequests ? [.string("helper.approve"), .string("helper.decline")] : [])
+                                               + (finishedQuick ? [.string("quick.dismiss"), .string("quick.clear")] : [])),
+                            "helperRequests": helperRequests ? .object(["version": .integer(1), "snapshotField": .string("helperRequests")]) : .null,
+                            "finishedQuickAgents": finishedQuick ? .object(["version": .integer(1)]) : .null])
         case .projects:
             if holdProjects {
                 projectsWaiting = true
@@ -102,7 +109,9 @@ private actor LiveTestTransport: AnnexTransporting {
         let status = rejectNext ? "rejected" : "completed"
         rejectNext = false
         let value: AnnexJSON = .object(["version": .integer(1), "epoch": .string("epoch"), "commandId": .string(command.commandID),
-            "status": .string(status), "error": status == "rejected" ? .object(["code": .string("busy"), "message": .string("Try later")]) : .null])
+            "status": .string(status), "error": status == "rejected" ? .object(["code": .string("busy"), "message": .string("Try later")]) : .null,
+            "result": status == "completed" ? (nextResult ?? .null) : .null])
+        if status == "completed" { nextResult = nil }
         let receipt = try value.decode(AnnexCommandReceipt.self)
         commands[command.commandID] = receipt
         return receipt
@@ -142,6 +151,41 @@ private actor LiveTestTransport: AnnexTransporting {
 
 
     /// Helper requests come in the WebSocket snapshot, survive a REST refresh, and are answered with helper.approve.
+    @Test func theDesktopsFinishedListComesFromTheSnapshotAndDismissSendsQuickDismiss() async throws {
+        let transport = LiveTestTransport()
+        await transport.enableFinishedQuick()
+        await transport.acceptCommands()
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        let project = CompanionProjectTarget(hostID: target.hostID, projectID: "project")
+        func entry(_ id: String, at ms: Int64) -> AnnexJSON {
+            .object(["agentId": .string(id), "name": .string(id), "prompt": .string("Task \(id)"), "summary": .null,
+                     "exitCode": .integer(0), "finishedAt": .integer(ms)])
+        }
+        func snapshot(_ list: [AnnexJSON]?) -> AnnexTransportEvent {
+            var payload: [String: AnnexJSON] = ["projects": .array([.object(["id": .string("project"), "name": .string("Project")])]),
+                                                "agents": .object(["project": .array([])])]
+            if let list { payload["finishedQuickAgents"] = .object(["project": .array(list)]) }
+            return .message(.init(type: "snapshot", payload: .object(payload)))
+        }
+        // Not migrated yet: the field is absent, so the phone keeps its own list.
+        await transport.emit(snapshot(nil))
+        try await waitUntil { store.hosts.first?.canSyncFinishedQuick == true && store.hosts.first?.projects.isEmpty == false }
+        #expect(!store.sharesFinished(project))
+
+        await transport.emit(snapshot([entry("q2", at: 1_800_000_060_000), entry("q1", at: 1_800_000_000_000)]))
+        try await waitUntil { store.sharesFinished(project) }
+        #expect(store.finished(in: project).map(\.target.agentID) == ["q2", "q1"])
+
+        await transport.setNextResult(.object(["projectId": .string("project"), "finishedQuickAgents": .array([entry("q1", at: 1_800_000_000_000)])]))
+        await store.dismissFinished(.init(hostID: target.hostID, projectID: "project", agentID: "q2"))
+        let sent = await transport.executedCommands.last
+        #expect(sent?.kind == .dismissFinishedQuick(projectID: "project", agentID: "q2"))
+        #expect(store.finished(in: project).map(\.target.agentID) == ["q1"], "The desktop's reply is the list until the next snapshot")
+        #expect(store.finishedError == nil)
+    }
+
     @Test func helperRequestsFromTheSnapshotAreAnswered() async throws {
         let transport = LiveTestTransport()
         await transport.enableHelperRequests()

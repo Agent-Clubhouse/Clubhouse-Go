@@ -310,6 +310,7 @@ enum CompanionAgentCommandError {
         case "helper_request_not_found": return "This request was already answered, or what it would change has changed. Check Needs you again."
         case "project_pinned": return "Unpin this project before marking it inactive."
         case "project_state_unavailable": return "Your desktop is still setting up shared pins. Try again in a moment."
+        case "finished_quick_agents_unavailable": return "Your desktop is still setting up its finished list. Try again in a moment."
         default:
             if code.hasPrefix("invalid_") { return detail ?? "The desktop couldn't accept these settings." }
             return CompanionChatControlError.message(code: code)
