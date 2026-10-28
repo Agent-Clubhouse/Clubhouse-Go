@@ -8,6 +8,7 @@ import FramebriarUI
 struct FramebriarShakePreview: View {
     @State private var model: FeedbackModel
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
+    @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
     @State private var showingSettings = false
     @State private var showingOther = false
     @State private var lastResponder = "none"
@@ -18,6 +19,7 @@ struct FramebriarShakePreview: View {
     // fixture once per process, never overwrite the user's toggle on recreation.
     private static let initializePreference: Void = {
         UserDefaults.standard.set(true, forKey: CompanionFeedback.shakePreferenceKey)
+        UserDefaults.standard.set(true, forKey: CompanionFeedback.shakeScreenshotPreferenceKey)
     }()
     init() {
         _ = Self.initializePreference
@@ -30,7 +32,8 @@ struct FramebriarShakePreview: View {
     }
     var body: some View {
         fixtureRoot
-        .shakeToOpenFeedback(model: model, enabled: enabled, isPresenting: showingSettings || showingOther)
+        .shakeToOpenFeedback(model: model, enabled: enabled, isPresenting: showingSettings || showingOther,
+                             captureScreen: captureScreen)
         .shakeToExplainFeedbackEnrollment(model: model, enabled: $enabled, isPresenting: showingSettings || showingOther)
         .sheet(isPresented: $showingSettings) {
             NavigationStack {

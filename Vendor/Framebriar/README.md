@@ -44,7 +44,7 @@ Render expired/access-required/offline notices outside Settings, including after
 
 ## Explicit submission without SwiftUI
 
-1. Obtain the user's notes and, optionally, an image they chose to attach. Do not take a screenshot in the background, on errors, on shake, or when opening feedback.
+1. Obtain the user's notes and, optionally, an image to attach: one they chose, or a screen capture taken on an explicit user gesture (the optional shake shortcut below). Do not take a screenshot in the background, on errors, or on a timer. A capture stays on the device until the user reviews and submits it.
 2. Create a `ReviewedFeedback`. Present its sanitized `notes` and exact `screenshotPNG` for review. Redaction is conservative and cannot detect every secret; the user must check their text and image. The optional UI decodes and re-encodes selected images to PNG to remove metadata. A custom host must sanitize metadata before constructing the review object.
 3. On the user's Submit tap call `enqueue(reviewed)`. It returns only after the atomic local write succeeds. Retain the **same object and UUID** on a failed or uncertain save. Do not claim delivery when it is only saved locally.
 4. Foreground `flush()` delivers later. `status().lastReceivedID` is set only after a matching server receipt and successful local removal. It is an in-memory latest receipt, not a persistent delivery history.
@@ -56,7 +56,7 @@ let reviewed = try ReviewedFeedback(configuration: config,
 let reportID = try await client.enqueue(reviewed)
 ```
 
-Without optional reviewed incident references, each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp and random report/session identifiers. `seed` is null and `breadcrumbs` is empty. No automatic capture, prompts, conversations, agent output, logs, telemetry, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
+Without optional reviewed incident references, each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp and random report/session identifiers. `seed` is null and `breadcrumbs` is empty. No background capture, prompts, conversations, agent output, logs, telemetry, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
 
 ## Enrollment and transport
 
@@ -87,24 +87,37 @@ npm run check && npm test
 python3 scripts/native-pin.py --check
 ```
 
-The Swift tests use synthetic credentials, injected clocks and in-memory transports; they do not contact the service. A shared fixture checks the Swift report against the actual JS service normalizer. Tests cover text/image flows, same-UUID recovery, invite attempt reuse, early renewal/fixed deadlines, rejection, pause/disconnect races, expiry, storage failure, item/byte bounds, redaction, corrupt local files and durable backoff. Full live enrollment, issuer state, real-device Keychain/protection behavior, physical-device UI, provisioning and release remain separate approval/validation gates.
+The Swift tests use synthetic credentials, injected clocks and in-memory transports; they do not contact the service. A shared fixture checks the Swift report against the actual JS service normalizer. Tests cover the shake screenshot policy (secure-field suppression, pixel/byte caps and downscaling, composer pre-fill validation), text/image flows, same-UUID recovery, invite attempt reuse, early renewal/fixed deadlines, rejection, pause/disconnect races, expiry, storage failure, item/byte bounds, redaction, corrupt local files and durable backoff. Full live enrollment, issuer state, real-device Keychain/protection behavior, physical-device UI, provisioning and release remain separate approval/validation gates.
 
 ## Optional shake shortcut
 
-Settings → Send feedback is always available to eligible enrolled users. To also use UIKit's shake gesture, install `shakeToOpenFeedback(model:enabled:isPresenting:)` once at the scene root. It opens the same **empty composer**, never a captured screen and never a submission. The core package does not depend on motion APIs; this is entirely optional `FramebriarUI` behavior.
+Settings → Send feedback is always available to eligible enrolled users. To also use UIKit's shake gesture, install `shakeToOpenFeedback(model:enabled:isPresenting:captureScreen:)` once at the scene root. It opens the same composer, never a submission. By default (`captureScreen: true`) it captures the screen that was showing and pre-attaches it for review. The core package does not depend on motion APIs; this is entirely optional `FramebriarUI` behavior.
 
 ```swift
 @AppStorage("feedback.shakeEnabled") private var shakeEnabled = true
+@AppStorage("feedback.shakeCapturesScreen") private var shakeCapturesScreen = true
 // In Settings:
 Toggle("Shake to open feedback", isOn: $shakeEnabled)
+Toggle("Attach a screenshot when you shake", isOn: $shakeCapturesScreen)
 // On the scene's root view:
 content.shakeToOpenFeedback(model: feedback, enabled: shakeEnabled,
-                           isPresenting: showingSettings || showingPairing || showingError)
+                           isPresenting: showingSettings || showingPairing || showingError,
+                           captureScreen: shakeCapturesScreen)
 ```
 
 Pass all host presentation flags to cover the time before UIKit begins presenting. The receiver also checks UIKit's window/controller tree for nested presentations and checks for active text input. It does not steal the keyboard's first responder, swizzle UIApplication, collect motion samples, add analytics, or transmit anything. It is active only in the foreground and only while `canSubmit` is true (including previously enrolled users saving offline/expired feedback locally). Never-enrolled users cannot open the composer by shaking.
 
-Repeated motion is debounced for two seconds; known presentation/dismissal boundaries restart that delay. The SDK does not enable a preference by itself: the host supplies `enabled`. Clubhouse Go defaults this local shortcut on for eligible enrolled users and supplies a persistent Settings toggle to disable it. The existing Settings entry remains usable when disabled. A screenshot must still be explicitly picked, displayed, removable, and reviewed before Submit; notes and attachments start empty every time.
+Repeated motion is debounced for two seconds; known presentation/dismissal boundaries restart that delay. The SDK does not enable a preference by itself: the host supplies `enabled`. Clubhouse Go defaults this local shortcut on for eligible enrolled users and supplies a persistent Settings toggle to disable it. The existing Settings entry remains usable when disabled. Notes start empty every time.
+
+### Shake screenshot
+
+On a recognised shake, and before the composer is presented, the SDK renders the key window with `UIGraphicsImageRenderer` and `drawHierarchy(in:afterScreenUpdates: false)`, so the composer itself is never in the image. `ShakeScreenshot` encodes it as a metadata-free PNG within the report limits (8 MiB, at most 20 MP and 8192 px per side), downscaling if needed; if it cannot fit, no image is attached.
+
+- The capture happens **on the device** and is held only in memory by the composer. It is not written to the queue or sent anywhere until the user taps **Submit reviewed feedback**.
+- `FeedbackView(model:initialScreenshotPNG:)` shows it pre-attached for review, with **Remove attachment**. The user can replace it from Photos. Cancelling the composer discards it.
+- No capture is taken while a secure text field is first responder. (The shortcut already ignores shakes during text input; this is a second check.)
+- Pass `captureScreen: false` to open an empty composer instead. Hosts should expose this as a setting, e.g. "Attach a screenshot when you shake", and pass `false` for scenes that should never be captured.
+- Screen pixels can contain private text, and redaction is not image OCR: the user must review the image before submitting.
 
 ## Independent incident correlation (v1)
 
