@@ -222,13 +222,16 @@ struct CompanionConversationView: View {
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
             .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
-            // Follow from the scroll position, not the end marker's appear and disappear: under a reply taller than the
-            // screen the lazy stack kept realising and dropping the marker as it re-estimated, and each flip re-rendered
-            // the conversation, which never settled (#180).
-            .onScrollGeometryChange(for: Bool.self) { geometry in
-                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
-            } action: { _, atLatest in
-                if followLatest != atLatest { followLatest = atLatest }
+            // Your dragging stops following and reaching the latest resumes it, rather than the end marker's appear and
+            // disappear: under a reply taller than the screen the lazy stack kept realising and dropping the marker as it
+            // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
+            // keyboard and the composer resizing don't stop following.
+            .onScrollPhaseChange { _, phase, context in
+                if phase == .interacting, followLatest { followLatest = false }
+                if phase == .idle, !followLatest, Self.isAtLatest(context.geometry) { followLatest = true }
+            }
+            .onScrollGeometryChange(for: Bool.self, of: Self.isAtLatest) { _, atLatest in
+                if atLatest, !followLatest { followLatest = true }
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
@@ -251,6 +254,10 @@ struct CompanionConversationView: View {
                 proxy.scrollTo("latest", anchor: .bottom)
             }
         }
+    }
+
+    private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
+        geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
     }
 
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
