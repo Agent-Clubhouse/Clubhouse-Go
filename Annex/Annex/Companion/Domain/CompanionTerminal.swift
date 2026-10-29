@@ -110,7 +110,7 @@ struct CompanionTerminalColors: Equatable, Sendable {
     /// The desktop's colors, completed from `theme` where they're missing or unreadable.
     init(colors: [String: String], theme: CompanionDesktopTheme) {
         let fallback = Self.derived(from: theme)
-        func color(_ key: String, _ otherwise: CompanionRGB) -> CompanionRGB { colors[key].flatMap(CompanionRGB.init(hex:)) ?? otherwise }
+        func color(_ key: String, _ otherwise: CompanionRGB) -> CompanionRGB { colors[key].flatMap { CompanionRGB(hex: $0) } ?? otherwise }
         self.init(background: color("background", fallback.background), foreground: color("foreground", fallback.foreground),
                   cursor: color("cursor", fallback.cursor), selection: color("selectionBackground", fallback.selection),
                   ansi: Self.ansiKeys.enumerated().map { color($1, fallback.ansi[$0]) })

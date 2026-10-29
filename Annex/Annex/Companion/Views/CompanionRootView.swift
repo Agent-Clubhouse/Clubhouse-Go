@@ -17,6 +17,7 @@ struct CompanionRootView: View {
     @State private var settingsTarget: CompanionTarget?
     @State private var detailsTarget: CompanionTarget?
     @State private var review: CompanionReviewLaunch?
+    @State private var terminal: CompanionTerminalScope?
     @State private var decisions: CompanionDecisionQueue
 
     init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false) {
@@ -58,6 +59,11 @@ struct CompanionRootView: View {
         .environment(\.companionAgentWake, .init(choices: { [store] in store.mayWake($0) ? store.wakeChoices(for: $0) : [] },
                                                    wake: { [store] target, choice in Task { await store.wake(target, choice) } }))
         .environment(\.companionOpenReview) { review = $0 }
+        .environment(\.companionTerminal, .init(availability: { [store] in store.terminalAvailability($0) }, open: { terminal = $0 }))
+        .fullScreenCover(item: $terminal) { scope in
+            CompanionTerminalScreenView(store: store, scope: scope)
+                .companionTheme(preferences.theme(forHost: scope.hostID, hosts: store.hosts))
+        }
         .fullScreenCover(item: $review) { launch in
             CompanionReviewView(store: store, launch: launch, theme: { [store, preferences] in preferences.theme(forHost: $0.hostID, hosts: store.hosts) }) { target in
                 review = nil
@@ -435,6 +441,7 @@ struct CompanionHomeView: View {
                     change(local: { preferences.markInactive(key) }, remote: { await store.setProject(project, inactive: true) })
                 }
             }
+            Section { CompanionTerminalMenuItem(scope: .project(project)) }
         } label: {
             Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
         }
