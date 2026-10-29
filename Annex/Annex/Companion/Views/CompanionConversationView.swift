@@ -352,6 +352,8 @@ struct CompanionConversationView: View {
                         // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                         .fixedSize(horizontal: false, vertical: true)
+                        // Pasted or dropped images join the attachments; text pastes as usual.
+                        .background(CompanionComposerPasteHook(handle: pasteImages))
                         .padding(.vertical, 12).padding(.leading, attachmentLimits == nil ? 16 : 2)
                         // One line is centred in the row; longer drafts grow upward with Send on the last line.
                         .frame(minHeight: composerRowHeight)
@@ -375,6 +377,11 @@ struct CompanionConversationView: View {
                     .frame(height: composerRowHeight)
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                // Images dragged in on iPad join the attachments like pasted ones.
+                .onDrop(of: CompanionPastedImages.acceptedTypes, isTargeted: nil) { providers in
+                    Task { _ = await pasteImages(providers) }
+                    return true
+                }
             }
             composerCaption
         }
@@ -387,6 +394,16 @@ struct CompanionConversationView: View {
             guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
             showRefreshing = true
         }
+    }
+
+    /// Adds the images among pasted or dropped items, or explains why it can't, and returns which items it used.
+    private func pasteImages(_ providers: [NSItemProvider]) async -> [Bool] {
+        let limits = attachmentLimits
+        let remaining = (limits?.maxCount ?? 0) - (store.attachmentDrafts[target]?.count ?? 0)
+        let batch = await CompanionPastedImages.attachments(from: providers, limits: limits, remaining: remaining)
+        store.addAttachments(batch.images, to: target)
+        if let problem = batch.problem { store.reportAttachmentProblem(problem, target: target) }
+        return batch.tookItem
     }
 
     /// The send button with its padding, or one line of text with the field's padding if that is taller.

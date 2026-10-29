@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 /// Turns pasted or dropped items into attachments. An item that carries an image, as data or as an image file,
 /// is processed like a picked photo; text, links and other files are left for the text field to paste as usual.
 enum CompanionPastedImages {
-    /// What the composer accepts besides text, so the field offers Paste and takes drops when only an image is on the pasteboard.
+    /// What the composer accepts when something is dropped on it: images, and files that may be images.
     static let acceptedTypes: [UTType] = [.image, .fileURL]
 
     enum Content: Equatable, Sendable {
