@@ -62,6 +62,22 @@ enum CompanionImageProcessor {
         throw Failure.tooLarge
     }
 
+    /// Processes several images off the main thread. `problem` describes any that couldn't be added, counting
+    /// `alreadyFailed` items whose bytes never loaded.
+    static func processAll(_ sources: [Data], limits: CompanionAttachmentLimits, alreadyFailed: Int = 0) async -> (images: [CompanionImageAttachment], problem: String?) {
+        // Decoding and re-encoding full-size photos stays off the main thread.
+        let results = await Task.detached(priority: .userInitiated) {
+            sources.map { data in Result { try process(data, limits: limits) } }
+        }.value
+        let failures = results.compactMap { result -> Error? in if case .failure(let error) = result { error } else { nil } }
+        var problem: String?
+        if let failure = failures.first ?? (alreadyFailed > 0 ? Failure.unreadable : nil) {
+            let count = failures.count + alreadyFailed
+            problem = count == 1 ? failure.localizedDescription : "\(count) images couldn't be added. \(failure.localizedDescription)"
+        }
+        return (results.compactMap { try? $0.get() }, problem)
+    }
+
     private static func encode(_ image: CGImage, mimeType: String, quality: Double) throws -> Data {
         let output = NSMutableData()
         let type = mimeType == "image/png" ? UTType.png : UTType.jpeg

@@ -57,17 +57,9 @@ struct CompanionAttachButton: View {
     private func add(_ sources: [Data], alreadyFailed: Int = 0) async {
         processing = true
         defer { processing = false }
-        let limits = limits
-        // Decoding and re-encoding full-size photos stays off the main thread.
-        let results = await Task.detached(priority: .userInitiated) {
-            sources.map { data in Result { try CompanionImageProcessor.process(data, limits: limits) } }
-        }.value
-        store.addAttachments(results.compactMap { try? $0.get() }, to: target)
-        let failures = results.compactMap { result -> Error? in if case .failure(let error) = result { error } else { nil } }
-        if let failure = failures.first ?? (alreadyFailed > 0 ? CompanionImageProcessor.Failure.unreadable : nil) {
-            let count = failures.count + alreadyFailed
-            store.reportAttachmentProblem(count == 1 ? failure.localizedDescription : "\(count) images couldn't be added. \(failure.localizedDescription)", target: target)
-        }
+        let processed = await CompanionImageProcessor.processAll(sources, limits: limits, alreadyFailed: alreadyFailed)
+        store.addAttachments(processed.images, to: target)
+        if let problem = processed.problem { store.reportAttachmentProblem(problem, target: target) }
     }
 }
 
