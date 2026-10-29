@@ -19,8 +19,7 @@ final class CompanionComposerPasteUITests: ReliableUITestCase {
         scrollUntilExists(agent, in: app)
         XCTAssertTrue(agent.waitForExistence(timeout: 15), "\(identifier) must appear")
         scrollTo(agent, in: app)
-        // The field itself: a container with the same identifier isn't hittable, so it can't be tapped again.
-        let composer = app.textFields["companion-composer"]
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         waitAndTap(agent, until: composer, timeout: 10, "Opening the agent shows the composer")
         return composer
     }

@@ -352,8 +352,6 @@ struct CompanionConversationView: View {
                         // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                         .fixedSize(horizontal: false, vertical: true)
-                        // Pasted or dropped images join the attachments; text pastes as usual.
-                        .background(CompanionComposerPasteHook(handle: pasteImages))
                         .padding(.vertical, 12).padding(.leading, attachmentLimits == nil ? 16 : 2)
                         // One line is centred in the row; longer drafts grow upward with Send on the last line.
                         .frame(minHeight: composerRowHeight)
@@ -361,6 +359,9 @@ struct CompanionConversationView: View {
                         .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
                         .accessibilityHint("Runs on your desktop. Command Return sends the message.")
                         .accessibilityIdentifier("companion-composer")
+                        // Pasted or dropped images join the attachments; text pastes as usual. Added after the
+                        // accessibility modifiers so the hook doesn't appear as a second composer element.
+                        .background(CompanionComposerPasteHook(handle: pasteImages).accessibilityHidden(true))
                     Button {
                         Task { await store.sendDraft(to: target) }
                     } label: {
