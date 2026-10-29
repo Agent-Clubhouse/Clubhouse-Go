@@ -8,6 +8,7 @@ import ClubhouseTransport
 @MainActor @Observable final class CompanionRuntime {
     let telemetryExporter = AnnexOTLPExporter()
     let feedback: FeedbackModel?
+    let feedbackPresenter: CompanionFeedbackPresenter
     let service: CompanionLiveService
     let store: CompanionStore
     let registry: AnnexTransportRegistry
@@ -22,6 +23,7 @@ import ClubhouseTransport
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
+        self.feedbackPresenter = CompanionFeedbackPresenter(model: feedback)
         self.registry = registry
         // Integration runs keep their sort, order and theme choices out of the real app's defaults.
         self.preferences = persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard)
@@ -175,6 +177,7 @@ struct CompanionAppRoot: View {
     var body: some View {
         ZStack {
             CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+                .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))

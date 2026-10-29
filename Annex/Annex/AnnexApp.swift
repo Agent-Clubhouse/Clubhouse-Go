@@ -36,6 +36,7 @@ struct ClubhouseGoApp: App {
         if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
             UIView.setAnimationsEnabled(false)
         }
+        CompanionShakeDiagnostics.install()
         #endif
         _ = AnnexDiagnosticSettings.shared
         AnnexTelemetry.shared.record(.appLaunch)

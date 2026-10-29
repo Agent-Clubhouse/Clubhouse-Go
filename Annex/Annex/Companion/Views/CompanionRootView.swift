@@ -175,6 +175,7 @@ struct CompanionHomeView: View {
     @State private var openFolds: Set<String> = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.companionSendFeedback) private var sendFeedback
 
     private var multipleHosts: Bool { store.hosts.count > 1 }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
@@ -215,6 +216,14 @@ struct CompanionHomeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Settings", systemImage: "gearshape", action: onSettings)
+            }
+            if let sendFeedback {
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu {
+                        Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback)
+                    } label: { Label("More", systemImage: "ellipsis") }
+                    .accessibilityIdentifier("home-more-menu")
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
