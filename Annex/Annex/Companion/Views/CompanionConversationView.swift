@@ -15,6 +15,7 @@ struct CompanionConversationView: View {
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionAgentSettings) private var agentSettings
+    @Environment(\.companionSendFeedback) private var sendFeedback
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
 
@@ -72,6 +73,7 @@ struct CompanionConversationView: View {
                             Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
                                 .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
                         }
+                        if let sendFeedback { Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback) }
                     } label: { Label("Conversation actions", systemImage: "ellipsis") }
                 }
             }

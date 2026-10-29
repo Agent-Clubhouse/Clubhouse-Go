@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import os
 import Framebriar
 import FramebriarUI
 import ClubhouseTransport
@@ -48,6 +49,7 @@ struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
+    @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
     static func label(_ access: AccessState) -> String {
         switch access {
         case .connected: "Connected"
@@ -72,11 +74,12 @@ struct CompanionFeedbackSettings: View {
             }
             Toggle("Shake to open feedback", isOn: $shakeEnabled)
             Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)
+            Toggle("Offer feedback when you take a screenshot", isOn: $screenshotOffersFeedback)
             if let model, model.status != nil, model.status?.canSubmit != true {
                 Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
                     .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
             }
-            Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. No screenshot is taken while a password field is in use. You can also use Send feedback in Settings.")
+            Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Only submitted notes, an optional reviewed image (including a shake screenshot you kept) and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -184,9 +187,16 @@ private struct EnrollmentShakeReceiver: UIViewControllerRepresentable {
             guard let window = viewIfLoaded?.window, window.isKeyWindow,
                   window.windowScene?.activationState == .foregroundActive,
                   !Self.hasPresentation(window.rootViewController), !Self.isEditing(window) else { return false }
-            return isFirstResponder || becomeFirstResponder()
+            let claimed = isFirstResponder || becomeFirstResponder()
+            #if DEBUG
+            CompanionShakeDiagnostics.log.notice("enrollment receiver claim -> \(claimed)")
+            #endif
+            return claimed
         }
         override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+            #if DEBUG
+            CompanionShakeDiagnostics.log.notice("enrollment receiver motionEnded eligible=\(self.eligible)")
+            #endif
             guard motion == .motionShake, eligible, let onShake else { super.motionEnded(motion, with: event); return }
             onShake()
         }

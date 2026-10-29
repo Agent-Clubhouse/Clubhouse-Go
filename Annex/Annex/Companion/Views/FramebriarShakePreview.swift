@@ -7,6 +7,8 @@ import FramebriarUI
 /// Accessible only through the explicit debug launch flag; no paired desktop or Keychain is read.
 struct FramebriarShakePreview: View {
     @State private var model: FeedbackModel
+    @State private var presenter: CompanionFeedbackPresenter
+    @State private var password = ""
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
     @State private var showingSettings = false
@@ -20,21 +22,28 @@ struct FramebriarShakePreview: View {
     private static let initializePreference: Void = {
         UserDefaults.standard.set(true, forKey: CompanionFeedback.shakePreferenceKey)
         UserDefaults.standard.set(true, forKey: CompanionFeedback.shakeScreenshotPreferenceKey)
+        UserDefaults.standard.set(true, forKey: CompanionScreenshotFeedback.preferenceKey)
     }()
     init() {
         _ = Self.initializePreference
-        let transport = PreviewFeedbackTransport()
+        let (model, transport) = Self.fixtureModel(enrolled: !ProcessInfo.processInfo.arguments.contains("--framebriar-shake-unenrolled"))
         self.transport = transport
+        _model = State(initialValue: model)
+        _presenter = State(initialValue: CompanionFeedbackPresenter(model: model))
+    }
+    /// In-memory enrollment and outbox; the transport counts requests and never opens a socket.
+    static func fixtureModel(enrolled: Bool) -> (FeedbackModel, PreviewFeedbackTransport) {
+        let transport = PreviewFeedbackTransport()
         let client = try! Client(configuration: Configuration(gameID: "simulator-fixture"), transport: transport,
-                                 enrollmentStore: PreviewEnrollment(enrolled: !ProcessInfo.processInfo.arguments.contains("--framebriar-shake-unenrolled")),
-                                 feedbackStore: PreviewQueue())
-        _model = State(initialValue: FeedbackModel(client: client))
+                                 enrollmentStore: PreviewEnrollment(enrolled: enrolled), feedbackStore: PreviewQueue())
+        return (FeedbackModel(client: client), transport)
     }
     var body: some View {
         fixtureRoot
         .shakeToOpenFeedback(model: model, enabled: enabled, isPresenting: showingSettings || showingOther,
                              captureScreen: captureScreen)
         .shakeToExplainFeedbackEnrollment(model: model, enabled: $enabled, isPresenting: showingSettings || showingOther)
+        .companionFeedbackEntryPoints(presenter)
         .sheet(isPresented: $showingSettings) {
             NavigationStack {
                 Form { CompanionFeedbackSettings(model: model) }
@@ -82,6 +91,11 @@ struct FramebriarShakePreview: View {
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
         Button("Settings") { showingSettings = true }
         Button("Present other screen") { showingOther = true }
+        // What iOS posts after the side and volume buttons take a screenshot.
+        Button("Simulate screenshot") {
+            NotificationCenter.default.post(name: UIApplication.userDidTakeScreenshotNotification, object: UIApplication.shared)
+        }.accessibilityIdentifier("fixture-screenshot")
+        SecureField("Fixture password", text: $password)
     }
 }
 
@@ -116,7 +130,7 @@ private final class PreviewQueue: FeedbackStore, @unchecked Sendable {
     nonisolated func load(scope: String) throws -> [QueuedFeedback] { lock.withLock { items } }
     nonisolated func save(_ items: [QueuedFeedback], scope: String) throws { lock.withLock { self.items = items } }
 }
-private final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
+final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
     nonisolated private let lock = NSLock()
     nonisolated(unsafe) private var requests = 0
     nonisolated var count: Int { lock.withLock { requests } }
