@@ -121,7 +121,8 @@ struct CompanionMessageView: View {
 }
 
 /// Native text remains selectable and accessible. Block Markdown (headings, lists, quotes, rules, GFM tables)
-/// maps to SwiftUI views; fenced code and tables scroll horizontally instead of widening the conversation.
+/// maps to SwiftUI views; fenced code and tables scroll horizontally instead of widening the conversation,
+/// and open full screen when tapped.
 struct CompanionRichText: View {
     let text: String
     var isStreaming = false
@@ -216,86 +217,27 @@ struct CompanionMarkdownListView: View {
     }
 }
 
-/// A GFM table in a horizontally scrolling `Grid`. Long cells wrap at a readable width rather than
-/// stretching a column off screen. VoiceOver reads it row by row, pairing each cell with its column.
+/// A GFM table that scrolls sideways when it is wide and grows to fit its rows. Tap it to open it full screen.
 struct CompanionMarkdownTableView: View {
     let table: CompanionMarkdownTable
-    @ScaledMetric(relativeTo: .body) private var maxCellWidth: CGFloat = 240
     var body: some View {
-        ScrollView(.horizontal) {
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    ForEach(0..<table.columnCount, id: \.self) { column in
-                        cell(table.header[column], column: column).font(.subheadline.weight(.semibold))
-                            .gridColumnAlignment(Self.horizontal(table.alignments[column]))
-                    }
-                }
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
-                    Divider().gridCellUnsizedAxes(.horizontal)
-                    GridRow {
-                        ForEach(0..<table.columnCount, id: \.self) { column in
-                            cell(row[column], column: column).font(.subheadline)
-                        }
-                    }
-                }
-            }
-            .padding(12)
+        CompanionMarkdownBlockFrame(preview: .init(.table(table)), caption: "Table · \(table.rows.count) \(table.rows.count == 1 ? "row" : "rows")",
+                                    background: Color(.secondarySystemGroupedBackground).opacity(0.6)) {
+            CompanionMarkdownTableGrid(table: table)
         }
-        .scrollIndicators(.automatic)
-        .background(Color(.secondarySystemGroupedBackground).opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08)))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Table, \(table.rows.count) rows, \(table.columnCount) columns")
-        .accessibilityChildren {
-            VStack {
-                Text("Columns: " + table.header.map { String($0.characters) }.joined(separator: ", "))
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { index, row in
-                    Text(rowLabel(index: index, row: row))
-                }
-            }
-        }
-    }
-
-    private func cell(_ text: AttributedString, column: Int) -> some View {
-        Text(text).textSelection(.enabled)
-            .multilineTextAlignment(Self.text(table.alignments[column]))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: maxCellWidth, alignment: Alignment(horizontal: Self.horizontal(table.alignments[column]), vertical: .top))
-    }
-
-    private func rowLabel(index: Int, row: [AttributedString]) -> String {
-        let cells = zip(table.header, row).map { header, cell in
-            let name = String(header.characters)
-            return name.isEmpty ? String(cell.characters) : "\(name): \(String(cell.characters))"
-        }
-        return "Row \(index + 1). " + cells.joined(separator: ", ")
-    }
-
-    static func horizontal(_ alignment: CompanionMarkdownTable.Alignment) -> HorizontalAlignment {
-        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
-    }
-    static func text(_ alignment: CompanionMarkdownTable.Alignment) -> TextAlignment {
-        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
     }
 }
 
+/// Fenced code that scrolls sideways rather than wrapping. Tap it to open it full screen.
 struct CompanionCodeBlock: View {
     let language: String?
     let code: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(language ?? "Code").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = code }
-                    .font(.caption).accessibilityLabel("Copy code")
-            }.padding(12)
-            Divider()
-            ScrollView(.horizontal) {
-                Text(code).font(.system(.callout, design: .monospaced)).textSelection(.enabled).padding(12)
-            }
+        CompanionMarkdownBlockFrame(preview: .init(.code(language: language, code: code)), caption: language ?? "Code",
+                                    background: Color(.tertiarySystemGroupedBackground)) {
+            Text(code).font(.system(.callout, design: .monospaced)).fixedSize().padding(12)
         }
-        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

@@ -38,6 +38,7 @@ private struct CompanionContentPreviews: ViewModifier {
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
         content
+            .companionMarkdownBlockPreviews()
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
                                                              contentRoots: store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))

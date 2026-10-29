@@ -15,10 +15,13 @@ import Foundation
     /// UI tests add Sequoia, an agent that runs in a terminal, to Website (`--companion-preview-terminal-agent`).
     private let showsTerminalAgent: Bool
     static let terminalAgentTarget = CompanionTarget(hostID: "preview-studio", projectID: "website", agentID: "sequoia")
-    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false) {
+    /// UI tests add a reply with a wide, many-row table and a long code block (`--companion-preview-long-blocks`).
+    private let showsLongBlocks: Bool
+    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false) {
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
         self.showsTerminalAgent = showsTerminalAgent
+        self.showsLongBlocks = showsLongBlocks
     }
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
@@ -133,6 +136,9 @@ import Foundation
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
+        ] + (showsLongBlocks ? [
+            .message(.init(id: "agent-4", role: .assistant, text: Self.longBlocksReply, timestamp: Date().addingTimeInterval(-20)))
+        ] : []) + [
             // Two waiting approvals show "1 of 2"; "Always allow" is a secondary action, confirmed first.
             .approval(.init(id: "approval-1", toolName: "Bash", summary: "Build the iOS application to verify the updated conversation layout.", title: "Run xcodebuild",
                             detail: "xcodebuild -scheme ClubhouseGo -sdk iphonesimulator build", deadline: Date().addingTimeInterval(600), options: [
@@ -160,6 +166,33 @@ import Foundation
 
     > Commands wait until the history refresh finishes.
     """
+    /// A table wider than the phone with many rows, some of which wrap, and a long code block with one very long
+    /// line. Each ends with a row or line the UI test scrolls to (#180).
+    static let longBlocksReply: String = {
+        let areas = ["Desktop", "Phone", "Relay", "Pairing", "Archive", "Composer", "Approvals", "Previews", "Themes", "Telemetry", "Sync", "Search", "Settings"]
+        let rows = areas.enumerated().map { index, area in
+            let change = index == 0 ? "Upgraded to Electron 45.1 with dependency security fixes, and moved the updater onto the new signing key"
+                : "Reworked \(area.lowercased()) so it keeps its place across reconnects"
+            return "| \(area) | \(change) | Passed | \(index % 3 == 0 ? "River" : "Cedar") | Checked on iPhone and iPad in light and dark mode |"
+        }
+        let code = (1...60).map { "    step(\($0), label: \"Release check \($0)\")" }
+        return """
+        Here is the release summary.
+
+        | Area | Change | Result | Owner | Notes |
+        |:-----|:-------|:------:|:------|:------|
+        \(rows.joined(separator: "\n"))
+        | Wrap-up | Final row of the release table | Passed | River | The last row |
+
+        ```typescript
+        function releaseChecks(step: (index: number, options: { label: string }) => void) {
+        \(code.joined(separator: "\n"))
+            step(61, { label: "A deliberately long line that runs well past the edge of the phone screen so it must scroll sideways" })
+        }
+        // End of the release checks
+        ```
+        """
+    }()
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         throw CompanionServiceError.unavailable("Preview only. Pair a desktop to send messages.")
     }

@@ -79,4 +79,20 @@ import Testing
         #expect(CompanionMarkdownZoom.clamped(40) == 4)
         #expect(CompanionMarkdownZoom.clamped(.nan) == 1)
     }
+
+    /// The UI test's fixture: a wide, many-row table and a long code block, each ending where the test scrolls to.
+    @Test @MainActor func longBlocksFixtureHasAWideTableAndLongCode() {
+        let blocks = CompanionMarkdown.parse(CompanionPreviewService.longBlocksReply).blocks
+        guard blocks.count == 3, case .table(let table) = blocks[1], case .code(let language, let code) = blocks[2] else {
+            Issue.record("Expected a paragraph, a table and code, got \(blocks)"); return
+        }
+        #expect(table.columnCount == 5)
+        #expect(table.rows.count == 14)
+        #expect(table.rows.last.map { String($0[0].characters) } == "Wrap-up")
+        #expect(language == "typescript")
+        let lines = code.split(separator: "\n")
+        #expect(lines.count > 60)
+        #expect(lines.last == "// End of the release checks")
+        #expect(lines.contains { $0.count > 100 }, "One line is wider than the phone")
+    }
 }
