@@ -65,7 +65,7 @@ public actor AnnexTransport: AnnexTransporting {
 
     /// Shell output can arrive far faster than chat, so terminals get their own, deeper stream. A terminal that
     /// falls behind is finished rather than shown with gaps; it opens again from a fresh spawn or snapshot.
-    public func terminalEvents() -> AsyncStream<AnnexTerminalEvent> {
+    public func terminalEvents() async -> AsyncStream<AnnexTerminalEvent> {
         let id = UUID()
         let (stream, continuation) = AsyncStream<AnnexTerminalEvent>.makeStream(bufferingPolicy: .bufferingOldest(4096))
         terminalSubscribers[id] = continuation
