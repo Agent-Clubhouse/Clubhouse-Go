@@ -12,14 +12,19 @@ import Foundation
     /// UI tests add River's helper requests to Needs you (`--companion-preview-helper-requests`). Off by default, so
     /// Home's layout stays as the other previews expect.
     private let showsHelperRequests: Bool
-    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false) {
+    /// UI tests add Sequoia, an agent that runs in a terminal, to Website (`--companion-preview-terminal-agent`).
+    private let showsTerminalAgent: Bool
+    static let terminalAgentTarget = CompanionTarget(hostID: "preview-studio", projectID: "website", agentID: "sequoia")
+    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false) {
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
+        self.showsTerminalAgent = showsTerminalAgent
     }
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
-            continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [])))
+            continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
+                                                 terminalAgent: self.showsTerminalAgent)))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -55,7 +60,7 @@ import Foundation
         }
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
-    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = []) -> [CompanionHost] {
+    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
@@ -83,7 +88,9 @@ import Foundation
             .init(id: host, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
                 .init(id: "website", name: "Website", agents: [
                     agent("website", "maple", "Maple", "Refresh the pricing page", .idle, minutesAgo: 90, color: "teal")
-                ], color: "teal", emoji: "🌐"),
+                ] + (terminalAgent ? [agent("website", terminalAgentTarget.agentID, "Sequoia", "Tidy the release checklist", .working, minutesAgo: 2,
+                                            color: "orange", executionMode: "pty", orchestrator: "claude-code")] : []),
+                      color: "teal", emoji: "🌐"),
                 .init(id: "clubhouse", name: "Clubhouse", agents: [
                     agent("clubhouse", "cedar", "Cedar", "Investigate reconnect behavior", .working, model: "Claude", minutesAgo: 4, color: "emerald", freeAgent: true,
                           turnStartedAt: now.addingTimeInterval(-65)),
@@ -102,7 +109,8 @@ import Foundation
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
                canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
-               canAnswerHelperRequests: true, helperRequests: helperRequests),
+               canAnswerHelperRequests: true, helperRequests: helperRequests,
+               terminal: .init(projectShell: true, agentShell: true, agentAttach: true)),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                 .init(id: "notes", name: "Field notes", agents: [
                     .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -255,5 +263,7 @@ import Foundation
                          modified: (["struct Conversation {"] + edited + ["}"]).joined(separator: "\n"))
         }
     }
+    /// A fake shell that echoes, and a terminal-mode agent's screen.
+    func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel { CompanionPreviewTerminalChannel(scope: scope) }
     private var previewError: CompanionServiceError { .unavailable("Preview only. This action does not contact a desktop.") }
 }

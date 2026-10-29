@@ -31,6 +31,8 @@ struct CompanionConversationView: View {
     private var hasMessage: Bool {
         !draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !(store.attachmentDrafts[target] ?? []).isEmpty
     }
+    /// A running terminal agent's own PTY takes the chat's place, when the desktop lets the phone attach to it.
+    private var showsAgentTerminal: Bool { agent.runsInTerminal && store.terminalAvailability(.agentPTY(target)).isAvailable }
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
 
     var body: some View {
@@ -47,7 +49,8 @@ struct CompanionConversationView: View {
                 .padding().background(Color(palette.warning).opacity(0.12))
                 .accessibilityElement(children: .contain)
             }
-            timeline.companionContentPreviews(store: store, target: target)
+            if showsAgentTerminal { CompanionAgentTerminalPane(store: store, target: target) }
+            else { timeline.companionContentPreviews(store: store, target: target) }
         }
         .companionBackground()
         .navigationTitle(agent.name)
@@ -59,6 +62,7 @@ struct CompanionConversationView: View {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
+                        CompanionTerminalMenuItem(scope: .agentShell(target))
                         Section("Conversation details") {
                             Text(contextName)
                             if let model = agent.model { Text(model) }
@@ -81,7 +85,7 @@ struct CompanionConversationView: View {
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { terminalNotice } else { composer }
+            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }

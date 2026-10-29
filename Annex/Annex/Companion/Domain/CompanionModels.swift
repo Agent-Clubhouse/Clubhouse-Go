@@ -95,6 +95,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var finishedQuickAgents: [String: [CompanionFinishedRun]]?
     /// The finished list comes from the desktop. Otherwise this phone keeps its own.
     var sharesFinishedQuick: Bool { canSyncFinishedQuick && finishedQuickAgents != nil }
+    /// Project and agent terminals (`terminal` v1). Nil when the desktop has none: every terminal entry point is hidden.
+    var terminal: CompanionTerminalSupport?
 }
 
 /// A helper start or dispose an orchestrator asked the user to decide (the snapshot's `helperRequests`).
@@ -592,9 +594,14 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func dismissFinishedQuick(_ target: CompanionTarget, clientCommandID: String) async throws -> [CompanionFinishedRun]
     /// Empties a project's finished list on the desktop.
     func clearFinishedQuick(_ project: CompanionProjectTarget, clientCommandID: String) async throws -> [CompanionFinishedRun]
+    /// A shell or an agent's terminal on the desktop. Opening and every message are the channel's.
+    func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel
 }
 
 @MainActor extension CompanionService {
+    func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {
+        throw CompanionServiceError.unavailable(CompanionTerminalAvailability.updateDesktop)
+    }
     func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String {
         throw CompanionServiceError.unavailable("This desktop can't take images. Update Clubhouse on your desktop.")
     }

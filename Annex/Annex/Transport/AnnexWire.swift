@@ -108,6 +108,10 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func revokeSessionPairing() async throws
     /// Uploads one image's raw bytes for a later `chat.send`. Not idempotent: each call returns a new id.
     func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload
+    /// Terminal frames and connection changes, on their own stream so a busy shell can't overflow `events()`.
+    func terminalEvents() async -> AsyncStream<AnnexTerminalEvent>
+    /// Sends one terminal message over the WebSocket. `pty:input` longer than the desktop's cap is split.
+    func sendTerminal(_ frame: AnnexTerminalFrame) async throws
 }
 
 nonisolated public extension AnnexTransporting {
@@ -115,4 +119,6 @@ nonisolated public extension AnnexTransporting {
     func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload {
         throw AnnexTransportError.unsupportedCapability("attachments")
     }
+    func terminalEvents() async -> AsyncStream<AnnexTerminalEvent> { AsyncStream { $0.finish() } }
+    func sendTerminal(_ frame: AnnexTerminalFrame) async throws { throw AnnexTransportError.unsupportedCapability("terminal") }
 }

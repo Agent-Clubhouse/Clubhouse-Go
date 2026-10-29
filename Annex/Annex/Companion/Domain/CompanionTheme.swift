@@ -71,6 +71,10 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
     var info: CompanionRGB
     /// Stops of the theme's accent gradient, when it has one.
     var gradient: [CompanionRGB]
+    /// The desktop's `terminalColors`, sent beside the theme. Nil on older desktops.
+    var terminalSource: [String: String]?
+    /// Terminal colors: the desktop's, completed from this theme.
+    var terminal: CompanionTerminalColors { CompanionTerminalColors(colors: terminalSource ?? [:], theme: self) }
 
     init(id: String, name: String, source: String, mode: Mode, colors: [String: String], gradient: [String]) {
         func color(_ key: String, _ fallback: CompanionRGB) -> CompanionRGB { colors[key].flatMap { CompanionRGB(hex: $0) } ?? fallback }
@@ -169,10 +173,12 @@ extension CompanionDesktopTheme {
     /// The colors a desktop sends in its snapshot `theme` and in `theme:changed`. Custom and plugin
     /// themes arrive the same way, so the phone never needs to know a theme by name.
     /// The payload has no light/dark flag; the mode follows the base color, as the desktop's own UI does.
-    static func transported(_ colors: [String: String], gradient: [String] = []) -> CompanionDesktopTheme? {
+    static func transported(_ colors: [String: String], gradient: [String] = [], terminal: [String: String]? = nil) -> CompanionDesktopTheme? {
         guard let base = colors["base"].flatMap({ CompanionRGB(hex: $0) }), colors["accent"].flatMap({ CompanionRGB(hex: $0) }) != nil else { return nil }
-        return CompanionDesktopTheme(id: "desktop", name: "Desktop theme", source: "Desktop", mode: base.luminance < 0.5 ? .dark : .light,
-                                     colors: colors, gradient: gradient)
+        var theme = CompanionDesktopTheme(id: "desktop", name: "Desktop theme", source: "Desktop", mode: base.luminance < 0.5 ? .dark : .light,
+                                          colors: colors, gradient: gradient)
+        theme.terminalSource = terminal
+        return theme
     }
 
     /// Used until a desktop has sent its colors.

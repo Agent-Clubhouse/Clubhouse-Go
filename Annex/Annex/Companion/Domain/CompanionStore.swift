@@ -78,6 +78,16 @@ import Observation
     }
 
     func host(for target: CompanionTarget) -> CompanionHost? { hosts.first { $0.id == target.hostID } }
+
+    /// Whether a terminal entry point shows, and whether it can open now (`terminal` v1).
+    func terminalAvailability(_ scope: CompanionTerminalScope) -> CompanionTerminalAvailability {
+        .of(scope, host: hosts.first { $0.id == scope.hostID })
+    }
+    /// A terminal on the desktop, not yet started.
+    func makeTerminal(_ scope: CompanionTerminalScope) throws -> CompanionTerminalSession {
+        let host = hosts.first { $0.id == scope.hostID }
+        return CompanionTerminalSession(scope: scope, title: CompanionTerminalSession.title(for: scope, host: host), channel: try service.terminal(scope))
+    }
     func agent(for target: CompanionTarget) -> CompanionAgent? {
         host(for: target)?.projects.first { $0.id == target.projectID }?.agents.first { $0.id == target }
     }

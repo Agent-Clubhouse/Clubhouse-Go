@@ -14,6 +14,7 @@ struct CompanionProjectPage: View {
     @State private var changes: CompanionChanges?
     @State private var changesError: String?
     @Environment(\.companionPalette) private var palette
+    @Environment(\.companionTerminal) private var terminal
 
     private var host: CompanionHost? { store.hosts.first { $0.id == project.hostID } }
     private var details: CompanionProject? { host?.projects.first { $0.id == project.projectID } }
@@ -71,6 +72,21 @@ struct CompanionProjectPage: View {
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .lineLimit(1).minimumScaleFactor(0.8)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            terminalButton
+        }
+    }
+
+    /// A shell at the project root, as the desktop's Terminal tab opens with the project selected.
+    @ViewBuilder private var terminalButton: some View {
+        if let terminal, case let availability = terminal.availability(.project(project)), availability.isShown {
+            Button { terminal.open(.project(project)) } label: {
+                Label("Terminal", systemImage: "terminal").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.large)
+            .disabled(!availability.isAvailable)
+            .accessibilityIdentifier("project-terminal")
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         }

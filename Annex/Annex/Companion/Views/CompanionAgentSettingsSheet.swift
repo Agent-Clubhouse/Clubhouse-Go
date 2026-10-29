@@ -43,10 +43,12 @@ struct CompanionAgentMenu: ViewModifier {
     let target: CompanionTarget
     @Environment(\.companionAgentSettings) private var settings
     @Environment(\.companionAgentWake) private var wake
+    @Environment(\.companionTerminal) private var terminal
     func body(content: Content) -> some View {
         let choices = wake?.choices(target) ?? []
         let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
-        if hasSettingsItems || !choices.isEmpty {
+        let hasTerminal = terminal?.availability(.agentShell(target)).isShown == true
+        if hasSettingsItems || !choices.isEmpty || hasTerminal {
             content.contextMenu {
                 if let wake {
                     ForEach(choices) { choice in
@@ -54,6 +56,7 @@ struct CompanionAgentMenu: ViewModifier {
                     }
                 }
                 if let settings { CompanionAgentMenuItems(target: target, actions: settings) }
+                CompanionTerminalMenuItem(scope: .agentShell(target))
             }
         } else {
             content
