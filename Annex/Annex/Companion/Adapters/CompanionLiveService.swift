@@ -380,6 +380,16 @@ import ClubhouseTransport
                          task: item["start"]?["task"]?.string, dispose: dispose)
         }
     }
+    func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {
+        guard let support = hosts[scope.hostID]?.terminal, support.allows(scope) else {
+            throw CompanionServiceError.unavailable(CompanionTerminalAvailability.updateDesktop)
+        }
+        return CompanionLiveTerminalChannel(transport: try transport(for: scope.hostID), scope: scope)
+    }
+    nonisolated static func terminalSupport(_ capabilities: AnnexCapabilities?) -> CompanionTerminalSupport? {
+        guard let capabilities, capabilities.supportsTerminal, let terminal = capabilities.terminal else { return nil }
+        return .init(projectShell: terminal.projectShell, agentShell: terminal.agentShell, agentAttach: terminal.agentAttach)
+    }
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
         do { return try CompanionChanges(json: try await transport(for: project.hostID).read(.gitStatus(projectID: project.projectID))) }
         catch let error as CompanionServiceError { throw error }
@@ -645,11 +655,11 @@ import ClubhouseTransport
                 // Also sent only after the desktop's one-time migration; without it the phone keeps its own finished list.
                 hosts[hostID]?.finishedQuickAgents = CompanionFinishedRun.desktopLists(payload["finishedQuickAgents"], hostID: hostID)
                 hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
-                if let theme = Self.theme(from: payload["theme"]) { hosts[hostID]?.theme = theme }
+                if let theme = Self.theme(from: payload["theme"], terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
-                if let theme = Self.theme(from: payload) { hosts[hostID]?.theme = theme; emitHosts() }
+                if let theme = Self.theme(from: payload, terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme; emitHosts() }
             case "chat:event":
                 guard let agentID = payload["agentId"]?.string, let event = payload["event"], let target = target(agentID: agentID, hostID: hostID) else { return }
                 if envelope.replayed != true {
@@ -706,6 +716,7 @@ import ClubhouseTransport
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
             hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
+            hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             hosts[hostID]?.connection = .connected
@@ -895,12 +906,14 @@ import ClubhouseTransport
     }
 
     /// Reads the desktop's theme colors. A `gradients.accent` CSS gradient, if the desktop adds one, supplies the wash.
-    nonisolated static func theme(from json: AnnexJSON?) -> CompanionDesktopTheme? {
+    nonisolated static func theme(from json: AnnexJSON?, terminal: AnnexJSON? = nil) -> CompanionDesktopTheme? {
         guard case .object(let values)? = json else { return nil }
         let colors = values.compactMapValues(\.string)
         let gradient = (json?["gradients"]?["accent"]?.string ?? "")
             .matches(of: /#[0-9a-fA-F]{6}/).map { String($0.output) }
-        return .transported(colors, gradient: gradient)
+        var terminalColors: [String: String]?
+        if case .object(let values)? = terminal { terminalColors = values.compactMapValues(\.string) }
+        return .transported(colors, gradient: gradient, terminal: terminalColors)
     }
 
     static func readableError(_ error: Error) -> String {
