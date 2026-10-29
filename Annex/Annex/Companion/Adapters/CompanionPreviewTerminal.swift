@@ -83,6 +83,8 @@ import Foundation
         case "echo": return rest + "\r\n"
         case "pwd": return cwd + "\r\n"
         case "whoami": return "river\r\n"
+        // The size the phone last sent, so a UI test can see the terminal follow rotation.
+        case "stty": return size.map { "\($0.rows) \($0.cols)\r\n" } ?? "24 80\r\n"
         case "ls": return "\u{1B}[1;34mSources\u{1B}[0m  \u{1B}[1;34mTests\u{1B}[0m  Package.swift  README.md\r\n"
         case "clear": return "\u{1B}[2J\u{1B}[H"
         case "colors":

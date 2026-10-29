@@ -151,7 +151,6 @@ struct CompanionTerminalPane: View {
             CompanionTerminalKeyBar(session: session, focus: focus, colors: colors)
         }
         .background(Color(colors.background))
-        .onAppear { focus.wantsKeyboard = session.scope.resizesPTY }
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -185,8 +184,6 @@ struct CompanionTerminalPane: View {
 /// Lets SwiftUI buttons show and hide the keyboard of the UIKit view that takes typing.
 @MainActor @Observable final class CompanionTerminalFocus {
     @ObservationIgnored weak var view: CompanionTerminalUIView?
-    /// Whether the keyboard should come up once the terminal is on screen.
-    var wantsKeyboard = false
     private(set) var isEditing = false
     func toggle() { if isEditing { _ = view?.resignFirstResponder() } else { _ = view?.becomeFirstResponder() } }
     func editingChanged(_ editing: Bool) { isEditing = editing }
@@ -282,7 +279,8 @@ struct CompanionTerminalCanvas: UIViewRepresentable {
         let view = CompanionTerminalUIView(session: session, colors: colors)
         view.onEditingChanged = { [focus] in focus.editingChanged($0) }
         focus.view = view
-        if focus.wantsKeyboard { DispatchQueue.main.async { _ = view.becomeFirstResponder() } }
+        // A shell is for typing; an agent's terminal is mostly for watching.
+        view.focusWhenShown = session.scope.resizesPTY
         return view
     }
 
@@ -292,11 +290,12 @@ struct CompanionTerminalCanvas: UIViewRepresentable {
     }
 }
 
-final class CompanionTerminalUIView: UIView, UIKeyInput, UITextViewDelegate {
+final class CompanionTerminalUIView: UIView, UITextViewDelegate {
     private let session: CompanionTerminalSession
     var colors: CompanionTerminalColors { didSet { if colors != oldValue { applyColors(); setNeedsRender() } } }
     var onEditingChanged: ((Bool) -> Void)?
     private let textView = UITextView(usingTextLayoutManager: false)
+    private let keyInput: CompanionTerminalKeyInput
     private var renderScheduled = false
     private var lastRender = Date.distantPast
     private var followsOutput = true
@@ -307,7 +306,11 @@ final class CompanionTerminalUIView: UIView, UIKeyInput, UITextViewDelegate {
 
     init(session: CompanionTerminalSession, colors: CompanionTerminalColors) {
         self.session = session; self.colors = colors
+        keyInput = CompanionTerminalKeyInput(session: session)
         super.init(frame: .zero)
+        keyInput.owner = self
+        keyInput.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        addSubview(keyInput)
         textView.isEditable = false
         textView.isSelectable = true
         textView.textContainerInset = Self.inset
@@ -333,6 +336,7 @@ final class CompanionTerminalUIView: UIView, UIKeyInput, UITextViewDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     private func applyColors() {
+        keyInput.appearance = colors.background.luminance < 0.4 ? .dark : .light
         backgroundColor = UIColor(colors.background)
         textView.backgroundColor = UIColor(colors.background)
         textView.tintColor = UIColor(colors.cursor)
@@ -419,20 +423,57 @@ final class CompanionTerminalUIView: UIView, UIKeyInput, UITextViewDelegate {
 
     // MARK: Keyboard
 
+    /// Typing goes to a small view of its own, so the output stays an accessible, selectable text view.
+    override var isFirstResponder: Bool { keyInput.isFirstResponder }
+    override func becomeFirstResponder() -> Bool { keyInput.becomeFirstResponder() }
+    override func resignFirstResponder() -> Bool { keyInput.resignFirstResponder() }
+
+    fileprivate func editingChanged(_ editing: Bool) {
+        if editing { followsOutput = true }
+        onEditingChanged?(editing)
+        setNeedsRender()
+    }
+
+    /// The keyboard comes up as soon as the terminal is on screen, when it should.
+    var focusWhenShown = false
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil, focusWhenShown else { return }
+        focusWhenShown = false
+        DispatchQueue.main.async { [weak self] in _ = self?.becomeFirstResponder() }
+    }
+}
+
+/// The view that takes the keyboard: typing, Return and Delete, paste, and a hardware keyboard's keys.
+final class CompanionTerminalKeyInput: UIView, UIKeyInput {
+    private let session: CompanionTerminalSession
+    weak var owner: CompanionTerminalUIView?
+    var appearance: UIKeyboardAppearance = .dark
+
+    init(session: CompanionTerminalSession) {
+        self.session = session
+        super.init(frame: .zero)
+        isAccessibilityElement = true
+        accessibilityLabel = "Terminal input"
+        accessibilityIdentifier = "terminal-input"
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
     override var canBecomeFirstResponder: Bool { true }
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
-        if became { followsOutput = true; onEditingChanged?(true); setNeedsRender() }
+        if became { owner?.editingChanged(true) }
         return became
     }
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
-        if resigned { onEditingChanged?(false); setNeedsRender() }
+        if resigned { owner?.editingChanged(false) }
         return resigned
     }
 
     var hasText: Bool { true }
-    func insertText(_ text: String) { followsOutput = true; session.type(text) }
+    func insertText(_ text: String) { owner?.editingChanged(true); session.type(text) }
     func deleteBackward() { session.press(.backspace) }
 
     var autocorrectionType: UITextAutocorrectionType { get { .no } set {} }
@@ -442,7 +483,7 @@ final class CompanionTerminalUIView: UIView, UIKeyInput, UITextViewDelegate {
     var smartDashesType: UITextSmartDashesType { get { .no } set {} }
     var smartInsertDeleteType: UITextSmartInsertDeleteType { get { .no } set {} }
     var inlinePredictionType: UITextInlinePredictionType { get { .no } set {} }
-    var keyboardAppearance: UIKeyboardAppearance { get { colors.background.luminance < 0.4 ? .dark : .light } set {} }
+    var keyboardAppearance: UIKeyboardAppearance { get { appearance } set {} }
 
     override func paste(_ sender: Any?) { session.paste(UIPasteboard.general.string ?? "") }
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
