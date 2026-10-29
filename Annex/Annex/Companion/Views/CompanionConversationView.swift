@@ -211,15 +211,25 @@ struct CompanionConversationView: View {
                         if row.id == hintRowID { CompanionContentHint() }
                     }
                     Color.clear.frame(height: 1).id("latest")
-                        .onAppear { followLatest = true }
-                        .onDisappear { followLatest = false }
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.vertical, 24)
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
-            .defaultScrollAnchor(.bottom)
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .defaultScrollAnchor(.bottom, for: .alignment)
+            // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
+            // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
+            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
+            // Follow from the scroll position, not the end marker's appear and disappear: under a reply taller than the
+            // screen the lazy stack kept realising and dropping the marker as it re-estimated, and each flip re-rendered
+            // the conversation, which never settled (#180).
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
+            } action: { _, atLatest in
+                if followLatest != atLatest { followLatest = atLatest }
+            }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .overlay(alignment: .bottomTrailing) {
