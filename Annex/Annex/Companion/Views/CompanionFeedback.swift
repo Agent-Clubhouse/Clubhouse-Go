@@ -1,6 +1,5 @@
 import SwiftUI
 import UIKit
-import os
 import Framebriar
 import FramebriarUI
 import ClubhouseTransport
@@ -189,13 +188,13 @@ private struct EnrollmentShakeReceiver: UIViewControllerRepresentable {
                   !Self.hasPresentation(window.rootViewController), !Self.isEditing(window) else { return false }
             let claimed = isFirstResponder || becomeFirstResponder()
             #if DEBUG
-            CompanionShakeDiagnostics.log.notice("enrollment receiver claim -> \(claimed)")
+            CompanionShakeDiagnostics.trace("enrollment receiver claim -> \(claimed)")
             #endif
             return claimed
         }
         override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
             #if DEBUG
-            CompanionShakeDiagnostics.log.notice("enrollment receiver motionEnded eligible=\(self.eligible)")
+            CompanionShakeDiagnostics.trace("enrollment receiver motionEnded eligible=\(self.eligible)")
             #endif
             guard motion == .motionShake, eligible, let onShake else { super.motionEnded(motion, with: event); return }
             onShake()
