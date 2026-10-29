@@ -344,6 +344,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public var isUsable: Bool { version == 1 && maxImageBytes > 0 && maxCount > 0 && !imageTypes.isEmpty }
     }
     public let attachments: Attachments?
+    /// Project and agent shells and attached agent terminals (`terminal` v1). Absent on older desktops.
+    public let terminal: Terminal?
+    public var supportsTerminal: Bool { controlAvailable == true && terminal?.isUsable == true }
 }
 
 /// The desktop's reply to an image upload. The id is bound to this phone and agent, and expires.

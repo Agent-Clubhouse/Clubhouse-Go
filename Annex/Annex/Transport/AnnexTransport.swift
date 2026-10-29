@@ -11,6 +11,7 @@ public actor AnnexTransport: AnnexTransporting {
     private let eventCapacity: Int
     private let commandCapacity: Int
     private var subscribers: [UUID: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation] = [:]
+    private var terminalSubscribers: [UUID: AsyncStream<AnnexTerminalEvent>.Continuation] = [:]
     private var loop: Task<Void, Never>?
     private var connectionDiagnostic: AnnexDiagnosticSpan?
     private var telemetryBinding: AnnexTelemetryHandshake?
@@ -60,7 +61,50 @@ public actor AnnexTransport: AnnexTransporting {
             }
         }
     }
-    private func transition(_ state: AnnexConnectionState) { self.state = state; emit(.connection(state)) }
+    private func transition(_ state: AnnexConnectionState) { self.state = state; emit(.connection(state)); emitTerminal(.connection(state)) }
+
+    /// Shell output can arrive far faster than chat, so terminals get their own, deeper stream. A terminal that
+    /// falls behind is finished rather than shown with gaps; it opens again from a fresh spawn or snapshot.
+    public func terminalEvents() -> AsyncStream<AnnexTerminalEvent> {
+        let id = UUID()
+        let (stream, continuation) = AsyncStream<AnnexTerminalEvent>.makeStream(bufferingPolicy: .bufferingOldest(4096))
+        terminalSubscribers[id] = continuation
+        continuation.yield(.connection(state))
+        continuation.onTermination = { [weak self] _ in Task { await self?.removeTerminalSubscriber(id) } }
+        return stream
+    }
+    private func removeTerminalSubscriber(_ id: UUID) { terminalSubscribers.removeValue(forKey: id) }
+    private func emitTerminal(_ event: AnnexTerminalEvent) {
+        for (id, continuation) in terminalSubscribers {
+            switch continuation.yield(event) {
+            case .dropped:
+                continuation.finish()
+                terminalSubscribers.removeValue(forKey: id)
+            case .terminated: terminalSubscribers.removeValue(forKey: id)
+            case .enqueued: break
+            @unknown default: break
+            }
+        }
+    }
+    /// `pty:*` messages and the errors that answer them.
+    static func isTerminalFrame(_ envelope: AnnexEnvelope) -> Bool {
+        envelope.type.hasPrefix("pty:") || (envelope.type == "error" && envelope.payload?["op"]?.string?.hasPrefix("pty:") == true)
+    }
+
+    /// Terminal messages are mTLS-only on the desktop, like commands, and need its `terminal` capability.
+    public func sendTerminal(_ frame: AnnexTerminalFrame) async throws {
+        guard let capabilities, capabilities.supportsTerminal, let terminal = capabilities.terminal else {
+            throw AnnexTransportError.unsupportedCapability("terminal")
+        }
+        guard state == .connected, let socket else { throw AnnexTransportError.disconnected }
+        let frames: [AnnexTerminalFrame]
+        if case .input(let id, let data) = frame {
+            frames = AnnexTerminalInput.chunks(data, maxLength: terminal.maxInputLength).map { .input(id: id, data: $0) }
+        } else {
+            frames = [frame]
+        }
+        for frame in frames { try await socket.send(frame.encoded()) }
+    }
 
     public func connect() async throws {
         return try await telemetry.measure(.connection) {
@@ -431,6 +475,7 @@ public actor AnnexTransport: AnnexTransporting {
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
             transition(.connected)
         }
+        if Self.isTerminalFrame(envelope) { emitTerminal(.frame(envelope)); return }
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
