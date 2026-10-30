@@ -19,7 +19,7 @@ env:
   PROJECT: Annex/Annex.xcodeproj
   SCHEME: ClubhouseGo
 
-# changes ─┬─ swift-packages                       (fast lane: swift test, ~3–5 min)
+# changes ─┬─ swift-packages                       (fast lane: swift test, coverage ratchet)
 #          ├─ build ── ui-tests × N shards          (build once, test-without-building)
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
