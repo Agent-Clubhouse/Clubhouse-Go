@@ -71,15 +71,15 @@ enum CompanionMessageSlices {
         case .rule: overhead
         case .list(let list): list.items.reduce(0) { $0 + itemWeight($1) }
         case .quote(let blocks): blocks.reduce(0) { $0 + weight($1) }
-        case .code(_, let code): overhead * 2 + lineWeight * min(code.split(separator: "\n", omittingEmptySubsequences: false).count, maxInlineLines)
-        case .table(let table): overhead * 2 + lineWeight * min(table.rows.count + 1, maxInlineLines)
+        // Inline, long code and tables show their start, then Show all (#180); table rows often wrap to two lines.
+        case .code(_, let code):
+            overhead * 2 + lineWeight * min(code.split(separator: "\n", omittingEmptySubsequences: false).count, CompanionMarkdownInlineLimit.codeLines + 1)
+        case .table(let table): overhead * 2 + lineWeight * 2 * min(table.rows.count + 1, CompanionMarkdownInlineLimit.tableRows + 1)
         }
     }
 
     private static let overhead = 40
     private static let lineWeight = 60
-    /// Inline tables and code blocks show this many lines at most before "Show all…" (#186).
-    private static let maxInlineLines = 16
 
     private static func itemWeight(_ item: CompanionMarkdownList.Item) -> Int {
         item.blocks.reduce(0) { $0 + weight($1) }
