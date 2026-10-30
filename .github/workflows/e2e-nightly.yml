@@ -1,0 +1,116 @@
+name: Live E2E (nightly)
+
+# Clubhouse Go against a real Clubhouse desktop built from a pinned ref (scripts/e2e-live.sh, docs/testing.md).
+# It runs nightly and on demand only, never on pull requests: one run builds both apps (~25 runner minutes).
+on:
+  schedule:
+    - cron: '17 8 * * *' # 08:17 UTC nightly
+  workflow_dispatch:
+    inputs:
+      desktop_ref:
+        description: Clubhouse desktop branch, tag or commit to test against
+        default: main
+        required: true
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  DESKTOP_REF: ${{ inputs.desktop_ref || 'main' }}
+  ISSUE_TITLE: Nightly live E2E failing
+
+jobs:
+  live-e2e:
+    name: Live E2E vs desktop ${{ inputs.desktop_ref || 'main' }}
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the desktop
+        uses: actions/checkout@v4
+        with:
+          repository: Agent-Clubhouse/Clubhouse
+          ref: ${{ env.DESKTOP_REF }}
+          path: .desktop
+
+      - name: Set up Node for the desktop
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: .desktop/package-lock.json
+
+      - name: Select Xcode matching simulator runtime
+        run: |
+          # Find the installed iOS simulator runtime version
+          SIM_VER=$(xcrun simctl list runtimes -j | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for r in sorted(data['runtimes'], key=lambda x: x.get('version',''), reverse=True):
+              if 'iOS' in r.get('name','') and r.get('isAvailable', False):
+                  print(r['version'])
+                  sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "Simulator runtime: iOS $SIM_VER"
+
+          # Pick the Xcode whose SDK best matches the simulator runtime
+          BEST_XCODE=""
+          for xc in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -rV); do
+            SDK_VER=$("$xc/Contents/Developer/usr/bin/xcodebuild" -version -sdk iphonesimulator ProductVersion 2>/dev/null || true)
+            echo "  $xc → SDK $SDK_VER"
+            if [ "$SDK_VER" = "$SIM_VER" ]; then
+              BEST_XCODE="$xc"
+              break
+            fi
+          done
+
+          # Fall back to latest if no exact match
+          if [ -z "$BEST_XCODE" ]; then
+            BEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+            echo "No exact SDK match — falling back to latest: $BEST_XCODE"
+          fi
+
+          echo "Selected Xcode: $BEST_XCODE"
+          sudo xcode-select -s "$BEST_XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Run the live E2E
+        id: e2e
+        env:
+          E2E_OUT_DIR: ${{ github.workspace }}/e2e-results
+          # The workflow checked out the ref; the script builds it without fetching again.
+          E2E_SKIP_DESKTOP_CHECKOUT: '1'
+        run: scripts/e2e-live.sh --simulator 'iPhone 17 Pro'
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-e2e-${{ github.run_id }}
+          path: e2e-results
+          retention-days: 14
+
+      - name: Open or update the failure issue
+        # Nightly runs and runs against main; a dispatch that tries a branch doesn't file issues.
+        if: failure() && (github.event_name == 'schedule' || github.ref == 'refs/heads/main')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          SHA=$(cat e2e-results/desktop-sha.txt 2>/dev/null || echo unknown)
+          BODY="Nightly live E2E failed: $RUN_URL
+          Clubhouse Go ${GITHUB_SHA::8} against desktop $DESKTOP_REF ($SHA). The run's artifact has the xcresult and logs."
+          NUMBER=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" --json number,title \
+            --jq "map(select(.title == \"$ISSUE_TITLE\"))[0].number // empty")
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "$BODY"
+          else
+            gh issue create --title "$ISSUE_TITLE" --body "$BODY"
+          fi
