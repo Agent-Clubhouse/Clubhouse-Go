@@ -9,6 +9,7 @@ public actor AnnexTransport: AnnexTransporting {
     private let credentials: any AnnexCredentialStore
     private let backoff: AnnexBackoff
     private let eventCapacity: Int
+    private let clock: AnnexClock
     private let commandCapacity: Int
     private var subscribers: [UUID: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation] = [:]
     private var terminalSubscribers: [UUID: AsyncStream<AnnexTerminalEvent>.Continuation] = [:]
@@ -28,9 +29,9 @@ public actor AnnexTransport: AnnexTransporting {
     private var commands: [CommandKey: CommandRecord] = [:]
 
     public init(host: TrustedAnnexHost, credentials: any AnnexCredentialStore, clientIdentity: AnnexClientIdentity? = nil,
-                io: (any AnnexIO)? = nil, eventCapacity: Int = 256, commandCapacity: Int = 256, backoff: AnnexBackoff = AnnexBackoff(), telemetry: AnnexTelemetry = .shared) {
-        self.telemetry = telemetry
-        self.host = host; self.credentials = credentials; self.io = io ?? PinnedAnnexIO(host: host, clientIdentity: clientIdentity, telemetry: telemetry)
+                io: (any AnnexIO)? = nil, eventCapacity: Int = 256, commandCapacity: Int = 256, backoff: AnnexBackoff = AnnexBackoff(), telemetry: AnnexTelemetry = .shared, clock: AnnexClock = .live) {
+        self.telemetry = telemetry; self.clock = clock
+        self.host = host; self.credentials = credentials; self.io = io ?? PinnedAnnexIO(host: host, clientIdentity: clientIdentity, telemetry: telemetry, clock: clock)
         self.eventCapacity = max(1, eventCapacity); self.commandCapacity = max(1, commandCapacity); self.backoff = backoff
     }
 
@@ -209,7 +210,7 @@ public actor AnnexTransport: AnnexTransporting {
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         return try await telemetry.measure(command.diagnosticOperation) {
             let data = try command.encoded()
-            let now = Date()
+            let now = clock.now()
             let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
             guard now.timeIntervalSince(command.createdAt) < ttl else {
                 throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
@@ -366,7 +367,7 @@ public actor AnnexTransport: AnnexTransporting {
                 diagnostic.fail(error); diagnostic.number(.attempt, Double(attempt)); diagnostic.number(.backoffMs, delay * 1000)
                 diagnostic.end()
                 transition(.reconnecting(attempt: attempt, delaySeconds: delay))
-                do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                do { try await clock.sleep(.seconds(delay)) } catch { return }
             }
         }
     }
@@ -388,8 +389,8 @@ public actor AnnexTransport: AnnexTransporting {
         }
         // A delayed old send must never clear a newer connection's pending hello.
         guard current == generation else { return }
-        telemetryDeadline = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+        telemetryDeadline = Task { [weak self, clock] in
+            do { try await clock.sleep(.seconds(5)) } catch { return }
             await self?.expireTelemetryHello(generation: current)
         }
     }
@@ -438,9 +439,9 @@ public actor AnnexTransport: AnnexTransporting {
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID) async throws {
         // Structured lifetime: ping and receive are both cancelled on disconnect.
         try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
+            group.addTask { [clock] in
                 do {
-                    while !Task.isCancelled { try await Task.sleep(for: .seconds(20)); try await socket.ping() }
+                    while !Task.isCancelled { try await clock.sleep(.seconds(20)); try await socket.ping() }
                 } catch { await socket.close(); throw error }
             }
             group.addTask { [weak self] in

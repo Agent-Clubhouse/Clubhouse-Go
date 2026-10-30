@@ -29,11 +29,11 @@ private actor QueueIO: AnnexIO {
     }
 }
 private func ok(_ body: String, status: Int = 200) -> AnnexHTTPResponse { AnnexHTTPResponse(status: status, data: Data(body.utf8)) }
-private func queueTransport(_ io: QueueIO) async throws -> AnnexTransport {
+private func queueTransport(_ io: QueueIO, clock: AnnexClock = .live) async throws -> AnnexTransport {
     let host = try failureHost()
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: host.hostID)
-    return AnnexTransport(host: host, credentials: credentials, io: io, telemetry: AnnexTelemetry())
+    return AnnexTransport(host: host, credentials: credentials, io: io, telemetry: AnnexTelemetry(), clock: clock)
 }
 
 // MARK: Subscribers
@@ -241,7 +241,8 @@ private actor FailureSocket: AnnexWebSocket {
         let frames = [try JSONEncoder().encode(AnnexJSON.object(["type": .string("telemetry:hello:ack")])), try ackFrame(wrongAttempt), try ackFrame(good)]
         messages.insert(contentsOf: frames, at: 0)
     }
-    func ping() throws { if closed { throw AnnexTransportError.disconnected } }
+    private(set) var pings = 0
+    func ping() throws { if closed { throw AnnexTransportError.disconnected }; pings += 1 }
     func close() {
         closed = true
         pending?.resume(throwing: AnnexTransportError.disconnected); pending = nil
@@ -282,12 +283,12 @@ private actor FailureSessionIO: AnnexIO {
     }
 }
 
-private func liveTransport(_ io: FailureSessionIO, telemetry: AnnexTelemetry = AnnexTelemetry()) async throws -> AnnexTransport {
+private func liveTransport(_ io: FailureSessionIO, telemetry: AnnexTelemetry = AnnexTelemetry(), clock: AnnexClock = .live) async throws -> AnnexTransport {
     let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
     let host = try failureHost(hostID)
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: hostID)
-    return AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 0.01, maximumSeconds: 0.01), telemetry: telemetry)
+    return AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 0.01, maximumSeconds: 0.01), telemetry: telemetry, clock: clock)
 }
 
 /// Collects events until `stop` matches; the time limit only guards against a hang.
@@ -439,4 +440,95 @@ private struct ReadOnlyTransport: AnnexTransporting {
     await #expect(throws: AnnexTransportError.unsupportedCapability("terminal")) { try await transport.sendTerminal(.close(sessionID: "s")) }
     var terminal = await transport.terminalEvents().makeAsyncIterator()
     #expect(await terminal.next() == nil)
+}
+
+// MARK: Timers on an injected clock
+
+/// Waits for work the code under test has already scheduled, by yielding rather than sleeping.
+private func settle(_ done: () async -> Bool) async throws {
+    for _ in 0..<10_000 { if await done() { return }; await Task.yield() }
+    Issue.record("Condition never settled"); throw CancellationError()
+}
+
+@Test func commandsOlderThanTheDesktopsRetentionAreUnknownAndNeverSent() async throws {
+    let clock = AnnexManualClock()
+    let oneMinute = failureCapabilities.replacingOccurrences(of: #""ttlMs":3600000"#, with: #""ttlMs":60000"#)
+    let receipt = #"{"version":1,"commandId":"kept","epoch":"epoch1","status":"completed"}"#
+    let io = QueueIO([ok(oneMinute), ok(receipt)])
+    let transport = try await queueTransport(io, clock: clock.clock)
+    _ = try await transport.read(.capabilities)
+    let kept = AnnexCommand(commandID: "kept", epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s"))
+    let stale = AnnexCommand(commandID: "stale", epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s"))
+    #expect(try await transport.execute(kept).status == .completed)
+    clock.advance(by: .seconds(30))
+    // Within retention a repeat returns the recorded receipt without a request.
+    #expect(try await transport.execute(kept).status == .completed)
+    clock.advance(by: .seconds(31))
+    // Past the desktop's one-minute horizon it may have forgotten the id: never resend.
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: "stale")) { try await transport.execute(stale) }
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: "kept")) { try await transport.execute(kept) }
+    #expect(await io.requests.count == 2)
+}
+
+@Test(.timeLimit(.minutes(1))) func anUnansweredTelemetryHelloTimesOutAfterFiveSeconds() async throws {
+    let clock = AnnexManualClock()
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let io = FailureSessionIO()
+    let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock)
+    let stream = await transport.events()
+    try await transport.connect()
+    _ = try await collect(stream) { $0 == .connection(.connected) }
+    // The hello deadline (5 s) and the ping interval (20 s) are both waiting.
+    await clock.waitForSleepers(2)
+    clock.advance(by: .seconds(4))
+    #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
+    clock.advance(by: .seconds(1))
+    try await settle { telemetry.snapshot().records.contains { $0.operation == .handshake } }
+    let handshake = try #require(telemetry.snapshot().records.first { $0.operation == .handshake })
+    #expect(handshake.failure == .timeout)
+    #expect(handshake.events.contains("unsupported"))
+    #expect(await io.sockets.count == 1, "An old desktop that ignores the hello keeps its connection")
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func theConnectionPingsEveryTwentySeconds() async throws {
+    let clock = AnnexManualClock()
+    let io = FailureSessionIO()
+    let transport = try await liveTransport(io, clock: clock.clock)
+    let stream = await transport.events()
+    try await transport.connect()
+    _ = try await collect(stream) { $0 == .connection(.connected) }
+    let socket = try #require(await io.sockets.first)
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(19))
+    #expect(await socket.pings == 0)
+    clock.advance(by: .seconds(1))
+    try await settle { await socket.pings == 1 }
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(20))
+    try await settle { await socket.pings == 2 }
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func reconnectWaitsOutTheBackoffOnTheClock() async throws {
+    let clock = AnnexManualClock()
+    let io = FailureSessionIO(openFailures: [URLError(.networkConnectionLost)])
+    let host = try failureHost(try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64))
+    let credentials = MemoryAnnexCredentialStore()
+    await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: host.hostID)
+    let transport = AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 4, maximumSeconds: 4),
+                                   telemetry: AnnexTelemetry(), clock: clock.clock)
+    let stream = await transport.events()
+    try await transport.connect()
+    let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
+    #expect(reconnectAttempts(waiting) == [1])
+    await clock.waitForSleepers(1)
+    // Equal jitter puts a 4 s ceiling between 2 and 4 s: just under 2 s is always too early.
+    clock.advance(by: .milliseconds(1999))
+    for _ in 0..<100 { await Task.yield() }
+    #expect(await io.openAttempts == 1, "No second attempt until the backoff has passed")
+    clock.advance(by: .seconds(2))
+    _ = try await collect(stream) { $0 == .connection(.connected) }
+    #expect(await io.openAttempts == 2)
+    await transport.disconnect()
 }

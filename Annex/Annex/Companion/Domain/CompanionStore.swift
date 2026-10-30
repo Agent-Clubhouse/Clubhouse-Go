@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 import Observation
 
 @MainActor @Observable final class CompanionStore {
@@ -47,12 +50,14 @@ import Observation
     private var imagesRefused: [CompanionTarget: String] = [:]
     /// Each agent's content roots, from its latest chat snapshot.
     private var contentRoots: [CompanionTarget: CompanionContentRoots] = [:]
+    @ObservationIgnored private let clock: AnnexClock
     @ObservationIgnored private var remoteImages: [String: CompanionImageBytes] = [:]
     @ObservationIgnored private var remoteImageOrder: [String] = []
 
     init(service: any CompanionService, draftPersistence: (any CompanionDraftPersistence)? = nil,
-         finishedPersistence: (any CompanionFinishedPersistence)? = nil) {
+         finishedPersistence: (any CompanionFinishedPersistence)? = nil, clock: AnnexClock = .live) {
         self.service = service
+        self.clock = clock
         self.draftPersistence = draftPersistence
         self.finishedPersistence = finishedPersistence
         self.drafts = draftPersistence?.load() ?? [:]
@@ -318,7 +323,7 @@ import Observation
                     break
                 } catch CompanionAttachmentError.rateLimited(let seconds) where waits < 2 && (seconds ?? 5) <= 30 {
                     waits += 1
-                    try await Task.sleep(for: .seconds(max(1, seconds ?? 5)))
+                    try await clock.sleep(.seconds(max(1, seconds ?? 5)))
                 }
             }
         }

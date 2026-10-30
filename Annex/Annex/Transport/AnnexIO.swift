@@ -93,10 +93,13 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
     private let maximumResponseBytes: Int
     private let clientIdentity: AnnexClientIdentity?
     private let telemetry: AnnexTelemetry
-    public init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity? = nil, maximumResponseBytes: Int = 16 * 1024 * 1024, telemetry: AnnexTelemetry = .shared) {
+    private let clock: AnnexClock
+    public init(host: TrustedAnnexHost, clientIdentity: AnnexClientIdentity? = nil, maximumResponseBytes: Int = 16 * 1024 * 1024, telemetry: AnnexTelemetry = .shared,
+                clock: AnnexClock = .live) {
         self.host = host
         self.clientIdentity = clientIdentity
         self.telemetry = telemetry
+        self.clock = clock
         self.maximumResponseBytes = max(1, maximumResponseBytes)
         let config = URLSessionConfiguration.ephemeral
         config.urlCache = nil
@@ -159,7 +162,7 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
             task.delegate = delegate
             task.maximumMessageSize = maximumResponseBytes
             task.resume()
-            return URLSessionAnnexWebSocket(task: task, delegate: delegate, telemetry: telemetry)
+            return URLSessionAnnexWebSocket(task: task, delegate: delegate, telemetry: telemetry, clock: clock)
 
         }
     }
@@ -169,8 +172,9 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
     let task: URLSessionWebSocketTask
     private let delegate: AnnexPinnedSessionDelegate
     private let telemetry: AnnexTelemetry
-    init(task: URLSessionWebSocketTask, delegate: AnnexPinnedSessionDelegate, telemetry: AnnexTelemetry) {
-        self.task = task; self.delegate = delegate; self.telemetry = telemetry
+    private let clock: AnnexClock
+    init(task: URLSessionWebSocketTask, delegate: AnnexPinnedSessionDelegate, telemetry: AnnexTelemetry, clock: AnnexClock) {
+        self.task = task; self.delegate = delegate; self.telemetry = telemetry; self.clock = clock
     }
     func receive() async throws -> Data {
         switch try await task.receive() {
@@ -186,9 +190,9 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
     func ping() async throws {
         return try await telemetry.measure(.ping) {
             let completion = AnnexPingCompletion()
-            let deadline = Task {
+            let deadline = Task { [clock] in
                 do {
-                    try await Task.sleep(for: .seconds(10))
+                    try await clock.sleep(.seconds(10))
                     completion.resolve(.failure(URLError(.timedOut)))
                     task.cancel(with: .goingAway, reason: nil)
                 } catch { }
