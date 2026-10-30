@@ -33,6 +33,82 @@ Don't retry a tap whose repeat changes the result, such as adding an attachment 
 
 The live and provider tests listed below skip unless you enable them.
 
+## Live E2E against a real desktop (nightly)
+
+`scripts/e2e-live.sh` tests Clubhouse Go end to end against a real Clubhouse desktop. Nothing here calls a model or spends tokens. It needs Node (the repo's `.nvmrc`), Xcode with an iOS simulator, and network access to clone `Agent-Clubhouse/Clubhouse`.
+
+```sh
+scripts/e2e-live.sh                                   # desktop main, iPhone 17 Pro
+scripts/e2e-live.sh --desktop-ref my-branch           # any desktop branch, tag or commit
+scripts/e2e-live.sh --only CompanionLiveE2ETests/test6ProjectAndAgentTerminals
+scripts/e2e-live.sh --skip-desktop-build              # reuse .desktop as it is
+scripts/e2e-live.sh --simulator 'iPhone 17'           # another model (a new device of it)
+```
+
+What the script does:
+
+1. **Builds both apps.** It clones the desktop into `.desktop/`, which git ignores, checks out the ref and runs `npm ci` and `electron-forge package`. It skips either step when the lockfile or the commit hasn't changed since the last run. Clubhouse Go builds for testing at the same time.
+2. **Launches the desktop as an isolated fixture.** It copies `scripts/e2e-live/desktop-fixture.spec.ts` into the desktop's `e2e/` folder and runs it with the desktop's own Playwright and launch primitive. You get:
+   - a disposable profile (`CLUBHOUSE_USER_DATA`), with auto-update off;
+   - loopback-only, ephemeral Annex (`CLUBHOUSE_ANNEX_LOOPBACK_ONLY=1`, `CLUBHOUSE_ANNEX_EPHEMERAL=1`): no Bonjour, and identity, TLS and peers held in memory;
+   - every provider CLI pinned through the desktop's unpackaged-only `CLUBHOUSE_TEST_CLI_BINARIES` seam. Claude Code is the desktop's scripted `src/main/chat/claude/__fixtures__/fake-claude.mjs`, running in chat mode on the stream-json transport. Codex and Copilot point at paths that don't exist, so a real CLI on the machine is never reached.
+   - one git project, `Phone Fixture`, with two sleeping chat agents: Echo, which works in the project folder, and Builder, which has its own worktree.
+
+   It never touches your own Clubhouse instance or its profile.
+3. **Mints the pairing.** Once Annex's TLS listener is up, the fixture reads `annex.getStatus()` and writes `{host, port, hostID, certificatePin, pin, name}` (mode 0600) to a temporary folder.
+4. **Runs `CompanionLiveE2ETests`** on a new simulator of the chosen model, which the script creates for this run and deletes afterwards. On a dev Mac other builds and agents boot, drive and shut down the usual simulators, and sharing one crashed runs and relaunched the app mid-test. Pass `--shared-simulator` to use the existing device instead. The script uninstalls the app and runner first, because a stale runner has run old tests. The invitation reaches the runner as `TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION`, and each test passes it to the app in its launch environment. Each launch then pairs for that session only, through the DEBUG bootstrap. Failed tests are retried once. If the simulator itself crashes ("server died", a failed launch), xcodebuild aborts the whole run, so the script reboots the simulator and runs the suite once more. `scripts/verify-xcresult.py` requires a nonempty passing result. xcodebuild prints the launch environment when a launch fails, so the script redacts the invitation from its log.
+5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
+
+Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
+
+- `LiveE2E.xcresult`, which holds screenshots of each step;
+- `xcodebuild-build.log` and `xcodebuild-test.log` (plus `xcodebuild-test-retry.log` after a simulator crash);
+- `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
+- `desktop-sha.txt`, the desktop commit that was tested.
+
+Other environment variables: `DESKTOP_REF`, `DESKTOP_REPO`, `DESKTOP_DIR`, `E2E_SIMULATOR`, `E2E_DERIVED_DATA`, and `E2E_SKIP_DESKTOP_CHECKOUT=1`, which builds `DESKTOP_DIR` as it is checked out.
+
+### What one run covers
+
+The fake CLI's scripted turns:
+
+| You send | The CLI replies |
+|---|---|
+| `hello` | Streams "Hello". |
+| `tool` | Asks to run `ls`, offering an "allow and don't ask again" rule. It replies `allowed:<input>:<rules>` or `denied:<message>`. |
+| `ask` | Asks "Which DB?". |
+| `crash` | Exits at once with code 3. |
+| A message with images | `echo:<text>\|…\|images:<n>:<types>` |
+
+The tests share the desktop and run in order. Each one copes with what an earlier attempt left behind, such as a waiting approval, an inactive project or an awake agent.
+
+| Test | Covers |
+|---|---|
+| `test0ProjectPinAndIdleSync` | Pin, then Mark inactive and Mark active, each kept by the desktop across a fresh pairing. It runs first, while every agent sleeps, because Home never folds a project with an awake agent. |
+| `test1PairingCatalogAndReconnect` | Pairing from the invitation; the project and agents from the desktop's catalog; the desktop's status words (Sleeping, Done); waking an agent; Home → background → foreground reconnect, then a fresh approval round trip |
+| `test2ChatStreamApprovalsAndQuestion` | A streamed reply; Deny; Allow (no rule added); "Allow and don't ask again", whose rule reaches the CLI; a structured question and its answer |
+| `test3ImageUploadReachesTheCLI` | Picking an image, uploading it to the desktop, and the CLI receiving it as an `image/png` block |
+| `test4ModelAndLevelSwitch` | The composer's model menu (switching to Haiku) and level menu (switching to Plan, then back to Ask first) |
+| `test5CreateDurableAgentAndSettings` | New agent creates a durable agent on the desktop; the desktop's agent settings rename it and change its colour; Home shows the new name |
+| `test6ProjectAndAgentTerminals` | The project-root shell (spawn, echo, its directory, a resize on rotation, close) and Builder's worktree shell (its folder and branch) |
+| `test7FinishedQuickAgent` | A quick agent started from the phone finishes, is listed under "Finished, waiting on you", and Dismiss removes it on the desktop |
+
+**Not covered: helper requests.** The fixture would need an orchestrator agent with orchestration turned on and an ask-first helper policy, whose CLI calls `start_helper` over the desktop's Clubhouse MCP bridge. The scripted fake doesn't speak MCP. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers the phone side against the preview desktop.
+
+`--companion-sample-images` replaces the photo picker in this suite, as in preview mode. In DEBUG builds it is honoured when a test invitation is present.
+
+### Nightly workflow
+
+`.github/workflows/e2e-nightly.yml` runs the script on `macos-26` every night at 08:17 UTC. To run it on demand, use **Actions → Live E2E (nightly) → Run workflow**, which takes a `desktop_ref` input (default `main`):
+
+```sh
+gh workflow run e2e-nightly.yml --ref <branch> -f desktop_ref=main
+```
+
+It never runs on pull requests, which keeps CI minutes down: a run takes about 45 runner minutes, mostly building the desktop (`npm ci` about 6, `electron-forge package` about 23) and the suite itself (about 12). Each run uploads `live-e2e-<run id>` (the xcresult and logs) for 14 days.
+
+When a nightly run, or a run on `main`, fails, the workflow opens an issue titled "Nightly live E2E failing", or comments on the open one. Close the issue once the suite is green again.
+
 ## Live integration (opt-in)
 
 `CompanionLiveSmokeTests` runs only when `TEST_RUNNER_CLUBHOUSE_RUN_LIVE_SMOKE=1` is set on `xcodebuild`. Run it only against an isolated desktop fixture that you own:
