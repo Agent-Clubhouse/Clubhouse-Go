@@ -206,9 +206,11 @@ struct CompanionConversationView: View {
                     let items = conversation.items
                     let rows = CompanionTimelineFolding.rows(for: conversation.items)
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
-                    ForEach(rows) { row in
-                        timelineRow(row, pinnedApprovalID: pinnedID, items: items).id(row.id)
-                        if row.id == hintRowID { CompanionContentHint() }
+                    // A long reply is a row per slice, so no row is far taller than the screen: the lazy stack kept
+                    // re-estimating a row thousands of points tall as you scrolled past it, and stalled (#188).
+                    ForEach(CompanionTimelineEntry.entries(for: rows)) { entry in
+                        timelineEntry(entry, pinnedApprovalID: pinnedID, items: items).id(entry.id)
+                        if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
                     }
                     Color.clear.frame(height: 1).id("latest")
                 }
@@ -260,6 +262,27 @@ struct CompanionConversationView: View {
         geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
     }
 
+    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
+        switch entry {
+        case .row(let row): timelineRow(row, pinnedApprovalID: pinnedApprovalID, items: items)
+        case .slice(let message, let slice):
+            messageView(message, slice: slice)
+                // Slices of one reply sit as close as its blocks do, not a row apart.
+                .padding(.top, slice.index == 0 ? 0 : (slice.continuesBlock ? -16 : -10))
+            if slice.isLast && message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
+            }
+        }
+    }
+
+    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
+        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+            Task { await store.retry(messageID: message.id, target: target) }
+        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
+           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+           slice: slice)
+    }
+
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
         switch row {
         case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID, items: items)
@@ -270,10 +293,7 @@ struct CompanionConversationView: View {
     @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
         switch item {
         case .message(let message):
-            CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
-                Task { await store.retry(messageID: message.id, target: target) }
-            }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
-               removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil)
+            messageView(message)
             if message.role == .assistant {
                 CompanionContentLinks(references: CompanionContentReference.references(in: item))
             }
