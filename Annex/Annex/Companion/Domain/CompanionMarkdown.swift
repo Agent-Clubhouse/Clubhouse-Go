@@ -37,6 +37,8 @@ struct CompanionMarkdownTable: Equatable, Sendable {
     var alignments: [Alignment]
     var header: [AttributedString]
     var rows: [[AttributedString]]
+    /// The table as GFM Markdown, for Copy and Share.
+    var markdown: String
     var columnCount: Int { alignments.count }
 }
 
@@ -149,7 +151,7 @@ enum CompanionMarkdown {
         func padded(_ cells: [AttributedString]) -> [AttributedString] {
             cells + Array(repeating: AttributedString(), count: max(0, count - cells.count))
         }
-        return .init(alignments: alignments, header: padded(header), rows: rows.map(padded))
+        return .init(alignments: alignments, header: padded(header), rows: rows.map(padded), markdown: table.format())
     }
 
     // MARK: Inline
