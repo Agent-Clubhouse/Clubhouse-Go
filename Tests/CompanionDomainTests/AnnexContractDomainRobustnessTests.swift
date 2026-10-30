@@ -161,11 +161,11 @@ import Testing
             for wrong in Self.wrongTypes {
                 var damaged = payload; damaged[key] = wrong
                 envelope["payload"] = .object(damaged)
-                try await transport.emit(.object(envelope))
+                try transport.emit(.object(envelope))
             }
         }
         envelope["payload"] = .object(payload)
-        try await transport.emit(.object(envelope))
+        try transport.emit(.object(envelope))
         for _ in 0..<400 where store.hosts.first?.projects.count != 2 { try await Task.sleep(for: .milliseconds(5)) }
         #expect(store.hosts.first?.projects.map(\.name) == ["App", "docs"])
     }

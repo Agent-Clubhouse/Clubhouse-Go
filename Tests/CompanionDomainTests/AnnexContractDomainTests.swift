@@ -22,20 +22,25 @@ enum ContractFixtures {
 
 /// A desktop that answers from the fixtures. Commands must be accepted-shaped: within the desktop's field list and
 /// equal to one of its recorded accepted requests. Each is answered with that request's recorded receipt.
-actor ContractTransport: AnnexTransporting {
-    init() {}
+/// A lock-guarded class rather than an actor: the compiler refuses this actor's synthesized initializer
+/// ("'nonisolated' on an actor's synchronous initializer is invalid") in clean builds of this target.
+final class ContractTransport: AnnexTransporting, @unchecked Sendable {
+    private let lock = NSLock()
     private var continuation: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation?
-    private(set) var matched: [String] = []
-    private(set) var problems: [String] = []
+    private var matchedCommands: [String] = []
+    private var recordedProblems: [String] = []
+    var matched: [String] { lock.withLock { matchedCommands } }
+    var problems: [String] { lock.withLock { recordedProblems } }
     func events() async -> AsyncThrowingStream<AnnexTransportEvent, Error> {
         let pair = AsyncThrowingStream<AnnexTransportEvent, Error>.makeStream()
-        continuation = pair.continuation
+        lock.withLock { continuation = pair.continuation }
         return pair.stream
     }
-    func connect() { continuation?.yield(.connection(.connected)) }
+    private var stream: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation? { lock.withLock { continuation } }
+    func connect() { stream?.yield(.connection(.connected)) }
     func disconnect() {}
     func emit(_ frame: AnnexJSON) throws {
-        continuation?.yield(.message(try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(frame))))
+        stream?.yield(.message(try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(frame))))
     }
     func read(_ route: AnnexReadRoute) throws -> AnnexJSON {
         switch route {
@@ -67,7 +72,7 @@ actor ContractTransport: AnnexTransporting {
         let allowed = Set((schema["base"]).arrayValue.compactMap(\.string) + (schema["commands"]?[command.type]?["fields"]).arrayValue.compactMap(\.string))
         guard case .object(let fields) = sent else { throw AnnexTransportError.malformedResponse }
         let unknown = Set(fields.keys).subtracting(allowed)
-        if !unknown.isEmpty { problems.append("\(command.type) sends \(unknown.sorted()), which the desktop refuses") }
+        if !unknown.isEmpty { lock.withLock { recordedProblems.append("\(command.type) sends \(unknown.sorted()), which the desktop refuses") } }
         func content(_ value: AnnexJSON?) -> AnnexJSON? {
             guard case .object(var values)? = value else { return nil }
             values.removeValue(forKey: "commandId"); values.removeValue(forKey: "epoch")
@@ -76,10 +81,11 @@ actor ContractTransport: AnnexTransporting {
         let cases = try ContractFixtures.cases("commands/\(command.type).json")
         guard let match = cases.first(where: { $0["name"]?.string?.hasPrefix("accepted") == true && content($0["request"]) == content(sent) }),
               case .object(var receipt)? = match["response"]?["body"] else {
-            problems.append("No accepted \(command.type) request matches \(String(data: try command.encoded(), encoding: .utf8) ?? "")")
+            let text = String(data: try command.encoded(), encoding: .utf8) ?? ""
+            lock.withLock { recordedProblems.append("No accepted \(command.type) request matches \(text)") }
             throw AnnexTransportError.rejected(status: 400, code: "invalid_command")
         }
-        matched.append("\(command.type): \(match["name"]?.string ?? "")")
+        lock.withLock { matchedCommands.append("\(command.type): \(match["name"]?.string ?? "")") }
         receipt["commandId"] = .string(command.commandID)
         return try AnnexJSON.object(receipt).decode(AnnexCommandReceipt.self)
     }
@@ -106,7 +112,7 @@ actor ContractTransport: AnnexTransporting {
         }
         payload["helperRequests"] = try ContractFixtures.json("snapshot-helper-requests.json")["value"]
         frame["payload"] = .object(payload)
-        try await transport.emit(.object(frame))
+        try transport.emit(.object(frame))
         try await waitUntil { store.hosts.first?.helperRequests.isEmpty == false || store.hosts.first?.projectState != nil }
         return (service, store, transport)
     }
@@ -193,8 +199,8 @@ actor ContractTransport: AnnexTransporting {
         #expect(history.sessionID == "sess_old" && history.items.count == 2)
         #expect(store.agent(for: sleepy)?.capabilities.contains(.wake) == true)
         try await service.wake(sleepy, resume: true, clientCommandID: "wake-1")
-        #expect(await transport.matched == ["agent.start: accepted wake"])
-        let problems = await transport.problems
+        #expect(transport.matched == ["agent.start: accepted wake"])
+        let problems = transport.problems
         #expect(problems.isEmpty, "\(problems)")
     }
 
@@ -235,9 +241,9 @@ actor ContractTransport: AnnexTransporting {
         try? await service.answerHelperRequest(requests[1], approve: true, force: true, clientCommandID: "c18")
         try? await service.answerHelperRequest(requests[0], approve: false, force: false, clientCommandID: "c19")
 
-        let problems = await transport.problems
+        let problems = transport.problems
         #expect(problems.filter { !$0.contains("helper.") } == [])
-        let matched = await transport.matched
+        let matched = transport.matched
         for expected in ["chat.send: accepted", "chat.send: accepted queued", "chat.interrupt: accepted", "chat.queue.remove: accepted",
                          "chat.permission: accepted", "chat.permission: accepted persistent option", "chat.question: accepted",
                          "chat.question: accepted multiple choices", "chat.setModel: accepted switch", "chat.setLevel: accepted", "agent.spawn: accepted",
