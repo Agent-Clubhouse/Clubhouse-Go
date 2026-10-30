@@ -311,6 +311,33 @@ enum CompanionAgentCommandError {
         case "project_pinned": return "Unpin this project before marking it inactive."
         case "project_state_unavailable": return "Your desktop is still setting up shared pins. Try again in a moment."
         case "finished_quick_agents_unavailable": return "Your desktop is still setting up its finished list. Try again in a moment."
+        case "worktree_options_require_worktree": return "A folder or branch name needs the agent to have its own worktree."
+        case "agent_already_running": return "This agent is already running."
+        // Chat commands (`docs/mobile-control-v1.md` → Commands).
+        case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."
+        case "not_chat": return "This agent isn't running in chat. Start it first."
+        case "pending_request_not_found": return "This request was already answered or has expired."
+        case "revert_in_progress": return "The desktop is restoring an earlier point in this conversation. Try again when it finishes."
+        case "queue_removal_not_supported": return "This agent's queue can't be changed from your phone."
+        case "images_not_supported": return CompanionAttachmentError.imagesNotSupported.errorDescription
+        case "attachment_unavailable": return CompanionAttachmentError.attachmentUnavailable.errorDescription
+        // Helper requests: the desktop's sentence when it sends one.
+        case "helper_start_blocked": return detail ?? "Wake the orchestrator, then approve again."
+        case "helper_start_refused": return detail ?? "The desktop couldn't start this helper."
+        case "helper_check_failed": return detail ?? "The desktop couldn't check this helper. Decline, or check it again on the desktop."
+        case "helper_work_at_risk": return detail ?? "This helper has work that disposing would lose. Dispose anyway to delete it."
+        case "helper_work_changed": return detail ?? "What disposing would lose has changed. Review it and confirm again."
+        case "helper_dispose_failed": return detail ?? "The desktop couldn't dispose this helper. Check it on the desktop."
+        // Any command.
+        case "invalid_command": return detail ?? "The desktop couldn't read this command. Updating Clubhouse may help."
+        case "unsupported_version": return "This phone and your desktop speak different versions. Update Clubhouse on both."
+        case "epoch_mismatch": return "The desktop restarted. Refresh and try again."
+        case "command_conflict": return "The desktop already has a different command with this id. Refresh and try again."
+        case "command_capacity": return "The desktop is busy. Try again in a moment."
+        case "client_certificate_required": return "Pair this desktop again to control it from your phone."
+        case "authorization_revoked": return "This phone's access to the desktop changed. Pair again to continue."
+        case "command_failed": return "The desktop hit an error running this command. It may have partly run. Refresh to check."
+        case "start_cancelled": return "The agent was stopped while it started. Refresh to check whether it's running."
         default:
             if code.hasPrefix("invalid_") { return detail ?? "The desktop couldn't accept these settings." }
             return CompanionChatControlError.message(code: code)

@@ -347,6 +347,34 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// Project and agent shells and attached agent terminals (`terminal` v1). Absent on older desktops.
     public let terminal: Terminal?
     public var supportsTerminal: Bool { controlAvailable == true && terminal?.isUsable == true }
+
+    /// The core fields are required. An optional block the phone can't read (the wrong type, a missing version)
+    /// reads as absent, so that feature is off, rather than failing the whole document and the host with it.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        epoch = try c.decode(String.self, forKey: .epoch)
+        controlAuth = try c.decode(String.self, forKey: .controlAuth)
+        commands = try c.decode([String].self, forKey: .commands)
+        idempotency = try c.decode(Idempotency.self, forKey: .idempotency)
+        func optional<T: Decodable>(_ key: CodingKeys) -> T? { (try? c.decodeIfPresent(T.self, forKey: key)) ?? nil }
+        controlAvailable = optional(.controlAvailable)
+        pairing = optional(.pairing)
+        routes = optional(.routes)
+        createOptions = optional(.createOptions)
+        agentSettings = optional(.agentSettings)
+        projectState = optional(.projectState)
+        finishedQuickAgents = optional(.finishedQuickAgents)
+        chatControls = optional(.chatControls)
+        permissions = optional(.permissions)
+        helperRequests = optional(.helperRequests)
+        attachments = optional(.attachments)
+        terminal = optional(.terminal)
+    }
+    private enum CodingKeys: String, CodingKey {
+        case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings
+        case projectState, finishedQuickAgents, chatControls, permissions, helperRequests, attachments, terminal
+    }
 }
 
 /// The desktop's reply to an image upload. The id is bound to this phone and agent, and expires.

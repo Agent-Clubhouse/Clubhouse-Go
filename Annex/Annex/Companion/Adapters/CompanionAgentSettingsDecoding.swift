@@ -91,9 +91,7 @@ extension CompanionAgentSettings {
     static func idleSleep(_ value: AnnexJSON?) -> CompanionIdleSleep {
         switch value {
         case .string("never"): .never
-        case .integer(let minutes) where minutes > 0: .minutes(Int(minutes))
-        case .number(let minutes) where minutes > 0 && minutes.isFinite: .minutes(Int(minutes.rounded()))
-        default: .inherit
+        default: if let minutes = value?.int, minutes > 0 { .minutes(minutes) } else { .inherit }
         }
     }
 }

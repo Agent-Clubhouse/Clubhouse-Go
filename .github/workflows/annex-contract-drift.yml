@@ -1,0 +1,55 @@
+name: Annex contract drift
+
+# Weekly, and on demand: are the vendored desktop fixtures (Tests/Fixtures/AnnexContract/) still what desktop
+# main writes? The contract tests themselves run in CI's `swift test` on every PR; this only notices when the
+# desktop has moved on, so it never fails a PR. On drift it opens (or comments on) one issue.
+# To fix: scripts/sync-annex-fixtures.sh, then swift test, and commit.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mondays 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: annex-contract-drift
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Vendored fixtures vs desktop main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare with desktop main
+        id: check
+        run: |
+          set +e
+          scripts/sync-annex-fixtures.sh --check > drift.txt 2>&1
+          status=$?
+          cat drift.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          { echo '```'; cat drift.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Open or update the drift issue
+        if: steps.check.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Annex contract fixtures drifted from desktop main"
+          body=$(printf '%s\n\n```\n%s\n```\n\nRun `scripts/sync-annex-fixtures.sh`, then `swift test`, and commit the result. A test that fails after the sync is a protocol change the phone needs to handle.\n\n%s\n' \
+            "The desktop's Annex mobile fixtures changed since they were vendored." "$(head -c 6000 drift.txt)" "$RUN_URL")
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+          exit 1

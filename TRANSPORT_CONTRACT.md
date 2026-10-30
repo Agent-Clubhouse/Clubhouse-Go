@@ -55,3 +55,10 @@ CLANG_MODULE_CACHE_PATH=/tmp/clubhouse-transport-module-cache SWIFTPM_MODULECACH
 ```
 
 macOS executor sandbox blocks Security.framework RSA generation; tests require approved execution outside that sandbox, but generate keys only in memory and do not modify Keychain. No simulator or user desktop instance is launched by transport tests.
+
+## Contract fixtures
+
+`Tests/Fixtures/AnnexContract/` vendors the desktop's canonical Annex mobile fixtures (desktop `test/fixtures/annex-mobile/`, written by its real annex-server code; `SOURCE.json` names the commit). The contract tests decode every one through the phone's real decoders, live service and store (`AnnexContract*Tests` in both test targets). They check that every phone command encodes exactly as the desktop's recorded accepted request and stays within its `commands/_fields.json`, that every recorded receipt and refusal reaches the user as a sentence, and that damaged input (missing, unknown or wrong-typed fields, truncated JSON) degrades without crashing. They run in the normal `swift test`.
+
+- `scripts/sync-annex-fixtures.sh` refreshes them from desktop main (`--ref <sha|branch>`, or `--from <checkout>`). Run `swift test` afterwards: a failure is a protocol change to handle.
+- `scripts/sync-annex-fixtures.sh --check` reports drift. The weekly `Annex contract drift` workflow runs it and opens an issue; it never fails a PR.
