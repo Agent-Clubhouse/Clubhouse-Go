@@ -105,7 +105,7 @@ The tests share the desktop and run in order. Each one copes with what an earlie
 gh workflow run e2e-nightly.yml --ref <branch> -f desktop_ref=main
 ```
 
-It never runs on pull requests, which keeps CI minutes down. Each run uploads `live-e2e-<run id>` (the xcresult and logs) for 14 days.
+It never runs on pull requests, which keeps CI minutes down: a run takes about 45 runner minutes, mostly building the desktop (`npm ci` about 6, `electron-forge package` about 23) and the suite itself (about 12). Each run uploads `live-e2e-<run id>` (the xcresult and logs) for 14 days.
 
 When a nightly run, or a run on `main`, fails, the workflow opens an issue titled "Nightly live E2E failing", or comments on the open one. Close the issue once the suite is green again.
 
