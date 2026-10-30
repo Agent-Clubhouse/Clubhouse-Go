@@ -31,6 +31,15 @@ nonisolated public enum AnnexJSON: Codable, Sendable, Equatable {
     }
     public var string: String? { if case .string(let v) = self { v } else { nil } }
     public var integer: Int64? { if case .integer(let v) = self { v } else { nil } }
+    /// A whole number from either JSON number form. Nil for anything that isn't one or doesn't fit, so an
+    /// out-of-range value like `1e300` reads as missing instead of trapping in `Int(_:)`.
+    public var int: Int? {
+        switch self {
+        case .integer(let v): Int(exactly: v)
+        case .number(let v) where v.isFinite && abs(v) <= 9_007_199_254_740_991: Int(v.rounded())
+        default: nil
+        }
+    }
     public func decode<T: Decodable>(_ type: T.Type) throws -> T {
         try JSONDecoder().decode(type, from: JSONEncoder().encode(self))
     }

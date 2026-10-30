@@ -168,13 +168,7 @@ import ClubhouseTransport
         yield(.output(fresh))
     }
 
-    private static func int(_ value: AnnexJSON?) -> Int? {
-        switch value {
-        case .integer(let n)?: Int(n)
-        case .number(let n)?: Int(n)
-        default: nil
-        }
-    }
+    private static func int(_ value: AnnexJSON?) -> Int? { value?.int }
 
     /// The desktop's error codes in the phone's words. A failed spawn sends the shell's own error text.
     nonisolated static func message(for code: String) -> String {

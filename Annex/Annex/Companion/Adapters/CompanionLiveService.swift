@@ -190,7 +190,7 @@ import ClubhouseTransport
         }
     }
 
-    static let notChatMessage = "Start this agent before sending images."
+    nonisolated static let notChatMessage = "Start this agent before sending images."
 
     /// An upload whose reply was lost is harmless (the next try gets a new id), so every failure here can be retried.
     static func uploadError(_ error: Error) -> Error {
@@ -200,6 +200,8 @@ import ClubhouseTransport
         case .rejected(413, _): return CompanionServiceError.rejected("This image is too large for the desktop.")
         case .rejected(415, _): return CompanionServiceError.rejected("The desktop can't read this image.")
         case .rejected(404, "agent_not_found"): return CompanionServiceError.rejected("This agent is no longer on your desktop.")
+        // `empty_body` / `upload_failed`: the request didn't arrive whole.
+        case .rejected(400, _): return CompanionServiceError.rejected("The image couldn't be uploaded. Check the connection and try again.")
         case .rateLimited(_, let seconds): return CompanionAttachmentError.rateLimited(retryAfter: seconds)
         case .some(let error): return CompanionServiceError.rejected(readableError(error))
         case nil:
@@ -377,7 +379,7 @@ import ClubhouseTransport
             let requesterName = item["requester"]?["name"]?.string ?? "An orchestrator"
             var dispose: CompanionHelperRequest.Dispose?
             if kind == .dispose, let facts = item["dispose"] {
-                func count(_ key: String) -> Int? { facts[key]?.integer.map(Int.init) ?? facts[key].flatMap { if case .number(let n) = $0 { Int(n) } else { nil } } }
+                func count(_ key: String) -> Int? { facts[key]?.int }
                 let checkError = facts["checkError"]?.string
                 dispose = .init(uncommittedFiles: count("uncommittedFiles") ?? 0, unpushedCommits: count("unpushedCommits") ?? 0,
                                 unmergedCommits: count("unmergedCommits"), checkError: checkError, forceRequested: facts["forceRequested"].boolValue,
@@ -467,13 +469,7 @@ import ClubhouseTransport
         if hosts[project.hostID]?.projectState != nil { hosts[project.hostID]?.projectState?[project.projectID] = state; emitHosts() }
         return state
     }
-    nonisolated static func idleDays(from value: AnnexJSON?) -> Int? {
-        switch value {
-        case .integer(let days)?: Int(days)
-        case .number(let days)?: Int(days)
-        default: nil
-        }
-    }
+    nonisolated static func idleDays(from value: AnnexJSON?) -> Int? { value?.int }
     /// `subject` names what was read, as the screen calls it: "settings", or "new agent options".
     static func agentReadError(_ error: Error, subject: String = "settings") -> String {
         switch error as? AnnexTransportError {
@@ -587,26 +583,39 @@ import ClubhouseTransport
         savedCommands[id] = command
         do {
             let receipt = try await transport(for: hostID).execute(command)
-            switch receipt.status {
-            case .completed: return receipt
-            case .rejected:
-                switch receipt.error?.code {
-                case "attachment_unavailable": throw CompanionAttachmentError.attachmentUnavailable
-                case "images_not_supported": throw CompanionAttachmentError.imagesNotSupported
-                case "not_chat" where command.attachmentCount > 0: throw CompanionServiceError.rejected(Self.notChatMessage)
-                default: throw CompanionServiceError.rejected(Self.rejectionMessage(receipt.error))
-                }
-            case .failed: throw CompanionServiceError.uncertain(receipt.error?.message ?? "The command may have partially run. Refresh to check its result.")
-            }
+            if let error = Self.receiptError(receipt, attachmentCount: command.attachmentCount) { throw error }
+            return receipt
         } catch let error as CompanionServiceError { throw error }
         catch let error as CompanionAttachmentError { throw error }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
-    /// Durable agent refusals branch on the code; others keep the desktop's message as before.
+    /// What a receipt means for the user: nil when the command was dispatched. Image refusals keep their own recovery.
+    nonisolated static func receiptError(_ receipt: AnnexCommandReceipt, attachmentCount: Int = 0) -> Error? {
+        switch receipt.status {
+        case .completed: return nil
+        case .rejected:
+            switch receipt.error?.code {
+            case "attachment_unavailable": return CompanionAttachmentError.attachmentUnavailable
+            case "images_not_supported": return CompanionAttachmentError.imagesNotSupported
+            case "not_chat" where attachmentCount > 0: return CompanionServiceError.rejected(notChatMessage)
+            default: return CompanionServiceError.rejected(rejectionMessage(receipt.error))
+            }
+        case .failed: return CompanionServiceError.uncertain(failureMessage(receipt.error))
+        }
+    }
+    /// Refusals branch on the code. The desktop's message is a sentence only for some codes; otherwise it is the code itself.
     nonisolated static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
         guard let failure else { return "The desktop rejected this command." }
-        return CompanionAgentCommandError.message(code: failure.code, message: failure.message) ?? failure.message
+        return CompanionAgentCommandError.message(code: failure.code, message: failure.message)
+            ?? (failure.message.isEmpty || failure.message == failure.code ? "The desktop rejected this command (\(failure.code))." : failure.message)
+    }
+    /// A failed command may have had partial effects; the desktop's sentence says what happened when it sends one.
+    nonisolated static func failureMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
+        let fallback = "The command may have partially run. Refresh to check its result."
+        guard let failure else { return fallback }
+        if !failure.message.isEmpty, failure.message != failure.code { return failure.message }
+        return CompanionAgentCommandError.message(code: failure.code, message: nil) ?? fallback
     }
     private func session(for target: CompanionTarget) throws -> String {
         guard let session = projections[target]?.sessionID else { throw CompanionServiceError.unavailable("Refresh the conversation before sending a command.") }
