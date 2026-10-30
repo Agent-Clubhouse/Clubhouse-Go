@@ -134,7 +134,12 @@ jobs:
 
       - name: Test transport package
         if: matrix.kind == 'unit'
-        run: swift test
+        run: swift test --enable-code-coverage
+
+      # Same run as above; fails only if a target drops below coverage-baseline.json.
+      - name: Check coverage ratchet
+        if: matrix.kind == 'unit'
+        run: scripts/coverage.sh --skip-tests --check
 
       - name: Test bundled Framebriar package
         if: matrix.kind == 'unit'
