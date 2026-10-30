@@ -11,33 +11,57 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 env:
   PROJECT: Annex/Annex.xcodeproj
   SCHEME: ClubhouseGo
 
+# changes ─┬─ swift-packages                       (fast lane: swift test, ~3–5 min)
+#          ├─ build ── ui-tests × N shards          (build once, test-without-building)
+#          └─ release-build                         (parallel; not on the critical path)
+# ci-result gathers them into one check.
+#
+# Pull requests run only the lanes their files need (scripts/ci/changes.py); pushes to main run everything.
+# UI shards come from scripts/ci/ui_shards.py.
 jobs:
-  build-and-test:
-    # Four parallel jobs: builds, packages and unit tests in one; the UI suite split across three.
-    # A single job took ~25 min; each shard now builds (~6 min) and runs a third of the UI tests.
-    name: ${{ matrix.name }}
+  changes:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      swift: ${{ steps.plan.outputs.swift }}
+      app: ${{ steps.plan.outputs.app }}
+      ui-shards: ${{ steps.plan.outputs.ui-shards }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test CI scripts
+        run: python3 -m unittest discover -s scripts/ci/tests
+
+      - name: Choose lanes and UI shards
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > changed-files.txt
+            echo "Changed files:"; cat changed-files.txt
+            python3 scripts/ci/changes.py < changed-files.txt | tee -a "$GITHUB_OUTPUT"
+          else
+            python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
+          fi
+          python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
+
+  swift-packages:
+    name: Swift packages
+    needs: changes
+    if: needs.changes.outputs.swift == 'true'
     runs-on: macos-26
-    timeout-minutes: 50
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Build & Test
-            kind: unit
-          - name: UI tests (preview smoke)
-            kind: ui
-            ui_selection: -only-testing:ClubhouseGoUITests/CompanionPreviewSmokeTests
-          - name: UI tests (sheets and attachments)
-            kind: ui
-            ui_selection: -only-testing:ClubhouseGoUITests/CompanionAgentSheetsTests -only-testing:ClubhouseGoUITests/CompanionImageAttachmentUITests
-          # Everything else, including any new UI test class, runs here by default.
-          - name: UI tests (other)
-            kind: ui
-            ui_selection: -only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/CompanionPreviewSmokeTests -skip-testing:ClubhouseGoUITests/CompanionAgentSheetsTests -skip-testing:ClubhouseGoUITests/CompanionImageAttachmentUITests
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -50,77 +74,94 @@ jobs:
       - name: Report transport TLS test runtime
         run: node --version
 
-      - name: Select Xcode matching simulator runtime
-        run: |
-          # Find the installed iOS simulator runtime version
-          SIM_VER=$(xcrun simctl list runtimes -j | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for r in sorted(data['runtimes'], key=lambda x: x.get('version',''), reverse=True):
-              if 'iOS' in r.get('name','') and r.get('isAvailable', False):
-                  print(r['version'])
-                  sys.exit(0)
-          sys.exit(1)
-          ")
-          echo "Simulator runtime: iOS $SIM_VER"
+      - id: xcode
+        uses: ./.github/actions/setup-xcode
 
-          # Pick the Xcode whose SDK best matches the simulator runtime
-          BEST_XCODE=""
-          for xc in $(ls -d /Applications/Xcode*.app 2>/dev/null | sort -rV); do
-            SDK_VER=$("$xc/Contents/Developer/usr/bin/xcodebuild" -version -sdk iphonesimulator ProductVersion 2>/dev/null || true)
-            echo "  $xc → SDK $SDK_VER"
-            if [ "$SDK_VER" = "$SIM_VER" ]; then
-              BEST_XCODE="$xc"
-              break
-            fi
-          done
+      # Keeps the compiled, coverage-instrumented dependencies (swift-markdown, opentelemetry); a fresh
+      # checkout's sources are newer than the cache, so this package's own modules always rebuild.
+      # Coverage data is excluded so the ratchet only ever reads this run's profile.
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            !.build/coverage
+            !.build/*/*/codecov
+          key: swiftpm-build-cov-${{ runner.os }}-${{ steps.xcode.outputs.xcode }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
-          # Fall back to latest if no exact match
-          if [ -z "$BEST_XCODE" ]; then
-            BEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
-            echo "No exact SDK match — falling back to latest: $BEST_XCODE"
-          fi
+      - name: Test transport package
+        run: swift test --enable-code-coverage
 
-          echo "Selected Xcode: $BEST_XCODE"
-          sudo xcode-select -s "$BEST_XCODE/Contents/Developer"
-          xcodebuild -version
+      # Same run as above; fails only if a target drops below coverage-baseline.json.
+      - name: Check coverage ratchet
+        run: scripts/coverage.sh --skip-tests --check
 
-      - name: Resolve simulator
-        run: |
-          SIMULATOR_UDID=$(xcrun simctl list devices available -j | \
-            python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          for runtime in sorted(data['devices'].keys(), reverse=True):
-              if 'iOS' not in runtime:
-                  continue
-              for d in sorted(data['devices'][runtime], key=lambda device: device['name']):
-                  if 'iPhone' in d['name']:
-                      print(d['udid'])
-                      sys.exit(0)
-          sys.exit(1)
-          ")
-          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
-          echo "DEST=platform=iOS Simulator,id=$SIMULATOR_UDID" >> "$GITHUB_ENV"
-          echo "Using simulator: $SIMULATOR_UDID"
+      - name: Test bundled Framebriar package
+        run: swift test --package-path Vendor/Framebriar
 
-      - name: Wait for simulator boot
-        timeout-minutes: 5
-        run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+  build:
+    name: Build for testing
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    outputs:
+      xcode: ${{ steps.xcode.outputs.xcode }}
+    steps:
+      - uses: actions/checkout@v4
 
+      - id: xcode
+        uses: ./.github/actions/setup-xcode
+
+      - name: Cache Swift package checkouts
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: xcode-spm-${{ hashFiles('Package.resolved', 'Annex/Annex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      # No simulator needed: build for the generic simulator, Apple-silicon only, like the runners.
       - name: Build for testing
         run: |
           xcodebuild build-for-testing \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
-            -destination "$DEST" \
+            -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath DerivedData \
+            -clonedSourcePackagesDirPath SourcePackages \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO \
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
+      # tar keeps the bundles' symlinks and executable bits, which an artifact zip drops.
+      - name: Package test products
+        run: tar -C DerivedData/Build -cf - Products | zstd -T0 -3 -q -o test-products.tar.zst
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-products
+          path: test-products.tar.zst
+          compression-level: 0
+          retention-days: 1
+
+  release-build:
+    name: Release build
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-xcode
+
+      - name: Restore Swift package checkouts
+        uses: actions/cache/restore@v4
+        with:
+          path: SourcePackages
+          key: xcode-spm-${{ hashFiles('Package.resolved', 'Annex/Annex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
       - name: Build Release
-        if: matrix.kind == 'unit'
         run: |
           xcodebuild build \
             -project "$PROJECT" \
@@ -128,65 +169,80 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath DerivedData-Release \
+            -clonedSourcePackagesDirPath SourcePackages \
             CODE_SIGNING_ALLOWED=NO \
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
-      - name: Test transport package
-        if: matrix.kind == 'unit'
-        run: swift test --enable-code-coverage
+  ui-tests:
+    name: ${{ matrix.name }}
+    needs: [changes, build]
+    runs-on: macos-26
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.ui-shards) }}
+    steps:
+      - uses: actions/checkout@v4
 
-      # Same run as above; fails only if a target drops below coverage-baseline.json.
-      - name: Check coverage ratchet
-        if: matrix.kind == 'unit'
-        run: scripts/coverage.sh --skip-tests --check
+      - uses: ./.github/actions/setup-xcode
+        with:
+          xcode: ${{ needs.build.outputs.xcode }}
+          boot-simulator: 'true'
 
-      - name: Test bundled Framebriar package
-        if: matrix.kind == 'unit'
-        run: swift test --package-path Vendor/Framebriar
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-products
+
+      - name: Unpack test products
+        run: |
+          mkdir -p DerivedData/Build
+          zstd -dc test-products.tar.zst | tar -C DerivedData/Build -xf -
+          XCTESTRUN=$(ls DerivedData/Build/Products/*.xctestrun)
+          echo "XCTESTRUN=$XCTESTRUN" >> "$GITHUB_ENV"
+          echo "Test plan: $XCTESTRUN"
+
+      - name: Wait for simulator boot
+        timeout-minutes: 5
+        run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
       # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
       # Verify the complete result bundle, not an individual passing suite in the log.
       - name: Run unit tests
-        if: matrix.kind == 'unit'
+        if: matrix.unit
         run: |
           xcodebuild test-without-building \
-            -project "$PROJECT" \
-            -scheme "$SCHEME" \
+            -xctestrun "$XCTESTRUN" \
             -destination "$DEST" \
-            -derivedDataPath DerivedData \
             -only-testing:ClubhouseGoTests \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 30 \
-            CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath TestResults/UnitTests.xcresult \
             2>&1 | tee xcodebuild-unit.log || true
 
-          python3 scripts/verify-xcresult.py TestResults/UnitTests.xcresult
+          python3 scripts/verify-xcresult.py TestResults/UnitTests.xcresult "Unit tests"
 
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
-      # A UI test that fails is retried up to twice; the result only passes if a retry passes.
+      # A UI test that fails is retried up to twice; the result only passes if a retry passes,
+      # and verify-xcresult.py flags every test that needed a retry.
       - name: Run UI tests
-        if: matrix.kind == 'ui'
+        if: ${{ !cancelled() }}
         run: |
           xcodebuild test-without-building \
-            -project "$PROJECT" \
-            -scheme "$SCHEME" \
+            -xctestrun "$XCTESTRUN" \
             -destination "$DEST" \
-            -derivedDataPath DerivedData \
-            ${{ matrix.ui_selection }} \
+            ${{ matrix.selection }} \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure \
             -test-iterations 3 \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
-            CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath TestResults/UITests.xcresult \
             2>&1 | tee xcodebuild-ui.log || true
 
-          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult
+          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}"
 
       - name: Upload test results
         if: always()
@@ -197,3 +253,22 @@ jobs:
             TestResults
             xcodebuild-*.log
           retention-days: 7
+
+  # One check that is green when every lane this change needs passed (skipped lanes are fine).
+  ci-result:
+    name: CI result
+    needs: [changes, swift-packages, build, release-build, ui-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check lane results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | python3 -c "
+          import json, sys
+          bad = {job: n['result'] for job, n in json.load(sys.stdin).items() if n['result'] not in ('success', 'skipped')}
+          print('Lanes:', 'all passed or not needed' if not bad else bad)
+          sys.exit(1 if bad else 0)
+          "
