@@ -23,3 +23,6 @@ xcuserdata/
 
 # scripts/testflight.sh output
 /build/
+
+# Python bytecode from scripts/
+__pycache__/
