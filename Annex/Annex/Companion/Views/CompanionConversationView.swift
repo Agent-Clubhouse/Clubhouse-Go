@@ -184,35 +184,25 @@ struct CompanionConversationView: View {
     private var timeline: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
-                    // Refreshes of a transcript already on screen show in the composer instead.
-                    if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
-                    if let error = conversation.error {
-                        ContentUnavailableView {
-                            Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
-                        } description: { Text(error) } actions: {
-                            Button("Try again") { Task { await store.load(target, force: true) } }
-                        }
-                    }
-                    if conversation.hasEarlierMessages {
-                        Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                            .font(.caption).frame(maxWidth: .infinity)
-                    }
-                    if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
-                        ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
-                            .accessibilityIdentifier("companion-empty-conversation")
-                    }
+                // Each entry sets its own spacing, never negative: rows that overlapped kept the lazy stack re-estimating (#188).
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 22) { timelineHeader }
                     let pinnedID = store.pinnedApproval(for: target)?.id
                     let items = conversation.items
                     let rows = CompanionTimelineFolding.rows(for: conversation.items)
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
                     // A long reply is a row per slice, so no row is far taller than the screen: the lazy stack kept
                     // re-estimating a row thousands of points tall as you scrolled past it, and stalled (#188).
-                    ForEach(CompanionTimelineEntry.entries(for: rows)) { entry in
-                        timelineEntry(entry, pinnedApprovalID: pinnedID, items: items).id(entry.id)
-                        if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
+                    let entries = CompanionTimelineEntry.entries(for: rows)
+                    ForEach(entries) { entry in
+                        VStack(alignment: .leading, spacing: 22) {
+                            timelineEntry(entry, pinnedApprovalID: pinnedID, items: items)
+                            if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
+                        }
+                        .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader ? 0 : entry.spacingBefore)
+                        .id(entry.id)
                     }
-                    Color.clear.frame(height: 1).id("latest")
+                    Color.clear.frame(height: 1).padding(.top, 22).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.vertical, 24)
@@ -244,6 +234,11 @@ struct CompanionConversationView: View {
                         // the top, their real heights pushed the latest back off screen (#188).
                         followLatest = true
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                        // Once those rows are measured, settle on the latest in case their estimates were short.
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(300))
+                            if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                        }
                     } label: { Label("Latest", systemImage: "arrow.down") }
                     .buttonStyle(.glass).padding()
                 }
@@ -260,6 +255,29 @@ struct CompanionConversationView: View {
             }
         }
     }
+
+    /// Loading, errors, the archive link and the empty state, above the conversation's entries.
+    @ViewBuilder private var timelineHeader: some View {
+        // Refreshes of a transcript already on screen show in the composer instead.
+        if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
+        if let error = conversation.error {
+            ContentUnavailableView {
+                Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
+            } description: { Text(error) } actions: {
+                Button("Try again") { Task { await store.load(target, force: true) } }
+            }
+        }
+        if conversation.hasEarlierMessages {
+            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                .font(.caption).frame(maxWidth: .infinity)
+        }
+        if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
+            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
+                .accessibilityIdentifier("companion-empty-conversation")
+        }
+    }
+    /// Loading and the empty state show only without entries, so they never sit above one.
+    private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
 
     private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
         geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40

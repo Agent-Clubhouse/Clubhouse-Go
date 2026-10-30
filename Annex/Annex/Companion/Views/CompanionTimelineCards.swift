@@ -33,13 +33,6 @@ struct CompanionMessageView: View {
         .contextMenu {
             Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
         }
-        .padding(.top, sliceOffset)
-    }
-
-    /// Rows sit 22pt apart in the conversation and the archive; slices of one reply sit as close as its blocks do.
-    private var sliceOffset: CGFloat {
-        guard let slice, slice.index > 0 else { return 0 }
-        return slice.continuesBlock ? -16 : -10
     }
 
     @ViewBuilder private var richText: some View {
@@ -134,6 +127,14 @@ struct CompanionMessageView: View {
         case .removed: "Removed from queue"
         case .submitted: "Follow-up submitted"
         }
+    }
+}
+
+extension CompanionTimelineEntry {
+    /// Rows sit 22pt apart; slices of one reply sit as close as its blocks, or its list items when one is cut.
+    var spacingBefore: CGFloat {
+        guard case .slice(_, let slice) = self, slice.index > 0 else { return 22 }
+        return slice.continuesBlock ? 6 : 12
     }
 }
 

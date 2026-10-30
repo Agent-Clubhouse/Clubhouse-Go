@@ -65,29 +65,39 @@ private struct CompanionArchivedSessionView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
-                Label("Saved conversation · Read only", systemImage: "clock.arrow.circlepath")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                if let error { Text(error).foregroundStyle(.secondary) }
-                if let transcript {
-                    if transcript.isLoading { ProgressView("Loading messages…").frame(maxWidth: .infinity) }
-                    if let error = transcript.error {
-                        Text(error).foregroundStyle(.secondary)
-                        Button("Try again") { Task { await transcript.loadEarlier() } }
-                    } else if transcript.nextBeforeSequence != nil {
-                        Button("Load earlier messages", systemImage: "arrow.up.circle") { Task { await transcript.loadEarlier() } }
-                            .disabled(transcript.isLoading).frame(maxWidth: .infinity)
+            // Each entry sets its own spacing, never negative: rows that overlapped kept the lazy stack re-estimating (#188).
+            LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 22) {
+                    Label("Saved conversation · Read only", systemImage: "clock.arrow.circlepath")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                    if let error { Text(error).foregroundStyle(.secondary) }
+                    if let transcript {
+                        if transcript.isLoading { ProgressView("Loading messages…").frame(maxWidth: .infinity) }
+                        if let error = transcript.error {
+                            Text(error).foregroundStyle(.secondary)
+                            Button("Try again") { Task { await transcript.loadEarlier() } }
+                        } else if transcript.nextBeforeSequence != nil {
+                            Button("Load earlier messages", systemImage: "arrow.up.circle") { Task { await transcript.loadEarlier() } }
+                                .disabled(transcript.isLoading).frame(maxWidth: .infinity)
+                        }
                     }
+                }
+                if let transcript {
                     let hintItemID = CompanionContentReference.hintRowID(in: transcript.items.map { .item($0) },
                                                                          richContentAvailable: store.richContentAvailable(for: target))
                     // A long reply is a row per slice, as in the conversation (#188).
                     ForEach(CompanionTimelineEntry.entries(for: transcript.items.map { .item(archived($0)) })) { entry in
-                        archiveEntry(entry).id(entry.id)
-                        if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint() }
+                        VStack(alignment: .leading, spacing: 22) {
+                            archiveEntry(entry)
+                            if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint() }
+                        }
+                        .padding(.top, entry.spacingBefore)
+                        .id(entry.id)
                     }
                     if transcript.isLoaded && transcript.items.isEmpty {
                         ContentUnavailableView("No messages", systemImage: "bubble.left",
                                                description: Text("This saved session has no visible messages."))
+                            .padding(.top, 22)
                     }
                 }
             }.padding(22).frame(maxWidth: 860).frame(maxWidth: .infinity)
