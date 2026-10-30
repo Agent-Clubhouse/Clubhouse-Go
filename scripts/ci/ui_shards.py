@@ -15,18 +15,17 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Seconds are measured on macos-26 (run 41020974154). Every `xcodebuild test` invocation also
+# Seconds are measured on macos-26 (runs 41020974154, 41023516202). Every `xcodebuild test` invocation also
 # spends 2–3 minutes installing and launching before its first test, so each shard is a single one.
 SHARDS = [
     {
         "name": "UI tests (preview)",
         "tests": [
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",  # 197
-            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 88
-            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 73
-            "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",  # 55
-            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 53
-            "FeedbackTriggersUITests",  # 131
+            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",  # 170–200
+            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 90–100
+            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 75
+            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 45–55
+            "FeedbackTriggersUITests",  # 110–130
         ],
     },
     {
@@ -34,15 +33,15 @@ SHARDS = [
         # The ClubhouseGoTests bundle takes seconds; it shares this shard's invocation (and launch cost).
         "unit": True,
         "tests": [
-            "CompanionAgentSheetsTests",  # 228
-            "CompanionTerminalUITests",  # 178
-            "CompanionReviewUITests",  # 84
-            "CompanionImageAttachmentUITests",  # 40
+            "CompanionAgentSheetsTests",  # 230–350
+            "CompanionTerminalUITests",  # 155–180
+            "CompanionReviewUITests",  # 80
+            "CompanionImageAttachmentUITests",  # 40–70
             "DiagnosticSettingsTests",  # 25
         ],
     },
     {
-        # Remaining preview smoke tests (~340), Framebriar shake (~184) and anything new.
+        # Remaining preview smoke tests (~400), Framebriar shake (~185) and anything new.
         "name": "UI tests (other)",
         "tests": None,
     },
