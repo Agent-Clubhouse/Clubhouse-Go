@@ -61,7 +61,7 @@ runs:
         xcodebuild -version
         echo "xcode=$BEST_XCODE" >> "$GITHUB_OUTPUT"
 
-    # Booting takes 1–2 minutes; start it now and wait with `xcrun simctl bootstatus` just before testing.
+    # Booting takes 1–2 minutes; wait for it with `xcrun simctl bootstatus` just before testing.
     - name: Start simulator
       if: inputs.boot-simulator == 'true'
       shell: bash

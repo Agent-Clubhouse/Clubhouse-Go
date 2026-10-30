@@ -185,11 +185,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-xcode
-        with:
-          xcode: ${{ needs.build.outputs.xcode }}
-          boot-simulator: 'true'
-
+      # Fetch and unpack before booting: on these 3-core runners a booting simulator
+      # slowed both steps from seconds to over a minute each.
       - uses: actions/download-artifact@v4
         with:
           name: test-products
@@ -201,6 +198,11 @@ jobs:
           XCTESTRUN=$(ls DerivedData/Build/Products/*.xctestrun)
           echo "XCTESTRUN=$XCTESTRUN" >> "$GITHUB_ENV"
           echo "Test plan: $XCTESTRUN"
+
+      - uses: ./.github/actions/setup-xcode
+        with:
+          xcode: ${{ needs.build.outputs.xcode }}
+          boot-simulator: 'true'
 
       - name: Wait for simulator boot
         timeout-minutes: 5
