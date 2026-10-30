@@ -62,11 +62,18 @@ private struct CompanionArchivedSessionView: View {
     let session: CompanionSessionSummary
     @State private var transcript: CompanionArchiveTranscript?
     @State private var error: String?
+    /// How many of the newest entries are laid out; Show earlier messages adds a page before loading another.
+    @State private var shownEntries = CompanionTimelineWindow.pageSize
+
+    private var window: CompanionTimelineWindow? {
+        transcript.map { CompanionTimelineWindow(CompanionTimelineEntry.entries(for: $0.items.map { .item(archived($0)) }), limit: shownEntries) }
+    }
 
     var body: some View {
+        let window = window
         ScrollView {
-            // Each entry sets its own spacing, never negative: rows that overlapped kept the lazy stack re-estimating (#188).
-            LazyVStack(alignment: .leading, spacing: 0) {
+            // A plain stack of the newest entries, each setting its own spacing, as in the conversation (#188).
+            VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 22) {
                     Label("Saved conversation · Read only", systemImage: "clock.arrow.circlepath")
                         .font(.subheadline).foregroundStyle(.secondary)
@@ -76,8 +83,14 @@ private struct CompanionArchivedSessionView: View {
                         if let error = transcript.error {
                             Text(error).foregroundStyle(.secondary)
                             Button("Try again") { Task { await transcript.loadEarlier() } }
+                        } else if window?.hiddenCount ?? 0 > 0 {
+                            Button("Show earlier messages", systemImage: "arrow.up.circle") { shownEntries += CompanionTimelineWindow.pageSize }
+                                .frame(maxWidth: .infinity)
                         } else if transcript.nextBeforeSequence != nil {
-                            Button("Load earlier messages", systemImage: "arrow.up.circle") { Task { await transcript.loadEarlier() } }
+                            Button("Load earlier messages", systemImage: "arrow.up.circle") {
+                                shownEntries += CompanionTimelineWindow.pageSize
+                                Task { await transcript.loadEarlier() }
+                            }
                                 .disabled(transcript.isLoading).frame(maxWidth: .infinity)
                         }
                     }
@@ -86,7 +99,7 @@ private struct CompanionArchivedSessionView: View {
                     let hintItemID = CompanionContentReference.hintRowID(in: transcript.items.map { .item($0) },
                                                                          richContentAvailable: store.richContentAvailable(for: target))
                     // A long reply is a row per slice, as in the conversation (#188).
-                    ForEach(CompanionTimelineEntry.entries(for: transcript.items.map { .item(archived($0)) })) { entry in
+                    ForEach(window?.entries ?? []) { entry in
                         VStack(alignment: .leading, spacing: 22) {
                             archiveEntry(entry)
                             if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint() }

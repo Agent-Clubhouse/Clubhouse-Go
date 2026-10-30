@@ -192,4 +192,33 @@ import Testing
             #expect(slice.blocks.reduce(0) { $0 + CompanionMessageSlices.weight($1) } <= CompanionMessageSlices.defaultBudget)
         }
     }
+
+    @Test func theWindowShowsTheNewestEntriesAndCountsTheRest() {
+        let rows = (1...10).map { CompanionTimelineRow.item(.notice(id: "n\($0)", text: "Notice \($0)")) }
+        let entries = CompanionTimelineEntry.entries(for: rows)
+        let window = CompanionTimelineWindow(entries, limit: 4)
+        #expect(window.entries.map(\.id) == entries.suffix(4).map(\.id))
+        #expect(window.hiddenCount == 6)
+        let all = CompanionTimelineWindow(entries, limit: 40)
+        #expect(all.entries == entries)
+        #expect(all.hiddenCount == 0)
+        #expect(CompanionTimelineWindow([], limit: 4).entries.isEmpty)
+        #expect(CompanionTimelineWindow(entries, limit: 0).hiddenCount == 10)
+    }
+
+    @Test func theWindowNeverStartsPartwayThroughAReply() {
+        let long = (1...30).map { paragraph($0) }.joined(separator: "\n\n")
+        let rows: [CompanionTimelineRow] = [
+            .item(.notice(id: "first", text: "First")),
+            .item(.message(.init(id: "reply", role: .assistant, text: long))),
+            .item(.notice(id: "last", text: "Last"))
+        ]
+        let entries = CompanionTimelineEntry.entries(for: rows)
+        let slices = entries.filter { $0.rowID == "message:reply" }.count
+        #expect(slices > 2)
+        let window = CompanionTimelineWindow(entries, limit: 2)
+        #expect(window.entries.first?.id == "message:reply", "Widened back to the reply's first slice")
+        #expect(window.entries.count == slices + 1)
+        #expect(window.hiddenCount == 1)
+    }
 }
