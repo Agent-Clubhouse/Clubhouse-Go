@@ -204,3 +204,21 @@ enum CompanionTimelineEntry: Identifiable, Equatable, Sendable {
         }
     }
 }
+
+/// The newest entries the conversation lays out (#188). The timeline is a plain stack: the lazy stack re-estimated row
+/// heights, adding and dropping rows at the edge of the screen pass after pass, which stalled the main thread. Every
+/// row of a plain stack is laid out, so a long history shows its newest entries first and older ones on request.
+struct CompanionTimelineWindow: Equatable, Sendable {
+    static let pageSize = 150
+    var entries: [CompanionTimelineEntry]
+    /// How many older entries are left out.
+    var hiddenCount: Int
+
+    /// At least the newest `limit` entries, widened so a reply's slices are never split across the window's edge.
+    init(_ all: [CompanionTimelineEntry], limit: Int) {
+        var start = max(0, all.count - max(limit, 0))
+        while start > 0, start < all.count, all[start - 1].rowID == all[start].rowID { start -= 1 }
+        entries = Array(all[start...])
+        hiddenCount = start
+    }
+}

@@ -9,6 +9,8 @@ struct CompanionConversationView: View {
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showRefreshing = false
+    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
+    @State private var shownEntries = CompanionTimelineWindow.pageSize
     @FocusState private var composerFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -184,22 +186,31 @@ struct CompanionConversationView: View {
     private var timeline: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                // Each entry sets its own spacing, never negative: rows that overlapped kept the lazy stack re-estimating (#188).
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 22) { timelineHeader }
+                let rows = CompanionTimelineFolding.rows(for: conversation.items)
+                // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
+                // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
+                // is a row per slice, so no row is far taller than the screen.
+                let window = CompanionTimelineWindow(CompanionTimelineEntry.entries(for: rows), limit: shownEntries)
+                let entries = window.entries
+                // Each entry sets its own spacing, never negative.
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 22) {
+                        timelineHeader
+                        if window.hiddenCount > 0 {
+                            Button("Show earlier messages", systemImage: "arrow.up.circle") { shownEntries += CompanionTimelineWindow.pageSize }
+                                .font(.caption).frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("companion-show-earlier")
+                        }
+                    }
                     let pinnedID = store.pinnedApproval(for: target)?.id
                     let items = conversation.items
-                    let rows = CompanionTimelineFolding.rows(for: conversation.items)
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
-                    // A long reply is a row per slice, so no row is far taller than the screen: the lazy stack kept
-                    // re-estimating a row thousands of points tall as you scrolled past it, and stalled (#188).
-                    let entries = CompanionTimelineEntry.entries(for: rows)
                     ForEach(entries) { entry in
                         VStack(alignment: .leading, spacing: 22) {
                             timelineEntry(entry, pinnedApprovalID: pinnedID, items: items)
                             if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
                         }
-                        .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader ? 0 : entry.spacingBefore)
+                        .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
                         .id(entry.id)
                     }
                     Color.clear.frame(height: 1).padding(.top, 22).id("latest")
