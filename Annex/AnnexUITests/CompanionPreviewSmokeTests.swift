@@ -100,8 +100,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // which stays next to the composer.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
         let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
-        links.element(boundBy: max(0, links.count - 1)).tap()
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        // Cards keep moving as runs start, so tap again if the first tap missed; opening the preview twice is harmless.
+        waitAndTap(links.element(boundBy: max(0, links.count - 1)), until: title, timeout: 10, "The newest card's log must open")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
