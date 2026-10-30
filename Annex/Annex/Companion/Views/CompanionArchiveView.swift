@@ -80,9 +80,10 @@ private struct CompanionArchivedSessionView: View {
                     }
                     let hintItemID = CompanionContentReference.hintRowID(in: transcript.items.map { .item($0) },
                                                                          richContentAvailable: store.richContentAvailable(for: target))
-                    ForEach(transcript.items) { item in
-                        archiveItem(item).id(item.id)
-                        if item.id == hintItemID { CompanionContentHint() }
+                    // A long reply is a row per slice, as in the conversation (#188).
+                    ForEach(CompanionTimelineEntry.entries(for: transcript.items.map { .item(archived($0)) })) { entry in
+                        archiveEntry(entry).id(entry.id)
+                        if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint() }
                     }
                     if transcript.isLoaded && transcript.items.isEmpty {
                         ContentUnavailableView("No messages", systemImage: "bubble.left",
@@ -103,6 +104,18 @@ private struct CompanionArchivedSessionView: View {
                 transcript = loaded
                 await loaded.loadEarlier()
             } catch { self.error = error.localizedDescription }
+        }
+    }
+
+    @ViewBuilder private func archiveEntry(_ entry: CompanionTimelineEntry) -> some View {
+        switch entry {
+        case .row(.item(let item)): archiveItem(item)
+        case .row(.tools): EmptyView()
+        case .slice(let message, let slice):
+            CompanionMessageView(message: message, canRetry: false, retry: {}, slice: slice)
+            if slice.isLast && message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
+            }
         }
     }
 
@@ -134,5 +147,9 @@ private struct CompanionArchivedSessionView: View {
         var value = message
         value.isStreaming = false
         return value
+    }
+    private func archived(_ item: CompanionTimelineItem) -> CompanionTimelineItem {
+        guard case .message(let message) = item else { return item }
+        return .message(archived(message))
     }
 }
