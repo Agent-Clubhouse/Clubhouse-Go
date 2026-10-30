@@ -5,7 +5,9 @@ import FramebriarUI
 struct CompanionPreviewRoot: View {
     @State private var store = CompanionStore(service: CompanionPreviewService(streamsUpdates: ProcessInfo.processInfo.arguments.contains("--companion-preview-stream"),
                                                                                    showsHelperRequests: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-requests"),
-                                                                                   showsTerminalAgent: ProcessInfo.processInfo.arguments.contains("--companion-preview-terminal-agent")))
+                                                                                   showsTerminalAgent: ProcessInfo.processInfo.arguments.contains("--companion-preview-terminal-agent"),
+                                                                                   showsLongBlocks: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-blocks"),
+                                                                                   showsLongReply: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-reply")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
         UserDefaults.standard.removePersistentDomain(forName: "companion-preview")

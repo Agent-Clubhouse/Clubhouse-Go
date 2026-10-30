@@ -6,6 +6,8 @@ struct CompanionMessageView: View {
     var retry: () -> Void
     var canRemoveQueued = false
     var removeQueued: (() -> Void)?
+    /// In the conversation, a long reply is shown a slice per row (#188); the archive shows it whole.
+    var slice: CompanionMessageSlice?
     @Environment(\.companionPalette) private var palette
 
     /// Like the desktop: agent replies have no author label; your messages sit on the right with their source.
@@ -15,14 +17,14 @@ struct CompanionMessageView: View {
             case .user: userMessage
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
-                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
-                    if message.isStreaming { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
+                    richText
+                    if message.isStreaming && slice?.isLast != false { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             case .system:
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Activity", systemImage: "sparkle").font(.subheadline.weight(.semibold))
-                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
+                    if slice?.index ?? 0 == 0 { Label("Activity", systemImage: "sparkle").font(.subheadline.weight(.semibold)) }
+                    richText
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -30,6 +32,14 @@ struct CompanionMessageView: View {
         .accessibilityElement(children: .contain)
         .contextMenu {
             Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
+        }
+    }
+
+    @ViewBuilder private var richText: some View {
+        if let slice {
+            CompanionMarkdownBlocks(blocks: slice.blocks, depth: 0).frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            CompanionRichText(text: message.text, isStreaming: message.isStreaming)
         }
     }
 
@@ -120,8 +130,17 @@ struct CompanionMessageView: View {
     }
 }
 
+extension CompanionTimelineEntry {
+    /// Rows sit 22pt apart; slices of one reply sit as close as its blocks, or its list items when one is cut.
+    var spacingBefore: CGFloat {
+        guard case .slice(_, let slice) = self, slice.index > 0 else { return 22 }
+        return slice.continuesBlock ? 6 : 12
+    }
+}
+
 /// Native text remains selectable and accessible. Block Markdown (headings, lists, quotes, rules, GFM tables)
-/// maps to SwiftUI views; fenced code and tables scroll horizontally instead of widening the conversation.
+/// maps to SwiftUI views; fenced code and tables scroll horizontally instead of widening the conversation,
+/// and open full screen when tapped.
 struct CompanionRichText: View {
     let text: String
     var isStreaming = false
@@ -216,86 +235,33 @@ struct CompanionMarkdownListView: View {
     }
 }
 
-/// A GFM table in a horizontally scrolling `Grid`. Long cells wrap at a readable width rather than
-/// stretching a column off screen. VoiceOver reads it row by row, pairing each cell with its column.
+/// A GFM table that scrolls sideways when it is wide and grows to fit its rows. Long tables show their first rows,
+/// then "Show all"; tap anywhere to open the whole table full screen.
 struct CompanionMarkdownTableView: View {
     let table: CompanionMarkdownTable
-    @ScaledMetric(relativeTo: .body) private var maxCellWidth: CGFloat = 240
     var body: some View {
-        ScrollView(.horizontal) {
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    ForEach(0..<table.columnCount, id: \.self) { column in
-                        cell(table.header[column], column: column).font(.subheadline.weight(.semibold))
-                            .gridColumnAlignment(Self.horizontal(table.alignments[column]))
-                    }
-                }
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { _, row in
-                    Divider().gridCellUnsizedAxes(.horizontal)
-                    GridRow {
-                        ForEach(0..<table.columnCount, id: \.self) { column in
-                            cell(row[column], column: column).font(.subheadline)
-                        }
-                    }
-                }
-            }
-            .padding(12)
+        let shown = CompanionMarkdownInlineLimit.shownRows(table)
+        CompanionMarkdownBlockFrame(preview: .init(.table(table)), caption: "Table · \(table.rows.count) \(table.rows.count == 1 ? "row" : "rows")",
+                                    background: Color(.secondarySystemGroupedBackground).opacity(0.6),
+                                    showAll: shown < table.rows.count ? "Show all \(table.rows.count) rows" : nil) {
+            CompanionMarkdownTableGrid(table: table, rowLimit: shown)
         }
-        .scrollIndicators(.automatic)
-        .background(Color(.secondarySystemGroupedBackground).opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08)))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Table, \(table.rows.count) rows, \(table.columnCount) columns")
-        .accessibilityChildren {
-            VStack {
-                Text("Columns: " + table.header.map { String($0.characters) }.joined(separator: ", "))
-                ForEach(Array(table.rows.enumerated()), id: \.offset) { index, row in
-                    Text(rowLabel(index: index, row: row))
-                }
-            }
-        }
-    }
-
-    private func cell(_ text: AttributedString, column: Int) -> some View {
-        Text(text).textSelection(.enabled)
-            .multilineTextAlignment(Self.text(table.alignments[column]))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: maxCellWidth, alignment: Alignment(horizontal: Self.horizontal(table.alignments[column]), vertical: .top))
-    }
-
-    private func rowLabel(index: Int, row: [AttributedString]) -> String {
-        let cells = zip(table.header, row).map { header, cell in
-            let name = String(header.characters)
-            return name.isEmpty ? String(cell.characters) : "\(name): \(String(cell.characters))"
-        }
-        return "Row \(index + 1). " + cells.joined(separator: ", ")
-    }
-
-    static func horizontal(_ alignment: CompanionMarkdownTable.Alignment) -> HorizontalAlignment {
-        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
-    }
-    static func text(_ alignment: CompanionMarkdownTable.Alignment) -> TextAlignment {
-        switch alignment { case .leading: .leading; case .center: .center; case .trailing: .trailing }
     }
 }
 
+/// Fenced code that scrolls sideways rather than wrapping. Long code shows its first lines, then "Show all";
+/// tap anywhere to open the whole block full screen.
 struct CompanionCodeBlock: View {
     let language: String?
     let code: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(language ?? "Code").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = code }
-                    .font(.caption).accessibilityLabel("Copy code")
-            }.padding(12)
-            Divider()
-            ScrollView(.horizontal) {
-                Text(code).font(.system(.callout, design: .monospaced)).textSelection(.enabled).padding(12)
-            }
+        let (shown, hidden) = CompanionMarkdownInlineLimit.code(code)
+        CompanionMarkdownBlockFrame(preview: .init(.code(language: language, code: code)), caption: language ?? "Code",
+                                    background: Color(.tertiarySystemGroupedBackground),
+                                    showAll: hidden > 0 ? "Show all \(CompanionMarkdownInlineLimit.codeLines + hidden) lines" : nil) {
+            Text(shown).font(.system(.callout, design: .monospaced)).fixedSize().padding(12)
         }
-        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
