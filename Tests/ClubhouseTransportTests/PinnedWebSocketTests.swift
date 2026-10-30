@@ -88,6 +88,26 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     await #expect(throws: (any Error).self) { _ = try await socket.receive() }
 }
 
+@Test(.timeLimit(.minutes(1))) func anUnansweredPingTimesOutAfterTenSecondsAndClosesTheSocket() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let clock = AnnexManualClock()
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: telemetry, clock: clock.clock)
+    let socket = try await io.openWebSocket(fixture.webSocketRequest())
+    _ = try await socket.receive() // greeting
+    try await socket.send(Data("mute".utf8))
+    #expect(text(try await socket.receive()) == "muted")
+    let ping = Task { try await socket.ping() }
+    #expect(text(try await socket.receive()) == "got-ping")
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(10))
+    await #expect(throws: URLError(.timedOut)) { try await ping.value }
+    #expect(telemetry.snapshot().records.contains { $0.operation == .ping && $0.failure != .none })
+    // A ping that never came back means the path is dead: the socket is torn down.
+    await #expect(throws: (any Error).self) { _ = try await socket.receive() }
+}
+
 @Test(.timeLimit(.minutes(1))) func closedSocketStopsReceivingAndBadRequestsNeverOpen() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }

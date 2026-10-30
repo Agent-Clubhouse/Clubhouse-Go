@@ -125,7 +125,10 @@ import ClubhouseTransport
 
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] {
         return try await AnnexTelemetry.shared.measure(.archive) {
-            let value = try await transport(for: target.hostID).read(.chatSessions(agentID: target.agentID))
+            let value: AnnexJSON
+            do { value = try await transport(for: target.hostID).read(.chatSessions(agentID: target.agentID)) }
+            catch let error as CompanionServiceError { throw error }
+            catch { throw CompanionServiceError.unavailable(Self.sessionsReadError(error)) }
             return value["sessions"].arrayValue.compactMap { session in
                 guard let id = session["sessionId"]?.string else { return nil }
                 return CompanionSessionSummary(id: id, title: session["title"]?.string ?? "Conversation",
@@ -133,6 +136,15 @@ import ClubhouseTransport
                     provider: session["provider"]?.string)
             }.sorted { ($0.lastActiveAt ?? .distantPast) > ($1.lastActiveAt ?? .distantPast) }
 
+        }
+    }
+
+    /// The desktop answers 404 agent_not_found for a removed agent and 500 chat_sessions_failed when it can't read its store.
+    static func sessionsReadError(_ error: Error) -> String {
+        switch error as? AnnexTransportError {
+        case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
+        case .rejected(500, _): "The desktop couldn't read this agent's past conversations. Try again later."
+        default: readableError(error)
         }
     }
 
@@ -242,8 +254,9 @@ import ClubhouseTransport
     static func contentErrorMessage(_ error: Error, reference: CompanionContentReference, hostName: String) -> String {
         switch error as? AnnexTransportError {
         case .rejected(404, "agent_not_found"): return "This agent is no longer on \(hostName)."
-        case .rejected(404, _):
-            if case .image = reference { return "This image is no longer available on \(hostName)." }
+        // The desktop answers an invalid reference like a missing one (404 content_unavailable), so the phone does too.
+        case .rejected(404, _), .invalidEndpoint:
+            if case .file = reference {} else { return "This image is no longer available on \(hostName)." }
             return "\(hostName) couldn't share this file. It may have moved, or be outside the agent's folders."
         case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
         case .malformedResponse: return "\(hostName) sent a preview this phone can't read. Updating the desktop may help."
@@ -309,7 +322,7 @@ import ClubhouseTransport
         guard capabilities[project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
         do { return try CompanionCreateOptions(json: try await transport(for: project.hostID).read(.createOptions(projectID: project.projectID))) }
         catch let error as CompanionServiceError { throw error }
-        catch { throw CompanionServiceError.unavailable(Self.agentReadError(error)) }
+        catch { throw CompanionServiceError.unavailable(Self.agentReadError(error, subject: "new agent options")) }
     }
     /// The receipt comes as soon as the agent's record exists; its worktree is made in the background, and the
     /// snapshot shows it leave `creating` for sleeping (or failed).
@@ -461,10 +474,11 @@ import ClubhouseTransport
         default: nil
         }
     }
-    static func agentReadError(_ error: Error) -> String {
+    /// `subject` names what was read, as the screen calls it: "settings", or "new agent options".
+    static func agentReadError(_ error: Error, subject: String = "settings") -> String {
         switch error as? AnnexTransportError {
         case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
-        case .malformedResponse: "The desktop sent settings this phone can't read. Updating the desktop may help."
+        case .malformedResponse: "The desktop sent \(subject) this phone can't read. Updating the desktop may help."
         default: readableError(error)
         }
     }

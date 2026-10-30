@@ -202,8 +202,17 @@ import Testing
         #expect(page.items.map(\.id) == ["message:m"])
         #expect(await harness.transport.readRoutes.last?.sessionID == "old")
 
-        await harness.transport.failRead("chatSessions", .disconnected)
-        await #expect(throws: AnnexTransportError.disconnected) { _ = try await harness.service.sessions(for: harness.target) }
+        // Failures reach the archive as phone wording, never as a raw transport error.
+        let failures: [(AnnexTransportError, String)] = [
+            (.disconnected, "The desktop is offline. Reconnect to continue."),
+            (.rejected(status: 404, code: "agent_not_found"), "This agent is no longer on the desktop."),
+            (.rejected(status: 500, code: "chat_sessions_failed"), "The desktop couldn't read this agent's past conversations. Try again later."),
+        ]
+        for (failure, text) in failures {
+            await harness.transport.failRead("chatSessions", failure)
+            #expect(await serviceErrorKind { _ = try await harness.service.sessions(for: harness.target) } == .unavailable)
+            #expect(await serviceErrorText { _ = try await harness.service.sessions(for: harness.target) } == text)
+        }
         let unpaired = CompanionTarget(hostID: "other", projectID: "project", agentID: "agent")
         #expect(throws: CompanionServiceError.self) { _ = try harness.service.archive(for: unpaired, sessionID: "old") }
     }
@@ -247,6 +256,9 @@ import Testing
         defer { harness.stop() }
         for reference in [CompanionContentReference.image("../../etc/passwd"), .image("abc.png"), .localImage("local-1")] {
             #expect(await serviceErrorKind { _ = try await harness.service.content(reference, target: harness.target) } == .unavailable)
+            // Read like the desktop's own 404 content_unavailable, never as an address problem.
+            #expect(await serviceErrorText { _ = try await harness.service.content(reference, target: harness.target) }
+                    == "This image is no longer available on Fixture.")
         }
         #expect(await !harness.transport.readRoutes.contains { $0.name == "chatContent" })
     }

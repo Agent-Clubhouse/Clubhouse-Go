@@ -163,9 +163,10 @@ private var cameraMetadata: [CFString: Any] { [
 
 @Suite @MainActor struct CompanionAttachmentStoreTests {
     private let target = CompanionTarget(hostID: "host", projectID: "project", agentID: "agent")
-    private func store(attachments: CompanionAttachmentLimits? = limits, capabilities: CompanionCapabilities = [.chat, .images]) -> (CompanionStore, AttachmentService) {
+    private func store(attachments: CompanionAttachmentLimits? = limits, capabilities: CompanionCapabilities = [.chat, .images],
+                       clock: AnnexClock = .live) -> (CompanionStore, AttachmentService) {
         let service = AttachmentService()
-        let store = CompanionStore(service: service)
+        let store = CompanionStore(service: service, clock: clock)
         store.apply(.hosts([.init(id: "host", name: "Desk", endpoint: "desk.local", connection: .connected, projects: [
             .init(id: "project", name: "Project", agents: [.init(id: target, name: "Agent", subtitle: "", status: .idle, capabilities: capabilities)])
         ], attachments: attachments)]))
@@ -270,12 +271,18 @@ private var cameraMetadata: [CFString: Any] { [
     }
 
     @Test func aShortRetryAfterIsWaitedOut() async {
-        let (store, service) = store()
-        service.uploadOutcomes = [.reject(CompanionAttachmentError.rateLimited(retryAfter: 1)), .accept]
+        let clock = AnnexManualClock()
+        let (store, service) = store(clock: clock.clock)
+        service.uploadOutcomes = [.reject(CompanionAttachmentError.rateLimited(retryAfter: 3)), .accept]
         store.addAttachments([image()], to: target)
-        let started = ContinuousClock.now
-        await store.sendDraft(to: target)
-        #expect(ContinuousClock.now - started >= .seconds(1))
+        let sending = Task { await store.sendDraft(to: target) }
+        await clock.waitForSleepers(1)
+        clock.advance(by: .milliseconds(2999))
+        #expect(clock.sleeperCount == 1, "Still waiting out Retry-After")
+        #expect(service.uploads.count == 1)
+        #expect(lastMessage(store)?.delivery == .uploading(completed: 0, total: 1))
+        clock.advance(by: .milliseconds(1))
+        await sending.value
         #expect(service.uploads.count == 2)
         #expect(service.sent.first?.attachmentIDs == ["upload-2"])
         let (limited, limitedService) = self.store()
@@ -284,6 +291,40 @@ private var cameraMetadata: [CFString: Any] { [
         await limited.sendDraft(to: target)
         #expect(limitedService.uploads.count == 1, "A long wait is left to the user")
         #expect(lastMessage(limited)?.delivery == .failed(CompanionAttachmentError.rateLimited(retryAfter: 600).localizedDescription))
+    }
+
+    /// Without Retry-After the store waits 5 s, at most twice; a third refusal is the user's to retry.
+    @Test func aRateLimitWithoutRetryAfterWaitsFiveSecondsAtMostTwice() async {
+        let clock = AnnexManualClock()
+        let (store, service) = store(clock: clock.clock)
+        let limited = CompanionAttachmentError.rateLimited(retryAfter: nil)
+        service.uploadOutcomes = [.reject(limited), .reject(limited), .reject(limited)]
+        store.addAttachments([image()], to: target)
+        let sending = Task { await store.sendDraft(to: target) }
+        for attempt in 1...2 {
+            await clock.waitForSleepers(1)
+            #expect(service.uploads.count == attempt)
+            clock.advance(by: .seconds(5))
+        }
+        await sending.value
+        #expect(service.uploads.count == 3)
+        #expect(service.sent.isEmpty)
+        #expect(lastMessage(store)?.delivery == .failed(limited.localizedDescription))
+    }
+
+    /// Leaving the conversation mid-wait cancels the wait; nothing more is uploaded or sent.
+    @Test func cancellingDuringARateLimitWaitStopsTheUpload() async {
+        let clock = AnnexManualClock()
+        let (store, service) = store(clock: clock.clock)
+        service.uploadOutcomes = [.reject(CompanionAttachmentError.rateLimited(retryAfter: 2)), .accept]
+        store.addAttachments([image()], to: target)
+        let sending = Task { await store.sendDraft(to: target) }
+        await clock.waitForSleepers(1)
+        sending.cancel()
+        await sending.value
+        #expect(clock.sleeperCount == 0)
+        #expect(service.uploads.count == 1)
+        #expect(service.sent.isEmpty)
     }
 
     @Test func theEchoKeepsThePhonesCopyOfEachImage() async throws {

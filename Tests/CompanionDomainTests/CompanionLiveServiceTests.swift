@@ -326,8 +326,8 @@ private actor LiveTestTransport: AnnexTransporting {
         await transport.setHistory(.object(["sessionId": .null, "state": .string("sleeping"), "readOnly": .bool(true), "canStart": .bool(true)]))
         let (_, store) = try await setup(transport)
         defer { store.stop() }
-        try await waitUntil { store.hosts.first?.connection == .connected }
-        #expect(store.agent(for: target)?.hasSession == true)
+        // The catalog refresh can land just after the connection under load; wait for the agent itself.
+        try await waitUntil { store.hosts.first?.connection == .connected && store.agent(for: target)?.hasSession == true }
         #expect(store.wakeChoices(for: target) == [.resume, .newSession])
         // From a row's menu the chat isn't read yet: waking reads it first.
         #expect(store.mayWake(target))
