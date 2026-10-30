@@ -40,8 +40,9 @@ The live and provider tests listed below skip unless you enable them.
 ```sh
 scripts/e2e-live.sh                                   # desktop main, iPhone 17 Pro
 scripts/e2e-live.sh --desktop-ref my-branch           # any desktop branch, tag or commit
-scripts/e2e-live.sh --only CompanionLiveE2ETests/test8ProjectAndAgentTerminals
+scripts/e2e-live.sh --only CompanionLiveE2ETests/test6ProjectAndAgentTerminals
 scripts/e2e-live.sh --skip-desktop-build              # reuse .desktop as it is
+scripts/e2e-live.sh --simulator 'iPhone 17'           # another model (a new device of it)
 ```
 
 What the script does:
@@ -55,13 +56,13 @@ What the script does:
 
    It never touches your own Clubhouse instance or its profile.
 3. **Mints the pairing.** Once Annex's TLS listener is up, the fixture reads `annex.getStatus()` and writes `{host, port, hostID, certificatePin, pin, name}` (mode 0600) to a temporary folder.
-4. **Runs `CompanionLiveE2ETests`** on the simulator. The script uninstalls the app and runner first, because a stale runner has run old tests. The invitation reaches the runner as `TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION`, and each test passes it to the app in its launch environment. Each launch then pairs for that session only, through the DEBUG bootstrap. Failed tests are retried once, and `scripts/verify-xcresult.py` requires a nonempty passing result.
-5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator if the script booted it.
+4. **Runs `CompanionLiveE2ETests`** on a new simulator of the chosen model, which the script creates for this run and deletes afterwards. On a dev Mac other builds and agents boot, drive and shut down the usual simulators, and sharing one crashed runs and relaunched the app mid-test. Pass `--shared-simulator` to use the existing device instead. The script uninstalls the app and runner first, because a stale runner has run old tests. The invitation reaches the runner as `TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION`, and each test passes it to the app in its launch environment. Each launch then pairs for that session only, through the DEBUG bootstrap. Failed tests are retried once. If the simulator itself crashes ("server died", a failed launch), xcodebuild aborts the whole run, so the script reboots the simulator and runs the suite once more. `scripts/verify-xcresult.py` requires a nonempty passing result. xcodebuild prints the launch environment when a launch fails, so the script redacts the invitation from its log.
+5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
 
 - `LiveE2E.xcresult`, which holds screenshots of each step;
-- `xcodebuild-build.log` and `xcodebuild-test.log`;
+- `xcodebuild-build.log` and `xcodebuild-test.log` (plus `xcodebuild-test-retry.log` after a simulator crash);
 - `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
 - `desktop-sha.txt`, the desktop commit that was tested.
 
@@ -76,21 +77,21 @@ The fake CLI's scripted turns:
 | `hello` | Streams "Hello". |
 | `tool` | Asks to run `ls`, offering an "allow and don't ask again" rule. It replies `allowed:<input>:<rules>` or `denied:<message>`. |
 | `ask` | Asks "Which DB?". |
-| `quit` | Replies, then exits. |
+| `crash` | Exits at once with code 3. |
 | A message with images | `echo:<text>\|…\|images:<n>:<types>` |
 
 The tests share the desktop and run in order. Each one copes with what an earlier attempt left behind, such as a waiting approval, an inactive project or an awake agent.
 
 | Test | Covers |
 |---|---|
+| `test0ProjectPinAndIdleSync` | Pin, then Mark inactive and Mark active, each kept by the desktop across a fresh pairing. It runs first, while every agent sleeps, because Home never folds a project with an awake agent. |
 | `test1PairingCatalogAndReconnect` | Pairing from the invitation; the project and agents from the desktop's catalog; the desktop's status words (Sleeping, Done); waking an agent; Home → background → foreground reconnect, then a fresh approval round trip |
 | `test2ChatStreamApprovalsAndQuestion` | A streamed reply; Deny; Allow (no rule added); "Allow and don't ask again", whose rule reaches the CLI; a structured question and its answer |
 | `test3ImageUploadReachesTheCLI` | Picking an image, uploading it to the desktop, and the CLI receiving it as an `image/png` block |
 | `test4ModelAndLevelSwitch` | The composer's model menu (switching to Haiku) and level menu (switching to Plan, then back to Ask first) |
 | `test5CreateDurableAgentAndSettings` | New agent creates a durable agent on the desktop; the desktop's agent settings rename it and change its colour; Home shows the new name |
-| `test6ProjectPinAndIdleSync` | Pin, then Mark inactive and Mark active, each kept by the desktop across a fresh pairing |
+| `test6ProjectAndAgentTerminals` | The project-root shell (spawn, echo, its directory, a resize on rotation, close) and Builder's worktree shell (its folder and branch) |
 | `test7FinishedQuickAgent` | A quick agent started from the phone finishes, is listed under "Finished, waiting on you", and Dismiss removes it on the desktop |
-| `test8ProjectAndAgentTerminals` | The project-root shell (spawn, echo, its directory, a resize on rotation, close) and Builder's worktree shell (its folder and branch) |
 
 **Not covered: helper requests.** The fixture would need an orchestrator agent with orchestration turned on and an ask-first helper policy, whose CLI calls `start_helper` over the desktop's Clubhouse MCP bridge. The scripted fake doesn't speak MCP. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers the phone side against the preview desktop.
 

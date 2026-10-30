@@ -11,7 +11,7 @@ import XCTest
 /// `denied:…`; `ask` asks "Which DB?"; a message with images replies
 /// `echo:<text>|…|images:<n>:<types>`.
 ///
-/// Tests share the desktop and run in order (`test1…` before `test2…`), but each one copes with what an earlier one
+/// Tests share the desktop and run in order (`test0…` before `test1…`), but each one copes with what an earlier one
 /// left, so a retry or `--only` run still works.
 @MainActor
 final class CompanionLiveE2ETests: ReliableUITestCase {
@@ -314,8 +314,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(row("\(name)-renamed").waitForExistence(timeout: 20), "Home shows the name the desktop now has")
     }
 
-    /// Pinning and marking a project inactive go to the desktop, so a fresh pairing sees them.
-    func test6ProjectPinAndIdleSync() {
+    /// Pinning and marking a project inactive go to the desktop, so a fresh pairing sees them. It runs first, while every
+    /// agent sleeps: Home never folds a project with an awake agent into the idle section, and the phone can't put one
+    /// to sleep. A later run (`--only`, a retry) still checks the desktop's mark through the menu.
+    func test0ProjectPinAndIdleSync() {
         var app = launchPaired()
         revealProject(app)
         let menu = projectMenu(app)
@@ -347,21 +349,26 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         app.buttons["Unpin project"].tap()
 
         waitAndTap(projectMenu(app), until: app.buttons["Mark inactive"], timeout: 10, "An unpinned active project can be marked inactive")
+        // Awake agents show as rows on Home; sleeping ones are folded away.
+        let awake = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-'")).firstMatch.exists
         app.buttons["Mark inactive"].tap()
         let idleFold = element(app, "idle-projects-fold")
-        XCTAssertTrue(idleFold.waitForExistence(timeout: 20), "An inactive project folds into the idle section")
+        if !awake { XCTAssertTrue(idleFold.waitForExistence(timeout: 20), "An inactive project folds into the idle section") }
         app.terminate()
         app = launchPaired()
         let fold = element(app, "idle-projects-fold")
-        XCTAssertTrue(fold.waitForExistence(timeout: 20), "The desktop must keep the inactive mark")
-        tapToExpand(fold)
-        waitAndTap(projectMenu(app), until: app.buttons["Mark active"], timeout: 10)
+        if !awake { XCTAssertTrue(fold.waitForExistence(timeout: 20), "The desktop must keep the inactive mark") }
+        revealProject(app)
+        waitAndTap(projectMenu(app), until: app.buttons["Mark active"], timeout: 10, "The desktop must keep the inactive mark")
+        screenshot(app, "Inactive mark kept by the desktop")
         app.buttons["Mark active"].tap()
         XCTAssertTrue(fold.waitForNonExistence(timeout: 20), "Mark active brings the project back")
+        waitAndTap(projectMenu(app), until: app.buttons["Mark inactive"], timeout: 10, "The desktop must clear the mark")
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
     }
 
     /// A quick agent started from the phone finishes on the desktop and shows under "Finished, waiting on you",
-    /// where Dismiss removes it on the desktop. Its task is the fake CLI's `quit`, which replies and exits.
+    /// where Dismiss removes it on the desktop. Its task is the fake CLI's `crash`, which exits at once. It runs last.
     func test7FinishedQuickAgent() {
         let app = launchPaired()
         let newAgent = app.navigationBars.buttons["New agent"]
@@ -371,7 +378,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let task = app.textFields["Agent task"].exists ? app.textFields["Agent task"] : app.textViews["Agent task"]
         XCTAssertTrue(task.waitForExistence(timeout: 10))
         task.tap()
-        task.typeText("quit")
+        task.typeText("crash")
         app.buttons["Start agent"].tap()
         XCTAssertTrue(kind.waitForNonExistence(timeout: 30), "The desktop must start the quick agent")
         backToHome(app)
@@ -380,7 +387,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let header = projectHeader(app)
         scrollTo(header, in: app)
         waitAndTap(header, until: app.buttons["project-terminal"], timeout: 15, "The project page opens")
-        let finished = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'finished-' AND label CONTAINS 'quit'")).firstMatch
+        let finished = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'finished-' AND label CONTAINS 'crash'")).firstMatch
         XCTAssertTrue(scrollUntilExists(finished, in: app, maxSwipes: 6, wait: 10), "The finished quick agent must be listed from the desktop")
         screenshot(app, "Finished quick agent")
         scrollTo(finished, in: app)
@@ -392,7 +399,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// Terminals: the project root shell and Builder's worktree shell spawn, echo, resize with rotation, and close.
-    func test8ProjectAndAgentTerminals() {
+    func test6ProjectAndAgentTerminals() {
         let app = launchPaired()
         let output = element(app, "terminal-output")
         func waitForOutput(_ text: String, timeout: TimeInterval = 20, file: StaticString = #filePath, line: UInt = #line) {

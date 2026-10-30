@@ -2,15 +2,16 @@
 # Live end-to-end test of Clubhouse Go against a real Clubhouse desktop.
 #
 #   scripts/e2e-live.sh [--desktop-ref <ref>] [--simulator <name|udid>] [--only <TestClass[/testMethod]>]
-#                       [--skip-desktop-build] [--skip-ios-build] [--keep-simulator]
+#                       [--skip-desktop-build] [--skip-ios-build] [--keep-simulator] [--shared-simulator]
 #
 # 1. Checks out the desktop (Agent-Clubhouse/Clubhouse) at a pinned ref, default main, into .desktop/ and builds its
 #    webpack bundle (npm ci + electron-forge package). Meanwhile it builds Clubhouse Go for testing.
 # 2. Launches the desktop through scripts/e2e-live/desktop-fixture.spec.ts: a disposable profile, Annex loopback-only
 #    and ephemeral, and the desktop's scripted fake Claude CLI, so no model is called and no tokens are spent.
 # 3. Waits for its Annex endpoint and the pairing invitation the fixture mints.
-# 4. Runs CompanionLiveE2ETests on a simulator, passing the invitation to the app in memory.
-# 5. Tears everything down: the desktop, its profile and the simulator it booted.
+# 4. Runs CompanionLiveE2ETests on a new simulator of the chosen model (--shared-simulator uses the existing device),
+#    passing the invitation to the app in memory.
+# 5. Tears everything down: the desktop, its profile and the simulator.
 #
 # Results land in build/e2e-live/ (override with E2E_OUT_DIR): LiveE2E.xcresult, xcodebuild and desktop logs.
 # Environment: DESKTOP_REF, DESKTOP_REPO, DESKTOP_DIR, E2E_SIMULATOR, E2E_OUT_DIR, E2E_SKIP_DESKTOP_CHECKOUT=1 (build
@@ -28,6 +29,7 @@ ONLY="ClubhouseGoUITests/CompanionLiveE2ETests"
 BUILD_DESKTOP=1
 BUILD_IOS=1
 KEEP_SIMULATOR=0
+SHARED_SIMULATOR=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -37,7 +39,8 @@ while [[ $# -gt 0 ]]; do
     --skip-desktop-build) BUILD_DESKTOP=0; shift ;;
     --skip-ios-build) BUILD_IOS=0; shift ;;
     --keep-simulator) KEEP_SIMULATOR=1; shift ;;
-    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --shared-simulator) SHARED_SIMULATOR=1; shift ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -47,10 +50,12 @@ die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 mkdir -p "$OUT"
 rm -rf "$OUT/LiveE2E.xcresult" "$OUT"/*.log
-FIXTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/clubhouse-go-e2e.XXXXXX")"
+# Under /tmp, not $TMPDIR: macOS's $TMPDIR resolves into /private/var, where the desktop won't open a terminal.
+FIXTURE_DIR="$(mktemp -d /tmp/clubhouse-go-e2e.XXXXXX)"
 FIXTURE_PID=""
 IOS_BUILD_PID=""
 BOOTED_SIMULATOR=""
+CREATED_SIMULATOR=""
 UDID=""
 
 teardown() {
@@ -71,6 +76,7 @@ teardown() {
   fi
   for f in desktop-stdout.log desktop-stderr.log; do [[ -f "$FIXTURE_DIR/$f" ]] && cp "$FIXTURE_DIR/$f" "$OUT/"; done
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
+  if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
   rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" 2>/dev/null
   rm -rf "$FIXTURE_DIR"
   if [[ $status -eq 0 ]]; then log "Live E2E passed"; else log "Live E2E failed (exit $status); see $OUT"; fi
@@ -90,13 +96,23 @@ for match in (lambda d: d["udid"] == want, lambda d: d["name"] == want, lambda d
     for r in runtimes:
         for d in devices[r]:
             if match(d):
-                print(d["udid"], d["state"], d["name"], sep="\t"); sys.exit(0)
+                print(d["udid"], d["state"], d["name"], d["deviceTypeIdentifier"], r, sep="\t"); sys.exit(0)
 sys.exit(1)' "$SIMULATOR"
 }
-IFS=$'\t' read -r UDID SIM_STATE SIM_NAME < <(resolve_simulator) || die "No iOS simulator matches '$SIMULATOR'"
+IFS=$'\t' read -r UDID SIM_STATE SIM_NAME SIM_TYPE SIM_RUNTIME < <(resolve_simulator) || die "No iOS simulator matches '$SIMULATOR'"
 [[ "$SIM_NAME" == "$SIMULATOR" || "$UDID" == "$SIMULATOR" ]] || echo "warning: '$SIMULATOR' not found; using $SIM_NAME" >&2
-log "Simulator: $SIM_NAME ($UDID, $SIM_STATE)"
-if [[ "$SIM_STATE" != "Booted" ]]; then
+if [[ "$SHARED_SIMULATOR" == 1 ]]; then
+  log "Simulator: $SIM_NAME ($UDID, $SIM_STATE)"
+  if [[ "$SIM_STATE" != "Booted" ]]; then
+    xcrun simctl boot "$UDID"
+    BOOTED_SIMULATOR="$UDID"
+  fi
+else
+  # A device of our own: on a dev Mac, other builds and agents boot, drive and shut down the usual simulators, which
+  # crashed runs and launched the same app mid-test. It is deleted at teardown.
+  UDID="$(xcrun simctl create "Clubhouse Go Live E2E ($SIM_NAME)" "$SIM_TYPE" "$SIM_RUNTIME")"
+  CREATED_SIMULATOR="$UDID"
+  log "Simulator: a new $SIM_NAME ($UDID, ${SIM_RUNTIME##*.})"
   xcrun simctl boot "$UDID"
   BOOTED_SIMULATOR="$UDID"
 fi
@@ -179,20 +195,39 @@ xcrun simctl bootstatus "$UDID" -b > /dev/null
 for bundle in com.Agent-Clubhouse.Go com.Agent-Clubhouse.GoUITests.xctrunner; do xcrun simctl uninstall "$UDID" "$bundle" 2>/dev/null || true; done
 
 fixture() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$FIXTURE_DIR/agents.json" "$1"; }
-log "Running $ONLY (log: $OUT/xcodebuild-test.log)"
+
 # The invitation reaches the app in memory: the runner reads TEST_RUNNER_ variables without the prefix and passes it in
-# the app's launch environment. It is never written to the result bundle or this log.
-TEST_RUNNER_CLUBHOUSE_RUN_LIVE_E2E=1 \
-TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION="$(cat "$FIXTURE_DIR/invitation.json")" \
-TEST_RUNNER_CLUBHOUSE_E2E_PROJECT="$(fixture project)" \
-TEST_RUNNER_CLUBHOUSE_E2E_ECHO_AGENT="$(fixture echo)" \
-TEST_RUNNER_CLUBHOUSE_E2E_BUILDER_AGENT="$(fixture builder)" \
-xcodebuild test-without-building \
-  -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
-  -derivedDataPath "$DERIVED" -only-testing:"$ONLY" \
-  -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
-  -retry-tests-on-failure -test-iterations 2 \
-  CODE_SIGNING_ALLOWED=NO -resultBundlePath "$OUT/LiveE2E.xcresult" \
-  > "$OUT/xcodebuild-test.log" 2>&1 || true
-grep -E "^Test (Case|Suite)|error:|Executed" "$OUT/xcodebuild-test.log" | tail -60 || true
+# the app's launch environment. It pairs only with this loopback, ephemeral desktop, which is gone after teardown;
+# still, xcodebuild prints the launch environment when a launch fails, so the log is scrubbed.
+run_tests() {
+  rm -rf "$OUT/LiveE2E.xcresult"
+  TEST_RUNNER_CLUBHOUSE_RUN_LIVE_E2E=1 \
+  TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION="$(cat "$FIXTURE_DIR/invitation.json")" \
+  TEST_RUNNER_CLUBHOUSE_E2E_PROJECT="$(fixture project)" \
+  TEST_RUNNER_CLUBHOUSE_E2E_ECHO_AGENT="$(fixture echo)" \
+  TEST_RUNNER_CLUBHOUSE_E2E_BUILDER_AGENT="$(fixture builder)" \
+  xcodebuild test-without-building \
+    -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
+    -derivedDataPath "$DERIVED" -only-testing:"$ONLY" \
+    -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+    -retry-tests-on-failure -test-iterations 2 \
+    CODE_SIGNING_ALLOWED=NO -resultBundlePath "$OUT/LiveE2E.xcresult" \
+    2>&1 | sed -E 's/("?CLUBHOUSE_COMPANION_TEST_INVITATION"? = ).*/\1"<redacted>";/' > "$1" || true
+}
+
+log "Running $ONLY (log: $OUT/xcodebuild-test.log)"
+run_tests "$OUT/xcodebuild-test.log"
+# A simulator crash ("server died", a failed launch) aborts the whole xcodebuild run, which per-test retries can't
+# recover. Reboot the simulator and run the suite once more; the tests cope with what the first attempt left.
+if grep -qE "server died|Failed to launch app|Test runner exited|Lost connection to the test manager" "$OUT/xcodebuild-test.log"; then
+  log "The simulator crashed; rebooting it and running again (log: $OUT/xcodebuild-test-retry.log)"
+  xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+  xcrun simctl boot "$UDID"
+  BOOTED_SIMULATOR="$UDID"
+  xcrun simctl bootstatus "$UDID" -b > /dev/null
+  run_tests "$OUT/xcodebuild-test-retry.log"
+  grep -E "^Test (Case|Suite)|error:|Executed" "$OUT/xcodebuild-test-retry.log" | tail -60 || true
+else
+  grep -E "^Test (Case|Suite)|error:|Executed" "$OUT/xcodebuild-test.log" | tail -60 || true
+fi
 python3 "$ROOT/scripts/verify-xcresult.py" "$OUT/LiveE2E.xcresult"
