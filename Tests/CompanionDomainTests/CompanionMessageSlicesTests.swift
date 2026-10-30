@@ -149,4 +149,35 @@ import Testing
         let other = CompanionMessageSlices.slices(messageID: "other", text: source, streaming: false)
         #expect(other.first?.id == "other")
     }
+
+    @Test func timelineEntriesSliceAgentRepliesAndActivityButNotYourMessagesOrOtherRows() {
+        let long = (1...30).map { paragraph($0) }.joined(separator: "\n\n")
+        let rows: [CompanionTimelineRow] = [
+            .item(.message(.init(id: "you", role: .user, text: long))),
+            .item(.message(.init(id: "reply", role: .assistant, text: long))),
+            .item(.message(.init(id: "activity", role: .system, text: long))),
+            .item(.notice(id: "n", text: "Notice")),
+            .tools([.init(id: "t1", name: "Read", summary: "", output: nil, state: .completed, kind: .read),
+                    .init(id: "t2", name: "Read", summary: "", output: nil, state: .completed, kind: .read)])
+        ]
+        let entries = CompanionTimelineEntry.entries(for: rows)
+        #expect(entries.first == .row(rows[0]))
+        let reply = entries.filter { $0.rowID == "message:reply" }
+        #expect(reply.count > 1)
+        #expect(reply.first?.id == "message:reply")
+        #expect(reply.map(\.endsRow) == Array(repeating: false, count: reply.count - 1) + [true])
+        #expect(entries.filter { $0.rowID == "message:activity" }.count == reply.count)
+        #expect(entries.suffix(2).map(\.id) == [rows[3].id, rows[4].id])
+        #expect(entries.suffix(2).allSatisfy { $0.endsRow })
+        #expect(Set(entries.map(\.id)).count == entries.count, "Every entry has its own ID")
+    }
+
+    @Test func aShortReplyIsOneEntryWithItsRowID() {
+        let row = CompanionTimelineRow.item(.message(.init(id: "short", role: .assistant, text: "Done.", isStreaming: true)))
+        let entries = CompanionTimelineEntry.entries(for: [row])
+        #expect(entries.count == 1)
+        #expect(entries[0].id == row.id)
+        #expect(entries[0].rowID == row.id)
+        #expect(entries[0].endsRow)
+    }
 }

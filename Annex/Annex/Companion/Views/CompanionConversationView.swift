@@ -267,8 +267,6 @@ struct CompanionConversationView: View {
         case .row(let row): timelineRow(row, pinnedApprovalID: pinnedApprovalID, items: items)
         case .slice(let message, let slice):
             messageView(message, slice: slice)
-                // Slices of one reply sit as close as its blocks do, not a row apart.
-                .padding(.top, slice.index == 0 ? 0 : (slice.continuesBlock ? -16 : -10))
             if slice.isLast && message.role == .assistant {
                 CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
             }
