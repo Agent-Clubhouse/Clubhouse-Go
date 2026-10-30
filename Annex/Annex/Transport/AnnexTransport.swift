@@ -247,9 +247,11 @@ public actor AnnexTransport: AnnexTransporting {
                       receipt.version == 1,
                       (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
                       (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
+                      // `failed` comes as 500 command_failed, or 409 for a refused helper start, a failed dispose or a
+                      // cancelled start: all definitive answers that may have had partial effects.
                       ((receipt.status == .completed && (200...299).contains(response.status))
                        || (receipt.status == .rejected && (400...499).contains(response.status))
-                       || (receipt.status == .failed && (500...599).contains(response.status))) else {
+                       || (receipt.status == .failed && (400...599).contains(response.status))) else {
                     throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
                 }
                 if receipt.status != .completed { AnnexTelemetry.current?.fail(receipt.status == .failed ? .server : .rejected) }
