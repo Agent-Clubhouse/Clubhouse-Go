@@ -15,33 +15,34 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Seconds are first-run durations on macos-26 (runs 40921272638, 40924322455).
+# Seconds are measured on macos-26 (run 41020974154). Every `xcodebuild test` invocation also
+# spends 2–3 minutes installing and launching before its first test, so each shard is a single one.
 SHARDS = [
     {
-        "name": "UI tests (preview, heavy)",
+        "name": "UI tests (preview)",
         "tests": [
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",  # 151
-            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 71
-            "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",  # 62
-            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 56
-            "CompanionPreviewSmokeTests/testHomeFoldsIdleProjectsAndPinsToTop",  # 51
-            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 46
-            "FeedbackTriggersUITests",  # 123
+            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",  # 197
+            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 88
+            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 73
+            "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",  # 55
+            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 53
+            "FeedbackTriggersUITests",  # 131
         ],
     },
     {
-        "name": "UI tests (sheets and review) + unit tests",
-        # The ClubhouseGoTests bundle is a few seconds; it rides along with the lightest shard.
+        "name": "UI tests (sheets, review, terminal) + unit tests",
+        # The ClubhouseGoTests bundle takes seconds; it shares this shard's invocation (and launch cost).
         "unit": True,
         "tests": [
-            "CompanionAgentSheetsTests",  # 294
-            "CompanionImageAttachmentUITests",  # 44
-            "CompanionReviewUITests",  # 130
-            "DiagnosticSettingsTests",  # 26
+            "CompanionAgentSheetsTests",  # 228
+            "CompanionTerminalUITests",  # 178
+            "CompanionReviewUITests",  # 84
+            "CompanionImageAttachmentUITests",  # 40
+            "DiagnosticSettingsTests",  # 25
         ],
     },
     {
-        # Remaining preview smoke tests (~212), Framebriar shake (~186), terminal (~114) and anything new.
+        # Remaining preview smoke tests (~340), Framebriar shake (~184) and anything new.
         "name": "UI tests (other)",
         "tests": None,
     },
@@ -64,6 +65,8 @@ def matrix(shards=SHARDS):
             flags = [f"-only-testing:{UI_TARGET}"] + [f"-skip-testing:{UI_TARGET}/{test}" for test in listed]
         else:
             flags = [f"-only-testing:{UI_TARGET}/{test}" for test in shard["tests"]]
+        if shard.get("unit"):
+            flags.append(f"-only-testing:{UNIT_TARGET}")
         include.append({"name": shard["name"], "selection": " ".join(flags), "unit": bool(shard.get("unit"))})
     if sum(entry["unit"] for entry in include) != 1:
         raise SystemExit(f"Exactly one shard must run {UNIT_TARGET}")

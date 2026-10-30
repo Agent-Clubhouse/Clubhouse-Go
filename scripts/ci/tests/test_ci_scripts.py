@@ -63,9 +63,12 @@ class UIShardTests(unittest.TestCase):
         only = [flag for entry in include for flag in entry["selection"].split() if flag.startswith("-only-testing:")]
         rest = next(entry for entry in include if entry["selection"].startswith(f"-only-testing:{ui_shards.UI_TARGET} "))
         skipped = [flag.split(":", 1)[1] for flag in rest["selection"].split() if flag.startswith("-skip-testing:")]
-        explicit = [flag.split(":", 1)[1] for flag in only if flag != f"-only-testing:{ui_shards.UI_TARGET}"]
+        explicit = [flag.split(":", 1)[1] for flag in only
+                    if flag not in (f"-only-testing:{ui_shards.UI_TARGET}", f"-only-testing:{ui_shards.UNIT_TARGET}")]
         self.assertEqual(sorted(skipped), sorted(explicit))
-        self.assertEqual(sum(entry["unit"] for entry in include), 1)
+        unit = [entry for entry in include if f"-only-testing:{ui_shards.UNIT_TARGET}" in entry["selection"].split()]
+        self.assertEqual(unit, [entry for entry in include if entry["unit"]])
+        self.assertEqual(len(unit), 1)
 
     def test_listed_classes_exist(self):
         sources = "\n".join(p.read_text() for p in (SCRIPTS.parent / "Annex" / "AnnexUITests").glob("*.swift"))
@@ -95,11 +98,16 @@ def case(name, result, repetitions=(), duration=1.0):
     return node
 
 
-TESTS_JSON = {"testNodes": [{"nodeType": "Unit test bundle", "name": "ClubhouseGoUITests", "children": [
-    {"nodeType": "Test Suite", "name": "Suite", "children": [
-        case("testSteady()", "Passed", duration=10),
-        case("testFlaky()", "Passed", ["Failed", "Passed"], duration=30),
-        case("testBroken()", "Failed", ["Failed", "Failed", "Failed"], duration=5),
+TESTS_JSON = {"testNodes": [{"nodeType": "Test Plan", "name": "ClubhouseGo", "children": [
+    {"nodeType": "UI test bundle", "name": "ClubhouseGoUITests", "children": [
+        {"nodeType": "Test Suite", "name": "Suite", "children": [
+            case("testSteady()", "Passed", duration=10),
+            case("testFlaky()", "Passed", ["Failed", "Passed"], duration=30),
+            case("testBroken()", "Failed", ["Failed", "Failed", "Failed"], duration=5),
+        ]},
+    ]},
+    {"nodeType": "Unit test bundle", "name": "ClubhouseGoTests", "children": [
+        {"nodeType": "Test Suite", "name": "UnitSuite", "children": [case("unitSteady()", "Passed", duration=0)]},
     ]},
 ]}]}
 
@@ -109,8 +117,21 @@ class VerifyXcresultTests(unittest.TestCase):
         flaky = verify.flaky_tests(TESTS_JSON)
         self.assertEqual(flaky, [("Suite", "testFlaky()", 1)])
 
+    def test_flaky_tests_by_bundle(self):
+        self.assertEqual(verify.flaky_tests(TESTS_JSON, {"ClubhouseGoTests"}), [])
+        self.assertEqual(len(verify.flaky_tests(TESTS_JSON, {"ClubhouseGoUITests"})), 1)
+
+    def test_retried_test_in_strict_bundle_fails(self):
+        summary = {"result": "Passed", "passedTests": 3, "failedTests": 0}
+        fetch = lambda kind, path: summary if kind == "summary" else TESTS_JSON
+        with mock.patch.object(verify, "xcresult", fetch), redirect_stdout(io.StringIO()), \
+                mock.patch.dict("os.environ", {}, clear=True):
+            verify.main("x.xcresult", "t", ["ClubhouseGoTests"])
+            with self.assertRaises(SystemExit):
+                verify.main("x.xcresult", "t", ["ClubhouseGoUITests"])
+
     def test_durations_by_class(self):
-        self.assertEqual(verify.class_durations(TESTS_JSON), {"Suite": 45})
+        self.assertEqual(verify.class_durations(TESTS_JSON), {"Suite": 45, "UnitSuite": 0})
 
     def test_report_writes_summary_and_annotations(self):
         with tempfile.NamedTemporaryFile("r+") as summary:
