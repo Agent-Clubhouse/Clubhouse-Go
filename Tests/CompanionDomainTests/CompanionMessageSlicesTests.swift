@@ -180,4 +180,16 @@ import Testing
         #expect(entries[0].rowID == row.id)
         #expect(entries[0].endsRow)
     }
+
+    /// The UI test's reply (#188): about 10,000 words, and every slice within the budget but code and tables.
+    @MainActor @Test func thePreviewLongReplyIsAboutTenThousandWordsInManyBoundedSlices() {
+        let text = CompanionPreviewService.longReply
+        #expect(words(text).count > 9_500)
+        #expect(text.hasPrefix("Start of the long reply.") && text.hasSuffix("End of the long reply."))
+        let slices = CompanionMessageSlices.slices(messageID: "message:agent-5", text: text, streaming: false)
+        #expect(slices.count > 40)
+        for slice in slices where !slice.blocks.contains(where: { if case .code = $0 { true } else if case .table = $0 { true } else { false } }) {
+            #expect(slice.blocks.reduce(0) { $0 + CompanionMessageSlices.weight($1) } <= CompanionMessageSlices.defaultBudget)
+        }
+    }
 }
