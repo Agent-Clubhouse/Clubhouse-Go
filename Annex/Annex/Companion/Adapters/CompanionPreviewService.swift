@@ -137,7 +137,8 @@ import Foundation
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
         ] + (showsLongBlocks ? [
-            .message(.init(id: "agent-4", role: .assistant, text: Self.longBlocksReply, timestamp: Date().addingTimeInterval(-20)))
+            .message(.init(id: "agent-4", role: .assistant, text: Self.longTableReply, timestamp: Date().addingTimeInterval(-20))),
+            .message(.init(id: "agent-5", role: .assistant, text: Self.longCodeReply, timestamp: Date().addingTimeInterval(-15)))
         ] : []) + [
             // Two waiting approvals show "1 of 2"; "Always allow" is a secondary action, confirmed first.
             .approval(.init(id: "approval-1", toolName: "Bash", summary: "Build the iOS application to verify the updated conversation layout.", title: "Run xcodebuild",
@@ -166,16 +167,14 @@ import Foundation
 
     > Commands wait until the history refresh finishes.
     """
-    /// A table wider than the phone with many rows, some of which wrap, and a long code block with one very long
-    /// line. Each ends with a row or line the UI test scrolls to (#180).
-    static let longBlocksReply: String = {
+    /// A table wider than the phone with many rows, one of which wraps, ending in a row the UI test scrolls to (#180).
+    static let longTableReply: String = {
         let areas = ["Desktop", "Phone", "Relay", "Pairing", "Archive", "Composer", "Approvals", "Previews", "Themes", "Telemetry", "Sync", "Search", "Settings"]
         let rows = areas.enumerated().map { index, area in
             let change = index == 0 ? "Upgraded to Electron 45.1 with dependency security fixes, and moved the updater onto the new signing key"
                 : "Reworked \(area.lowercased()) so it keeps its place across reconnects"
             return "| \(area) | \(change) | Passed | \(index % 3 == 0 ? "River" : "Cedar") | Checked on iPhone and iPad in light and dark mode |"
         }
-        let code = (1...60).map { "    step(\($0), label: \"Release check \($0)\")" }
         return """
         Here is the release summary.
 
@@ -183,7 +182,12 @@ import Foundation
         |:-----|:-------|:------:|:------|:------|
         \(rows.joined(separator: "\n"))
         | Wrap-up | Final row of the release table | Passed | River | The last row |
-
+        """
+    }()
+    /// A long code block with one line wider than the phone, ending in a line the UI test scrolls to (#180).
+    static let longCodeReply: String = {
+        let code = (1...60).map { "    step(\($0), label: \"Release check \($0)\")" }
+        return """
         ```typescript
         function releaseChecks(step: (index: number, options: { label: string }) => void) {
         \(code.joined(separator: "\n"))

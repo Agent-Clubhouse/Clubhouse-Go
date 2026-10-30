@@ -80,15 +80,35 @@ import Testing
         #expect(CompanionMarkdownZoom.clamped(.nan) == 1)
     }
 
-    /// The UI test's fixture: a wide, many-row table and a long code block, each ending where the test scrolls to.
-    @Test @MainActor func longBlocksFixtureHasAWideTableAndLongCode() {
-        let blocks = CompanionMarkdown.parse(CompanionPreviewService.longBlocksReply).blocks
-        guard blocks.count == 3, case .table(let table) = blocks[1], case .code(let language, let code) = blocks[2] else {
-            Issue.record("Expected a paragraph, a table and code, got \(blocks)"); return
+    @Test func longCodeShowsItsFirstLinesInline() {
+        let code = (1...40).map { "line \($0)" }.joined(separator: "\n")
+        let (shown, hidden) = CompanionMarkdownInlineLimit.code(code)
+        #expect(shown.split(separator: "\n").count == CompanionMarkdownInlineLimit.codeLines)
+        #expect(shown.hasPrefix("line 1\n"))
+        #expect(hidden == 40 - CompanionMarkdownInlineLimit.codeLines)
+        #expect(CompanionMarkdownInlineLimit.code("a\nb") == ("a\nb", 0), "Short code shows whole")
+    }
+
+    @Test func longTablesShowTheirFirstRowsInline() {
+        func table(rows: Int) -> CompanionMarkdownTable {
+            .init(alignments: [.leading], header: ["A"], rows: Array(repeating: ["x"], count: rows), markdown: "")
+        }
+        #expect(CompanionMarkdownInlineLimit.shownRows(table(rows: 3)) == 3)
+        #expect(CompanionMarkdownInlineLimit.shownRows(table(rows: 14)) == CompanionMarkdownInlineLimit.tableRows)
+    }
+
+    /// The UI test's fixtures: a wide, many-row table and a long code block, each ending where the test scrolls to.
+    @Test @MainActor func longBlocksFixturesHaveAWideTableAndLongCode() {
+        let tableBlocks = CompanionMarkdown.parse(CompanionPreviewService.longTableReply).blocks
+        guard tableBlocks.count == 2, case .table(let table) = tableBlocks[1] else {
+            Issue.record("Expected a paragraph and a table, got \(tableBlocks)"); return
         }
         #expect(table.columnCount == 5)
         #expect(table.rows.count == 14)
         #expect(table.rows.last.map { String($0[0].characters) } == "Wrap-up")
+        guard case .code(let language, let code) = CompanionMarkdown.parse(CompanionPreviewService.longCodeReply).blocks.first else {
+            Issue.record("Expected code"); return
+        }
         #expect(language == "typescript")
         let lines = code.split(separator: "\n")
         #expect(lines.count > 60)

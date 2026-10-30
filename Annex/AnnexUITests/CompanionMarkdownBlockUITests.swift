@@ -65,6 +65,7 @@ final class CompanionMarkdownBlockUITests: ReliableUITestCase {
         let firstRow = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Row 1. Area: Desktop'")).firstMatch
         XCTAssertTrue(firstRow.exists, "VoiceOver reads the table by row")
         XCTAssertGreaterThan(firstRow.frame.height, 30, "A wrapped row must be as tall as its text")
+        XCTAssertTrue(app.buttons["Show all 14 rows"].exists, "A long table shows its first rows, then Show all")
         attachScreenshot(app, "Inline long table")
 
         // Tap the table: it opens alone, and its last row and column can be reached.
@@ -86,6 +87,7 @@ final class CompanionMarkdownBlockUITests: ReliableUITestCase {
 
         // Long-press the code block, further down: its menu opens it on its own, where the last line can be reached.
         let codeCaption = caption("typescript", below: true, in: app)
+        XCTAssertTrue(app.buttons["Show all 64 lines"].exists, "Long code shows its first lines, then Show all")
         // The inline header's buttons say "Open code" and "Copy code"; the menu's own items are "Open" and "Copy code".
         let menuOpen = app.buttons["Open"]
         XCTAssertTrue(longPressUntilMenu(codeCaption, shows: menuOpen), "Long-press offers Open")

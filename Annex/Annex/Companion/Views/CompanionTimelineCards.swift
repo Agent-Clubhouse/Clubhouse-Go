@@ -217,26 +217,32 @@ struct CompanionMarkdownListView: View {
     }
 }
 
-/// A GFM table that scrolls sideways when it is wide and grows to fit its rows. Tap it to open it full screen.
+/// A GFM table that scrolls sideways when it is wide and grows to fit its rows. Long tables show their first rows,
+/// then "Show all"; tap anywhere to open the whole table full screen.
 struct CompanionMarkdownTableView: View {
     let table: CompanionMarkdownTable
     var body: some View {
+        let shown = CompanionMarkdownInlineLimit.shownRows(table)
         CompanionMarkdownBlockFrame(preview: .init(.table(table)), caption: "Table · \(table.rows.count) \(table.rows.count == 1 ? "row" : "rows")",
-                                    background: Color(.secondarySystemGroupedBackground).opacity(0.6)) {
-            CompanionMarkdownTableGrid(table: table)
+                                    background: Color(.secondarySystemGroupedBackground).opacity(0.6),
+                                    showAll: shown < table.rows.count ? "Show all \(table.rows.count) rows" : nil) {
+            CompanionMarkdownTableGrid(table: table, rowLimit: shown)
         }
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.08)))
     }
 }
 
-/// Fenced code that scrolls sideways rather than wrapping. Tap it to open it full screen.
+/// Fenced code that scrolls sideways rather than wrapping. Long code shows its first lines, then "Show all";
+/// tap anywhere to open the whole block full screen.
 struct CompanionCodeBlock: View {
     let language: String?
     let code: String
     var body: some View {
+        let (shown, hidden) = CompanionMarkdownInlineLimit.code(code)
         CompanionMarkdownBlockFrame(preview: .init(.code(language: language, code: code)), caption: language ?? "Code",
-                                    background: Color(.tertiarySystemGroupedBackground)) {
-            Text(code).font(.system(.callout, design: .monospaced)).fixedSize().padding(12)
+                                    background: Color(.tertiarySystemGroupedBackground),
+                                    showAll: hidden > 0 ? "Show all \(CompanionMarkdownInlineLimit.codeLines + hidden) lines" : nil) {
+            Text(shown).font(.system(.callout, design: .monospaced)).fixedSize().padding(12)
         }
     }
 }

@@ -42,6 +42,8 @@ struct CompanionMarkdownBlockFrame<Content: View>: View {
     let preview: CompanionMarkdownBlockPreview
     var caption: String
     var background: Color
+    /// "Show all 14 rows" when the inline preview stops short of the block.
+    var showAll: String?
     @ViewBuilder var content: Content
     @Environment(\.companionMarkdownBlockPresenter) private var presenter
     /// Outside a conversation (no presenter), the block presents its own sheet.
@@ -68,6 +70,15 @@ struct CompanionMarkdownBlockFrame<Content: View>: View {
                 // As tall as the block, whatever the conversation's lazy stack proposes. Left flexible, a long block
                 // was cut short (#180), and its height chased the stack's estimates in an endless update loop.
                 .fixedSize(horizontal: false, vertical: true)
+            if let showAll {
+                Divider()
+                Button(action: open) {
+                    Label(showAll, systemImage: "arrow.up.left.and.arrow.down.right").frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .font(.subheadline)
+                .padding(12)
+                .accessibilityIdentifier("companion-markdown-show-all")
+            }
         }
         .background(background, in: RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
@@ -100,6 +111,8 @@ extension CompanionMarkdownBlockPreview.Content {
 /// row, pairing each cell with its column.
 struct CompanionMarkdownTableGrid: View {
     let table: CompanionMarkdownTable
+    /// Inline, only the first rows show; the rest are full screen.
+    var rowLimit: Int?
     /// Full screen, cells can be selected; inline, a long-press opens the block's menu instead.
     var selectable = false
     @ScaledMetric(relativeTo: .body) private var maxCellWidth: CGFloat = 240
@@ -111,7 +124,7 @@ struct CompanionMarkdownTableGrid: View {
             ForEach(0..<table.columnCount, id: \.self) { column in
                 cell(table.header[column], column: column).font(.subheadline.weight(.semibold))
             }
-            ForEach(Array(table.rows.enumerated()), id: \.offset) { index, row in
+            ForEach(Array(table.rows.prefix(rowLimit ?? table.rows.count).enumerated()), id: \.offset) { index, row in
                 Rectangle().fill(Color(.separator)).frame(height: pixel)
                     .layoutValue(key: CompanionMarkdownTableLayout.Role.self, value: .separator)
                 rowElement(rowLabel(index: index, row: row))

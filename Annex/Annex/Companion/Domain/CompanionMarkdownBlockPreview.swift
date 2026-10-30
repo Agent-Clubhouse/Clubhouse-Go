@@ -83,6 +83,23 @@ struct CompanionMarkdownTableGeometry: Equatable, Sendable {
     }
 }
 
+/// How much of a long block shows inline. The rest is a tap away, full screen, so no reply grows far taller than the
+/// screen; the conversation's lazy stack could stall re-estimating rows that tall (#180).
+enum CompanionMarkdownInlineLimit {
+    static let tableRows = 8
+    static let codeLines = 15
+
+    /// The first `codeLines` lines, and how many more there are.
+    static func code(_ code: String) -> (shown: String, hiddenLines: Int) {
+        let lines = code.split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count > codeLines else { return (code, 0) }
+        return (lines.prefix(codeLines).joined(separator: "\n"), lines.count - codeLines)
+    }
+
+    /// How many of the table's rows show inline.
+    static func shownRows(_ table: CompanionMarkdownTable) -> Int { min(table.rows.count, tableRows) }
+}
+
 /// Pinch-to-zoom limits for the full-screen block.
 enum CompanionMarkdownZoom {
     static let range: ClosedRange<CGFloat> = 0.5...4
