@@ -98,9 +98,7 @@ final class CompanionMarkdownBlockUITests: ReliableUITestCase {
     }
 
     /// The long fixtures: reaching the last row and line, the wrapped row, Show all and pinch to zoom.
-    func testTableAndCodeOpenFullScreenToTheirLastRowAndLine() throws {
-        // Scrolling the timeline past these replies under load can stall the conversation's lazy stack.
-        try XCTSkipIf(true, "LazyVStack measure churn: #188")
+    func testTableAndCodeOpenFullScreenToTheirLastRowAndLine() {
         let app = launchApp(["--companion-preview", "--companion-preview-long-blocks"])
         openRiver(app)
         let sheet = app.scrollViews["companion-markdown-block-sheet"]
