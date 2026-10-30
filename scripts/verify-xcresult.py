@@ -4,8 +4,12 @@
 Also reports to the GitHub job summary: tests that passed only on a retry
 (as warning annotations), and time per test class for rebalancing UI shards.
 
-Usage: verify-xcresult.py RESULT.xcresult [TITLE]
+Usage: verify-xcresult.py RESULT.xcresult [TITLE] [--no-retries-in BUNDLE ...]
+
+--no-retries-in fails the run if a test in that bundle (e.g. ClubhouseGoTests) needed a
+retry, so unit tests that share an invocation with retried UI tests stay strict.
 """
+import argparse
 import json
 import os
 import subprocess
@@ -16,14 +20,16 @@ def xcresult(kind, path):
     return json.loads(subprocess.check_output(["xcrun", "xcresulttool", "get", "test-results", kind, "--path", path]))
 
 
-def test_cases(node, suite=None):
+def test_cases(node, bundle=None, suite=None):
+    if node.get("nodeType", "").endswith("test bundle"):
+        bundle = node.get("name")
     if node.get("nodeType") == "Test Suite":
         suite = node.get("name")
     if node.get("nodeType") == "Test Case":
-        yield suite, node
+        yield bundle, suite, node
         return
     for child in node.get("children", []):
-        yield from test_cases(child, suite)
+        yield from test_cases(child, bundle, suite)
 
 
 def all_cases(tests):
@@ -31,10 +37,12 @@ def all_cases(tests):
         yield from test_cases(root)
 
 
-def flaky_tests(tests):
+def flaky_tests(tests, bundles=None):
     """(suite, test, failed attempts) for tests that passed after failing at least once."""
     flaky = []
-    for suite, case in all_cases(tests):
+    for bundle, suite, case in all_cases(tests):
+        if bundles is not None and bundle not in bundles:
+            continue
         runs = [c for c in case.get("children", []) if c.get("nodeType") == "Repetition"]
         failures = sum(run.get("result") == "Failed" for run in runs)
         if case.get("result") == "Passed" and failures:
@@ -44,7 +52,7 @@ def flaky_tests(tests):
 
 def class_durations(tests):
     durations = {}
-    for suite, case in all_cases(tests):
+    for _, suite, case in all_cases(tests):
         durations[suite] = durations.get(suite, 0) + (case.get("durationInSeconds") or 0)
     return {suite: round(seconds) for suite, seconds in durations.items()}
 
@@ -70,20 +78,34 @@ def report(title, tests):
         summary.write("\n".join(lines) + "\n")
 
 
-def main(path, title):
+def main(path, title, strict_bundles=()):
     summary = xcresult("summary", path)
     passed = summary.get("passedTests", 0)
     failed = summary.get("failedTests", 0)
     result = summary.get("result")
     print(f"XCTest result: {result}; passed={passed}, failed={failed}")
+    tests = None
     try:
-        report(title, xcresult("tests", path))
+        tests = xcresult("tests", path)
+        report(title, tests)
     except (subprocess.CalledProcessError, ValueError) as error:
         # Reporting is advisory; the pass/fail verdict below is what gates the job.
         print(f"::warning title=xcresult report::Could not read test details: {error}")
     if result != "Passed" or passed <= 0 or failed != 0:
         raise SystemExit("XCTest did not produce a nonempty passing result")
+    if strict_bundles:
+        if tests is None:
+            raise SystemExit(f"Could not check {', '.join(strict_bundles)} for retries")
+        retried = flaky_tests(tests, set(strict_bundles))
+        if retried:
+            names = ", ".join(f"{suite}/{name}" for suite, name, _ in retried)
+            raise SystemExit(f"Tests in {', '.join(strict_bundles)} must pass without a retry: {names}")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else os.path.basename(sys.argv[1]))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path")
+    parser.add_argument("title", nargs="?")
+    parser.add_argument("--no-retries-in", action="append", default=[], metavar="BUNDLE")
+    args = parser.parse_args()
+    main(args.path, args.title or os.path.basename(args.path), args.no_retries_in)

@@ -206,29 +206,15 @@ jobs:
         timeout-minutes: 5
         run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
-      # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
-      # Verify the complete result bundle, not an individual passing suite in the log.
-      - name: Run unit tests
-        if: matrix.unit
-        run: |
-          xcodebuild test-without-building \
-            -xctestrun "$XCTESTRUN" \
-            -destination "$DEST" \
-            -only-testing:ClubhouseGoTests \
-            -test-timeouts-enabled YES \
-            -default-test-execution-time-allowance 30 \
-            -resultBundlePath TestResults/UnitTests.xcresult \
-            2>&1 | tee xcodebuild-unit.log || true
-
-          python3 scripts/verify-xcresult.py TestResults/UnitTests.xcresult "Unit tests"
-
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
       # A UI test that fails is retried up to twice; the result only passes if a retry passes,
-      # and verify-xcresult.py flags every test that needed a retry.
-      - name: Run UI tests
-        if: ${{ !cancelled() }}
+      # and verify-xcresult.py flags every test that needed a retry. One shard also runs the
+      # ClubhouseGoTests bundle here (saving a second 2–3 minute test launch); those must pass first time.
+      # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
+      # Verify the complete result bundle, not an individual passing suite in the log.
+      - name: Run tests
         run: |
           xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
@@ -242,7 +228,8 @@ jobs:
             -resultBundlePath TestResults/UITests.xcresult \
             2>&1 | tee xcodebuild-ui.log || true
 
-          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}"
+          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}" \
+            ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }}
 
       - name: Upload test results
         if: always()
