@@ -1,6 +1,6 @@
 {
-  "commit": "5d0550344ccbb2c20a2abfda867d79987878de87",
+  "commit": "000821b09ddbd1f64af25eef42d6aebc45a0abc2",
   "path": "test/fixtures/annex-mobile",
-  "ref": "protocol-contract/mobile-fixtures",
+  "ref": "main",
   "repository": "Agent-Clubhouse/Clubhouse"
 }
