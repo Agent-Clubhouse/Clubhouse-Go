@@ -108,6 +108,45 @@ private func queueTransport(_ io: QueueIO) async throws -> AnnexTransport {
     }
 }
 
+/// A refused re-read withdraws authority the earlier document granted: no command may carry the old epoch.
+@Test func aRefusedCapabilityReReadWithdrawsTheEarlierAuthority() async throws {
+    let refusals: [(AnnexHTTPResponse, AnnexTransportError)] = [
+        (ok(failureCapabilities.replacingOccurrences(of: "mtls-pinned-client", with: "bearer")), .unsupportedCapability("mobile-control-v1")),
+        (ok(failureCapabilities.replacingOccurrences(of: #""version":1"#, with: #""version":2"#)), .unsupportedCapability("mobile-control-v1")),
+        (ok("<html>"), .malformedResponse),
+        (ok("{}", status: 404), .rejected(status: 404, code: nil)),
+    ]
+    for (refusal, expected) in refusals {
+        let io = QueueIO([ok(failureCapabilities), refusal])
+        let transport = try await queueTransport(io)
+        _ = try await transport.read(.capabilities)
+        await #expect(throws: expected) { try await transport.read(.capabilities) }
+        await #expect(throws: AnnexTransportError.unsupportedCapability("chat.interrupt")) {
+            try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+        }
+        #expect(await io.requests.count == 2, "The refused command never reaches the desktop")
+    }
+    // A document missing required fields fails decoding, and withdraws authority the same way.
+    let io = QueueIO([ok(failureCapabilities), ok(#"{"version":1}"#)])
+    let transport = try await queueTransport(io)
+    _ = try await transport.read(.capabilities)
+    await #expect(throws: DecodingError.self) { try await transport.read(.capabilities) }
+    await #expect(throws: AnnexTransportError.unsupportedCapability("chat.interrupt")) {
+        try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+    }
+}
+
+/// A network failure before any reply proves nothing about the desktop, so the confirmed authority stays.
+@Test func aCapabilityReadLostInTransitKeepsTheConfirmedAuthority() async throws {
+    let io = QueueIO([ok(failureCapabilities)])
+    let transport = try await queueTransport(io)
+    _ = try await transport.read(.capabilities)
+    await #expect(throws: URLError.self) { try await transport.read(.capabilities) }
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: "c")) {
+        try await transport.execute(AnnexCommand(commandID: "c", epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+    }
+}
+
 @Test func nonJSONReadBodyIsMalformed() async throws {
     let transport = try await queueTransport(QueueIO([ok("<html>")]))
     await #expect(throws: AnnexTransportError.malformedResponse) { try await transport.read(.status) }

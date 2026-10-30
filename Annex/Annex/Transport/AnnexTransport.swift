@@ -181,18 +181,29 @@ public actor AnnexTransport: AnnexTransporting {
             let response = try await io.perform(request)
             guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
             try Task.checkCancellation()
+            if case .capabilities = route {
+                // Any refused capability document withdraws command authority; never keep a stale epoch.
+                do {
+                    let (value, decoded) = try Self.validatedCapabilities(response)
+                    capabilities = decoded
+                    return value
+                } catch { capabilities = nil; throw error }
+            }
             guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
             guard let value = try? JSONDecoder().decode(AnnexJSON.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
-            if case .capabilities = route {
-                let decoded = try value.decode(AnnexCapabilities.self)
-                guard decoded.version == 1, !decoded.epoch.isEmpty, decoded.controlAuth == "mtls-pinned-client" else {
-                    throw AnnexTransportError.unsupportedCapability("mobile-control-v1")
-                }
-                capabilities = decoded
-            }
             return value
 
         }
+    }
+
+    private static func validatedCapabilities(_ response: AnnexHTTPResponse) throws -> (AnnexJSON, AnnexCapabilities) {
+        guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+        guard let value = try? JSONDecoder().decode(AnnexJSON.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
+        let decoded = try value.decode(AnnexCapabilities.self)
+        guard decoded.version == 1, !decoded.epoch.isEmpty, decoded.controlAuth == "mtls-pinned-client" else {
+            throw AnnexTransportError.unsupportedCapability("mobile-control-v1")
+        }
+        return (value, decoded)
     }
 
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {

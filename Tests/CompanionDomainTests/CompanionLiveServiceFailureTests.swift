@@ -275,7 +275,7 @@ import Testing
         #expect(await serviceErrorText { _ = try await service.createOptions(for: project) } == "Desktop request failed (404).")
         await harness.transport.setRead("createOptions", .object([:]))
         #expect(await serviceErrorText { _ = try await service.createOptions(for: project) }
-                == "The desktop sent settings this phone can't read. Updating the desktop may help.")
+                == "The desktop sent new agent options this phone can't read. Updating the desktop may help.")
 
         // Free Agent Mode isn't offered by this desktop: refused before anything is sent.
         var change = CompanionSettingsChange(); change.freeAgentMode = true
