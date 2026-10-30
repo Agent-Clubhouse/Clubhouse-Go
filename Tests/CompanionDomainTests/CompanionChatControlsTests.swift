@@ -467,8 +467,10 @@ private actor ControlsTransport: AnnexTransporting {
         #expect(sent.map { $0["type"]?.string } == ["chat.setLevel", "chat.setModel"])
         #expect(sent[0]["level"]?.string == "full_access" && sent[0]["sessionId"]?.string == "s1")
         #expect(sent[1]["model"]?.string == "sonnet" && sent[1]["effort"] == nil)
+        // The service's hosts reach the store through its event stream, so they may land after setModel returns.
+        try await waitUntil { store.agent(for: target)?.chatControls?.awaitingEfforts == true }
         controls = try #require(store.agent(for: target)?.chatControls)
-        #expect(controls.awaitingEfforts && !controls.showsEffortMenu)
+        #expect(controls.awaitingEfforts && !controls.showsEffortMenu && controls.model == "opus")
 
         await transport.emit(event("model_changed", 3, #"{"modelId":"sonnet","effort":"medium","effortIsDefault":true}"#))
         await transport.emit(event("session_info", 4, #"{"efforts":["low","medium"]}"#))

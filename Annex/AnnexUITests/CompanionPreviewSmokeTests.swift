@@ -539,8 +539,12 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(modified.waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
+        // The page scrolled to reach Changes, which can leave Wake under the navigation bar: there it still reports
+        // hittable, but a tap lands on the bar. Scroll until it is clear of the bar.
         let wake = app.buttons["project-wake"]
-        for _ in 0..<3 where !(wake.exists && wake.isHittable) { app.swipeDown() }
+        let navigationBar = app.navigationBars.firstMatch
+        for _ in 0..<4 where !(wake.exists && wake.isHittable && wake.frame.minY >= navigationBar.frame.maxY) { app.swipeDown() }
+        XCTAssertGreaterThanOrEqual(wake.frame.minY, navigationBar.frame.maxY, "Wake with a message is below the navigation bar")
         wake.tap()
         let message = any.matching(identifier: "wake-message").firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: 5))
