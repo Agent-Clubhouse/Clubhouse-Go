@@ -16,18 +16,32 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         waitAndTap(agent, until: composer, timeout: 15, "Selecting an agent must open its conversation")
     }
 
-    /// Flings the conversation until `target` is on screen, between the navigation bar and the composer.
+    /// Scrolls the conversation until `target` is on screen, between the navigation bar and the composer. Up, it flings
+    /// with momentum, through the whole reply; down, it drags without momentum, so it stops at `target`.
     private func fling(to target: XCUIElement, up: Bool, in app: XCUIApplication, maxFlings: Int = 40, _ message: String) {
         let window = app.windows.firstMatch.frame
         func visible() -> Bool { target.exists && target.frame.minY > window.height * 0.1 && target.frame.maxY < window.height * 0.85 }
-        for _ in 0..<maxFlings {
+        for attempt in 0..<maxFlings {
             if visible() { break }
             checkTimeLeft(message)
-            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: up ? 0.3 : 0.7))
-            from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: (up ? 1 : -1) * window.height * 0.4)), withVelocity: .fast,
-                       thenHoldForDuration: 0)
+            if up && attempt % 4 == 0 {
+                // A tap on the status bar scrolls to the top, across every row not yet laid out.
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
+            } else if up {
+                app.swipeDown(velocity: .fast)
+            } else {
+                let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -window.height * 0.4)), withVelocity: .fast,
+                           thenHoldForDuration: 0.1)
+            }
         }
-        XCTAssertTrue(visible(), message)
+        if !visible() {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Not reached: \(message)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+        XCTAssertTrue(visible(), target.exists ? "\(message) (at \(target.frame))" : message)
     }
 
     func testLongReplyScrollsToTheTopAndBackWithoutStalling() {

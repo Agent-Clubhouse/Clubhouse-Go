@@ -265,6 +265,9 @@ struct CompanionConversationView: View {
             .overlay(alignment: .bottomTrailing) {
                 if !followLatest && !conversation.items.isEmpty {
                     Button {
+                        // Follow first, so the bottom stays anchored as the rows it jumps past are measured. Anchored to
+                        // the top, their real heights pushed the latest back off screen (#188).
+                        followLatest = true
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
                     } label: { Label("Latest", systemImage: "arrow.down") }
                     .buttonStyle(.glass).padding()
