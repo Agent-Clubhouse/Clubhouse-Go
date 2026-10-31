@@ -35,12 +35,19 @@ class ChangesTests(unittest.TestCase):
         self.assertEqual(self.run_main(["README.md", "docs/testing.md", "Vendor/Framebriar/README.md"]),
                          {"swift": "false", "app": "false"})
 
+    def test_scheduled_workflow_files_run_nothing(self):
+        self.assertEqual(self.run_main([".github/workflows/e2e-nightly.yml", "scripts/e2e-live.sh",
+                                        "scripts/e2e-live/desktop-fixture.spec.ts",
+                                        ".github/workflows/annex-contract-drift.yml"]),
+                         {"swift": "false", "app": "false"})
+
     def test_package_tests_run_swift_only(self):
         self.assertEqual(self.run_main(["Tests/ClubhouseTransportTests/PinnedIOTests.swift", "docs/x.md"]),
                          {"swift": "true", "app": "false"})
         self.assertEqual(self.run_main(["Vendor/Framebriar/Tests/FramebriarTests/A.swift"]),
                          {"swift": "true", "app": "false"})
-        self.assertEqual(self.run_main(["coverage-baseline.json", "scripts/coverage.sh"]),
+        self.assertEqual(self.run_main(["coverage-baseline.json", "scripts/coverage.sh",
+                                        "scripts/sync-annex-fixtures.sh", "Tests/Fixtures/AnnexContract/pty.json"]),
                          {"swift": "true", "app": "false"})
 
     def test_app_and_build_inputs_run_everything(self):

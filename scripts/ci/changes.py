@@ -14,7 +14,7 @@ Usage: git diff --name-only BASE... | changes.py
 import fnmatch
 import sys
 
-DOCS = "docs"  # no build at all
+DOCS = "docs"  # no build at all (docs, and files only scheduled workflows use)
 SWIFT = "swift"  # `swift test` only
 APP = "app"  # everything
 
@@ -25,12 +25,17 @@ RULES = [
     ("App Icon.png", DOCS),
     (".gitignore", DOCS),
     (".clubhouse/*", DOCS),
+    # Scheduled workflows and their scripts; PR lanes never run them.
+    (".github/workflows/e2e-nightly.yml", DOCS),
+    (".github/workflows/annex-contract-drift.yml", DOCS),
+    ("scripts/e2e-live*", DOCS),
     # SwiftPM-only test targets: the app's Xcode project never builds them.
     ("Tests/*", SWIFT),
     ("Vendor/Framebriar/Tests/*", SWIFT),
     (".nvmrc", SWIFT),
     ("coverage-baseline.json", SWIFT),
     ("scripts/coverage.sh", SWIFT),
+    ("scripts/sync-annex-fixtures.sh", SWIFT),
 ]
 LANES = {DOCS: set(), SWIFT: {"swift"}, APP: {"swift", "app"}}
 
