@@ -52,6 +52,10 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertTrue(element(app, "agent-color-teal").isSelected)
 
         // Form rows load as they scroll into view.
+        let orchestrate = app.switches["new-agent-orchestrate"]
+        scrollUntilExists(orchestrate, in: app, maxSwipes: 4, wait: 0.5)
+        XCTAssertTrue(orchestrate.exists, "A desktop with orchestration offers it on create")
+        XCTAssertEqual(orchestrate.value as? String, "0", "Off by default, following the persona")
         let worktree = app.switches["new-agent-worktree"]
         scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
