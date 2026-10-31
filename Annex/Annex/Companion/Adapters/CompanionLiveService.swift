@@ -772,7 +772,7 @@ import ClubhouseTransport
         var pendingQuestion = false
     }
     /// Concurrent chat pages on a desktop without the bulk read.
-    nonisolated static let catchUpConcurrency = 3
+    static let catchUpConcurrency = 3
 
     /// After a reconnect, re-reads what each agent with a cached chat projection is doing now and reconciles,
     /// so one that slept, finished a turn or had its request answered while the phone was away stops showing
@@ -809,22 +809,21 @@ import ClubhouseTransport
     }
 
     /// Chat pages of one event each, a few at a time. A page that fails is skipped: that agent keeps the catalog's status.
-    nonisolated static func chatStates(_ agentIDs: [String], transport: any AnnexTransporting) async throws -> [String: LiveState] {
-        try await withThrowingTaskGroup(of: (String, LiveState?).self) { group in
+    static func chatStates(_ agentIDs: [String], transport: any AnnexTransporting) async throws -> [String: LiveState] {
+        try await withThrowingTaskGroup(of: (String, AnnexJSON?).self) { group in
             var pending = agentIDs[...], states: [String: LiveState] = [:]
             func next() {
                 guard let id = pending.popFirst() else { return }
-                group.addTask {
-                    guard let page = try? await transport.read(.chatHistory(agentID: id, sessionID: nil, beforeSeq: nil, limit: 1)) else { return (id, nil) }
-                    let live = page["readOnly"].boolValue != true
-                    return (id, .init(status: live ? "running" : "sleeping", sessionState: live ? page["state"]?.string : nil,
-                                      pendingPermission: live && !page["pendingPermissions"].arrayValue.isEmpty,
-                                      pendingQuestion: live && !page["pendingQuestions"].arrayValue.isEmpty))
-                }
+                group.addTask { (id, try? await transport.read(.chatHistory(agentID: id, sessionID: nil, beforeSeq: nil, limit: 1))) }
             }
             for _ in 0..<catchUpConcurrency { next() }
-            while let (id, state) = try await group.next() {
-                if let state { states[id] = state }
+            while let (id, page) = try await group.next() {
+                if let page {
+                    let live = page["readOnly"].boolValue != true
+                    states[id] = .init(status: live ? "running" : "sleeping", sessionState: live ? page["state"]?.string : nil,
+                                       pendingPermission: live && !page["pendingPermissions"].arrayValue.isEmpty,
+                                       pendingQuestion: live && !page["pendingQuestions"].arrayValue.isEmpty)
+                }
                 next()
             }
             return states
@@ -833,7 +832,7 @@ import ClubhouseTransport
 
     /// The desktop's live state wins over the projection's last status. Without a live chat session the agent is
     /// asleep or finished (its chat's own stopped or failed end is kept); one running outside chat keeps its status.
-    nonisolated static func reconcile(_ projection: inout CompanionChatProjector, with state: LiveState) {
+    static func reconcile(_ projection: inout CompanionChatProjector, with state: LiveState) {
         guard let sessionState = state.sessionState else {
             let lifecycle = CompanionChatProjector.status(state.status)
             if projection.isAwake, [.sleeping, .completed, .failed, .stopped].contains(lifecycle) { projection.endSession(lifecycle) }
