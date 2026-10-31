@@ -141,6 +141,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(planner.name == "planner" && planner.emoji == "🦊" && planner.color == "indigo" && planner.iconData != nil)
         #expect(planner.hasSession == true && planner.branch == "planner/standby" && planner.orchestrator == "claude-code" && !planner.isQuick)
         #expect(planner.detail?.state == "needs_permission")
+        #expect(planner.orchestration?.orchestrate == true && planner.orchestration?.maxHelpers == 3 && planner.orchestration?.sources["maxHelpers"] == .agent)
         let quick = try #require(app.agents.first { $0.id.agentID == "quick_1" })
         #expect(quick.isQuick && quick.color == "gray" && quick.subtitle == "Fix the flaky test" && quick.status == .working)
         #expect(app.agents.first { $0.id.agentID == "durable_term" }?.runsInTerminal == true)
@@ -148,7 +149,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         // Capability-gated features, from the desktop's capabilities.
         #expect(host.canSpawn && host.canCreateDurable && host.canEditSettings && host.canAnswerHelperRequests)
         #expect(host.canSyncProjectState && host.canSyncFinishedQuick && host.canRevokeSession && host.canAnswerPersistentApprovals && host.canSetFreeAgentMode)
-        #expect(host.richContentAvailable && host.attachments?.maxCount == 10 && host.terminal != nil)
+        #expect(host.richContentAvailable && host.attachments?.maxCount == 10 && host.terminal != nil && host.canOrchestrate)
 
         // Helper requests, both kinds.
         #expect(host.helperRequests.map(\.kind) == [.start, .dispose])
@@ -317,8 +318,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(workspace.branch == "brave-otter/standby" && workspace.worktree == ".clubhouse/agents/brave-otter")
         #expect(workspace.changes?.files == 2 && workspace.changes?.additions == 94 && workspace.changes?.deletions == 51 && workspace.changes?.ahead == 2)
 
+        #expect(settings.orchestration == CompanionOrchestration(sources: ["orchestrate": .default, "access": .default, "control": .default, "maxHelpers": .default]))
+
         let running = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-running.json"))
         #expect(running.state == "running" && !running.sleeping && running.hasLockedSettings)
+        #expect(running.orchestration?.orchestrate == true && running.orchestration?.maxHelpers == 3 && running.orchestration?.maxHelpersCap == 20)
         // The agent.update receipt's result is the settings without options.
         for item in try ContractFixtures.cases("commands/agent.update.json") where item["response"]?["body"]?["status"]?.string == "completed" {
             let result = try #require(item["response"]?["body"]?["result"])
@@ -326,6 +330,9 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         }
         let updated = try CompanionAgentSettings(json: try #require(try ContractFixtures.cases("commands/agent.update.json").first?["response"]?["body"]?["result"]))
         #expect(updated.name.value == "bright-otter" && updated.emoji.value == "🦦" && updated.idleSleep.value == .minutes(30))
+        let orchestrated = try #require(try ContractFixtures.cases("commands/agent.update.json").first { $0["name"]?.string == "accepted orchestration" })
+        let policy = try CompanionAgentSettings(json: try #require(orchestrated["response"]?["body"]?["result"])).orchestration
+        #expect(policy?.access == "auto" && policy?.control == "ask-everything" && policy?.maxHelpers == 20 && policy?.sources["access"] == .agent)
     }
 
     @Test func readErrorsBecomeUserMessages() throws {

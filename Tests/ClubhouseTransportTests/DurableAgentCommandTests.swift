@@ -138,3 +138,56 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     let request = try #require(await io.requests.last)
     #expect(request.httpMethod == "POST" && request.url?.path == "/api/v1/mobile/commands")
 }
+
+// Orchestration policy (`orchestration` v1, desktop #2232).
+
+@Test func orchestrationPatchSendsOnlyTheFieldsGivenAndClearsWithNull() throws {
+    let partial = try decoded(.update(.init(agentID: "a1", orchestration: .init(orchestrate: .set(true), maxHelpers: .set(3)))))
+    #expect(keys(partial) == envelope.union(["agentId", "orchestration"]))
+    #expect(partial["orchestration"] == .object(["orchestrate": .bool(true), "maxHelpers": .integer(3)]))
+
+    let cleared = try decoded(.update(.init(agentID: "a1", orchestration: .init(access: .clear, control: .set("ask-everything"), maxHelpers: .clear))))
+    #expect(cleared["orchestration"] == .object(["access": .null, "control": .string("ask-everything"), "maxHelpers": .null]))
+    #expect(cleared["orchestration"]?["orchestrate"] == nil, "A field not given isn't sent, so it isn't cleared")
+
+    let access = try decoded(.update(.init(agentID: "a1", orchestration: .init(access: .set("bypass"), control: .clear))))
+    #expect(access["orchestration"] == .object(["access": .string("bypass"), "control": .null]))
+}
+
+@Test func emptyOrchestrationPatchIsNoChange() throws {
+    #expect(AnnexOrchestrationPatch().isEmpty)
+    #expect(AnnexAgentUpdate(agentID: "a1", orchestration: .init()).isEmpty, "An empty patch alone changes nothing")
+    let withName = try decoded(.update(.init(agentID: "a1", name: "n", orchestration: .init())))
+    #expect(withName["orchestration"] == nil, "An empty patch isn't sent: the desktop refuses an empty object")
+}
+
+/// `agent.create` refuses `null`, so cleared fields are left out, and an all-cleared patch sends nothing.
+@Test func createSendsOnlySetOrchestrationFields() throws {
+    let on = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .init(orchestrate: .set(true)))))
+    #expect(on["orchestration"] == .object(["orchestrate": .bool(true)]))
+    let mixed = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .init(orchestrate: .set(true), access: .clear))))
+    #expect(mixed["orchestration"] == .object(["orchestrate": .bool(true)]))
+    let none = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .init(access: .clear))))
+    #expect(none["orchestration"] == nil)
+    #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo")))["orchestration"] == nil)
+}
+
+@Test func orchestrationNeedsAgentUpdateAndVersionOne() throws {
+    func caps(_ json: String) throws -> AnnexCapabilities { try JSONDecoder().decode(AnnexCapabilities.self, from: Data(json.utf8)) }
+    let commands = ["agent.create", "agent.update"]
+    #expect(try caps(capabilities(commands: commands, extra: durableFeatures + #","orchestration":{"version":1}"#)).supportsOrchestration)
+    #expect(try !caps(capabilities(commands: commands, extra: durableFeatures)).supportsOrchestration, "A desktop without the block has no orchestration")
+    #expect(try !caps(capabilities(commands: ["agent.spawn"], extra: #","orchestration":{"version":1}"#)).supportsOrchestration, "It needs agent.update")
+    #expect(try !caps(capabilities(commands: commands, extra: #","orchestration":{"version":0}"#)).supportsOrchestration)
+    let malformed = try caps(capabilities(commands: commands, extra: #","orchestration":"yes""#))
+    #expect(!malformed.supportsOrchestration && malformed.orchestration == nil, "A malformed block reads as absent, not a failed document")
+    let future = try caps(capabilities(commands: commands, extra: #","orchestration":{"version":2,"extra":true}"#))
+    #expect(future.supportsOrchestration, "Unknown fields are ignored")
+}
+
+@Test func clearAllSendsNullOnUpdateAndNothingOnCreate() throws {
+    let update = try decoded(.update(.init(agentID: "a1", orchestration: .clearAll)))
+    #expect(update["orchestration"] == .null)
+    #expect(!AnnexAgentUpdate(agentID: "a1", orchestration: .clearAll).isEmpty)
+    #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .clearAll)))["orchestration"] == nil)
+}

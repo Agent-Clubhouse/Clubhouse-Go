@@ -166,6 +166,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var appIdleMinutes = 30
     /// Branch, worktree, MCP servers and changes for Agent details. Nil from desktops that don't send them.
     var workspace: CompanionAgentWorkspace?
+    /// The Orchestrate card's policy. Nil from desktops without `orchestration` v1.
+    var orchestration: CompanionOrchestration?
 
     /// Any setting is waiting for the agent to sleep, so the sheet shows the desktop's hint.
     var hasLockedSettings: Bool {
@@ -196,6 +198,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
         merged.idleSleepMinutes = previous.idleSleepMinutes
         merged.appIdleMinutes = previous.appIdleMinutes
         merged.workspace = workspace ?? previous.workspace
+        merged.orchestration = orchestration ?? previous.orchestration
         return merged
     }
 }
@@ -214,7 +217,9 @@ nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     /// Only to desktops that take it (`permissions.freeAgentMode`).
     var freeAgentMode: Bool?
     var idleSleep: CompanionIdleSleep?
-    var isEmpty: Bool { self == .init() }
+    /// Only to desktops that take it (`orchestration` v1).
+    var orchestration: CompanionOrchestrationChange?
+    var isEmpty: Bool { self == .init() || self == .init(orchestration: .init()) }
 }
 
 /// A durable agent to create, as the New agent page sends it.
@@ -229,6 +234,8 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var freeAgentMode: Bool? = nil
     var useWorktree: Bool?
     var mcpIDs: [String]?
+    /// Nil leaves it to the persona or the default. Only sent to desktops that take it (`orchestration` v1).
+    var orchestrate: Bool? = nil
     var clientCommandID: String
 }
 
@@ -313,6 +320,9 @@ enum CompanionAgentCommandError {
         case "finished_quick_agents_unavailable": return "Your desktop is still setting up its finished list. Try again in a moment."
         case "worktree_options_require_worktree": return "A folder or branch name needs the agent to have its own worktree."
         case "agent_already_running": return "This agent is already running."
+        // Field checks ("maxHelpers must be…") are for developers; only a sentence is shown.
+        case "invalid_orchestration": return detail.flatMap { $0.first?.isUppercase == true ? $0 : nil } ?? "The desktop couldn't accept these orchestration settings."
+        case "orchestration_has_helpers": return "This agent has helpers running. Turn orchestration off on the desktop to keep or dispose of them."
         // Chat commands (`docs/mobile-control-v1.md` → Commands).
         case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."
         case "not_chat": return "This agent isn't running in chat. Start it first."

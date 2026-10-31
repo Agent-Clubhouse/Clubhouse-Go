@@ -212,6 +212,8 @@ struct CompanionSpawnSheet: View {
         var useWorktree = true
         var mcpIDs: Set<String> = []
         var freeAgentMode = false
+        /// Off leaves it to the persona or the default, so only on is sent.
+        var orchestrate = false
 
         mutating func reset(to options: CompanionCreateOptions) {
             self.options = options
@@ -223,6 +225,7 @@ struct CompanionSpawnSheet: View {
             useWorktree = options.isGitRepo && options.defaultUseWorktree
             mcpIDs = Set(options.mcpDefaults)
             freeAgentMode = false
+            orchestrate = false
         }
         var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
         /// With its own worktree the name becomes a folder and a branch, so it's checked as the desktop does.
@@ -341,6 +344,16 @@ struct CompanionSpawnSheet: View {
                 ForEach(options.options.personas) { Text($0.name).tag($0.id) }
             }
             .accessibilityIdentifier("new-agent-persona")
+            if offersOrchestration {
+                Toggle("Orchestrate", isOn: $durable.orchestrate)
+                    .accessibilityIdentifier("new-agent-orchestrate")
+            }
+        } footer: {
+            if offersOrchestration {
+                Text(durable.orchestrate
+                     ? "Gives the agent the tools to start, message and dispose of helper agents. Change how in its settings."
+                     : "Off follows the persona. Turn it on to give the agent the tools to start, message and dispose of helper agents.")
+            }
         }
         if options.isGitRepo {
             Section {
@@ -398,6 +411,7 @@ struct CompanionSpawnSheet: View {
                 freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
                 useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
+                orchestrate: offersOrchestration && durable.orchestrate ? true : nil,
                 clientCommandID: UUID().uuidString)
             Task { if await store.create(request) { dismiss() } }
         } label: {
@@ -429,6 +443,8 @@ struct CompanionSpawnSheet: View {
     private func offersFreeAgentMode(_ options: CompanionCreateOptions) -> Bool {
         selectedHost?.canSetFreeAgentMode == true && options.freeAgentModeAllowed
     }
+    /// The desktop takes an orchestration policy (`orchestration` v1).
+    private var offersOrchestration: Bool { selectedHost?.canOrchestrate == true }
     private var selectedHost: CompanionHost? { store.hosts.first { $0.id == project?.hostID } }
     private var selectedProjectName: String {
         guard let host = selectedHost, let name = host.projects.first(where: { $0.id == project?.projectID })?.name else { return "Choose a project" }

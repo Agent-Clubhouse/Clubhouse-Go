@@ -136,6 +136,43 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
     }
 }
 
+/// An agent's orchestration policy fields to change (`orchestration` v1): only the keys set are sent.
+/// `clear` sends `null`, putting the field back to the persona's value or the default. `agent.create` takes no `null`.
+nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
+    public enum Field<Value: Sendable & Equatable>: Sendable, Equatable { case set(Value), clear }
+    public var orchestrate: Field<Bool>?
+    /// `same` or a launch access level (`standard`, `auto`, `bypass`).
+    public var access: Field<String>?
+    /// `hands-off`, `ask-before-start` or `ask-everything`.
+    public var control: Field<String>?
+    /// 1 to the desktop's `maxHelpersCap`.
+    public var maxHelpers: Field<Int>?
+    /// Sends `"orchestration": null` on `agent.update`, clearing every field the agent sets. The fields above are ignored.
+    public var clearsAll = false
+    public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil) {
+        self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
+    }
+    /// Every field back to the persona's value or the default.
+    public static var clearAll: AnnexOrchestrationPatch { var patch = AnnexOrchestrationPatch(); patch.clearsAll = true; return patch }
+    public var isEmpty: Bool { json == .object([:]) }
+    var json: AnnexJSON {
+        guard !clearsAll else { return .null }
+        func value<T>(_ field: Field<T>, _ wrap: (T) -> AnnexJSON) -> AnnexJSON { if case .set(let v) = field { wrap(v) } else { .null } }
+        var v: [String: AnnexJSON] = [:]
+        if let orchestrate { v["orchestrate"] = value(orchestrate, AnnexJSON.bool) }
+        if let access { v["access"] = value(access, AnnexJSON.string) }
+        if let control { v["control"] = value(control, AnnexJSON.string) }
+        if let maxHelpers { v["maxHelpers"] = value(maxHelpers) { .integer(Int64($0)) } }
+        return .object(v)
+    }
+    /// The set fields only, for `agent.create`, which refuses `null`.
+    var creationJSON: AnnexJSON? {
+        guard !clearsAll, case .object(let fields) = json else { return nil }
+        let set = fields.filter { $0.value != .null }
+        return set.isEmpty ? nil : .object(set)
+    }
+}
+
 /// `agent.create`: a durable agent, as the desktop's New agent page makes one. Send `freeAgentMode` only to a desktop
 /// that advertises `permissions.freeAgentMode`; older ones refuse the field (403 `free_agent_mode_not_allowed`).
 nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
@@ -153,12 +190,14 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var branchName: String?
     public var branchFrom: String?
     public var folderName: String?
+    /// Only to a desktop that advertises `orchestration` v1. Cleared fields are left out.
+    public var orchestration: AnnexOrchestrationPatch?
     public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil, persona: String? = nil,
                 freeAgentMode: Bool? = nil, useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil,
-                folderName: String? = nil) {
+                folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil) {
         self.projectID = projectID; self.name = name; self.color = color; self.orchestrator = orchestrator; self.model = model
         self.persona = persona; self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
-        self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName
+        self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName; self.orchestration = orchestration
     }
     var fields: [String: AnnexJSON] {
         var v: [String: AnnexJSON] = ["projectId": .string(projectID), "name": .string(name), "color": .string(color)]
@@ -171,6 +210,7 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
         if let branchName { v["branchName"] = .string(branchName) }
         if let branchFrom { v["branchFrom"] = .string(branchFrom) }
         if let folderName { v["folderName"] = .string(folderName) }
+        if let orchestration = orchestration?.creationJSON { v["orchestration"] = orchestration }
         return v
     }
 }
@@ -208,11 +248,14 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// A spawn setting: the desktop refuses it while the agent is awake (409 `agent_running`).
     public var freeAgentMode: Bool?
     public var idleSleep: IdleSleep?
+    /// Changes any time, even while the agent runs. Needs a desktop that advertises `orchestration` v1.
+    public var orchestration: AnnexOrchestrationPatch?
     public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil,
-                runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil) {
+                runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil,
+                orchestration: AnnexOrchestrationPatch? = nil) {
         self.agentID = agentID; self.name = name; self.color = color; self.emoji = emoji; self.orchestrator = orchestrator
         self.model = model; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode
-        self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep
+        self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep; self.orchestration = orchestration
     }
     /// True when it changes nothing; the desktop needs at least one setting.
     public var isEmpty: Bool { fields.count == 1 }
@@ -228,6 +271,7 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
         if let clubhouseMode { v["clubhouseMode"] = .bool(clubhouseMode) }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let idleSleep { v["idleSleep"] = idleSleep.json }
+        if let orchestration, !orchestration.isEmpty { v["orchestration"] = orchestration.json }
         return v
     }
 }
@@ -312,6 +356,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         private enum CodingKeys: String, CodingKey { case version, persistentApprovals, freeAgentMode }
     }
     public let permissions: Permissions?
+    /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
+    public let orchestration: Feature?
+    public var supportsOrchestration: Bool { commands.contains("agent.update") && (orchestration?.version ?? 0) >= 1 }
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
     public var supportsFreeAgentMode: Bool { (permissions?.version ?? 0) >= 1 && permissions?.freeAgentMode == true }
     /// Helper starts and disposes waiting on the user, in the snapshot's `helperRequests`.
@@ -375,13 +422,14 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         chatControls = optional(.chatControls)
         slashCommands = optional(.slashCommands)
         permissions = optional(.permissions)
+        orchestration = optional(.orchestration)
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration
     }
 }
 

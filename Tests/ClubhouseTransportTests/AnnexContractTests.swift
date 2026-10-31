@@ -33,6 +33,7 @@ import Testing
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
         #expect(caps.supportsSlashCommands && caps.slashCommands?.version == 1)
+        #expect(caps.supportsOrchestration && caps.orchestration?.version == 1)
         #expect(caps.attachments == .init(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10))
         #expect(caps.terminal == .init(projectShell: true, agentShell: true, agentAttach: true, maxShellsPerConnection: 8, maxInputLength: 65_536))
         #expect(caps.idempotency.maxEntries == 2048 && caps.idempotency.ttlMs == 3_600_000 && caps.idempotency.scope == "peer-and-epoch")
@@ -231,7 +232,8 @@ import Testing
             guard let p = s("projectId"), let name = s("name"), let color = s("color") else { return nil }
             return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"), persona: s("persona"),
                                  freeAgentMode: b("freeAgentMode"), useWorktree: b("useWorktree"), mcpIDs: strings("mcpIds"),
-                                 branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName")))
+                                 branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName"),
+                                 orchestration: orchestration(r["orchestration"])))
         case "agent.update":
             guard let a = s("agentId") else { return nil }
             func clearable(_ key: String) -> AnnexAgentUpdate.Clearable? { switch r[key] { case .string(let v)?: .set(v); case .null?: .clear; default: nil } }
@@ -243,7 +245,8 @@ import Testing
             }
             return .update(.init(agentID: a, name: s("name"), color: s("color"), emoji: clearable("emoji"), orchestrator: s("orchestrator"), model: s("model"),
                                  runtime: s("runtime").flatMap(AnnexAgentUpdate.Runtime.init(rawValue:)), persona: clearable("persona"),
-                                 clubhouseMode: b("clubhouseMode"), freeAgentMode: b("freeAgentMode"), idleSleep: idle))
+                                 clubhouseMode: b("clubhouseMode"), freeAgentMode: b("freeAgentMode"), idleSleep: idle,
+                                 orchestration: orchestration(r["orchestration"])))
         case "project.setPinned": return s("projectId").flatMap { p in b("pinned").map { .setProjectPinned(projectID: p, pinned: $0) } }
         case "project.setInactive": return s("projectId").flatMap { p in b("inactive").map { .setProjectInactive(projectID: p, inactive: $0) } }
         case "helper.approve": return s("requestId").map { .helperApprove(requestID: $0, force: b("force") ?? false) }
@@ -252,6 +255,18 @@ import Testing
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
         default: return nil
         }
+    }
+
+    /// The phone's patch for a recorded `orchestration` object, or `null` for clear all.
+    static func orchestration(_ value: AnnexJSON?) -> AnnexOrchestrationPatch? {
+        guard let value else { return nil }
+        if value == .null { return .clearAll }
+        func field<T>(_ key: String, _ read: (AnnexJSON) -> T?) -> AnnexOrchestrationPatch.Field<T>? {
+            guard let raw = value[key] else { return nil }
+            return raw == .null ? .clear : read(raw).map { .set($0) }
+        }
+        return .init(orchestrate: field("orchestrate") { if case .bool(let v) = $0 { v } else { nil } }, access: field("access") { $0.string },
+                     control: field("control") { $0.string }, maxHelpers: field("maxHelpers") { $0.int })
     }
 
     /// One of every command with every optional field the phone can send.
@@ -266,9 +281,9 @@ import Testing
             .stop(agentID: "a"),
             .spawn(projectID: "p", prompt: "p", model: "m", orchestrator: "o"),
             .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", persona: "p", freeAgentMode: true, useWorktree: true,
-                          mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f")),
+                          mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f", orchestration: .init(orchestrate: .set(true)))),
             .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", runtime: .chat, persona: .set("p"),
-                          clubhouseMode: true, freeAgentMode: true, idleSleep: .minutes(30))),
+                          clubhouseMode: true, freeAgentMode: true, idleSleep: .minutes(30), orchestration: .init(maxHelpers: .clear))),
             .setProjectPinned(projectID: "p", pinned: true),
             .setProjectInactive(projectID: "p", inactive: true),
             .dismissFinishedQuick(projectID: "p", agentID: "a"),

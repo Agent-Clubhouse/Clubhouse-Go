@@ -72,6 +72,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canAnswerPersistentApprovals = false
     /// The desktop takes Free Agent Mode from a phone (`permissions.freeAgentMode`).
     var canSetFreeAgentMode = false
+    /// The desktop shows and takes agents' orchestration policy (`orchestration` v1).
+    var canOrchestrate = false
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.
     var theme: CompanionDesktopTheme?
     var providers: [CompanionProvider] = []
@@ -193,6 +195,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var iconData: Data? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
+    /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
+    var orchestration: CompanionOrchestration?
     /// What the desktop says the agent is doing (`detailedStatus`), for Needs you's wording and order.
     var detail: CompanionAgentDetail?
     /// The desktop has a previous session to resume (`hasSession`). Nil when the desktop doesn't say.
