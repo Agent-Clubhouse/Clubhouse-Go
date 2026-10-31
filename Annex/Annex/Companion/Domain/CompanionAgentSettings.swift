@@ -320,7 +320,8 @@ enum CompanionAgentCommandError {
         case "finished_quick_agents_unavailable": return "Your desktop is still setting up its finished list. Try again in a moment."
         case "worktree_options_require_worktree": return "A folder or branch name needs the agent to have its own worktree."
         case "agent_already_running": return "This agent is already running."
-        case "invalid_orchestration": return detail ?? "The desktop couldn't accept these orchestration settings."
+        // Field checks ("maxHelpers must be…") are for developers; only a sentence is shown.
+        case "invalid_orchestration": return detail.flatMap { $0.first?.isUppercase == true ? $0 : nil } ?? "The desktop couldn't accept these orchestration settings."
         case "orchestration_has_helpers": return "This agent has helpers running. Turn orchestration off on the desktop to keep or dispose of them."
         // Chat commands (`docs/mobile-control-v1.md` → Commands).
         case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."

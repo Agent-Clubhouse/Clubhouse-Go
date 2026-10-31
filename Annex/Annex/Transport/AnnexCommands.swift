@@ -147,11 +147,16 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     public var control: Field<String>?
     /// 1 to the desktop's `maxHelpersCap`.
     public var maxHelpers: Field<Int>?
+    /// Sends `"orchestration": null` on `agent.update`, clearing every field the agent sets. The fields above are ignored.
+    public var clearsAll = false
     public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil) {
         self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
     }
+    /// Every field back to the persona's value or the default.
+    public static var clearAll: AnnexOrchestrationPatch { var patch = AnnexOrchestrationPatch(); patch.clearsAll = true; return patch }
     public var isEmpty: Bool { json == .object([:]) }
     var json: AnnexJSON {
+        guard !clearsAll else { return .null }
         func value<T>(_ field: Field<T>, _ wrap: (T) -> AnnexJSON) -> AnnexJSON { if case .set(let v) = field { wrap(v) } else { .null } }
         var v: [String: AnnexJSON] = [:]
         if let orchestrate { v["orchestrate"] = value(orchestrate, AnnexJSON.bool) }
@@ -162,7 +167,7 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     }
     /// The set fields only, for `agent.create`, which refuses `null`.
     var creationJSON: AnnexJSON? {
-        guard case .object(let fields) = json else { return nil }
+        guard !clearsAll, case .object(let fields) = json else { return nil }
         let set = fields.filter { $0.value != .null }
         return set.isEmpty ? nil : .object(set)
     }

@@ -184,3 +184,10 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     let future = try caps(capabilities(commands: commands, extra: #","orchestration":{"version":2,"extra":true}"#))
     #expect(future.supportsOrchestration, "Unknown fields are ignored")
 }
+
+@Test func clearAllSendsNullOnUpdateAndNothingOnCreate() throws {
+    let update = try decoded(.update(.init(agentID: "a1", orchestration: .clearAll)))
+    #expect(update["orchestration"] == .null)
+    #expect(!AnnexAgentUpdate(agentID: "a1", orchestration: .clearAll).isEmpty)
+    #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .clearAll)))["orchestration"] == nil)
+}

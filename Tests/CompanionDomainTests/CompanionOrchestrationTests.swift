@@ -96,7 +96,9 @@ private func settingsJSON(orchestration: String?) -> String {
 
     @Test func refusalsSayWhatToDo() {
         #expect(CompanionAgentCommandError.message(code: "invalid_orchestration", message: "maxHelpers must be a whole number from 1 to 20")
-                == "maxHelpers must be a whole number from 1 to 20")
+                == "The desktop couldn't accept these orchestration settings.", "A field check isn't a sentence for the person")
+        #expect(CompanionAgentCommandError.message(code: "invalid_orchestration", message: "A new agent has no orchestration overrides to clear")
+                == "A new agent has no orchestration overrides to clear")
         #expect(CompanionAgentCommandError.message(code: "invalid_orchestration", message: "invalid_orchestration") == "The desktop couldn't accept these orchestration settings.")
         #expect(CompanionAgentCommandError.message(code: "orchestration_has_helpers", message: nil)?.contains("on the desktop") == true)
     }
