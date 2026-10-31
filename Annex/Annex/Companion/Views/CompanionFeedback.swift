@@ -29,8 +29,7 @@ import ClubhouseTransport
         guard let gameID = Bundle.main.object(forInfoDictionaryKey: "FramebriarGameID") as? String,
               !gameID.isEmpty else { return nil }
         do {
-            let build = Bundle.main.object(forInfoDictionaryKey: "FramebriarBuildSHA") as? String
-            let config = try Configuration(gameID: gameID, buildSHA: build)
+            let config = try Configuration(gameID: gameID, buildSHA: CompanionBuildInfo.buildSHA())
             let root = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                                   appropriateFor: nil, create: true).appendingPathComponent("Framebriar", isDirectory: true)
             let client = try Client(configuration: config,
