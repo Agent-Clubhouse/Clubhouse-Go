@@ -92,6 +92,7 @@ The tests share the desktop and run in order. Each one copes with what an earlie
 | `test5CreateDurableAgentAndSettings` | New agent creates a durable agent on the desktop; the desktop's agent settings rename it and change its colour; Home shows the new name |
 | `test6ProjectAndAgentTerminals` | The project-root shell (spawn, echo, its directory, a resize on rotation, close) and Builder's worktree shell (its folder and branch) |
 | `test7FinishedQuickAgent` | A quick agent started from the phone finishes, is listed under "Finished, waiting on you", and Dismiss removes it on the desktop |
+| `test8AgentThatSleptWhileAwayReadsSleepingAfterForeground` | Echo is awake (Done); the phone goes to the background; the desktop puts Echo to sleep (the test writes `sleep-request` to the fixture folder, `TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR`); back in the foreground, Home reads Sleeping without opening the chat (the reconnect catch-up) |
 
 **Not covered: helper requests.** The fixture would need an orchestrator agent with orchestration turned on and an ask-first helper policy, whose CLI calls `start_helper` over the desktop's Clubhouse MCP bridge. The scripted fake doesn't speak MCP. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers the phone side against the preview desktop.
 

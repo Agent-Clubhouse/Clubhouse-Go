@@ -31,7 +31,7 @@ import Testing
         #expect(Set(caps.commands) == Set(Self.commandTypes))
         #expect(caps.supportsAgentCreate && caps.supportsAgentSettings && caps.supportsModelSwitch && caps.supportsLevelSwitch)
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
-        #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal)
+        #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
         #expect(caps.attachments == .init(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10))
         #expect(caps.terminal == .init(projectShell: true, agentShell: true, agentAttach: true, maxShellsPerConnection: 8, maxInputLength: 65_536))
         #expect(caps.idempotency.maxEntries == 2048 && caps.idempotency.ttlMs == 3_600_000 && caps.idempotency.scope == "peer-and-epoch")
@@ -171,6 +171,11 @@ import Testing
             }
             for reply in item["replies"].list {
                 let envelope = try JSONDecoder().decode(AnnexEnvelope.self, from: AnnexContract.encode(reply))
+                // A durable agent's exit also says it sleeps, for the agent list rather than the terminal.
+                if envelope.type == "agent:status", name.hasPrefix("agent output") {
+                    #expect(!AnnexTransport.isTerminalFrame(envelope) && envelope.payload?["status"]?.string == "sleeping")
+                    continue
+                }
                 #expect(envelope.type.hasPrefix("pty:") || envelope.type == "error", "\(name)")
                 if envelope.payload?["sessionId"] != nil || envelope.payload?["agentId"] != nil {
                     #expect(AnnexTerminalFrame.id(of: envelope) != nil, "\(name)")

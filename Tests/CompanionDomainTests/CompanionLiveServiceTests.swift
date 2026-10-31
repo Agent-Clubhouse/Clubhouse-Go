@@ -21,8 +21,24 @@ private actor LiveTestTransport: AnnexTransporting {
     private(set) var executedIDs: [String] = []
     private var startedHistory: AnnexJSON?
     func setStartedHistory(_ value: AnnexJSON) { startedHistory = value }
-    private var catalogAgent: AnnexJSON = .object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])
-    func setCatalogAgent(_ value: AnnexJSON) { catalogAgent = value }
+    private var catalogAgents: [AnnexJSON] = [.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])]
+    func setCatalogAgent(_ value: AnnexJSON) { catalogAgents = [value] }
+    func setCatalogAgents(_ values: [AnnexJSON]) { catalogAgents = values }
+    /// The bulk `agentState` read; nil leaves it out of the capabilities, as an older desktop does.
+    private var agentState: AnnexJSON?
+    func setAgentState(_ value: AnnexJSON?) { agentState = value }
+    private(set) var agentStateReads = 0
+    private var failAgentState = false
+    private var holdState = false
+    private var stateGate: CheckedContinuation<Void, Never>?
+    private(set) var agentStateWaiting = false
+    func holdAgentState() { holdState = true }
+    func releaseAgentState() { holdState = false; agentStateWaiting = false; stateGate?.resume(); stateGate = nil }
+    func setAgentStateFails(_ fails: Bool) { failAgentState = fails }
+    /// One-event chat pages by agent, for desktops without the bulk read.
+    private var chatPages: [String: AnnexJSON] = [:]
+    func setChatPage(_ agentID: String, _ value: AnnexJSON) { chatPages[agentID] = value }
+    private(set) var chatPageReads: [String] = []
     private var rejectNext = true
     private(set) var executedKinds: [String] = []
     private(set) var executedCommands: [AnnexCommand] = []
@@ -75,7 +91,8 @@ private actor LiveTestTransport: AnnexTransporting {
                             "commands": .array([.string("chat.send"), .string("agent.start")] + (helperRequests ? [.string("helper.approve"), .string("helper.decline")] : [])
                                                + (finishedQuick ? [.string("quick.dismiss"), .string("quick.clear")] : [])),
                             "helperRequests": helperRequests ? .object(["version": .integer(1), "snapshotField": .string("helperRequests")]) : .null,
-                            "finishedQuickAgents": finishedQuick ? .object(["version": .integer(1)]) : .null])
+                            "finishedQuickAgents": finishedQuick ? .object(["version": .integer(1)]) : .null,
+                            "agentState": agentState != nil ? .object(["version": .integer(1), "path": .string("/api/v1/mobile/agents/state")]) : .null])
         case .projects:
             if holdProjects {
                 projectsWaiting = true
@@ -83,7 +100,20 @@ private actor LiveTestTransport: AnnexTransporting {
             }
             return projects
         case .agents:
-            return .array([catalogAgent])
+            return .array(catalogAgents)
+        case .agentState:
+            agentStateReads += 1
+            if holdState {
+                agentStateWaiting = true
+                await withCheckedContinuation { stateGate = $0 }
+            }
+            if failAgentState { throw AnnexTransportError.malformedResponse }
+            guard let agentState else { throw AnnexTransportError.unsupportedCapability("agentState") }
+            return agentState
+        case .chatHistory(let agentID, nil, nil, 1):
+            chatPageReads.append(agentID)
+            guard let page = chatPages[agentID] else { throw AnnexTransportError.unsupportedCapability("chat page") }
+            return page
         case .chat:
             if holdHistory {
                 historyWaiting = true
@@ -145,8 +175,8 @@ private actor LiveTestTransport: AnnexTransporting {
         .object(["sessionId": .string(session), "state": .string("idle"), "events": .array([event(session, sequence: 1, text: text)]),
                  "capabilities": .object(["chat": .bool(true)])])
     }
-    private func chat(_ event: AnnexJSON) -> AnnexTransportEvent {
-        .message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": event])))
+    private func chat(_ event: AnnexJSON, agent: String = "agent") -> AnnexTransportEvent {
+        .message(.init(type: "chat:event", payload: .object(["agentId": .string(agent), "event": event])))
     }
 
 
@@ -238,6 +268,227 @@ private actor LiveTestTransport: AnnexTransporting {
         try await waitUntil { store.agent(for: target)?.status == .working }
     }
 
+    /// An agent awake when the phone last connected sleeps while it is away. The desktop drops the agent's chat
+    /// events from replay when it exits, and the reconnect resumes from the snapshot, so its session's end never
+    /// arrives: the catalog's "sleeping" must win over the chat projection's last Working or Done.
+    @Test(arguments: ["running", "idle"])
+    func anAgentThatSleptWhileThePhoneWasAwayShowsAsleepAfterReconnect(lastState: String) async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running"), "hasSession": .bool(true)]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(chat(.object(["sessionId": .string("session"), "seq": .integer(1), "type": .string("session_started"),
+                                           "data": .object(["capabilities": .object(["chat": .bool(true)])])])))
+        await transport.emit(chat(.object(["sessionId": .string("session"), "seq": .integer(2), "type": .string("session_state"),
+                                           "data": .object(["state": .string(lastState)])])))
+        let awake: CompanionAgentStatus = lastState == "running" ? .working : .idle
+        try await waitUntil { store.agent(for: target)?.status == awake }
+
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping"),
+                                                 "detailedStatus": .null, "hasSession": .bool(true)]))
+        await transport.connect()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: target)?.status == .sleeping)
+        #expect(store.agent(for: target)?.capabilities.contains(.chat) != true)
+
+        // A snapshot on the socket says the same; a later event from the same stale session can't wake it.
+        await transport.emit(.message(.init(type: "snapshot", payload: .object([
+            "projects": .array([.object(["id": .string("project"), "name": .string("Project")])]),
+            "agents": .object(["project": .array([.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping")])])])]))))
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: target)?.status == .sleeping)
+
+        // Woken again: the new session's events drive the status as before.
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running")]))
+        await transport.emit(chat(.object(["sessionId": .string("session-2"), "seq": .integer(1), "type": .string("session_state"),
+                                           "data": .object(["state": .string("running")])])))
+        try await waitUntil { store.agent(for: target)?.status == .working }
+    }
+
+    // MARK: Catch-up after a reconnect
+
+    private func catalogEntry(_ id: String, _ status: String) -> AnnexJSON {
+        .object(["id": .string(id), "name": .string(id.capitalized), "status": .string(status), "hasSession": .bool(true)])
+    }
+    private func liveState(_ id: String, _ status: String, _ sessionState: String?, permission: Bool = false, question: Bool = false) -> AnnexJSON {
+        .object(["agentId": .string(id), "projectId": .string("project"), "kind": .string("durable"), "status": .string(status),
+                 "sessionId": sessionState == nil ? .null : .string("session-\(id)"), "sessionState": sessionState.map(AnnexJSON.string) ?? .null,
+                 "hasSession": .bool(true), "detailedStatus": .null, "pendingPermission": .bool(permission), "pendingQuestion": .bool(question)])
+    }
+    private func state(_ agent: String, _ state: String, seq: Int64) -> AnnexTransportEvent {
+        chat(.object(["sessionId": .string("session-\(agent)"), "seq": .integer(seq), "type": .string("session_state"), "data": .object(["state": .string(state)])]), agent: agent)
+    }
+    private func agentTarget(_ id: String) -> CompanionTarget { .init(hostID: target.hostID, projectID: "project", agentID: id) }
+
+    /// Three agents the phone saw awake; while it was away one slept, one started a turn, and one had its approval
+    /// answered. None of that reaches it as events. One bulk read on reconnect puts every one right, open or not.
+    @Test func aReconnectCatchesUpEveryCachedAgentFromOneBulkRead() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("sleeper", "running"), catalogEntry("worker", "running"), catalogEntry("asker", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("sleeper", "running", seq: 1))
+        await transport.emit(state("worker", "idle", seq: 1))
+        await transport.emit(state("asker", "waiting_permission", seq: 1))
+        try await waitUntil {
+            store.agent(for: agentTarget("sleeper"))?.status == .working && store.agent(for: agentTarget("worker"))?.status == .idle
+                && store.agent(for: agentTarget("asker"))?.status == .approval
+        }
+        let readsBefore = await transport.agentStateReads
+
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        // The catalog alone can't tell: two of the three still say running.
+        await transport.setCatalogAgents([catalogEntry("sleeper", "sleeping"), catalogEntry("worker", "running"), catalogEntry("asker", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([
+            liveState("sleeper", "sleeping", nil), liveState("worker", "running", "running"), liveState("asker", "running", "idle")])]))
+        await transport.connect()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+
+        #expect(store.agent(for: agentTarget("sleeper"))?.status == .sleeping)
+        #expect(store.agent(for: agentTarget("worker"))?.status == .working)
+        #expect(store.agent(for: agentTarget("asker"))?.status == .idle)
+        #expect(!store.attentionItems().contains { $0.agent.id == agentTarget("asker") })
+        #expect(await transport.agentStateReads == readsBefore + 1)
+        #expect(await transport.chatPageReads.isEmpty)
+    }
+
+    /// A question asked while the phone was away shows as Needs you after the reconnect.
+    @Test func aCatchUpShowsARequestMadeWhileAway() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("asker", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("asker", "running", seq: 1))
+        try await waitUntil { store.agent(for: agentTarget("asker"))?.status == .working }
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([liveState("asker", "running", "running", question: true)])]))
+        await transport.connect()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: agentTarget("asker"))?.status == .waiting)
+    }
+
+    /// An older desktop has no bulk read: the phone reads a one-event chat page for each agent still showing awake.
+    @Test func withoutTheBulkReadACatchUpReadsOneEventPagesForAwakeAgentsOnly() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("sleeper", "running"), catalogEntry("worker", "running"), catalogEntry("stopped", "running")])
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("sleeper", "running", seq: 1))
+        await transport.emit(state("worker", "waiting_input", seq: 1))
+        await transport.emit(chat(.object(["sessionId": .string("session-stopped"), "seq": .integer(1), "type": .string("session_ended"),
+                                           "data": .object(["reason": .string("killed")])]), agent: "stopped"))
+        try await waitUntil { store.agent(for: agentTarget("stopped"))?.status == .stopped && store.agent(for: agentTarget("worker"))?.status == .waiting }
+
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        // The desktop still says running for both (it lags, or the agent is between sessions): only the pages know.
+        await transport.setChatPage("sleeper", .object(["sessionId": .string("session-sleeper"), "readOnly": .bool(true), "state": .string("sleeping"),
+                                                        "events": .array([]), "pendingPermissions": .array([]), "pendingQuestions": .array([])]))
+        await transport.setChatPage("worker", .object(["sessionId": .string("session-worker"), "readOnly": .bool(false), "state": .string("idle"),
+                                                       "events": .array([]), "pendingPermissions": .array([]), "pendingQuestions": .array([])]))
+        await transport.connect()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+
+        #expect(store.agent(for: agentTarget("sleeper"))?.status == .sleeping)
+        #expect(store.agent(for: agentTarget("worker"))?.status == .idle)
+        #expect(store.agent(for: agentTarget("stopped"))?.status == .stopped)
+        #expect(await Set(transport.chatPageReads) == ["sleeper", "worker"])
+    }
+
+    /// A chat event that arrives while the catch-up read is in flight is newer than the read and keeps its status.
+    @Test func aChatEventDuringTheCatchUpReadWins() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("worker", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("worker", "running", seq: 1))
+        try await waitUntil { store.agent(for: agentTarget("worker"))?.status == .working }
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        // Read before the turn ended: it still says running.
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([liveState("worker", "running", "running")])]))
+        await transport.holdAgentState()
+        await transport.connect()
+        try await waitUntil { await transport.agentStateWaiting }
+        await transport.emit(state("worker", "idle", seq: 2))
+        try await waitUntil { store.agent(for: agentTarget("worker"))?.status == .idle }
+        await transport.releaseAgentState()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: agentTarget("worker"))?.status == .idle)
+    }
+
+    /// A catch-up that fails leaves the host catching up on its next refresh rather than calling it done.
+    @Test func aFailedCatchUpIsRetriedOnTheNextRefresh() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("sleeper", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("sleeper", "running", seq: 1))
+        try await waitUntil { store.agent(for: agentTarget("sleeper"))?.status == .working }
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        // Advertised but failing: the host still connects, on the catalog's statuses.
+        await transport.setAgentStateFails(true)
+        let reads = await transport.agentStateReads
+        await transport.connect()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(await transport.agentStateReads == reads + 1)
+        #expect(store.agent(for: agentTarget("sleeper"))?.status == .working)
+        // The next refresh, for any reason, catches up.
+        await transport.setAgentStateFails(false)
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([liveState("sleeper", "sleeping", nil)])]))
+        await transport.emit(.message(.init(type: "agent:deleted", payload: .object([:]))))
+        try await waitUntil { store.agent(for: agentTarget("sleeper"))?.status == .sleeping }
+        #expect(store.hosts.first?.connection == .connected)
+    }
+
+    /// The desktop says `agent:status` "sleeping" when a durable agent's process exits, terminal or chat.
+    @Test func agentStatusSleepingPutsALiveChatToSleep() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running")]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(chat(.object(["sessionId": .string("session"), "seq": .integer(1), "type": .string("turn_started"), "data": .object([:])])))
+        try await waitUntil { store.agent(for: target)?.status == .working }
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping")]))
+        await transport.emit(.message(.init(type: "agent:status", payload: .object([
+            "id": .string("agent"), "agentId": .string("agent"), "kind": .string("durable"), "status": .string("sleeping"), "detailedStatus": .null]))))
+        try await waitUntil { store.agent(for: target)?.status == .sleeping }
+        #expect(store.agent(for: target)?.turnStartedAt == nil)
+    }
+
+    /// A chat that ended as stopped keeps that, rather than taking the coarser "sleeping" from the exit after it.
+    @Test func agentStatusSleepingKeepsAChatsOwnEnd() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("running")]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(chat(.object(["sessionId": .string("session"), "seq": .integer(1), "type": .string("session_ended"),
+                                           "data": .object(["reason": .string("killed"), "exitCode": .integer(0)])])))
+        try await waitUntil { store.agent(for: target)?.status == .stopped }
+        await transport.setCatalogAgent(.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("sleeping")]))
+        await transport.emit(.message(.init(type: "agent:status", payload: .object(["id": .string("agent"), "kind": .string("durable"), "status": .string("sleeping")]))))
+        await transport.emit(chat(event("session", sequence: 2, text: "marker")))
+        try await waitUntil { store.conversation(for: target).items.contains(where: { $0.id == "message:marker" }) }
+        #expect(store.agent(for: target)?.status == .stopped)
+    }
+
     @Test func contentRootsComeFromEachChatSnapshotAndTheHostsPlatform() async throws {
         let transport = LiveTestTransport()
         var history = snapshot("session", text: "Hi")
@@ -310,9 +561,8 @@ private actor LiveTestTransport: AnnexTransporting {
         try await waitUntil { store.hosts.first?.connection == .connected }
         #expect(!store.canWake(target))
         await store.load(target)
-        try await waitUntil { store.canWake(target) }
-        #expect(store.canWake(target))
-        #expect(store.agent(for: target)?.status == .sleeping)
+        // Wake comes with the snapshot; its status follows in the service's next hosts update.
+        try await waitUntil { store.canWake(target) && store.agent(for: target)?.status == .sleeping }
         await store.wake(target)
         #expect(await transport.executedKinds == ["agent.start"])
         store.stop()

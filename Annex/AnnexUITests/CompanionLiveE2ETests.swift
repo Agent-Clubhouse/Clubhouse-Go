@@ -447,4 +447,34 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Agent worktree terminal")
         waitAndTap(app.buttons["terminal-done"], untilGone: output, timeout: 10)
     }
+
+    /// An agent awake when the phone went to the background, put to sleep on the desktop meanwhile, reads Sleeping
+    /// when the phone comes back, on Home, without opening its chat.
+    func test8AgentThatSleptWhileAwayReadsSleepingAfterForeground() throws {
+        let fixtureDir = try XCTUnwrap(env["CLUBHOUSE_E2E_FIXTURE_DIR"], "Run through scripts/e2e-live.sh, which passes the fixture folder")
+        let app = launchPaired()
+        openAwakeChat(app, echoID)
+        send(app, "hello")
+        XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "The desktop must stream the CLI's reply")
+        backToHome(app)
+        let echo = revealAgent(app, echoID)
+        XCTAssertTrue(waitFor(echo, NSPredicate(format: "label CONTAINS 'Done'"), timeout: 30), "Echo is awake between turns: \(echo.label)")
+
+        XCUIDevice.shared.press(.home)
+        let done = URL(fileURLWithPath: fixtureDir).appending(path: "sleep-done")
+        try? FileManager.default.removeItem(at: done)
+        try echoID.write(to: URL(fileURLWithPath: fixtureDir).appending(path: "sleep-request"), atomically: true, encoding: .utf8)
+        let deadline = Date().addingTimeInterval(60)
+        while !FileManager.default.fileExists(atPath: done.path), Date() < deadline { sleep(1) }
+        let answer = (try? String(contentsOf: done, encoding: .utf8)) ?? "no answer"
+        XCTAssertTrue(answer.contains("ok"), "The fixture desktop must put Echo to sleep: \(answer)")
+        sleep(2)
+
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
+        let row = revealAgent(app, echoID)
+        XCTAssertTrue(waitFor(row, NSPredicate(format: "label CONTAINS 'Sleeping'"), timeout: 30),
+                      "An agent that slept while the phone was away must read Sleeping after it comes back: \(row.label)")
+        screenshot(app, "Home after an agent slept while the phone was away")
+    }
 }

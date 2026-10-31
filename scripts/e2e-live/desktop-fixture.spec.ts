@@ -14,7 +14,8 @@
  *
  * Once Annex listens it writes `invitation.json` (0600) to E2E_FIXTURE_DIR: {host, port, hostID, certificatePin,
  * pin, name}, the in-memory pairing that Clubhouse Go's DEBUG bootstrap takes in CLUBHOUSE_COMPANION_TEST_INVITATION.
- * Then it waits until `stop` appears in that folder and quits the app.
+ * Then it waits until `stop` appears in that folder and quits the app. Meanwhile a test can put an agent to sleep
+ * on the desktop, as if stopped there, by writing its id to `sleep-request`; the fixture answers with `sleep-done`.
  */
 import { test } from '@playwright/test';
 import { execFileSync } from 'child_process';
@@ -122,9 +123,22 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     log(`Annex listening on 127.0.0.1:${status.port}; invitation written`);
 
     const stop = path.join(FIXTURE_DIR, 'stop');
+    const sleepRequest = path.join(FIXTURE_DIR, 'sleep-request');
+    const sleepDone = path.join(FIXTURE_DIR, 'sleep-done');
     while (!fs.existsSync(stop)) {
       if (electronApp.process().exitCode !== null) throw new Error('The desktop exited while the phone tests ran');
-      await new Promise((r) => setTimeout(r, 1_000));
+      if (fs.existsSync(sleepRequest)) {
+        const agentId = fs.readFileSync(sleepRequest, 'utf8').trim();
+        fs.rmSync(sleepRequest, { force: true });
+        fs.rmSync(sleepDone, { force: true });
+        const result = await window.evaluate(async ({ id, projectPath }) => {
+          try { await (window as any).clubhouse.agent.killAgent(id, projectPath, true); return 'ok'; }
+          catch (err) { return `error: ${err instanceof Error ? err.message : String(err)}`; }
+        }, { id: agentId, projectPath: projectDir });
+        log(`slept ${agentId}: ${result}`);
+        writeFile(sleepDone, `${agentId} ${result}\n`);
+      }
+      await new Promise((r) => setTimeout(r, 500));
     }
     log('stop requested');
   } finally {

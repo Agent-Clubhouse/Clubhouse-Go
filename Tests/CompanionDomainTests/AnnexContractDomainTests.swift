@@ -38,6 +38,8 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
     }
     private var stream: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation? { lock.withLock { continuation } }
     func connect() { stream?.yield(.connection(.connected)) }
+    /// The socket drops and comes back, as after the phone was in the background.
+    func reconnect() { stream?.yield(.connection(.disconnected)); stream?.yield(.connection(.connected)) }
     func disconnect() {}
     func emit(_ frame: AnnexJSON) throws {
         stream?.yield(.message(try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(frame))))
@@ -54,6 +56,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
             default: throw AnnexTransportError.rejected(status: 404, code: "agent_not_found")
             }
         case .chatSessions: return try ContractFixtures.body("chat-sessions.json")
+        case .agentState: return try ContractFixtures.body("agent-state.json")
         case .createOptions(let project):
             guard project == "proj_app" else { throw AnnexTransportError.rejected(status: 404, code: "project_not_found") }
             return try ContractFixtures.body("create-options.json")
@@ -183,6 +186,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(question.prompts.first?.options.map(\.id) == ["main", "dev"] && question.prompts.first?.allowsFreeText == true)
         #expect(history.items.contains { $0.id == "tool:tool_1" } && history.items.contains { $0.id == "message:amsg_1" })
 
+        try await waitUntil { store.agent(for: chat)?.chatControls != nil }
         let agent = try #require(store.agent(for: chat))
         #expect(agent.capabilities.isSuperset(of: [.chat, .approve, .answer, .steer, .cancel, .images, .removeQueued]))
         let controls = try #require(agent.chatControls)
@@ -197,11 +201,39 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         defer { store.stop(); service.remove(hostID: Self.hostID) }
         let history = try await service.history(for: sleepy)
         #expect(history.sessionID == "sess_old" && history.items.count == 2)
-        #expect(store.agent(for: sleepy)?.capabilities.contains(.wake) == true)
+        // The store hears of the snapshot's Wake through the service's next hosts update.
+        try await waitUntil { store.agent(for: sleepy)?.capabilities.contains(.wake) == true }
         try await service.wake(sleepy, resume: true, clientCommandID: "wake-1")
         #expect(transport.matched == ["agent.start: accepted wake"])
         let problems = transport.problems
         #expect(problems.isEmpty, "\(problems)")
+    }
+
+    // MARK: Agents that sleep while the phone is away
+
+    /// The phone saw brave-otter working; it slept while the phone was in the background. The reconnect's one
+    /// bulk read (the desktop's recorded `agent-state.json`) puts it to sleep, without opening its chat.
+    @Test func aReconnectCatchesUpFromTheDesktopsAgentState() async throws {
+        let (service, store, transport) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.hostID) }
+        try transport.emit(.object(["type": .string("chat:event"), "seq": .integer(900), "payload": .object(["agentId": .string("durable_sleepy"),
+            "event": .object(["v": .integer(2), "agentId": .string("durable_sleepy"), "sessionId": .string("sess_old"), "seq": .integer(4),
+                              "type": .string("session_state"), "data": .object(["state": .string("running")])])])]))
+        try await waitUntil { store.agent(for: sleepy)?.status == .working }
+        transport.reconnect()
+        try await waitUntil { store.agent(for: sleepy)?.status == .sleeping }
+        #expect(store.hosts.first?.connection == .connected)
+    }
+
+    /// The desktop's recorded frames when a durable agent goes to sleep: `pty:exit` (the terminal's) and `agent:status`.
+    @Test func theDesktopsSleepFramesPutALiveChatToSleep() async throws {
+        let (service, store, transport) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.hostID) }
+        _ = try await service.history(for: chat)
+        try await waitUntil { store.agent(for: chat)?.status.dot != .sleeping }
+        for frame in (try ContractFixtures.json("agent-sleep.json")["frames"]).arrayValue { try transport.emit(frame) }
+        try await waitUntil { store.agent(for: chat)?.status == .sleeping }
+        #expect(store.agent(for: chat)?.capabilities.contains(.chat) != true)
     }
 
     // MARK: Commands, end to end
