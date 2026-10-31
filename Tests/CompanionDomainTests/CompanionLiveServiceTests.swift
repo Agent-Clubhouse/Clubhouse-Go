@@ -29,6 +29,11 @@ private actor LiveTestTransport: AnnexTransporting {
     func setAgentState(_ value: AnnexJSON?) { agentState = value }
     private(set) var agentStateReads = 0
     private var failAgentState = false
+    private var holdState = false
+    private var stateGate: CheckedContinuation<Void, Never>?
+    private(set) var agentStateWaiting = false
+    func holdAgentState() { holdState = true }
+    func releaseAgentState() { holdState = false; agentStateWaiting = false; stateGate?.resume(); stateGate = nil }
     func setAgentStateFails(_ fails: Bool) { failAgentState = fails }
     /// One-event chat pages by agent, for desktops without the bulk read.
     private var chatPages: [String: AnnexJSON] = [:]
@@ -98,6 +103,10 @@ private actor LiveTestTransport: AnnexTransporting {
             return .array(catalogAgents)
         case .agentState:
             agentStateReads += 1
+            if holdState {
+                agentStateWaiting = true
+                await withCheckedContinuation { stateGate = $0 }
+            }
             if failAgentState { throw AnnexTransportError.malformedResponse }
             guard let agentState else { throw AnnexTransportError.unsupportedCapability("agentState") }
             return agentState
@@ -394,6 +403,30 @@ private actor LiveTestTransport: AnnexTransporting {
         #expect(store.agent(for: agentTarget("worker"))?.status == .idle)
         #expect(store.agent(for: agentTarget("stopped"))?.status == .stopped)
         #expect(await Set(transport.chatPageReads) == ["sleeper", "worker"])
+    }
+
+    /// A chat event that arrives while the catch-up read is in flight is newer than the read and keeps its status.
+    @Test func aChatEventDuringTheCatchUpReadWins() async throws {
+        let transport = LiveTestTransport()
+        await transport.setCatalogAgents([catalogEntry("worker", "running")])
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([])]))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        await transport.emit(state("worker", "running", seq: 1))
+        try await waitUntil { store.agent(for: agentTarget("worker"))?.status == .working }
+        await transport.disconnect()
+        try await waitUntil { store.hosts.first?.connection == .offline }
+        // Read before the turn ended: it still says running.
+        await transport.setAgentState(.object(["version": .integer(1), "agents": .array([liveState("worker", "running", "running")])]))
+        await transport.holdAgentState()
+        await transport.connect()
+        try await waitUntil { await transport.agentStateWaiting }
+        await transport.emit(state("worker", "idle", seq: 2))
+        try await waitUntil { store.agent(for: agentTarget("worker"))?.status == .idle }
+        await transport.releaseAgentState()
+        try await waitUntil { store.hosts.first?.connection == .connected }
+        #expect(store.agent(for: agentTarget("worker"))?.status == .idle)
     }
 
     /// A catch-up that fails leaves the host catching up on its next refresh rather than calling it done.

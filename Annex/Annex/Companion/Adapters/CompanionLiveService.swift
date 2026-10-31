@@ -780,6 +780,8 @@ import ClubhouseTransport
     private func catchUp(hostID: String, transport: any AnnexTransporting, bulk: Bool) async throws {
         let cached = projections.keys.filter { $0.hostID == hostID }
         guard !cached.isEmpty else { return }
+        // A chat event that arrives during the read is newer than it; that projection keeps what the event said.
+        let seen = Dictionary(uniqueKeysWithValues: cached.map { ($0, projections[$0].map { "\($0.sessionID ?? "")#\($0.lastSequence)" }) })
         var states: [String: LiveState] = [:]
         if bulk {
             for value in try await transport.read(.agentState)["agents"].arrayValue {
@@ -794,7 +796,8 @@ import ClubhouseTransport
         }
         var changed = false
         for target in cached {
-            guard let state = states[target.agentID], var projection = projections[target] else { continue }
+            guard let state = states[target.agentID], var projection = projections[target],
+                  seen[target] == "\(projection.sessionID ?? "")#\(projection.lastSequence)" else { continue }
             let before = projection
             Self.reconcile(&projection, with: state)
             guard projection.status != before.status || projection.capabilities != before.capabilities else { continue }
@@ -805,7 +808,7 @@ import ClubhouseTransport
         if changed { emitHosts() }
     }
 
-    /// Chat pages of one event each, a few at a time. A snapshot that fails is skipped; the next reconnect tries again.
+    /// Chat pages of one event each, a few at a time. A page that fails is skipped: that agent keeps the catalog's status.
     nonisolated static func chatStates(_ agentIDs: [String], transport: any AnnexTransporting) async throws -> [String: LiveState] {
         try await withThrowingTaskGroup(of: (String, LiveState?).self) { group in
             var pending = agentIDs[...], states: [String: LiveState] = [:]
