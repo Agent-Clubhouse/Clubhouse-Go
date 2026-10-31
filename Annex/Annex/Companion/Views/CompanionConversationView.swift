@@ -9,6 +9,8 @@ struct CompanionConversationView: View {
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showRefreshing = false
+    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
+    @State private var shownEntries = CompanionTimelineWindow.pageSize
     @FocusState private var composerFocused: Bool
     /// The composer's caret, for the `/` menu.
     @State private var composerSelection: TextSelection?
@@ -207,33 +209,34 @@ struct CompanionConversationView: View {
     private var timeline: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
-                    // Refreshes of a transcript already on screen show in the composer instead.
-                    if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
-                    if let error = conversation.error {
-                        ContentUnavailableView {
-                            Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
-                        } description: { Text(error) } actions: {
-                            Button("Try again") { Task { await store.load(target, force: true) } }
+                let rows = CompanionTimelineFolding.rows(for: conversation.items)
+                // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
+                // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
+                // is a row per slice, so no row is far taller than the screen.
+                let window = CompanionTimelineWindow(CompanionTimelineEntry.entries(for: rows), limit: shownEntries)
+                let entries = window.entries
+                // Each entry sets its own spacing, never negative.
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 22) {
+                        timelineHeader
+                        if window.hiddenCount > 0 {
+                            Button("Show earlier messages", systemImage: "arrow.up.circle") { shownEntries += CompanionTimelineWindow.pageSize }
+                                .font(.caption).frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("companion-show-earlier")
                         }
-                    }
-                    if conversation.hasEarlierMessages {
-                        Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                            .font(.caption).frame(maxWidth: .infinity)
-                    }
-                    if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
-                        ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
-                            .accessibilityIdentifier("companion-empty-conversation")
                     }
                     let pinnedID = store.pinnedApproval(for: target)?.id
                     let items = conversation.items
-                    let rows = CompanionTimelineFolding.rows(for: conversation.items)
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
-                    ForEach(rows) { row in
-                        timelineRow(row, pinnedApprovalID: pinnedID, items: items).id(row.id)
-                        if row.id == hintRowID { CompanionContentHint() }
+                    ForEach(entries) { entry in
+                        VStack(alignment: .leading, spacing: 22) {
+                            timelineEntry(entry, pinnedApprovalID: pinnedID, items: items)
+                            if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
+                        }
+                        .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
+                        .id(entry.id)
                     }
-                    Color.clear.frame(height: 1).id("latest")
+                    Color.clear.frame(height: 1).padding(.top, 22).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.vertical, 24)
@@ -253,8 +256,13 @@ struct CompanionConversationView: View {
                 if phase == .interacting, followLatest { followLatest = false }
                 if phase == .idle, !followLatest, Self.isAtLatest(context.geometry) { followLatest = true }
             }
-            .onScrollGeometryChange(for: Bool.self, of: Self.isAtLatest) { _, atLatest in
-                if atLatest, !followLatest { followLatest = true }
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
+                if Self.isAtLatest(new) {
+                    if !followLatest { followLatest = true }
+                } else if followLatest && Self.scrolledToTop(from: old, to: new) {
+                    // Tapping the status bar scrolls to the top with no scroll phase at all (#188).
+                    followLatest = false
+                }
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
@@ -263,6 +271,8 @@ struct CompanionConversationView: View {
             .overlay(alignment: .bottomTrailing) {
                 if !followLatest && !conversation.items.isEmpty {
                     Button {
+                        // Follow first, so rows that resize on the way, such as a streaming reply, keep the bottom anchored.
+                        followLatest = true
                         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
                     } label: { Label("Latest", systemImage: "arrow.down") }
                     .buttonStyle(.glass).padding()
@@ -281,8 +291,57 @@ struct CompanionConversationView: View {
         }
     }
 
+    /// Loading, errors, the archive link and the empty state, above the conversation's entries.
+    @ViewBuilder private var timelineHeader: some View {
+        // Refreshes of a transcript already on screen show in the composer instead.
+        if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
+        if let error = conversation.error {
+            ContentUnavailableView {
+                Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
+            } description: { Text(error) } actions: {
+                Button("Try again") { Task { await store.load(target, force: true) } }
+            }
+        }
+        if conversation.hasEarlierMessages {
+            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                .font(.caption).frame(maxWidth: .infinity)
+        }
+        if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
+            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
+                .accessibilityIdentifier("companion-empty-conversation")
+        }
+    }
+    /// Loading and the empty state show only without entries, so they never sit above one.
+    private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
+
     private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
         geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
+    }
+    /// The offset moved up to the very top while the content, the screen and the insets stayed the same: the status bar's
+    /// scroll to the top, which following the latest never does. Rows loading and streaming change the content's size;
+    /// the keyboard and the composer change the screen or the insets.
+    private static func scrolledToTop(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
+        old.contentSize == new.contentSize && old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
+            && new.contentOffset.y < old.contentOffset.y && new.contentOffset.y <= -new.contentInsets.top + 1
+    }
+
+    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
+        switch entry {
+        case .row(let row): timelineRow(row, pinnedApprovalID: pinnedApprovalID, items: items)
+        case .slice(let message, let slice):
+            messageView(message, slice: slice)
+            if slice.isLast && message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
+            }
+        }
+    }
+
+    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
+        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+            Task { await store.retry(messageID: message.id, target: target) }
+        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
+           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+           slice: slice)
     }
 
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
@@ -295,10 +354,7 @@ struct CompanionConversationView: View {
     @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
         switch item {
         case .message(let message):
-            CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
-                Task { await store.retry(messageID: message.id, target: target) }
-            }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
-               removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil)
+            messageView(message)
             if message.role == .assistant {
                 CompanionContentLinks(references: CompanionContentReference.references(in: item))
             }

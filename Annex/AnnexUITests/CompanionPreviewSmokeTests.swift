@@ -85,9 +85,18 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let done = app.buttons["companion-preview-done"]
         let title = app.navigationBars["test-log.txt"]
 
+        // Every card is in the hierarchy, and the newest can be under the composer: open the newest one on screen. Cards
+        // keep moving as runs start, so tap again if the first tap missed; opening the preview twice is harmless.
+        let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
+        func newestLinkOnScreen() -> XCUIElement {
+            let count = links.count
+            return (max(0, count - 4)..<count).reversed().lazy.map { links.element(boundBy: $0) }.first { $0.isHittable }
+                ?? links.element(boundBy: max(0, count - 1))
+        }
+
         // Done: wait through several updates, including a fold, before closing.
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
-        waitAndTap(link, until: done, timeout: 5, "Done must show while the preview loads")
+        waitAndTap(newestLinkOnScreen(), until: done, timeout: 5, "Done must show while the preview loads")
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         XCTAssertTrue(done.isHittable, "Done must stay reachable while updates stream")
@@ -99,9 +108,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // Swipe down. New runs keep pushing older cards up under the header, so open the newest card's log,
         // which stays next to the composer.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
-        let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
-        links.element(boundBy: max(0, links.count - 1)).tap()
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        waitAndTap(newestLinkOnScreen(), until: title, timeout: 10, "The newest card's log must open")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))

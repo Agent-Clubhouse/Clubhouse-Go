@@ -6,6 +6,8 @@ struct CompanionMessageView: View {
     var retry: () -> Void
     var canRemoveQueued = false
     var removeQueued: (() -> Void)?
+    /// In the conversation, a long reply is shown a slice per row (#188); the archive shows it whole.
+    var slice: CompanionMessageSlice?
     @Environment(\.companionPalette) private var palette
 
     /// Like the desktop: agent replies have no author label; your messages sit on the right with their source.
@@ -15,14 +17,14 @@ struct CompanionMessageView: View {
             case .user: userMessage
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
-                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
-                    if message.isStreaming { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
+                    richText
+                    if message.isStreaming && slice?.isLast != false { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             case .system:
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Activity", systemImage: "sparkle").font(.subheadline.weight(.semibold))
-                    CompanionRichText(text: message.text, isStreaming: message.isStreaming)
+                    if slice?.index ?? 0 == 0 { Label("Activity", systemImage: "sparkle").font(.subheadline.weight(.semibold)) }
+                    richText
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -30,6 +32,14 @@ struct CompanionMessageView: View {
         .accessibilityElement(children: .contain)
         .contextMenu {
             Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
+        }
+    }
+
+    @ViewBuilder private var richText: some View {
+        if let slice {
+            CompanionMarkdownBlocks(blocks: slice.blocks, depth: 0).frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            CompanionRichText(text: message.text, isStreaming: message.isStreaming)
         }
     }
 
@@ -117,6 +127,14 @@ struct CompanionMessageView: View {
         case .removed: "Removed from queue"
         case .submitted: "Follow-up submitted"
         }
+    }
+}
+
+extension CompanionTimelineEntry {
+    /// Rows sit 22pt apart; slices of one reply sit as close as its blocks, or its list items when one is cut.
+    var spacingBefore: CGFloat {
+        guard case .slice(_, let slice) = self, slice.index > 0 else { return 22 }
+        return slice.continuesBlock ? 6 : 12
     }
 }
 

@@ -17,11 +17,15 @@ import Foundation
     static let terminalAgentTarget = CompanionTarget(hostID: "preview-studio", projectID: "website", agentID: "sequoia")
     /// UI tests add a reply with a wide, many-row table and a long code block (`--companion-preview-long-blocks`).
     private let showsLongBlocks: Bool
-    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false) {
+    /// UI tests add a reply of about 10,000 words with large blocks in it (`--companion-preview-long-reply`).
+    private let showsLongReply: Bool
+    init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
+         showsLongReply: Bool = false) {
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
         self.showsTerminalAgent = showsTerminalAgent
         self.showsLongBlocks = showsLongBlocks
+        self.showsLongReply = showsLongReply
     }
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
@@ -140,6 +144,8 @@ import Foundation
         ] + (showsLongBlocks ? [
             .message(.init(id: "agent-4", role: .assistant, text: Self.longTableReply, timestamp: Date().addingTimeInterval(-20))),
             .message(.init(id: "agent-5", role: .assistant, text: Self.longCodeReply, timestamp: Date().addingTimeInterval(-15)))
+        ] : []) + (showsLongReply ? [
+            .message(.init(id: "agent-6", role: .assistant, text: Self.longReply, timestamp: Date().addingTimeInterval(-10)))
         ] : []) + [
             // Two waiting approvals show "1 of 2"; "Always allow" is a secondary action, confirmed first.
             .approval(.init(id: "approval-1", toolName: "Bash", summary: "Build the iOS application to verify the updated conversation layout.", title: "Run xcodebuild",
@@ -197,6 +203,27 @@ import Foundation
         // End of the release checks
         ```
         """
+    }()
+    /// About 10,000 words: a hundred plain paragraphs, one unbroken paragraph of 1,500 words, headings, a long list,
+    /// and the large table and code block from `longTableReply` and `longCodeReply`. It starts and ends with a line the UI test finds (#188).
+    static let longReply: String = {
+        let topics = ["reconnect", "pairing", "drafts", "approvals", "archive", "streaming", "themes", "previews", "telemetry", "search"]
+        func paragraph(_ index: Int, sentences: Int) -> String {
+            (0..<sentences).map { sentence in
+                let topic = topics[(index + sentence) % topics.count]
+                return "Section \(index) note \(sentence + 1) checks that \(topic) keeps its place while the phone sleeps, wakes and reconnects to the desktop."
+            }.joined(separator: " ")
+        }
+        var parts = ["Start of the long reply."]
+        for index in 1...100 {
+            if index % 20 == 1 { parts.append("## Part \(index / 20 + 1)") }
+            parts.append(paragraph(index, sentences: 4))
+            if index == 30 { parts.append(paragraph(0, sentences: 75)) }
+            if index == 50 { parts += [longTableReply, longCodeReply] }
+            if index == 70 { parts.append((1...60).map { "\($0). Check \(topics[$0 % topics.count]) on iPhone and iPad, in light and dark mode." }.joined(separator: "\n")) }
+        }
+        parts.append("End of the long reply.")
+        return parts.joined(separator: "\n\n")
     }()
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         throw CompanionServiceError.unavailable("Preview only. Pair a desktop to send messages.")
