@@ -274,6 +274,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     public let createOptions: Feature?
     public let agentSettings: Feature?
+    /// Every agent's live state in one read (`agentState` v1). Older desktops have no bulk read.
+    public let agentState: Feature?
+    public var supportsAgentState: Bool { (agentState?.version ?? 0) >= 1 }
     /// Project pins, inactive marks and the idle rule, owned by the desktop (`projectState` v1).
     public let projectState: Feature?
     /// "Finished, waiting on you", owned by the desktop (`finishedQuickAgents` v1).
@@ -363,6 +366,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         routes = optional(.routes)
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
+        agentState = optional(.agentState)
         projectState = optional(.projectState)
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
@@ -372,7 +376,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         terminal = optional(.terminal)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings
+        case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings, agentState
         case projectState, finishedQuickAgents, chatControls, permissions, helperRequests, attachments, terminal
     }
 }

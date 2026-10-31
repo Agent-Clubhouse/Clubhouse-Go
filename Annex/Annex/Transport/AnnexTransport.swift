@@ -165,6 +165,7 @@ public actor AnnexTransport: AnnexTransporting {
                 if let session { query.append(URLQueryItem(name: "sessionId", value: session)) }
                 if let before { query.append(URLQueryItem(name: "beforeSeq", value: String(max(1, before)))) }
             case .agents(let project): path = ["api", "v1", "projects", project, "agents"]
+            case .agentState: path = ["api", "v1", "mobile", "agents", "state"]
             case .sessions(let agent): path = ["api", "v1", "agents", agent, "sessions"]
             case .transcript(let agent, let session, let offset, let limit):
                 path = ["api", "v1", "agents", agent, "sessions", session, "transcript"]

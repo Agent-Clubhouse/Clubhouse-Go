@@ -13,6 +13,9 @@ import ClubhouseTransport
     private var eventGenerations: [String: UUID] = [:]
     private var refreshTasks: [String: Task<Void, Never>] = [:]
     private var refreshAgain: Set<String> = []
+    /// Hosts whose next refresh also reconciles every cached chat status: set on each new connection and
+    /// resync, since replay resumes from the snapshot and events missed while away never arrive.
+    private var needsCatchUp: Set<String> = []
     private var subscribers: [UUID: AsyncStream<CompanionEvent>.Continuation] = [:]
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
     private var historyGenerations: [CompanionTarget: UUID] = [:]
@@ -636,6 +639,7 @@ import ClubhouseTransport
             switch state {
             case .connected:
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
+                needsCatchUp.insert(hostID)
                 scheduleRefresh(hostID: hostID)
             case .connecting:
                 cancelRefresh(hostID: hostID)
@@ -659,6 +663,7 @@ import ClubhouseTransport
         case .resyncRequired:
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
+            needsCatchUp.insert(hostID)
             scheduleRefresh(hostID: hostID)
             // Store keeps active conversations blocked until its history is refreshed.
         case .message(let envelope):
@@ -745,12 +750,97 @@ import ClubhouseTransport
             hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
+            if needsCatchUp.contains(hostID) {
+                // A failed catch-up keeps the catalog's statuses and runs again on the next refresh.
+                let caughtUp = (try? await catchUp(hostID: hostID, transport: transport, bulk: newCapabilities?.supportsAgentState == true)) != nil
+                guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
+                if caughtUp { needsCatchUp.remove(hostID) }
+            }
             hosts[hostID]?.connection = .connected
         } catch {
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             hosts[hostID]?.connection = .failed(Self.readableError(error))
         }
         emitHosts()
+    }
+
+    /// One agent's live state, from the desktop's bulk `agentState` read or, on older desktops, a one-event chat page.
+    struct LiveState: Equatable {
+        var status: String?
+        var sessionState: String?
+        var pendingPermission = false
+        var pendingQuestion = false
+    }
+    /// Concurrent chat pages on a desktop without the bulk read.
+    nonisolated static let catchUpConcurrency = 3
+
+    /// After a reconnect, re-reads what each agent with a cached chat projection is doing now and reconciles,
+    /// so one that slept, finished a turn or had its request answered while the phone was away stops showing
+    /// the old state. Open conversations also reload their history, as before.
+    private func catchUp(hostID: String, transport: any AnnexTransporting, bulk: Bool) async throws {
+        let cached = projections.keys.filter { $0.hostID == hostID }
+        guard !cached.isEmpty else { return }
+        var states: [String: LiveState] = [:]
+        if bulk {
+            for value in try await transport.read(.agentState)["agents"].arrayValue {
+                guard let id = value["agentId"]?.string else { continue }
+                states[id] = .init(status: value["status"]?.string, sessionState: value["sessionState"]?.string,
+                                   pendingPermission: value["pendingPermission"].boolValue == true, pendingQuestion: value["pendingQuestion"].boolValue == true)
+            }
+        } else {
+            // Only an agent still showing awake can be stale-awake; the catalog has already put the rest right.
+            let awake = cached.filter { projections[$0]?.isAwake == true }.map(\.agentID)
+            states = try await Self.chatStates(awake, transport: transport)
+        }
+        var changed = false
+        for target in cached {
+            guard let state = states[target.agentID], var projection = projections[target] else { continue }
+            let before = projection
+            Self.reconcile(&projection, with: state)
+            guard projection.status != before.status || projection.capabilities != before.capabilities else { continue }
+            projections[target] = projection
+            updateAgent(target, projection: projection)
+            changed = true
+        }
+        if changed { emitHosts() }
+    }
+
+    /// Chat pages of one event each, a few at a time. A snapshot that fails is skipped; the next reconnect tries again.
+    nonisolated static func chatStates(_ agentIDs: [String], transport: any AnnexTransporting) async throws -> [String: LiveState] {
+        try await withThrowingTaskGroup(of: (String, LiveState?).self) { group in
+            var pending = agentIDs[...], states: [String: LiveState] = [:]
+            func next() {
+                guard let id = pending.popFirst() else { return }
+                group.addTask {
+                    guard let page = try? await transport.read(.chatHistory(agentID: id, sessionID: nil, beforeSeq: nil, limit: 1)) else { return (id, nil) }
+                    let live = page["readOnly"].boolValue != true
+                    return (id, .init(status: live ? "running" : "sleeping", sessionState: live ? page["state"]?.string : nil,
+                                      pendingPermission: live && !page["pendingPermissions"].arrayValue.isEmpty,
+                                      pendingQuestion: live && !page["pendingQuestions"].arrayValue.isEmpty))
+                }
+            }
+            for _ in 0..<catchUpConcurrency { next() }
+            while let (id, state) = try await group.next() {
+                if let state { states[id] = state }
+                next()
+            }
+            return states
+        }
+    }
+
+    /// The desktop's live state wins over the projection's last status. Without a live chat session the agent is
+    /// asleep or finished (its chat's own stopped or failed end is kept); one running outside chat keeps its status.
+    nonisolated static func reconcile(_ projection: inout CompanionChatProjector, with state: LiveState) {
+        guard let sessionState = state.sessionState else {
+            let lifecycle = CompanionChatProjector.status(state.status)
+            if projection.isAwake, [.sleeping, .completed, .failed, .stopped].contains(lifecycle) { projection.endSession(lifecycle) }
+            return
+        }
+        // A session that started while the phone was away takes its status here; its own events reset the rest.
+        let status: CompanionAgentStatus = state.pendingQuestion ? .waiting : state.pendingPermission ? .approval : CompanionChatProjector.status(sessionState)
+        if status == .sleeping { projection.endSession(.sleeping); return }
+        projection.status = status
+        if status != .working { projection.turnStartedAt = nil }
     }
 
     private func rememberQuick(_ payload: AnnexJSON, hostID: String) {

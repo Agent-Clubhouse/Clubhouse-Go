@@ -95,6 +95,8 @@ nonisolated public enum AnnexReadRoute: Sendable {
     case chatSessions(agentID: String)
     case chatHistory(agentID: String, sessionID: String?, beforeSeq: Int64?, limit: Int)
     case agents(projectID: String)
+    /// Every agent's live state in one read (`agentState` v1), for catching up after a reconnect.
+    case agentState
     case sessions(agentID: String)
     case transcript(agentID: String, sessionID: String, offset: Int, limit: Int)
     /// What the New agent form offers for one project.
