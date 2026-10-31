@@ -144,7 +144,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         openRiver(app)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
-        XCTAssertEqual(composer.placeholderValue, "Message River…", "The placeholder names the agent, like the desktop")
+        XCTAssertEqual(composer.placeholderValue, "Message River… / for commands", "The placeholder names the agent and offers / commands, like the desktop")
 
         // Header: what River waits on, and how full its context is.
         let activity = app.staticTexts.matching(identifier: "companion-chat-activity").firstMatch

@@ -25,6 +25,8 @@ struct CompanionChatProjector {
     var controls = CompanionChatControls()
     /// The sequence of the latest `session_info` that listed efforts, so a model switch can wait for the new list.
     var effortsSequence = 0
+    /// The composer's `/` menu: the session's latest `commands_available`, or the snapshot's `slashCommands`.
+    var slashCommands: [CompanionSlashCommand] = []
 
     mutating func apply(_ event: AnnexJSON, allowOlderPending: Bool = false) {
         guard let session = event["sessionId"]?.string,
@@ -33,7 +35,7 @@ struct CompanionChatProjector {
             sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
             self.session = .init()
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
-            controls = .init(); effortsSequence = 0
+            controls = .init(); effortsSequence = 0; slashCommands = []
         }
         guard allowOlderPending || sequence > lastSequence else { return }
         lastSequence = max(lastSequence, Int(sequence))
@@ -198,6 +200,8 @@ struct CompanionChatProjector {
             if let context = data["context"], let used = context["used"]?.integer, let size = context["size"]?.integer, used >= 0, size > 0 {
                 contextUsage = .init(used: Int(used), size: Int(size))
             }
+        case "commands_available":
+            slashCommands = CompanionSlashCommand.list(data["commands"])
         default: break // Additive protocol events are safe to ignore.
         }
     }
@@ -227,6 +231,7 @@ struct CompanionChatProjector {
         set(.cancel, "interrupt")
         set(.answer, "questions")
         set(.images, "images")
+        set(.slashCommands, "slashCommands")
         if let queue = value["queue"]?.string {
             if queue != "none" { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
             queueRemovalSupported = queue == "client"

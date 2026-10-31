@@ -204,6 +204,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var session: CompanionSessionFacts? = nil
     /// Model, effort and permission level, while a live session runs on a desktop that offers them. Nil hides the controls.
     var chatControls: CompanionChatControls?
+    /// The composer's `/` menu, while a live session that reports commands runs on a desktop that sends them. Nil: no menu.
+    var slashCommands: [CompanionSlashCommand]?
     /// Only chat-runtime agents take messages from the phone. A terminal agent is driven on the desktop.
     var runsInTerminal: Bool { executionMode.map { $0 != "chat" } ?? false }
 }
@@ -270,6 +272,8 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
     static let wake = Self(rawValue: 1 << 7)
     /// The running session takes images (`capabilities.images`).
     static let images = Self(rawValue: 1 << 8)
+    /// The running session reports slash commands (`capabilities.slashCommands`), so the composer offers a `/` menu.
+    static let slashCommands = Self(rawValue: 1 << 9)
 }
 
 /// Image bytes held on the phone. Compared by identity, so timeline diffs never compare megabytes.

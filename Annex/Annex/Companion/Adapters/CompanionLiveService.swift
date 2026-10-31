@@ -88,6 +88,8 @@ import ClubhouseTransport
                     }
                     projection.controls = controls
                 }
+                // The desktop's list stands even when the page of events doesn't reach back to commands_available.
+                if case .array? = snapshot["slashCommands"] { projection.slashCommands = CompanionSlashCommand.list(snapshot["slashCommands"]) }
                 projection.applyQueueSnapshot(snapshot)
                 projection.status = CompanionChatProjector.status(snapshot["state"]?.string)
                 if snapshot["readOnly"].boolValue || snapshot["sessionId"] == .null {
@@ -919,6 +921,7 @@ import ClubhouseTransport
                 agent.orchestrator = value["orchestrator"]?.string
                 agent.session = projection.map(\.session)
                 agent.chatControls = projection.flatMap { chatControls($0, target: target) }
+                agent.slashCommands = projection.flatMap { slashCommands($0, target: target) }
                 agents.append(agent)
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
@@ -994,6 +997,18 @@ import ClubhouseTransport
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].contextUsage = projection.contextUsage
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].session = projection.session
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].chatControls = chatControls(projection, target: target)
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].slashCommands = slashCommands(projection, target: target)
+    }
+    private func slashCommands(_ projection: CompanionChatProjector, target: CompanionTarget) -> [CompanionSlashCommand]? {
+        Self.slashCommands(projection.slashCommands, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
+                           session: projection.capabilities, capabilities: capabilities[target.hostID])
+    }
+    /// The `/` menu needs a desktop that sends commands (`slashCommands` v1) and a live session that reports them.
+    /// Older desktops get none, so `/` is plain text.
+    nonisolated static func slashCommands(_ commands: [CompanionSlashCommand], live: Bool, session: CompanionCapabilities,
+                                          capabilities: AnnexCapabilities?) -> [CompanionSlashCommand]? {
+        guard live, session.contains(.slashCommands), capabilities?.supportsSlashCommands == true else { return nil }
+        return commands
     }
     /// The composer's controls while the session is live, limited to the commands the desktop takes. Older desktops get none.
     private func chatControls(_ projection: CompanionChatProjector, target: CompanionTarget) -> CompanionChatControls? {

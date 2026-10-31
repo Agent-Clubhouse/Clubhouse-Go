@@ -174,7 +174,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         let (service, store, _) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.hostID) }
         let history = try await service.history(for: chat)
-        #expect(history.sessionID == "sess_live" && history.lastSequence == 11)
+        #expect(history.sessionID == "sess_live" && history.lastSequence == 12)
         #expect(history.contentRoots.paths == ["/work/app/.clubhouse/agents/planner", "/work/app"])
         guard case .message(let user)? = history.items.first(where: { $0.id == "message:msg_1" }) else { Issue.record("no user message"); return }
         #expect(user.role == .user && user.clientCommandID == "cmd_photo" && user.text == "What is on this screen?")
@@ -194,6 +194,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(controls.models.map(\.id) == ["opus", "sonnet"] && controls.efforts == ["low", "medium", "high"])
         #expect(controls.liveLevels == [.plan, .ask, .autoEdit, .fullAccess] && controls.levelNames[.ask] == "default")
         #expect(agent.contextUsage?.size == 200_000 && agent.model == "opus")
+        // The composer's / menu: the desktop's bounded list, with the CLI's own commands marked start-only.
+        let slash = try #require(agent.slashCommands)
+        #expect(slash.map(\.name) == ["compact", "review", "frontend-design"])
+        #expect(slash[0].startOnly && slash[0].inputHint == "<optional custom summarization instructions>" && slash[0].description != nil)
+        #expect(!slash[1].startOnly && slash[1].inputHint == "<pr>")
     }
 
     @Test func sleepingChatSnapshotIsReadOnlyAndOffersAWake() async throws {
@@ -203,6 +208,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(history.sessionID == "sess_old" && history.items.count == 2)
         // The store hears of the snapshot's Wake through the service's next hosts update.
         try await waitUntil { store.agent(for: sleepy)?.capabilities.contains(.wake) == true }
+        #expect(store.agent(for: sleepy)?.slashCommands == nil, "No / menu while asleep")
         try await service.wake(sleepy, resume: true, clientCommandID: "wake-1")
         #expect(transport.matched == ["agent.start: accepted wake"])
         let problems = transport.problems
