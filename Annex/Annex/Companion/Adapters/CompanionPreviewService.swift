@@ -116,7 +116,7 @@ import Foundation
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
-               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
+               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
                terminal: .init(projectShell: true, agentShell: true, agentAttach: true)),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
@@ -286,8 +286,12 @@ import Foundation
                      freeAgentMode: .init(value: false, editable: .sleeping),
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
-                     workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace)
+                     workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
+                     orchestration: sleeping ? Self.juniperOrchestration : CompanionOrchestration())
     }
+    /// Juniper orchestrates, asking before each helper starts; River doesn't.
+    static let juniperOrchestration = CompanionOrchestration(orchestrate: true, control: "ask-before-start", maxHelpers: 3,
+                                                             sources: ["orchestrate": .agent, "control": .agent, "maxHelpers": .agent])
     /// What River's chat session reported: the CLI version, effort, permission level and the MCP servers it loaded.
     static let riverSession = CompanionSessionFacts(cliVersion: "2.1.4", effort: "high", level: "auto_edit", mcpServers: [
         .init(name: "clubhouse", status: .connected), .init(name: "github", status: .connected), .init(name: "linear", status: .needsAuth),

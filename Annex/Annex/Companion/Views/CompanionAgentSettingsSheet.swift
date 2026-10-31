@@ -152,9 +152,10 @@ struct CompanionAgentSettingsForm: View {
     @State private var confirmFreeAgentMode = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
-    /// Re-read when the snapshot changes what the agent is doing, or its name, as the desktop broadcasts after an update.
+    /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
-        [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? ""].joined(separator: "|")
+        [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
+         agent?.orchestration.map { "\($0)" } ?? ""].joined(separator: "|")
     }
 
     var body: some View {
@@ -300,6 +301,57 @@ struct CompanionAgentSettingsForm: View {
         } header: { Text("Access") } footer: {
             Text(freeAgentModeFooter(settings))
         }
+
+        if let orchestration = orchestration(settings) { orchestrateSection(orchestration, name: settings.name.value, running: !sleeping) }
+    }
+
+    /// The desktop's Orchestrate card. It changes at any time, and is hidden on desktops without `orchestration` v1.
+    @ViewBuilder private func orchestrateSection(_ policy: CompanionOrchestration, name: String, running: Bool) -> some View {
+        Section {
+            Toggle("Let this agent orchestrate", isOn: Binding(get: { policy.orchestrate },
+                                                               set: { save(.init(orchestration: .init(orchestrate: .set($0)))) }))
+                .disabled(saving)
+                .accessibilityIdentifier("agent-settings-orchestrate")
+            if policy.orchestrate {
+                Picker("Helpers get", selection: Binding(get: { policy.access },
+                                                         set: { if $0 != policy.access { save(.init(orchestration: .init(access: .set($0)))) } })) {
+                    ForEach(policy.accessChoices, id: \.self) { Text(CompanionOrchestration.accessLabel($0, agentName: name)).tag($0) }
+                }
+                .disabled(saving)
+                .accessibilityIdentifier("agent-settings-orchestrate-access")
+                Picker("Control", selection: Binding(get: { policy.control },
+                                                     set: { if $0 != policy.control { save(.init(orchestration: .init(control: .set($0)))) } })) {
+                    ForEach(policy.controlChoices, id: \.self) { Text(CompanionOrchestration.controlLabel($0)).tag($0) }
+                }
+                .disabled(saving)
+                .accessibilityIdentifier("agent-settings-orchestrate-control")
+                Stepper(value: Binding(get: { policy.maxHelpers },
+                                       set: { if $0 != policy.maxHelpers { save(.init(orchestration: .init(maxHelpers: .set($0)))) } }),
+                        in: policy.maxHelpersRange) {
+                    LabeledContent("Helpers at once", value: "\(policy.maxHelpers)")
+                }
+                .disabled(saving)
+                .accessibilityIdentifier("agent-settings-orchestrate-max-helpers")
+            }
+        } header: { Text("Orchestrate") } footer: {
+            Text(orchestrateFooter(policy, name: name, running: running))
+        }
+    }
+
+    /// The desktop sends the policy with the settings; older settings routes leave it to the catalog.
+    private func orchestration(_ settings: CompanionAgentSettings) -> CompanionOrchestration? {
+        guard store.host(for: target)?.canOrchestrate == true else { return nil }
+        return settings.orchestration ?? agent?.orchestration
+    }
+
+    /// The card's notes: what helpers get, what Control means, the cap, and when the tools appear.
+    private func orchestrateFooter(_ policy: CompanionOrchestration, name: String, running: Bool) -> String {
+        guard policy.orchestrate else { return CompanionOrchestration.offHelp(agentName: name) }
+        var notes = [CompanionOrchestration.accessNote(agentName: name)]
+        if let help = CompanionOrchestration.controlHelp(policy.control, agentName: name) { notes.append(help) }
+        notes.append("Up to \(policy.maxHelpersCap) at once, your app-wide limit. Change it in Settings → Helpers on the desktop.")
+        if !running { notes.append(CompanionOrchestration.nextStartNote(agentName: name)) }
+        return notes.joined(separator: " ")
     }
 
     /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
@@ -351,7 +403,14 @@ struct CompanionAgentSettingsForm: View {
         saveError = nil
         Task {
             defer { saving = false }
-            do { apply(try await store.updateSettings(change, target: target).keepingOptions(of: settings)) }
+            do {
+                var saved = try await store.updateSettings(change, target: target)
+                // A result without the policy: show the change until the catalog catches up.
+                if saved.orchestration == nil, let orchestration = change.orchestration, let current = settings.flatMap(self.orchestration) {
+                    saved.orchestration = orchestration.applied(to: current)
+                }
+                apply(saved.keepingOptions(of: settings))
+            }
             catch {
                 saveError = error.localizedDescription
                 // Put the controls back to what the desktop has.

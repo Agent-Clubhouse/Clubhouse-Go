@@ -338,8 +338,11 @@ import ClubhouseTransport
         guard capabilities[request.project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
         // Older desktops refuse the field outright, so it's left out for them.
         let freeAgentMode = capabilities[request.project.hostID]?.supportsFreeAgentMode == true ? request.freeAgentMode : nil
+        let orchestration = capabilities[request.project.hostID]?.supportsOrchestration == true
+            ? request.orchestrate.map { AnnexOrchestrationPatch(orchestrate: .set($0)) } : nil
         let create = AnnexAgentCreate(projectID: request.project.projectID, name: request.name, color: request.color, orchestrator: request.orchestrator,
-                                      model: request.model, persona: request.persona, freeAgentMode: freeAgentMode, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs)
+                                      model: request.model, persona: request.persona, freeAgentMode: freeAgentMode, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs,
+                                      orchestration: orchestration)
         let receipt = try await execute(.create(create), id: request.clientCommandID, hostID: request.project.hostID)
         guard let agentID = receipt.result?["agentId"]?.string else { throw CompanionServiceError.uncertain("The desktop created the agent but didn't say which one. Check its agent list.") }
         await refresh(hostID: request.project.hostID)
@@ -358,6 +361,9 @@ import ClubhouseTransport
         guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
         if change.freeAgentMode != nil, capabilities[target.hostID]?.supportsFreeAgentMode != true {
             throw CompanionServiceError.rejected(CompanionAgentCommandError.message(code: "free_agent_mode_not_allowed", message: nil) ?? "")
+        }
+        if change.orchestration?.isEmpty == false, capabilities[target.hostID]?.supportsOrchestration != true {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change orchestration from your phone.")
         }
         let receipt = try await execute(.update(AnnexAgentUpdate(agentID: target.agentID, change: change)), id: clientCommandID, hostID: target.hostID)
         // The receipt carries the saved settings, without the option lists; the sheet keeps the ones it shows.
@@ -750,6 +756,7 @@ import ClubhouseTransport
             hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
             hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
             hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
+            hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
             hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
@@ -944,12 +951,13 @@ import ClubhouseTransport
                          color: value["color"]?.string, emoji: value["emoji"]?.string,
                          iconData: CompanionIdentityColor.data(fromDataURL: icon?.string))
     }
-    /// An agent's identity and Free Agent Mode from its catalog entry.
+    /// An agent's identity, Free Agent Mode and orchestration policy from its catalog entry.
     nonisolated static func applyIdentity(_ value: AnnexJSON, icon: AnnexJSON?, to agent: inout CompanionAgent) {
         agent.color = value["color"]?.string
         agent.emoji = value["emoji"]?.string
         agent.iconData = CompanionIdentityColor.data(fromDataURL: icon?.string)
         agent.freeAgentMode = value["freeAgentMode"].boolValue == true
+        agent.orchestration = CompanionOrchestration(json: value["orchestration"])
     }
     /// The desktop's `detailedStatus`, or nil when it sends none.
     nonisolated static func detail(from value: AnnexJSON?) -> CompanionAgentDetail? {

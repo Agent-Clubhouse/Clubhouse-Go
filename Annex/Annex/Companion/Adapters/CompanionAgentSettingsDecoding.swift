@@ -85,6 +85,7 @@ extension CompanionAgentSettings {
             appIdleMinutes = options["idleSleep"]?["appMinutes"]?.integer.map(Int.init) ?? 30
         }
         if let details = json["details"], case .object = details { workspace = CompanionAgentWorkspace(json: details) }
+        orchestration = CompanionOrchestration(json: json["orchestration"])
     }
 
     /// `"inherit"`, `"never"` or a number of minutes; anything else inherits, as the desktop's `normalizeIdleSleep`.
@@ -93,6 +94,41 @@ extension CompanionAgentSettings {
         case .string("never"): .never
         default: if let minutes = value?.int, minutes > 0 { .minutes(minutes) } else { .inherit }
         }
+    }
+}
+
+extension CompanionOrchestration {
+    /// The catalog's and settings route's `orchestration` (`orchestration` v1). Nil when it isn't an object; a field
+    /// that's missing or of the wrong type reads as the desktop's default, and unknown fields are ignored.
+    init?(json: AnnexJSON?) {
+        guard let json, case .object = json else { return nil }
+        func strings(_ key: String) -> [String]? {
+            let values = json[key].arrayValue.compactMap(\.string)
+            return values.isEmpty ? nil : values
+        }
+        orchestrate = json["orchestrate"]?.boolOrNil ?? false
+        access = json["access"]?.string ?? "same"
+        control = json["control"]?.string ?? "hands-off"
+        maxHelpersCap = json["maxHelpersCap"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? 20
+        maxHelpers = json["maxHelpers"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? min(5, maxHelpersCap)
+        controls = strings("controls") ?? Self.defaultControls
+        accessLevels = strings("accessLevels") ?? Self.defaultAccessLevels
+        if case .object(let sources)? = json["sources"] {
+            self.sources = sources.compactMapValues { $0.string.flatMap(Source.init(rawValue:)) }
+        }
+    }
+}
+
+extension AnnexOrchestrationPatch {
+    init(_ change: CompanionOrchestrationChange) {
+        func field<T>(_ value: CompanionOrchestrationChange.Field<T>?) -> Field<T>? {
+            switch value {
+            case .set(let v): .set(v)
+            case .clear: .clear
+            case nil: nil
+            }
+        }
+        self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers))
     }
 }
 
@@ -130,7 +166,8 @@ extension AnnexAgentUpdate {
         }
         self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
                   model: change.model, runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
-                  clubhouseMode: change.clubhouseMode, freeAgentMode: change.freeAgentMode, idleSleep: idle)
+                  clubhouseMode: change.clubhouseMode, freeAgentMode: change.freeAgentMode, idleSleep: idle,
+                  orchestration: change.orchestration.map(AnnexOrchestrationPatch.init))
     }
 }
 
