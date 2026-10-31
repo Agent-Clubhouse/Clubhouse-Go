@@ -1,6 +1,6 @@
 {
-  "commit": "cae962f813202fac9624fa719fb6831aa43cb478",
+  "commit": "284fec535b526ade8ffd6d76a890d8a47868fb96",
   "path": "test/fixtures/annex-mobile",
-  "ref": "status-sync/durable-sleep-status",
+  "ref": "main",
   "repository": "Agent-Clubhouse/Clubhouse"
 }
