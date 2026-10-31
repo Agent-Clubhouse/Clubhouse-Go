@@ -290,9 +290,9 @@ struct CompanionChatProjector {
         let lifecycle = status(value)
         let state = detailed?["state"]?.string
         let message = detailed?["message"]?.string ?? ""
-        // An asleep or finished agent has no live hook status; one left in the payload is from before it stopped.
-        if [.sleeping, .stopped, .completed].contains(lifecycle) { return lifecycle }
         if lifecycle == .failed || state == "tool_error" { return .failed }
+        // An asleep or finished agent asks nothing: a permission request left in the payload is from before it stopped.
+        if [.sleeping, .stopped, .completed].contains(lifecycle) { return lifecycle }
         if state == "needs_permission" {
             let isQuestion = message.lowercased().contains("question") || detailed?["toolName"]?.string == "AskUserQuestion"
             return isQuestion ? .waiting : .approval
