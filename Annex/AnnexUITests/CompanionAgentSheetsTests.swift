@@ -145,4 +145,71 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         app.buttons["Done"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))
     }
+
+    func testOrchestrateSectionShowsThePolicyAndToggles() {
+        let app = launch()
+        // Juniper orchestrates: the toggle is on and the policy shows in the desktop's words.
+        let fold = element(app, "fold-sleeping-preview-studio-clubhouse")
+        let juniper = element(app, "agent-preview-studio-juniper")
+        scrollUntilExists(fold, in: app)
+        expandFold(fold, revealing: juniper, in: app)
+        XCTAssertTrue(juniper.waitForExistence(timeout: 15))
+        let settings = app.buttons["Agent settings"]
+        longPressUntilMenu(juniper, shows: settings, "The agent row's long-press menu offers its settings")
+        waitAndTap(settings, until: app.textFields["agent-settings-name"], timeout: 10)
+
+        let orchestrate = app.switches["agent-settings-orchestrate"]
+        scrollTo(orchestrate, in: app, maxSwipes: 6)
+        XCTAssertTrue(orchestrate.exists, "A desktop with orchestration shows the Orchestrate section")
+        XCTAssertEqual(orchestrate.value as? String, "1")
+        XCTAssertTrue(orchestrate.isEnabled)
+        let access = app.buttons["agent-settings-orchestrate-access"]
+        scrollTo(access, in: app, maxSwipes: 3)
+        XCTAssertTrue(access.exists, "Helpers get shows while it orchestrates")
+        XCTAssertTrue(access.label.contains("Same as Juniper"), "The desktop's label: \(access.label)")
+        let control = app.buttons["agent-settings-orchestrate-control"]
+        scrollTo(control, in: app, maxSwipes: 3)
+        XCTAssertTrue(control.exists, "Control shows while it orchestrates")
+        XCTAssertTrue(control.label.contains("Ask before starting") || (control.value as? String)?.contains("Ask before starting") == true,
+                      "The desktop's control label: \(control.label) \(String(describing: control.value))")
+        let helpers = element(app, "agent-settings-orchestrate-max-helpers")
+        scrollTo(helpers, in: app, maxSwipes: 3)
+        XCTAssertTrue(helpers.exists, "Helpers at once is a stepper")
+        let count = "\(helpers.label) \(String(describing: helpers.value))"
+        XCTAssertTrue(count.contains("3"), "Juniper may run 3 helpers at once: \(count)")
+        screenshot(app, "Orchestrate section")
+
+        // Turning it off goes to the desktop; preview refuses visibly and the toggle and pickers come back.
+        scrollTo(orchestrate, in: app, up: true, maxSwipes: 3)
+        orchestrate.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let error = element(app, "agent-settings-error")
+        scrollUntilExists(error, in: app, up: false, maxSwipes: 6, wait: 0.5)
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "A refused change says so")
+        scrollTo(orchestrate, in: app, maxSwipes: 6)
+        XCTAssertEqual(orchestrate.value as? String, "1", "The toggle goes back to what the desktop has")
+    }
+
+    func testAwakeAgentCanTurnOnOrchestration() {
+        let app = launch()
+        let river = element(app, "agent-preview-studio-river")
+        scrollUntilExists(river, in: app)
+        XCTAssertTrue(river.waitForExistence(timeout: 15))
+        let actions = app.buttons["Conversation actions"]
+        waitAndTap(river, until: actions, timeout: 10)
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(actions, until: settings, timeout: 5)
+        waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 10)
+
+        let orchestrate = app.switches["agent-settings-orchestrate"]
+        scrollTo(orchestrate, in: app, maxSwipes: 6)
+        XCTAssertTrue(orchestrate.exists)
+        XCTAssertEqual(orchestrate.value as? String, "0", "River doesn't orchestrate")
+        XCTAssertTrue(orchestrate.isEnabled, "Orchestration changes while the agent runs")
+        XCTAssertFalse(app.buttons["agent-settings-orchestrate-access"].exists, "The policy hides while it's off")
+        XCTAssertTrue(app.staticTexts["Turn this on to give River the tools to start, message and dispose of helper agents."].exists)
+        orchestrate.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let error = element(app, "agent-settings-error")
+        scrollUntilExists(error, in: app, up: false, maxSwipes: 6, wait: 0.5)
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "Preview refuses it visibly")
+    }
 }
