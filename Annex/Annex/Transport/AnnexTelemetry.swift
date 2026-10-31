@@ -82,6 +82,18 @@ nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable
     public let measurements: [String: Double]
     public let events: [String]
 }
+/// Routine work counted instead of recorded span by span; see `AnnexTelemetry.measureRoutine`.
+nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
+    public let operation: AnnexDiagnosticOperation
+    /// Completed operations, including slow and failed ones.
+    public let count: Int
+    /// At or over the slow threshold; each of these, and each failure, is also a span.
+    public let slow: Int
+    public let failed: Int
+    public let totalMs: Double
+    public let maxMs: Double
+    public var meanMs: Double { count == 0 ? 0 : totalMs / Double(count) }
+}
 nonisolated public struct AnnexDiagnosticSnapshot: Codable, Sendable {
     public let schemaVersion: Int
     public let enabled: Bool
@@ -211,6 +223,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     private let provider: TracerProviderSdk
     private let tracer: any Tracer
     private var active: [AnnexDiagnosticSpan] = []
+    private var summaries: [AnnexDiagnosticOperation: AnnexDiagnosticSummary] = [:]
     private let clock: @Sendable () -> TimeInterval
     public init(capacity: Int = 256, instanceID: UUID = UUID(), clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         let instanceID = AnnexTelemetryHandshake.canonicalUUID(instanceID.uuidString.lowercased()) == nil ? UUID() : instanceID
@@ -228,7 +241,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public func setEnabled(_ enabled: Bool) {
         lock.withLock {
             _ = exporter.configure(enabled: enabled) // Fence late completion before ending old scopes.
-            active.forEach { $0.end() }; active.removeAll()
+            active.forEach { $0.end() }; active.removeAll(); summaries.removeAll()
         }
     }
     public func clear() { setEnabled(exporter.snapshot().enabled) }
@@ -246,7 +259,8 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             }
         }
     }
-    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current, remoteParent: AnnexTraceContext? = nil) -> AnnexDiagnosticSpan {
+    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current, remoteParent: AnnexTraceContext? = nil,
+                      startedAt: Date? = nil) -> AnnexDiagnosticSpan {
         expire()
         return lock.withLock {
             guard let generation = exporter.captureGeneration(), active.count < 128 else {
@@ -259,6 +273,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             let builder = tracer.spanBuilder(spanName: operation.rawValue).setAttribute(key: "capture.generation", value: generation)
             if operation == .http || operation == .websocket { builder.setSpanKind(spanKind: .client) }
             if operation == .stream { builder.setSpanKind(spanKind: .consumer) }
+            if let startedAt { builder.setStartTime(time: startedAt) }
             if let remoteParent { builder.setParent(remoteParent.context) }
             else if parent?.generation == generation, let span = parent?.span { builder.setParent(span) }
             else { builder.setNoParent() }
@@ -288,6 +303,42 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         defer { span.end() }
         do { return try await Self.$current.withValue(span) { try await body() } }
         catch { span.fail(error); throw error }
+    }
+    /// For frequent routine work, such as the WebSocket ping every 20 s per desktop, which as one span
+    /// each would push useful spans out of the ring (and the feedback incident window) within the hour.
+    /// Every run is counted in a summary (`drainSummaries`); only failed runs and runs at or over
+    /// `slowMs` become a span, backdated to when the work started.
+    public func measureRoutine<T>(_ operation: AnnexDiagnosticOperation, slowMs: Double, isolation: isolated (any Actor)? = #isolation,
+                                  body: () async throws -> T) async rethrows -> T {
+        let parent = Self.current, startedAt = Date(), started = clock()
+        func finish(_ failure: AnnexDiagnosticFailure) {
+            let elapsed = max(0, (clock() - started) * 1000)
+            let slow = elapsed >= slowMs
+            guard summarize(operation, elapsed, slow: slow, failed: failure != .none), slow || failure != .none else { return }
+            let span = begin(operation, parent: parent, startedAt: startedAt)
+            if failure != .none { span.fail(failure) }
+            span.end()
+        }
+        do { let value = try await body(); finish(.none); return value }
+        catch { finish(AnnexDiagnosticFailure.classify(error)); throw error }
+    }
+    /// Returns and resets the routine summaries counted since the last call (or since capture changed).
+    public func drainSummaries() -> [AnnexDiagnosticSummary] {
+        lock.withLock {
+            defer { summaries.removeAll() }
+            return summaries.values.sorted { $0.operation.rawValue < $1.operation.rawValue }
+        }
+    }
+    /// False, counting nothing, while capture is off.
+    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool) -> Bool {
+        lock.withLock {
+            guard exporter.captureGeneration() != nil else { return false }
+            let ms = min(600_000, ms), old = summaries[operation]
+            summaries[operation] = AnnexDiagnosticSummary(operation: operation, count: min(1_000_000, (old?.count ?? 0) + 1),
+                slow: min(1_000_000, (old?.slow ?? 0) + (slow ? 1 : 0)), failed: min(1_000_000, (old?.failed ?? 0) + (failed ? 1 : 0)),
+                totalMs: min(1e12, (old?.totalMs ?? 0) + ms), maxMs: max(old?.maxMs ?? 0, ms))
+            return true
+        }
     }
 }
 
