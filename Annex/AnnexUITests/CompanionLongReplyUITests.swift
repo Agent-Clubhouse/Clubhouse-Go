@@ -22,10 +22,13 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         let window = app.windows.firstMatch.frame
         func visible() -> Bool { target.exists && target.frame.minY > window.height * 0.1 && target.frame.maxY < window.height * 0.85 }
         for attempt in 0..<maxFlings {
-            if visible() { break }
+            if visible() {
+                XCTContext.runActivity(named: "Reached after \(attempt) gestures") { _ in }
+                break
+            }
             checkTimeLeft(message)
             if up && attempt % 4 == 0 {
-                // A tap on the status bar scrolls to the top, across every row not yet laid out.
+                // A tap on the status bar scrolls to the top without dragging, which must still stop following.
                 app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
             } else if up {
                 app.swipeDown(velocity: .fast)
@@ -52,6 +55,13 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         let start = app.staticTexts["Start of the long reply."]
         let latest = app.buttons["Latest"]
         XCTAssertTrue(end.waitForExistence(timeout: 15), "The conversation opens at its newest items, just after the long reply")
+
+        // Tapping the status bar scrolls to the top with no dragging and no scroll phase, and must still stop following:
+        // otherwise Latest isn't offered and the next update pulls the conversation back down.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
+        XCTAssertTrue(latest.waitForExistence(timeout: 10), "After the status bar's scroll to the top, Latest is offered")
+        waitAndTap(latest, untilGone: latest, timeout: 10, "Latest must return from the top to the newest items")
+        XCTAssertTrue(end.waitForExistence(timeout: 10), "Latest must show the end of the reply")
 
         for round in 1...3 {
             let began = Date()

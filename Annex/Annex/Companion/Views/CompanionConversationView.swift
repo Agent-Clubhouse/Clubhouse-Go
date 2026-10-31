@@ -256,8 +256,13 @@ struct CompanionConversationView: View {
                 if phase == .interacting, followLatest { followLatest = false }
                 if phase == .idle, !followLatest, Self.isAtLatest(context.geometry) { followLatest = true }
             }
-            .onScrollGeometryChange(for: Bool.self, of: Self.isAtLatest) { _, atLatest in
-                if atLatest, !followLatest { followLatest = true }
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
+                if Self.isAtLatest(new) {
+                    if !followLatest { followLatest = true }
+                } else if followLatest && Self.scrolledAway(from: old, to: new) {
+                    // Tapping the status bar scrolls to the top with no scroll phase at all (#188).
+                    followLatest = false
+                }
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
@@ -310,7 +315,16 @@ struct CompanionConversationView: View {
     private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
 
     private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
-        geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
+        distanceFromLatest(geometry) <= 40
+    }
+    private static func distanceFromLatest(_ geometry: ScrollGeometry) -> CGFloat {
+        geometry.contentSize.height + geometry.contentInsets.bottom - geometry.contentOffset.y - geometry.containerSize.height
+    }
+    /// The offset moved away from the latest while the content, the screen and the insets stayed the same: a scroll, not
+    /// rows, the keyboard or the composer resizing. Moving toward the latest, as Latest does, doesn't count.
+    private static func scrolledAway(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
+        old.contentSize == new.contentSize && old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
+            && distanceFromLatest(new) > distanceFromLatest(old) + 1
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
