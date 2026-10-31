@@ -186,6 +186,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(question.prompts.first?.options.map(\.id) == ["main", "dev"] && question.prompts.first?.allowsFreeText == true)
         #expect(history.items.contains { $0.id == "tool:tool_1" } && history.items.contains { $0.id == "message:amsg_1" })
 
+        try await waitUntil { store.agent(for: chat)?.chatControls != nil }
         let agent = try #require(store.agent(for: chat))
         #expect(agent.capabilities.isSuperset(of: [.chat, .approve, .answer, .steer, .cancel, .images, .removeQueued]))
         let controls = try #require(agent.chatControls)
@@ -200,7 +201,8 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         defer { store.stop(); service.remove(hostID: Self.hostID) }
         let history = try await service.history(for: sleepy)
         #expect(history.sessionID == "sess_old" && history.items.count == 2)
-        #expect(store.agent(for: sleepy)?.capabilities.contains(.wake) == true)
+        // The store hears of the snapshot's Wake through the service's next hosts update.
+        try await waitUntil { store.agent(for: sleepy)?.capabilities.contains(.wake) == true }
         try await service.wake(sleepy, resume: true, clientCommandID: "wake-1")
         #expect(transport.matched == ["agent.start: accepted wake"])
         let problems = transport.problems

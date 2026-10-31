@@ -208,15 +208,30 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     }
 
     /// Emits a resync and waits for the catalog refresh it schedules, so new capabilities apply.
-    func refreshCatalog() async throws {
-        let before = await capabilityReads()
+    /// It follows the service's own events, subscribed before the resync: the host goes synchronizing, then
+    /// connected once the refresh has applied everything. Then it waits for the store to show that same host.
+    /// Read counts or the store's view alone can't say this: the store may still show the connection from before.
+    func refreshCatalog(sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        let events = service.events()
         await transport.emit(.resyncRequired(.reconnected))
-        // The resync marks the host synchronizing before the refresh reads capabilities, so a new read
-        // followed by `connected` means this refresh has finished.
-        try await waitUntil { await capabilityReads() > before && host?.connection == .connected }
+        let watcher = Task { @MainActor () -> CompanionHost? in
+            var synchronizing = false
+            for await event in events {
+                guard case .hosts(let hosts) = event, let host = hosts.first(where: { $0.id == Self.hostID }) else { continue }
+                if host.connection == .synchronizing { synchronizing = true }
+                else if synchronizing, host.connection == .connected { return host }
+            }
+            return nil
+        }
+        let timeout = Task { try await Task.sleep(for: .seconds(5)); watcher.cancel() }
+        let refreshed = await watcher.value
+        timeout.cancel()
+        guard let refreshed else {
+            Issue.record("Timed out waiting for the catalog refresh", sourceLocation: sourceLocation)
+            throw AnnexTransportError.disconnected
+        }
+        try await waitUntil({ host == refreshed }, sourceLocation: sourceLocation)
     }
-
-    private func capabilityReads() async -> Int { await transport.readRoutes.filter { $0.name == "capabilities" }.count }
 
     /// A chat snapshot for `session` with one assistant message, so commands have a session to address.
     static func chatSnapshot(session: String = "s1", events extra: [AnnexJSON] = [], fields: [String: AnnexJSON] = [:]) -> AnnexJSON {

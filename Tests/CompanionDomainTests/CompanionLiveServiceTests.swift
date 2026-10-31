@@ -561,9 +561,8 @@ private actor LiveTestTransport: AnnexTransporting {
         try await waitUntil { store.hosts.first?.connection == .connected }
         #expect(!store.canWake(target))
         await store.load(target)
-        try await waitUntil { store.canWake(target) }
-        #expect(store.canWake(target))
-        #expect(store.agent(for: target)?.status == .sleeping)
+        // Wake comes with the snapshot; its status follows in the service's next hosts update.
+        try await waitUntil { store.canWake(target) && store.agent(for: target)?.status == .sleeping }
         await store.wake(target)
         #expect(await transport.executedKinds == ["agent.start"])
         store.stop()

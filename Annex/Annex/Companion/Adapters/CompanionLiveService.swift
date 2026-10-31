@@ -115,7 +115,8 @@ import ClubhouseTransport
                 updateAgent(target, projection: projection)
                 emitHosts()
                 return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID,
-                             contentRoots: Self.contentRoots(from: snapshot, windows: windowsHosts.contains(target.hostID)))
+                             contentRoots: Self.contentRoots(from: snapshot, windows: windowsHosts.contains(target.hostID)),
+                             capabilities: availableCapabilities(projection.capabilities, hostID: target.hostID))
             } catch {
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 let pending = buffers.removeValue(forKey: target) ?? []

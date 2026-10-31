@@ -194,6 +194,7 @@ import Observation
             guard historyGenerations[target] == generation else { return }
             var current = conversation(for: target)
             contentRoots[target] = history.contentRoots
+            if let capabilities = history.capabilities { setCapabilities(capabilities, for: target) }
             history.items = Self.carryingLocalImages(history.items, from: current.items)
             // Preserve local messages whose command has not yet appeared in server history.
             let acknowledged = Set(history.items.compactMap { item -> String? in
@@ -227,6 +228,13 @@ import Observation
             conversations[target, default: .init()].error = error.localizedDescription
             conversations[target, default: .init()].requiresResync = true
         }
+    }
+
+    private func setCapabilities(_ capabilities: CompanionCapabilities, for target: CompanionTarget) {
+        guard let host = hosts.firstIndex(where: { $0.id == target.hostID }),
+              let project = hosts[host].projects.firstIndex(where: { $0.id == target.projectID }),
+              let agent = hosts[host].projects[project].agents.firstIndex(where: { $0.id == target }) else { return }
+        hosts[host].projects[project].agents[agent].capabilities = capabilities
     }
 
     func sendDraft(to target: CompanionTarget) async {
