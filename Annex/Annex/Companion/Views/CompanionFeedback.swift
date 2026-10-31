@@ -23,7 +23,7 @@ import ClubhouseTransport
             hostInstanceIds: identifiers(.peerInstanceID), connectionIds: identifiers(.connectionID),
             traces: traces, backendRef: backend?.uuidString.lowercased())
     }
-    static func makeModel() -> FeedbackModel? {
+    static func makeModel() -> (model: FeedbackModel, telemetry: CompanionTelemetry?)? {
         // The build supplies the registered mobile scope, not an invitation or credential.
         // Enrollment remains an explicit user action. Missing configuration creates no client.
         guard let gameID = Bundle.main.object(forInfoDictionaryKey: "FramebriarGameID") as? String,
@@ -35,11 +35,28 @@ import ClubhouseTransport
             let client = try Client(configuration: config,
                                     enrollmentStore: KeychainEnrollmentStore(service: "ClubhouseGo.Framebriar"),
                                     feedbackStore: FileFeedbackStore(directory: root))
-            return FeedbackModel(client: client, incidentProvider: { snapshotIncident(backend: AnnexDiagnosticSettings.shared.destination?.backendReference) })
+            return compose(client: client)
         } catch {
             // Fail closed without logging credentials, private paths or stored content.
             return nil
         }
+    }
+    /// One ID for the run: the diagnostics instance ID, already the incident `phoneInstanceId` and the
+    /// collector's `service.instance.id`, becomes Framebriar's session ID, so the report `sessionId` and
+    /// the telemetry resource `session.id` match it.
+    static func adoptSession(of source: AnnexTelemetry = .shared) {
+        try? FramebriarSession.adopt(source.instanceID.uuidString.lowercased())
+    }
+    /// The feedback model with enrollment-gated telemetry. If telemetry can't be configured, feedback still works without it.
+    static func compose(client: Client, source: AnnexTelemetry = .shared, telemetryTransport: any HTTPTransport = URLSessionTransport(),
+                        observeAppLifecycle: Bool = true) -> (model: FeedbackModel, telemetry: CompanionTelemetry?) {
+        adoptSession(of: source)
+        let telemetry = try? CompanionTelemetry(client: client, configuration: client.configuration, source: source,
+                                                transport: telemetryTransport, observeAppLifecycle: observeAppLifecycle)
+        let model = FeedbackModel(client: client, telemetry: telemetry?.telemetry, incidentProvider: {
+            snapshotIncident(telemetry: source, backend: AnnexDiagnosticSettings.shared.destination?.backendReference)
+        })
+        return (model, telemetry)
     }
 }
 
@@ -48,6 +65,8 @@ struct CompanionFeedbackSettings: View {
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
+    /// Framebriar's rule: enrolling enables telemetry, and Settings must say so next to enrollment.
+    static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and diagnostic events such as connection, pairing and chat timings, error types and counts. It never includes prompts, agent content, names, file paths, addresses or URLs. Clearing enrollment stops it. Feedback reports share only submitted notes, an optional reviewed image (including a shake screenshot you kept) and optional reviewed incident trace references. Your own tracing collector, in Connection diagnostics, is separate."
     static func label(_ access: AccessState) -> String {
         switch access {
         case .connected: "Connected"
@@ -79,8 +98,8 @@ struct CompanionFeedbackSettings: View {
             }
             Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Only submitted notes, an optional reviewed image (including a shake screenshot you kept) and optional reviewed incident trace references are shared. No agent content, prompts or logs are attached. Tracing export is configured separately.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text(Self.telemetryDisclosure)
+                .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")
         }
     }
 }

@@ -8,6 +8,8 @@ import ClubhouseTransport
 @MainActor @Observable final class CompanionRuntime {
     let telemetryExporter = AnnexOTLPExporter()
     let feedback: FeedbackModel?
+    /// Enrollment-gated Framebriar telemetry; nil in test mode or when feedback isn't configured.
+    let appTelemetry: CompanionTelemetry?
     let feedbackPresenter: CompanionFeedbackPresenter
     let service: CompanionLiveService
     let store: CompanionStore
@@ -22,8 +24,11 @@ import ClubhouseTransport
     private var nextRediscovery: [String: Date] = [:]
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
-        self.feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
-        self.feedbackPresenter = CompanionFeedbackPresenter(model: feedback)
+        let feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
+        self.feedback = feedback?.model
+        self.appTelemetry = feedback?.telemetry
+        appTelemetry?.start()
+        self.feedbackPresenter = CompanionFeedbackPresenter(model: self.feedback)
         self.registry = registry
         // Integration runs keep their sort, order and theme choices out of the real app's defaults.
         self.preferences = persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard)
@@ -232,9 +237,11 @@ struct CompanionAppRoot: View {
             .task(id: scenePhase) {
                 guard let feedback = runtime.feedback else { return }
                 await feedback.setActive(scenePhase == .active)
-                guard scenePhase == .active else { return }
+                // Hand over the ping summary before the SDK's background flush.
+                guard scenePhase == .active else { runtime.appTelemetry?.tick(force: true); return }
                 while !Task.isCancelled {
                     await feedback.tick()
+                    runtime.appTelemetry?.tick()
                     do { try await Task.sleep(for: .seconds(15)) } catch { return }
                 }
             }

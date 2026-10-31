@@ -237,7 +237,7 @@ private struct RoutineFailure: Error {}
     let telemetry = AnnexTelemetry(capacity: 8, clock: { clock.now() }); telemetry.setEnabled(true)
     telemetry.record(.pairing)
     // A day of pings from one desktop (one every 20 s) would have filled the ring 500 times over.
-    for _ in 0..<4320 { try await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(0.05) } }
+    for _ in 0..<4320 { await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(0.05) } }
     let records = telemetry.snapshot().records
     #expect(records.map(\.operation) == [.pairing])
     #expect(telemetry.snapshot().dropped == 0)
@@ -250,8 +250,8 @@ private struct RoutineFailure: Error {}
     let clock = DiagnosticClock()
     let telemetry = AnnexTelemetry(clock: { clock.now() }); telemetry.setEnabled(true)
     let parent = telemetry.begin(.connection)
-    try await AnnexTelemetry.$current.withValue(parent) {
-        try await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(1.5) }
+    await AnnexTelemetry.$current.withValue(parent) {
+        await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(1.5) }
         await #expect(throws: URLError(.timedOut)) {
             try await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(0.01); throw URLError(.timedOut) }
         }
@@ -268,10 +268,10 @@ private struct RoutineFailure: Error {}
 }
 @Test func routineSummariesNeedCaptureAndResetWithIt() async throws {
     let telemetry = AnnexTelemetry()
-    try await telemetry.measureRoutine(.ping, slowMs: 0) {}
+    await telemetry.measureRoutine(.ping, slowMs: 0) {}
     #expect(telemetry.drainSummaries().isEmpty && telemetry.snapshot().records.isEmpty)
     telemetry.setEnabled(true)
-    try await telemetry.measureRoutine(.ping, slowMs: 1000) {}
+    await telemetry.measureRoutine(.ping, slowMs: 1000) {}
     telemetry.clear()
     #expect(telemetry.drainSummaries().isEmpty)
 }

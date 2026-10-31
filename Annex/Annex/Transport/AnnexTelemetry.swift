@@ -81,6 +81,8 @@ nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable
     public let failure: AnnexDiagnosticFailure
     public let measurements: [String: Double]
     public let events: [String]
+    /// When each of `events` happened, in milliseconds after `startedAt`. Nil in snapshots from older builds.
+    public let eventOffsetsMs: [Double]?
 }
 /// Routine work counted instead of recorded span by span; see `AnnexTelemetry.measureRoutine`.
 nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
@@ -113,7 +115,9 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     private var dropped = 0
     private let capacity: Int
     private let instanceID: UUID
+    private var sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?
     init(capacity: Int, instanceID: UUID = UUID()) { self.capacity = min(512, max(1, capacity)); self.instanceID = instanceID }
+    func setSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { lock.withLock { self.sink = sink } }
     func configure(enabled: Bool) -> Int {
         lock.withLock { self.enabled = enabled; generation += 1; records.removeAll(); dropped = 0; return generation }
     }
@@ -124,8 +128,9 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     }
     func drop() { lock.withLock { if enabled { dropped = min(Int.max - 1, dropped + 1) } } }
     private func receive(_ spans: [SpanData]) -> SpanExporterResultCode {
-        lock.withLock {
-            guard enabled else { return .success }
+        let (accepted, recipient) = lock.withLock { () -> ([AnnexDiagnosticRecord], (@Sendable (AnnexDiagnosticRecord) -> Void)?) in
+            guard enabled else { return ([], nil) }
+            var accepted: [AnnexDiagnosticRecord] = []
             for span in spans.prefix(512) {
                 guard span.attributes["capture.generation"] == .int(generation),
                       let operation = AnnexDiagnosticOperation(rawValue: span.name) else { continue }
@@ -148,17 +153,24 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                 let failure: AnnexDiagnosticFailure
                 if case .string(let value) = span.attributes["failure"] { failure = AnnexDiagnosticFailure(rawValue: value) ?? .unknown }
                 else { failure = .none }
-                let events = span.events.prefix(32).compactMap { AnnexDiagnosticEvent(rawValue: $0.name)?.rawValue }
+                let durationMs = min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000))
+                let events = span.events.prefix(32).compactMap { event in
+                    AnnexDiagnosticEvent(rawValue: event.name).map { ($0.rawValue, min(durationMs, max(0, event.timestamp.timeIntervalSince(span.startTime) * 1000))) }
+                }
                 if records.count == capacity { records.removeFirst(); dropped = min(Int.max - 1, dropped + 1) }
-                records.append(.init(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
+                let record = AnnexDiagnosticRecord(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
                     traceID: span.traceId.hexString, id: span.spanId.hexString,
                     parentID: span.parentSpanId?.hexString, operation: operation, startedAt: span.startTime,
-                    durationMs: min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000)),
+                    durationMs: durationMs,
                     spanKind: span.kind == .client ? 3 : span.kind == .consumer ? 5 : 1,
-                    failure: failure, measurements: numbers, events: events))
+                    failure: failure, measurements: numbers, events: events.map(\.0), eventOffsetsMs: events.map(\.1))
+                records.append(record); accepted.append(record)
             }
-            return .success
+            return (accepted, self.sink)
         }
+        // Outside the lock: the sink may record into other telemetry.
+        if let recipient { accepted.forEach(recipient) }
+        return .success
     }
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode { receive(spans) }
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) async -> SpanExporterResultCode { receive(spans) }
@@ -217,6 +229,11 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public static let shared = AnnexTelemetry()
     public let instanceID: UUID
     public var isEnabled: Bool { exporter.captureGeneration() != nil }
+    /// Capture the user chose in Connection diagnostics.
+    private var localCapture = false
+    /// Capture because the user enrolled in developer feedback, whose telemetry exports these records.
+    private var enrolledCapture = false
+    public var capturesForEnrollment: Bool { lock.withLock { enrolledCapture } }
     @TaskLocal public static var current: AnnexDiagnosticSpan?
     private let lock = NSLock()
     private let exporter: AnnexLocalSpanExporter
@@ -238,13 +255,25 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         tracer = provider.get(instrumentationName: "clubhouse.annex", instrumentationVersion: "1")
     }
     public func setRemoteExportEnabled(_ enabled: Bool) { exporter.setRemoteEnabled(enabled) }
-    public func setEnabled(_ enabled: Bool) {
+    /// The user's Connection diagnostics choice. Capture stays on while enrolled (`setEnrolledCapture`).
+    public func setEnabled(_ enabled: Bool) { lock.withLock { localCapture = enabled; reconfigureLocked() } }
+    /// On while the user is enrolled in developer feedback, so its telemetry has spans to export; off
+    /// (clearing everything, unless the user also chose capture) the moment enrollment ends.
+    public func setEnrolledCapture(_ enabled: Bool) {
         lock.withLock {
-            _ = exporter.configure(enabled: enabled) // Fence late completion before ending old scopes.
-            active.forEach { $0.end() }; active.removeAll(); summaries.removeAll()
+            guard enrolledCapture != enabled else { return }
+            let wasOn = localCapture || enrolledCapture
+            enrolledCapture = enabled
+            if wasOn != (localCapture || enrolledCapture) { reconfigureLocked() }
         }
     }
-    public func clear() { setEnabled(exporter.snapshot().enabled) }
+    /// Receives each record as it is captured, outside any lock. One sink; nil removes it.
+    public func setRecordSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { exporter.setSink(sink) }
+    public func clear() { lock.withLock { reconfigureLocked() } }
+    private func reconfigureLocked() {
+        _ = exporter.configure(enabled: localCapture || enrolledCapture) // Fence late completion before ending old scopes.
+        active.forEach { $0.end() }; active.removeAll(); summaries.removeAll()
+    }
     public func snapshot() -> AnnexDiagnosticSnapshot { expire(); return exporter.snapshot() }
     public func exportJSON(maximumBytes: Int = 512 * 1024) throws -> Data {
         let data = try JSONEncoder().encode(snapshot())
