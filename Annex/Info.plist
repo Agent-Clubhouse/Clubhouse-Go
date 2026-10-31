@@ -17,6 +17,9 @@
 	</array>
 	<key>FramebriarGameID</key>
 	<string>clubhouse-annex</string>
+	<!-- The source commit, sent as Framebriar buildSha. scripts/testflight.sh sets it; empty elsewhere. -->
+	<key>FramebriarBuildSHA</key>
+	<string>$(FRAMEBRIAR_BUILD_SHA)</string>
 	<!--
 	The desktop uses a self-signed certificate, reached over home Wi-Fi or Tailscale
 	(100.64.0.0/10), which ATS does not count as local. Every desktop connection pins

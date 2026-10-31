@@ -7,10 +7,16 @@
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 	<!--
-	Only opt-in developer feedback (Framebriar) leaves the device for the developer: the user redeems an
-	invitation, writes notes, may attach a screenshot they review, and taps Submit. Optional OpenTelemetry
-	diagnostics go to a collector the user configures, not to the developer, so they are not declared.
-	See docs/testflight.md.
+	Data reaches the developer only through opt-in developer feedback (Framebriar), after the user redeems
+	an invitation:
+	- Feedback reports (on Submit): notes, an optional reviewed screenshot, and diagnostic data (incident
+	  trace and span IDs, random process and connection IDs, a time window).
+	- Telemetry, while enrolled (Framebriar's rule: enrolling enables it): performance data (timings,
+	  counts), crash and hang reports from MetricKit, and other diagnostic data (operation names, error
+	  classes, random IDs). Closed enums, numbers and random UUIDs only.
+	Not linked: the service stamps a pseudonymous per-enrollment ID and no account is involved. Not tracking.
+	Optional OpenTelemetry diagnostics sent to a collector the user configures go to the user, not the
+	developer, so they are not declared. See docs/testflight.md.
 	-->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
@@ -36,6 +42,45 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePerformanceData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

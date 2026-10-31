@@ -5,6 +5,8 @@
 - The app version is `MARKETING_VERSION` in the Xcode project. Apple accepts only numbers (`2.0.0`).
 - The build number is the commit count of the archived commit (`git rev-list --count HEAD`), set by
   `scripts/testflight.sh` at archive time. Later commits always get higher build numbers.
+- The archive also sets `FRAMEBRIAR_BUILD_SHA` to the full commit, which Info.plist carries as
+  `FramebriarBuildSHA`, so feedback reports and telemetry from the build carry `buildSha`.
 - Each build sent to Apple comes from a commit with a release tag, following the desktop's convention:
   - A version-bump PR (`chore: bump version to 2.0.0-beta.1 (TestFlight)`).
   - An annotated, signed tag on its merge commit, e.g. `v2.0.0-beta.1`, with the release title as the
@@ -28,27 +30,41 @@ Security framework primitives, to authenticate and encrypt connections to the us
 
 ### App privacy
 
-`Annex/Annex/PrivacyInfo.xcprivacy` declares:
+`Annex/Annex/PrivacyInfo.xcprivacy` declares the following. Everything reaches the developer only through
+opt-in developer feedback (Framebriar), after the user redeems an invitation:
 
-- **Other User Content** and **Photos or Videos**: not linked to the user, not used for tracking, for app
-  functionality. Both come only from opt-in developer feedback (Framebriar).
-  - The user must redeem an invitation first.
-  - They then write notes, may attach a screenshot they review (or remove), and tap Submit.
-  - Nothing is sent otherwise.
-- **System boot time** API, reason `35F9.1`: the shake shortcut measures time between shakes.
+| Data type | Where it comes from | Purposes |
+|---|---|---|
+| **Other User Content** | Feedback notes, sent only when the user taps Submit. | App functionality |
+| **Photos or Videos** | A screenshot attached to feedback, reviewed (or removed) before Submit. | App functionality |
+| **Other Diagnostic Data** | Incident references on feedback (trace and span IDs, random process and connection IDs, a time window), and telemetry while enrolled: operation names, error classes and random IDs. | App functionality, Analytics |
+| **Performance Data** | Telemetry while enrolled: connection, pairing and chat timings, counts and ping summaries. | App functionality, Analytics |
+| **Crash Data** | Telemetry while enrolled: MetricKit crash, hang and resource-exception reports (classes and numbers, no call stacks). | App functionality, Analytics |
+
+Every type is **not linked** to the user (the service stamps a pseudonymous per-enrollment ID; there is no
+account) and **not used for tracking**.
+
+- Enrolling turns telemetry on, and Settings says so next to Developer feedback (Framebriar's rule).
+  Before enrollment nothing is recorded or sent; clearing enrollment stops it and discards anything queued.
+- Telemetry carries closed enum values, numbers and random UUIDs only: no prompts, agent content, names,
+  file paths, addresses or URLs. See `docs/opentelemetry.md`.
+- Feedback reports are sent only when the user taps Submit.
+
+Required-reason APIs:
+
+- **System boot time**, reason `35F9.1`: the shake shortcut measures time between shakes.
 - **User defaults**, reason `CA92.1`.
 
-Optional OpenTelemetry diagnostics are off by default. They are sent only to a collector the user
-configures, not to the developer, so they are not declared as collected data.
+Optional OpenTelemetry diagnostics sent to a collector the user configures go to the user, not the
+developer, so they are not declared as collected data.
 
 App Store Connect's privacy labels have no "opt-in" field. To say that collection is opt-in:
 
-- Answer the questionnaire to match the manifest above.
-- State in the privacy policy that feedback is voluntary and invitation-only.
+- Answer the questionnaire to match the table above: each type collected, not linked, not tracking, for
+  App Functionality and Analytics as listed.
+- State in the privacy policy that feedback and its telemetry are voluntary and invitation-only, and
+  stop when the user clears enrollment.
 - Put the same in the App Review notes.
-
-Apple's optional-disclosure criteria (infrequent, optional, user-initiated, not tracking or advertising)
-may also exempt the feedback form from the labels. Declaring it is the conservative choice.
 
 ### App Transport Security
 

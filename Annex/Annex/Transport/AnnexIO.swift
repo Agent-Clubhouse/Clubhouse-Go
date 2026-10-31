@@ -169,6 +169,8 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
 }
 
 nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendable {
+    /// A pong slower than this is recorded as a span; faster ones are only counted.
+    static let slowPingMs = 1000.0
     let task: URLSessionWebSocketTask
     private let delegate: AnnexPinnedSessionDelegate
     private let telemetry: AnnexTelemetry
@@ -188,7 +190,8 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
         try await task.send(.string(text))
     }
     func ping() async throws {
-        return try await telemetry.measure(.ping) {
+        // Counted, not one span per ping: only failed or slow pings reach the ring.
+        return try await telemetry.measureRoutine(.ping, slowMs: Self.slowPingMs) {
             let completion = AnnexPingCompletion()
             let deadline = Task { [clock] in
                 do {

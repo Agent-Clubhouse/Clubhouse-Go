@@ -229,3 +229,49 @@ private final class DiagnosticClock: @unchecked Sendable {
     #expect(envelope.type == "chat:event")
     #expect(envelope.tc?.string == nil)
 }
+
+private struct RoutineFailure: Error {}
+
+@Test func routinePingsAreCountedSoUsefulSpansSurviveTheRing() async throws {
+    let clock = DiagnosticClock()
+    let telemetry = AnnexTelemetry(capacity: 8, clock: { clock.now() }); telemetry.setEnabled(true)
+    telemetry.record(.pairing)
+    // A day of pings from one desktop (one every 20 s) would have filled the ring 500 times over.
+    for _ in 0..<4320 { await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(0.05) } }
+    let records = telemetry.snapshot().records
+    #expect(records.map(\.operation) == [.pairing])
+    #expect(telemetry.snapshot().dropped == 0)
+    let summary = try #require(telemetry.drainSummaries().first)
+    #expect(summary.operation == .ping && summary.count == 4320 && summary.slow == 0 && summary.failed == 0)
+    #expect(abs(summary.meanMs - 50) < 0.001 && abs(summary.maxMs - 50) < 0.001)
+    #expect(telemetry.drainSummaries().isEmpty) // drained
+}
+@Test func slowAndFailedRoutineRunsStillBecomeSpans() async throws {
+    let clock = DiagnosticClock()
+    let telemetry = AnnexTelemetry(clock: { clock.now() }); telemetry.setEnabled(true)
+    let parent = telemetry.begin(.connection)
+    await AnnexTelemetry.$current.withValue(parent) {
+        await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(1.5) }
+        await #expect(throws: URLError(.timedOut)) {
+            try await telemetry.measureRoutine(.ping, slowMs: 1000) { clock.advance(0.01); throw URLError(.timedOut) }
+        }
+        await #expect(throws: RoutineFailure.self) {
+            try await telemetry.measureRoutine(.ping, slowMs: 1000) { throw RoutineFailure() }
+        }
+    }
+    parent.end()
+    let pings = telemetry.snapshot().records.filter { $0.operation == .ping }
+    #expect(pings.map(\.failure) == [.none, .timeout, .unknown])
+    #expect(pings.allSatisfy { $0.parentID == telemetry.snapshot().records.last?.id })
+    let summary = try #require(telemetry.drainSummaries().first)
+    #expect(summary.count == 3 && summary.slow == 1 && summary.failed == 2 && abs(summary.maxMs - 1500) < 0.001)
+}
+@Test func routineSummariesNeedCaptureAndResetWithIt() async throws {
+    let telemetry = AnnexTelemetry()
+    await telemetry.measureRoutine(.ping, slowMs: 0) {}
+    #expect(telemetry.drainSummaries().isEmpty && telemetry.snapshot().records.isEmpty)
+    telemetry.setEnabled(true)
+    await telemetry.measureRoutine(.ping, slowMs: 1000) {}
+    telemetry.clear()
+    #expect(telemetry.drainSummaries().isEmpty)
+}

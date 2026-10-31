@@ -3,6 +3,8 @@ import CoreFoundation
 
 public actor Client {
     public nonisolated let configuration: Configuration
+    /// Synchronous, thread-safe view of the enrollment for telemetry gating. Never holds a credential.
+    public nonisolated let enrollmentSignal = EnrollmentSignal()
     private let transport: any HTTPTransport
     private let enrollmentStore: any EnrollmentStore
     private let feedbackStore: any FeedbackStore
@@ -37,6 +39,7 @@ public actor Client {
             }
             self.enrollment = enrollment; self.queue = queue
         } catch { throw FramebriarError.storage }
+        enrollmentSignal.update(enrollment)
     }
 
     public func status() -> ClientStatus {
@@ -77,6 +80,19 @@ public actor Client {
         guard !busy else { throw FramebriarError.busy }
         busy = true; defer { busy = false }
         _ = try await token(generation)
+    }
+
+    /// Current enrollment access token for `Telemetry` (or another in-process exporter). Never persisted
+    /// or logged. Nil when not enrolled, paused, expired, revoked, or when no token can be issued now;
+    /// callers back off and retry. `refresh: true` discards the cached token first (after an HTTP 401).
+    /// While a feedback pass holds the client busy only a still-valid cached token is returned.
+    public func telemetryToken(refresh: Bool = false) async -> String? {
+        guard !paused, enrollment.refreshToken != nil else { return nil }
+        if refresh { accessToken = nil; accessExpiry = nil }
+        if let accessToken, let expiry = accessExpiry, expiry.timeIntervalSince(now()) > 300 { return accessToken }
+        guard !busy else { return nil }
+        busy = true; defer { busy = false }
+        return try? await token(generation)
     }
 
     /// Commits locally before returning. No network request or capture is performed here.
@@ -154,6 +170,7 @@ public actor Client {
     @discardableResult public func disconnect() async throws -> Bool {
         generation += 1; let ticket = generation
         let old = enrollment.refreshToken
+        enrollmentSignal.update(EnrollmentRecord()) // telemetry stops even if the local save fails
         try saveEnrollment(EnrollmentRecord())
         accessToken = nil; accessExpiry = nil; correlationSupported = false; lastAttempt = nil
         guard let old else { return true }
@@ -174,6 +191,7 @@ public actor Client {
     private func saveEnrollment(_ record: EnrollmentRecord) throws {
         do { try enrollmentStore.save(record, scope: configuration.storageScope); enrollment = record }
         catch { throw FramebriarError.storage }
+        enrollmentSignal.update(record)
     }
     private func token(_ ticket: Int) async throws -> String {
         try check(ticket)

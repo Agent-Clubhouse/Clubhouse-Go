@@ -38,6 +38,9 @@ fi
 VERSION=$(xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release -showBuildSettings 2>/dev/null \
   | awk -F' = ' '/ MARKETING_VERSION = / { print $2; exit }')
 BUILD=$(git rev-list --count HEAD)
+# Framebriar reports and telemetry carry the exact commit (Info.plist FramebriarBuildSHA). Without git
+# it stays empty and the app sends no buildSha rather than a made-up one.
+BUILD_SHA=$(git rev-parse HEAD 2>/dev/null || true)
 OUT="build/testflight/${VERSION}-${BUILD}"
 ARCHIVE="$OUT/ClubhouseGo.xcarchive"
 
@@ -52,10 +55,11 @@ xcodebuild archive \
   -archivePath "$ARCHIVE" \
   -allowProvisioningUpdates \
   CURRENT_PROJECT_VERSION="$BUILD" \
+  FRAMEBRIAR_BUILD_SHA="$BUILD_SHA" \
   -quiet
 
 PLIST="$ARCHIVE/Products/Applications/ClubhouseGo.app/Info.plist"
-echo "Archived $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST"))"
+echo "Archived $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST") ($(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")), buildSha $(/usr/libexec/PlistBuddy -c 'Print :FramebriarBuildSHA' "$PLIST")"
 
 DESTINATION=export
 [ "$UPLOAD" -eq 1 ] && DESTINATION=upload

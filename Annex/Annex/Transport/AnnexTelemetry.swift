@@ -81,6 +81,20 @@ nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable
     public let failure: AnnexDiagnosticFailure
     public let measurements: [String: Double]
     public let events: [String]
+    /// When each of `events` happened, in milliseconds after `startedAt`. Nil in snapshots from older builds.
+    public let eventOffsetsMs: [Double]?
+}
+/// Routine work counted instead of recorded span by span; see `AnnexTelemetry.measureRoutine`.
+nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
+    public let operation: AnnexDiagnosticOperation
+    /// Completed operations, including slow and failed ones.
+    public let count: Int
+    /// At or over the slow threshold; each of these, and each failure, is also a span.
+    public let slow: Int
+    public let failed: Int
+    public let totalMs: Double
+    public let maxMs: Double
+    public var meanMs: Double { count == 0 ? 0 : totalMs / Double(count) }
 }
 nonisolated public struct AnnexDiagnosticSnapshot: Codable, Sendable {
     public let schemaVersion: Int
@@ -101,7 +115,9 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     private var dropped = 0
     private let capacity: Int
     private let instanceID: UUID
+    private var sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?
     init(capacity: Int, instanceID: UUID = UUID()) { self.capacity = min(512, max(1, capacity)); self.instanceID = instanceID }
+    func setSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { lock.withLock { self.sink = sink } }
     func configure(enabled: Bool) -> Int {
         lock.withLock { self.enabled = enabled; generation += 1; records.removeAll(); dropped = 0; return generation }
     }
@@ -112,8 +128,9 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     }
     func drop() { lock.withLock { if enabled { dropped = min(Int.max - 1, dropped + 1) } } }
     private func receive(_ spans: [SpanData]) -> SpanExporterResultCode {
-        lock.withLock {
-            guard enabled else { return .success }
+        let (accepted, recipient) = lock.withLock { () -> ([AnnexDiagnosticRecord], (@Sendable (AnnexDiagnosticRecord) -> Void)?) in
+            guard enabled else { return ([], nil) }
+            var accepted: [AnnexDiagnosticRecord] = []
             for span in spans.prefix(512) {
                 guard span.attributes["capture.generation"] == .int(generation),
                       let operation = AnnexDiagnosticOperation(rawValue: span.name) else { continue }
@@ -136,17 +153,24 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                 let failure: AnnexDiagnosticFailure
                 if case .string(let value) = span.attributes["failure"] { failure = AnnexDiagnosticFailure(rawValue: value) ?? .unknown }
                 else { failure = .none }
-                let events = span.events.prefix(32).compactMap { AnnexDiagnosticEvent(rawValue: $0.name)?.rawValue }
+                let durationMs = min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000))
+                let events = span.events.prefix(32).compactMap { event in
+                    AnnexDiagnosticEvent(rawValue: event.name).map { ($0.rawValue, min(durationMs, max(0, event.timestamp.timeIntervalSince(span.startTime) * 1000))) }
+                }
                 if records.count == capacity { records.removeFirst(); dropped = min(Int.max - 1, dropped + 1) }
-                records.append(.init(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
+                let record = AnnexDiagnosticRecord(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
                     traceID: span.traceId.hexString, id: span.spanId.hexString,
                     parentID: span.parentSpanId?.hexString, operation: operation, startedAt: span.startTime,
-                    durationMs: min(600_000, max(0, span.endTime.timeIntervalSince(span.startTime) * 1000)),
+                    durationMs: durationMs,
                     spanKind: span.kind == .client ? 3 : span.kind == .consumer ? 5 : 1,
-                    failure: failure, measurements: numbers, events: events))
+                    failure: failure, measurements: numbers, events: events.map(\.0), eventOffsetsMs: events.map(\.1))
+                records.append(record); accepted.append(record)
             }
-            return .success
+            return (accepted, self.sink)
         }
+        // Outside the lock: the sink may record into other telemetry.
+        if let recipient { accepted.forEach(recipient) }
+        return .success
     }
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode { receive(spans) }
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) async -> SpanExporterResultCode { receive(spans) }
@@ -205,12 +229,18 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public static let shared = AnnexTelemetry()
     public let instanceID: UUID
     public var isEnabled: Bool { exporter.captureGeneration() != nil }
+    /// Capture the user chose in Connection diagnostics.
+    private var localCapture = false
+    /// Capture because the user enrolled in developer feedback, whose telemetry exports these records.
+    private var enrolledCapture = false
+    public var capturesForEnrollment: Bool { lock.withLock { enrolledCapture } }
     @TaskLocal public static var current: AnnexDiagnosticSpan?
     private let lock = NSLock()
     private let exporter: AnnexLocalSpanExporter
     private let provider: TracerProviderSdk
     private let tracer: any Tracer
     private var active: [AnnexDiagnosticSpan] = []
+    private var summaries: [AnnexDiagnosticOperation: AnnexDiagnosticSummary] = [:]
     private let clock: @Sendable () -> TimeInterval
     public init(capacity: Int = 256, instanceID: UUID = UUID(), clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         let instanceID = AnnexTelemetryHandshake.canonicalUUID(instanceID.uuidString.lowercased()) == nil ? UUID() : instanceID
@@ -225,13 +255,25 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         tracer = provider.get(instrumentationName: "clubhouse.annex", instrumentationVersion: "1")
     }
     public func setRemoteExportEnabled(_ enabled: Bool) { exporter.setRemoteEnabled(enabled) }
-    public func setEnabled(_ enabled: Bool) {
+    /// The user's Connection diagnostics choice. Capture stays on while enrolled (`setEnrolledCapture`).
+    public func setEnabled(_ enabled: Bool) { lock.withLock { localCapture = enabled; reconfigureLocked() } }
+    /// On while the user is enrolled in developer feedback, so its telemetry has spans to export; off
+    /// (clearing everything, unless the user also chose capture) the moment enrollment ends.
+    public func setEnrolledCapture(_ enabled: Bool) {
         lock.withLock {
-            _ = exporter.configure(enabled: enabled) // Fence late completion before ending old scopes.
-            active.forEach { $0.end() }; active.removeAll()
+            guard enrolledCapture != enabled else { return }
+            let wasOn = localCapture || enrolledCapture
+            enrolledCapture = enabled
+            if wasOn != (localCapture || enrolledCapture) { reconfigureLocked() }
         }
     }
-    public func clear() { setEnabled(exporter.snapshot().enabled) }
+    /// Receives each record as it is captured, outside any lock. One sink; nil removes it.
+    public func setRecordSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { exporter.setSink(sink) }
+    public func clear() { lock.withLock { reconfigureLocked() } }
+    private func reconfigureLocked() {
+        _ = exporter.configure(enabled: localCapture || enrolledCapture) // Fence late completion before ending old scopes.
+        active.forEach { $0.end() }; active.removeAll(); summaries.removeAll()
+    }
     public func snapshot() -> AnnexDiagnosticSnapshot { expire(); return exporter.snapshot() }
     public func exportJSON(maximumBytes: Int = 512 * 1024) throws -> Data {
         let data = try JSONEncoder().encode(snapshot())
@@ -246,7 +288,8 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             }
         }
     }
-    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current, remoteParent: AnnexTraceContext? = nil) -> AnnexDiagnosticSpan {
+    public func begin(_ operation: AnnexDiagnosticOperation, parent: AnnexDiagnosticSpan? = AnnexTelemetry.current, remoteParent: AnnexTraceContext? = nil,
+                      startedAt: Date? = nil) -> AnnexDiagnosticSpan {
         expire()
         return lock.withLock {
             guard let generation = exporter.captureGeneration(), active.count < 128 else {
@@ -259,6 +302,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
             let builder = tracer.spanBuilder(spanName: operation.rawValue).setAttribute(key: "capture.generation", value: generation)
             if operation == .http || operation == .websocket { builder.setSpanKind(spanKind: .client) }
             if operation == .stream { builder.setSpanKind(spanKind: .consumer) }
+            if let startedAt { builder.setStartTime(time: startedAt) }
             if let remoteParent { builder.setParent(remoteParent.context) }
             else if parent?.generation == generation, let span = parent?.span { builder.setParent(span) }
             else { builder.setNoParent() }
@@ -288,6 +332,42 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         defer { span.end() }
         do { return try await Self.$current.withValue(span) { try await body() } }
         catch { span.fail(error); throw error }
+    }
+    /// For frequent routine work, such as the WebSocket ping every 20 s per desktop, which as one span
+    /// each would push useful spans out of the ring (and the feedback incident window) within the hour.
+    /// Every run is counted in a summary (`drainSummaries`); only failed runs and runs at or over
+    /// `slowMs` become a span, backdated to when the work started.
+    public func measureRoutine<T>(_ operation: AnnexDiagnosticOperation, slowMs: Double, isolation: isolated (any Actor)? = #isolation,
+                                  body: () async throws -> T) async rethrows -> T {
+        let parent = Self.current, startedAt = Date(), started = clock()
+        func finish(_ failure: AnnexDiagnosticFailure) {
+            let elapsed = max(0, (clock() - started) * 1000)
+            let slow = elapsed >= slowMs
+            guard summarize(operation, elapsed, slow: slow, failed: failure != .none), slow || failure != .none else { return }
+            let span = begin(operation, parent: parent, startedAt: startedAt)
+            if failure != .none { span.fail(failure) }
+            span.end()
+        }
+        do { let value = try await body(); finish(.none); return value }
+        catch { finish(AnnexDiagnosticFailure.classify(error)); throw error }
+    }
+    /// Returns and resets the routine summaries counted since the last call (or since capture changed).
+    public func drainSummaries() -> [AnnexDiagnosticSummary] {
+        lock.withLock {
+            defer { summaries.removeAll() }
+            return summaries.values.sorted { $0.operation.rawValue < $1.operation.rawValue }
+        }
+    }
+    /// False, counting nothing, while capture is off.
+    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool) -> Bool {
+        lock.withLock {
+            guard exporter.captureGeneration() != nil else { return false }
+            let ms = min(600_000, ms), old = summaries[operation]
+            summaries[operation] = AnnexDiagnosticSummary(operation: operation, count: min(1_000_000, (old?.count ?? 0) + 1),
+                slow: min(1_000_000, (old?.slow ?? 0) + (slow ? 1 : 0)), failed: min(1_000_000, (old?.failed ?? 0) + (failed ? 1 : 0)),
+                totalMs: min(1e12, (old?.totalMs ?? 0) + ms), maxMs: max(old?.maxMs ?? 0, ms))
+            return true
+        }
     }
 }
 

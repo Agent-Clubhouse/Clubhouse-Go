@@ -7,9 +7,11 @@ import Framebriar
     public private(set) var status: ClientStatus?
     public private(set) var message: String?
     public private(set) var working = false
+    /// Optional. When set, a saved report emits `feedback.submitted` and the consented diagnostics excerpt.
+    public let telemetry: Telemetry?
     private let incidentProvider: @MainActor () -> FeedbackIncident?
-    public init(client: Client, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil }) {
-        self.client = client; self.incidentProvider = incidentProvider
+    public init(client: Client, telemetry: Telemetry? = nil, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil }) {
+        self.client = client; self.telemetry = telemetry; self.incidentProvider = incidentProvider
     }
     public func snapshotIncident() -> FeedbackIncident? { incidentProvider() }
     public func update() async { status = await client.status() }
@@ -38,11 +40,15 @@ import Framebriar
     public func clearQueue() async {
         await perform { try await self.client.clearQueuedFeedback(); self.message = "Queued reports cleared from this device." }
     }
-    public func submit(_ reviewed: ReviewedFeedback) async -> Bool {
+    public func submit(_ reviewed: ReviewedFeedback, includeDiagnostics: Bool = true) async -> Bool {
         var saved = false
         await perform {
             try await self.client.enqueue(reviewed); saved = true
             self.message = "Saved on this device. Delivery is confirmed separately."
+        }
+        if saved, let telemetry {
+            // After the local commit, never before; telemetry failure never affects the report.
+            Task { await telemetry.feedbackSubmitted(reportID: reviewed.id, trace: reviewed.incident?.traces.first, includeDiagnostics: includeDiagnostics) }
         }
         return saved
     }
@@ -73,7 +79,12 @@ public struct EnrollmentView: View {
     public var body: some View {
         Form {
             Section("Feedback enrollment") {
-                Text("Only feedback you choose to submit is shared. No prompts, agent content or logs are collected. Optional reviewed trace references can link a report to separately configured tracing. Review images for private information before sending.")
+                if model.telemetry == nil {
+                    Text("Only feedback you choose to submit is shared. No prompts, agent content or logs are collected. Optional reviewed trace references can link a report to separately configured tracing. Review images for private information before sending.")
+                } else {
+                    // Required disclosure (docs/telemetry.md): enrollment enables telemetry.
+                    Text("Connecting also shares performance and diagnostic data with the developer: event names, counts, timings and error classes, never prompts, agent content, file paths or account details. Clearing enrollment stops it immediately. Feedback is shared only when you submit it; review images for private information before sending.")
+                }
                 Text("Status: \(model.status?.access.rawValue ?? "checking")")
                 if let end = model.status?.enrollmentExpiresAt { Text("Enrollment ends \(end.formatted())") }
                 SecureField("Invitation", text: $invitation).textContentType(.oneTimeCode)

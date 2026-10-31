@@ -66,7 +66,9 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     try await socket.ping()
     try await socket.send(Data("after-ping".utf8))
     #expect(text(try await reader.value) == "after-ping")
-    #expect(telemetry.snapshot().records.filter { $0.operation == .ping && $0.failure == .none }.count == 2)
+    // Answered pings are counted, not recorded one span each (they would crowd out the ring).
+    #expect(!telemetry.snapshot().records.contains { $0.operation == .ping })
+    #expect(telemetry.drainSummaries().first { $0.operation == .ping }.map { [$0.count, $0.failed] } == [2, 0])
     #expect(telemetry.snapshot().records.contains { $0.operation == .websocket })
     await socket.close()
 }
@@ -104,6 +106,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     clock.advance(by: .seconds(10))
     await #expect(throws: URLError(.timedOut)) { try await ping.value }
     #expect(telemetry.snapshot().records.contains { $0.operation == .ping && $0.failure != .none })
+    #expect(telemetry.drainSummaries().first { $0.operation == .ping }?.failed == 1)
     // A ping that never came back means the path is dead: the socket is torn down.
     await #expect(throws: (any Error).self) { _ = try await socket.receive() }
 }

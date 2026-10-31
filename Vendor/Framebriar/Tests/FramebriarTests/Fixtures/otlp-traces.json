@@ -1,0 +1,114 @@
+{
+  "resourceSpans" : [
+    {
+      "resource" : {
+        "attributes" : [
+          {
+            "key" : "deployment.environment.name",
+            "value" : {
+              "stringValue" : "dev"
+            }
+          },
+          {
+            "key" : "os.type",
+            "value" : {
+              "stringValue" : "darwin"
+            }
+          },
+          {
+            "key" : "service.name",
+            "value" : {
+              "stringValue" : "test-app"
+            }
+          },
+          {
+            "key" : "service.version",
+            "value" : {
+              "stringValue" : "1.2.0+42"
+            }
+          },
+          {
+            "key" : "session.id",
+            "value" : {
+              "stringValue" : "s-fixture"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.language",
+            "value" : {
+              "stringValue" : "swift"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.name",
+            "value" : {
+              "stringValue" : "framebriar"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.version",
+            "value" : {
+              "stringValue" : "0.1.0"
+            }
+          }
+        ]
+      },
+      "scopeSpans" : [
+        {
+          "scope" : {
+            "name" : "framebriar.swift",
+            "version" : "0.1.0"
+          },
+          "spans" : [
+            {
+              "attributes" : [
+                {
+                  "key" : "app.outcome",
+                  "value" : {
+                    "stringValue" : "ok"
+                  }
+                },
+                {
+                  "key" : "app.telemetry.schema_version",
+                  "value" : {
+                    "intValue" : "1"
+                  }
+                },
+                {
+                  "key" : "chunks",
+                  "value" : {
+                    "intValue" : "4"
+                  }
+                }
+              ],
+              "endTimeUnixNano" : "1800000000000000000",
+              "events" : [
+                {
+                  "attributes" : [
+                    {
+                      "key" : "latency_ms",
+                      "value" : {
+                        "intValue" : "500"
+                      }
+                    }
+                  ],
+                  "name" : "firstToken",
+                  "timeUnixNano" : "1799999998500000000"
+                }
+              ],
+              "kind" : 3,
+              "name" : "stream",
+              "parentSpanId" : "00f067aa0ba902b7",
+              "spanId" : "b7ad6b7169203331",
+              "startTimeUnixNano" : "1799999998000000000",
+              "status" : {
+                "code" : 1
+              },
+              "traceId" : "0af7651916cd43dd8448eb211c80319c"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -19,6 +19,7 @@ public struct FeedbackView: View {
     @State private var incident: FeedbackIncident?
     @State private var incidentCaptured = false
     @State private var includeIncident = true
+    @State private var includeDiagnostics = true
     public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil) {
         self.model = model
         _imageData = State(initialValue: ShakeScreenshot.validatedAttachment(initialScreenshotPNG))
@@ -40,6 +41,7 @@ public struct FeedbackView: View {
                     Button("Remove attachment", role: .destructive) { selection = nil; self.imageData = nil; review = nil }
                 }
                 if incident != nil { Toggle("Include incident trace references", isOn: $includeIncident) }
+                if model.telemetry?.isEnabled == true { Toggle("Include recent app diagnostics", isOn: $includeDiagnostics) }
                 Button("Review feedback") {
                     do { review = try ReviewedFeedback(configuration: model.client.configuration, notes: notes, reviewedScreenshotPNG: imageData, incident: includeIncident ? incident : nil); error = nil }
                     catch { self.error = "Use at most 2000 characters and an image up to 8 MiB." }
@@ -49,7 +51,10 @@ public struct FeedbackView: View {
                 Section("Review exactly what will be saved") {
                     Text(review.notes)
                     Text(review.screenshotPNG == nil ? "No attachment" : "The image shown above will be attached.")
-                    Text("Context: iOS, touch input, app identifier and configured build, submission time and random report/session IDs. No logs or message contents are attached.")
+                    Text("Context: iOS, touch input, app identifier and configured build, submission time and random report/session IDs. No message contents are attached.")
+                    if model.telemetry?.isEnabled == true {
+                        Text(includeDiagnostics ? "The last five minutes of this app's diagnostic events (names, counts and timings only) are sent with the report ID." : "Only a submission marker with the report ID is sent to diagnostics.")
+                    }
                     if let incident = review.incident {
                         Text("Incident: \(incident.id) · \(incident.availability.rawValue). \(incident.traces.count) recent local span references; remote availability is unverified.")
                         Text("Window: \(incident.windowStart) – \(incident.windowEnd)")
@@ -60,7 +65,7 @@ public struct FeedbackView: View {
                         if let backend = incident.backendRef { Text("Logical tracing destination: \(backend)") }
                     }
                     Button("Submit reviewed feedback") {
-                        Task { if await model.submit(review) { dismiss() } }
+                        Task { if await model.submit(review, includeDiagnostics: includeDiagnostics) { dismiss() } }
                     }.disabled(model.working || loading || model.status?.canSubmit != true)
                 }
             }

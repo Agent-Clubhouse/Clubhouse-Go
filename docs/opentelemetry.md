@@ -5,9 +5,13 @@ with explicit instrumentation and a synchronous bounded memory exporter. It does
 not use automatic URLSession instrumentation, device/resource detection or global
 SDK registration. Capture is **off by default**. Settings → Connection diagnostics
 offers Off / This session / Always, review, clear and explicit sharing of a sanitized JSON snapshot.
-Remote export is disabled by default and configured separately through an existing HTTPS
-OTLP/HTTP JSON collector. Framebriar feedback enrollment does not authorize tracing export.
+Remote export to the user's own collector is disabled by default and configured separately through an existing HTTPS
+OTLP/HTTP JSON collector. Framebriar feedback enrollment does not authorize export to that collector.
 Feedback can optionally include reviewed incident trace references; it does not contain spans.
+
+Separately, **enrolling in developer feedback turns on Framebriar telemetry** to the developer
+(see [Framebriar telemetry](#framebriar-telemetry-enrolled-users)). While enrolled, the same closed-enum
+spans are captured even with Connection diagnostics Off, and are exported to Framebriar.
 
 ## Coverage
 
@@ -16,7 +20,7 @@ Feedback can optionally include reviewed incident trace references; it does not 
 | App and navigation | launch, foreground/background, conversation selection, settings |
 | Discovery/manual entry | browse lifetime, result count, resolve/failure, explicit address inspection |
 | Trust and access | inspection, pairing, restore, revoke/forget, categorized trust/auth failures |
-| Annex connection | identity/capability requests, connection/reconnect through valid snapshot, backoff attempts/delay, ping |
+| Annex connection | identity/capability requests, connection/reconnect through valid snapshot, backoff attempts/delay; pings are counted (count, slow, failed, mean/max ms), and only failed pings or pongs slower than 1 s are spans |
 | HTTP and TLS | bounded byte counts/status, available DNS/connect/TLS/first-byte timings, pin/auth decisions, timeout/error categories |
 | Live chat | observed turn duration, first live text delta latency, last/max inter-delta gap, chunk/byte totals, completion/cancellation |
 | Control | send/steer/queue, wake/start, interrupt, spawn, permission/question responses, queued removal |
@@ -96,8 +100,8 @@ an unauthenticated public receiver to make this work. No resources or credential
 
 Existing desktop exporters under `src/main/telemetry/destinations/` are outbound clients,
 not an Annex ingest endpoint. Do not send OTLP to the pairing port or reuse pairing/feedback
-credentials. Framebriar's separately gated OTLP service currently drops `service.instance.id`;
-that is a known limitation of that alternative route, not a dependency for the App Insights route.
+credentials. Don't point this collector at Framebriar's `/v1/otlp` route: it sends no token, and
+Framebriar telemetry has its own enrolled path (above).
 
 Before claiming end-to-end backend validation: configure an approved collector on both ends;
 perform one benign operation; verify matching trace ID with distinct mobile/host span IDs,
@@ -136,17 +140,68 @@ starts immediately; no hidden reconnect disrupts an active chat.
 Each connection attempt and operation has an independent trace; metadata is bounded.
 See the handshake fixture and [wire contract](annex-trace-context.md).
 
-**Ingestion gap found:** Framebriar service source `src/telemetry.mjs` preserves
-traceId/spanId/parentSpanId but drops `service.instance.id` from client resource
-attributes. It prefixes service.name with registered app scope. Using that optional
-OTLP route would require validated instance preservation and downstream mapping tests;
-this does not block the separate App Insights collector route or feedback correlation. No remote ingestion test has
-been performed and no live exporter is configured.
+**Instance ID on Framebriar:** Framebriar's gateway keeps only `service.*`, `session.id`,
+`deployment.environment.name`, `telemetry.sdk.*`, `os.type` and `host.arch` from client resources, so it
+would drop `service.instance.id`. Framebriar telemetry therefore carries the same UUID as `session.id`
+(see above). No live ingestion test has been performed.
+
+## Framebriar telemetry (enrolled users)
+
+Framebriar v0.5.0's Swift `Telemetry` (vendored from tag `v0.5.0`, commit
+`4905102899ee20db0c436716f4783f6ba9827c5d`) sends OTLP/HTTP JSON traces, logs and delta metrics to
+`{framebriar}/v1/otlp/v1/{traces,logs,metrics}` with the enrollment's access token. It follows the
+"Clubhouse Go integration recipe" in `Vendor/Framebriar/README.md`.
+
+- **Gate:** only while the user is enrolled (has redeemed an invitation). Before enrollment nothing is
+  captured or sent. Clearing enrollment, revocation or expiry stops it and forgets the in-memory queue;
+  a 403 stops it until the next enrollment. Memory only: nothing is written to disk. Settings states
+  next to Developer feedback that enrolling also sends usage and diagnostic telemetry to the developer.
+- **Capture:** `AnnexTelemetry` captures while enrolled (`setEnrolledCapture`), independent of the
+  Connection diagnostics mode. Each completed record is forwarded as it ends (`setRecordSink`) through
+  `AnnexAppTelemetry`, which maps it onto Framebriar's `app.*` conventions (`docs/app-telemetry-v1.md`
+  in framebriar). Spans keep their trace/span/parent IDs and their events with event times, so
+  feedback incident references point at exported spans.
+- **One session ID:** the diagnostics `service.instance.id` is adopted as `FramebriarSession.id`, so the
+  feedback report `sessionId`, the telemetry resource `session.id` and the incident `phoneInstanceId`
+  are the same random UUID per process.
+- **Resource:** `service.name=clubhouse-annex` (gateway-stamped), `service.version=<version>+<build>`,
+  `session.id`. Every log and span carries `app.telemetry.schema_version=1` and `app.platform=ios`.
+- **Flush:** every 60 s or 200 items while running, and on entering the background (the SDK's lifecycle
+  observer, up to four batches in a background task). The ping summary is handed over at most once a
+  minute and when the scene leaves the foreground.
+
+| Local record | Telemetry |
+|---|---|
+| `pairing`, `connection`, `reconnect`, `restore`, `send`/`steer`/`queued`, `spawn`/`createAgent` | `app.flow` span with `app.flow.name` (`pair`, `connect`, `reconnect`, `restore`, `chat_turn`, `spawn_agent`), `app.flow.id`, `app.outcome`, `app.duration.ms`, `annex.operation` |
+| Other operations (`http`, `tls`, `stream`, reads, …) | span named by the operation |
+| Commands (send, interrupt, permission, …) | also an `app.action` log with `app.action.name` and `app.action.result` (`accepted`, `rejected`, `outcome_unknown`) |
+| `foreground`, `background` | `app.lifecycle` log (`app.lifecycle.state`), not a span |
+| `navigation`, `settings` | `app.action` log |
+| Any failure except cancellation | `error.type` on the span and an `app.error` log with `app.error.class` (the `AnnexDiagnosticFailure` value) |
+| `statusCode`; other numbers | `http.response.status_code`; `annex.<name>` |
+| Counted pings | `app.performance.summary` log (`app.performance.kind=ping`, `count`, `mean_ms`, `max_ms`, `over_threshold`) and `app.pings` counter by `app.outcome` |
+| Connection, reconnect, first text delta | `app.connect.duration` and `app.first_token.duration` histograms (ms), `app.reconnects` counter |
+| Launch / enrollment | `app.session.start` log |
+| MetricKit (next launch) | `app.error` logs with `app.error.class` `crash`, `hang`, `cpu_exception`, `disk_write_exception`: numbers only, no call stacks |
+| Submitted feedback | `feedback.submitted` log with `feedback.report.id` and the incident's first trace; with the composer's "Include recent app diagnostics" on, the last five minutes of spans and logs are re-sent tagged `feedback.excerpt=true` |
+
+The same privacy rules apply: only enum raw values, numbers and random UUIDs. No prompts, agent output,
+project/agent/session names, paths, hosts, URLs or error messages. Metric labels come only from small
+closed sets. The SDK also scrubs strings and drops secret-looking keys. `AppTelemetryTests` checks that
+every string leaving through the mapping is a fixed name, enum value or UUID; `CompanionTelemetryTests`
+checks the gate, the session ID and the feedback marker against a mock service.
+
+While enrolled, capture also negotiates trace context with paired desktops as Connection diagnostics
+does (random W3C trace IDs only). The user's own collector export is unchanged: it still requires
+Connection diagnostics on, a destination and its own consent, and it never receives Framebriar data.
+
+Owner side, not code: the Framebriar registry entry for `clubhouse-annex` must have telemetry on;
+until then the gateway answers 403 and the emitter stops quietly until the next enrollment.
 
 ## Feedback correlation out
 
-The vendored Framebriar SDK includes the upstream `FeedbackIncident` schema pinned at
-`25c05f76e8ae05e5ff4b13d2caaf71a7abcfd17e`. On opening
+The vendored Framebriar SDK (tag `v0.5.0`, commit `4905102899ee20db0c436716f4783f6ba9827c5d`) includes
+the upstream `FeedbackIncident` schema. On opening
 feedback (including shake), the app snapshots at most eight recent local trace/span references,
 phone process identity, up to four authenticated host and socket IDs, a five-minute time window,
 and optional logical backend UUID. Availability distinguishes recorded/unavailable/collection_off;

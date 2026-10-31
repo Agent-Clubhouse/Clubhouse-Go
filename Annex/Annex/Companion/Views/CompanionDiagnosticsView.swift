@@ -22,6 +22,10 @@ struct CompanionDiagnosticsView: View {
                 }.accessibilityIdentifier("diagnostics.capture")
                 Text("Off by default. This session stops on app restart; Always remembers collection on future launches. Both keep only bounded traces in memory. No messages, addresses, paths, credentials or screenshots. Off clears traces. Collection also sends random W3C trace IDs to your paired desktop for correlation, never to a collector automatically.")
                     .font(.caption).foregroundStyle(.secondary)
+                if AnnexTelemetry.shared.capturesForEnrollment {
+                    Text("You're enrolled in developer feedback, so these diagnostics are also captured, with random trace IDs sent to your paired desktop, and sent to the developer as telemetry, even with Capture off. Clearing enrollment in Settings stops it.")
+                        .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("diagnostics.enrollment-capture")
+                }
             }
             Section("Export") {
                 Label(settings.remoteEnabled ? (settings.mode == .off ? "Collector paused (capture off)" : "Collector export enabled") : "Remote export disabled", systemImage: settings.remoteEnabled ? "network" : "network.slash")

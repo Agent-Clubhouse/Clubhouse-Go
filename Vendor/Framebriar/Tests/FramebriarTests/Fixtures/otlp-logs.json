@@ -1,0 +1,109 @@
+{
+  "resourceLogs" : [
+    {
+      "resource" : {
+        "attributes" : [
+          {
+            "key" : "deployment.environment.name",
+            "value" : {
+              "stringValue" : "dev"
+            }
+          },
+          {
+            "key" : "os.type",
+            "value" : {
+              "stringValue" : "darwin"
+            }
+          },
+          {
+            "key" : "service.name",
+            "value" : {
+              "stringValue" : "test-app"
+            }
+          },
+          {
+            "key" : "service.version",
+            "value" : {
+              "stringValue" : "1.2.0+42"
+            }
+          },
+          {
+            "key" : "session.id",
+            "value" : {
+              "stringValue" : "s-fixture"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.language",
+            "value" : {
+              "stringValue" : "swift"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.name",
+            "value" : {
+              "stringValue" : "framebriar"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.version",
+            "value" : {
+              "stringValue" : "0.1.0"
+            }
+          }
+        ]
+      },
+      "scopeLogs" : [
+        {
+          "logRecords" : [
+            {
+              "attributes" : [
+                {
+                  "key" : "app.error.class",
+                  "value" : {
+                    "stringValue" : "timeout"
+                  }
+                },
+                {
+                  "key" : "app.telemetry.schema_version",
+                  "value" : {
+                    "intValue" : "1"
+                  }
+                },
+                {
+                  "key" : "attempt",
+                  "value" : {
+                    "intValue" : "2"
+                  }
+                },
+                {
+                  "key" : "ratio",
+                  "value" : {
+                    "doubleValue" : 0.5
+                  }
+                },
+                {
+                  "key" : "retried",
+                  "value" : {
+                    "boolValue" : true
+                  }
+                }
+              ],
+              "body" : {
+                "stringValue" : "app.error"
+              },
+              "observedTimeUnixNano" : "1800000000000000000",
+              "severityNumber" : 13,
+              "severityText" : "WARN",
+              "timeUnixNano" : "1800000000000000000"
+            }
+          ],
+          "scope" : {
+            "name" : "framebriar.swift",
+            "version" : "0.1.0"
+          }
+        }
+      ]
+    }
+  ]
+}
