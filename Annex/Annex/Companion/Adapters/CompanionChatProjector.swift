@@ -57,8 +57,7 @@ struct CompanionChatProjector {
             finishStreams()
         case "session_ended":
             // An idle timeout puts the agent to sleep; it resumes on the next message or a wake.
-            switch data["reason"]?.string { case "error": status = .failed; case "idle_timeout": status = .sleeping; default: status = .stopped }
-            capabilities = []; turnStartedAt = nil; finishStreams()
+            switch data["reason"]?.string { case "error": endSession(.failed); case "idle_timeout": endSession(.sleeping); default: endSession(.stopped) }
         case "user_message":
             guard let messageID = data["messageId"]?.string else { return }
             let content = data["content"].arrayValue
@@ -272,6 +271,13 @@ struct CompanionChatProjector {
         guard let item = items.first(where: { $0.id == "tool:\(id)" }), case .tool(let tool) = item else { return nil }
         return tool
     }
+    /// Whether the session is live as far as this projection knows: not ended, asleep or failed.
+    var isAwake: Bool { [.idle, .working, .approval, .waiting].contains(status) }
+    /// The session is over, from its `session_ended` or because the desktop says the agent is asleep.
+    mutating func endSession(_ status: CompanionAgentStatus) {
+        self.status = status
+        capabilities = []; turnStartedAt = nil; finishStreams()
+    }
     private mutating func finishStreams() {
         for index in items.indices {
             if case .message(var message) = items[index], message.isStreaming { message.isStreaming = false; items[index] = .message(message) }
@@ -284,6 +290,8 @@ struct CompanionChatProjector {
         let lifecycle = status(value)
         let state = detailed?["state"]?.string
         let message = detailed?["message"]?.string ?? ""
+        // An asleep or finished agent has no live hook status; one left in the payload is from before it stopped.
+        if [.sleeping, .stopped, .completed].contains(lifecycle) { return lifecycle }
         if lifecycle == .failed || state == "tool_error" { return .failed }
         if state == "needs_permission" {
             let isQuestion = message.lowercased().contains("question") || detailed?["toolName"]?.string == "AskUserQuestion"

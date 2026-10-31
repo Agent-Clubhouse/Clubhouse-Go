@@ -287,6 +287,22 @@ struct CompanionWireGroundingTests {
         #expect(CompanionChatProjector.status("running", detailed: .object(["state": .string("tool_error")])) == .failed)
         #expect(CompanionChatProjector.status("running", detailed: nil) == .working)
         #expect(CompanionChatProjector.status("sleeping", detailed: idle) == .sleeping)
+        // A hook status left over from before the agent stopped can't make it look awake or waiting.
+        #expect(CompanionChatProjector.status("sleeping", detailed: permission) == .sleeping)
+        #expect(CompanionChatProjector.status("sleeping", detailed: .object(["state": .string("tool_error")])) == .sleeping)
+    }
+
+    @Test func endingASessionClearsItsLiveState() {
+        var projector = CompanionChatProjector()
+        projector.apply(event("session_started", 1, ["capabilities": .object(["chat": .bool(true)])]))
+        projector.apply(.object(["sessionId": .string("s1"), "seq": .integer(2), "type": .string("turn_started"), "ts": .integer(1_700_000_000_000), "data": .object([:])]))
+        #expect(projector.isAwake)
+        #expect(projector.turnStartedAt != nil)
+        projector.endSession(.sleeping)
+        #expect(!projector.isAwake)
+        #expect(projector.status == .sleeping)
+        #expect(projector.capabilities.isEmpty)
+        #expect(projector.turnStartedAt == nil)
     }
 
     @Test func partialSessionInfoKeepsEarlierCapabilities() {

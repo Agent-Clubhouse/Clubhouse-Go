@@ -702,7 +702,10 @@ import ClubhouseTransport
                     // Keep an outstanding question/approval visible until its
                     // authoritative chat event resolves it or the agent stops.
                     let pendingInteraction = projections[target]?.status == .waiting || projections[target]?.status == .approval
-                    if !pendingInteraction || (status != .working && status != .idle) {
+                    if status == .sleeping {
+                        // The agent's process exited. Its chat's own end (stopped, failed) says more, when it came first.
+                        if projections[target]?.isAwake == true { projections[target]?.endSession(.sleeping) }
+                    } else if !pendingInteraction || (status != .working && status != .idle) {
                         projections[target]?.status = status
                     }
                 }
@@ -790,6 +793,12 @@ import ClubhouseTransport
             for (index, value) in (durableValues + quickValues).enumerated() {
                 guard let id = value["id"]?.string else { continue }
                 let target = CompanionTarget(hostID: hostID, projectID: projectID, agentID: id)
+                // A durable agent that slept while the phone was away: the desktop drops chat events from its
+                // replay when the agent exits, and a reconnect resumes from the snapshot's seq anyway, so the
+                // session's end never arrives. The catalog's "sleeping" is newer than the projection's last state.
+                if value["kind"]?.string != "quick", value["status"]?.string == "sleeping", projections[target]?.isAwake == true {
+                    projections[target]?.endSession(.sleeping)
+                }
                 let projection = projections[target]
                 let name: String = value["name"]?.string ?? id
                 let mission: String? = value["mission"]?.string ?? value["prompt"]?.string
