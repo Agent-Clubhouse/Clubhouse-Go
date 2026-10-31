@@ -206,6 +206,7 @@ run_tests() {
   TEST_RUNNER_CLUBHOUSE_E2E_PROJECT="$(fixture project)" \
   TEST_RUNNER_CLUBHOUSE_E2E_ECHO_AGENT="$(fixture echo)" \
   TEST_RUNNER_CLUBHOUSE_E2E_BUILDER_AGENT="$(fixture builder)" \
+  TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR="$FIXTURE_DIR" \
   xcodebuild test-without-building \
     -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
     -derivedDataPath "$DERIVED" -only-testing:"$ONLY" \
