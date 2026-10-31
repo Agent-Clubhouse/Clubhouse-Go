@@ -1,0 +1,216 @@
+{
+  "resourceMetrics" : [
+    {
+      "resource" : {
+        "attributes" : [
+          {
+            "key" : "deployment.environment.name",
+            "value" : {
+              "stringValue" : "dev"
+            }
+          },
+          {
+            "key" : "os.type",
+            "value" : {
+              "stringValue" : "darwin"
+            }
+          },
+          {
+            "key" : "service.name",
+            "value" : {
+              "stringValue" : "test-app"
+            }
+          },
+          {
+            "key" : "service.version",
+            "value" : {
+              "stringValue" : "1.2.0+42"
+            }
+          },
+          {
+            "key" : "session.id",
+            "value" : {
+              "stringValue" : "s-fixture"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.language",
+            "value" : {
+              "stringValue" : "swift"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.name",
+            "value" : {
+              "stringValue" : "framebriar"
+            }
+          },
+          {
+            "key" : "telemetry.sdk.version",
+            "value" : {
+              "stringValue" : "0.1.0"
+            }
+          }
+        ]
+      },
+      "scopeMetrics" : [
+        {
+          "metrics" : [
+            {
+              "gauge" : {
+                "dataPoints" : [
+                  {
+                    "asDouble" : 1,
+                    "attributes" : [
+
+                    ],
+                    "startTimeUnixNano" : "1800000000000000000",
+                    "timeUnixNano" : "1800000001000000000"
+                  }
+                ]
+              },
+              "name" : "app.connections"
+            },
+            {
+              "exponentialHistogram" : {
+                "aggregationTemporality" : 1,
+                "dataPoints" : [
+                  {
+                    "attributes" : [
+
+                    ],
+                    "count" : "3",
+                    "max" : 120,
+                    "min" : 0,
+                    "positive" : {
+                      "bucketCounts" : [
+                        "1",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "0",
+                        "1"
+                      ],
+                      "offset" : 28
+                    },
+                    "scale" : 4,
+                    "startTimeUnixNano" : "1800000000000000000",
+                    "sum" : 123.5,
+                    "timeUnixNano" : "1800000001000000000",
+                    "zeroCount" : "1"
+                  }
+                ]
+              },
+              "name" : "app.first_token.duration",
+              "unit" : "ms"
+            },
+            {
+              "name" : "app.reconnects",
+              "sum" : {
+                "aggregationTemporality" : 1,
+                "dataPoints" : [
+                  {
+                    "asDouble" : 2,
+                    "attributes" : [
+                      {
+                        "key" : "reason",
+                        "value" : {
+                          "stringValue" : "network"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano" : "1800000000000000000",
+                    "timeUnixNano" : "1800000001000000000"
+                  }
+                ],
+                "isMonotonic" : true
+              },
+              "unit" : "{reconnect}"
+            }
+          ],
+          "scope" : {
+            "name" : "framebriar.swift",
+            "version" : "0.1.0"
+          }
+        }
+      ]
+    }
+  ]
+}

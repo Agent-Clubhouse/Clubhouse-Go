@@ -48,14 +48,15 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
     let gameID: String
     let buildSHA: String?
     let capturedAt: Date
-    let sessionID: String
+    public let sessionID: String
 
     public init(configuration: Configuration, notes: String, reviewedScreenshotPNG: Data? = nil,
-                id: UUID = UUID(), capturedAt: Date = Date(), incident: FeedbackIncident? = nil) throws {
+                id: UUID = UUID(), capturedAt: Date = Date(), incident: FeedbackIncident? = nil,
+                sessionID: String = FramebriarSession.id) throws {
         try incident?.validate()
         guard incident?.id != id.uuidString.lowercased() else { throw FramebriarError.invalidInput }
         guard matches(id.uuidString, "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89aAbB][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"),
-              notes.utf16.count <= 2000 else { throw FramebriarError.invalidInput }
+              notes.utf16.count <= 2000, matches(sessionID, "^[a-zA-Z0-9_-]{1,64}$") else { throw FramebriarError.invalidInput }
         if let png = reviewedScreenshotPNG {
             guard png.count <= 8 * 1024 * 1024, png.starts(with: [137,80,78,71,13,10,26,10]) else { throw FramebriarError.invalidInput }
         }
@@ -64,7 +65,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
         self.incident = incident
         self.id = id; self.notes = clean; screenshotPNG = reviewedScreenshotPNG
         gameID = configuration.gameID; buildSHA = configuration.buildSHA
-        self.capturedAt = capturedAt; sessionID = UUID().uuidString
+        self.capturedAt = capturedAt; self.sessionID = sessionID
     }
 
     func wire() throws -> Data {
@@ -85,7 +86,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
     func validate(for configuration: Configuration) throws {
         guard gameID == configuration.gameID else { throw FramebriarError.invalidInput }
         _ = try ReviewedFeedback(configuration: Configuration(gameID: gameID, buildSHA: buildSHA), notes: notes,
-                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt, incident: incident)
+                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt, incident: incident, sessionID: sessionID)
         guard notes == redact(notes), matches(sessionID, "^[a-zA-Z0-9_-]{1,64}$"), capturedAt.timeIntervalSince1970.isFinite else { throw FramebriarError.invalidInput }
         _ = try wire()
     }

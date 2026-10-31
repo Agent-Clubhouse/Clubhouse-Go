@@ -32,7 +32,7 @@ class ChangesTests(unittest.TestCase):
         return dict(line.split("=") for line in out.getvalue().split())
 
     def test_docs_only_runs_nothing(self):
-        self.assertEqual(self.run_main(["README.md", "docs/testing.md", "Vendor/Framebriar/README.md"]),
+        self.assertEqual(self.run_main(["README.md", "docs/testing.md"]),
                          {"swift": "false", "app": "false"})
 
     def test_scheduled_workflow_files_run_nothing(self):
@@ -49,6 +49,15 @@ class ChangesTests(unittest.TestCase):
         self.assertEqual(self.run_main(["coverage-baseline.json", "scripts/coverage.sh",
                                         "scripts/sync-annex-fixtures.sh", "Tests/Fixtures/AnnexContract/pty.json"]),
                          {"swift": "true", "app": "false"})
+
+    def test_any_vendored_framebriar_change_runs_the_vendor_check(self):
+        # The SwiftPM lane runs scripts/verify-framebriar-vendor.sh, so even a README edit must reach it.
+        for path in ["Vendor/Framebriar/README.md", "Vendor/Framebriar/SOURCE.json", "Vendor/Framebriar/.gitignore",
+                     "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/otlp-logs.json",
+                     "scripts/verify-framebriar-vendor.sh"]:
+            self.assertEqual(self.run_main([path]), {"swift": "true", "app": "false"}, path)
+        for path in ["Vendor/Framebriar/Sources/Framebriar/Telemetry.swift", "Vendor/Framebriar/Package.swift"]:
+            self.assertEqual(self.run_main([path]), {"swift": "true", "app": "true"}, path)
 
     def test_app_and_build_inputs_run_everything(self):
         for path in ["Annex/Annex/Companion/Domain/X.swift", "Annex/AnnexUITests/Y.swift",

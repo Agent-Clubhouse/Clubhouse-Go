@@ -2,7 +2,7 @@
 """Decide which CI lanes a change needs, from the changed paths on stdin.
 
 Prints `swift=true|false` and `app=true|false` for $GITHUB_OUTPUT:
-  swift  the SwiftPM lane (`swift test` for the transport and Framebriar packages)
+  swift  the SwiftPM lane (`swift test` for the transport and Framebriar packages, vendor check)
   app    the Xcode build, the Release build and the UI shards
 
 A path is classified by the first rule that matches; a path no rule names runs
@@ -19,6 +19,11 @@ SWIFT = "swift"  # `swift test` only
 APP = "app"  # everything
 
 RULES = [
+    # Any vendored Framebriar change runs the SwiftPM lane, which checks it against SOURCE.json;
+    # its sources and manifest also build into the app.
+    ("Vendor/Framebriar/Sources/*", APP),
+    ("Vendor/Framebriar/Package.swift", APP),
+    ("Vendor/Framebriar/*", SWIFT),
     ("*.md", DOCS),
     ("docs/*", DOCS),
     ("LICENSE*", DOCS),
@@ -31,11 +36,11 @@ RULES = [
     ("scripts/e2e-live*", DOCS),
     # SwiftPM-only test targets: the app's Xcode project never builds them.
     ("Tests/*", SWIFT),
-    ("Vendor/Framebriar/Tests/*", SWIFT),
     (".nvmrc", SWIFT),
     ("coverage-baseline.json", SWIFT),
     ("scripts/coverage.sh", SWIFT),
     ("scripts/sync-annex-fixtures.sh", SWIFT),
+    ("scripts/verify-framebriar-vendor.sh", SWIFT),
 ]
 LANES = {DOCS: set(), SWIFT: {"swift"}, APP: {"swift", "app"}}
 

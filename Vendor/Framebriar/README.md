@@ -1,6 +1,6 @@
 # Framebriar for iOS
 
-Native Swift 6.2 package, iOS 17+ (core also builds on macOS 14+). `Framebriar` contains the client, protocol, transport and storage; `FramebriarUI` is an optional SwiftUI enrollment form and iOS screenshot review form. There are no third-party dependencies or telemetry hooks.
+Native Swift 6.2 package, iOS 17+ (core also builds on macOS 14+). `Framebriar` contains the client, protocol, transport and storage; `FramebriarUI` is an optional SwiftUI enrollment form and iOS screenshot review form. There are no third-party dependencies. Telemetry is optional: `Telemetry` sends enrolled-user traces, logs and metrics (see [Telemetry](#telemetry)).
 
 This adapter follows the existing service and the optional incident v1 contract merged in PR #11: `src/access.mjs`, `src/access-http.mjs`, `src/protocol.mjs`, `src/service.mjs`, and the browser's `playtest-access.mjs` / `submit-feedback.mjs`. It does not introduce server endpoints. Source changes here do not deploy or enable the issuer.
 
@@ -56,7 +56,7 @@ let reviewed = try ReviewedFeedback(configuration: config,
 let reportID = try await client.enqueue(reviewed)
 ```
 
-Without optional reviewed incident references, each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp and random report/session identifiers. `seed` is null and `breadcrumbs` is empty. No background capture, prompts, conversations, agent output, logs, telemetry, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
+Without optional reviewed incident references, each report contains only the sanitized notes, optional PNG, configured game/build, fixed `scene=user-feedback`, `platform=ios`, `input=touch`, current timestamp, a random report ID and the per-run session ID `FramebriarSession.id` (shared with telemetry). `seed` is null and `breadcrumbs` is empty. No background capture, prompts, conversations, agent output, logs, owner tokens, transport credentials, email addresses or device identifiers are collected. The SDK has no owner/master-token API.
 
 ## Enrollment and transport
 
@@ -82,7 +82,7 @@ Idempotency is bounded by the server's retention window. Retry the same immutabl
 
 ```sh
 swift test --package-path adapters/swift
-node --test tests/swift-wire-contract.test.mjs
+node --test tests/swift-wire-contract.test.mjs tests/swift-telemetry-contract.test.mjs
 npm run check && npm test
 python3 scripts/native-pin.py --check
 ```
@@ -138,3 +138,90 @@ let model = FeedbackModel(client: client, incidentProvider: {
 `Client` holds incident-bearing feedback until the current redeem/refresh response advertises numeric `feedbackCorrelationVersion: 1`. `ClientStatus.correlationWaiting` exposes that hold. Capability is not persisted and is cleared on pause, token failure, disconnect and restart; ordinary reports continue to work against older services. A refresh can remove support and must hold reports again. No incident is stripped to force delivery. Queue retention remains until delivered or explicitly cleared.
 
 The service change must be separately deployed before incident feedback can upload. Merging SDK source or changing a vendor pin does not deploy the service or enable telemetry. There is no published Swift release; pin the entire `adapters/swift` directory to an immutable upstream commit and verify file hashes. Hosted CI tests the core/optional UI package on macOS and compiles the optional iOS UI without signing.
+
+## Telemetry
+
+`Telemetry` is an optional, enrollment-gated emitter for traces (spans with events), logs and delta metrics (counters, gauges and exponential histograms). It has no dependencies and keeps everything in memory only: nothing is written to disk or retried after a relaunch.
+
+**Transport.** Standard OTLP/HTTP JSON goes to the enrollment route `POST {endpoint}/v1/otlp/v1/{traces,logs,metrics}` with `Authorization: Bearer <access token>`, as one request per signal present in a batch. The gateway (`src/telemetry.mjs`) also accepts the browser/Node `/v1/telemetry` envelope. This route was chosen because on it the gateway:
+- reads `service.version` as a semver such as `1.4.0+57`, whereas the envelope route only takes a commit SHA and otherwise stamps `unknown`;
+- reads the resource `session.id`;
+- matches desktop Clubhouse (`framebriar.source = otlp-enrollment`);
+- needs no server change or deploy.
+
+`tests/swift-telemetry-contract.test.mjs` replays the Swift output through the real handler and checks that nothing is dropped.
+
+**Access.** `Client.telemetryToken(refresh:)` supplies the current one-hour access token. It returns nil when not enrolled, paused, expired or revoked, and never persists or logs the token. `Client.enrollmentSignal` is a credential-free, thread-safe enrollment view. The emitter:
+- records nothing while not enrolled (every call is a no-op);
+- forgets its queue, metric series and excerpt ring the moment enrollment is cleared (`disconnect()`), revoked (refresh 401/403) or expires;
+- stops on a 403 until the user enrolls again.
+
+**Batching and status handling:**
+- **Flush triggers:** every 60 s, at 200 items or 64 KiB, on `flush()`, and when the app enters the background or terminates.
+- **Bounds:** each batch is at most 248 KiB. The memory queue is 1 MiB and drops the oldest items first. Each item is at most 32 KiB.
+- **Responses:**
+  - 2xx: done.
+  - 400 / other 4xx: drop the batch.
+  - 401: refresh once and retry. If no token is available (paused/offline), keep the batch.
+  - 403: stop and clear.
+  - 413: split the batch in half, or drop a single item.
+  - 429: honour `Retry-After` (default 60 s, at most 1 h).
+  - 408 / 5xx / network: exponential backoff from 5 s up to 10 min, with jitter.
+- **No session byte cap:** volume is bounded by the gateway's per-player and per-app quotas.
+
+**Background flush.** On `UIApplication.didEnterBackgroundNotification` / `willTerminateNotification`, the emitter starts a `beginBackgroundTask` and drains up to four batches. The host usually pauses `Client` at the same moment, so this flush reuses the last access token obtained in this process (memory only). If that token is rejected, the data stays queued for the next foreground. Pass `observeAppLifecycle: false` and call `flushForBackground()` yourself if you prefer.
+
+**Correlation** ([docs/correlation.md](../../docs/correlation.md)):
+- **One session ID:** `FramebriarSession.id` (a random lowercase UUID per process) is both the report `sessionId` and the resource `session.id`.
+- **Submit marker:** `feedbackSubmitted(reportID:trace:includeDiagnostics:)` runs after `Client.enqueue` commits. It emits the `feedback.submitted` log with `feedback.report.id` and the incident's first trace/span. With consent, it also re-sends the last 5 minutes of spans and logs not already delivered (at most 200 each), tagged `feedback.excerpt=true`, then flushes.
+- **FeedbackModel:** `FeedbackModel(client:telemetry:incidentProvider:)` does this for you and shows the "Include recent app diagnostics" toggle.
+- **Excerpt-only mode:** `mode: .excerptOnly` sends nothing until a report is submitted, and metrics are off.
+
+**Incident buffers.** A host that already records spans locally (Clubhouse Go's incident ring) exports them with `record(RecordedSpan)`, which keeps the span's events, status, kind and parent. `recentTraces()` returns up to eight recent trace references from the SDK's own ring for a `FeedbackIncident` snapshot.
+
+```swift
+let telemetry = try Telemetry(client: client, configuration: config,
+    appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+    appBuild: Bundle.main.infoDictionary?["CFBundleVersion"] as? String,
+    commonAttributes: ["app.telemetry.schema_version": 1, "app.platform": "ios"])
+let feedback = FeedbackModel(client: client, telemetry: telemetry, incidentProvider: { ... })
+
+telemetry.log(.info, "app.session.start")
+try await telemetry.withSpan("app.flow", attributes: ["app.flow.name": .enumeration(Flow.pair)]) { span in
+    span.addEvent("found", ["discovered_count": 2])
+    try await pair()                     // nested spans and logs are parented automatically
+}
+telemetry.counter("app.reconnects", unit: "{reconnect}").add(1, ["error.type": .enumeration(failure)])
+telemetry.histogram("app.first_token.duration", unit: "ms").record(ms)
+telemetry.recordError(class: "decode_failed", error)  // type name only, never the message
+```
+
+**Attributes.** Attributes are typed (`TelemetryValue`: string, int, double, bool; prefer `.enumeration(_:)` for strings). Bounds: 32 per item, keys up to 128 characters, strings up to 1 KiB. Keys that look secret (token, auth, password, email, ...) and `framebriar.*` keys are dropped. Token timings and counts (`firstTokenMs`, `tokens.count`) are kept. Strings are scrubbed for URLs, emails, credentials and home-directory paths. Follow the `app.*` conventions in [docs/app-telemetry-v1.md](../../docs/app-telemetry-v1.md), and never pass prompts, file paths, repo/host names or user text.
+
+**MetricKit (iOS).** `MetricKitDiagnostics(telemetry:).start()` forwards crash, hang, CPU-exception and disk-write-exception diagnostics as `app.error` logs. They carry closed classes plus numbers only (Mach exception type/code, signal, durations), with no call stacks or termination strings. iOS delivers them on a later launch, and they are discarded if not enrolled at that point.
+
+### Clubhouse Go integration recipe
+
+1. **Construct once** in `CompanionAppRoot`, next to the existing `Client`/`FeedbackModel` (`CompanionFeedback.swift`), using the same `Configuration` (`clubhouse-annex`). Pass `appVersion`/`appBuild` from Info.plist, and `commonAttributes` with `app.telemetry.schema_version` and `app.platform`. Hand it to `FeedbackModel(client:telemetry:incidentProvider:)`. Skip it entirely when `persistsDrafts` is false (test mode).
+2. **Lifecycle:** keep the existing 15 s foreground `tick()`. Background flush is automatic. Log `app.session.start` once at launch, and `app.lifecycle` (`foreground`/`background`) from `scenePhase`, instead of the current zero-work spans.
+3. **Crashes and hangs:** start `MetricKitDiagnostics` at launch.
+4. **Key flows first:**
+   - `app.flow` spans for `pair`, `connect`/`reconnect`, `restore` and `chat_turn`, with `app.outcome`.
+   - Export the `AnnexTelemetry` ring's completed spans through `record(_:)` so their events (`firstToken`, `gap`, `overflow`) are kept. Map `AnnexDiagnosticFailure` to `error.type`, `statusCode` to `http.response.status_code`, and namespace the rest as `annex.*`.
+   - Don't export successful `ping` spans; count them instead.
+5. **Errors:** `recordError(class:)` with `AnnexDiagnosticFailure` raw values.
+6. **Settings copy:** the SDK `EnrollmentView` shows the required disclosure when `telemetry` is set. If the app has its own enrollment text, add "Connecting also shares performance and diagnostic data with the developer."
+7. **Owner side (not code):** the registry entry must not have telemetry off (`admin games set clubhouse-annex --telemetry on` if it does), with Mason's go-ahead. Until then the gateway answers 403, and the emitter stops quietly until the next enrollment.
+
+### Privacy manifest (PrivacyInfo.xcprivacy)
+
+Apps that turn on `Telemetry` must declare, under `NSPrivacyCollectedDataTypes`:
+- `NSPrivacyCollectedDataTypePerformanceData` and `NSPrivacyCollectedDataTypeCrashData` (crash data only if using MetricKit);
+- `NSPrivacyCollectedDataTypeOtherDiagnosticData`, which also covers incident references on feedback.
+
+For each one:
+- **Purpose:** `NSPrivacyCollectedDataTypePurposeAppFunctionality` (and Analytics if used for product decisions).
+- **Linked:** `NSPrivacyCollectedDataTypeLinked = false`. The server stamps a pseudonymous per-enrollment player ID, and no account is involved.
+- **Tracking:** `NSPrivacyCollectedDataTypeTracking = false`.
+
+The SDK itself uses no required-reason APIs. The App Store privacy label should match.

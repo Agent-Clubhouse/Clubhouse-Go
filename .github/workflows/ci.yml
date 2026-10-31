@@ -19,7 +19,7 @@ env:
   PROJECT: Annex/Annex.xcodeproj
   SCHEME: ClubhouseGo
 
-# changes ─┬─ swift-packages                       (fast lane: swift test, coverage ratchet)
+# changes ─┬─ swift-packages                       (fast lane: vendor check, swift test, coverage ratchet)
 #          ├─ build ── ui-tests × N shards          (build once, test-without-building)
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
@@ -64,6 +64,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      # Seconds, so first: Vendor/Framebriar must be framebriar's adapters/swift, unchanged.
+      - name: Verify vendored Framebriar against SOURCE.json
+        run: scripts/verify-framebriar-vendor.sh
 
       # PinnedIOTests starts a Node TLS fixture through /usr/bin/env.
       - name: Set up Node for transport TLS tests
