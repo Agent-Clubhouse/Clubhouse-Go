@@ -14,7 +14,7 @@ class ReliableUITestCase: XCTestCase {
 
     /// Launches the app in portrait with `--ui-testing-fast`, relaunching if the runner times out launching or
     /// terminating it.
-    func launchApp(_ arguments: [String], allowance: TimeInterval = 240, attempts: Int = 3,
+    func launchApp(_ arguments: [String], environment: [String: String] = [:], allowance: TimeInterval = 240, attempts: Int = 3,
                    file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
         continueAfterFailure = false
         executionTimeAllowance = allowance
@@ -29,6 +29,7 @@ class ReliableUITestCase: XCTestCase {
             _ = app.wait(for: .notRunning, timeout: 15)
         }
         app.launchArguments = arguments + ["--ui-testing-fast"]
+        app.launchEnvironment.merge(environment) { _, new in new }
         let options = XCTExpectedFailure.Options()
         options.isStrict = false
         options.issueMatcher = { issue in

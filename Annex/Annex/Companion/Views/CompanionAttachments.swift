@@ -11,8 +11,17 @@ struct CompanionAttachButton: View {
     @State private var processing = false
 
     /// UI tests can't drive the system picker: a preview launch with `--companion-sample-images` adds a generated image per tap.
-    static let usesSampleImages = ProcessInfo.processInfo.arguments.contains("--companion-preview")
-        && ProcessInfo.processInfo.arguments.contains("--companion-sample-images")
+    /// So does a DEBUG launch with the live suite's test invitation, so a real desktop receives the image.
+    static let usesSampleImages = ProcessInfo.processInfo.arguments.contains("--companion-sample-images")
+        && (ProcessInfo.processInfo.arguments.contains("--companion-preview") || isLiveTestLaunch)
+
+    private static var isLiveTestLaunch: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
+        #else
+        false
+        #endif
+    }
 
     private var remaining: Int { max(0, limits.maxCount - (store.attachmentDrafts[target]?.count ?? 0)) }
 
