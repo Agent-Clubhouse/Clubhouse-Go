@@ -259,7 +259,7 @@ struct CompanionConversationView: View {
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 if Self.isAtLatest(new) {
                     if !followLatest { followLatest = true }
-                } else if followLatest && Self.scrolledAway(from: old, to: new) {
+                } else if followLatest && Self.scrolledToTop(from: old, to: new) {
                     // Tapping the status bar scrolls to the top with no scroll phase at all (#188).
                     followLatest = false
                 }
@@ -315,16 +315,14 @@ struct CompanionConversationView: View {
     private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
 
     private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
-        distanceFromLatest(geometry) <= 40
+        geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
     }
-    private static func distanceFromLatest(_ geometry: ScrollGeometry) -> CGFloat {
-        geometry.contentSize.height + geometry.contentInsets.bottom - geometry.contentOffset.y - geometry.containerSize.height
-    }
-    /// The offset moved away from the latest while the content, the screen and the insets stayed the same: a scroll, not
-    /// rows, the keyboard or the composer resizing. Moving toward the latest, as Latest does, doesn't count.
-    private static func scrolledAway(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
+    /// The offset moved up to the very top while the content, the screen and the insets stayed the same: the status bar's
+    /// scroll to the top, which following the latest never does. Rows loading and streaming change the content's size;
+    /// the keyboard and the composer change the screen or the insets.
+    private static func scrolledToTop(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
         old.contentSize == new.contentSize && old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
-            && distanceFromLatest(new) > distanceFromLatest(old) + 1
+            && new.contentOffset.y < old.contentOffset.y && new.contentOffset.y <= -new.contentInsets.top + 1
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
