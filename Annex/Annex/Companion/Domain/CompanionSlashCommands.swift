@@ -81,4 +81,22 @@ nonisolated enum CompanionSlashMenu {
     static func returnPicks(_ token: CompanionSlashToken, highlighted: CompanionSlashCommand) -> Bool {
         !token.query.isEmpty && token.query != highlighted.name
     }
+
+    /// Return as the text view reports it: `new` is `old` with one newline typed into a `/word` the menu offers. When
+    /// Return picks, the newline is dropped and the highlighted command picked instead; otherwise nil, and it stays.
+    /// The caret is taken from where the newline went, since the text view may have moved it past the newline already.
+    static func pickOnReturn(old: String, new: String, commands: [CompanionSlashCommand], highlighted: Int,
+                             dismissedAt: Int?) -> (text: String, caret: Int)? {
+        let before = Array(old), after = Array(new)
+        guard after.count == before.count + 1 else { return nil }
+        var at = 0
+        while at < before.count, before[at] == after[at] { at += 1 }
+        guard after[at] == "\n", before[at...] == after[(at + 1)...],
+              let token = token(in: old, caret: at), token.start != dismissedAt else { return nil }
+        let offered = matches(commands, text: old, token: token)
+        guard !offered.isEmpty else { return nil }
+        let command = offered[min(max(highlighted, 0), offered.count - 1)]
+        guard returnPicks(token, highlighted: command) else { return nil }
+        return pick(command, text: old, token: token)
+    }
 }

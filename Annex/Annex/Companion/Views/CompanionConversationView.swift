@@ -10,6 +10,11 @@ struct CompanionConversationView: View {
     @State private var showArchive = false
     @State private var showRefreshing = false
     @FocusState private var composerFocused: Bool
+    /// The composer's caret, for the `/` menu.
+    @State private var composerSelection: TextSelection?
+    @State private var slashHighlight = 0
+    /// Where the slash was when the menu was dismissed; it stays closed for that word.
+    @State private var slashDismissedAt: Int?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
@@ -24,6 +29,24 @@ struct CompanionConversationView: View {
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
     private var draft: Binding<String> {
         Binding(get: { store.drafts[target] ?? "" }, set: { store.drafts[target] = $0 })
+    }
+    /// The draft as the composer edits it. Return while the `/` menu offers a started name picks it, as on the desktop.
+    private var composerText: Binding<String> {
+        Binding(get: { draft.wrappedValue }, set: { text in
+            if composerFocused, let commands = agent.slashCommands,
+               let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
+                                                             highlighted: slashHighlight, dismissedAt: slashDismissedAt) {
+                // On the next turn: a value changed while the text view reports its own edit doesn't reach it.
+                draft.wrappedValue = text
+                Task {
+                    guard draft.wrappedValue == text else { return }
+                    draft.wrappedValue = picked.text
+                    composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
+                }
+                return
+            }
+            draft.wrappedValue = text
+        })
     }
     private var canRespond: Bool { store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target) }
     private var attachmentLimits: CompanionAttachmentLimits? { store.attachmentLimits(for: target) }
@@ -235,6 +258,8 @@ struct CompanionConversationView: View {
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
+            // A tap outside the composer closes its / menu.
+            .simultaneousGesture(TapGesture().onEnded { dismissSlashMenu() }, isEnabled: !slashMatches.isEmpty)
             .overlay(alignment: .bottomTrailing) {
                 if !followLatest && !conversation.items.isEmpty {
                     Button {
@@ -350,6 +375,9 @@ struct CompanionConversationView: View {
                                          setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } })
                     .equatable()
             }
+            if !slashMatches.isEmpty {
+                CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {
@@ -364,7 +392,7 @@ struct CompanionConversationView: View {
                     if let limits = attachmentLimits {
                         CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, 8).frame(height: composerRowHeight)
                     }
-                    TextField(composerPlaceholder, text: draft, axis: .vertical)
+                    TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
                         .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
                         // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
@@ -379,6 +407,7 @@ struct CompanionConversationView: View {
                         // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                         // accessibility modifiers so the hook doesn't appear as a second composer element.
                         .background(CompanionComposerPasteHook(handle: pasteImages).accessibilityHidden(true))
+                        .onKeyPress(keys: [.upArrow, .downArrow, .tab, .escape], phases: .down, action: slashKey)
                     Button {
                         Task { await store.sendDraft(to: target) }
                     } label: {
@@ -406,6 +435,8 @@ struct CompanionConversationView: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+        .onChange(of: slashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
+        .onChange(of: slashMatches.map(\.name)) { slashHighlight = 0 }
         // Quick refreshes finish before the indicator would appear, so they don't flash.
         .task(id: conversation.isLoading) {
             guard conversation.isLoading else { showRefreshing = false; return }
@@ -422,6 +453,60 @@ struct CompanionConversationView: View {
         store.addAttachments(batch.images, to: target)
         if let problem = batch.problem { store.reportAttachmentProblem(problem, target: target) }
         return batch.tookItem
+    }
+
+    /// The `/word` at the caret while the composer is focused and the session has commands.
+    private var slashToken: CompanionSlashToken? { composerFocused ? caretSlashToken : nil }
+
+    /// The `/word` at the caret, focused or not, so a tap on the menu that ends editing still picks. Without a known
+    /// caret (before the first edit), the end of the draft.
+    private var caretSlashToken: CompanionSlashToken? {
+        guard let commands = agent.slashCommands, !commands.isEmpty else { return nil }
+        let text = draft.wrappedValue
+        var caret = text.count
+        if case .selection(let range)? = composerSelection?.indices {
+            guard range.isEmpty, range.lowerBound <= text.endIndex, let index = String.Index(range.lowerBound, within: text) else { return nil }
+            caret = text.distance(from: text.startIndex, to: index)
+        } else if composerSelection != nil { return nil }
+        return CompanionSlashMenu.token(in: text, caret: caret)
+    }
+
+    private var slashMatches: [CompanionSlashCommand] {
+        guard let token = slashToken, token.start != slashDismissedAt, let commands = agent.slashCommands else { return [] }
+        return CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token)
+    }
+
+    /// Replaces the word with `/name ` and leaves the caret after it.
+    private func pickSlashCommand(_ command: CompanionSlashCommand) {
+        guard let token = caretSlashToken else { return }
+        let picked = CompanionSlashMenu.pick(command, text: draft.wrappedValue, token: token)
+        draft.wrappedValue = picked.text
+        composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
+        composerFocused = true
+    }
+
+    /// Closes the menu for the word being typed. Returns whether a menu was open.
+    @discardableResult private func dismissSlashMenu() -> Bool {
+        guard !slashMatches.isEmpty, let token = slashToken else { return false }
+        slashDismissedAt = token.start
+        return true
+    }
+
+    /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes. Return reaches the
+    /// text view as a newline, which `composerText` turns into a pick. Without a menu these keys work as usual.
+    private func slashKey(_ press: KeyPress) -> KeyPress.Result {
+        let matches = slashMatches
+        guard !matches.isEmpty else { return .ignored }
+        let highlighted = min(slashHighlight, matches.count - 1)
+        switch press.key {
+        case .downArrow: slashHighlight = (highlighted + 1) % matches.count
+        case .upArrow: slashHighlight = (highlighted - 1 + matches.count) % matches.count
+        // Picked on the next turn: the text view is still handling the key and would put its own text back.
+        case .tab: Task { pickSlashCommand(matches[highlighted]) }
+        case .escape: dismissSlashMenu()
+        default: return .ignored
+        }
+        return .handled
     }
 
     /// The send button with its padding, or one line of text with the field's padding if that is taller.
@@ -485,7 +570,8 @@ struct CompanionConversationView: View {
         if dynamicTypeSize.isAccessibilitySize {
             return agent.status == .working ? (steers ? "Steer…" : "Queue…") : "Message…"
         }
-        return agent.status == .working ? (steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…") : "Message \(agent.name)…"
+        if agent.status == .working { return steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…" }
+        return agent.slashCommands == nil ? "Message \(agent.name)…" : "Message \(agent.name)… / for commands"
     }
 }
 

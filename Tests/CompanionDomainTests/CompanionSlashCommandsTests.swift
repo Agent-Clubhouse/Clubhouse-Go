@@ -98,6 +98,26 @@ struct CompanionSlashPickTests {
         #expect(CompanionSlashMenu.returnPicks(.init(start: 0, end: 3, query: "co"), highlighted: compact))
         #expect(!CompanionSlashMenu.returnPicks(.init(start: 0, end: 8, query: "compact"), highlighted: compact))
     }
+
+    @Test func returnTypedAsANewlinePicksOnlyWhenReturnPicks() {
+        func onReturn(_ old: String, _ new: String, highlighted: Int = 0, dismissedAt: Int? = nil) -> String? {
+            CompanionSlashMenu.pickOnReturn(old: old, new: new, commands: commands, highlighted: highlighted, dismissedAt: dismissedAt).map {
+                var shown = $0.text; shown.insert("|", at: shown.index(shown.startIndex, offsetBy: $0.caret)); return shown
+            }
+        }
+        #expect(onReturn("/co", "/co\n") == "/compact |")
+        #expect(onReturn("/c", "/c\n", highlighted: 1) == "/clear |", "The highlighted one")
+        #expect(onReturn("and /co", "and /co\n") == "and /Code-review |", "Mid-message, start-only commands aren't offered")
+        // The caret mid-word: the newline lands at the caret and the whole word is replaced.
+        #expect(onReturn("/cmp", "/c\nmp") == "/compact |")
+        #expect(onReturn("/", "/\n") == nil, "No name started: a new line")
+        #expect(onReturn("/compact", "/compact\n") == nil, "Already typed in full: a new line")
+        #expect(onReturn("/co", "/co\n", dismissedAt: 0) == nil, "Dismissed for this word")
+        #expect(onReturn("/zz", "/zz\n") == nil, "Nothing offered")
+        #expect(onReturn("/co", "/cox") == nil, "Other edits type as usual")
+        #expect(onReturn("/co", "/co\n\n") == nil)
+        #expect(onReturn("hello", "hello\n") == nil)
+    }
 }
 
 struct CompanionSlashCommandDecodingTests {

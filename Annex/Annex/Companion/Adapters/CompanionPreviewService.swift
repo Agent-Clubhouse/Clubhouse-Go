@@ -69,7 +69,7 @@ import Foundation
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
                    turnStartedAt: Date? = nil, contextUsage: CompanionContextUsage? = nil, executionMode: String? = nil,
                    branch: String? = nil, orchestrator: String? = nil, session: CompanionSessionFacts? = nil,
-                   chatControls: CompanionChatControls? = nil, exitCode: Int? = nil) -> CompanionAgent {
+                   chatControls: CompanionChatControls? = nil, slashCommands: [CompanionSlashCommand]? = nil, exitCode: Int? = nil) -> CompanionAgent {
             let capabilities: CompanionCapabilities = switch status {
             case .sleeping: [.chat, .wake]
             case .completed: []
@@ -81,6 +81,7 @@ import Foundation
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
             agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
             agent.chatControls = chatControls
+            agent.slashCommands = slashCommands
             // Sleeping preview agents have run before, so they offer Wake & Resume and Start New Session.
             if status == .sleeping { agent.hasSession = true }
             // A finished quick agent has exited, so it shows in the project page's "Finished, waiting on you".
@@ -105,7 +106,7 @@ import Foundation
                     agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .completed, minutesAgo: 180, quick: true, exitCode: 1),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
                           contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
-                          session: riverSession, chatControls: chatControls)
+                          session: riverSession, chatControls: chatControls, slashCommands: slashCommands)
                 ], color: "indigo"),
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
@@ -214,6 +215,14 @@ import Foundation
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     /// River's composer controls, matching its session: every level is live, and model and effort changes apply from the next message.
+    /// River's `/` menu: the CLI's own commands (start only), a skill and a custom command.
+    static let slashCommands: [CompanionSlashCommand] = [
+        .init(name: "compact", description: "Clear conversation history but keep a summary in context", startOnly: true),
+        .init(name: "clear", description: "Clear conversation history and free up context", startOnly: true),
+        .init(name: "review", description: "Review a pull request", inputHint: "<pr>"),
+        .init(name: "commit", description: "Commit the staged changes with a good message"),
+        .init(name: "frontend-design", description: "Create distinctive, production-grade frontend interfaces"),
+    ]
     static let chatControls = CompanionChatControls(
         model: "opus", effort: "high", effortReported: true, level: .autoEdit,
         models: [.init(id: "opus", label: "Opus", description: "Most capable for complex work", costHint: "1x"),
