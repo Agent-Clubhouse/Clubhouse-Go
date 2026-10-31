@@ -35,6 +35,7 @@ import Testing
             case "createOptions": #expect(!caps.supportsAgentCreate)
             case "agentSettings": #expect(!caps.supportsAgentSettings)
             case "chatControls": #expect(!caps.supportsModelSwitch && !caps.supportsLevelSwitch)
+            case "slashCommands": #expect(!caps.supportsSlashCommands)
             case "permissions": #expect(!caps.supportsPersistentApprovals && !caps.supportsFreeAgentMode)
             case "helperRequests": #expect(!caps.supportsHelperRequests)
             case "projectState": #expect(!caps.supportsProjectState)

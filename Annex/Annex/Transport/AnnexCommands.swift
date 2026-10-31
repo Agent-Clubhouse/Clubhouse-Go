@@ -289,6 +289,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let chatControls: Feature?
     public var supportsModelSwitch: Bool { commands.contains("chat.setModel") && (chatControls?.version ?? 0) >= 1 }
     public var supportsLevelSwitch: Bool { commands.contains("chat.setLevel") && (chatControls?.version ?? 0) >= 1 }
+    /// The composer's `/` menu: the chat snapshot's `slashCommands` and `commands_available` events (`slashCommands` v1).
+    public let slashCommands: Feature?
+    public var supportsSlashCommands: Bool { commands.contains("chat.send") && (slashCommands?.version ?? 0) >= 1 }
     /// What a paired phone may do with permissions. Older desktops have no block: one-off approvals only, and no Free Agent Mode.
     public struct Permissions: Decodable, Sendable, Equatable {
         public let version: Int
@@ -370,6 +373,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         projectState = optional(.projectState)
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
+        slashCommands = optional(.slashCommands)
         permissions = optional(.permissions)
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
@@ -377,7 +381,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, permissions, helperRequests, attachments, terminal
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal
     }
 }
 
