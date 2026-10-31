@@ -1,14 +1,17 @@
 # Framebriar integration handoff
 
-The Companion interface uses the complete native SDK from `masra91/framebriar` commit `9a1175e61e0bd5738add9197974c48d3c5caa1e3`, subdirectory `adapters/swift`. This is the head of upstream PR masra91/framebriar#15 (shake screenshot), pinned before that PR merged; re-pin to the merge commit if its SHA differs. All 18 upstream files are vendored unchanged; `Vendor/Framebriar/SOURCE.json` records their SHA-256 hashes. There are no local SDK patches. The package remains local because the upstream repository root is not a Swift package.
+The Companion interface uses the complete native SDK from `masra91/framebriar` release tag **`v0.5.0`**, commit `4905102899ee20db0c436716f4783f6ba9827c5d`, subdirectory `adapters/swift`. All 26 upstream files are vendored unchanged; `Vendor/Framebriar/SOURCE.json` records the tag, commit and every file's SHA-256. There are no local SDK patches. The package remains local because the upstream repository root is not a Swift package.
+
+`scripts/verify-framebriar-vendor.sh` checks every vendored file against SOURCE.json and reports changed, missing and added files; CI's Swift packages lane runs it on any change under `Vendor/Framebriar`. To update, re-vendor the whole directory from a tag: `scripts/verify-framebriar-vendor.sh --refresh <tag>` (add `--from <framebriar checkout>` to use a local clone).
 
 ## What changed
 
 - `Vendor/Framebriar`: pinned, independent local Swift Package with `Framebriar` core and optional `FramebriarUI`; see its README for wire/storage/privacy details.
 - `Companion/Views/CompanionFeedback.swift`: composition adapter and Settings rows. It has no reference to prompts, agent history, transport credentials, trust registry, or logs.
-- `Companion/Views/CompanionAppRoot.swift`: owns one feedback model for the app lifetime, drives foreground-only delivery, and shows expiry/access/offline notices outside Settings. Settings exposes invitation redemption, enrollment clear, queue count/capacity, retry/clear, and explicit feedback review.
+- `Companion/Views/CompanionAppRoot.swift`: owns one feedback model and one telemetry bridge for the app lifetime, drives foreground-only delivery, and shows expiry/access/offline notices outside Settings. Settings exposes invitation redemption, enrollment clear, queue count/capacity, retry/clear, and explicit feedback review.
+- `Companion/Views/CompanionTelemetry.swift`: enrollment-gated Framebriar telemetry (below).
 - `Annex.xcodeproj`: links the two local package products. Signing and network configuration are unchanged.
-- `FramebriarIntegrationTests`: checks the registered mobile scope and verifies, using memory stores and mock transport, that foreground activation does not enroll or send requests before explicit enrollment.
+- `FramebriarIntegrationTests`: checks the registered mobile scope and verifies, using memory stores and mock transport, that foreground activation does not enroll or send requests before explicit enrollment. `CompanionTelemetryTests` does the same for telemetry (nothing before enrollment or after disconnect, one session ID, the `feedback.submitted` marker), against a mock service.
 
 `--companion-preview` and nonpersistent test runtime do not start feedback.
 
@@ -24,13 +27,31 @@ When the user chooses to enroll:
 2. Open Send feedback, type notes and optionally choose an image with the system photo picker, review the image and optional incident references, then Submit reviewed feedback. The SDK captures the screen only on a shake (see below), never in the background. Submission confirms a protected local save; only a matching service receipt confirms delivery.
 3. Incident-bearing reports remain queued until a current access response advertises `feedbackCorrelationVersion: 1`; an older service cannot cause their metadata to be dropped or sent without that capability. Ordinary reports retain their existing delivery behavior.
 
-Live enrollment/delivery and any service deployment remain separate validation. This consumer update does not issue invitations, register an app, modify credentials or deploy the service. `FramebriarBuildSHA` is optional and remains omitted.
+Live enrollment/delivery and any service deployment remain separate validation. This consumer update does not issue invitations, register an app, modify credentials or deploy the service.
+
+`FramebriarBuildSHA` in Info.plist expands the `FRAMEBRIAR_BUILD_SHA` build setting. `scripts/testflight.sh` sets it to the archived commit, so TestFlight reports and telemetry carry `buildSha`; local and CI builds leave it empty and send none. `CompanionBuildInfo.buildSHA` accepts only 7–40 hex digits, so an empty or unexpanded value never makes the configuration invalid.
+
+## Telemetry
+
+Framebriar's rule is that enrolling enables telemetry, and Settings says so next to Developer feedback: "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer…". The SDK's `EnrollmentView` shows its own disclosure as well, because the model has telemetry.
+
+`CompanionTelemetry` follows the README's Clubhouse Go recipe:
+
+- One `Telemetry`, built next to the `Client` with the same configuration, `appVersion`/`appBuild` from Info.plist and the common `app.telemetry.schema_version`/`app.platform` attributes, passed to `FeedbackModel(client:telemetry:incidentProvider:)`. None in test mode.
+- Nothing is recorded or sent before enrollment; clearing enrollment stops it and forgets the in-memory queue.
+- The diagnostics instance ID is adopted as `FramebriarSession.id`: one UUID for the report `sessionId`, telemetry `session.id` and incident `phoneInstanceId`.
+- `AnnexTelemetry` spans are captured while enrolled and exported with their events, mapped onto `app.*`; pings are counted, not recorded one by one. `feedback.submitted` follows each saved report. MetricKit crash and hang diagnostics start at launch. The SDK flushes on entering the background.
+
+Mapping, privacy and limits: [docs/opentelemetry.md](docs/opentelemetry.md#framebriar-telemetry-enrolled-users). The App privacy declarations: [docs/testflight.md](docs/testflight.md#app-privacy).
+
+Owner side: the registry entry for `clubhouse-annex` must have telemetry on (Mason's go-ahead); until then the gateway answers 403 and the emitter stops until the next enrollment.
 
 Runtime initialization fails closed on storage/Keychain errors. A protected-data lock may require recreating the runtime after device unlock/app relaunch; it never falls back to plaintext or empties the queue. Default file storage is single-client/process only; do not also initialize it from an extension. No cross-platform migration is attempted.
 
 ## Validation
 
 ```sh
+scripts/verify-framebriar-vendor.sh
 swift test --package-path Vendor/Framebriar
 swift test
 ```

@@ -5,6 +5,8 @@
 - The app version is `MARKETING_VERSION` in the Xcode project. Apple accepts only numbers (`2.0.0`).
 - The build number is the commit count of the archived commit (`git rev-list --count HEAD`), set by
   `scripts/testflight.sh` at archive time. Later commits always get higher build numbers.
+- The archive also sets `FRAMEBRIAR_BUILD_SHA` to the full commit, which Info.plist carries as
+  `FramebriarBuildSHA`, so feedback reports and telemetry from the build carry `buildSha`.
 - Each build sent to Apple comes from a commit with a release tag, following the desktop's convention:
   - A version-bump PR (`chore: bump version to 2.0.0-beta.1 (TestFlight)`).
   - An annotated, signed tag on its merge commit, e.g. `v2.0.0-beta.1`, with the release title as the

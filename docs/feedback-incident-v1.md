@@ -32,4 +32,4 @@ Wire details for deterministic validation: all listed fields except `backendRef`
 
 The capability gate is essential: hold incident-bearing reports for a current supporting session, preserving the reviewed bytes. Do not strip metadata or change report identity to force delivery. Service storage preserves the incident through process/abandonment and deletes it at existing seven-day context expiry. No backend connection or OTLP ingestion changes.
 
-Service implementation is now commit `4cfb097` in PR #11. Shared service-validated full report fixture: `/Users/masonallen/Documents/Codex/2026-10-23/task-4/framebriar-correlation/tests/fixtures/incident-report-v1.json`. No SDK changes were made by the service owner. Hosted CI rerun is pending on this coordinated schema.
+Service implementation is now commit `4cfb097` in PR #11. Shared service-validated full report fixture: framebriar `tests/fixtures/incident-report-v1.json`, vendored unchanged as `Vendor/Framebriar/Tests/FramebriarTests/Fixtures/incident-report-v1.json`. No SDK changes were made by the service owner. Hosted CI rerun is pending on this coordinated schema.
