@@ -72,12 +72,16 @@ function writeFakeClaude(binDir: string): string {
   const wrapper = path.join(binDir, 'fake-wrapper.mjs');
   writeFile(wrapper, `import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 const allowed = JSON.parse(readFileSync(${JSON.stringify(path.join(FIXTURE_DIR, 'fixture-agent-ids.json'))}, 'utf8'));
 if (allowed.includes(process.env.CLUBHOUSE_AGENT_ID) && !process.argv.includes('--version') &&
     process.env.CLUBHOUSE_HOOK_NONCE && /^[0-9]+$/.test(process.env.CLUBHOUSE_MCP_PORT ?? '')) {
   const keys = ['CLUBHOUSE_AGENT_ID', 'CLUBHOUSE_MCP_PORT', 'CLUBHOUSE_HOOK_NONCE'];
   const file = ${JSON.stringify(FIXTURE_DIR)} + '/mcp-' + process.env.CLUBHOUSE_AGENT_ID + '.json';
-  writeFileSync(file + '.pending', JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k]]))), { mode: 0o600 });
+  const credentials = JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k]])));
+  // Keep old fixture nonces until teardown too, so a resume cannot remove them from the redaction set.
+  writeFileSync(file.slice(0, -5) + '-' + randomUUID() + '.json', credentials, { mode: 0o600 });
+  writeFileSync(file + '.pending', credentials, { mode: 0o600 });
   renameSync(file + '.pending', file);
 }
 const child = spawn(process.execPath, [${JSON.stringify(FAKE_CLAUDE)}, ...process.argv.slice(2)], { stdio: 'inherit' });
