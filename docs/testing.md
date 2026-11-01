@@ -70,6 +70,7 @@ Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
 - `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
 - `desktop-sha.txt`, the desktop commit that was tested;
 - `dispatcher-wire.json`, redacted Dispatcher events, snapshots, replay and MCP-delivered message evidence.
+- `desktop-annex.json`, a closed projection of this fixture profile's Annex pairing/REST outcomes and WebSocket admission/close timestamps; raw metadata is excluded. Phone `[live-connect]` records in the xcresult console contain only timestamps, operation names, durations, failure categories and diagnostic event names. These help locate an initial-connection stall without recording invitations, certificates, identities or tokens. Both paths use the artifact redaction step (`python3 scripts/e2e-live/test_redact_logs.py` checks it).
 
 Other environment variables: `DESKTOP_REF`, `DESKTOP_REPO`, `DESKTOP_DIR`, `E2E_SIMULATOR`, `E2E_DERIVED_DATA`, and `E2E_SKIP_DESKTOP_CHECKOUT=1`, which builds `DESKTOP_DIR` as it is checked out.
 

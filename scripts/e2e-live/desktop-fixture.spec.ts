@@ -374,6 +374,33 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     }
     log('stop requested');
   } finally {
+    // Read only this launch's profile. Project Annex diagnostics onto a closed schema: never copy raw metadata
+    // (peer certificates, fingerprints, tokens and request bodies have no place in the nightly artifacts).
+    try {
+      const logDir = await window.evaluate(() => (window as any).clubhouse.log.getPath());
+      const relative = path.relative(fs.realpathSync(userDataDir), fs.realpathSync(logDir));
+      if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Annex logs escaped the fixture profile');
+      const messages = new Set(['WebSocket upgrade accepted', 'WebSocket upgrade rejected — unauthorized',
+        'WebSocket upgrade rejected — invalid origin', 'WebSocket client disconnected', 'Failed to send snapshot on connect']);
+      const records: Record<string, unknown>[] = [];
+      for (const file of fs.readdirSync(logDir).filter((name: string) => /^telemetry-.*\.jsonl$/.test(name))) {
+        for (const line of fs.readFileSync(path.join(logDir, file), 'utf8').split('\n')) {
+          let record: any;
+          try { record = JSON.parse(line); } catch { continue; }
+          if (typeof record.ts !== 'string' || !/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(record.ts)) continue;
+          if (record.t === 'diag' && record.ns === 'core:annex' && messages.has(record.msg)) {
+            records.push({ at: record.ts, event: record.msg,
+              ...(['mtls', 'bearer'].includes(record.meta?.authType) ? { auth: record.meta.authType } : {}),
+              ...(Number.isInteger(record.meta?.code) ? { closeCode: record.meta.code } : {}) });
+          } else if (record.t === 'span' && ['clubhouse.annex.pair', 'clubhouse.annex.rest'].includes(record.name)) {
+            records.push({ at: record.ts, event: record.name,
+              ...(['ok', 'error', 'cancelled'].includes(record.outcome) ? { outcome: record.outcome } : {}),
+              ...(Number.isFinite(record.durationMs) ? { durationMs: record.durationMs } : {}) });
+          }
+        }
+      }
+      writeFile(path.join(FIXTURE_DIR, 'desktop-annex.json'), evidence(records));
+    } catch { log('Annex connection diagnostics unavailable'); }
     observer?.ws.close();
     await electronApp.close().catch(() => {});
   }

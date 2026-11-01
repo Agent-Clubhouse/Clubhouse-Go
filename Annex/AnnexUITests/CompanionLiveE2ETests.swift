@@ -30,7 +30,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     /// Launches the app paired, in memory, with the fixture desktop, and waits for its project.
     private func launchPaired(_ extra: [String] = [], file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
-        let invitation = ["CLUBHOUSE_COMPANION_TEST_INVITATION": env["CLUBHOUSE_COMPANION_TEST_INVITATION"] ?? ""]
+        let invitation = ["CLUBHOUSE_COMPANION_TEST_INVITATION": env["CLUBHOUSE_COMPANION_TEST_INVITATION"] ?? "",
+                          "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
         let launched = launchApp(extra, environment: invitation, allowance: 300, file: file, line: line)
         // An inactive project folds into the idle section.
         let listed = any(launched).matching(NSPredicate(format: "(identifier BEGINSWITH 'open-project-' AND label == %@) OR identifier == 'idle-projects-fold'",
