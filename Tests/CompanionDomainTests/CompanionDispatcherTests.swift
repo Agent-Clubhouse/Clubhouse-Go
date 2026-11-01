@@ -111,8 +111,6 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(CompanionRelay(text: "Just a message") == nil)
         #expect(CompanionRelay(text: "Hi [FROM:Dispatcher] later") == nil, "Only a leading tag counts")
         #expect(CompanionRelay(text: "[TASK:1] [FROM:] x") == nil)
-        #expect(CompanionRelay(text: "plain", fromName: "Atlas") == .init(sender: "Atlas", taskID: nil, body: "plain"), "The desktop's fromName stands alone")
-        #expect(CompanionRelay(text: "[TASK:1] [FROM:x] body", fromName: "Dispatcher")?.sender == "Dispatcher", "and wins over the tag")
     }
 
     @Test func aRelayedMessageIsCaptionedWithItsSenderAndShownWithoutItsTags() {
@@ -127,16 +125,6 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(untagged.sourceLabel == "From another agent" && untagged.displayText == "Do the thing")
         let typed = CompanionMessage(id: "m", role: .user, text: "[TASK:t] [FROM:Dispatcher] x", source: "user")
         #expect(typed.relay == nil && typed.displayText == typed.text, "Only agent messages are relays")
-    }
-
-    @MainActor @Test func fromNameIsReadFromTheUserMessageEvent() {
-        var projector = CompanionChatProjector()
-        projector.apply(LiveServiceHarness.chatEvent("s", sequence: 1, type: "user_message", data: [
-            "messageId": .string("m1"), "source": .string("mcp"), "fromName": .string("Dispatcher"),
-            "content": .array([.object(["type": .string("text"), "text": .string("Please review")])]),
-        ]))
-        guard case .message(let message)? = projector.items.first else { Issue.record("No message"); return }
-        #expect(message.fromName == "Dispatcher" && message.sourceLabel == "From Dispatcher")
     }
 
     @Test func dispatcherNotesAndTheTurnOnBlocker() {

@@ -8,11 +8,11 @@ import ClubhouseTransport
     private let raw = "[TASK:t] [FROM:Wrong sender] Raw delivery\n\n---\nReply instructions stay in Copy."
 
     private func json(_ text: String) throws -> AnnexJSON { try JSONDecoder().decode(AnnexJSON.self, from: Data(text.utf8)) }
-    private func event(_ routed: AnnexJSON? = nil, sequence: Int64 = 2) -> AnnexJSON {
-        var data: [String: AnnexJSON] = ["messageId": .string("routed"), "source": .string("mcp"), "delivery": .string("steer"),
+    private func event(_ routed: AnnexJSON? = nil, sequence: Int64 = 2, messageID: String = "routed") -> AnnexJSON {
+        var data: [String: AnnexJSON] = ["messageId": .string(messageID), "source": .string("mcp"), "delivery": .string("steer"),
                                        "content": .array([.object(["type": .string("text"), "text": .string(raw)])])]
         data["routed"] = routed
-        return LiveServiceHarness.chatEvent("s1", sequence: sequence, type: "user_message", data: data)
+        return .object(["sessionId": .string("s1"), "seq": .integer(sequence), "type": .string("user_message"), "data": .object(data)])
     }
     private func message(_ event: AnnexJSON) throws -> CompanionMessage {
         var projector = CompanionChatProjector()
@@ -103,9 +103,10 @@ import ClubhouseTransport
         await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array([event(routed)]), "nextBeforeSeq": .integer(2)]))
         let latest = try await reader.load(before: nil)
         #expect(latest.items == [.message(expected)] && latest.nextBeforeSequence == 2)
-        await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array([event(sequence: 1), event(routed)])]))
+        let legacy = event(sequence: 1, messageID: "legacy")
+        await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array([legacy, event(routed)])]))
         let earlier = try await reader.load(before: 2)
-        #expect(earlier.items == [.message(expected)], "The duplicate event replaces the older copy by sequence/message ID")
+        #expect(earlier.items == [.message(try message(legacy)), .message(expected)], "Earlier legacy messages and deduplicated routed bursts both survive pagination")
         #expect(earlier.nextBeforeSequence == nil)
     }
 }

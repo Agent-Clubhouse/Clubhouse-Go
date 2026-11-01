@@ -398,12 +398,12 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var source: String?
     /// The message joined the running turn instead of starting one.
     var isSteered = false
-    /// The agent that sent an `mcp` message, when the desktop names it.
-    var fromName: String?
+    /// Structured messages from other agents or Clubhouse. Empty on older transcripts or unusable input.
+    var routed: [CompanionRoutedMessagePart] = []
 
     /// Who relayed an `mcp` message and what it says without its tags, or nil for any other message.
-    var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text, fromName: fromName) : nil }
-    /// What the bubble shows: a relayed message without its `[TASK:…] [FROM:…]` tags. Copy keeps `text` whole.
+    var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text) : nil }
+    /// Legacy bubble text, used only when `routed` is empty. Copy always keeps `text` whole.
     var displayText: String { relay?.body ?? text }
 
     /// The desktop's caption above a user message, such as "Mission · Steered into the running turn".
@@ -423,6 +423,35 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var images: [CompanionMessageImage] = []
 }
 
+/// One desktop `RoutedMessagePart`. Each part keeps its own sender, caption and bubble.
+struct CompanionRoutedMessagePart: Sendable, Equatable {
+    struct Sender: Sendable, Equatable {
+        var agentID: String?
+        var name: String
+    }
+    var sender: Sender?
+    var fromClubhouse = false
+    var text: String
+
+    /// Desktop `shown` strips only a leading reply marker; never parse routing tags from structured text.
+    var displayText: String {
+        guard let marker = text.firstMatch(of: /^TASK_(?:RESULT|ACK):[^\s:]+(?::\s*|\s+|$)/) else { return text }
+        return String(text[marker.range.upperBound...])
+    }
+
+    /// Desktop SentPart's words, with its source and delivery metadata.
+    func caption(source: String?, isSteered: Bool = false) -> String {
+        let name = sender?.name ?? (fromClubhouse ? "Clubhouse" : source == "group_project" ? "Group project" : "Another agent")
+        let origin: String? = switch source {
+        case "mission": "Mission"
+        case "shoulder_tap": "Shoulder tap"
+        case "annex": "From Annex"
+        default: nil
+        }
+        return [name, origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
 /// A message one agent sent another: `[TASK:id] [FROM:Name] body`, as the desktop's `send_message` relays it.
 struct CompanionRelay: Sendable, Equatable {
     var sender: String
@@ -430,20 +459,15 @@ struct CompanionRelay: Sendable, Equatable {
     var body: String
 
     init(sender: String, taskID: String?, body: String) { self.sender = sender; self.taskID = taskID; self.body = body }
-    /// Nil when the text has no `[FROM:…]` tag and the desktop didn't name the sender.
-    init?(text: String, fromName: String? = nil) {
-        let named = fromName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+    /// Nil when the text has no leading `[FROM:…]` tag.
+    init?(text: String) {
         if let match = text.firstMatch(of: /^\s*(?:\[TASK:([^\]\n]*)\]\s*)?\[FROM:([^\]\n]+)\][ \t]*\n?/) {
             let tagged = String(match.output.2).trimmingCharacters(in: .whitespaces)
-            guard let sender = named ?? tagged.nilIfEmpty else { return nil }
+            guard let sender = tagged.nilIfEmpty else { return nil }
             self.sender = sender
             taskID = match.output.1.map(String.init)?.trimmingCharacters(in: .whitespaces).nilIfEmpty
             body = String(text[match.range.upperBound...])
-        } else {
-            guard let named else { return nil }
-            sender = named
-            body = text
-        }
+        } else { return nil }
     }
 }
 

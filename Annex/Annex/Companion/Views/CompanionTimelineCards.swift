@@ -14,7 +14,8 @@ struct CompanionMessageView: View {
     var body: some View {
         Group {
             switch message.role {
-            case .user: userMessage
+            case .user:
+                if message.routed.isEmpty { userMessage } else { routedMessages }
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
                     richText
@@ -43,6 +44,36 @@ struct CompanionMessageView: View {
         }
     }
 
+    /// A burst remains separate messages, with one caption and accessible sender/body per part.
+    private var routedMessages: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(message.routed.enumerated()), id: \.offset) { index, part in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(part.caption(source: message.source, isSteered: message.isSteered))
+                        if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                    if !part.displayText.isEmpty {
+                        Text(part.displayText).textSelection(.enabled)
+                            .padding(.horizontal, 14).padding(.vertical, 10)
+                            .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(part.caption(source: message.source, isSteered: message.isSteered)): \(part.displayText)")
+                .accessibilityValue(message.timestamp?.formatted(date: .omitted, time: .shortened) ?? "")
+                .accessibilityIdentifier("companion-routed-\(message.id)-\(index)")
+            }
+            if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
+            deliveryStatus
+            queueStatus
+        }
+        .multilineTextAlignment(.leading)
+        .padding(.trailing, 40)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var userMessage: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if message.sourceLabel != nil || message.timestamp != nil {
@@ -64,20 +95,24 @@ struct CompanionMessageView: View {
                     .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.displayText)" : message.displayText)
             }
             deliveryStatus
-            if let state = message.queueState {
-                VStack(alignment: .trailing, spacing: 8) {
-                    Label(queueLabel(state), systemImage: state == .removed ? "minus.circle" : "clock.arrow.circlepath")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if state == .queued, let removeQueued {
-                        Button("Remove from queue", systemImage: "minus.circle", action: removeQueued)
-                            .font(.subheadline).disabled(!canRemoveQueued)
-                    }
-                }
-            }
+            queueStatus
         }
         .multilineTextAlignment(.leading)
         .padding(.leading, 40)
         .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    @ViewBuilder private var queueStatus: some View {
+        if let state = message.queueState {
+            VStack(alignment: .trailing, spacing: 8) {
+                Label(queueLabel(state), systemImage: state == .removed ? "minus.circle" : "clock.arrow.circlepath")
+                    .font(.caption).foregroundStyle(.secondary)
+                if state == .queued, let removeQueued {
+                    Button("Remove from queue", systemImage: "minus.circle", action: removeQueued)
+                        .font(.subheadline).disabled(!canRemoveQueued)
+                }
+            }
+        }
     }
 
     private var userCaption: String {
