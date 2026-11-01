@@ -875,12 +875,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let sent = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": helperID,
             "orchestration": ["connectToDispatcher": true]]]) as? [String: Any])
         XCTAssertEqual(sent["status"] as? Int, 200)
+        let receipt = try XCTUnwrap(sent["body"] as? [String: Any])
+        let result = try XCTUnwrap(receipt["result"] as? [String: Any])
+        XCTAssertEqual((result["orchestration"] as? [String: Any])?["connectToDispatcher"] as? Bool, false,
+                       "The desktop returns false for a helper even when the request sends true")
         let saved = try XCTUnwrap(try dispatcherFixture("policy", ["agentId": helperID]) as? [String: Any])
-        XCTAssertEqual(((saved["config"] as? [String: Any])?["orchestration"] as? [String: Any])?["connectToDispatcher"] as? Bool, true,
-                       "The explicit true write reaches the helper's stored override")
         XCTAssertEqual((saved["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, false)
         XCTAssertFalse(connect.exists)
-        screenshot(app, "Genuine helper hides Dispatcher connection despite a stored true override")
+        screenshot(app, "Genuine helper hides Dispatcher connection after a true request resolves false")
     }
 
 }
