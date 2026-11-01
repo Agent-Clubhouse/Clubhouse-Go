@@ -214,7 +214,9 @@ private actor FailureSocket: AnnexWebSocket {
         messages = (initial ?? [#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#]).map { Data($0.utf8) } + extra.map { Data($0.utf8) }
         self.sendFailure = sendFailure; self.ack = ack
     }
+    private(set) var receiveCalls = 0
     func receive() async throws -> Data {
+        receiveCalls += 1
         if closed { throw AnnexTransportError.disconnected }
         if !messages.isEmpty { return messages.removeFirst() }
         return try await withCheckedThrowingContinuation { pending = $0 }
@@ -271,6 +273,12 @@ private actor FailureSessionIO: AnnexIO {
         if path.hasSuffix("/identity") {
             let body: AnnexJSON = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
             return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
+        }
+        if request.httpMethod == "POST", let data = request.httpBody {
+            let command = try JSONDecoder().decode(AnnexJSON.self, from: data)
+            let receipt: AnnexJSON = .object(["version": .integer(1), "epoch": command["epoch"]!,
+                "commandId": command["commandId"]!, "status": .string("completed")])
+            return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(receipt))
         }
         return AnnexHTTPResponse(status: 200, data: Data(capabilities.utf8))
     }
@@ -479,8 +487,8 @@ private func settle(_ done: () async -> Bool) async throws {
     let stream = await transport.events()
     try await transport.connect()
     _ = try await collect(stream) { $0 == .connection(.connected) }
-    // Hello (5 s), ping (20 s), and the initial-snapshot guard (30 s) are waiting.
-    await clock.waitForSleepers(3)
+    // The hello deadline (5 s) and the ping interval (20 s) are both waiting.
+    await clock.waitForSleepers(2)
     clock.advance(by: .seconds(4))
     #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
     clock.advance(by: .seconds(1))
@@ -500,7 +508,7 @@ private func settle(_ done: () async -> Bool) async throws {
     try await transport.connect()
     _ = try await collect(stream) { $0 == .connection(.connected) }
     let socket = try #require(await io.sockets.first)
-    await clock.waitForSleepers(2)
+    await clock.waitForSleepers(1)
     clock.advance(by: .seconds(19))
     #expect(await socket.pings == 0)
     clock.advance(by: .seconds(1))
@@ -538,49 +546,79 @@ private func settle(_ done: () async -> Bool) async throws {
 private let initialSnapshot = #"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#
 private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_failed"}}"#
 
-@Test(.timeLimit(.minutes(1))) func initialSnapshotFailureClosesAndRecoversThroughBackoff() async throws {
+@Test(.timeLimit(.minutes(1))) func snapshotFailureKeepsCommandsUsableDuringGraceThenRecoversThroughBackoff() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
+    try await settle {
+        guard let socket = await io.sockets.first else { return false }
+        let calls = await socket.receiveCalls, closed = await socket.closed
+        return closed || (calls >= 2 && clock.sleeperCount == 2)
+    }
+    try #require(await io.sockets.first?.closed == false, "Keep the authenticated socket open during grace")
+    let before = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "error" } else { false } }
+    #expect(reconnectAttempts(before).isEmpty)
+    clock.advance(by: .seconds(29))
+    let receipt = try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+    #expect(receipt.status == .completed, "REST commands must remain usable while the socket awaits a snapshot")
+    #expect(await io.sockets.first?.closed == false)
+    #expect(await io.openAttempts == 1)
+    clock.advance(by: .seconds(1))
     try await settle { await io.sockets.first?.closed == true }
     let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
     #expect(reconnectAttempts(waiting) == [1])
     await clock.waitForSleepers(1)
-    #expect(await io.openAttempts == 1, "A refused initial snapshot must use backoff, not a tight reconnect loop")
+    #expect(await io.openAttempts == 1, "Grace expiry uses the existing backoff, not immediate reconnects")
     clock.advance(by: .seconds(1))
-    let events = try await collect(stream) { $0 == .connection(.connected) }
+    _ = try await collect(stream) { $0 == .connection(.connected) }
     #expect(await io.openAttempts == 2)
-    #expect(events.filter { $0 == .connection(.connected) }.count == 1)
     await transport.disconnect()
 }
 
-@Test(.timeLimit(.minutes(1))) func missingInitialSnapshotTimesOutOnTheClockAndRecovers() async throws {
+@Test(.timeLimit(.minutes(1))) func aSameSocketSnapshotCancelsSnapshotFailureGrace() async throws {
+    let clock = AnnexManualClock()
+    let io = FailureSessionIO(firstInitial: [snapshotFailure])
+    let transport = try await liveTransport(io, clock: clock.clock)
+    let stream = await transport.events()
+    defer { Task { await transport.disconnect() } }
+    try await transport.connect()
+    try await settle {
+        guard let socket = await io.sockets.first else { return false }
+        let calls = await socket.receiveCalls, closed = await socket.closed
+        return closed || (calls >= 2 && clock.sleeperCount == 2)
+    }
+    let socket = try #require(await io.sockets.first)
+    try #require(await socket.closed == false)
+    clock.advance(by: .seconds(29))
+    await socket.push(initialSnapshot)
+    let events = try await collect(stream) { $0 == .connection(.connected) }
+    #expect(reconnectAttempts(events).isEmpty)
+    try await settle { clock.sleeperCount == 1 }
+    clock.advance(by: .seconds(31))
+    #expect(await io.openAttempts == 1)
+    #expect(await socket.closed == false)
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func silenceAloneDoesNotPutASlowInitialSnapshotOnADeadline() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [])
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    // The ping interval and the initial-snapshot deadline are both installed.
-    try await settle { clock.sleeperCount == 2 }
-    clock.advance(by: .seconds(29))
-    #expect(await io.sockets.first?.closed == false)
-    clock.advance(by: .seconds(1))
-    try await settle { await io.sockets.first?.closed == true }
-    let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
-    #expect(reconnectAttempts(waiting) == [1])
-    await clock.waitForSleepers(1)
-    clock.advance(by: .seconds(1))
-    _ = try await collect(stream) { $0 == .connection(.connected) }
-    #expect(await io.openAttempts == 2)
-    // A successful replacement snapshot cancels its deadline's authority to close the socket.
-    try await settle { clock.sleeperCount == 2 }
+    try await settle { clock.sleeperCount >= 1 }
+    #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
     clock.advance(by: .seconds(31))
-    #expect(await io.sockets.last?.closed == false)
-    #expect(await io.openAttempts == 2)
+    let socket = try #require(await io.sockets.first)
+    try await settle { await socket.pings == 1 }
+    #expect(await socket.closed == false)
+    await socket.push(initialSnapshot)
+    _ = try await collect(stream) { $0 == .connection(.connected) }
+    #expect(await io.openAttempts == 1)
     await transport.disconnect()
 }
 
@@ -604,7 +642,8 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     }
     #expect(terminalFrame?.payload?["op"]?.string == "pty:spawn")
     #expect(reconnectAttempts(events).isEmpty)
-    try await settle { clock.sleeperCount == 2 }
+    try await settle { clock.sleeperCount >= 1 }
+    #expect(clock.sleeperCount == 1, "These errors never start snapshot-failure grace")
     clock.advance(by: .seconds(31))
     #expect(await io.openAttempts == 1)
     #expect(await io.sockets.first?.closed == false)

@@ -53,7 +53,7 @@ scripts/e2e-live.sh --skip-desktop-build \
   --only CompanionLiveE2ETests/test8AgentThatSleptWhileAwayReadsSleepingAfterForeground
 ```
 
-The transport reconnects through its normal backoff if the desktop returns `snapshot_failed` before its first snapshot, or if no initial snapshot arrives within 30 seconds. Other error frames keep their existing routing. Desktop [#2639](https://github.com/Agent-Clubhouse/Clubhouse/issues/2639) prevents snapshot serialization for 60 seconds after a phone-started quick agent exits; until that is fixed, test8 can still exceed its catalog wait and need the existing retry. Report that retry explicitly.
+If the desktop returns `snapshot_failed` before its first snapshot, the transport keeps reading the authenticated socket for 30 seconds, preserving REST catch-up and commands. A snapshot on that socket cancels recovery; otherwise grace expiry reconnects through the existing backoff. Silence alone has no new deadline, and other error frames keep their existing routing. Desktop [#2639](https://github.com/Agent-Clubhouse/Clubhouse/issues/2639) prevents snapshot serialization for 60 seconds after a phone-started quick agent exits; until that is fixed, test8 can still exceed its catalog wait and need the existing retry. Report that retry explicitly.
 
 What the script does:
 
