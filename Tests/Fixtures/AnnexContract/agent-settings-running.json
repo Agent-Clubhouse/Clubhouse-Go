@@ -142,7 +142,7 @@
           "auto",
           "bypass"
         ],
-        "connectToDispatcher": false,
+        "connectToDispatcher": true,
         "control": "hands-off",
         "controls": [
           "hands-off",
@@ -152,6 +152,7 @@
         "crossProjectHelpers": false,
         "maxHelpers": 3,
         "maxHelpersCap": 20,
+        "mcpEnabled": true,
         "orchestrate": true,
         "sources": {
           "access": "default",
@@ -198,6 +199,7 @@
           "value": "planner"
         },
         "orchestrator": {
+          "changeStartsNewSession": true,
           "editable": "sleeping",
           "resolved": "claude-code",
           "value": "claude-code"

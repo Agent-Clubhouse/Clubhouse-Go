@@ -15,6 +15,56 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         waitAndTap(agent, until: composer, timeout: 15, "Selecting an agent must open its conversation", file: file, line: line)
     }
 
+    private func openAgentSettings(_ app: XCUIApplication, sleeping: Bool = false) {
+        let any = app.descendants(matching: .any)
+        let row = any.matching(identifier: sleeping ? "agent-preview-studio-juniper" : "agent-preview-studio-river").firstMatch
+        if sleeping { expandFold(app.buttons["Sleeping"], revealing: row, in: app) }
+        scrollTo(row, in: app)
+        let settings = app.buttons["Agent settings"]
+        longPressUntilMenu(row, shows: settings)
+        waitAndTap(settings, until: any.matching(identifier: "agent-settings-summary").firstMatch)
+    }
+
+    func testAgentSettingsKeepsMcpOffSwitchesVisibleAndDisabled() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-mcp-off"])
+        openAgentSettings(app)
+        for id in ["agent-settings-orchestrate", "agent-settings-orchestrate-cross-project", "agent-settings-orchestrate-dispatcher"] {
+            let toggle = app.switches[id]
+            scrollTo(toggle, in: app)
+            XCTAssertTrue(toggle.exists, id)
+            XCTAssertFalse(toggle.isEnabled, id)
+        }
+        XCTAssertTrue(app.staticTexts["These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."].exists)
+    }
+
+    func testAgentSettingsShowsDispatcherWithOrchestrationOff() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        openAgentSettings(app)
+        let toggle = app.switches["agent-settings-orchestrate-dispatcher"]
+        scrollTo(toggle, in: app)
+        XCTAssertTrue(toggle.exists && toggle.isEnabled)
+    }
+
+    func testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection() {
+        let app = launchApp(["--companion-preview"])
+        openAgentSettings(app, sleeping: true)
+        let picker = app.buttons["agent-settings-orchestrator"]
+        let codex = app.buttons["Codex (CLI not found)"]
+        waitAndTap(picker, until: codex)
+        let confirm = app.buttons["Change CLI"]
+        waitAndTap(codex, until: confirm)
+        XCTAssertTrue(app.staticTexts["Juniper starts a new session on Codex the next time it wakes. Its current conversation can't move to another CLI."].exists)
+        waitAndTap(app.buttons["Cancel"], untilGone: confirm)
+        XCTAssertTrue(picker.label.contains("Claude Code"), picker.label)
+        XCTAssertFalse(app.descendants(matching: .any)["agent-settings-error"].exists, "Cancel sends nothing")
+        waitAndTap(picker, until: codex)
+        waitAndTap(codex, until: confirm)
+        let error = app.descendants(matching: .any)["agent-settings-error"]
+        waitAndTap(confirm, until: error)
+        XCTAssertTrue(error.label.contains("Preview only"), "Confirm attempts the update, which preview refuses")
+        XCTAssertTrue(picker.label.contains("Claude Code"), "A refused update keeps the desktop's value")
+    }
+
     /// Home's New agent button, which shows only on Home.
     private func homeNewAgent(_ app: XCUIApplication) -> XCUIElement { app.navigationBars.buttons["New agent"] }
 

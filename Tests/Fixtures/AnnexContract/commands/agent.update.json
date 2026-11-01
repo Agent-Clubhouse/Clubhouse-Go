@@ -41,6 +41,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 4,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": false,
               "sources": {
                 "access": "default",
@@ -87,6 +88,7 @@
                 "value": "bright-otter"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": null
@@ -147,6 +149,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 5,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": false,
               "sources": {
                 "access": "default",
@@ -193,6 +196,7 @@
                 "value": "bright-otter"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": null
@@ -250,6 +254,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 5,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": false,
               "sources": {
                 "access": "default",
@@ -296,6 +301,7 @@
                 "value": "bright-otter"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -343,7 +349,7 @@
                 "auto",
                 "bypass"
               ],
-              "connectToDispatcher": false,
+              "connectToDispatcher": true,
               "control": "hands-off",
               "controls": [
                 "hands-off",
@@ -353,6 +359,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 3,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": true,
               "sources": {
                 "access": "default",
@@ -399,6 +406,7 @@
                 "value": "planner"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -737,7 +745,7 @@
                 "auto",
                 "bypass"
               ],
-              "connectToDispatcher": false,
+              "connectToDispatcher": true,
               "control": "ask-everything",
               "controls": [
                 "hands-off",
@@ -747,6 +755,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 20,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": true,
               "sources": {
                 "access": "agent",
@@ -793,6 +802,7 @@
                 "value": "planner"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -842,7 +852,7 @@
                 "auto",
                 "bypass"
               ],
-              "connectToDispatcher": false,
+              "connectToDispatcher": true,
               "control": "ask-everything",
               "controls": [
                 "hands-off",
@@ -852,6 +862,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 5,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": true,
               "sources": {
                 "access": "agent",
@@ -898,6 +909,7 @@
                 "value": "planner"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -955,6 +967,7 @@
               "crossProjectHelpers": false,
               "maxHelpers": 5,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": false,
               "sources": {
                 "access": "default",
@@ -1001,6 +1014,7 @@
                 "value": "bright-otter"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -1257,6 +1271,7 @@
                 "value": "Dispatcher"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "always",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -1334,6 +1349,7 @@
                 "value": "Dispatcher"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "always",
                 "resolved": "codex-cli",
                 "value": "codex-cli"
@@ -1492,6 +1508,7 @@
               "crossProjectHelpers": true,
               "maxHelpers": 3,
               "maxHelpersCap": 20,
+              "mcpEnabled": true,
               "orchestrate": true,
               "sources": {
                 "access": "default",
@@ -1538,6 +1555,7 @@
                 "value": "planner"
               },
               "orchestrator": {
+                "changeStartsNewSession": true,
                 "editable": "sleeping",
                 "resolved": "claude-code",
                 "value": "claude-code"
@@ -1559,6 +1577,32 @@
           "version": 1
         },
         "status": 200
+      }
+    },
+    {
+      "name": "mcp_off",
+      "request": {
+        "agentId": "durable_chat",
+        "commandId": "cmd_138",
+        "epoch": "00000000-0000-4000-8000-000000000001",
+        "orchestration": {
+          "orchestrate": true
+        },
+        "type": "agent.update",
+        "version": 1
+      },
+      "response": {
+        "body": {
+          "commandId": "cmd_138",
+          "epoch": "00000000-0000-4000-8000-000000000001",
+          "error": {
+            "code": "mcp_off",
+            "message": "This needs Clubhouse MCP, which is off for this agent. Turn it on first."
+          },
+          "status": "rejected",
+          "version": 1
+        },
+        "status": 409
       }
     }
   ],
