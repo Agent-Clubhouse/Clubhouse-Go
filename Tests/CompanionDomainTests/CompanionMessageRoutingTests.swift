@@ -113,15 +113,41 @@ import Testing
         let a = agent("a", name: "Renamed")
         let b = agent("b", name: "Unique", project: "other")
         let resolver = CompanionSenderResolver(agents: [a, b, agent("c", name: "Duplicate"), agent("d", name: "Duplicate")])
-        #expect(resolver.resolve(.init(agentID: "a", name: "Old")) == a)
-        #expect(resolver.resolve(.init(name: "Unique")) == b)
+        #expect(resolver.resolve(.init(agentID: "a", name: "Old")) == CompanionSenderIdentity(agent: a))
+        #expect(resolver.resolve(.init(name: "Unique")) == CompanionSenderIdentity(agent: b))
         #expect(resolver.resolve(.init(name: "unique")) == nil)
         #expect(resolver.resolve(.init(name: "Duplicate")) == nil)
         #expect(resolver.resolve(.init(agentID: "gone", name: "Unique")) == nil, "A gone ID must not fall back to another agent's name")
         #expect(resolver.resolve(nil) == nil)
-        let gone = resolver.avatarAgent(for: .init(agentID: "gone", name: "old-helper"))
+        let gone = resolver.avatarIdentity(for: .init(agentID: "gone", name: "old-helper"))
         #expect(gone?.name == "old-helper" && gone?.color == nil && gone?.emoji == nil && gone?.iconData == nil)
-        #expect(resolver.avatarAgent(for: nil) == nil, "Clubhouse and unnamed parts have no avatar")
+        #expect(resolver.avatarIdentity(for: nil) == nil, "Clubhouse and unnamed parts have no avatar")
+    }
+
+    @Test func resolverEqualityIgnoresRuntimeStateAndInputOrder() {
+        let first = agent("a", name: "A")
+        let second = agent("b", name: "B")
+        var updated = first
+        updated.status = .working; updated.subtitle = "Streaming a reply"; updated.model = "New model"
+        updated.capabilities = [.chat, .steer]; updated.lastActivity = Date(); updated.isQuick = true
+        #expect(CompanionSenderResolver(agents: [first, second]) == CompanionSenderResolver(agents: [second, updated]))
+    }
+
+    @Test func resolverEqualityTracksEveryVisibleIdentityFieldAndNameAmbiguity() {
+        let original = agent("a", name: "Original")
+        let resolver = CompanionSenderResolver(agents: [original])
+        var changed = original
+        changed.name = "Renamed"
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        changed = original; changed.color = "cyan"
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        changed = original; changed.emoji = "✨"
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        changed = original; changed.iconData = Data([3])
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        changed = original; changed.id.agentID = "different"
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        #expect(resolver != CompanionSenderResolver(agents: [original, agent("b", name: original.name)]))
     }
 
     @MainActor @Test func resolverUsesAllHostProjectsAndDispatcherAndCurrentIdentity() {
@@ -133,8 +159,8 @@ import Testing
         sender.name = "Renamed"; sender.color = "emerald"; sender.emoji = "✨"; sender.iconData = Data([3])
         host.projects[0].agents[0] = sender
         let resolver = CompanionSenderResolver(agents: host.allAgents)
-        #expect(resolver.resolve(sent) == sender)
-        #expect(resolver.resolve(.init(name: dispatcher.name)) == dispatcher)
+        #expect(resolver.resolve(sent) == CompanionSenderIdentity(agent: sender))
+        #expect(resolver.resolve(.init(name: dispatcher.name)) == CompanionSenderIdentity(agent: dispatcher))
     }
 
     @MainActor @Test func foldsIndependentlyAndSurvivesSnapshotCatalogAndNavigation() async throws {
