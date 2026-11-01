@@ -780,4 +780,42 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(reset["status"] as? Int, 200)
     }
 
+    /// A genuine helper, created through Echo's real MCP tool, so resolved helper policy can be checked on screen.
+    func test9eDispatcherInspectsARealHelper() throws {
+        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
+        let dispatcherID = try XCTUnwrap(state["agentId"] as? String)
+        let policy = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID,
+            "orchestration": ["orchestrate": true, "control": "hands-off", "connectToDispatcher": true]]]) as? [String: Any])
+        XCTAssertEqual(policy["status"] as? Int, 200)
+        let app = launchPaired()
+        waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
+        let wake = app.buttons["companion-wake"]
+        if wake.waitForExistence(timeout: 3) { wake.tap() }
+        XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
+        backToHome(app)
+        openAwakeChat(app, echoID)
+        let created = try XCTUnwrap(try dispatcherFixture("helper") as? [String: Any])
+        let helperID = try XCTUnwrap(created["agentId"] as? String)
+        let inspected = try XCTUnwrap(try dispatcherFixture("mcp", ["agentId": dispatcherID, "target": "", "tool": "inspect_helper",
+            "args": ["helper": helperID]]) as? [String: Any])
+        let content = try XCTUnwrap(inspected["content"] as? [[String: Any]])
+        let bodyText = try XCTUnwrap(content.first?["text"] as? String)
+        let inspection = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(bodyText.utf8)) as? [String: Any])
+        XCTAssertEqual((inspection["parent"] as? [String: Any])?["id"] as? String, echoID)
+        XCTAssertEqual(inspection["runtime"] as? String, "chat")
+        let configured = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": helperID,
+            "orchestration": ["orchestrate": true]]]) as? [String: Any])
+        XCTAssertEqual(configured["status"] as? Int, 200)
+        backToHome(app)
+        let helper = revealAgent(app, helperID)
+        let settings = app.buttons["Agent settings"]
+        longPressUntilMenu(helper, shows: settings)
+        waitAndTap(settings, until: element(app, "agent-settings-name"), timeout: 15)
+        let connect = app.switches["agent-settings-orchestrate-dispatcher"]
+        XCTAssertTrue(scrollUntilExists(connect, in: app, maxSwipes: 6))
+        scrollTo(connect, in: app)
+        XCTAssertEqual(connect.value as? String, "0", "The desktop never connects helpers to Dispatcher")
+        screenshot(app, "Genuine helper has no Dispatcher connection")
+    }
+
 }
