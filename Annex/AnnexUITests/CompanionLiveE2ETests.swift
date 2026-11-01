@@ -659,10 +659,34 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let caption = any(app).matching(NSPredicate(format: "identifier == 'companion-message-source' AND label CONTAINS 'From Dispatcher'")).firstMatch
         XCTAssertTrue(caption.exists, "Real MCP message is captioned with its sender")
         screenshot(app, "Real MCP delivery from Dispatcher")
+        let frames = try XCTUnwrap(try dispatcherFixture("wire") as? [[String: Any]])
+        let deliveredEvent = try XCTUnwrap(frames.compactMap { frame -> [String: Any]? in
+            guard let payload = frame["payload"] as? [String: Any], let event = payload["event"] as? [String: Any],
+                  let data = event["data"] as? [String: Any], data["source"] as? String == "mcp",
+                  String(describing: data["content"]).contains("PHONE_DISPATCHER_DELIVERY") else { return nil }
+            return data
+        }.first, "The delivered message must be a real MCP user_message on the wire")
+        if let routed = deliveredEvent["routed"] as? [[String: Any]] {
+            XCTAssertEqual(routed.first?["text"] as? String, "PHONE_DISPATCHER_DELIVERY")
+            XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["name"] as? String, "Dispatcher")
+        }
+
         backToHome(app)
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "sleep_agent", "args": ["force": true]])
         let asleep = revealAgent(app, echoID)
         XCTAssertTrue(waitFor(asleep, NSPredicate(format: "label CONTAINS 'Sleeping'"), timeout: 30))
+        // Contract-only MCP-off checks; the phone's disabled-switch UX awaits its separate PR.
+        try dispatcherFixture("mcpEnabled", ["enabled": false])
+        let disabled = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": echoID]) as? [String: Any])
+        let disabledBody = try XCTUnwrap(disabled["body"] as? [String: Any])
+        XCTAssertEqual((disabledBody["orchestration"] as? [String: Any])?["mcpEnabled"] as? Bool, false)
+        for field in ["orchestrate", "connectToDispatcher", "crossProjectHelpers"] {
+            let refused = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID,
+                "orchestration": [field: true]]]) as? [String: Any])
+            XCTAssertEqual(refused["status"] as? Int, 409)
+            XCTAssertTrue(String(describing: refused["body"]).contains("mcp_off"))
+        }
+        try dispatcherFixture("mcpEnabled", ["enabled": true])
         // Dispatcher off rejects writes even if an older settings sheet still offered Connect.
         try dispatcherFixture("setEnabled", ["enabled": false])
         let refusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID, "orchestration": ["connectToDispatcher": true]]]) as? [String: Any])
@@ -673,6 +697,49 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(flagRefusal["status"] as? Int, 409)
         XCTAssertTrue(String(describing: flagRefusal["body"]).contains("dispatcher_flag_off"))
         try dispatcherFixture("flag", ["enabled": true])
+    }
+
+    func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
+        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
+        let id = try XCTUnwrap(state["agentId"] as? String)
+        let app = launchPaired()
+        waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
+        openDispatcherSettings(app)
+        func pick(_ field: String, _ option: String) {
+            let control = element(app, "agent-settings-\(field)")
+            scrollTo(control, in: app)
+            let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", option)).firstMatch
+            waitAndTap(control, until: choice, timeout: 10)
+            choice.tap()
+            XCTAssertTrue(choice.waitForNonExistence(timeout: 15))
+        }
+        pick("model", "Haiku")
+        pick("runtime", "Chat")
+        pick("auto-sleep", "After 15 min idle")
+        let free = app.switches["agent-settings-free-agent-mode"]
+        scrollTo(free, in: app)
+        setSwitch(free, on: false)
+        let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
+        let config = try XCTUnwrap(saved["config"] as? [String: Any])
+        XCTAssertTrue((config["model"] as? String)?.contains("haiku") == true, "The phone model choice persists on desktop")
+        XCTAssertEqual(config["runtimeMode"] as? String, "chat")
+        XCTAssertEqual(config["idleSleep"] as? Int, 15)
+        XCTAssertEqual(config["freeAgentMode"] as? Bool, false)
+        XCTAssertFalse(element(app, "agent-settings-error").exists)
+        screenshot(app, "Dispatcher settings saved on real desktop")
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
+        for fields: [String: Any] in [["name": "renamed"], ["color": "blue"], ["emoji": "X"], ["persona": "default"],
+                                      ["clubhouseMode": true], ["orchestration": ["orchestrate": true]]] {
+            var command = fields
+            command["type"] = "agent.update"; command["agentId"] = id
+            let result = try XCTUnwrap(try dispatcherFixture("command", ["fields": command]) as? [String: Any])
+            XCTAssertEqual(result["status"] as? Int, 409)
+            XCTAssertTrue(String(describing: result["body"]).contains("dispatcher_locked"), "Locked write: \(fields)")
+        }
+        // Keep the fixture deterministic for retries: these settings apply next start, no CLI is invoked here.
+        let reset = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": id,
+            "orchestrator": "claude-code", "model": "default", "runtime": "chat", "idleSleep": "never", "freeAgentMode": true]]) as? [String: Any])
+        XCTAssertEqual(reset["status"] as? Int, 200)
     }
 
 }

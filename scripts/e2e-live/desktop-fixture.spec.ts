@@ -123,7 +123,7 @@ async function observeDesktop(status: any) {
     } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message') {
       const event = frame.payload.event;
       frames.push({ type: frame.type, seq: frame.seq, payload: { agentId: frame.payload.agentId,
-        event: { type: event.type, source: event.source, text: event.text, routed: event.routed } } });
+        event: { type: event.type, data: { source: event.data?.source, content: event.data?.content, routed: event.data?.routed } } } });
     }
   });
   await new Promise<void>((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
@@ -259,7 +259,12 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               return { policy: await ch.agent.getOrchestrationPolicy(projectPath, agentId), bindings: await ch.mcpBinding.getBindings() };
             }, { projectPath: projectDir, agentId: agents.echo }); break;
             case 'command': result = await observer!.command(request.fields); break;
-            case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings?projectId=__dispatcher__`); break;
+            case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings`); break;
+            case 'mcpEnabled': result = await window.evaluate(async enabled => {
+              const ch = (window as any).clubhouse;
+              await ch.settings.save('mcp', { ...await ch.settings.get('mcp'), enabled });
+              return 'ok';
+            }, request.enabled); break;
             case 'flag': result = await window.evaluate(async on => {
               const ch = (window as any).clubhouse;
               await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: on });
