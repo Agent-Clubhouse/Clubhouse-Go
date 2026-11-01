@@ -535,6 +535,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         setSwitch(toggle, on: true)
         let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
+        waitAndTap(app.buttons["Done"], untilGone: toggle)
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The phone toggle's snapshot must add the pinned row")
+        XCTAssertLessThan(row.frame.minY, projectHeader(app).frame.minY)
+        waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
         setSwitch(toggle, on: false)
         XCTAssertEqual((try dispatcherFixture("state") as? [String: Any])?["enabled"] as? Bool, false)
         waitAndTap(app.buttons["Done"], untilGone: toggle)
@@ -549,7 +553,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(row.waitForNonExistence(timeout: 30))
 
         XCUIDevice.shared.press(.home)
-        sleep(3)
+        try dispatcherFixture("phoneDisconnected")
         try dispatcherFixture("setEnabled", ["enabled": true])
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
@@ -559,11 +563,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertGreaterThanOrEqual(changes.count, 5, "Observe both phone and desktop changes on the real wire")
         for change in changes {
             let enabled = (change.element["payload"] as? [String: Any])?["enabled"] as? Bool
-            XCTAssertTrue(frames.dropFirst(change.offset + 1).contains { frame in
-                guard frame["type"] as? String == "snapshot", frame["replayed"] as? Bool != true,
-                      let payload = frame["payload"] as? [String: Any] else { return false }
-                return enabled == (payload["dispatcher"] is [String: Any])
-            }, "Every change must be followed by the corresponding real snapshot")
+            let snapshot = try XCTUnwrap(frames.dropFirst(change.offset + 1).first { frame in
+                frame["type"] as? String == "snapshot" && frame["replayed"] as? Bool != true
+            }, "Every change must have a follow-up snapshot")
+            let payload = try XCTUnwrap(snapshot["payload"] as? [String: Any])
+            XCTAssertEqual(enabled, payload["dispatcher"] is [String: Any], "The first follow-up snapshot must match the change")
         }
         XCTAssertTrue(frames.contains { $0["type"] as? String == "dispatcher:changed" && $0["replayed"] as? Bool == true },
                       "The actual desktop replay buffer must retain Dispatcher changes")

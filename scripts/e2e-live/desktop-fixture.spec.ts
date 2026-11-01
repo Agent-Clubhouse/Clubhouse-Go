@@ -133,7 +133,7 @@ async function observeDesktop(status: any) {
       frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: { dispatcher: frame.payload?.dispatcher } });
     } else if (frame.type === 'dispatcher:changed' || frame.type.startsWith('replay:')) {
       frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: frame.payload });
-    } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message') {
+    } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message' && frame.payload.event.data?.source === 'mcp') {
       const event = frame.payload.event;
       frames.push({ type: frame.type, seq: frame.seq, payload: { agentId: frame.payload.agentId,
         event: { type: event.type, data: { source: event.data?.source, content: event.data?.content, routed: event.data?.routed } } } });
@@ -265,6 +265,11 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         let result: unknown;
         try {
           switch (request.op) {
+            case 'phoneDisconnected':
+              // The observer is the sole remaining WebSocket. Prove the phone disconnected before changing state.
+              await expect.poll(async () => (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount,
+                { timeout: 20_000 }).toBe(1);
+              result = 'ok'; break;
             case 'setEnabled': result = await window.evaluate(on => (window as any).clubhouse.dispatcher.setEnabled(on), request.enabled); break;
             case 'state': result = await window.evaluate(() => (window as any).clubhouse.dispatcher.get()); break;
             case 'policy': result = await window.evaluate(async ({ projectPath, agentId }) => {
