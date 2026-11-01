@@ -675,6 +675,13 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "sleep_agent", "args": ["force": true]])
         let asleep = revealAgent(app, echoID)
         XCTAssertTrue(waitFor(asleep, NSPredicate(format: "label CONTAINS 'Sleeping'"), timeout: 30))
+        longPressUntilMenu(asleep, shows: settingsAction)
+        waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
+        scrollTo(orchestrate, in: app)
+        setSwitch(orchestrate, on: false)
+        XCTAssertEqual(((try dispatcherFixture("policy") as? [String: Any])?["policy"] as? [String: Any])?["orchestrate"] as? Bool, false)
+        setSwitch(orchestrate, on: true)
+        waitAndTap(app.buttons["Done"], untilGone: orchestrate)
         // Contract-only MCP-off checks; the phone's disabled-switch UX awaits its separate PR.
         try dispatcherFixture("mcpEnabled", ["enabled": false])
         let disabled = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": echoID]) as? [String: Any])
@@ -696,7 +703,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let flagRefusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.setEnabled", "enabled": true]]) as? [String: Any])
         XCTAssertEqual(flagRefusal["status"] as? Int, 409)
         XCTAssertTrue(String(describing: flagRefusal["body"]).contains("dispatcher_flag_off"))
+        let toggle = dispatcherSwitch(app)
+        waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
+        XCTAssertFalse(toggle.isEnabled, "The phone cannot turn on the desktop's experimental flag")
+        let note = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'dispatcher-enabled-note-'")).firstMatch
+        XCTAssertTrue(note.label.contains("Experimental"), note.label)
         try dispatcherFixture("flag", ["enabled": true])
+        XCTAssertTrue(toggle.wait(for: \.isEnabled, toEqual: true, timeout: 20))
+        waitAndTap(app.buttons["Done"], untilGone: toggle)
     }
 
     func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
