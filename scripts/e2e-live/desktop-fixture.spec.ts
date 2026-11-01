@@ -141,7 +141,8 @@ async function observeDesktop(status: any) {
     if (frame.type === 'snapshot') {
       frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: { dispatcher: frame.payload?.dispatcher } });
     } else if (frame.type === 'dispatcher:changed' || frame.type.startsWith('replay:')) {
-      frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: frame.payload });
+      frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: frame.payload,
+        fromSeq: frame.fromSeq, toSeq: frame.toSeq, count: frame.count, oldestAvailable: frame.oldestAvailable, lastSeq: frame.lastSeq });
     } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message' && frame.payload.event.data?.source === 'mcp') {
       const event = frame.payload.event;
       frames.push({ type: frame.type, seq: frame.seq, payload: { agentId: frame.payload.agentId,
@@ -352,9 +353,11 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               // Replay the actual server buffer, independently of the phone's UI catch-up assertion.
               const before = observer!.frames.length;
               observer!.ws.send(JSON.stringify({ type: 'mobile:replay', epoch: (await observer!.request('GET', '/api/v1/mobile/capabilities')).body.epoch, since: request.since ?? observer!.lastSequence() }));
-              await expect.poll(() => observer!.frames.slice(before).some(f => f.type === 'replay:end')).toBe(true);
+              await expect.poll(() => observer!.frames.slice(before).some(f => f.type === 'replay:end' || f.type === 'replay:gap')).toBe(true);
               result = observer!.frames;
               writeFile(path.join(FIXTURE_DIR, 'dispatcher-wire.json'), evidence(result));
+              expect(observer!.frames.slice(before).find(f => f.type === 'replay:gap'), 'Replay must be contiguous from the fresh checkpoint').toBeUndefined();
+              expect(observer!.frames.slice(before).some(f => f.type === 'replay:end')).toBe(true);
               break;
             }
             default: throw new Error(`Unknown fixture operation ${request.op}`);
