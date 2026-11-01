@@ -150,6 +150,7 @@
         "crossProjectHelpers": false,
         "maxHelpers": 5,
         "maxHelpersCap": 20,
+        "mcpEnabled": true,
         "orchestrate": false,
         "sources": {
           "access": "default",
@@ -196,6 +197,7 @@
           "value": "brave-otter"
         },
         "orchestrator": {
+          "changeStartsNewSession": true,
           "editable": "sleeping",
           "resolved": "claude-code",
           "value": null
