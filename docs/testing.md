@@ -52,7 +52,11 @@ What the script does:
    - a disposable profile (`CLUBHOUSE_USER_DATA`), with auto-update off;
    - loopback-only, ephemeral Annex (`CLUBHOUSE_ANNEX_LOOPBACK_ONLY=1`, `CLUBHOUSE_ANNEX_EPHEMERAL=1`): no Bonjour, and identity, TLS and peers held in memory;
    - every provider CLI pinned through the desktop's unpackaged-only `CLUBHOUSE_TEST_CLI_BINARIES` seam. Claude Code is the desktop's scripted `src/main/chat/claude/__fixtures__/fake-claude.mjs`, running in chat mode on the stream-json transport. Codex and Copilot point at paths that don't exist, so a real CLI on the machine is never reached.
-   - one git project, `Phone Fixture`, with two sleeping chat agents: Echo, which works in the project folder, and Builder, which has its own worktree.
+   - one git project under `/tmp`, `Phone Fixture`, with two sleeping chat agents: Echo, which works in the project folder, and Builder, which has its own worktree;
+   - the experimental Dispatcher flag and New layout, with Dispatcher initially off so the earlier idle-project tests keep their order constraints;
+   - a separate session-paired mTLS observer that checks real Dispatcher events, follow-up snapshots and replay. It pins the fixture certificate before pairing. A wrapper around the unchanged fake CLI stores only that isolated child's MCP bridge credentials in 0600 files inside the private temporary fixture folder, so tests can call real Dispatcher tools without a model. Credentials never reach the phone runner or wire evidence. Desktop stdout/stderr are redacted before entering the artifact directory, other logs are scrubbed at teardown, and the entire temporary folder is deleted.
+
+   Before any build or launch, the script removes every inherited `CLUBHOUSE_*` environment variable, including the agent credentials present when an installed Clubhouse starts the script. The fixture refuses inherited Clubhouse variables. Its fake wrapper records credentials only for fixture-created agent IDs; every MCP RPC verifies that ID, excludes the original inherited port, and checks that the listener belongs to the fixture desktop PID. Fallback teardown also checks that `desktop.pid` runs an executable under `.desktop/` before signaling it.
 
    It never touches your own Clubhouse instance or its profile.
 3. **Mints the pairing.** Once Annex's TLS listener is up, the fixture reads `annex.getStatus()` and writes `{host, port, hostID, certificatePin, pin, name}` (mode 0600) to a temporary folder.
@@ -64,7 +68,9 @@ Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
 - `LiveE2E.xcresult`, which holds screenshots of each step;
 - `xcodebuild-build.log` and `xcodebuild-test.log` (plus `xcodebuild-test-retry.log` after a simulator crash);
 - `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
-- `desktop-sha.txt`, the desktop commit that was tested.
+- `desktop-sha.txt`, the desktop commit that was tested;
+- `dispatcher-wire.json`, redacted Dispatcher events, snapshots, replay and MCP-delivered message evidence.
+- `desktop-annex.json`, a closed projection of this fixture profile's Annex pairing/REST outcomes and WebSocket admission/close timestamps; raw metadata is excluded. Phone `[live-connect]` records in the xcresult console contain only timestamps, operation names, durations, failure categories and diagnostic event names. These help locate an initial-connection stall without recording invitations, certificates, identities or tokens. Both paths use the artifact redaction step (`python3 scripts/e2e-live/test_redact_logs.py` checks it).
 
 Other environment variables: `DESKTOP_REF`, `DESKTOP_REPO`, `DESKTOP_DIR`, `E2E_SIMULATOR`, `E2E_DERIVED_DATA`, and `E2E_SKIP_DESKTOP_CHECKOUT=1`, which builds `DESKTOP_DIR` as it is checked out.
 
@@ -93,8 +99,17 @@ The tests share the desktop and run in order. Each one copes with what an earlie
 | `test6ProjectAndAgentTerminals` | The project-root shell (spawn, echo, its directory, a resize on rotation, close) and Builder's worktree shell (its folder and branch) |
 | `test7FinishedQuickAgent` | A quick agent started from the phone finishes, is listed under "Finished, waiting on you", and Dismiss removes it on the desktop |
 | `test8AgentThatSleptWhileAwayReadsSleepingAfterForeground` | Echo is awake (Done); the phone goes to the background; the desktop puts Echo to sleep (the test writes `sleep-request` to the fixture folder, `TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR`); back in the foreground, Home reads Sleeping without opening the chat (the reconnect catch-up) |
+| `test9aDispatcherPhoneSwitchDesktopChangesAndReplay` | Phone Settings turns Dispatcher on/off; the pinned row; desktop changes while connected and backgrounded; phone catch-up; a real paired observer verifies `dispatcher:changed`, follow-up snapshots and `mobile:replay` |
+| `test9bDispatcherChatSettingsSleepWakeAndResume` | Dispatcher chat send/stream, its editable and locked settings, desktop stop, phone wake/resume after reconnect |
+| `test9cAgentDispatcherSwitchesAndRealMCPDelivery` | Echo's Orchestrate and Connect switches; the actual Dispatcher wire; authenticated MCP `wake_agent`, `send_message`, `sleep_agent`; phone wake/sleep state; structured `routed` sender/body on wire and screen, preserving inline tags and excluding CLI reply instructions; `mcpEnabled: false` disables all three phone switches with an explanation; 409 `mcp_off`, `dispatcher_off` and `dispatcher_flag_off` |
+| `test9dDispatcherSettingsSaveAndLockedFieldsRefuse` | Phone model/runtime/auto-sleep/Free Agent Mode saves persisted on desktop, plus 409 `dispatcher_locked` for identity, persona, Clubhouse mode and orchestration writes |
+| `test9eDispatcherInspectsARealHelper` | Echo creates a genuine helper through `start_helper`; Dispatcher inspects it through `inspect_helper`; a phone Connect write saves true to the helper's override, while the desktop resolves false and the sheet returns to off |
 
-**Not covered: helper requests.** The fixture would need an orchestrator agent with orchestration turned on and an ask-first helper policy, whose CLI calls `start_helper` over the desktop's Clubhouse MCP bridge. The scripted fake doesn't speak MCP. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers the phone side against the preview desktop.
+Dispatcher checks run last and support `--only` and retries. Phone gestures cover the UI; the private fixture action channel performs desktop changes, direct MCP calls and HTTP-only refusal checks. The observer's replay check proves the desktop retains the event, while the phone assertion proves foreground catch-up; it does not claim to distinguish replay from a fresh connection snapshot on the phone. The fake CLI does not decide to use tools: the fixture authenticates to the real MCP bridge as its own fake child and invokes them directly.
+
+**Dispatcher gaps:** `dispatcher_layout_off` needs a separate Classic-layout desktop launch (layout is fixed at startup). The real MCP delivery covers one routed part; multi-sender bursts have deterministic preview coverage. Physical-device background suspension is separate from the simulator's Home/foreground check.
+
+**Not covered: helper approval requests.** The live helper check uses a hands-off policy so `start_helper` creates a real helper directly. It does not exercise an ask-first request, approval or decline. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers that phone flow against the preview desktop.
 
 `--companion-sample-images` replaces the photo picker in this suite, as in preview mode. In DEBUG builds it is honoured when a test invitation is present.
 

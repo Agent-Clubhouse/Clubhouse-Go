@@ -267,6 +267,20 @@ struct CompanionAppRoot: View {
     private func bootstrapIntegrationIfRequested() async {
         guard let json = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"],
               let data = json.data(using: .utf8) else { return }
+        if ProcessInfo.processInfo.environment["CLUBHOUSE_E2E_CONNECTION_TRACE"] == "1" {
+            // Closed diagnostic vocabulary only. XCTest captures stdout in its result bundle: no host, path,
+            // invitation, certificate, identity or arbitrary error string is ever written here.
+            AnnexTelemetry.shared.setEnabled(true)
+            AnnexTelemetry.shared.setRecordSink { record in
+                guard [.pairing, .connection, .reconnect, .identity, .capabilities, .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
+                let value: [String: Any] = ["at": record.startedAt.timeIntervalSince1970,
+                    "operation": record.operation.rawValue, "durationMs": record.durationMs,
+                    "failure": record.failure.rawValue, "events": record.events]
+                if let bytes = try? JSONSerialization.data(withJSONObject: value, options: .sortedKeys),
+                   let line = String(data: bytes, encoding: .utf8) { print("[live-connect] \(line)") }
+            }
+            print("[live-connect] bootstrap at=\(Date().timeIntervalSince1970)")
+        }
         struct TestInvitation: Decodable { var host: String; var port: UInt16; var hostID: String; var certificatePin: String; var pin: String; var name: String? }
         do {
             let config = try JSONDecoder().decode(TestInvitation.self, from: data)

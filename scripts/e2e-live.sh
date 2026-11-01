@@ -45,11 +45,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# An agent launched by the installed desktop inherits its bridge identity. Never forward any Clubhouse variable to
+# builds, npm, the fixture or its children. Remember only the port as a forbidden destination (never the nonce).
+INHERITED_MCP_PORT="${CLUBHOUSE_MCP_PORT:-}"
+[[ "$INHERITED_MCP_PORT" =~ ^[0-9]+$ ]] || INHERITED_MCP_PORT=""
+while IFS= read -r inherited_key; do
+  case "$inherited_key" in CLUBHOUSE_*) unset "$inherited_key" ;; esac
+done < <(compgen -e)
+unset inherited_key
+
 log() { printf '\n==> [%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 mkdir -p "$OUT"
-rm -rf "$OUT/LiveE2E.xcresult" "$OUT"/*.log
+rm -rf "$OUT/LiveE2E.xcresult" "$OUT"/*.log "$OUT/dispatcher-wire.json" "$OUT/desktop-annex.json"
 # Under /tmp, not $TMPDIR: macOS's $TMPDIR resolves into /private/var, where the desktop won't open a terminal.
 FIXTURE_DIR="$(mktemp -d /tmp/clubhouse-go-e2e.XXXXXX)"
 FIXTURE_PID=""
@@ -57,6 +66,20 @@ IOS_BUILD_PID=""
 BOOTED_SIMULATOR=""
 CREATED_SIMULATOR=""
 UDID=""
+
+# A stale or corrupted pid file must never let teardown stop the installed Clubhouse.
+is_fixture_desktop() {
+  python3 - "$DESKTOP_DIR" "$1" <<'PYTHON'
+import os, subprocess, sys
+try:
+    executable = subprocess.check_output(['ps', '-p', sys.argv[2], '-o', 'comm='], text=True).strip()
+    root, executable = os.path.realpath(sys.argv[1]), os.path.realpath(executable)
+    allowed = os.path.isfile(executable) and os.path.commonpath([root, executable]) == root
+except (OSError, ValueError, subprocess.CalledProcessError):
+    allowed = False
+sys.exit(0 if allowed else 1)
+PYTHON
+}
 
 teardown() {
   local status=$?
@@ -70,11 +93,19 @@ teardown() {
     # Only ever the processes this script started: the Playwright runner and the desktop it launched.
     if kill -0 "$FIXTURE_PID" 2>/dev/null; then
       local desktop_pid; desktop_pid="$(cat "$FIXTURE_DIR/desktop.pid" 2>/dev/null)"
-      [[ -n "$desktop_pid" ]] && kill "$desktop_pid" 2>/dev/null
+      if [[ "$desktop_pid" =~ ^[0-9]+$ ]] && is_fixture_desktop "$desktop_pid"; then
+        kill "$desktop_pid" 2>/dev/null
+      elif [[ -n "$desktop_pid" ]]; then
+        echo "Refusing to stop desktop.pid: its executable is outside the fixture checkout" >&2
+      fi
       kill "$FIXTURE_PID" 2>/dev/null
     fi
   fi
-  for f in desktop-stdout.log desktop-stderr.log; do [[ -f "$FIXTURE_DIR/$f" ]] && cp "$FIXTURE_DIR/$f" "$OUT/"; done
+  # The fake child's nonce stays in the 0600 temp files. Scrub desktop diagnostics before artifact upload.
+  python3 "$ROOT/scripts/e2e-live/redact-logs.py" "$FIXTURE_DIR" "$OUT" || {
+    echo "Log redaction failed; removing logs rather than uploading unsanitized diagnostics" >&2
+    rm -f "$OUT"/*.log "$OUT/dispatcher-wire.json" "$OUT/desktop-annex.json"
+  }
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
   if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
   rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" 2>/dev/null
@@ -169,8 +200,7 @@ cp "$ROOT/scripts/e2e-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live
 (
   cd "$DESKTOP_DIR"
   # The isolated profile flags are set by the fixture itself; nothing inherits the user's Clubhouse profile.
-  unset CLUBHOUSE_USER_DATA
-  E2E_FIXTURE_DIR="$FIXTURE_DIR" exec npx playwright test e2e/phone-live/desktop-fixture.spec.ts \
+  E2E_FORBIDDEN_MCP_PORT="$INHERITED_MCP_PORT" E2E_FIXTURE_DIR="$FIXTURE_DIR" exec npx playwright test e2e/phone-live/desktop-fixture.spec.ts \
     --reporter=line --retries=0 --timeout=0
 ) > "$OUT/desktop-fixture.log" 2>&1 &
 FIXTURE_PID=$!

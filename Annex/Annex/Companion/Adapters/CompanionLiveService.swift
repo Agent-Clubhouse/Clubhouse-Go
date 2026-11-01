@@ -727,6 +727,11 @@ import ClubhouseTransport
                     if status == .sleeping {
                         // The agent's process exited. Its chat's own end (stopped, failed) says more, when it came first.
                         if projections[target]?.isAwake == true { projections[target]?.endSession(.sleeping) }
+                        // session_ended clears live capabilities. Recheck the desktop's canStart permission so an
+                        // already-open durable chat can offer Wake again without being closed and reopened.
+                        if projections[target] != nil, !readOnly.contains(target) {
+                            Task { [weak self] in await self?.refreshWakePermission(for: target) }
+                        }
                     } else if !pendingInteraction || (status != .working && status != .idle) {
                         projections[target]?.status = status
                     }
@@ -831,6 +836,23 @@ import ClubhouseTransport
             changed = true
         }
         if changed { emitHosts() }
+    }
+
+    private func refreshWakePermission(for target: CompanionTarget) async {
+        guard !isSuspended, let generation = eventGenerations[target.hostID], let transport = transports[target.hostID],
+              let agent = hosts[target.hostID]?.agent(for: target), !agent.isQuick,
+              let previous = projections[target], !previous.isAwake else { return }
+        guard let snapshot = try? await transport.read(.chatHistory(agentID: target.agentID, sessionID: nil, beforeSeq: nil, limit: 1)),
+              snapshot["readOnly"].boolValue == true || snapshot["sessionId"] == .null,
+              !isSuspended, eventGenerations[target.hostID] == generation,
+              hosts[target.hostID]?.agent(for: target) != nil,
+              var projection = projections[target], !projection.isAwake, projection.sessionID == previous.sessionID else { return }
+        readOnly.insert(target)
+        projection.capabilities = snapshot["canStart"].boolValue && capabilities[target.hostID]?.commands.contains("agent.start") == true
+            ? [.chat, .wake] : []
+        projections[target] = projection
+        updateAgent(target, projection: projection)
+        emitHosts()
     }
 
     /// Chat pages of one event each, a few at a time. A page that fails is skipped: that agent keeps the catalog's status.
