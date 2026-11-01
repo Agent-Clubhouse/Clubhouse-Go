@@ -17,10 +17,15 @@
  * Then it waits until `stop` appears in that folder and quits the app. Meanwhile a test can put an agent to sleep
  * on the desktop, as if stopped there, by writing its id to `sleep-request`; the fixture answers with `sleep-done`.
  */
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
+import * as tls from 'tls';
+import * as https from 'https';
+import forge from 'node-forge';
+import WebSocket from 'ws';
 import { launchApp } from '../launch';
 
 const FIXTURE_DIR = process.env.E2E_FIXTURE_DIR ?? '';
@@ -49,8 +54,100 @@ function makeProject(dir: string) {
 /** A `claude` executable that runs the desktop's scripted fake. */
 function writeFakeClaude(binDir: string): string {
   const shim = path.join(binDir, 'claude');
-  writeFile(shim, `#!/bin/sh\nexec "${process.execPath}" "${FAKE_CLAUDE}" "$@"\n`, 0o755);
+  // Capture only the bridge credentials issued to this isolated child, never the user's environment.
+  // The wrapper then runs the unchanged scripted CLI; it does not call a provider.
+  const wrapper = path.join(binDir, 'fake-wrapper.mjs');
+  writeFile(wrapper, `import { writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+if (process.env.CLUBHOUSE_AGENT_ID && !process.argv.includes('--version')) {
+  const keys = ['CLUBHOUSE_AGENT_ID', 'CLUBHOUSE_MCP_PORT', 'CLUBHOUSE_HOOK_NONCE'];
+  writeFileSync(${JSON.stringify(FIXTURE_DIR)} + '/mcp-' + process.env.CLUBHOUSE_AGENT_ID + '.json',
+    JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k]]))), { mode: 0o600 });
+}
+const child = spawn(process.execPath, [${JSON.stringify(FAKE_CLAUDE)}, ...process.argv.slice(2)], { stdio: 'inherit' });
+child.on('exit', code => process.exit(code ?? 1));
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => child.kill(signal));
+`);
+  writeFile(shim, `#!/bin/sh\nexec "${process.execPath}" "${wrapper}" "$@"\n`, 0o755);
   return shim;
+}
+
+/** A real paired controller used for wire evidence and HTTP-only refusal checks.
+ * Bootstrap reads the certificate without sending secrets, compares the invitation's pin, then trusts only that
+ * certificate. The observer uses a fresh session identity and is closed with the fixture.
+ */
+async function observeDesktop(status: any) {
+  const pem = await new Promise<string>((resolve, reject) => {
+    const socket = tls.connect({ host: '127.0.0.1', port: status.port, rejectUnauthorized: false }, () => {
+      const cert = socket.getPeerCertificate();
+      socket.end();
+      if (cert.fingerprint256 !== status.tlsCertificateFingerprint) return reject(new Error('Observer certificate pin mismatch'));
+      resolve(new crypto.X509Certificate(cert.raw).toString());
+    });
+    socket.on('error', reject);
+  });
+  const publicKey = crypto.generateKeyPairSync('ed25519').publicKey.export({ format: 'der', type: 'spki' });
+  const fingerprint = crypto.createHash('sha256').update(publicKey).digest('hex').slice(0, 32).match(/.{2}/g)!.join(':');
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = crypto.randomBytes(16).toString('hex');
+  cert.validity.notBefore = new Date(Date.now() - 60_000);
+  cert.validity.notAfter = new Date(Date.now() + 86_400_000);
+  cert.setSubject([{ name: 'commonName', value: fingerprint }]);
+  cert.setIssuer(cert.subject.attributes);
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  const options = { ca: pem, cert: forge.pki.certificateToPem(cert), key: forge.pki.privateKeyToPem(keys.privateKey),
+    rejectUnauthorized: true, checkServerIdentity: () => undefined };
+  const request = (method: string, route: string, body?: unknown): Promise<any> => new Promise((resolve, reject) => {
+    const req = https.request({ host: '127.0.0.1', port: status.port, path: route, method, ...options,
+      agent: false, headers: { 'Content-Type': 'application/json' } }, res => {
+      let data = ''; res.on('data', d => data += d);
+      res.on('end', () => resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null }));
+    });
+    req.on('error', reject); req.setTimeout(20_000, () => req.destroy(new Error('Observer HTTP timeout')));
+    req.end(body === undefined ? undefined : JSON.stringify(body));
+  });
+  expect((await request('POST', '/pair', { pin: status.pin, publicKey: publicKey.toString('base64'),
+    alias: 'Live E2E wire observer', pairingMode: 'session' })).status).toBe(200);
+  const caps = await request('GET', '/api/v1/mobile/capabilities');
+  const frames: any[] = [];
+  const ws = new WebSocket(`wss://127.0.0.1:${status.port}/ws`, options);
+  ws.on('message', data => {
+    const frame = JSON.parse(data.toString());
+    // Persist only Dispatcher/catalog evidence and routed chat events; no pairing or transport credentials.
+    if (frame.type === 'snapshot' || frame.type === 'dispatcher:changed' || frame.type.startsWith('replay:') ||
+        (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message')) frames.push(frame);
+  });
+  await new Promise<void>((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
+  return { frames, ws, request, command: (fields: Record<string, unknown>) => request('POST', '/api/v1/mobile/commands',
+    { version: 1, epoch: caps.body.epoch, commandId: crypto.randomUUID(), ...fields }) };
+}
+
+/** The real bridge, authenticated as the fixture's fake child (same approach as desktop e2e/dispatcher.spec.ts). */
+async function callMcp(agentId: string, targetName: string, suffix: string, args: Record<string, unknown>) {
+  const file = path.join(FIXTURE_DIR, `mcp-${agentId}.json`);
+  const env = JSON.parse(fs.readFileSync(file, 'utf8'));
+  let session: string | null = null;
+  let id = 0;
+  const rpc = async (method: string, params = {}) => {
+    const response = await fetch(`http://127.0.0.1:${env.CLUBHOUSE_MCP_PORT}/mcp/${agentId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Clubhouse-Nonce': env.CLUBHOUSE_HOOK_NONCE,
+        ...(session ? { 'Mcp-Session-Id': session } : {}) },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }), signal: AbortSignal.timeout(20_000),
+    });
+    session = response.headers.get('mcp-session-id') ?? session;
+    const body = await response.json() as any;
+    if (body.error) throw new Error(`MCP ${method}: ${JSON.stringify(body.error)}`);
+    return body.result;
+  };
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'phone-e2e', version: '1' } });
+  const names = (await rpc('tools/list')).tools.map((t: any) => t.name) as string[];
+  const name = names.find(n => n.endsWith(`__${suffix}`) && n.toLowerCase().includes(targetName.toLowerCase()));
+  if (!name) throw new Error(`No ${suffix} for ${targetName}; tools: ${names.join(', ')}`);
+  const result = await rpc('tools/call', { name, arguments: args });
+  expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+  return result;
 }
 
 test('Clubhouse Go live E2E desktop fixture', async () => {
@@ -65,8 +162,9 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
   const { electronApp, window, userDataDir } = await launchApp({
     label: 'phone-e2e',
     args: ['--disable-gpu'],
-    experimental: { chat: true, annex: true },
+    experimental: { chat: true, annex: true, dispatcher: true, newChrome: true },
     userDataFiles: {
+      'mcp-settings.json': { enabled: true },
       'orchestrator-settings.json': { enabled: ['claude-code'], autoDetected: true },
       // The stream-json transport is what fake-claude.mjs speaks.
       'chat-runtime-settings.json': { 'claude-code': { mode: 'chat', driver: 'claude_stream_json' } },
@@ -83,6 +181,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
   electronApp.process().stdout?.on('data', (d) => fs.appendFileSync(path.join(FIXTURE_DIR, 'desktop-stdout.log'), d));
   electronApp.process().stderr?.on('data', (d) => fs.appendFileSync(path.join(FIXTURE_DIR, 'desktop-stderr.log'), d));
 
+  let observer: Awaited<ReturnType<typeof observeDesktop>> | undefined;
   try {
     const agents = await window.evaluate(async (projectPath) => {
       const ch = (window as any).clubhouse;
@@ -110,6 +209,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     if (!status?.tlsCertificateFingerprint) throw new Error(`Annex did not start TLS: ${JSON.stringify({ ...status, pin: undefined })}`);
     if (status.advertising) throw new Error('A loopback-only fixture must not advertise');
 
+    observer = await observeDesktop(status);
     const invitation = {
       host: '127.0.0.1',
       port: status.port,
@@ -138,10 +238,49 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         log(`slept ${agentId}: ${result}`);
         writeFile(sleepDone, `${agentId} ${result}\n`);
       }
+      const requestFile = path.join(FIXTURE_DIR, 'dispatcher-request.json');
+      if (fs.existsSync(requestFile)) {
+        const request = JSON.parse(fs.readFileSync(requestFile, 'utf8'));
+        fs.rmSync(requestFile);
+        let result: unknown;
+        try {
+          switch (request.op) {
+            case 'setEnabled': result = await window.evaluate(on => (window as any).clubhouse.dispatcher.setEnabled(on), request.enabled); break;
+            case 'state': result = await window.evaluate(() => (window as any).clubhouse.dispatcher.get()); break;
+            case 'policy': result = await window.evaluate(async ({ projectPath, agentId }) => {
+              const ch = (window as any).clubhouse;
+              return { policy: await ch.agent.getOrchestrationPolicy(projectPath, agentId), bindings: await ch.mcpBinding.getBindings() };
+            }, { projectPath: projectDir, agentId: agents.echo }); break;
+            case 'command': result = await observer!.command(request.fields); break;
+            case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings?projectId=__dispatcher__`); break;
+            case 'flag': result = await window.evaluate(async on => {
+              const ch = (window as any).clubhouse;
+              await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: on });
+              return 'ok';
+            }, request.enabled); break;
+            case 'mcp': result = await callMcp(request.agentId, request.target, request.tool, request.args ?? {}); break;
+            case 'wire': {
+              // Replay the actual server buffer, independently of the phone's UI catch-up assertion.
+              const before = observer!.frames.length;
+              observer!.ws.send(JSON.stringify({ type: 'mobile:replay', epoch: (await observer!.request('GET', '/api/v1/mobile/capabilities')).body.epoch, since: request.since ?? 0 }));
+              await expect.poll(() => observer!.frames.slice(before).some(f => f.type === 'replay:end')).toBe(true);
+              result = observer!.frames;
+              break;
+            }
+            default: throw new Error(`Unknown fixture operation ${request.op}`);
+          }
+          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), JSON.stringify({ id: request.id, result }));
+        } catch (err) {
+          const error = err instanceof Error ? err.message : String(err);
+          log(`Dispatcher fixture ${request.op} failed: ${error}`);
+          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), JSON.stringify({ id: request.id, error }));
+        }
+      }
       await new Promise((r) => setTimeout(r, 500));
     }
     log('stop requested');
   } finally {
+    observer?.ws.close();
     await electronApp.close().catch(() => {});
   }
 });

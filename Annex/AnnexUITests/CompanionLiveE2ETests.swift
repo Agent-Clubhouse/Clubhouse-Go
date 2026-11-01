@@ -132,6 +132,52 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         }
     }
 
+    /// Requests desktop actions through the owned fixture. Replies carry an id so a stale reply cannot pass a retry.
+    @discardableResult
+    private func dispatcherFixture(_ op: String, _ fields: [String: Any] = [:],
+                                   file: StaticString = #filePath, line: UInt = #line) throws -> Any {
+        let dir = URL(fileURLWithPath: try XCTUnwrap(env["CLUBHOUSE_E2E_FIXTURE_DIR"]))
+        let id = UUID().uuidString
+        var request = fields
+        request["op"] = op; request["id"] = id
+        try JSONSerialization.data(withJSONObject: request).write(to: dir.appending(path: "dispatcher-request.json"), options: .atomic)
+        let done = dir.appending(path: "dispatcher-done.json")
+        let deadline = Date().addingTimeInterval(60)
+        while Date() < deadline {
+            if let data = try? Data(contentsOf: done), let reply = try? JSONSerialization.jsonObject(with: data) as? [String: Any], reply["id"] as? String == id {
+                XCTAssertNil(reply["error"], "Fixture \(op): \(reply["error"] ?? "")", file: file, line: line)
+                return reply["result"] ?? NSNull()
+            }
+            sleep(1)
+        }
+        XCTFail("Fixture \(op) did not answer", file: file, line: line)
+        return NSNull()
+    }
+
+    private func dispatcherRow(_ app: XCUIApplication) -> XCUIElement {
+        any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'dispatcher-row-' AND NOT identifier BEGINSWITH 'dispatcher-row-pending-'")).firstMatch
+    }
+
+    private func dispatcherSwitch(_ app: XCUIApplication) -> XCUIElement {
+        app.switches.matching(NSPredicate(format: "identifier BEGINSWITH 'dispatcher-enabled-'")).firstMatch
+    }
+
+    private func openDispatcherSettings(_ app: XCUIApplication) {
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings, timeout: 10)
+        waitAndTap(settings, until: element(app, "agent-settings-model"), timeout: 15)
+    }
+
+    /// Toggle once and wait for the authoritative setting, without retrying the gesture.
+    private func setSwitch(_ control: XCUIElement, on: Bool, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(control.waitForExistence(timeout: 15), file: file, line: line)
+        XCTAssertTrue(control.wait(for: \.isEnabled, toEqual: true, timeout: 20), file: file, line: line)
+        if (control.value as? String == "1") != on {
+            control.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        XCTAssertTrue(waitFor(control, NSPredicate(format: "value == %@", on ? "1" : "0"), timeout: 30), file: file, line: line)
+    }
+
     // MARK: - Tests
 
     /// Pairing, the catalog with the desktop's status words, and a foreground reconnect.
@@ -477,4 +523,156 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                       "An agent that slept while the phone was away must read Sleeping after it comes back: \(row.label)")
         screenshot(app, "Home after an agent slept while the phone was away")
     }
+    /// Runs after the existing tests: the Dispatcher is disabled until this point so test0's idle rules still hold.
+    func test9aDispatcherPhoneSwitchDesktopChangesAndReplay() throws {
+        try dispatcherFixture("setEnabled", ["enabled": false])
+        let app = launchPaired()
+        let row = dispatcherRow(app)
+        XCTAssertFalse(row.exists)
+        let toggle = dispatcherSwitch(app)
+        waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
+        XCTAssertTrue(toggle.isEnabled, "The fixture must seed both the experimental flag and New layout")
+        setSwitch(toggle, on: true)
+        let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
+        XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
+        setSwitch(toggle, on: false)
+        XCTAssertEqual((try dispatcherFixture("state") as? [String: Any])?["enabled"] as? Bool, false)
+        waitAndTap(app.buttons["Done"], untilGone: toggle)
+        XCTAssertFalse(row.exists)
+
+        // A change made on desktop while connected must arrive without reopening or refreshing Home.
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "dispatcher:changed and its snapshot must add the row")
+        XCTAssertLessThan(row.frame.minY, projectHeader(app).frame.minY, "Dispatcher is pinned above projects")
+        screenshot(app, "Dispatcher enabled on desktop while phone connected")
+        try dispatcherFixture("setEnabled", ["enabled": false])
+        XCTAssertTrue(row.waitForNonExistence(timeout: 30))
+
+        XCUIDevice.shared.press(.home)
+        sleep(3)
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The background change must catch up after reconnect")
+        let frames = try XCTUnwrap(try dispatcherFixture("wire") as? [[String: Any]])
+        let changes = frames.enumerated().filter { $0.element["type"] as? String == "dispatcher:changed" && $0.element["replayed"] as? Bool != true }
+        XCTAssertGreaterThanOrEqual(changes.count, 5, "Observe both phone and desktop changes on the real wire")
+        for change in changes {
+            let enabled = (change.element["payload"] as? [String: Any])?["enabled"] as? Bool
+            XCTAssertTrue(frames.dropFirst(change.offset + 1).contains { frame in
+                guard frame["type"] as? String == "snapshot", frame["replayed"] as? Bool != true,
+                      let payload = frame["payload"] as? [String: Any] else { return false }
+                return enabled == (payload["dispatcher"] is [String: Any])
+            }, "Every change must be followed by the corresponding real snapshot")
+        }
+        XCTAssertTrue(frames.contains { $0["type"] as? String == "dispatcher:changed" && $0["replayed"] as? Bool == true },
+                      "The actual desktop replay buffer must retain Dispatcher changes")
+        screenshot(app, "Dispatcher after phone reconnect")
+    }
+
+    func test9bDispatcherChatSettingsSleepWakeAndResume() throws {
+        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
+        let id = try XCTUnwrap(state["agentId"] as? String)
+        let app = launchPaired()
+        let row = dispatcherRow(app)
+        waitAndTap(row, until: composer(app), timeout: 20)
+        let wake = app.buttons["companion-wake"]
+        if wake.waitForExistence(timeout: 3) { wake.tap() }
+        XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
+        send(app, "hello")
+        XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "Dispatcher must stream the scripted CLI reply")
+        XCTAssertTrue(element(app, "companion-chat-header").label.contains("/ Dispatcher"))
+        openDispatcherSettings(app)
+        for field in ["orchestrator", "model", "runtime", "auto-sleep", "free-agent-mode"] {
+            let control = element(app, "agent-settings-\(field)")
+            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 5), "Dispatcher exposes \(field)")
+            XCTAssertTrue(control.isEnabled, "Dispatcher \(field) is editable even while awake")
+        }
+        for field in ["name", "emoji", "persona", "orchestrate"] {
+            XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
+        }
+        let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
+        XCTAssertEqual(response["status"] as? Int, 200)
+        let body = try XCTUnwrap(response["body"] as? [String: Any])
+        let settings = try XCTUnwrap(body["settings"] as? [String: Any])
+        for field in ["orchestrator", "model", "runtime", "freeAgentMode", "idleSleep"] {
+            XCTAssertEqual((settings[field] as? [String: Any])?["editable"] as? String, "always", field)
+        }
+        for field in ["name", "color", "emoji", "persona", "clubhouseMode"] {
+            XCTAssertEqual((settings[field] as? [String: Any])?["editable"] as? String, "never", field)
+        }
+        screenshot(app, "Real Dispatcher settings while awake")
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
+        // There is no phone Sleep action. Stop through the desktop's real mobile command, as a desktop stop would.
+        let stop = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.stop", "agentId": id]]) as? [String: Any])
+        XCTAssertEqual(stop["status"] as? Int, 200)
+        XCTAssertTrue(wake.waitForExistence(timeout: 30), "The phone sees the Dispatcher sleep")
+        XCUIDevice.shared.press(.home)
+        sleep(3)
+        app.activate()
+        XCTAssertTrue(wake.waitForExistence(timeout: 30))
+        XCTAssertTrue(wake.label.contains("Resume"), "A Dispatcher with a saved session offers resume: \(wake.label)")
+        wake.tap()
+        XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
+        send(app, "dispatcher resumed")
+        XCTAssertTrue(text(app, beginsWith: "echo:dispatcher resumed").waitForExistence(timeout: 30), "Sending works after reconnect and resume")
+        screenshot(app, "Dispatcher resumed after phone reconnect")
+    }
+
+    func test9cAgentDispatcherSwitchesAndRealMCPDelivery() throws {
+        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
+        let id = try XCTUnwrap(state["agentId"] as? String)
+        let app = launchPaired()
+        // Start Dispatcher when running this test alone; the fake wrapper records its bridge credentials.
+        waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
+        if app.buttons["companion-wake"].waitForExistence(timeout: 3) { app.buttons["companion-wake"].tap() }
+        XCTAssertTrue(app.buttons["companion-wake"].waitForNonExistence(timeout: 30))
+        backToHome(app)
+        let row = revealAgent(app, echoID)
+        let settingsAction = app.buttons["Agent settings"]
+        longPressUntilMenu(row, shows: settingsAction)
+        let orchestrate = app.switches["agent-settings-orchestrate"]
+        waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
+        XCTAssertTrue(scrollUntilExists(orchestrate, in: app, maxSwipes: 6))
+        scrollTo(orchestrate, in: app)
+        setSwitch(orchestrate, on: true)
+        let connect = app.switches["agent-settings-orchestrate-dispatcher"]
+        XCTAssertTrue(scrollUntilExists(connect, in: app, maxSwipes: 5))
+        scrollTo(connect, in: app)
+        setSwitch(connect, on: false)
+        var policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
+        XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, false)
+        setSwitch(connect, on: true)
+        policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
+        XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, true)
+        XCTAssertTrue((policy["bindings"] as? [[String: Any]])?.contains { $0["agentId"] as? String == id && $0["targetId"] as? String == echoID } == true)
+        // Reset Echo asleep so wake_agent really starts it, then let the real Dispatcher tool drive its lifecycle.
+        waitAndTap(app.buttons["Done"], untilGone: orchestrate)
+        try dispatcherFixture("command", ["fields": ["type": "agent.stop", "agentId": echoID]])
+        try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "wake_agent", "args": ["message": "PHONE_DISPATCHER_WAKE"]])
+        let awake = revealAgent(app, echoID)
+        XCTAssertTrue(waitFor(awake, NSPredicate(format: "NOT label CONTAINS 'Sleeping'"), timeout: 30))
+        try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": "PHONE_DISPATCHER_DELIVERY", "task_id": "phone-live-dispatcher"]])
+        waitAndTap(awake, until: composer(app), timeout: 15)
+        let delivered = text(app, beginsWith: "PHONE_DISPATCHER_DELIVERY")
+        XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message text must reach phone")
+        let caption = any(app).matching(NSPredicate(format: "identifier == 'companion-message-source' AND label CONTAINS 'From Dispatcher'")).firstMatch
+        XCTAssertTrue(caption.exists, "Real MCP message is captioned with its sender")
+        screenshot(app, "Real MCP delivery from Dispatcher")
+        backToHome(app)
+        try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "sleep_agent", "args": ["force": true]])
+        let asleep = revealAgent(app, echoID)
+        XCTAssertTrue(waitFor(asleep, NSPredicate(format: "label CONTAINS 'Sleeping'"), timeout: 30))
+        // Dispatcher off rejects writes even if an older settings sheet still offered Connect.
+        try dispatcherFixture("setEnabled", ["enabled": false])
+        let refusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID, "orchestration": ["connectToDispatcher": true]]]) as? [String: Any])
+        XCTAssertEqual(refusal["status"] as? Int, 409)
+        XCTAssertTrue(String(describing: refusal["body"]).contains("dispatcher_off"))
+        try dispatcherFixture("flag", ["enabled": false])
+        let flagRefusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.setEnabled", "enabled": true]]) as? [String: Any])
+        XCTAssertEqual(flagRefusal["status"] as? Int, 409)
+        XCTAssertTrue(String(describing: flagRefusal["body"]).contains("dispatcher_flag_off"))
+        try dispatcherFixture("flag", ["enabled": true])
+    }
+
 }
