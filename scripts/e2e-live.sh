@@ -74,9 +74,11 @@ teardown() {
       kill "$FIXTURE_PID" 2>/dev/null
     fi
   fi
-  for f in desktop-stdout.log desktop-stderr.log; do [[ -f "$FIXTURE_DIR/$f" ]] && cp "$FIXTURE_DIR/$f" "$OUT/"; done
   # The fake child's nonce stays in the 0600 temp files. Scrub desktop diagnostics before artifact upload.
-  python3 "$ROOT/scripts/e2e-live/redact-logs.py" "$FIXTURE_DIR" "$OUT"
+  python3 "$ROOT/scripts/e2e-live/redact-logs.py" "$FIXTURE_DIR" "$OUT" || {
+    echo "Log redaction failed; removing logs rather than uploading unsanitized diagnostics" >&2
+    rm -f "$OUT"/*.log
+  }
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
   if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
   rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" 2>/dev/null

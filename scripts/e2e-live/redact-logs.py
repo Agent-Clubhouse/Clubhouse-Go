@@ -14,8 +14,11 @@ for file in [fixture / 'invitation.json', *fixture.glob('mcp-*.json')]:
     for key in ('pin', 'CLUBHOUSE_HOOK_NONCE'):
         if value := data.get(key):
             secrets.add(str(value))
-for file in output.glob('*.log'):
+sources = [*output.glob('*.log'), *(fixture / name for name in ('desktop-stdout.log', 'desktop-stderr.log'))]
+for file in sources:
+    if not file.is_file():
+        continue
     text = file.read_text(errors='replace')
     for secret in sorted(secrets, key=len, reverse=True):
         text = text.replace(secret, '<redacted>')
-    file.write_text(text)
+    (output / file.name).write_text(text)
