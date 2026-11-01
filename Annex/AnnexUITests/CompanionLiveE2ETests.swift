@@ -621,8 +621,19 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(wake.label.contains("Resume"), "A Dispatcher with a saved session offers resume: \(wake.label)")
         wake.tap()
         XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
-        send(app, "dispatcher resumed")
-        XCTAssertTrue(text(app, beginsWith: "echo:dispatcher resumed").waitForExistence(timeout: 30), "Sending works after reconnect and resume")
+        // The fake emits assistant text only for its scripted turns (an arbitrary text gets a result only).
+        // A fresh question/answer round trip proves resume without relying on its reused Hello message id.
+        let replies = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'answers:' AND label CONTAINS 'SQLite'"))
+        let before = replies.count
+        send(app, "ask")
+        let sqlite = app.buttons["SQLite"]
+        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "Questions stream after reconnect and resume")
+        scrollTo(sqlite, in: app)
+        sqlite.tap()
+        let submit = app.buttons["Send answers"]
+        scrollTo(submit, in: app)
+        submit.tap()
+        XCTAssertTrue(waitForMore(replies, than: before), "The resumed Dispatcher's answer round trip reaches the CLI")
         screenshot(app, "Dispatcher resumed after phone reconnect")
     }
 
