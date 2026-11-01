@@ -8,8 +8,8 @@ import ClubhouseTransport
     private let raw = "[TASK:t] [FROM:Wrong sender] Raw delivery\n\n---\nReply instructions stay in Copy."
 
     private func json(_ text: String) throws -> AnnexJSON { try JSONDecoder().decode(AnnexJSON.self, from: Data(text.utf8)) }
-    private func event(_ routed: AnnexJSON? = nil, sequence: Int64 = 2, messageID: String = "routed") -> AnnexJSON {
-        var data: [String: AnnexJSON] = ["messageId": .string(messageID), "source": .string("mcp"), "delivery": .string("steer"),
+    private func event(_ routed: AnnexJSON? = nil, sequence: Int64 = 2, messageID: String = "routed", source: String = "mcp") -> AnnexJSON {
+        var data: [String: AnnexJSON] = ["messageId": .string(messageID), "source": .string(source), "delivery": .string("steer"),
                                        "content": .array([.object(["type": .string("text"), "text": .string(raw)])])]
         data["routed"] = routed
         return .object(["sessionId": .string("s1"), "seq": .integer(sequence), "type": .string("user_message"), "data": .object(data)])
@@ -37,7 +37,17 @@ import ClubhouseTransport
         #expect(projected.routed.last?.caption(source: "group_project") == "Group project")
         #expect(projected.routed.first?.caption(source: "mission") == "Builder · Mission")
         #expect(projected.routed.first?.caption(source: "shoulder_tap") == "Builder · Shoulder tap")
-        #expect(projected.routed.first?.caption(source: "annex") == "Builder · From Annex")
+    }
+
+    @Test func ownMessagesIgnoreRoutedPartsAndKeepTheNormalUserBubble() throws {
+        let routed = try json(#"[{"sender":{"name":"Builder"},"text":"Other text"},{"fromClubhouse":true,"text":"A notice"}]"#)
+        for source in ["user", "annex"] {
+            let projected = try message(event(routed, source: source))
+            #expect(!projected.showsRoutedMessages, "Desktop handles the user's own sources before looking at routed")
+            #expect(projected.displayText == raw && projected.text == raw)
+            #expect(projected.sourceLabel == (source == "annex" ? "From Annex · Steered into the running turn" : "Steered into the running turn"))
+        }
+        #expect(try message(event(routed)).showsRoutedMessages)
     }
 
     @Test func structuredTextIsNeverReparsedAsRouting() throws {
@@ -54,9 +64,10 @@ import ClubhouseTransport
         }
     }
 
-    @Test func malformedPartsAreSkippedWithoutDroppingTheirValidNeighbours() throws {
+    @Test func malformedAttributionKeepsTheTextAndOnlyPartsWithoutStringTextAreSkipped() throws {
         let projected = try message(event(json(#"[null,42,"bad",{}, {"text":true}, {"text":"Bad sender","sender":{"agentId":"a"}}, {"text":"Bad name","sender":{"name":false}}, {"text":"Blank name","sender":{"name":"  "}}, {"text":"Bad id","sender":{"name":"A","agentId":1}}, {"text":"Bad flag","fromClubhouse":"yes"}, {"text":"Good","sender":{"name":"Atlas"}}, {"text":"Notice","fromClubhouse":true}, {"text":"No sender","sender":null,"fromClubhouse":null}]"#)))
-        #expect(projected.routed.map(\.displayText) == ["Good", "Notice", "No sender"])
+        #expect(projected.routed.map(\.displayText) == ["Bad sender", "Bad name", "Blank name", "Bad id", "Bad flag", "Good", "Notice", "No sender"])
+        #expect(projected.routed.map { $0.caption(source: "mcp") } == ["Another agent", "Another agent", "Another agent", "Another agent", "Another agent", "Atlas", "Clubhouse", "Another agent"])
     }
 
     @Test func absentEmptyAndUnusableRoutedPreserveLegacyBehavior() throws {

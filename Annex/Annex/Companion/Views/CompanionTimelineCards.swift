@@ -15,7 +15,7 @@ struct CompanionMessageView: View {
         Group {
             switch message.role {
             case .user:
-                if message.routed.isEmpty { userMessage } else { routedMessages }
+                if message.showsRoutedMessages { routedMessages } else { userMessage }
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
                     richText

@@ -33,16 +33,13 @@ struct CompanionChatProjector {
         value.arrayValue.compactMap { part in
             guard let text = part["text"]?.string else { return nil }
             var sender: CompanionRoutedMessagePart.Sender?
-            if let raw = part["sender"], raw != .null {
-                guard let name = raw["name"]?.string, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-                if let id = raw["agentId"], id != .null, id.string == nil { return nil }
+            // Attribution is best effort: malformed metadata must never discard a message's valid text.
+            if let raw = part["sender"], let name = raw["name"]?.string,
+               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               raw["agentId"] == nil || raw["agentId"] == .null || raw["agentId"]?.string != nil {
                 sender = .init(agentID: raw["agentId"]?.string, name: name)
             }
-            var fromClubhouse = false
-            if let raw = part["fromClubhouse"], raw != .null {
-                guard case .bool(let flag) = raw else { return nil }
-                fromClubhouse = flag
-            }
+            let fromClubhouse = part["fromClubhouse"] == .bool(true)
             return .init(sender: sender, fromClubhouse: fromClubhouse, text: text)
         }
     }

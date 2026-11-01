@@ -400,6 +400,8 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var isSteered = false
     /// Structured messages from other agents or Clubhouse. Empty on older transcripts or unusable input.
     var routed: [CompanionRoutedMessagePart] = []
+    /// Desktop handles the user's own messages before consulting routed attribution.
+    var showsRoutedMessages: Bool { role == .user && source != "user" && source != "annex" && !routed.isEmpty }
 
     /// Legacy MCP attribution, used only when `routed` is empty.
     var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text) : nil }
@@ -445,7 +447,6 @@ struct CompanionRoutedMessagePart: Sendable, Equatable {
         let origin: String? = switch source {
         case "mission": "Mission"
         case "shoulder_tap": "Shoulder tap"
-        case "annex": "From Annex"
         default: nil
         }
         return [name, origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }.joined(separator: " · ")
