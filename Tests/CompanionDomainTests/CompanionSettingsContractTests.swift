@@ -9,9 +9,13 @@ import Testing
         #expect(helper.parentAgentID == "durable_chat")
         #expect(helper.orchestration?.connectToDispatcher == false)
         #expect(helper.name.editable == .sleeping && helper.model.editable == .sleeping)
-        let topLevel = try CompanionAgentSettings(json: ContractFixtures.body("agent-settings-running.json"))
+        guard case .object(var handedOffBody) = try ContractFixtures.body("agent-settings-running.json") else { return }
+        handedOffBody.removeValue(forKey: "options") // agent.update results omit options, so merging is required.
+        let topLevel = try CompanionAgentSettings(json: .object(handedOffBody))
         #expect(topLevel.parentAgentID == nil)
-        #expect(topLevel.keepingOptions(of: helper).parentAgentID == nil, "Handoff removes helper identity; it isn't an option to retain")
+        let merged = topLevel.keepingOptions(of: helper)
+        #expect(merged.options == helper.options)
+        #expect(merged.parentAgentID == nil, "Handoff removes helper identity; it isn't an option to retain")
         guard case .object(var body) = try ContractFixtures.body("agent-settings-helper.json") else { return }
         for value in [AnnexJSON.null, .bool(true), .integer(42), .array([])] {
             body["parentAgentId"] = value
