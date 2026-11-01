@@ -116,8 +116,15 @@ async function observeDesktop(status: any) {
   ws.on('message', data => {
     const frame = JSON.parse(data.toString());
     // Persist only Dispatcher/catalog evidence and routed chat events; no pairing or transport credentials.
-    if (frame.type === 'snapshot' || frame.type === 'dispatcher:changed' || frame.type.startsWith('replay:') ||
-        (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message')) frames.push(frame);
+    if (frame.type === 'snapshot') {
+      frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: { dispatcher: frame.payload?.dispatcher } });
+    } else if (frame.type === 'dispatcher:changed' || frame.type.startsWith('replay:')) {
+      frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: frame.payload });
+    } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message') {
+      const event = frame.payload.event;
+      frames.push({ type: frame.type, seq: frame.seq, payload: { agentId: frame.payload.agentId,
+        event: { type: event.type, source: event.source, text: event.text, routed: event.routed } } });
+    }
   });
   await new Promise<void>((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
   return { frames, ws, request, command: (fields: Record<string, unknown>) => request('POST', '/api/v1/mobile/commands',
