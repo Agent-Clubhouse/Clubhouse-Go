@@ -70,12 +70,15 @@ function writeFakeClaude(binDir: string): string {
   // Capture only the bridge credentials issued to this isolated child, never the user's environment.
   // The wrapper then runs the unchanged scripted CLI; it does not call a provider.
   const wrapper = path.join(binDir, 'fake-wrapper.mjs');
-  writeFile(wrapper, `import { writeFileSync } from 'node:fs';
+  writeFile(wrapper, `import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-if (process.env.CLUBHOUSE_AGENT_ID && !process.argv.includes('--version')) {
+const allowed = JSON.parse(readFileSync(${JSON.stringify(path.join(FIXTURE_DIR, 'fixture-agent-ids.json'))}, 'utf8'));
+if (allowed.includes(process.env.CLUBHOUSE_AGENT_ID) && !process.argv.includes('--version') &&
+    process.env.CLUBHOUSE_HOOK_NONCE && /^[0-9]+$/.test(process.env.CLUBHOUSE_MCP_PORT ?? '')) {
   const keys = ['CLUBHOUSE_AGENT_ID', 'CLUBHOUSE_MCP_PORT', 'CLUBHOUSE_HOOK_NONCE'];
-  writeFileSync(${JSON.stringify(FIXTURE_DIR)} + '/mcp-' + process.env.CLUBHOUSE_AGENT_ID + '.json',
-    JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k]]))), { mode: 0o600 });
+  const file = ${JSON.stringify(FIXTURE_DIR)} + '/mcp-' + process.env.CLUBHOUSE_AGENT_ID + '.json';
+  writeFileSync(file + '.pending', JSON.stringify(Object.fromEntries(keys.map(k => [k, process.env[k]]))), { mode: 0o600 });
+  renameSync(file + '.pending', file);
 }
 const child = spawn(process.execPath, [${JSON.stringify(FAKE_CLAUDE)}, ...process.argv.slice(2)], { stdio: 'inherit' });
 child.on('exit', code => process.exit(code ?? 1));
@@ -145,12 +148,30 @@ async function observeDesktop(status: any) {
 }
 
 /** The real bridge, authenticated as the fixture's fake child (same approach as desktop e2e/dispatcher.spec.ts). */
-async function callMcp(agentId: string, targetName: string, suffix: string, args: Record<string, unknown>) {
+async function callMcp(agentId: string, targetName: string, suffix: string, args: Record<string, unknown>,
+                       allowed: Set<string>, desktopPid: number) {
+  if (!allowed.has(agentId)) throw new Error('MCP refused: caller is not an agent created by this fixture');
   const file = path.join(FIXTURE_DIR, `mcp-${agentId}.json`);
   const env = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const port = Number(env.CLUBHOUSE_MCP_PORT);
+  const guard = () => {
+    if (!allowed.has(agentId) || env.CLUBHOUSE_AGENT_ID !== agentId || !env.CLUBHOUSE_HOOK_NONCE ||
+        !Number.isInteger(port) || port <= 0 || port > 65535 || String(port) === process.env.E2E_FORBIDDEN_MCP_PORT) {
+      throw new Error('MCP refused: invalid fixture credentials or inherited desktop port');
+    }
+    // No preload API exposes the bridge port. Require an actual listener owned by our launched Electron PID,
+    // as well as rejecting the original inherited port. This check runs before EVERY RPC, including initialize.
+    const listeners = execFileSync('/usr/sbin/lsof', ['-nP', '-a', '-p', String(desktopPid), '-iTCP', '-sTCP:LISTEN', '-Fn'], { encoding: 'utf8' });
+    if (!listeners.split('\n').includes(`n127.0.0.1:${port}`)) {
+      throw new Error('MCP refused: port is not bound by this fixture desktop');
+    }
+  };
+  guard();
+  log('MCP isolation verified: fixture-owned agent and desktop-owned listener; inherited port excluded');
   let session: string | null = null;
   let id = 0;
   const rpc = async (method: string, params = {}) => {
+    guard();
     const response = await fetch(`http://127.0.0.1:${env.CLUBHOUSE_MCP_PORT}/mcp/${agentId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Clubhouse-Nonce': env.CLUBHOUSE_HOOK_NONCE,
         ...(session ? { 'Mcp-Session-Id': session } : {}) },
@@ -173,6 +194,15 @@ async function callMcp(agentId: string, targetName: string, suffix: string, args
 test('Clubhouse Go live E2E desktop fixture', async () => {
   test.setTimeout(0);
   if (!FIXTURE_DIR) throw new Error('Set E2E_FIXTURE_DIR');
+  const inherited = Object.keys(process.env).filter(key => key.startsWith('CLUBHOUSE_'));
+  if (inherited.length) throw new Error(`Refusing to launch with inherited Clubhouse environment: ${inherited.join(', ')}`);
+  log('Isolation preflight passed: no inherited CLUBHOUSE_* variables (agent identity, nonce and port absent)');
+  const fixtureAgentIds = new Set<string>();
+  const rememberAgents = (...ids: string[]) => {
+    for (const id of ids) fixtureAgentIds.add(id);
+    writeFile(path.join(FIXTURE_DIR, 'fixture-agent-ids.json'), JSON.stringify([...fixtureAgentIds]), 0o600);
+  };
+  rememberAgents();
   if (!fs.existsSync(FAKE_CLAUDE)) throw new Error(`This desktop ref has no ${FAKE_CLAUDE}`);
   const projectDir = path.join(FIXTURE_DIR, 'Phone Fixture');
   makeProject(projectDir);
@@ -210,6 +240,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
       const builder = await ch.agent.createDurable(projectPath, 'Builder', 'blue', undefined, true, 'claude-code');
       return { echo: echo.id as string, builder: builder.id as string };
     }, projectDir);
+    rememberAgents(agents.echo, agents.builder);
     log(`project and agents ready: ${JSON.stringify(agents)}`);
 
     await window.evaluate(async () => {
@@ -288,7 +319,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: on });
               return 'ok';
             }, request.enabled); break;
-            case 'mcp': result = await callMcp(request.agentId, request.target, request.tool, request.args ?? {}); break;
+            case 'mcp': result = await callMcp(request.agentId, request.target, request.tool, request.args ?? {}, fixtureAgentIds, electronApp.process().pid!); break;
             case 'wire': {
               // Replay the actual server buffer, independently of the phone's UI catch-up assertion.
               const before = observer!.frames.length;
@@ -300,6 +331,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
             }
             default: throw new Error(`Unknown fixture operation ${request.op}`);
           }
+          if ((request.op === 'state' || request.op === 'setEnabled') && (result as any)?.agentId) rememberAgents((result as any).agentId);
           writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), evidence({ id: request.id, result }));
         } catch (err) {
           const error = err instanceof Error ? err.message : String(err);

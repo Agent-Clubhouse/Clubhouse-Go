@@ -56,6 +56,8 @@ What the script does:
    - the experimental Dispatcher flag and New layout, with Dispatcher initially off so the earlier idle-project tests keep their order constraints;
    - a separate session-paired mTLS observer that checks real Dispatcher events, follow-up snapshots and replay. It pins the fixture certificate before pairing. A wrapper around the unchanged fake CLI stores only that isolated child's MCP bridge credentials in 0600 files inside the private temporary fixture folder, so tests can call real Dispatcher tools without a model. Credentials never reach the phone runner or wire evidence. Desktop stdout/stderr are redacted before entering the artifact directory, other logs are scrubbed at teardown, and the entire temporary folder is deleted.
 
+   Before any build or launch, the script removes every inherited `CLUBHOUSE_*` environment variable, including the agent credentials present when an installed Clubhouse starts the script. The fixture refuses inherited Clubhouse variables. Its fake wrapper records credentials only for fixture-created agent IDs; every MCP RPC verifies that ID, excludes the original inherited port, and checks that the listener belongs to the fixture desktop PID. Fallback teardown also checks that `desktop.pid` runs an executable under `.desktop/` before signaling it.
+
    It never touches your own Clubhouse instance or its profile.
 3. **Mints the pairing.** Once Annex's TLS listener is up, the fixture reads `annex.getStatus()` and writes `{host, port, hostID, certificatePin, pin, name}` (mode 0600) to a temporary folder.
 4. **Runs `CompanionLiveE2ETests`** on a new simulator of the chosen model, which the script creates for this run and deletes afterwards. On a dev Mac other builds and agents boot, drive and shut down the usual simulators, and sharing one crashed runs and relaunched the app mid-test. Pass `--shared-simulator` to use the existing device instead. The script uninstalls the app and runner first, because a stale runner has run old tests. The invitation reaches the runner as `TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION`, and each test passes it to the app in its launch environment. Each launch then pairs for that session only, through the DEBUG bootstrap. Failed tests are retried once. If the simulator itself crashes ("server died", a failed launch), xcodebuild aborts the whole run, so the script reboots the simulator and runs the suite once more. `scripts/verify-xcresult.py` requires a nonempty passing result. xcodebuild prints the launch environment when a launch fails, so the script redacts the invitation from its log.
@@ -66,7 +68,8 @@ Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
 - `LiveE2E.xcresult`, which holds screenshots of each step;
 - `xcodebuild-build.log` and `xcodebuild-test.log` (plus `xcodebuild-test-retry.log` after a simulator crash);
 - `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
-- `desktop-sha.txt`, the desktop commit that was tested.
+- `desktop-sha.txt`, the desktop commit that was tested;
+- `dispatcher-wire.json`, redacted Dispatcher events, snapshots, replay and MCP-delivered message evidence.
 
 Other environment variables: `DESKTOP_REF`, `DESKTOP_REPO`, `DESKTOP_DIR`, `E2E_SIMULATOR`, `E2E_DERIVED_DATA`, and `E2E_SKIP_DESKTOP_CHECKOUT=1`, which builds `DESKTOP_DIR` as it is checked out.
 
@@ -99,7 +102,6 @@ The tests share the desktop and run in order. Each one copes with what an earlie
 | `test9bDispatcherChatSettingsSleepWakeAndResume` | Dispatcher chat send/stream, its editable and locked settings, desktop stop, phone wake/resume after reconnect |
 | `test9cAgentDispatcherSwitchesAndRealMCPDelivery` | Echo's Orchestrate and Connect switches; the actual Dispatcher wire; authenticated MCP `wake_agent`, `send_message`, `sleep_agent`; phone wake/sleep state and sender caption/text; structured `routed` data when sent; raw `mcpEnabled: false`, 409 `mcp_off`, `dispatcher_off` and `dispatcher_flag_off` |
 | `test9dDispatcherSettingsSaveAndLockedFieldsRefuse` | Phone model/runtime/auto-sleep/Free Agent Mode saves persisted on desktop, plus 409 `dispatcher_locked` for identity, persona, Clubhouse mode and orchestration writes |
-
 
 Dispatcher checks run last and support `--only` and retries. Phone gestures cover the UI; the private fixture action channel performs desktop changes, direct MCP calls and HTTP-only refusal checks. The observer's replay check proves the desktop retains the event, while the phone assertion proves foreground catch-up; it does not claim to distinguish replay from a fresh connection snapshot on the phone. The fake CLI does not decide to use tools: the fixture authenticates to the real MCP bridge as its own fake child and invokes them directly.
 

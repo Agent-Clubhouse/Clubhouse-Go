@@ -15,3 +15,5 @@ All providers use the scripted fake or nonexistent CLI paths; no paid prompts.
 Pending separate phone PR: MCP-off disabled switches and explanation, and structured `routed` rendering. Add when orchestrator confirms main includes them.
 
 Validate with a focused `--only` run, `swift test`, Xcode build, then full live suite and `verify-xcresult.py`. Confirm desktop bugs against logs/code, search duplicates, file with batch label, and retain issue-linked checks.
+
+Isolation validation: launch with dummy `CLUBHOUSE_AGENT_ID`, `CLUBHOUSE_HOOK_NONCE`, `CLUBHOUSE_MCP_PORT` and an extra `CLUBHOUSE_*` sentinel. Require the fixture's clean-environment preflight and real MCP guard to pass. Verify the installed Clubhouse PID/start time before and after. Interrupted pre-isolation runs do not count.
