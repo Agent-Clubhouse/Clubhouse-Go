@@ -96,23 +96,38 @@ enum CompanionMessageRouting {
     }
 }
 
-/// A value lookup passed by transcript parents: rows never observe the host catalog or the whole store.
-struct CompanionSenderResolver: Sendable {
-    private var byID: [String: CompanionAgent] = [:]
-    private var uniqueNames: [String: CompanionAgent] = [:]
-    init(agents: [CompanionAgent]) {
-        for agent in agents { byID[agent.id.agentID] = agent }
-        for (name, matches) in Dictionary(grouping: agents, by: \.name) where matches.count == 1 { uniqueNames[name] = matches[0] }
+/// Only the identity a sender row draws. Runtime status and streaming metadata cannot invalidate the lookup.
+struct CompanionSenderIdentity: Sendable, Equatable {
+    var id: String
+    var name: String
+    var color: String? = nil
+    var emoji: String? = nil
+    var iconData: Data? = nil
+}
+
+extension CompanionSenderIdentity {
+    init(agent: CompanionAgent) {
+        self.init(id: agent.id.agentID, name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData)
     }
-    func resolve(_ sender: CompanionRoutedMessagePart.Sender?) -> CompanionAgent? {
+}
+
+/// An equatable value supplied by transcript parents; only other-sender rows subscribe to it.
+struct CompanionSenderResolver: Sendable, Equatable {
+    private var byID: [String: CompanionSenderIdentity] = [:]
+    private var uniqueNames: [String: CompanionSenderIdentity] = [:]
+    init(agents: [CompanionAgent]) {
+        let identities = agents.map { CompanionSenderIdentity(agent: $0) }
+        for identity in identities { byID[identity.id] = identity }
+        for (name, matches) in Dictionary(grouping: identities, by: \.name) where matches.count == 1 { uniqueNames[name] = matches[0] }
+    }
+    func resolve(_ sender: CompanionRoutedMessagePart.Sender?) -> CompanionSenderIdentity? {
         guard let sender else { return nil }
         if let id = sender.agentID, !id.isEmpty { return byID[id] }
         return uniqueNames[sender.name]
     }
-    func avatarAgent(for sender: CompanionRoutedMessagePart.Sender?) -> CompanionAgent? {
+    func avatarIdentity(for sender: CompanionRoutedMessagePart.Sender?) -> CompanionSenderIdentity? {
         guard let sender else { return nil }
-        return resolve(sender) ?? .init(id: .init(hostID: "", projectID: "", agentID: sender.agentID ?? sender.name),
-                                      name: sender.name, subtitle: "", status: .idle)
+        return resolve(sender) ?? .init(id: sender.agentID ?? sender.name, name: sender.name)
     }
 }
 

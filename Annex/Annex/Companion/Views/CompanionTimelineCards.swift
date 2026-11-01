@@ -18,7 +18,6 @@ struct CompanionMessageView: View {
     var removeQueued: (() -> Void)?
     /// In the conversation, a long reply is shown a slice per row (#188); the archive shows it whole.
     var slice: CompanionMessageSlice?
-    @Environment(\.companionSenderResolver) private var senderResolver
     var expansion: CompanionTranscriptExpansion
     @Environment(\.companionPalette) private var palette
 
@@ -62,11 +61,7 @@ struct CompanionMessageView: View {
     /// A burst remains separate messages; only a part's open state is observed by its own view.
     private func routedMessages(_ parts: [CompanionRoutedMessagePart]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
-                CompanionSentPartView(part: part, message: message, index: index,
-                                      agent: senderResolver.avatarAgent(for: part.sender),
-                                      expansion: expansion.part(messageID: message.id, index: index))
-            }
+            CompanionSentPartsView(parts: parts, message: message, expansion: expansion)
             if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
             deliveryStatus
             queueStatus
@@ -156,16 +151,34 @@ struct CompanionMessageView: View {
     }
 }
 
+/// This is the only resolver subscriber. Assistant, system and own-message rows never read its environment.
+private struct CompanionSentPartsView: View {
+    let parts: [CompanionRoutedMessagePart]
+    let message: CompanionMessage
+    let expansion: CompanionTranscriptExpansion
+    @Environment(\.companionSenderResolver) private var senderResolver
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                CompanionSentPartView(part: part, message: message, index: index,
+                                      identity: senderResolver.avatarIdentity(for: part.sender),
+                                      expansion: expansion.part(messageID: message.id, index: index))
+            }
+        }
+    }
+}
+
 /// The caption is a native button for long parts. Its body is constructed only while open.
 private struct CompanionSentPartView: View {
     let part: CompanionRoutedMessagePart
     let message: CompanionMessage
     let index: Int
-    let agent: CompanionAgent?
+    let identity: CompanionSenderIdentity?
     let expansion: CompanionPartExpansion
     @Environment(\.companionPalette) private var palette
 
-    private var name: String { agent?.name ?? part.sender?.name ?? (part.fromClubhouse ? "Clubhouse" : message.source == "group_project" ? "Group project" : "Another agent") }
+    private var name: String { identity?.name ?? part.sender?.name ?? (part.fromClubhouse ? "Clubhouse" : message.source == "group_project" ? "Group project" : "Another agent") }
     private var identifier: String { "companion-routed-\(message.id)-\(index)" }
     private var caption: String { part.caption(source: message.source, isSteered: message.isSteered, currentName: name) }
     private var longCaption: String { (["\(name) sent a long message"] + message.metaLabels).joined(separator: " · ") }
@@ -174,8 +187,9 @@ private struct CompanionSentPartView: View {
         let collapsible = CompanionMessageRouting.isLongMessage(part.text)
         let open = expansion.isOpen(for: part.text)
         HStack(alignment: .top, spacing: 8) {
-            if let agent {
-                CompanionAgentAvatar(agent: agent, size: 24, showsStatus: false)
+            if let identity {
+                CompanionIdentityFace(name: identity.name, color: identity.color, emoji: identity.emoji,
+                                      iconData: identity.iconData, size: 24)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(name) avatar")
                     .accessibilityHidden(false)
@@ -194,7 +208,7 @@ private struct CompanionSentPartView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(open ? "\(name): \(part.text)" : "\(longCaption), collapsed")
-                    .accessibilityValue(open ? "Expanded" : "Collapsed")
+                    .accessibilityValue(open ? (["Expanded"] + accessibilityMetadata).joined(separator: ", ") : "Collapsed")
                     .accessibilityHint(open ? "Collapse message" : "Expand message")
                     .accessibilityIdentifier(identifier)
                     .contextMenu { copyMessage }
@@ -210,11 +224,14 @@ private struct CompanionSentPartView: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(name): \(part.text)")
-                .accessibilityValue(message.timestamp?.formatted(date: .omitted, time: .shortened) ?? "")
+                .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
                 .accessibilityIdentifier(identifier)
                 .contextMenu { copyMessage }
             }
         }
+    }
+    private var accessibilityMetadata: [String] {
+        message.metaLabels + [message.timestamp?.formatted(date: .omitted, time: .shortened)].compactMap { $0 }
     }
     @ViewBuilder private var timestamp: some View {
         if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }

@@ -89,21 +89,18 @@ extension CompanionAgentStatus {
 struct CompanionAgentAvatar: View {
     let agent: CompanionAgent
     var size: CGFloat = 32
-    var showsStatus = true
     @Environment(\.companionPalette) private var palette
     var body: some View {
         let color = agent.status.color(in: palette)
         CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, size: size)
             .overlay(alignment: .bottomTrailing) {
-                if showsStatus {
-                    let hollow = agent.status.dot.isHollow
-                    Circle()
-                        .fill(hollow ? Color.clear : color)
-                        .overlay { if hollow { Circle().strokeBorder(color, lineWidth: 1.5) } }
-                        .frame(width: size * 0.34, height: size * 0.34)
-                        .padding(2).background(Color(palette.card), in: Circle())
-                        .offset(x: 3, y: 3)
-                }
+                let hollow = agent.status.dot.isHollow
+                Circle()
+                    .fill(hollow ? Color.clear : color)
+                    .overlay { if hollow { Circle().strokeBorder(color, lineWidth: 1.5) } }
+                    .frame(width: size * 0.34, height: size * 0.34)
+                    .padding(2).background(Color(palette.card), in: Circle())
+                    .offset(x: 3, y: 3)
             }
             .accessibilityHidden(true)
     }
