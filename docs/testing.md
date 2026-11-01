@@ -109,7 +109,7 @@ Dispatcher checks run last and support `--only` and retries. Phone gestures cove
 
 **Dispatcher gaps:** `dispatcher_layout_off` needs a separate Classic-layout desktop launch (layout is fixed at startup); MCP-off disabled-switch UX and structured `routed` rendering await the separate phone changes. The live test checks delivered `routed` wire fields when present, without claiming a structured-rendering test. Physical-device background suspension is separate from the simulator's Home/foreground check.
 
-**Not covered: helper requests.** The fixture would need an orchestrator agent with orchestration turned on and an ask-first helper policy, whose CLI calls `start_helper` over the desktop's Clubhouse MCP bridge. The scripted fake doesn't speak MCP. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers the phone side against the preview desktop.
+**Not covered: helper approval requests.** The live helper check uses a hands-off policy so `start_helper` creates a real helper directly. It does not exercise an ask-first request, approval or decline. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers that phone flow against the preview desktop.
 
 `--companion-sample-images` replaces the photo picker in this suite, as in preview mode. In DEBUG builds it is honoured when a test invitation is present.
 
