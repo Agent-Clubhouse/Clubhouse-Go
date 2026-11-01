@@ -31,6 +31,12 @@ import Testing
         #expect(CompanionMessageRouting.parseRoutedText("[TASK:t_1] [FROM:rover@p] File delivered: /tmp/a.md — read this file for content from rover@p.") == [from("rover", "File delivered: /tmp/a.md")])
     }
 
+    @Test func footerEndAnchorsRequireTheActualEndLikeJavaScript() {
+        #expect(CompanionMessageRouting.parseRoutedText("[FROM:rover] Hi\(reply)\n") == [from("rover", "Hi\(reply)\n")])
+        let notice = "File delivered: /tmp/a.md — read this file for content from rover.\n"
+        #expect(CompanionMessageRouting.parseRoutedText("[FROM:rover] " + notice) == [from("rover", notice)])
+    }
+
     @Test func splitsBurstInOrderAndReadsClubhouse() {
         let text = "3 updates, oldest first:\n\n--- 1 of 3 ---\n[FROM HELPER:a (1)] one\n\n--- 2 of 3 ---\n[Clubhouse] two\n\n--- 3 of 3 ---\n[FROM HELPER:b (2)] three\n\nmore"
         #expect(CompanionMessageRouting.parseRoutedText(text) == [from("a", "one", id: "1"), .init(fromClubhouse: true, text: "two"), from("b", "three\n\nmore", id: "2")])
@@ -78,6 +84,9 @@ import Testing
         #expect(CompanionMessageRouting.isLongMessage(String(repeating: "x", count: 801)))
         #expect(!CompanionMessageRouting.isLongMessage(Array(repeating: "y", count: 14).joined(separator: "\n")))
         #expect(CompanionMessageRouting.isLongMessage(Array(repeating: "y", count: 15).joined(separator: "\n")))
+        #expect(!CompanionMessageRouting.isLongMessage(Array(repeating: "y", count: 14).joined(separator: "\r\n")))
+        #expect(CompanionMessageRouting.isLongMessage(Array(repeating: "y", count: 15).joined(separator: "\r\n")), "JavaScript splits LF even inside CRLF")
+        #expect(CompanionMessageRouting.isLongMessage(String(repeating: "\n", count: 14)), "Trailing and empty lines count")
         #expect(!CompanionMessageRouting.isLongMessage(String(repeating: "😀", count: 400)))
         #expect(CompanionMessageRouting.isLongMessage(String(repeating: "😀", count: 401)), "Desktop counts UTF-16 units")
     }

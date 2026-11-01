@@ -13,11 +13,12 @@ enum CompanionMessageRouting {
     private static let helper = pattern(#"^\[FROM HELPER:([^\]]+?) \(([^)\]]+)\)\] "#)
     private static let question = pattern(#"^\[QUESTION FROM HELPER:([^\]]+?) \(([^)\]]+)\)\] .*? is waiting for your answer\. Answer with answer_helper_question, requestId "[^"]*"\. If the user should decide, call it with escalate: true instead\.\n?"#)
     private static let from = pattern(#"^(?:\[TASK:[^\]]+\] )?\[FROM:([^\]]+)\] "#)
-    private static let replyFooter = pattern(#"\n\n---\nReply to [^\n]* via tool "[^"\n]*" with task_id="[^"\n]*"\. Prefix your response with TASK_RESULT:\S*\.$"#)
+    // ICU $ also accepts a final newline; \z matches JavaScript's actual end-of-input anchor.
+    private static let replyFooter = pattern(#"\n\n---\nReply to [^\n]* via tool "[^"\n]*" with task_id="[^"\n]*"\. Prefix your response with TASK_RESULT:\S*\.\z"#)
     private static let missionFooter = pattern(#"\n\n---\nYou are a helper agent started by [^\n]*\. Use the message_parent tool to send [^\n]* your progress, questions and results\.(?:\n\n\[FROM:[^\]]+\] )?"#)
-    private static let fileNotice = pattern(#"^File delivered: ([^\n]*) — read this file for content from [^\n]*\.$"#)
-    private static let tap = pattern(#"^Group Project notification — shoulder tap from "([^"\n]*)" in "[^"\n]*"\n([\s\S]*?)\n\n---\nRESPONSE INSTRUCTIONS:\n[\s\S]*$"#)
-    private static let taskMarker = pattern(#"^TASK_(?:RESULT|ACK):[^\s:]+(?::\s*|\s+|$)"#)
+    private static let fileNotice = pattern(#"^File delivered: ([^\n]*) — read this file for content from [^\n]*\.\z"#)
+    private static let tap = pattern(#"^Group Project notification — shoulder tap from "([^"\n]*)" in "[^"\n]*"\n([\s\S]*?)\n\n---\nRESPONSE INSTRUCTIONS:\n[\s\S]*\z"#)
+    private static let taskMarker = pattern(#"^TASK_(?:RESULT|ACK):[^\s:]+(?::\s*|\s+|\z)"#)
 
     private static func pattern(_ text: String) -> NSRegularExpression { try! NSRegularExpression(pattern: text) }
     private static func match(_ pattern: NSRegularExpression, _ text: String) -> NSTextCheckingResult? {
@@ -36,7 +37,8 @@ enum CompanionMessageRouting {
     }
     static func stripTaskMarker(_ text: String) -> String { replacing(taskMarker, in: text, with: "") }
     static func isLongMessage(_ text: String) -> Bool {
-        text.utf16.count > 800 || text.split(separator: "\n", omittingEmptySubsequences: false).count > 14
+        // Count LF code units: Swift treats CRLF as one Character, but JavaScript splits on its LF.
+        text.utf16.count > 800 || text.utf16.reduce(1) { $1 == 10 ? $0 + 1 : $0 } > 14
     }
 
     private static func splitCoalesced(_ text: String) -> [String] {
