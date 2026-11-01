@@ -591,6 +591,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["name", "emoji", "persona", "orchestrate"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
         }
+        XCTAssertFalse(element(app, "agent-color-blue").exists, "The Dispatcher's color is locked")
+        XCTAssertFalse(app.switches["Clubhouse mode for this agent"].exists, "The Dispatcher has no project mode")
         let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
         XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])

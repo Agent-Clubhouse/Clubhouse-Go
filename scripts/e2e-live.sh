@@ -49,7 +49,7 @@ log() { printf '\n==> [%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 mkdir -p "$OUT"
-rm -rf "$OUT/LiveE2E.xcresult" "$OUT"/*.log
+rm -rf "$OUT/LiveE2E.xcresult" "$OUT"/*.log "$OUT/dispatcher-wire.json"
 # Under /tmp, not $TMPDIR: macOS's $TMPDIR resolves into /private/var, where the desktop won't open a terminal.
 FIXTURE_DIR="$(mktemp -d /tmp/clubhouse-go-e2e.XXXXXX)"
 FIXTURE_PID=""
@@ -77,7 +77,7 @@ teardown() {
   # The fake child's nonce stays in the 0600 temp files. Scrub desktop diagnostics before artifact upload.
   python3 "$ROOT/scripts/e2e-live/redact-logs.py" "$FIXTURE_DIR" "$OUT" || {
     echo "Log redaction failed; removing logs rather than uploading unsanitized diagnostics" >&2
-    rm -f "$OUT"/*.log
+    rm -f "$OUT"/*.log "$OUT/dispatcher-wire.json"
   }
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
   if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
