@@ -321,7 +321,7 @@ import Foundation
         emoji: .init(value: nil, editable: .never), orchestrator: .init(value: "claude-code", editable: .always), resolvedOrchestrator: "claude-code",
         model: .init(value: "opus", editable: .always), runtime: .init(value: "chat", editable: .always), resolvedRuntime: "chat",
         persona: .init(value: nil, editable: .never), clubhouseMode: .init(value: nil, editable: .never),
-        freeAgentMode: .init(value: true, editable: .sleeping), idleSleep: .init(value: .never, editable: .always),
+        freeAgentMode: .init(value: true, editable: .always), idleSleep: .init(value: .never, editable: .always),
         options: agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
     /// Juniper orchestrates, asking before each helper starts; River doesn't.
     static let juniperOrchestration = CompanionOrchestration(orchestrate: true, control: "ask-before-start", maxHelpers: 3,

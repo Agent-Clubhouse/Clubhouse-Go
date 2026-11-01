@@ -250,11 +250,11 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-orchestrator")
+            let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
-                ForEach(settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)) {
-                    Text($0.label).tag($0.id)
-                }
+                ForEach(models) { Text($0.label).tag($0.id) }
             }
+            .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
             Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {

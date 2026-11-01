@@ -85,6 +85,7 @@ import Testing
         #expect(settings.persona.editable == .never && settings.clubhouseMode.editable == .never)
         #expect(settings.model.editable == .always && settings.orchestrator.editable == .always && settings.idleSleep.editable == .always)
         #expect(settings.orchestration == nil, "Its orchestration is locked")
+        #expect(settings.freeAgentMode.editable == .always && !settings.hasLockedSettings, "Nothing waits for it to sleep")
         #expect(settings.workspace?.changes == nil && settings.workspace?.branch == nil)
     }
 

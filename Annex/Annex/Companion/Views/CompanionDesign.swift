@@ -306,3 +306,10 @@ extension View {
     /// Use after `.borderedProminent` or `.glassProminent` on buttons filled with the theme tint.
     func companionProminentLabel() -> some View { modifier(CompanionProminentLabel()) }
 }
+
+extension View {
+    /// A CLI's live model list can run long; past a dozen it opens as its own scrolling list rather than a menu.
+    @ViewBuilder func companionModelPickerStyle(count: Int) -> some View {
+        if count > CompanionAgentOptions.menuModelLimit { pickerStyle(.navigationLink) } else { self }
+    }
+}

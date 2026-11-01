@@ -69,6 +69,8 @@ nonisolated struct CompanionAgentOptions: Sendable, Equatable {
     var colors: [CompanionColorOption] = []
     func orchestrator(_ id: String?) -> CompanionOrchestratorOption? { orchestrators.first { $0.id == id } }
     /// The models for a CLI, keeping a saved custom model in the list.
+    /// More models than this open as a list of their own instead of a menu.
+    static let menuModelLimit = 12
     func models(for orchestrator: String?, keeping current: String? = nil) -> [CompanionModelOption] {
         var models = self.orchestrator(orchestrator)?.models ?? []
         if models.isEmpty { models = [.init(id: "default", label: "Default")] }
