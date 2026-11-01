@@ -97,6 +97,22 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
                       "Copy from one part keeps the entire raw delivery")
     }
 
+    /// SwiftUI can report a caption below the scroll viewport as hittable. Keep taps inside the transcript,
+    /// above the approval/composer dock, and drag within the transcript rather than across that dock.
+    private func bringCaptionIntoView(_ caption: XCUIElement, in app: XCUIApplication,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        let height = app.windows.firstMatch.frame.height
+        for _ in 0..<20 {
+            checkTimeLeft("bringing the sender caption into view", file: file, line: line)
+            if caption.exists && caption.frame.minY > height * 0.25 && caption.frame.maxY < height * 0.62 { return }
+            let older = caption.exists && caption.frame.minY <= height * 0.25
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.35 : 0.60))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.60 : 0.35))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTFail("Sender caption must be inside the transcript: \(caption.frame)", file: file, line: line)
+    }
+
     func testSenderAvatarAndIndependentFoldsSurviveScrollingRefreshAndNavigation() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], allowance: 360)
         let river = element(app, "agent-preview-studio-river")
@@ -104,14 +120,17 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         waitAndTap(river, until: element(app, "companion-chat-header"))
         let first = app.buttons["companion-routed-sender-preview-0"]
         let second = app.buttons["companion-routed-sender-preview-1"]
-        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        bringCaptionIntoView(first, in: app)
         XCTAssertTrue(first.label.contains("Cedar sent a long message"), "The helper resolves to its live name")
         XCTAssertEqual(first.value as? String, "Collapsed")
+        XCTAssertTrue(first.label.contains("Mission") && first.label.contains("Steered into the running turn"))
+        XCTAssertTrue(first.label.contains("collapsed"))
         XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
-        XCTAssertTrue(scrollTo(second, in: app))
+        bringCaptionIntoView(second, in: app)
         XCTAssertEqual(second.value as? String, "Collapsed")
-        XCTAssertTrue(scrollTo(first, in: app, up: false))
+        bringCaptionIntoView(first, in: app)
         tapToExpand(first)
+        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
         XCTAssertEqual(second.value as? String, "Collapsed", "Each part folds independently")
         let body = element(app, "companion-routed-body-sender-preview-0")
         XCTAssertTrue(body.exists)
@@ -121,19 +140,19 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
         let top = text(app, containing: "Preview conversation")
         XCTAssertTrue(scrollTo(top, in: app, up: false, maxSwipes: 12))
-        XCTAssertTrue(scrollTo(first, in: app, maxSwipes: 15))
+        bringCaptionIntoView(first, in: app)
         XCTAssertEqual(first.value as? String, "Expanded")
 
         let actions = app.navigationBars.buttons["Conversation actions"]
         let refresh = app.buttons["Refresh conversation"]
         waitAndTap(actions, until: refresh)
         refresh.tap()
-        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        bringCaptionIntoView(first, in: app)
         XCTAssertEqual(first.value as? String, "Expanded", "A new history snapshot keeps the fold open")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
-        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        bringCaptionIntoView(first, in: app)
         XCTAssertEqual(first.value as? String, "Expanded", "Leaving the conversation keeps its open state")
         first.tap()
         XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
