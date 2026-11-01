@@ -150,6 +150,8 @@ struct CompanionAgentSettingsForm: View {
     @State private var nameDraft = ""
     @State private var emojiDraft = ""
     @State private var confirmFreeAgentMode = false
+    @State private var pendingOrchestrator: String?
+    @State private var confirmOrchestratorChange = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
     /// The Dispatcher has only the settings the desktop lets you change: no identity, persona, Clubhouse mode or orchestration.
@@ -179,6 +181,18 @@ struct CompanionAgentSettingsForm: View {
         .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
             Button("Turn on Free Agent Mode", role: .destructive) { save(.init(freeAgentMode: true)) }
         } message: { Text(CompanionFreeAgentMode.help) }
+        .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
+            Button("Change CLI", role: .destructive) {
+                if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
+                pendingOrchestrator = nil
+            }
+            Button("Cancel", role: .cancel) { pendingOrchestrator = nil }
+        } message: {
+            if let pendingOrchestrator, let settings,
+               let warning = settings.orchestratorChangeWarning(to: pendingOrchestrator, agentName: settings.name.value) {
+                Text(warning)
+            }
+        }
     }
 
     @ViewBuilder private func form(_ settings: CompanionAgentSettings) -> some View {
@@ -245,7 +259,13 @@ struct CompanionAgentSettingsForm: View {
 
         Section {
             Picker("Runs on", selection: Binding(get: { settings.orchestrator.value ?? settings.resolvedOrchestrator },
-                                                 set: { if $0 != (settings.orchestrator.value ?? settings.resolvedOrchestrator) { save(.init(orchestrator: $0)) } })) {
+                                                 set: { id in
+                guard id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
+                if settings.orchestratorChangeWarning(to: id, agentName: settings.name.value) != nil {
+                    pendingOrchestrator = id
+                    confirmOrchestratorChange = true
+                } else { save(.init(orchestrator: id)) }
+            })) {
                 ForEach(orchestratorChoices(settings), id: \.id) { Text($0.label).tag($0.id) }
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
@@ -322,7 +342,7 @@ struct CompanionAgentSettingsForm: View {
         Section {
             Toggle("Let this agent orchestrate", isOn: Binding(get: { policy.orchestrate },
                                                                set: { save(.init(orchestration: .init(orchestrate: .set($0)))) }))
-                .disabled(saving)
+                .disabled(saving || !policy.mcpEnabled)
                 .accessibilityIdentifier("agent-settings-orchestrate")
             if policy.orchestrate {
                 Picker("Helpers get", selection: Binding(get: { policy.access },
@@ -344,6 +364,8 @@ struct CompanionAgentSettingsForm: View {
                 }
                 .disabled(saving)
                 .accessibilityIdentifier("agent-settings-orchestrate-max-helpers")
+            }
+            if policy.sources["crossProjectHelpers"] != nil && (policy.orchestrate || !policy.mcpEnabled) {
                 Toggle(isOn: Binding(get: { policy.crossProjectHelpers },
                                      set: { save(.init(orchestration: .init(crossProjectHelpers: .set($0)))) })) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -351,22 +373,23 @@ struct CompanionAgentSettingsForm: View {
                         Text(CompanionOrchestration.crossProjectHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     }
                 }
-                .disabled(saving)
+                .disabled(saving || !policy.mcpEnabled)
                 .accessibilityLabel("Let \(name) start helpers in other projects")
                 .accessibilityIdentifier("agent-settings-orchestrate-cross-project")
-                // Shown only while the Dispatcher is on, as on the desktop.
-                if store.host(for: target)?.dispatcher?.enabled == true {
-                    Toggle(isOn: Binding(get: { policy.connectToDispatcher },
-                                         set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Connect to Dispatcher")
-                            Text(CompanionOrchestration.dispatcherHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
-                        }
+            }
+            // Helper-specific gating waits on desktop #2618: durable helper identity isn't exposed yet.
+            // Any agent can connect with Orchestrate on or off; always show the desktop's returned value.
+            if policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true {
+                Toggle(isOn: Binding(get: { policy.connectToDispatcher },
+                                     set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Connect to Dispatcher")
+                        Text(CompanionOrchestration.dispatcherHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     }
-                    .disabled(saving)
-                    .accessibilityLabel("Connect \(name) to the Dispatcher")
-                    .accessibilityIdentifier("agent-settings-orchestrate-dispatcher")
                 }
+                .disabled(saving || !policy.mcpEnabled)
+                .accessibilityLabel("Connect \(name) to the Dispatcher")
+                .accessibilityIdentifier("agent-settings-orchestrate-dispatcher")
             }
         } header: { Text("Orchestrate") } footer: {
             Text(orchestrateFooter(policy, name: name, running: running))
@@ -381,6 +404,7 @@ struct CompanionAgentSettingsForm: View {
 
     /// The card's notes: what helpers get, what Control means, the cap, and when the tools appear.
     private func orchestrateFooter(_ policy: CompanionOrchestration, name: String, running: Bool) -> String {
+        guard policy.mcpEnabled else { return CompanionOrchestration.mcpRequiredHelp }
         guard policy.orchestrate else { return CompanionOrchestration.offHelp(agentName: name) }
         var notes = [CompanionOrchestration.accessNote(agentName: name)]
         if let help = CompanionOrchestration.controlHelp(policy.control, agentName: name) { notes.append(help) }

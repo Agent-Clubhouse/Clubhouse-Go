@@ -21,9 +21,11 @@ import Foundation
     private let showsLongReply: Bool
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
+    private let mcpEnabled: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true) {
+        self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
@@ -301,10 +303,13 @@ import Foundation
         if target == Self.dispatcherTarget { return Self.dispatcherSettings }
         let sleeping = target == Self.sleepingTarget
         let name = sleeping ? "Juniper" : "River"
+        var policy = sleeping ? Self.juniperOrchestration : CompanionOrchestration(sources: ["crossProjectHelpers": .default, "connectToDispatcher": .default])
+        policy.mcpEnabled = mcpEnabled
+        if !mcpEnabled { policy.orchestrate = false; policy.crossProjectHelpers = false; policy.connectToDispatcher = false }
         return .init(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
                      name: .init(value: name, editable: .sleeping), color: .init(value: sleeping ? "violet" : "indigo", editable: .sleeping),
                      emoji: .init(value: nil, editable: .sleeping),
-                     orchestrator: .init(value: nil, editable: .sleeping), resolvedOrchestrator: "claude-code",
+                     orchestrator: .init(value: nil, editable: .sleeping), resolvedOrchestrator: "claude-code", changeStartsNewSession: sleeping,
                      model: .init(value: "opus", editable: .sleeping),
                      runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
                      persona: .init(value: nil, editable: .sleeping),
@@ -313,7 +318,7 @@ import Foundation
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
-                     orchestration: sleeping ? Self.juniperOrchestration : CompanionOrchestration())
+                     orchestration: policy)
     }
     /// What the desktop lets you change on the Dispatcher: its CLI, model, runtime, Free Agent Mode and auto-sleep.
     static let dispatcherSettings = CompanionAgentSettings(
@@ -325,7 +330,7 @@ import Foundation
         options: agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
     /// Juniper orchestrates, asking before each helper starts; River doesn't.
     static let juniperOrchestration = CompanionOrchestration(orchestrate: true, control: "ask-before-start", maxHelpers: 3,
-                                                             sources: ["orchestrate": .agent, "control": .agent, "maxHelpers": .agent])
+                                                             sources: ["orchestrate": .agent, "control": .agent, "maxHelpers": .agent, "crossProjectHelpers": .default, "connectToDispatcher": .default])
     /// What River's chat session reported: the CLI version, effort, permission level and the MCP servers it loaded.
     static let riverSession = CompanionSessionFacts(cliVersion: "2.1.4", effort: "high", level: "auto_edit", mcpServers: [
         .init(name: "clubhouse", status: .connected), .init(name: "github", status: .connected), .init(name: "linear", status: .needsAuth),

@@ -67,6 +67,7 @@ extension CompanionAgentSettings {
         hasImageIcon = settings["hasImageIcon"].boolValue
         orchestrator = .init(value: string("orchestrator"), editable: editable("orchestrator"))
         resolvedOrchestrator = settings["orchestrator"]?["resolved"]?.string ?? string("orchestrator") ?? ""
+        changeStartsNewSession = settings["orchestrator"]?["changeStartsNewSession"]?.boolOrNil ?? false
         model = .init(value: string("model") ?? "default", editable: editable("model"))
         runtime = .init(value: string("runtime") ?? "default", editable: editable("runtime"))
         resolvedRuntime = settings["runtime"]?["resolved"]?.string ?? "chat"
@@ -119,6 +120,7 @@ extension CompanionOrchestration {
         maxHelpers = json["maxHelpers"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? min(5, maxHelpersCap)
         crossProjectHelpers = json["crossProjectHelpers"]?.boolOrNil ?? false
         connectToDispatcher = json["connectToDispatcher"]?.boolOrNil ?? false
+        mcpEnabled = json["mcpEnabled"]?.boolOrNil ?? true
         controls = strings("controls") ?? Self.defaultControls
         accessLevels = strings("accessLevels") ?? Self.defaultAccessLevels
         if case .object(let sources)? = json["sources"] {

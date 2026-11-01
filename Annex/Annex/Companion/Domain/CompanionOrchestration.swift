@@ -23,6 +23,8 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var crossProjectHelpers = false
     /// "Connect to Dispatcher": the Dispatcher may message this agent and get its reports.
     var connectToDispatcher = false
+    /// Clubhouse MCP is required for orchestration; older desktops omit this and keep today's behavior.
+    var mcpEnabled = true
     var controls = CompanionOrchestration.defaultControls
     var accessLevels = CompanionOrchestration.defaultAccessLevels
     var sources: [String: Source] = [:]
@@ -65,6 +67,7 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     static func nextStartNote(agentName: String) -> String { "The helper tools appear the next time \(agentName) starts." }
     /// The desktop's `CROSS_PROJECT_HELP` and `DISPATCHER_HELP` (`OrchestrationFields.tsx`).
     static let crossProjectHelp = "Let this agent start helpers in other projects."
+    static let mcpRequiredHelp = "These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."
     static let dispatcherHelp = "Let the Dispatcher message this agent and get its reports."
 
     /// The Orchestrate card's one line: "off", or "hands-off · up to 5".

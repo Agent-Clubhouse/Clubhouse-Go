@@ -150,6 +150,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// Nil means the project default; `resolvedOrchestrator` is what it runs on.
     var orchestrator: CompanionSetting<String?>
     var resolvedOrchestrator: String
+    /// A different CLI cannot resume this agent's saved conversation. Absent on older desktops.
+    var changeStartsNewSession = false
     var model: CompanionSetting<String>
     /// `default`, `chat` or `terminal`; `resolvedRuntime` is `chat` or `terminal`.
     var runtime: CompanionSetting<String>
@@ -189,6 +191,12 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     }
     var modelLabel: String {
         options.models(for: orchestrator.value ?? resolvedOrchestrator, keeping: model.value).first { $0.id == model.value }?.label ?? model.value
+    }
+    /// Warn before changing CLI when it would drop a saved session, as on the desktop.
+    func orchestratorChangeWarning(to id: String, agentName: String) -> String? {
+        guard changeStartsNewSession, id != (orchestrator.value ?? resolvedOrchestrator) else { return nil }
+        let cli = options.orchestrator(id)?.displayName ?? id
+        return "\(agentName) starts a new session on \(cli) the next time it wakes. Its current conversation can't move to another CLI."
     }
     static let lockedHint = "Sleep the agent to change these"
 
@@ -325,6 +333,7 @@ enum CompanionAgentCommandError {
         // Field checks ("maxHelpers must be…") are for developers; only a sentence is shown.
         case "invalid_orchestration": return detail.flatMap { $0.first?.isUppercase == true ? $0 : nil } ?? "The desktop couldn't accept these orchestration settings."
         case "orchestration_has_helpers": return "This agent has helpers running, maybe in other projects. Turn orchestration off on the desktop to keep or dispose of them."
+        case "mcp_off": return detail ?? CompanionOrchestration.mcpRequiredHelp
         // The Dispatcher (`dispatcher` v1).
         // The desktop's sentence starts with the model id ("opus isn't a model this CLI lists."), so it isn't shown as is.
         case "invalid_model": return "That model isn't one this CLI lists. Choose another."
