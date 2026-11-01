@@ -429,6 +429,7 @@ struct CompanionRelay: Sendable, Equatable {
     var taskID: String?
     var body: String
 
+    init(sender: String, taskID: String?, body: String) { self.sender = sender; self.taskID = taskID; self.body = body }
     /// Nil when the text has no `[FROM:…]` tag and the desktop didn't name the sender.
     init?(text: String, fromName: String? = nil) {
         let named = fromName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
