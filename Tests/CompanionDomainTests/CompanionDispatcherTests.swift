@@ -244,6 +244,29 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         try await harness.waitUntil { harness.store.agent(for: dispatcherTarget)?.status == .sleeping }
     }
 
+    @Test(arguments: [true, false]) func aStoppedDispatcherRechecksWakePermissionWithoutReopening(canStart: Bool) async throws {
+        let harness = try await startWithDispatcher()
+        defer { harness.stop() }
+        try await sendSnapshot(harness, dispatcher: dispatcherSnapshot())
+        try await harness.waitUntil { harness.host?.dispatcher?.agent != nil }
+        await harness.transport.setRead("chat", LiveServiceHarness.chatSnapshot(session: "d1"))
+        await harness.store.load(dispatcherTarget)
+        #expect(!harness.store.canWake(dispatcherTarget))
+        let reads = await harness.transport.readRoutes.filter { $0.name == "chatHistory" }.count
+        await harness.transport.setRead("chatHistory", .object(["sessionId": .null, "state": .string("sleeping"),
+            "readOnly": .bool(true), "canStart": .bool(canStart), "events": .array([])]))
+        await harness.transport.emit(.message(.init(type: "chat:event", payload: .object([
+            "agentId": .string(dispatcherID),
+            "event": LiveServiceHarness.chatEvent("d1", sequence: 2, type: "session_ended", data: ["reason": .string("stopped")]),
+        ]))))
+        await harness.transport.emit(.message(.init(type: "agent:status", payload: .object([
+            "id": .string(dispatcherID), "kind": .string("durable"), "status": .string("sleeping"), "detailedStatus": .null]))))
+        try await harness.waitUntil { await harness.transport.readRoutes.filter { $0.name == "chatHistory" }.count > reads }
+        if canStart { try await harness.waitUntil { harness.store.canWake(dispatcherTarget) } }
+        #expect(harness.store.canWake(dispatcherTarget) == canStart, "Wake requires the desktop's current permission")
+        #expect(harness.store.conversation(for: dispatcherTarget).isLoaded, "The conversation stays open")
+    }
+
     @Test func turnedOffItsRowAndChatGoAndLaterEventsAreDropped() async throws {
         let harness = try await startWithDispatcher()
         defer { harness.stop() }
