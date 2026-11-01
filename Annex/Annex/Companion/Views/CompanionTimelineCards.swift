@@ -1,5 +1,15 @@
 import SwiftUI
 
+private struct CompanionSenderResolverKey: EnvironmentKey {
+    static let defaultValue = CompanionSenderResolver(agents: [])
+}
+extension EnvironmentValues {
+    var companionSenderResolver: CompanionSenderResolver {
+        get { self[CompanionSenderResolverKey.self] }
+        set { self[CompanionSenderResolverKey.self] = newValue }
+    }
+}
+
 struct CompanionMessageView: View {
     let message: CompanionMessage
     var canRetry: Bool
@@ -8,6 +18,8 @@ struct CompanionMessageView: View {
     var removeQueued: (() -> Void)?
     /// In the conversation, a long reply is shown a slice per row (#188); the archive shows it whole.
     var slice: CompanionMessageSlice?
+    @Environment(\.companionSenderResolver) private var senderResolver
+    var expansion: CompanionTranscriptExpansion
     @Environment(\.companionPalette) private var palette
 
     /// Like the desktop: agent replies have no author label; your messages sit on the right with their source.
@@ -15,7 +27,10 @@ struct CompanionMessageView: View {
         Group {
             switch message.role {
             case .user:
-                if message.showsRoutedMessages { routedMessages } else { userMessage }
+                switch message.display {
+                case .others(let parts): routedMessages(parts)
+                case .you(let text): userMessage(text)
+                }
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
                     richText
@@ -44,26 +59,13 @@ struct CompanionMessageView: View {
         }
     }
 
-    /// A burst remains separate messages, with one caption and accessible sender/body per part.
-    private var routedMessages: some View {
+    /// A burst remains separate messages; only a part's open state is observed by its own view.
+    private func routedMessages(_ parts: [CompanionRoutedMessagePart]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(message.routed.enumerated()), id: \.offset) { index, part in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Text(part.caption(source: message.source, isSteered: message.isSteered))
-                        if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
-                    }
-                    .font(.caption).foregroundStyle(.secondary)
-                    if !part.displayText.isEmpty {
-                        Text(part.displayText).textSelection(.enabled)
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    }
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(part.caption(source: message.source, isSteered: message.isSteered)): \(part.displayText)")
-                .accessibilityValue(message.timestamp?.formatted(date: .omitted, time: .shortened) ?? "")
-                .accessibilityIdentifier("companion-routed-\(message.id)-\(index)")
+            ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
+                CompanionSentPartView(part: part, message: message, index: index,
+                                      agent: senderResolver.avatarAgent(for: part.sender),
+                                      expansion: expansion.part(messageID: message.id, index: index))
             }
             if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
             deliveryStatus
@@ -74,25 +76,20 @@ struct CompanionMessageView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var userMessage: some View {
+    private func userMessage(_ text: String) -> some View {
         VStack(alignment: .trailing, spacing: 6) {
-            if message.sourceLabel != nil || message.timestamp != nil {
-                HStack(spacing: 6) {
-                    if let label = message.sourceLabel { Text(label) }
-                    if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
-                }
-                .font(.caption).foregroundStyle(.secondary)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(userCaption)
-                .accessibilityIdentifier("companion-message-source")
+            HStack(spacing: 6) {
+                Text((["You"] + message.metaLabels).joined(separator: " · "))
+                if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
             }
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("companion-message-source")
             if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
-            if !message.displayText.isEmpty || message.images.isEmpty {
-                // A relayed message shows without its tags; Copy message keeps them.
-                Text(message.displayText).textSelection(.enabled)
+            if !text.isEmpty || message.images.isEmpty {
+                Text(text).textSelection(.enabled)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.displayText)" : message.displayText)
             }
             deliveryStatus
             queueStatus
@@ -113,13 +110,6 @@ struct CompanionMessageView: View {
                 }
             }
         }
-    }
-
-    private var userCaption: String {
-        var parts = [message.relay == nil ? "You" : nil].compactMap { $0 }
-        if let label = message.sourceLabel { parts.append(label) }
-        if let timestamp = message.timestamp { parts.append(timestamp.formatted(date: .omitted, time: .shortened)) }
-        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder private var deliveryStatus: some View {
@@ -163,6 +153,83 @@ struct CompanionMessageView: View {
         case .removed: "Removed from queue"
         case .submitted: "Follow-up submitted"
         }
+    }
+}
+
+/// The caption is a native button for long parts. Its body is constructed only while open.
+private struct CompanionSentPartView: View {
+    let part: CompanionRoutedMessagePart
+    let message: CompanionMessage
+    let index: Int
+    let agent: CompanionAgent?
+    let expansion: CompanionPartExpansion
+    @Environment(\.companionPalette) private var palette
+
+    private var name: String { agent?.name ?? part.sender?.name ?? (part.fromClubhouse ? "Clubhouse" : message.source == "group_project" ? "Group project" : "Another agent") }
+    private var identifier: String { "companion-routed-\(message.id)-\(index)" }
+    private var caption: String { part.caption(source: message.source, isSteered: message.isSteered, currentName: name) }
+    private var longCaption: String { (["\(name) sent a long message"] + message.metaLabels).joined(separator: " · ") }
+
+    var body: some View {
+        let collapsible = CompanionMessageRouting.isLongMessage(part.text)
+        let open = expansion.isOpen(for: part.text)
+        HStack(alignment: .top, spacing: 8) {
+            if let agent {
+                CompanionAgentAvatar(agent: agent, size: 24, showsStatus: false)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(name) avatar")
+                    .accessibilityHidden(false)
+                    .accessibilityIdentifier("companion-sender-avatar-\(message.id)-\(index)")
+            }
+            if collapsible {
+                VStack(alignment: .leading, spacing: 6) {
+                    Button { expansion.open = !open } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(longCaption)
+                            Image(systemName: open ? "chevron.down" : "chevron.right")
+                            timestamp
+                        }
+                        .font(.caption).foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(open ? "\(name): \(part.text)" : "\(longCaption), collapsed")
+                    .accessibilityValue(open ? "Expanded" : "Collapsed")
+                    .accessibilityHint(open ? "Collapse message" : "Expand message")
+                    .accessibilityIdentifier(identifier)
+                    .contextMenu { copyMessage }
+                    if open && !part.text.isEmpty {
+                        bubble.accessibilityIdentifier("companion-routed-body-\(message.id)-\(index)")
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) { Text(caption); timestamp }
+                        .font(.caption).foregroundStyle(.secondary)
+                    if !part.text.isEmpty { bubble }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(name): \(part.text)")
+                .accessibilityValue(message.timestamp?.formatted(date: .omitted, time: .shortened) ?? "")
+                .accessibilityIdentifier(identifier)
+                .contextMenu { copyMessage }
+            }
+        }
+    }
+    @ViewBuilder private var timestamp: some View {
+        if let timestamp = message.timestamp { Text(timestamp, style: .time).foregroundStyle(.tertiary) }
+    }
+    private var bubble: some View {
+        Group {
+            if part.sender != nil { CompanionRichText(text: part.text) }
+            else { Text(part.text).textSelection(.enabled) }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contextMenu { copyMessage }
+    }
+    private var copyMessage: some View {
+        Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
     }
 }
 

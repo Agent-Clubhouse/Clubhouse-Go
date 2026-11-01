@@ -115,7 +115,7 @@ import Testing
         #expect(resolver.avatarAgent(for: nil) == nil, "Clubhouse and unnamed parts have no avatar")
     }
 
-    @Test func resolverUsesAllHostProjectsAndDispatcherAndCurrentIdentity() {
+    @MainActor @Test func resolverUsesAllHostProjectsAndDispatcherAndCurrentIdentity() {
         var host = CompanionPreviewService.hosts(now: Date(), dispatcher: true)[0]
         let dispatcher = host.dispatcher!.liveAgent!
         var sender = host.projects[0].agents[0]
