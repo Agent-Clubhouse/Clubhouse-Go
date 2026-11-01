@@ -19,8 +19,12 @@ import Foundation
     private let showsLongBlocks: Bool
     /// UI tests add a reply of about 10,000 words with large blocks in it (`--companion-preview-long-reply`).
     private let showsLongReply: Bool
+    /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
+    private let showsDispatcher: Bool
+    static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false) {
+        self.showsDispatcher = showsDispatcher
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
         self.showsTerminalAgent = showsTerminalAgent
@@ -31,7 +35,7 @@ import Foundation
         AsyncStream { continuation in
             self.continuation = continuation
             continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
-                                                 terminalAgent: self.showsTerminalAgent)))
+                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher)))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -67,7 +71,7 @@ import Foundation
         }
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
-    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false) -> [CompanionHost] {
+    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
@@ -118,7 +122,8 @@ import Foundation
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
                canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
-               terminal: .init(projectShell: true, agentShell: true, agentAttach: true)),
+               terminal: .init(projectShell: true, agentShell: true, agentAttach: true),
+               dispatcher: dispatcher ? Self.dispatcher(now: now) : nil),
             .init(id: "preview-laptop", name: "Travel MacBook", endpoint: "travel.tailnet.ts.net · Tailscale", connection: .offline, projects: [
                 .init(id: "notes", name: "Field notes", agents: [
                     .init(id: .init(hostID: "preview-laptop", projectID: "notes", agentID: "river"), name: "River", subtitle: "Organize research notes", status: .idle)
@@ -126,8 +131,28 @@ import Foundation
             ])
         ]
     }
+    /// The Dispatcher, idle after handing River a task.
+    static func dispatcher(now: Date) -> CompanionDispatcher {
+        var agent = CompanionAgent(id: dispatcherTarget, name: CompanionDispatcher.name, subtitle: "", status: .idle, model: "Opus",
+                                   capabilities: [.chat, .steer, .cancel, .approve], executionMode: "chat", lastActivity: now.addingTimeInterval(-3 * 60))
+        agent.isDispatcher = true; agent.freeAgentMode = true; agent.color = "cyan"; agent.orchestrator = "claude-code"
+        agent.detail = .init(state: "idle", message: "Sent River the reconnect follow-up")
+        return .init(enabled: true, flagOn: true, canToggle: true, agent: agent)
+    }
+    /// The Dispatcher's chat: your request, and its report back.
+    static let dispatcherHistory: [CompanionTimelineItem] = [
+        .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),
+        .message(.init(id: "dispatcher-user-1", role: .user, text: "Get the reconnect fix finished and tell me when it's in review.", timestamp: Date().addingTimeInterval(-400))),
+        .message(.init(id: "dispatcher-agent-1", role: .assistant, text: "I've asked **River** in Clubhouse to finish the reconnect fix and open a PR. I'll report back when it's ready for review.",
+                       timestamp: Date().addingTimeInterval(-380))),
+    ]
+    /// The task the Dispatcher relayed to River, as the desktop delivers it: an `mcp` message with its tags.
+    static let relayedTask = CompanionTimelineItem.message(.init(id: "relay-1", role: .user,
+        text: "[TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.",
+        timestamp: Date().addingTimeInterval(-370), source: "mcp"))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
-        .init(items: [
+        if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
+        return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),
             .message(.init(id: "user-1", role: .user, text: "Make it easy to continue a desktop agent from my phone. Focus on the conversation and the moments that need me.", timestamp: Date().addingTimeInterval(-180), source: "mission")),
             .message(.init(id: "agent-1", role: .assistant, text: "I’ve mapped out the companion experience. Each desktop keeps its own projects and agents, so you can move between them without losing your place.\n\nThe first pass puts **conversation, progress, and approvals** together. I’m checking the reconnect behavior next.", timestamp: Date().addingTimeInterval(-150))),
@@ -141,7 +166,7 @@ import Foundation
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
-        ] + (showsLongBlocks ? [
+        ] + (showsDispatcher ? [Self.relayedTask] : []) + (showsLongBlocks ? [
             .message(.init(id: "agent-4", role: .assistant, text: Self.longTableReply, timestamp: Date().addingTimeInterval(-20))),
             .message(.init(id: "agent-5", role: .assistant, text: Self.longCodeReply, timestamp: Date().addingTimeInterval(-15)))
         ] : []) + (showsLongReply ? [
@@ -273,6 +298,7 @@ import Foundation
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
     /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything can change.
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
+        if target == Self.dispatcherTarget { return Self.dispatcherSettings }
         let sleeping = target == Self.sleepingTarget
         let name = sleeping ? "Juniper" : "River"
         return .init(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
@@ -289,6 +315,14 @@ import Foundation
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
                      orchestration: sleeping ? Self.juniperOrchestration : CompanionOrchestration())
     }
+    /// What the desktop lets you change on the Dispatcher: its CLI, model, runtime, Free Agent Mode and auto-sleep.
+    static let dispatcherSettings = CompanionAgentSettings(
+        state: "running", sleeping: false, name: .init(value: CompanionDispatcher.name, editable: .never), color: .init(value: "cyan", editable: .never),
+        emoji: .init(value: nil, editable: .never), orchestrator: .init(value: "claude-code", editable: .always), resolvedOrchestrator: "claude-code",
+        model: .init(value: "opus", editable: .always), runtime: .init(value: "chat", editable: .always), resolvedRuntime: "chat",
+        persona: .init(value: nil, editable: .never), clubhouseMode: .init(value: nil, editable: .never),
+        freeAgentMode: .init(value: true, editable: .sleeping), idleSleep: .init(value: .never, editable: .always),
+        options: agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
     /// Juniper orchestrates, asking before each helper starts; River doesn't.
     static let juniperOrchestration = CompanionOrchestration(orchestrate: true, control: "ask-before-start", maxHelpers: 3,
                                                              sources: ["orchestrate": .agent, "control": .agent, "maxHelpers": .agent])

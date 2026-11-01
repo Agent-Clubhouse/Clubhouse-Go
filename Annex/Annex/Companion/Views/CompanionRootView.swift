@@ -130,6 +130,8 @@ struct CompanionRootView: View {
             // The composer owns the bottom edge in a chat, as in Messages.
             .toolbar(.hidden, for: .tabBar)
             .id(target)
+        } else if store.isDispatcher(target) {
+            CompanionDispatcherUnavailableView(store: store, hostID: target.hostID)
         } else {
             ContentUnavailableView("Agent unavailable", systemImage: "sparkle",
                                    description: Text("This agent is no longer on its desktop, or the desktop is offline."))
@@ -205,6 +207,7 @@ struct CompanionHomeView: View {
                 summary
                 ForEach(store.hosts.filter { !isListed($0) }) { host in offlineCard(host) }
                 needsYou
+                dispatchers
                 projects
             }
         }
@@ -308,6 +311,19 @@ struct CompanionHomeView: View {
     }
 
     private var listedEntries: [CompanionProjectEntry] { store.projectEntries.filter { isListed($0.host) } }
+
+    /// Each listed desktop's Dispatcher while it's on: a pinned row above the projects, as on the desktop's sidebar.
+    @ViewBuilder private var dispatchers: some View {
+        let shown = store.hosts.filter { isListed($0) && $0.dispatcher?.enabled == true }
+        if !shown.isEmpty {
+            Section {
+                ForEach(shown) { host in
+                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil)
+                        .listRowBackground(CompanionCardBackground())
+                }
+            }
+        }
+    }
 
     private var orderedProjects: [CompanionProjectEntry] {
         CompanionProjectOrdering.ordered(listedEntries, sort: preferences.projectSort,
@@ -549,6 +565,79 @@ struct CompanionArrangeProjectsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { preferences.setProjectOrder(order.map(\.orderKey)); dismiss() }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Dispatcher
+
+/// The Dispatcher's pinned row: its status and latest activity, or a plain row while the desktop starts it.
+struct CompanionDispatcherRow: View {
+    @Bindable var store: CompanionStore
+    let host: CompanionHost
+    var hostTag: String?
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        if let agent = host.dispatcher?.liveAgent {
+            NavigationLink(value: agent.id) {
+                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: activity(agent))
+            }
+            .accessibilityIdentifier("dispatcher-row-\(host.id)")
+        } else {
+            HStack(spacing: 12) {
+                ProgressView().frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(CompanionDispatcher.name).font(.body)
+                        if let hostTag { CompanionHostTag(name: hostTag) }
+                    }
+                    Text("Loading the Dispatcher…").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("dispatcher-row-pending-\(host.id)")
+        }
+    }
+
+    /// "Asked Atlas to fix the build", or when it was last active.
+    private func activity(_ agent: CompanionAgent) -> String? {
+        if let message = agent.detail?.message, !message.isEmpty { return message }
+        guard let date = store.lastActivity(of: agent) else { return nil }
+        return date.formatted(.relative(presentation: .named))
+    }
+}
+
+/// An open Dispatcher chat whose Dispatcher went: turned off on the desktop, or its desktop is offline.
+struct CompanionDispatcherUnavailableView: View {
+    @Bindable var store: CompanionStore
+    let hostID: String
+
+    var body: some View {
+        let host = store.hosts.first { $0.id == hostID }
+        if let host, host.connection.canOperate, let dispatcher = host.dispatcher, dispatcher.isLoading {
+            ProgressView("Loading the Dispatcher…").frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let host, host.connection.canOperate, let dispatcher = host.dispatcher, !dispatcher.enabled {
+            ContentUnavailableView {
+                Label("The Dispatcher is off", systemImage: "point.3.connected.trianglepath.dotted")
+            } description: {
+                Text(dispatcher.turnOnBlocker ?? "It was turned off on \(host.name). Its folder and notes are kept, so turning it back on carries on where it left off.")
+            } actions: {
+                if dispatcher.turnOnBlocker == nil {
+                    Button("Turn on Dispatcher") { Task { await store.setDispatcher(enabled: true, hostID: hostID) } }
+                        .buttonStyle(.glassProminent).companionProminentLabel()
+                        .disabled(store.dispatcherSwitching.contains(hostID))
+                }
+                if let error = store.dispatcherErrors[hostID] { Text(error).font(.footnote) }
+            }
+        } else {
+            ContentUnavailableView {
+                Label("Dispatcher unavailable", systemImage: "point.3.connected.trianglepath.dotted")
+            } description: {
+                Text("The desktop is offline. The Dispatcher shows again when it reconnects.")
+            } actions: {
+                Button("Retry") { Task { await store.reconnect(hostID: hostID) } }
             }
         }
     }
@@ -802,7 +891,7 @@ struct CompanionAgentsView: View {
                 ForEach(agents) { agent in
                     NavigationLink(value: agent.id) {
                         CompanionAgentListRow(agent: agent, hostTag: store.hosts.count > 1 ? names[agent.id.hostID] : nil,
-                                              detail: store.host(for: agent.id)?.projects.first { $0.id == agent.id.projectID }?.name)
+                                              detail: store.host(for: agent.id)?.placeName(for: agent.id))
                     }
                     .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
                     .listRowBackground(CompanionCardBackground())
@@ -855,7 +944,7 @@ struct CompanionSearchView: View {
                         let host = store.host(for: agent.id)
                         NavigationLink(value: agent.id) {
                             CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
-                                                  detail: host?.projects.first { $0.id == agent.id.projectID }?.name)
+                                                  detail: host?.placeName(for: agent.id))
                         }
                         .opacity(host?.connection.canOperate == false ? 0.5 : 1)
                         .listRowBackground(CompanionCardBackground())

@@ -14,6 +14,7 @@ struct CompanionAgentDetailsSheet: View {
 
     private var agent: CompanionAgent? { store.agent(for: target) }
     private var canLoadSettings: Bool { store.canEditSettings(target) }
+    private var isDispatcher: Bool { store.isDispatcher(target) }
     /// Re-read when the agent wakes, sleeps or is renamed, as the settings sheet does.
     private var refreshKey: String {
         [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? ""].joined(separator: "|")
@@ -61,7 +62,8 @@ struct CompanionAgentDetailsSheet: View {
                 row("Effort", details.effort, id: "agent-details-effort")
             }
 
-            if details.branch != nil || details.worktree != nil || details.hasWorkspace {
+            // The Dispatcher works in a folder of its own, outside every project and git.
+            if !isDispatcher, details.branch != nil || details.worktree != nil || details.hasWorkspace {
                 Section("Workspace") {
                     row("Branch", details.branch, monospaced: true, id: "agent-details-branch")
                     if let worktree = details.worktree {
@@ -114,7 +116,7 @@ struct CompanionAgentDetailsSheet: View {
                 if details.mcpServers != nil { Text(details.mcpSummary).accessibilityIdentifier("agent-details-mcp-summary") }
             }
 
-            if !details.isQuick {
+            if !details.isQuick && !isDispatcher {
                 Section {
                     if let changes = details.changes {
                         LabeledContent("Branch vs \(changes.base ?? "main")", value: changes.summary)
