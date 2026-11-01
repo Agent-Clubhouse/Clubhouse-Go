@@ -68,12 +68,16 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// SwiftUI may call an offscreen caption hittable. Drag inside the transcript, above the composer dock.
     private func bringRoutedCaptionIntoView(_ caption: XCUIElement, in app: XCUIApplication) {
         let height = app.windows.firstMatch.frame.height
+        let top = max(app.navigationBars.firstMatch.frame.maxY + 64, height * 0.20)
+        let bottom = composer(app).frame.minY - 72 // Stay above the model/level controls and composer dock.
         for _ in 0..<20 {
             checkTimeLeft("bringing a routed caption into view")
-            if caption.exists && caption.frame.minY > height * 0.25 && caption.frame.maxY < height * 0.62 { return }
-            let older = caption.exists && caption.frame.minY <= height * 0.25
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.35 : 0.60))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.60 : 0.35))
+            if caption.exists && caption.frame.minY > top && caption.frame.maxY < bottom { return }
+            let older = caption.exists && caption.frame.minY <= top
+            let high = (top + (bottom - top) * 0.25) / height
+            let low = (top + (bottom - top) * 0.75) / height
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? high : low))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? low : high))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
         XCTFail("Routed caption must be inside the transcript: \(caption.frame)")
@@ -653,7 +657,6 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9cAgentDispatcherSwitchesAndRealMCPDelivery() throws {
-        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
         let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
         let id = try XCTUnwrap(state["agentId"] as? String)
         let app = launchPaired()
@@ -686,7 +689,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "wake_agent", "args": ["message": "PHONE_DISPATCHER_WAKE"]])
         let awake = revealAgent(app, echoID)
         XCTAssertTrue(waitFor(awake, NSPredicate(format: "NOT label CONTAINS 'Sleeping'"), timeout: 30))
-        let deliveryText = "[FROM:Inline] PHONE_DISPATCHER_DELIVERY"
+        // Cleanup drops exited agents' events from desktop replay. Check only the delivery phase after that cleanup.
+        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
+        let deliveryText = "[FROM:Inline] PHONE_DISPATCHER_DELIVERY \(UUID().uuidString)"
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
         let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
@@ -700,9 +705,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Real MCP delivery from Dispatcher")
         let frames = try XCTUnwrap(try dispatcherFixture("wire", ["since": checkpoint]) as? [[String: Any]])
         let deliveredEvent = try XCTUnwrap(frames.compactMap { frame -> [String: Any]? in
-            guard let payload = frame["payload"] as? [String: Any], let event = payload["event"] as? [String: Any],
+            guard let sequence = frame["seq"] as? Int, sequence > checkpoint,
+                  let payload = frame["payload"] as? [String: Any], let event = payload["event"] as? [String: Any],
                   let data = event["data"] as? [String: Any], data["source"] as? String == "mcp",
-                  String(describing: data["content"]).contains("PHONE_DISPATCHER_DELIVERY") else { return nil }
+                  String(describing: data["content"]).contains(deliveryText) else { return nil }
             return data
         }.first, "The delivered message must be a real MCP user_message on the wire")
         let routed = try XCTUnwrap(deliveredEvent["routed"] as? [[String: Any]], "This real send_message carries routed attribution")
@@ -710,10 +716,20 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["name"] as? String, "Dispatcher")
         XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["agentId"] as? String, id)
 
-        let longText = "PHONE_DISPATCHER_LONG\n" + (1...20).map { "Live line \($0): the real Dispatcher delivered this routed message." }.joined(separator: "\n")
+        let longMarker = "PHONE_DISPATCHER_LONG \(UUID().uuidString)"
+        let longText = longMarker + "\n" + (1...20).map { "Live line \($0): the real Dispatcher delivered this routed message." }.joined(separator: "\n")
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message",
             "args": ["message": longText, "task_id": "phone-live-long"]])
-        let long = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS 'Dispatcher sent a long message'")).firstMatch
+        let longFrames = try XCTUnwrap(try dispatcherFixture("wire", ["since": checkpoint]) as? [[String: Any]])
+        let longEvent = try XCTUnwrap(longFrames.compactMap { frame -> [String: Any]? in
+            guard let sequence = frame["seq"] as? Int, sequence > checkpoint,
+                  let data = ((frame["payload"] as? [String: Any])?["event"] as? [String: Any])?["data"] as? [String: Any],
+                  String(describing: data["content"]).contains(longMarker) else { return nil }
+            return data
+        }.first)
+        let longID = try XCTUnwrap(longEvent["messageId"] as? String)
+        XCTAssertEqual((longEvent["routed"] as? [[String: Any]])?.first?["text"] as? String, longText)
+        let long = app.buttons["companion-routed-\(longID)-0"]
         XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message folds behind its sender caption")
         bringRoutedCaptionIntoView(long, in: app)
         let longBodyID = long.identifier.replacingOccurrences(of: "companion-routed-", with: "companion-routed-body-")
