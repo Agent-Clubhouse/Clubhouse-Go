@@ -401,12 +401,12 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     /// Structured messages from other agents or Clubhouse. Empty on older transcripts or unusable input.
     var routed: [CompanionRoutedMessagePart] = []
 
-    /// Who relayed an `mcp` message and what it says without its tags, or nil for any other message.
+    /// Legacy MCP attribution, used only when `routed` is empty.
     var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text) : nil }
     /// Legacy bubble text, used only when `routed` is empty. Copy always keeps `text` whole.
     var displayText: String { relay?.body ?? text }
 
-    /// The desktop's caption above a user message, such as "Mission · Steered into the running turn".
+    /// Legacy caption when `routed` is empty, such as "Mission · Steered into the running turn".
     var sourceLabel: String? {
         let origin: String? = switch source {
         case "mission": "Mission"
