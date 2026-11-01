@@ -93,9 +93,9 @@ import Observation
         let host = hosts.first { $0.id == scope.hostID }
         return CompanionTerminalSession(scope: scope, title: CompanionTerminalSession.title(for: scope, host: host), channel: try service.terminal(scope))
     }
-    func agent(for target: CompanionTarget) -> CompanionAgent? {
-        host(for: target)?.projects.first { $0.id == target.projectID }?.agents.first { $0.id == target }
-    }
+    func agent(for target: CompanionTarget) -> CompanionAgent? { host(for: target)?.agent(for: target) }
+    /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
+    func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
         host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
@@ -231,8 +231,9 @@ import Observation
     }
 
     private func setCapabilities(_ capabilities: CompanionCapabilities, for target: CompanionTarget) {
-        guard let host = hosts.firstIndex(where: { $0.id == target.hostID }),
-              let project = hosts[host].projects.firstIndex(where: { $0.id == target.projectID }),
+        guard let host = hosts.firstIndex(where: { $0.id == target.hostID }) else { return }
+        if hosts[host].dispatcher?.agent?.id == target { hosts[host].dispatcher?.agent?.capabilities = capabilities; return }
+        guard let project = hosts[host].projects.firstIndex(where: { $0.id == target.projectID }),
               let agent = hosts[host].projects[project].agents.firstIndex(where: { $0.id == target }) else { return }
         hosts[host].projects[project].agents[agent].capabilities = capabilities
     }
@@ -583,6 +584,23 @@ import Observation
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }
 
+    // MARK: Dispatcher (#2533)
+
+    /// Hosts whose Dispatcher is being turned on or off, and why the last change failed.
+    private(set) var dispatcherSwitching: Set<String> = []
+    var dispatcherErrors: [String: String] = [:]
+    /// Turns a desktop's Dispatcher on or off. Its row appears or goes when the desktop's snapshot follows.
+    func setDispatcher(enabled: Bool, hostID: String) async {
+        guard let host = hosts.first(where: { $0.id == hostID }), let dispatcher = host.dispatcher, !dispatcherSwitching.contains(hostID) else { return }
+        guard host.connection.canOperate else { dispatcherErrors[hostID] = "Reconnect to your desktop to change the Dispatcher."; return }
+        if enabled, let blocker = dispatcher.turnOnBlocker { dispatcherErrors[hostID] = blocker; return }
+        dispatcherSwitching.insert(hostID)
+        dispatcherErrors[hostID] = nil
+        defer { dispatcherSwitching.remove(hostID) }
+        do { try await service.setDispatcher(enabled: enabled, hostID: hostID, clientCommandID: UUID().uuidString) }
+        catch { dispatcherErrors[hostID] = error.localizedDescription }
+    }
+
     // MARK: Project page (#158)
 
     /// The project's "Finished, waiting on you", newest first: the desktop's list when it shares one (#167), else this phone's.
@@ -734,6 +752,9 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts):
+            // A Dispatcher that was turned off takes its chat with it; turned back on, it loads afresh.
+            let gone = Set(self.hosts.compactMap(\.dispatcher?.liveAgent?.id)).subtracting(hosts.compactMap(\.dispatcher?.liveAgent?.id))
+            for target in gone { conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target) }
             self.hosts = hosts
             var runs = finishedRuns
             if runs.observe(hosts, now: Date()) { finishedRuns = runs }

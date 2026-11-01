@@ -318,6 +318,14 @@ struct CompanionSettingsSheet: View {
                     }
                     Button("Pair another desktop", systemImage: "plus", action: pair)
                 }
+                let dispatcherHosts = runtime.store.hosts.filter { $0.dispatcher != nil }
+                if !dispatcherHosts.isEmpty {
+                    Section("Dispatcher") {
+                        ForEach(dispatcherHosts) { host in
+                            CompanionDispatcherSwitch(store: runtime.store, hostID: host.id, label: dispatcherHosts.count > 1 || runtime.store.hosts.count > 1 ? host.name : nil)
+                        }
+                    }
+                }
                 Section {
                     Picker("Fold idle projects after", selection: Bindable(runtime.preferences).idleDays) {
                         ForEach(CompanionIdleRule.dayChoices, id: \.self) { days in

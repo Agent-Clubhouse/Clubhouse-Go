@@ -20,6 +20,10 @@ import ClubhouseTransport
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
     private var historyGenerations: [CompanionTarget: UUID] = [:]
     private var quickCatalog: [String: AnnexJSON] = [:]
+    /// The snapshot's `dispatcher` per host (`null` while it's off), kept for catalog refreshes: the REST routes never list it.
+    private var dispatcherCatalog: [String: AnnexJSON] = [:]
+    /// The Dispatcher's on/off and flag per host, from capabilities and then each `dispatcher:changed`.
+    private var dispatcherFlags: [String: (enabled: Bool, flagOn: Bool)] = [:]
     /// Hosts whose snapshot says `ptyHost.platform == "win32"`, for matching content roots.
     private var windowsHosts: Set<String> = []
     /// The snapshot's `projectIcons` and `agentIcons` per host, kept for catalog refreshes that don't carry them.
@@ -164,7 +168,7 @@ import ClubhouseTransport
             // `agent.start` carries text only; the desktop answers an image upload for a stopped agent with `not_chat`.
             guard request.attachmentIDs.isEmpty else { throw CompanionServiceError.rejected(Self.notChatMessage) }
             // Resume the last session when there is one; the desktop starts fresh when asked to resume none.
-            let hasSession = hosts[request.target.hostID]?.projects.flatMap(\.agents).first { $0.id == request.target }?.hasSession
+            let hasSession = hosts[request.target.hostID]?.agent(for: request.target)?.hasSession
             kind = .start(agentID: request.target.agentID, message: request.text, resume: hasSession ?? true)
         } else {
             kind = .send(agentID: request.target.agentID, sessionID: try session(for: request.target), text: request.text,
@@ -513,6 +517,8 @@ import ClubhouseTransport
         capabilities.removeValue(forKey: hostID)
         windowsHosts.remove(hostID)
         iconCatalog.removeValue(forKey: hostID)
+        dispatcherCatalog.removeValue(forKey: hostID)
+        dispatcherFlags.removeValue(forKey: hostID)
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
@@ -680,6 +686,7 @@ import ClubhouseTransport
             switch envelope.type {
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
+                if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 if payload["projectIcons"] != nil || payload["agentIcons"] != nil {
                     iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
@@ -710,6 +717,7 @@ import ClubhouseTransport
                 scheduleRefresh(hostID: hostID)
             case "agent:status", "agent:completed":
                 if envelope.type == "agent:completed" { rememberExit(payload, hostID: hostID) }
+                rememberDispatcherStatus(payload, hostID: hostID)
                 if let agentID = payload["id"]?.string, let target = target(agentID: agentID, hostID: hostID) {
                     let status = CompanionChatProjector.status(payload["status"]?.string, detailed: payload["detailedStatus"])
                     // Desktop lifecycle status is coarser than the chat stream.
@@ -725,6 +733,10 @@ import ClubhouseTransport
                 }
                 scheduleRefresh(hostID: hostID)
             case "agent:deleted": scheduleRefresh(hostID: hostID)
+            case "dispatcher:changed":
+                applyDispatcherChange(enabled: payload["enabled"].boolValue == true, flagOn: payload["flagOn"].boolValue == true,
+                                      agentID: payload["agentId"]?.string, hostID: hostID)
+                scheduleRefresh(hostID: hostID)
             default: break
             }
         }
@@ -758,6 +770,9 @@ import ClubhouseTransport
             hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
             hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
             hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
+            if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
+                dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
+            } else { dispatcherFlags[hostID] = nil }
             if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             if needsCatchUp.contains(hostID) {
@@ -894,52 +909,57 @@ import ClubhouseTransport
             var agents: [CompanionAgent] = []
             for (index, value) in (durableValues + quickValues).enumerated() {
                 guard let id = value["id"]?.string else { continue }
-                let target = CompanionTarget(hostID: hostID, projectID: projectID, agentID: id)
-                // A durable agent that slept while the phone was away: the desktop drops chat events from its
-                // replay when the agent exits, and a reconnect resumes from the snapshot's seq anyway, so the
-                // session's end never arrives. The catalog's "sleeping" is newer than the projection's last state.
-                if value["kind"]?.string != "quick", value["status"]?.string == "sleeping", projections[target]?.isAwake == true {
-                    projections[target]?.endSession(.sleeping)
-                }
-                let projection = projections[target]
-                let name: String = value["name"]?.string ?? id
-                let mission: String? = value["mission"]?.string ?? value["prompt"]?.string
-                let subtitle: String = mission ?? value["branch"]?.string ?? ""
-                let meta = payload["agentsMeta"]?[id]
-                let detailed = value["detailedStatus"] ?? meta?["detailedStatus"]
-                // Without a live chat session the chat snapshot can only say "sleeping". When the catalog says
-                // the agent is running anyway (in a terminal or headless), the catalog is right.
-                let runsOutsideChat = readOnly.contains(target) && value["status"]?.string == "running"
-                let status: CompanionAgentStatus = (runsOutsideChat ? nil : projection?.status)
-                    ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
-                let model: String? = projection?.model ?? value["model"]?.string
-                let supported = availableCapabilities(projection?.capabilities ?? [], hostID: hostID)
-                let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
                 let isQuick = value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count)
-                var agent = CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
-                                           executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
-                                           isQuick: isQuick, hasExited: isQuick && Self.exitedStatuses.contains(value["status"]?.string ?? ""),
-                                           exitCode: value["exitCode"]?.integer.map(Int.init),
-                                           turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
-                Self.applyIdentity(value, icon: agentIcons?[id], to: &agent)
-                agent.detail = Self.detail(from: detailed)
-                if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
-                agent.branch = value["branch"]?.string
-                agent.orchestrator = value["orchestrator"]?.string
-                agent.session = projection.map(\.session)
-                agent.chatControls = projection.flatMap { chatControls($0, target: target) }
-                agent.slashCommands = projection.flatMap { slashCommands($0, target: target) }
-                agents.append(agent)
+                agents.append(catalogAgent(value, target: .init(hostID: hostID, projectID: projectID, agentID: id), isQuick: isQuick,
+                                           meta: payload["agentsMeta"]?[id], icon: agentIcons?[id]))
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
         }
         host.projects = projects
+        host.dispatcher = dispatcherState(hostID: hostID, icons: agentIcons, meta: payload["agentsMeta"])
         if case .object(let orchestrators)? = payload["orchestrators"] {
             host.providers = orchestrators.map { id, value in
                 CompanionProvider(id: id, name: value["displayName"]?.string ?? value["shortName"]?.string ?? id)
             }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         }
         hosts[hostID] = host
+    }
+    /// One catalog entry as an agent, with what its chat projection knows on top.
+    private func catalogAgent(_ value: AnnexJSON, target: CompanionTarget, isQuick: Bool, meta: AnnexJSON?, icon: AnnexJSON?) -> CompanionAgent {
+        let id = target.agentID
+        // A durable agent that slept while the phone was away: the desktop drops chat events from its
+        // replay when the agent exits, and a reconnect resumes from the snapshot's seq anyway, so the
+        // session's end never arrives. The catalog's "sleeping" is newer than the projection's last state.
+        if value["kind"]?.string != "quick", value["status"]?.string == "sleeping", projections[target]?.isAwake == true {
+            projections[target]?.endSession(.sleeping)
+        }
+        let projection = projections[target]
+        let name: String = value["name"]?.string ?? id
+        let mission: String? = value["mission"]?.string ?? value["prompt"]?.string
+        let subtitle: String = mission ?? value["branch"]?.string ?? ""
+        let detailed = value["detailedStatus"] ?? meta?["detailedStatus"]
+        // Without a live chat session the chat snapshot can only say "sleeping". When the catalog says
+        // the agent is running anyway (in a terminal or headless), the catalog is right.
+        let runsOutsideChat = readOnly.contains(target) && value["status"]?.string == "running"
+        let status: CompanionAgentStatus = (runsOutsideChat ? nil : projection?.status)
+            ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
+        let model: String? = projection?.model ?? value["model"]?.string
+        let supported = availableCapabilities(projection?.capabilities ?? [], hostID: target.hostID)
+        let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
+        var agent = CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
+                                   executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
+                                   isQuick: isQuick, hasExited: isQuick && Self.exitedStatuses.contains(value["status"]?.string ?? ""),
+                                   exitCode: value["exitCode"]?.integer.map(Int.init),
+                                   turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
+        Self.applyIdentity(value, icon: icon, to: &agent)
+        agent.detail = Self.detail(from: detailed)
+        if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
+        agent.branch = value["branch"]?.string
+        agent.orchestrator = value["orchestrator"]?.string
+        agent.session = projection.map(\.session)
+        agent.chatControls = projection.flatMap { chatControls($0, target: target) }
+        agent.slashCommands = projection.flatMap { slashCommands($0, target: target) }
+        return agent
     }
     /// The chat snapshot's `contentRoots` (desktop #2460). Older desktops omit it, which leaves relative paths only.
     nonisolated static func contentRoots(from snapshot: AnnexJSON, windows: Bool) -> CompanionContentRoots {
@@ -977,7 +997,7 @@ import ClubhouseTransport
         }
     }
     private func target(agentID: String, hostID: String) -> CompanionTarget? {
-        hosts[hostID]?.projects.flatMap(\.agents).first { $0.id.agentID == agentID }?.id
+        hosts[hostID]?.allAgents.first { $0.id.agentID == agentID }?.id
     }
     private func project(_ event: AnnexJSON, target: CompanionTarget) {
         var projection = projections[target] ?? .init()
@@ -994,18 +1014,88 @@ import ClubhouseTransport
         emitHosts()
     }
     private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
+        guard var agent = hosts[target.hostID]?.agent(for: target) else { return }
+        // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
+        let runsOutsideChat = readOnly.contains(target) && agent.executionMode != nil
+        if !runsOutsideChat { agent.status = projection.status }
+        agent.capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
+        if let model = projection.model { agent.model = model }
+        agent.turnStartedAt = projection.turnStartedAt
+        agent.contextUsage = projection.contextUsage
+        agent.session = projection.session
+        agent.chatControls = chatControls(projection, target: target)
+        agent.slashCommands = slashCommands(projection, target: target)
+        if hosts[target.hostID]?.dispatcher?.agent?.id == target { hosts[target.hostID]?.dispatcher?.agent = agent; return }
         guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
               let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
-        // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
-        let runsOutsideChat = readOnly.contains(target) && hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].executionMode != nil
-        if !runsOutsideChat { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].status = projection.status }
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
-        if let model = projection.model { hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].model = model }
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].turnStartedAt = projection.turnStartedAt
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].contextUsage = projection.contextUsage
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].session = projection.session
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].chatControls = chatControls(projection, target: target)
-        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex].slashCommands = slashCommands(projection, target: target)
+        hosts[target.hostID]?.projects[projectIndex].agents[agentIndex] = agent
+    }
+
+    // MARK: Dispatcher (`dispatcher` v1)
+
+    func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
+        guard capabilities[hostID]?.supportsDispatcherToggle == true else {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to turn the Dispatcher on from your phone.")
+        }
+        let receipt = try await execute(.setDispatcherEnabled(enabled), id: clientCommandID, hostID: hostID)
+        // The receipt says where it ended up; `dispatcher:changed` and a snapshot with its agent follow.
+        let result = receipt.result
+        applyDispatcherChange(enabled: result?["enabled"]?.boolOrNil ?? enabled, flagOn: result?["flagOn"]?.boolOrNil ?? dispatcherFlags[hostID]?.flagOn ?? true,
+                              agentID: result?["agentId"]?.string, hostID: hostID)
+    }
+    /// The Dispatcher as the desktop last described it: its flags from capabilities and `dispatcher:changed`, its agent
+    /// from the snapshot. Nil on desktops without `dispatcher` v1, which leaves everything as before.
+    private func dispatcherState(hostID: String, icons: AnnexJSON?, meta: AnnexJSON?) -> CompanionDispatcher? {
+        guard let caps = capabilities[hostID], caps.supportsDispatcher, let base = caps.dispatcher else { return nil }
+        let flags = dispatcherFlags[hostID] ?? (base.enabled, base.flagOn)
+        let value = dispatcherCatalog[hostID]
+        var state = CompanionDispatcher(enabled: flags.enabled, flagOn: flags.flagOn, newLayout: base.newLayout,
+                                        projectID: value?["projectId"]?.string ?? value?["agent"]?["projectId"]?.string ?? base.projectID,
+                                        canToggle: caps.supportsDispatcherToggle)
+        if flags.enabled, let entry = value?["agent"], let id = entry["id"]?.string, !id.isEmpty {
+            var agent = catalogAgent(entry, target: .init(hostID: hostID, projectID: state.projectID, agentID: id), isQuick: false,
+                                     meta: meta?[id], icon: icons?[id])
+            agent.isDispatcher = true
+            if entry["name"]?.string?.isEmpty != false { agent.name = CompanionDispatcher.name }
+            // Its orchestration is the desktop's, and locked.
+            agent.orchestration = nil
+            state.agent = agent
+        }
+        return state
+    }
+    /// The snapshot's `dispatcher`: `null` while it's off or still starting, else its agent. Its being there means it's on.
+    private func rememberDispatcher(_ value: AnnexJSON, hostID: String) {
+        dispatcherCatalog[hostID] = value
+        guard case .object = value, value["agent"]?["id"]?.string != nil else { return }
+        dispatcherFlags[hostID] = (value["enabled"]?.boolOrNil ?? true, value["flagOn"]?.boolOrNil ?? true)
+    }
+    /// Its live status, kept on the remembered entry: REST refreshes never carry the Dispatcher, and the next snapshot may be a while.
+    private func rememberDispatcherStatus(_ payload: AnnexJSON, hostID: String) {
+        guard let id = payload["id"]?.string, case .object(var dispatcher)? = dispatcherCatalog[hostID],
+              case .object(var agent)? = dispatcher["agent"], agent["id"]?.string == id else { return }
+        if let status = payload["status"] { agent["status"] = status }
+        if let detailed = payload["detailedStatus"] { agent["detailedStatus"] = detailed }
+        dispatcher["agent"] = .object(agent)
+        dispatcherCatalog[hostID] = .object(dispatcher)
+    }
+    /// `dispatcher:changed` or a `dispatcher.setEnabled` receipt. Turned off, its chat and every cached piece of it go.
+    private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, hostID: String) {
+        guard capabilities[hostID]?.supportsDispatcher == true else { return }
+        dispatcherFlags[hostID] = (enabled, flagOn)
+        let cachedID = dispatcherCatalog[hostID]?["agent"]?["id"]?.string
+        if !enabled || (agentID != nil && cachedID != nil && agentID != cachedID) { dropDispatcher(hostID: hostID) }
+        hosts[hostID]?.dispatcher = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
+        emitHosts()
+    }
+    private func dropDispatcher(hostID: String) {
+        dispatcherCatalog[hostID] = .null
+        let projectID = hosts[hostID]?.dispatcher?.projectID ?? capabilities[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID
+        for target in Set(projections.keys).union(buffers.keys).union(historyGenerations.keys) where target.hostID == hostID && target.projectID == projectID {
+            projections[target] = nil
+            buffers[target] = nil
+            historyGenerations[target] = nil
+            readOnly.remove(target)
+        }
     }
     private func slashCommands(_ projection: CompanionChatProjector, target: CompanionTarget) -> [CompanionSlashCommand]? {
         Self.slashCommands(projection.slashCommands, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),

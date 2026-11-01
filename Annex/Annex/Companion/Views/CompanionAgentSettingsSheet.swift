@@ -152,6 +152,8 @@ struct CompanionAgentSettingsForm: View {
     @State private var confirmFreeAgentMode = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
+    /// The Dispatcher has only the settings the desktop lets you change: no identity, persona, Clubhouse mode or orchestration.
+    private var isDispatcher: Bool { store.isDispatcher(target) }
     /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
         [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
@@ -195,6 +197,11 @@ struct CompanionAgentSettingsForm: View {
             }
         }
 
+        if isDispatcher {
+            Section { CompanionDispatcherSwitch(store: store, hostID: target.hostID) }
+        }
+
+        if !isDispatcher {
         Section {
             LabeledContent("Name") {
                 TextField("Name", text: $nameDraft)
@@ -234,6 +241,7 @@ struct CompanionAgentSettingsForm: View {
         } header: { Text("Identity") } footer: {
             if settings.hasImageIcon { Text("This agent has an image icon. Setting an emoji replaces it.") }
         }
+        }
 
         Section {
             Picker("Runs on", selection: Binding(get: { settings.orchestrator.value ?? settings.resolvedOrchestrator },
@@ -242,11 +250,11 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-orchestrator")
+            let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
-                ForEach(settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)) {
-                    Text($0.label).tag($0.id)
-                }
+                ForEach(models) { Text($0.label).tag($0.id) }
             }
+            .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
             Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
@@ -256,6 +264,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.runtime.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-runtime")
+            if !isDispatcher {
             Picker("Persona", selection: Binding(get: { settings.persona.value ?? "" },
                                                  set: { if $0 != (settings.persona.value ?? "") { save(.init(persona: $0.isEmpty ? .clear : .set($0))) } })) {
                 Text("Project default").tag("")
@@ -264,6 +273,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.persona.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-persona")
+            }
         } header: { Text("Runtime") } footer: {
             Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
         }
@@ -283,7 +293,9 @@ struct CompanionAgentSettingsForm: View {
         }
 
         Section {
-            if settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
+            if isDispatcher {
+                // It lives outside every project, so there's no project mode to follow.
+            } else if settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
                 Toggle("Clubhouse mode for this agent", isOn: Binding(get: { value }, set: { save(.init(clubhouseMode: $0)) }))
                     .disabled(!settings.clubhouseMode.canEdit(sleeping: sleeping) || saving)
             } else {
@@ -332,6 +344,29 @@ struct CompanionAgentSettingsForm: View {
                 }
                 .disabled(saving)
                 .accessibilityIdentifier("agent-settings-orchestrate-max-helpers")
+                Toggle(isOn: Binding(get: { policy.crossProjectHelpers },
+                                     set: { save(.init(orchestration: .init(crossProjectHelpers: .set($0)))) })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Cross-project helpers")
+                        Text(CompanionOrchestration.crossProjectHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                    }
+                }
+                .disabled(saving)
+                .accessibilityLabel("Let \(name) start helpers in other projects")
+                .accessibilityIdentifier("agent-settings-orchestrate-cross-project")
+                // Shown only while the Dispatcher is on, as on the desktop.
+                if store.host(for: target)?.dispatcher?.enabled == true {
+                    Toggle(isOn: Binding(get: { policy.connectToDispatcher },
+                                         set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Connect to Dispatcher")
+                            Text(CompanionOrchestration.dispatcherHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                        }
+                    }
+                    .disabled(saving)
+                    .accessibilityLabel("Connect \(name) to the Dispatcher")
+                    .accessibilityIdentifier("agent-settings-orchestrate-dispatcher")
+                }
             }
         } header: { Text("Orchestrate") } footer: {
             Text(orchestrateFooter(policy, name: name, running: running))
@@ -340,7 +375,7 @@ struct CompanionAgentSettingsForm: View {
 
     /// The desktop sends the policy with the settings; older settings routes leave it to the catalog.
     private func orchestration(_ settings: CompanionAgentSettings) -> CompanionOrchestration? {
-        guard store.host(for: target)?.canOrchestrate == true else { return nil }
+        guard store.host(for: target)?.canOrchestrate == true, !isDispatcher else { return nil }
         return settings.orchestration ?? agent?.orchestration
     }
 
@@ -424,6 +459,45 @@ struct CompanionAgentSettingsForm: View {
         settings = loaded
         nameDraft = loaded.name.value
         emojiDraft = loaded.emoji.value ?? ""
+    }
+}
+
+/// The desktop's "Turn on Dispatcher" switch (Settings › Dispatcher), disabled with the reason when it can't be turned on here.
+struct CompanionDispatcherSwitch: View {
+    @Bindable var store: CompanionStore
+    let hostID: String
+    /// The desktop's name, when more than one is paired.
+    var label: String?
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        if let host = store.hosts.first(where: { $0.id == hostID }), let dispatcher = host.dispatcher {
+            let switching = store.dispatcherSwitching.contains(hostID)
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle(isOn: Binding(get: { dispatcher.enabled },
+                                     set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Turn on Dispatcher")
+                        if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                    }
+                }
+                // Turning it off is always allowed; turning it on needs the desktop's flag and layout.
+                .disabled(switching || !host.connection.canOperate || !dispatcher.canToggle || (!dispatcher.enabled && dispatcher.turnOnBlocker != nil))
+                .accessibilityIdentifier("dispatcher-enabled-\(hostID)")
+                Text(note(dispatcher)).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("dispatcher-enabled-note-\(hostID)")
+                if let error = store.dispatcherErrors[hostID] {
+                    Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("dispatcher-enabled-error-\(hostID)")
+                }
+            }
+        }
+    }
+
+    private func note(_ dispatcher: CompanionDispatcher) -> String {
+        if dispatcher.enabled { return CompanionDispatcher.offNote }
+        return dispatcher.turnOnBlocker ?? "One app-wide agent that sends your orchestrators work and gets their reports."
     }
 }
 

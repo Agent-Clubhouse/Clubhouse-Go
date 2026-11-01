@@ -27,6 +27,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case setModel(agentID: String, sessionID: String, model: String, effort: Effort? = nil)
         /// The composer's permission level menu: `plan`, `ask`, `auto_edit`, `auto` or `full_access`.
         case setLevel(agentID: String, sessionID: String, level: String)
+        /// Turns the desktop's app-wide Dispatcher on or off (`dispatcher` v1). Turning it on needs the experimental flag.
+        case setDispatcherEnabled(Bool)
     }
     /// A reasoning effort to switch to, or the provider's default (sent as `null`; needs `effortDefault`).
     public enum Effort: Sendable, Equatable {
@@ -64,6 +66,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .setProjectInactive: "project.setInactive"
         case .dismissFinishedQuick: "quick.dismiss"
         case .clearFinishedQuick: "quick.clear"
+        case .setDispatcherEnabled: "dispatcher.setEnabled"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -128,6 +131,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .dismissFinishedQuick(let project, let agent):
             v["projectId"] = .string(project); v["agentId"] = .string(agent)
         case .clearFinishedQuick(let project): v["projectId"] = .string(project)
+        case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(AnnexJSON.object(v))
@@ -147,10 +151,16 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     public var control: Field<String>?
     /// 1 to the desktop's `maxHelpersCap`.
     public var maxHelpers: Field<Int>?
+    /// "Cross-project helpers": the agent may start helpers in other projects.
+    public var crossProjectHelpers: Field<Bool>?
+    /// "Connect to Dispatcher": the Dispatcher may message the agent. Refused (`dispatcher_off`) while the Dispatcher is off.
+    public var connectToDispatcher: Field<Bool>?
     /// Sends `"orchestration": null` on `agent.update`, clearing every field the agent sets. The fields above are ignored.
     public var clearsAll = false
-    public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil) {
+    public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil,
+                crossProjectHelpers: Field<Bool>? = nil, connectToDispatcher: Field<Bool>? = nil) {
         self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
+        self.crossProjectHelpers = crossProjectHelpers; self.connectToDispatcher = connectToDispatcher
     }
     /// Every field back to the persona's value or the default.
     public static var clearAll: AnnexOrchestrationPatch { var patch = AnnexOrchestrationPatch(); patch.clearsAll = true; return patch }
@@ -163,6 +173,8 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
         if let access { v["access"] = value(access, AnnexJSON.string) }
         if let control { v["control"] = value(control, AnnexJSON.string) }
         if let maxHelpers { v["maxHelpers"] = value(maxHelpers) { .integer(Int64($0)) } }
+        if let crossProjectHelpers { v["crossProjectHelpers"] = value(crossProjectHelpers, AnnexJSON.bool) }
+        if let connectToDispatcher { v["connectToDispatcher"] = value(connectToDispatcher, AnnexJSON.bool) }
         return .object(v)
     }
     /// The set fields only, for `agent.create`, which refuses `null`.
@@ -375,6 +387,36 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsProjectState: Bool {
         commands.contains("project.setPinned") && commands.contains("project.setInactive") && (projectState?.version ?? 0) >= 1
     }
+    /// The desktop's app-wide Dispatcher agent (`dispatcher` v1). Absent on older desktops: no Dispatcher anywhere.
+    public struct Dispatcher: Decodable, Sendable, Equatable {
+        public static let defaultProjectID = "__dispatcher__"
+        public let version: Int
+        /// The experimental flag and the app setting are both on.
+        public let enabled: Bool
+        /// The experimental flag alone. Turning the Dispatcher on needs it.
+        public let flagOn: Bool
+        /// The desktop runs its New layout, which turning the Dispatcher on also needs. Older drafts don't say: assumed on.
+        public let newLayout: Bool
+        /// The project id its agent is listed under.
+        public let projectID: String
+        public init(version: Int = 1, enabled: Bool, flagOn: Bool, newLayout: Bool = true, projectID: String = Self.defaultProjectID) {
+            self.version = version; self.enabled = enabled; self.flagOn = flagOn; self.newLayout = newLayout; self.projectID = projectID
+        }
+        /// A malformed block reads as off rather than failing the whole capability document.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = (try? c.decode(Int.self, forKey: .version)) ?? 0
+            enabled = (try? c.decode(Bool.self, forKey: .enabled)) ?? false
+            flagOn = (try? c.decode(Bool.self, forKey: .flagOn)) ?? false
+            newLayout = (try? c.decode(Bool.self, forKey: .newLayout)) ?? true
+            projectID = (try? c.decode(String.self, forKey: .projectId)).flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultProjectID
+        }
+        private enum CodingKeys: String, CodingKey { case version, enabled, flagOn, newLayout, projectId }
+    }
+    public let dispatcher: Dispatcher?
+    public var supportsDispatcher: Bool { (dispatcher?.version ?? 0) >= 1 }
+    /// The phone can turn the Dispatcher on and off (`dispatcher.setEnabled`).
+    public var supportsDispatcherToggle: Bool { supportsDispatcher && commands.contains("dispatcher.setEnabled") }
     /// Image upload limits. Absent on desktops that can't take images: send text only.
     public struct Attachments: Decodable, Sendable, Equatable {
         public static let maximumCount = 10
@@ -426,10 +468,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
+        dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, dispatcher
     }
 }
 

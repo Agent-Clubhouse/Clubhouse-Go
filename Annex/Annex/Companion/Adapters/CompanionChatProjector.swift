@@ -68,7 +68,7 @@ struct CompanionChatProjector {
                                   clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
                                   queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil,
                                   source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer",
-                                  images: Self.userImages(content, messageID: messageID))))
+                                  fromName: data["fromName"]?.string, images: Self.userImages(content, messageID: messageID))))
         case "queue_state":
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence

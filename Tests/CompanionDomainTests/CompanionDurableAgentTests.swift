@@ -50,6 +50,12 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
         // A CLI with no model list still offers the provider default.
         #expect(options.options.models(for: "codex").map(\.id) == ["default"])
         #expect(options.options.models(for: "claude-code", keeping: "my-model").map(\.id) == ["default", "opus", "my-model"])
+        // A long live list stays whole and in order, with a current model it doesn't name kept at the end, once.
+        let many = (1...60).map { CompanionModelOption(id: "m\($0)", label: "Model \($0)") }
+        let long = CompanionAgentOptions(orchestrators: [.init(id: "x", displayName: "X", shortName: "X", available: true, permissions: true, chat: true, models: many)])
+        #expect(long.models(for: "x", keeping: "m7").map(\.id) == many.map(\.id))
+        #expect(long.models(for: "x", keeping: "retired").count == 61 && long.models(for: "x", keeping: "retired").last?.label == "retired")
+        #expect(long.models(for: "x").count > CompanionAgentOptions.menuModelLimit)
         #expect(options.options.personas == [.init(id: "qa", name: "QA", source: "builtin")])
         #expect(options.options.colors.first?.rgb == CompanionRGB(red: 0x63 / 255.0, green: 0x66 / 255.0, blue: 0xf1 / 255.0))
         #expect(options.mcpCatalog.map(\.id) == ["ado", "gh"] && options.mcpDefaults == ["ado"])

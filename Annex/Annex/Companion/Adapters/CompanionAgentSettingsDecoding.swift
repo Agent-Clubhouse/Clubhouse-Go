@@ -74,7 +74,13 @@ extension CompanionAgentSettings {
         clubhouseMode = .init(value: settings["clubhouseMode"]?["value"]?.boolOrNil, editable: editable("clubhouseMode"))
         clubhouseModeProjectEnabled = settings["clubhouseMode"]?["projectEnabled"].boolValue ?? false
         // `never` on desktops that keep it for themselves; `sleeping` when the CLI has permission support and the phone may set it.
-        freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: editable("freeAgentMode") == .never ? .never : .sleeping)
+        // The Dispatcher takes it at any time, applied on its next start, as its desktop settings page does.
+        let freeAgentEditable: CompanionSettingEditable = switch editable("freeAgentMode") {
+        case .never: .never
+        case .always where json["isDispatcher"].boolValue == true: .always
+        default: .sleeping
+        }
+        freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: freeAgentEditable)
         let idle = settings["idleSleep"]
         idleSleep = .init(value: Self.idleSleep(idle?["value"]), editable: editable("idleSleep"))
         idleSleepApplies = idle?["applies"]?.boolOrNil ?? true
@@ -111,6 +117,8 @@ extension CompanionOrchestration {
         control = json["control"]?.string ?? "hands-off"
         maxHelpersCap = json["maxHelpersCap"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? 20
         maxHelpers = json["maxHelpers"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? min(5, maxHelpersCap)
+        crossProjectHelpers = json["crossProjectHelpers"]?.boolOrNil ?? false
+        connectToDispatcher = json["connectToDispatcher"]?.boolOrNil ?? false
         controls = strings("controls") ?? Self.defaultControls
         accessLevels = strings("accessLevels") ?? Self.defaultAccessLevels
         if case .object(let sources)? = json["sources"] {
@@ -128,7 +136,8 @@ extension AnnexOrchestrationPatch {
             case nil: nil
             }
         }
-        self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers))
+        self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers),
+                  crossProjectHelpers: field(change.crossProjectHelpers), connectToDispatcher: field(change.connectToDispatcher))
     }
 }
 

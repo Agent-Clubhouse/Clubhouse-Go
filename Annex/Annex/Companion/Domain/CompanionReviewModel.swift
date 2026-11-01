@@ -102,7 +102,9 @@ extension CompanionStore {
         hosts.filter { host in
             switch host.connection { case .offline, .failed: false; default: true }
         }.flatMap { host in
-            host.projects.flatMap { project in
+            // The Dispatcher comes first, as its row sits above the projects.
+            (host.dispatcher?.liveAgent.map { [CompanionReviewEntry(agent: $0, hostName: host.name, projectName: CompanionDispatcher.name)] } ?? [])
+            + host.projects.flatMap { project in
                 project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }
                     .map { CompanionReviewEntry(agent: $0, hostName: host.name, projectName: project.name) }
             }

@@ -99,6 +99,58 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var sharesFinishedQuick: Bool { canSyncFinishedQuick && finishedQuickAgents != nil }
     /// Project and agent terminals (`terminal` v1). Nil when the desktop has none: every terminal entry point is hidden.
     var terminal: CompanionTerminalSupport?
+    /// The desktop's app-wide Dispatcher (`dispatcher` v1). Nil on desktops without one. Kept out of `projects`, so it
+    /// never sorts, pins, idles or spawns like a project.
+    var dispatcher: CompanionDispatcher?
+
+    /// Every agent on this desktop: each project's, then the Dispatcher's while it's on.
+    var allAgents: [CompanionAgent] { projects.flatMap(\.agents) + (dispatcher?.liveAgent.map { [$0] } ?? []) }
+    /// The agent behind a target: in its project, or the Dispatcher.
+    func agent(for target: CompanionTarget) -> CompanionAgent? {
+        if let agent = dispatcher?.liveAgent, agent.id == target { return agent }
+        return projects.first { $0.id == target.projectID }?.agents.first { $0.id == target }
+    }
+    /// The target is the Dispatcher's, by the project id the desktop gives it.
+    func isDispatcher(_ target: CompanionTarget) -> Bool {
+        target.hostID == id && dispatcher.map { $0.projectID == target.projectID } == true
+    }
+    /// A project's name for a caption: the project's, or "Dispatcher" for its agent.
+    func placeName(for target: CompanionTarget) -> String? {
+        isDispatcher(target) ? CompanionDispatcher.name : projects.first { $0.id == target.projectID }?.name
+    }
+}
+
+/// The desktop's app-wide Dispatcher (#2533): one durable agent outside every project that coordinates orchestrators.
+/// It shows as a pinned row above the projects while it's on.
+struct CompanionDispatcher: Sendable, Equatable {
+    static let name = "Dispatcher"
+    static let defaultProjectID = "__dispatcher__"
+    /// The desktop's Settings › Dispatcher notes.
+    static let flagOffNote = "Turn on Dispatcher in Settings > Experimental on the desktop first."
+    static let layoutOffNote = "The Dispatcher needs the new layout. Turn on New layout in Settings > Experimental on the desktop."
+    static let offNote = "Turning it off stops it. Its folder and notes are kept, so turning it back on carries on where it left off."
+    /// The experimental flag and the app setting are both on.
+    var enabled: Bool
+    /// The experimental flag alone.
+    var flagOn: Bool
+    var newLayout = true
+    /// The project id its agent is listed under, as the desktop sends it.
+    var projectID = Self.defaultProjectID
+    /// The desktop takes `dispatcher.setEnabled` from this phone.
+    var canToggle = false
+    /// Its agent, from the snapshot. Nil while the desktop is still starting it, or when it's off.
+    var agent: CompanionAgent?
+    /// Its agent while it's on.
+    var liveAgent: CompanionAgent? { enabled ? agent : nil }
+    /// On, but its agent hasn't arrived yet.
+    var isLoading: Bool { enabled && agent == nil }
+    /// Why it can't be turned on from here, or nil when it can.
+    var turnOnBlocker: String? {
+        if !flagOn { return Self.flagOffNote }
+        if !newLayout { return Self.layoutOffNote }
+        if !canToggle { return "Update Clubhouse on your desktop to turn the Dispatcher on from your phone." }
+        return nil
+    }
 }
 
 /// A helper start or dispose an orchestrator asked the user to decide (the snapshot's `helperRequests`).
@@ -195,6 +247,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var iconData: Data? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
+    /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.
+    var isDispatcher = false
     /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
     var orchestration: CompanionOrchestration?
     /// What the desktop says the agent is doing (`detailedStatus`), for Needs you's wording and order.
@@ -344,12 +398,19 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     var source: String?
     /// The message joined the running turn instead of starting one.
     var isSteered = false
+    /// The agent that sent an `mcp` message, when the desktop names it.
+    var fromName: String?
+
+    /// Who relayed an `mcp` message and what it says without its tags, or nil for any other message.
+    var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text, fromName: fromName) : nil }
+    /// What the bubble shows: a relayed message without its `[TASK:…] [FROM:…]` tags. Copy keeps `text` whole.
+    var displayText: String { relay?.body ?? text }
 
     /// The desktop's caption above a user message, such as "Mission · Steered into the running turn".
     var sourceLabel: String? {
         let origin: String? = switch source {
         case "mission": "Mission"
-        case "mcp": "From another agent"
+        case "mcp": relay.map { "From \($0.sender)" } ?? "From another agent"
         case "shoulder_tap": "Shoulder tap"
         case "group_project": "Group project"
         case "annex": "From Annex"
@@ -360,6 +421,34 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
     var images: [CompanionMessageImage] = []
+}
+
+/// A message one agent sent another: `[TASK:id] [FROM:Name] body`, as the desktop's `send_message` relays it.
+struct CompanionRelay: Sendable, Equatable {
+    var sender: String
+    var taskID: String?
+    var body: String
+
+    init(sender: String, taskID: String?, body: String) { self.sender = sender; self.taskID = taskID; self.body = body }
+    /// Nil when the text has no `[FROM:…]` tag and the desktop didn't name the sender.
+    init?(text: String, fromName: String? = nil) {
+        let named = fromName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+        if let match = text.firstMatch(of: /^\s*(?:\[TASK:([^\]\n]*)\]\s*)?\[FROM:([^\]\n]+)\][ \t]*\n?/) {
+            let tagged = String(match.output.2).trimmingCharacters(in: .whitespaces)
+            guard let sender = named ?? tagged.nilIfEmpty else { return nil }
+            self.sender = sender
+            taskID = match.output.1.map(String.init)?.trimmingCharacters(in: .whitespaces).nilIfEmpty
+            body = String(text[match.range.upperBound...])
+        } else {
+            guard let named else { return nil }
+            sender = named
+            body = text
+        }
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 struct CompanionTool: Identifiable, Sendable, Equatable {
@@ -607,9 +696,14 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func clearFinishedQuick(_ project: CompanionProjectTarget, clientCommandID: String) async throws -> [CompanionFinishedRun]
     /// A shell or an agent's terminal on the desktop. Opening and every message are the channel's.
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel
+    /// `dispatcher.setEnabled`: turns the desktop's Dispatcher on or off.
+    func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws
 }
 
 @MainActor extension CompanionService {
+    func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to turn the Dispatcher on from your phone.")
+    }
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {
         throw CompanionServiceError.unavailable(CompanionTerminalAvailability.updateDesktop)
     }

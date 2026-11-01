@@ -78,7 +78,7 @@ struct CompanionConversationView: View {
             else { timeline.companionContentPreviews(store: store, target: target) }
         }
         .companionBackground()
-        .navigationTitle(agent.name)
+        .navigationTitle(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
@@ -168,8 +168,8 @@ struct CompanionConversationView: View {
 
     private var contextName: String {
         guard let host = store.host(for: target) else { return "Desktop unavailable" }
-        let project = host.projects.first { $0.id == target.projectID }?.name ?? "Project"
-        return "\(host.name) / \(project)"
+        // The Dispatcher has no project; its own name stands in.
+        return "\(host.name) / \(host.placeName(for: target) ?? "Project")"
     }
 
     private var connectionBanner: some View {

@@ -13,6 +13,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     }
     var agent: CompanionAgent
     var hostName: String
+    /// The agent's project, or "Dispatcher" for the desktop's Dispatcher, which has none.
     var projectName: String
     var kind: Kind
     /// An agent's own wait, or one helper request: an agent can have both.
@@ -134,7 +135,8 @@ enum CompanionTimelineFolding {
 }
 
 extension CompanionStore {
-    var allAgents: [CompanionAgent] { hosts.flatMap(\.projects).flatMap(\.agents) }
+    /// Every agent on every desktop, the Dispatchers included.
+    var allAgents: [CompanionAgent] { hosts.flatMap(\.allAgents) }
 
     /// The approval to pin above the composer: the oldest pending, unexpired one the agent can answer from here.
     func pinnedApproval(for target: CompanionTarget, now: Date = Date()) -> CompanionApproval? {
@@ -152,12 +154,13 @@ extension CompanionStore {
         var items: [CompanionAttentionItem] = []
         for host in hosts where host.connection.canOperate {
             for request in helperRequests(on: host, now: now) {
-                guard let project = host.projects.first(where: { $0.id == request.projectID }),
-                      let agent = project.agents.first(where: { $0.id == request.agentTarget }) else { continue }
-                items.append(.init(agent: agent, hostName: host.name, projectName: project.name, kind: .helperRequest(request)))
+                guard let agent = host.agent(for: request.agentTarget), let place = host.placeName(for: agent.id) else { continue }
+                items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .helperRequest(request)))
             }
-            for project in host.projects {
-                for agent in project.agents where agent.status.needsYou {
+            // The Dispatcher is listed with its own name in place of a project's.
+            let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcher?.liveAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
+            for (place, agents) in places {
+                for agent in agents where agent.status.needsYou {
                     let conversation = conversation(for: agent.id)
                     let pendingQuestion = conversation.items.lazy.compactMap { item -> CompanionQuestion? in
                         if case .question(let question) = item, question.resolution == .pending { return question }; return nil
@@ -167,7 +170,7 @@ extension CompanionStore {
                     else if let pendingQuestion { kind = .question(pendingQuestion) }
                     else if agent.status == .failed { kind = .failure }
                     else { kind = .unreviewed }
-                    items.append(.init(agent: agent, hostName: host.name, projectName: project.name, kind: kind))
+                    items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: kind))
                 }
             }
         }
@@ -188,14 +191,14 @@ extension CompanionStore {
     /// The Needs you badge: agents waiting on you on a connected desktop, and helper requests.
     var needsYouCount: Int {
         let operable = hosts.filter(\.connection.canOperate)
-        return operable.flatMap(\.projects).flatMap(\.agents).filter { $0.status.needsYou }.count
+        return operable.flatMap(\.allAgents).filter { $0.status.needsYou }.count
             + operable.reduce(0) { $0 + helperRequests(on: $1).count }
     }
 
     /// A desktop's waiting helper requests, when it can take answers: unexpired ones whose agent is listed.
     func helperRequests(on host: CompanionHost, now: Date = Date()) -> [CompanionHelperRequest] {
         guard host.canAnswerHelperRequests else { return [] }
-        let listed = Set(host.projects.flatMap(\.agents).map(\.id))
+        let listed = Set(host.allAgents.map(\.id))
         return host.helperRequests.filter { request in
             listed.contains(request.agentTarget) && (request.expiresAt.map { $0 > now } ?? true)
         }

@@ -327,9 +327,12 @@ struct CompanionSpawnSheet: View {
                 if !options.options.models(for: id).contains(where: { $0.id == durable.model }) { durable.model = "default" }
                 if options.options.orchestrator(id)?.permissions != true { durable.freeAgentMode = false }
             }
+            // The desktop's default can be a model the live list doesn't name; it still shows, as itself.
+            let models = options.options.models(for: durable.orchestrator, keeping: durable.model)
             Picker("Model", selection: $durable.model) {
-                ForEach(options.options.models(for: durable.orchestrator)) { Text($0.label).tag($0.id) }
+                ForEach(models) { Text($0.label).tag($0.id) }
             }
+            .companionModelPickerStyle(count: models.count)
             .accessibilityIdentifier("new-agent-model")
         } footer: {
             if let warning = options.options.orchestrator(durable.orchestrator)?.warning {

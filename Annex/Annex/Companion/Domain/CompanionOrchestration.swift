@@ -19,6 +19,10 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var maxHelpers = 5
     /// The app-wide helper limit, so the most "Helpers at once" can be.
     var maxHelpersCap = 20
+    /// "Cross-project helpers": helpers may be started in other projects. False from desktops that don't send it.
+    var crossProjectHelpers = false
+    /// "Connect to Dispatcher": the Dispatcher may message this agent and get its reports.
+    var connectToDispatcher = false
     var controls = CompanionOrchestration.defaultControls
     var accessLevels = CompanionOrchestration.defaultAccessLevels
     var sources: [String: Source] = [:]
@@ -59,6 +63,9 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     }
     static func accessNote(agentName: String) -> String { "Never more than \(agentName)’s level when a helper starts." }
     static func nextStartNote(agentName: String) -> String { "The helper tools appear the next time \(agentName) starts." }
+    /// The desktop's `CROSS_PROJECT_HELP` and `DISPATCHER_HELP` (`OrchestrationFields.tsx`).
+    static let crossProjectHelp = "Let this agent start helpers in other projects."
+    static let dispatcherHelp = "Let the Dispatcher message this agent and get its reports."
 
     /// The Orchestrate card's one line: "off", or "hands-off · up to 5".
     var summary: String { orchestrate ? "\(Self.controlLabel(control).lowercased()) · up to \(maxHelpers)" : "off" }
@@ -77,6 +84,8 @@ nonisolated struct CompanionOrchestrationChange: Sendable, Equatable {
     var access: Field<String>?
     var control: Field<String>?
     var maxHelpers: Field<Int>?
+    var crossProjectHelpers: Field<Bool>?
+    var connectToDispatcher: Field<Bool>?
     var isEmpty: Bool { self == .init() }
 
     /// The policy after this change, for showing it before the desktop answers. A cleared field keeps its value.
@@ -86,6 +95,8 @@ nonisolated struct CompanionOrchestrationChange: Sendable, Equatable {
         if case .set(let value)? = access { next.access = value; next.sources["access"] = .agent }
         if case .set(let value)? = control { next.control = value; next.sources["control"] = .agent }
         if case .set(let value)? = maxHelpers { next.maxHelpers = value; next.sources["maxHelpers"] = .agent }
+        if case .set(let value)? = crossProjectHelpers { next.crossProjectHelpers = value; next.sources["crossProjectHelpers"] = .agent }
+        if case .set(let value)? = connectToDispatcher { next.connectToDispatcher = value; next.sources["connectToDispatcher"] = .agent }
         return next
     }
 }
