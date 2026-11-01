@@ -23,6 +23,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var state: AnnexConnectionState = .disconnected
     private var capabilities: AnnexCapabilities?
     private var cursor = AnnexReplayCursor()
+    private var awaitingFirstSnapshot = false
     private var commandBusy = false
     private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
     private struct CommandKey: Hashable { let epoch: String; let id: String }
@@ -130,6 +131,7 @@ public actor AnnexTransport: AnnexTransporting {
         loop?.cancel(); loop = nil
         let oldSocket = socket; socket = nil
         capabilities = nil
+        awaitingFirstSnapshot = false
         transition(.disconnected)
         await oldSocket?.close()
     }
@@ -349,6 +351,7 @@ public actor AnnexTransport: AnnexTransporting {
                 socket = newSocket
                 try await sendTelemetryHello(on: newSocket, attemptID: attemptID, generation: current)
                 cursor.beginConnection()
+                awaitingFirstSnapshot = true
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
@@ -442,6 +445,12 @@ public actor AnnexTransport: AnnexTransporting {
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID) async throws {
         // Structured lifetime: ping and receive are both cancelled on disconnect.
         try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { [weak self, clock] in
+                try await clock.sleep(.seconds(30))
+                guard await self?.isAwaitingFirstSnapshot(generation: current) == true else { return }
+                // A live socket (and even a hello ack) does not establish a usable catalog.
+                throw URLError(.timedOut)
+            }
             group.addTask { [clock] in
                 do {
                     while !Task.isCancelled { try await clock.sleep(.seconds(20)); try await socket.ping() }
@@ -457,8 +466,21 @@ public actor AnnexTransport: AnnexTransporting {
                 } catch { await socket.close(); throw error }
             }
             defer { group.cancelAll() }
-            try await group.next()
+            do {
+                // The snapshot deadline can finish harmlessly while ping/receive keep running.
+                while try await group.next() != nil {}
+            } catch {
+                group.cancelAll()
+                // Unblock a pending receive before the structured group waits for its children.
+                // Keep the original failure, rather than the cancellation produced by closing the socket.
+                await socket.close()
+                throw error
+            }
         }
+    }
+
+    private func isAwaitingFirstSnapshot(generation current: UUID) -> Bool {
+        current == generation && awaitingFirstSnapshot
     }
 
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID) async throws {
@@ -469,6 +491,12 @@ public actor AnnexTransport: AnnexTransporting {
         if envelope.type == "telemetry:hello:ack" {
             acceptTelemetryAck(envelope.payload)
             return
+        }
+        // This error replaces the initial snapshot. Retry through the normal backoff instead of
+        // leaving the catalog on Connecting forever. Terminal and other command errors keep their routing.
+        if awaitingFirstSnapshot, envelope.type == "error", !Self.isTerminalFrame(envelope),
+           envelope.payload?["message"]?.string == "snapshot_failed" {
+            throw AnnexTransportError.disconnected
         }
         if envelope.type == "snapshot" {
             guard let seq = envelope.snapshotSequence, seq >= 0,
@@ -487,6 +515,7 @@ public actor AnnexTransport: AnnexTransporting {
         case .deliver: break
         }
         if envelope.type == "snapshot" {
+            awaitingFirstSnapshot = false
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
             transition(.connected)
         }

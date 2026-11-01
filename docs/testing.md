@@ -45,6 +45,16 @@ scripts/e2e-live.sh --skip-desktop-build              # reuse .desktop as it is
 scripts/e2e-live.sh --simulator 'iPhone 17'           # another model (a new device of it)
 ```
 
+Repeat `--only` to run a sequence against one desktop fixture, for example:
+
+```sh
+scripts/e2e-live.sh --skip-desktop-build \
+  --only CompanionLiveE2ETests/test7FinishedQuickAgent \
+  --only CompanionLiveE2ETests/test8AgentThatSleptWhileAwayReadsSleepingAfterForeground
+```
+
+The transport reconnects through its normal backoff if the desktop returns `snapshot_failed` before its first snapshot, or if no initial snapshot arrives within 30 seconds. Other error frames keep their existing routing. Desktop [#2639](https://github.com/Agent-Clubhouse/Clubhouse/issues/2639) prevents snapshot serialization for 60 seconds after a phone-started quick agent exits; until that is fixed, test8 can still exceed its catalog wait and need the existing retry. Report that retry explicitly.
+
 What the script does:
 
 1. **Builds both apps.** It clones the desktop into `.desktop/`, which git ignores, checks out the ref and runs `npm ci` and `electron-forge package`. It skips either step when the lockfile or the commit hasn't changed since the last run. Clubhouse Go builds for testing at the same time.
