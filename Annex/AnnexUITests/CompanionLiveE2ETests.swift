@@ -672,12 +672,13 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "wake_agent", "args": ["message": "PHONE_DISPATCHER_WAKE"]])
         let awake = revealAgent(app, echoID)
         XCTAssertTrue(waitFor(awake, NSPredicate(format: "NOT label CONTAINS 'Sleeping'"), timeout: 30))
-        try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": "PHONE_DISPATCHER_DELIVERY", "task_id": "phone-live-dispatcher"]])
+        let deliveryText = "[FROM:Inline] PHONE_DISPATCHER_DELIVERY"
+        try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
-        let delivered = text(app, beginsWith: "PHONE_DISPATCHER_DELIVERY")
-        XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message text must reach phone")
-        let caption = any(app).matching(NSPredicate(format: "identifier == 'companion-message-source' AND label CONTAINS 'From Dispatcher'")).firstMatch
-        XCTAssertTrue(caption.exists, "Real MCP message is captioned with its sender")
+        let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
+        XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message must render as a structured routed part")
+        XCTAssertTrue(delivered.label.hasPrefix("Dispatcher"), "The routed caption uses the real sender: \(delivered.label)")
+        XCTAssertTrue(delivered.label.hasSuffix(": \(deliveryText)"), "The exact body keeps inline tags and excludes CLI reply instructions: \(delivered.label)")
         screenshot(app, "Real MCP delivery from Dispatcher")
         let frames = try XCTUnwrap(try dispatcherFixture("wire", ["since": checkpoint]) as? [[String: Any]])
         let deliveredEvent = try XCTUnwrap(frames.compactMap { frame -> [String: Any]? in
@@ -686,10 +687,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                   String(describing: data["content"]).contains("PHONE_DISPATCHER_DELIVERY") else { return nil }
             return data
         }.first, "The delivered message must be a real MCP user_message on the wire")
-        if let routed = deliveredEvent["routed"] as? [[String: Any]] {
-            XCTAssertEqual(routed.first?["text"] as? String, "PHONE_DISPATCHER_DELIVERY")
-            XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["name"] as? String, "Dispatcher")
-        }
+        let routed = try XCTUnwrap(deliveredEvent["routed"] as? [[String: Any]], "This real send_message carries routed attribution")
+        XCTAssertEqual(routed.first?["text"] as? String, deliveryText)
+        XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["name"] as? String, "Dispatcher")
+        XCTAssertEqual((routed.first?["sender"] as? [String: Any])?["agentId"] as? String, id)
 
         backToHome(app)
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "sleep_agent", "args": ["force": true]])
@@ -702,11 +703,24 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(((try dispatcherFixture("policy") as? [String: Any])?["policy"] as? [String: Any])?["orchestrate"] as? Bool, false)
         setSwitch(orchestrate, on: true)
         waitAndTap(app.buttons["Done"], untilGone: orchestrate)
-        // Contract-only MCP-off checks; the phone's disabled-switch UX awaits its separate PR.
+        // MCP-off is authoritative on the settings route and on screen, even though the overrides stay stored.
         try dispatcherFixture("mcpEnabled", ["enabled": false])
         let disabled = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": echoID]) as? [String: Any])
         let disabledBody = try XCTUnwrap(disabled["body"] as? [String: Any])
         XCTAssertEqual((disabledBody["orchestration"] as? [String: Any])?["mcpEnabled"] as? Bool, false)
+        longPressUntilMenu(revealAgent(app, echoID), shows: settingsAction)
+        waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
+        for field in ["agent-settings-orchestrate", "agent-settings-orchestrate-cross-project", "agent-settings-orchestrate-dispatcher"] {
+            let control = app.switches[field]
+            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 6), field)
+            scrollTo(control, in: app)
+            XCTAssertFalse(control.isEnabled, "MCP off disables \(field)")
+            XCTAssertEqual(control.value as? String, "0", "MCP off resolves \(field) to false")
+        }
+        let mcpHelp = app.staticTexts["These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."]
+        XCTAssertTrue(scrollUntilExists(mcpHelp, in: app, maxSwipes: 3), "The phone explains how to restore orchestration")
+        screenshot(app, "MCP off disables orchestration and Dispatcher switches")
+        waitAndTap(app.buttons["Done"], untilGone: orchestrate)
         for field in ["orchestrate", "connectToDispatcher", "crossProjectHelpers"] {
             let refused = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID,
                 "orchestration": [field: true]]]) as? [String: Any])
@@ -816,7 +830,22 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(connect, in: app, maxSwipes: 6))
         scrollTo(connect, in: app)
         XCTAssertEqual(connect.value as? String, "0", "The desktop never connects helpers to Dispatcher")
-        screenshot(app, "Genuine helper has no Dispatcher connection")
+        XCTAssertTrue(connect.isEnabled, "The helper switch can submit a write for the desktop to resolve")
+        connect.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        // Prove a true write reached the real desktop before checking the returned false; never retry the toggle.
+        var saved: [String: Any] = [:]
+        let deadline = Date().addingTimeInterval(30)
+        repeat {
+            saved = try XCTUnwrap(try dispatcherFixture("policy", ["agentId": helperID]) as? [String: Any])
+            if ((saved["config"] as? [String: Any])?["orchestration"] as? [String: Any])?["connectToDispatcher"] as? Bool == true { break }
+            sleep(1)
+        } while Date() < deadline
+        XCTAssertEqual(((saved["config"] as? [String: Any])?["orchestration"] as? [String: Any])?["connectToDispatcher"] as? Bool, true,
+                       "The phone's true write must reach the helper's stored override")
+        XCTAssertEqual((saved["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, false)
+        XCTAssertTrue(connect.wait(for: \.isEnabled, toEqual: true, timeout: 30), "The save must complete")
+        XCTAssertEqual(connect.value as? String, "0", "The sheet must show the desktop's returned false, after submitting true")
+        screenshot(app, "Genuine helper returns to no Dispatcher connection after a true write")
     }
 
 }
