@@ -45,6 +45,17 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(toggle.exists && toggle.isEnabled)
     }
 
+    func testHelperSettingsHidesOnlyTheDispatcherConnection() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-helper-identity"])
+        openAgentSettings(app, sleeping: true)
+        for id in ["agent-settings-orchestrate", "agent-settings-orchestrate-access", "agent-settings-orchestrate-control",
+                   "agent-settings-orchestrate-max-helpers", "agent-settings-orchestrate-cross-project"] {
+            let control = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            XCTAssertTrue(scrollUntilExists(control, in: app), id)
+        }
+        XCTAssertFalse(app.switches["agent-settings-orchestrate-dispatcher"].exists, "A known helper talks only to its parent")
+    }
+
     func testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection() {
         let app = launchApp(["--companion-preview"])
         openAgentSettings(app, sleeping: true)

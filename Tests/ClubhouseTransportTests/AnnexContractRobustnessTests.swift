@@ -122,6 +122,8 @@ import Testing
     /// own sequence fields are strict, so a frame with an unreadable cursor fails closed and the transport resyncs.
     @Test func damagedWebSocketFrames() throws {
         var frames = try AnnexContract.json("chat-events.json")["frames"].list
+        #expect(frames.filter { $0["payload"]?["event"]?["type"]?.string == "user_message" }.count == 5,
+                "Damage every repeated user_message shape, not just the first event of that type")
         frames.append(try #require(try AnnexContract.json("snapshot.json")["frame"]))
         frames += try AnnexContract.cases("pty.json").flatMap { $0["replies"].list }
         for frame in frames {

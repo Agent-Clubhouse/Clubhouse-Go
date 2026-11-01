@@ -150,6 +150,10 @@ import Testing
         #expect(snapshot.type == "snapshot" && snapshot.snapshotSequence != nil)
         let events = try AnnexContract.json("chat-events.json")["frames"].list
         #expect(events.count >= 30)
+        let userMessages = events.filter { $0["payload"]?["event"]?["type"]?.string == "user_message" }
+        #expect(userMessages.count == 5)
+        #expect(Set(userMessages.compactMap { $0["payload"]?["event"]?["data"]?["messageId"]?.string }) ==
+                Set(["msg_10", "msg_routed_one", "msg_routed_burst", "msg_routed_clubhouse", "msg_routed_no_sender"]))
         for frame in events {
             let envelope = try JSONDecoder().decode(AnnexEnvelope.self, from: AnnexContract.encode(frame))
             #expect(envelope.type == "chat:event" && envelope.seq != nil && envelope.payload?["event"]?["sessionId"]?.string == "sess_live")

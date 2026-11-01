@@ -80,6 +80,8 @@ import Testing
     /// Damaged chat events fold without crashing; an event without its session, sequence or type is ignored.
     @Test func chatEventsSurviveDamage() throws {
         let events = (try ContractFixtures.json("chat-events.json")["frames"]).arrayValue.compactMap { $0["payload"]?["event"] }
+        #expect(events.filter { $0["type"]?.string == "user_message" }.count == 5,
+                "Every routed shape participates in the damage matrix")
         let snapshotEvents = (try ContractFixtures.body("chat-snapshot.json")["events"]).arrayValue
         for event in events + snapshotEvents {
             for value in Self.damaged(event, depth: 4) {

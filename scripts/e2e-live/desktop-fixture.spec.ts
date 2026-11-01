@@ -146,7 +146,7 @@ async function observeDesktop(status: any) {
     } else if (frame.type === 'chat:event' && frame.payload?.event?.type === 'user_message' && frame.payload.event.data?.source === 'mcp') {
       const event = frame.payload.event;
       frames.push({ type: frame.type, seq: frame.seq, payload: { agentId: frame.payload.agentId,
-        event: { type: event.type, data: { source: event.data?.source, content: event.data?.content, routed: event.data?.routed } } } });
+        event: { type: event.type, data: { messageId: event.data?.messageId, source: event.data?.source, content: event.data?.content, routed: event.data?.routed } } } });
     }
   });
   await new Promise<void>((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });

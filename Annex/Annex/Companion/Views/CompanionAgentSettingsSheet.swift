@@ -159,7 +159,7 @@ struct CompanionAgentSettingsForm: View {
     /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
         [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
-         agent?.orchestration.map { "\($0)" } ?? ""].joined(separator: "|")
+         agent?.orchestration.map { "\($0)" } ?? "", agent?.parentAgentID ?? ""].joined(separator: "|")
     }
 
     var body: some View {
@@ -334,11 +334,14 @@ struct CompanionAgentSettingsForm: View {
             Text(freeAgentModeFooter(settings))
         }
 
-        if let orchestration = orchestration(settings) { orchestrateSection(orchestration, name: settings.name.value, running: !sleeping) }
+        if let orchestration = orchestration(settings) {
+            orchestrateSection(orchestration, name: settings.name.value, running: !sleeping,
+                               isHelper: settings.parentAgentID != nil || agent?.parentAgentID != nil)
+        }
     }
 
     /// The desktop's Orchestrate card. It changes at any time, and is hidden on desktops without `orchestration` v1.
-    @ViewBuilder private func orchestrateSection(_ policy: CompanionOrchestration, name: String, running: Bool) -> some View {
+    @ViewBuilder private func orchestrateSection(_ policy: CompanionOrchestration, name: String, running: Bool, isHelper: Bool) -> some View {
         Section {
             Toggle("Let this agent orchestrate", isOn: Binding(get: { policy.orchestrate },
                                                                set: { save(.init(orchestration: .init(orchestrate: .set($0)))) }))
@@ -377,9 +380,8 @@ struct CompanionAgentSettingsForm: View {
                 .accessibilityLabel("Let \(name) start helpers in other projects")
                 .accessibilityIdentifier("agent-settings-orchestrate-cross-project")
             }
-            // Helper-specific gating waits on desktop #2618: durable helper identity isn't exposed yet.
-            // Any agent can connect with Orchestrate on or off; always show the desktop's returned value.
-            if policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true {
+            // Older desktops omit helper identity; keep showing their authoritative returned value.
+            if !isHelper, policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true {
                 Toggle(isOn: Binding(get: { policy.connectToDispatcher },
                                      set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
                     VStack(alignment: .leading, spacing: 2) {
