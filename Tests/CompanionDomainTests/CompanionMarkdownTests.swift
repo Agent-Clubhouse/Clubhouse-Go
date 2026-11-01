@@ -155,16 +155,16 @@ import ClubhouseTransport
     // MARK: User message source
 
     @Test func userMessageSourceLabelsMatchTheDesktop() {
-        func label(_ source: String?, steered: Bool = false) -> String? {
-            CompanionMessage(id: "m", role: .user, text: "hi", source: source, isSteered: steered).sourceLabel
+        func label(_ source: String?, steered: Bool = false) -> [String] {
+            CompanionMessage(id: "m", role: .user, text: "hi", source: source, isSteered: steered).metaLabels
         }
-        #expect(label(nil) == nil)
-        #expect(label("user") == nil)
-        #expect(label("mission") == "Mission")
-        #expect(label("annex") == "From Annex")
-        #expect(label("mcp") == "From another agent")
-        #expect(label("user", steered: true) == "Steered into the running turn")
-        #expect(label("annex", steered: true) == "From Annex · Steered into the running turn")
+        #expect(label(nil) == [])
+        #expect(label("user") == [])
+        #expect(label("mission") == ["Mission"])
+        #expect(label("annex") == ["From Annex"])
+        #expect(label("mcp") == [])
+        #expect(label("user", steered: true) == ["Steered into the running turn"])
+        #expect(label("annex", steered: true) == ["From Annex", "Steered into the running turn"])
     }
 
     @Test @MainActor func projectorReadsSourceAndSteerDelivery() {
@@ -176,6 +176,6 @@ import ClubhouseTransport
         guard case .message(let message) = projection.items.first else { Issue.record("Expected a message"); return }
         #expect(message.source == "mission")
         #expect(message.isSteered)
-        #expect(message.sourceLabel == "Mission · Steered into the running turn")
+        #expect(message.metaLabels == ["Mission", "Steered into the running turn"])
     }
 }

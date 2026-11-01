@@ -97,6 +97,88 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
                       "Copy from one part keeps the entire raw delivery")
     }
 
+    /// SwiftUI can report a caption below the scroll viewport as hittable. Keep taps inside the transcript,
+    /// above the approval/composer dock, and drag within the transcript rather than across that dock.
+    private func bringCaptionIntoView(_ caption: XCUIElement, in app: XCUIApplication,
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        let height = app.windows.firstMatch.frame.height
+        for _ in 0..<20 {
+            checkTimeLeft("bringing the sender caption into view", file: file, line: line)
+            if caption.exists && caption.frame.minY > height * 0.25 && caption.frame.maxY < height * 0.62 { return }
+            let older = caption.exists && caption.frame.minY <= height * 0.25
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.35 : 0.60))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.60 : 0.35))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTFail("Sender caption must be inside the transcript: \(caption.frame)", file: file, line: line)
+    }
+
+    private func expandSender(_ caption: XCUIElement) {
+        let expanded = NSPredicate(format: "value BEGINSWITH %@", "Expanded")
+        for _ in 0..<3 {
+            if (caption.value as? String)?.hasPrefix("Expanded") == true { return }
+            caption.tap()
+            if waitFor(caption, expanded, timeout: 3) { return }
+        }
+        XCTFail("Sender part must expand")
+    }
+
+    func testSenderAvatarAndIndependentFoldsSurviveScrollingRefreshAndNavigation() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], allowance: 360)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"))
+        let short = element(app, "companion-routed-sender-preview-2")
+        bringCaptionIntoView(short, in: app)
+        XCTAssertEqual(short.label, "Maple: Short helper update.")
+        let shortValue = short.value as? String ?? ""
+        XCTAssertTrue(shortValue.contains("Mission") && shortValue.contains("Steered into the running turn"))
+        XCTAssertTrue(shortValue.contains(":"), "The source and steer value also keeps the timestamp")
+        let first = app.buttons["companion-routed-sender-preview-0"]
+        let second = app.buttons["companion-routed-sender-preview-1"]
+        bringCaptionIntoView(first, in: app)
+        XCTAssertTrue(first.label.contains("Cedar sent a long message"), "The helper resolves to its live name")
+        XCTAssertEqual(first.value as? String, "Collapsed")
+        XCTAssertTrue(first.label.contains("Mission") && first.label.contains("Steered into the running turn"))
+        XCTAssertTrue(first.label.contains("collapsed"))
+        XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
+        bringCaptionIntoView(second, in: app)
+        XCTAssertEqual(second.value as? String, "Collapsed")
+        bringCaptionIntoView(first, in: app)
+        expandSender(first)
+        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
+        let openValue = first.value as? String ?? ""
+        XCTAssertTrue(openValue.contains("Mission") && openValue.contains("Steered into the running turn"))
+        XCTAssertTrue(openValue.contains(":"), "Open long parts keep their timestamp with the source and steer metadata")
+        XCTAssertEqual(second.value as? String, "Collapsed", "Each part folds independently")
+        let body = element(app, "companion-routed-body-sender-preview-0")
+        XCTAssertTrue(body.exists)
+        screenshot(app, "Helper avatar and expanded long message")
+
+        // Leave the row's viewport, then return. A fold must not depend on a row's lifetime.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
+        let top = text(app, containing: "Preview conversation")
+        XCTAssertTrue(scrollTo(top, in: app, up: false, maxSwipes: 12))
+        bringCaptionIntoView(first, in: app)
+        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true)
+
+        let actions = app.navigationBars.buttons["Conversation actions"]
+        let refresh = app.buttons["Refresh conversation"]
+        waitAndTap(actions, until: refresh)
+        refresh.tap()
+        bringCaptionIntoView(first, in: app)
+        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true, "A new history snapshot keeps the fold open")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"))
+        bringCaptionIntoView(first, in: app)
+        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true, "Leaving the conversation keeps its open state")
+        first.tap()
+        XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
+        XCTAssertFalse(body.exists, "Collapsed parts do not build their markdown")
+        longPressUntilMenu(first, shows: app.buttons["Copy message"])
+    }
+
     func testARelayedTaskIsCaptionedWithItsSender() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         let river = element(app, "agent-preview-studio-river")

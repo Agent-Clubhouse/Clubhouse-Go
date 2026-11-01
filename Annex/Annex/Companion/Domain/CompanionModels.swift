@@ -388,39 +388,38 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     }
     var id: String
     var role: Role
-    var text: String
+    var text: String { didSet { updateDisplay() } }
     var timestamp: Date?
     var isStreaming = false
     var delivery: Delivery = .confirmed
     var clientCommandID: String?
     var queueState: QueueState?
     /// The desktop's `MessageSource` for user messages: `user` (typed), `mission`, `mcp`, `annex`, …
-    var source: String?
+    var source: String? { didSet { updateDisplay() } }
     /// The message joined the running turn instead of starting one.
     var isSteered = false
     /// Structured messages from other agents or Clubhouse. Empty on older transcripts or unusable input.
-    var routed: [CompanionRoutedMessagePart] = []
-    /// Desktop handles the user's own messages before consulting routed attribution.
-    var showsRoutedMessages: Bool { role == .user && source != "user" && source != "annex" && !routed.isEmpty }
-
-    /// Legacy MCP attribution, used only when `routed` is empty.
-    var relay: CompanionRelay? { role == .user && source == "mcp" ? CompanionRelay(text: text) : nil }
-    /// Legacy bubble text, used only when `routed` is empty. Copy always keeps `text` whole.
-    var displayText: String { relay?.body ?? text }
-
-    /// Legacy caption when `routed` is empty, such as "Mission · Steered into the running turn".
-    var sourceLabel: String? {
+    var routed: [CompanionRoutedMessagePart] = [] { didSet { updateDisplay() } }
+    /// Cached once when routing inputs change, including locally constructed preview messages.
+    private(set) var display: CompanionMessageDisplay = .you("")
+    var metaLabels: [String] {
         let origin: String? = switch source {
         case "mission": "Mission"
-        case "mcp": relay.map { "From \($0.sender)" } ?? "From another agent"
         case "shoulder_tap": "Shoulder tap"
-        case "group_project": "Group project"
         case "annex": "From Annex"
-        case "system": "Clubhouse"
         default: nil
         }
-        let parts = [origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        return [origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }
+    }
+    private mutating func updateDisplay() { display = CompanionMessageRouting.display(source: source, text: text, routed: routed) }
+
+    init(id: String, role: Role, text: String, timestamp: Date? = nil, isStreaming: Bool = false,
+         delivery: Delivery = .confirmed, clientCommandID: String? = nil, queueState: QueueState? = nil,
+         source: String? = nil, isSteered: Bool = false, routed: [CompanionRoutedMessagePart] = [], images: [CompanionMessageImage] = []) {
+        self.id = id; self.role = role; self.text = text; self.timestamp = timestamp; self.isStreaming = isStreaming
+        self.delivery = delivery; self.clientCommandID = clientCommandID; self.queueState = queueState
+        self.source = source; self.isSteered = isSteered; self.routed = routed; self.images = images
+        updateDisplay()
     }
     var images: [CompanionMessageImage] = []
 }
@@ -437,13 +436,12 @@ struct CompanionRoutedMessagePart: Sendable, Equatable {
 
     /// Desktop `shown` strips only a leading reply marker; never parse routing tags from structured text.
     var displayText: String {
-        guard let marker = text.firstMatch(of: /^TASK_(?:RESULT|ACK):[^\s:]+(?::\s*|\s+|$)/) else { return text }
-        return String(text[marker.range.upperBound...])
+        CompanionMessageRouting.stripTaskMarker(text)
     }
 
     /// Desktop SentPart's words, with its source and delivery metadata.
-    func caption(source: String?, isSteered: Bool = false) -> String {
-        let name = sender?.name ?? (fromClubhouse ? "Clubhouse" : source == "group_project" ? "Group project" : "Another agent")
+    func caption(source: String?, isSteered: Bool = false, currentName: String? = nil) -> String {
+        let name = currentName ?? sender?.name ?? (fromClubhouse ? "Clubhouse" : source == "group_project" ? "Group project" : "Another agent")
         let origin: String? = switch source {
         case "mission": "Mission"
         case "shoulder_tap": "Shoulder tap"
@@ -451,29 +449,6 @@ struct CompanionRoutedMessagePart: Sendable, Equatable {
         }
         return [name, origin, isSteered ? "Steered into the running turn" : nil].compactMap { $0 }.joined(separator: " · ")
     }
-}
-
-/// A message one agent sent another: `[TASK:id] [FROM:Name] body`, as the desktop's `send_message` relays it.
-struct CompanionRelay: Sendable, Equatable {
-    var sender: String
-    var taskID: String?
-    var body: String
-
-    init(sender: String, taskID: String?, body: String) { self.sender = sender; self.taskID = taskID; self.body = body }
-    /// Nil when the text has no leading `[FROM:…]` tag.
-    init?(text: String) {
-        if let match = text.firstMatch(of: /^\s*(?:\[TASK:([^\]\n]*)\]\s*)?\[FROM:([^\]\n]+)\][ \t]*\n?/) {
-            let tagged = String(match.output.2).trimmingCharacters(in: .whitespaces)
-            guard let sender = tagged.nilIfEmpty else { return nil }
-            self.sender = sender
-            taskID = match.output.1.map(String.init)?.trimmingCharacters(in: .whitespaces).nilIfEmpty
-            body = String(text[match.range.upperBound...])
-        } else { return nil }
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 struct CompanionTool: Identifiable, Sendable, Equatable {

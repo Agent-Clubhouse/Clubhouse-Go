@@ -103,28 +103,12 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(AnnexOrchestrationPatch(change) == .init(crossProjectHelpers: .set(true), connectToDispatcher: .set(true)))
     }
 
-    @Test func relayTagsAreParsed() {
-        let relay = CompanionRelay(text: "[TASK:dsp-42] [FROM:Dispatcher] Finish the fix.\nThen report.")
-        #expect(relay == .init(sender: "Dispatcher", taskID: "dsp-42", body: "Finish the fix.\nThen report."))
-        #expect(CompanionRelay(text: "[FROM:planner@Clubhouse] hi")?.sender == "planner@Clubhouse", "The task tag is optional")
-        #expect(CompanionRelay(text: "  [TASK:1]  [FROM: Atlas ]\nBody")?.body == "Body")
-        #expect(CompanionRelay(text: "Just a message") == nil)
-        #expect(CompanionRelay(text: "Hi [FROM:Dispatcher] later") == nil, "Only a leading tag counts")
-        #expect(CompanionRelay(text: "[TASK:1] [FROM:] x") == nil)
-    }
-
-    @Test func aRelayedMessageIsCaptionedWithItsSenderAndShownWithoutItsTags() {
+    @Test func relayedDispatcherUsesTheSharedDesktopDisplayAndKeepsCopyRaw() {
         var message = CompanionMessage(id: "m", role: .user, text: "[TASK:t] [FROM:Dispatcher] Do the thing", source: "mcp")
-        #expect(message.sourceLabel == "From Dispatcher")
-        #expect(message.displayText == "Do the thing")
-        #expect(message.text == "[TASK:t] [FROM:Dispatcher] Do the thing", "The raw text stays for Copy")
+        #expect(message.display == .others([.init(sender: .init(name: "Dispatcher"), text: "Do the thing")]))
+        #expect(message.text == "[TASK:t] [FROM:Dispatcher] Do the thing")
         message.isSteered = true
-        #expect(message.sourceLabel == "From Dispatcher · Steered into the running turn")
-
-        let untagged = CompanionMessage(id: "m", role: .user, text: "Do the thing", source: "mcp")
-        #expect(untagged.sourceLabel == "From another agent" && untagged.displayText == "Do the thing")
-        let typed = CompanionMessage(id: "m", role: .user, text: "[TASK:t] [FROM:Dispatcher] x", source: "user")
-        #expect(typed.relay == nil && typed.displayText == typed.text, "Only agent messages are relays")
+        #expect(message.metaLabels == ["Steered into the running turn"])
     }
 
     @Test func dispatcherNotesAndTheTurnOnBlocker() {

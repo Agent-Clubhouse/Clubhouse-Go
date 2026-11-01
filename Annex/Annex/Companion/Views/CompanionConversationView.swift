@@ -75,7 +75,10 @@ struct CompanionConversationView: View {
                 .accessibilityElement(children: .contain)
             }
             if showsAgentTerminal { CompanionAgentTerminalPane(store: store, target: target) }
-            else { timeline.companionContentPreviews(store: store, target: target) }
+            else {
+                timeline.companionContentPreviews(store: store, target: target)
+                    .environment(\.companionSenderResolver, CompanionSenderResolver(agents: store.host(for: target)?.allAgents ?? []))
+            }
         }
         .companionBackground()
         .navigationTitle(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
@@ -341,7 +344,7 @@ struct CompanionConversationView: View {
             Task { await store.retry(messageID: message.id, target: target) }
         }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
            removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
-           slice: slice)
+           slice: slice, expansion: store.transcriptExpansion(for: target))
     }
 
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {

@@ -96,6 +96,14 @@ import Observation
     func agent(for target: CompanionTarget) -> CompanionAgent? { host(for: target)?.agent(for: target) }
     /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
     func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
+    private struct TranscriptKey: Hashable { var target: CompanionTarget; var sessionID: String? }
+    @ObservationIgnored private var transcriptExpansions: [TranscriptKey: CompanionTranscriptExpansion] = [:]
+    func transcriptExpansion(for target: CompanionTarget, sessionID: String? = nil) -> CompanionTranscriptExpansion {
+        let key = TranscriptKey(target: target, sessionID: sessionID)
+        if let expansion = transcriptExpansions[key] { return expansion }
+        let expansion = CompanionTranscriptExpansion(); transcriptExpansions[key] = expansion; return expansion
+    }
+
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
         host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading

@@ -172,6 +172,15 @@ import Foundation
             .init(fromClubhouse: true, text: "All helper updates have been delivered."),
             .init(text: "The review notes are attached to the PR.")
         ]))
+    /// Hand-built routed data until desktop #2617 supplies contract fixtures. The sent name is deliberately old.
+    static let longSenderText = "## Helper report\n\n" + Array(repeating: "The reconnect tests pass, and the saved conversation keeps each sender’s message and reading position.", count: 10).joined(separator: "\n\n")
+    static let senderPreview = CompanionTimelineItem.message(.init(id: "sender-preview", role: .user,
+        text: "[FROM HELPER:Old Cedar (cedar)] " + longSenderText,
+        timestamp: Date().addingTimeInterval(-360), source: "mission", isSteered: true, routed: [
+            .init(sender: .init(agentID: "cedar", name: "Old Cedar"), text: longSenderText),
+            .init(sender: .init(name: "Maple"), text: String(repeating: "Another long update from the Website project. ", count: 20)),
+            .init(sender: .init(name: "Maple"), text: "Short helper update.")
+        ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
         return .init(items: [
@@ -188,7 +197,7 @@ import Foundation
                         kind: .execute, hasChanges: true)),
             .message(.init(id: "agent-2", role: .assistant, text: "The draft now stays with its agent while the desktop reconnects. A missed event triggers a history refresh before another command can be sent.\n\n```swift\nlet target = ConversationTarget(\n    host: studio,\n    project: clubhouse,\n    agent: river\n)\n```", timestamp: Date().addingTimeInterval(-60))),
             .message(.init(id: "agent-3", role: .assistant, text: Self.statusReply, timestamp: Date().addingTimeInterval(-30))),
-        ] + (showsDispatcher ? [Self.relayedTask] : []) + (showsLongBlocks ? [
+        ] + (showsDispatcher ? [Self.relayedTask, Self.senderPreview] : []) + (showsLongBlocks ? [
             .message(.init(id: "agent-4", role: .assistant, text: Self.longTableReply, timestamp: Date().addingTimeInterval(-20))),
             .message(.init(id: "agent-5", role: .assistant, text: Self.longCodeReply, timestamp: Date().addingTimeInterval(-15)))
         ] : []) + (showsLongReply ? [

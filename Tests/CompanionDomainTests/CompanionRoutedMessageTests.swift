@@ -43,11 +43,11 @@ import ClubhouseTransport
         let routed = try json(#"[{"sender":{"name":"Builder"},"text":"Other text"},{"fromClubhouse":true,"text":"A notice"}]"#)
         for source in ["user", "annex"] {
             let projected = try message(event(routed, source: source))
-            #expect(!projected.showsRoutedMessages, "Desktop handles the user's own sources before looking at routed")
-            #expect(projected.displayText == raw && projected.text == raw)
-            #expect(projected.sourceLabel == (source == "annex" ? "From Annex · Steered into the running turn" : "Steered into the running turn"))
+            #expect(projected.display == .you(raw))
+            #expect(projected.text == raw)
+            #expect(projected.metaLabels == (source == "annex" ? ["From Annex", "Steered into the running turn"] : ["Steered into the running turn"]))
         }
-        #expect(try message(event(routed)).showsRoutedMessages)
+        #expect(try message(event(routed)).display == .others([.init(sender: .init(name: "Builder"), text: "Other text"), .init(fromClubhouse: true, text: "A notice")]))
     }
 
     @Test func structuredTextIsNeverReparsedAsRouting() throws {
@@ -70,26 +70,13 @@ import ClubhouseTransport
         #expect(projected.routed.map { $0.caption(source: "mcp") } == ["Another agent", "Another agent", "Another agent", "Another agent", "Another agent", "Atlas", "Clubhouse", "Another agent"])
     }
 
-    @Test func absentEmptyAndUnusableRoutedPreserveLegacyBehavior() throws {
+    @Test func absentEmptyAndUnusableRoutedUseDesktopTextFallback() throws {
         for routed in [nil, try json("[]"), try json("[null,{}, {\"text\":false}]"), try json("{}"), try json("null")] as [AnnexJSON?] {
             let projected = try message(event(routed))
             #expect(projected.routed.isEmpty)
-            #expect(projected.relay?.sender == "Wrong sender")
-            #expect(projected.displayText == "Raw delivery\n\n---\nReply instructions stay in Copy.")
-            #expect(projected.sourceLabel == "From Wrong sender · Steered into the running turn")
+            #expect(projected.display == .others([.init(sender: .init(name: "Wrong sender"), text: "Raw delivery\n\n---\nReply instructions stay in Copy.")]))
             #expect(projected.text == raw)
         }
-    }
-
-    @Test func legacyTagsAreOnlyParsedOnMCPUserMessages() {
-        for source in ["user", "annex", "mission", "system", "group_project", "shoulder_tap"] {
-            let old = CompanionMessage(id: source, role: .user, text: raw, source: source)
-            #expect(old.relay == nil && old.displayText == raw)
-        }
-        let old = CompanionMessage(id: "m", role: .user, text: "[FROM: Atlas@Project ]\nBody", source: "mcp")
-        #expect(old.sourceLabel == "From Atlas@Project" && old.displayText == "Body")
-        let untagged = CompanionMessage(id: "m", role: .user, text: "Plain", source: "mcp")
-        #expect(untagged.sourceLabel == "From another agent" && untagged.displayText == "Plain")
     }
 
     @MainActor @Test func liveEventsAndChatSnapshotsUseTheSameRoutedProjection() async throws {

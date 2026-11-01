@@ -118,6 +118,7 @@ private struct CompanionArchivedSessionView: View {
         .defaultScrollAnchor(.bottom)
         .companionContentPreviews(store: store, target: target)
         .background(Color(.systemGroupedBackground))
+        .environment(\.companionSenderResolver, CompanionSenderResolver(agents: store.host(for: target)?.allAgents ?? []))
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -135,7 +136,7 @@ private struct CompanionArchivedSessionView: View {
         case .row(.item(let item)): archiveItem(item)
         case .row(.tools): EmptyView()
         case .slice(let message, let slice):
-            CompanionMessageView(message: message, canRetry: false, retry: {}, slice: slice)
+            CompanionMessageView(message: message, canRetry: false, retry: {}, slice: slice, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
             if slice.isLast && message.role == .assistant {
                 CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
             }
@@ -145,7 +146,7 @@ private struct CompanionArchivedSessionView: View {
     @ViewBuilder private func archiveItem(_ item: CompanionTimelineItem) -> some View {
         switch item {
         case .message(let message):
-            CompanionMessageView(message: archived(message), canRetry: false, retry: {})
+            CompanionMessageView(message: archived(message), canRetry: false, retry: {}, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .tool(let tool):
             CompanionToolCard(tool: tool)
