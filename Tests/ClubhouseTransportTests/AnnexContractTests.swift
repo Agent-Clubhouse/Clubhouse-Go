@@ -253,6 +253,7 @@ import Testing
         case "helper.decline": return s("requestId").map { .helperDecline(requestID: $0) }
         case "quick.dismiss": return s("projectId").flatMap { p in s("agentId").map { .dismissFinishedQuick(projectID: p, agentID: $0) } }
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
+        case "dispatcher.setEnabled": return b("enabled").map { .setDispatcherEnabled($0) }
         default: return nil
         }
     }
@@ -266,7 +267,9 @@ import Testing
             return raw == .null ? .clear : read(raw).map { .set($0) }
         }
         return .init(orchestrate: field("orchestrate") { if case .bool(let v) = $0 { v } else { nil } }, access: field("access") { $0.string },
-                     control: field("control") { $0.string }, maxHelpers: field("maxHelpers") { $0.int })
+                     control: field("control") { $0.string }, maxHelpers: field("maxHelpers") { $0.int },
+                     crossProjectHelpers: field("crossProjectHelpers") { if case .bool(let v) = $0 { v } else { nil } },
+                     connectToDispatcher: field("connectToDispatcher") { if case .bool(let v) = $0 { v } else { nil } })
     }
 
     /// One of every command with every optional field the phone can send.
