@@ -1,5 +1,4 @@
 import XCTest
-import UIKit
 
 /// The desktop's Dispatcher (#2533) on the preview desktop (`--companion-preview-dispatcher`): its pinned row above
 /// the projects, its chat with no project actions, its settings, and the task it relayed in River's chat.
@@ -71,7 +70,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         longPressUntilMenu(part, shows: app.buttons["Copy message"])
         XCTAssertTrue(app.buttons["Copy message"].exists, "Copy remains available on each routed message")
         app.buttons["Copy message"].tap()
-        XCTAssertEqual(UIPasteboard.general.string, """
+        let raw = """
         4 updates, oldest first:
 
         --- 1 of 4 ---
@@ -85,7 +84,17 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
         --- 4 of 4 ---
         The review notes are attached to the PR.
-        """, "Copy from one part keeps the entire raw delivery")
+        """
+        // Read through the system Paste action: reading the runner's pasteboard directly asks for cross-app permission.
+        let composer = element(app, "companion-composer")
+        let paste = app.menuItems["Paste"]
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        _ = paste.waitForExistence(timeout: 1)
+        waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
+        paste.tap()
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "Copy from one part keeps the entire raw delivery")
     }
 
     func testARelayedTaskIsCaptionedWithItsSender() {
