@@ -18,7 +18,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     private func openAgentSettings(_ app: XCUIApplication, sleeping: Bool = false) {
         let any = app.descendants(matching: .any)
         let row = any.matching(identifier: sleeping ? "agent-preview-studio-juniper" : "agent-preview-studio-river").firstMatch
-        if sleeping { expandFold(app.buttons["Sleeping"], revealing: row, in: app) }
+        if sleeping { expandFold(any.matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch, revealing: row, in: app) }
         scrollTo(row, in: app)
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(row, shows: settings)
@@ -63,6 +63,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         waitAndTap(confirm, until: error)
         XCTAssertTrue(error.label.contains("Preview only"), "Confirm attempts the update, which preview refuses")
         XCTAssertTrue(picker.label.contains("Claude Code"), "A refused update keeps the desktop's value")
+        let orchestrate = app.switches["agent-settings-orchestrate"]
+        scrollTo(orchestrate, in: app)
+        XCTAssertFalse(app.switches["agent-settings-orchestrate-dispatcher"].exists, "Dispatcher off hides its connection switch")
     }
 
     /// Home's New agent button, which shows only on Home.

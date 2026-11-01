@@ -94,7 +94,10 @@ import Testing
         result["orchestration"] = .object(policy)
         await harness.transport.enqueue(.completed(.object(result)))
         let saved = try await harness.store.updateSettings(.init(orchestration: .init(connectToDispatcher: .set(true))), target: harness.target)
-        #expect(saved.orchestration?.connectToDispatcher == false, "The sheet uses the returned policy; it must not apply true over it")
+        var previous = saved
+        previous.orchestration?.connectToDispatcher = true
+        #expect(saved.keepingOptions(of: previous).orchestration?.connectToDispatcher == false,
+                "The sheet uses the returned policy; it must not apply true over it")
         guard case .update(let sent)? = await harness.transport.executed.first?.kind else { Issue.record("Missing update"); return }
         #expect(sent.orchestration == .init(connectToDispatcher: .set(true)))
     }
