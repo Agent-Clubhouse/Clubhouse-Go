@@ -111,6 +111,8 @@ extension CompanionOrchestration {
         control = json["control"]?.string ?? "hands-off"
         maxHelpersCap = json["maxHelpersCap"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? 20
         maxHelpers = json["maxHelpers"]?.int.flatMap { $0 > 0 ? $0 : nil } ?? min(5, maxHelpersCap)
+        crossProjectHelpers = json["crossProjectHelpers"]?.boolOrNil ?? false
+        connectToDispatcher = json["connectToDispatcher"]?.boolOrNil ?? false
         controls = strings("controls") ?? Self.defaultControls
         accessLevels = strings("accessLevels") ?? Self.defaultAccessLevels
         if case .object(let sources)? = json["sources"] {
@@ -128,7 +130,8 @@ extension AnnexOrchestrationPatch {
             case nil: nil
             }
         }
-        self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers))
+        self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers),
+                  crossProjectHelpers: field(change.crossProjectHelpers), connectToDispatcher: field(change.connectToDispatcher))
     }
 }
 

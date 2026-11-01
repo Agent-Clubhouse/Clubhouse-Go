@@ -60,10 +60,13 @@ enum CompanionTerminalAvailability: Equatable, Sendable {
 
     /// Entry points show only when the desktop advertises the capability, and work only while it's connected.
     static func of(_ scope: CompanionTerminalScope, host: CompanionHost?) -> Self {
-        guard let host, let support = host.terminal, support.allows(scope),
-              let project = host.projects.first(where: { $0.id == scope.projectID }) else { return .hidden }
+        guard let host, let support = host.terminal, support.allows(scope) else { return .hidden }
+        // The Dispatcher has no project: only its own terminal, when it runs in one, can open.
+        let isDispatcher = scope.agent.map(host.isDispatcher) == true
+        if isDispatcher { guard case .agentPTY = scope else { return .hidden } }
+        else if !host.projects.contains(where: { $0.id == scope.projectID }) { return .hidden }
         if let target = scope.agent {
-            guard let agent = project.agents.first(where: { $0.id == target }) else { return .hidden }
+            guard let agent = host.agent(for: target) else { return .hidden }
             if case .agentPTY = scope {
                 // Chat and headless agents have no PTY to attach to.
                 guard agent.executionMode == "pty" else { return .hidden }
@@ -262,9 +265,8 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
 
     /// The project's name for its shell, and the agent's name for its own.
     static func title(for scope: CompanionTerminalScope, host: CompanionHost?) -> String {
-        let project = host?.projects.first { $0.id == scope.projectID }
-        guard let target = scope.agent else { return project?.name ?? "Terminal" }
-        return project?.agents.first { $0.id == target }?.name ?? "Terminal"
+        guard let target = scope.agent else { return host?.projects.first { $0.id == scope.projectID }?.name ?? "Terminal" }
+        return host?.agent(for: target)?.name ?? "Terminal"
     }
 
     func start() {

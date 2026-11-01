@@ -322,7 +322,12 @@ enum CompanionAgentCommandError {
         case "agent_already_running": return "This agent is already running."
         // Field checks ("maxHelpers must be…") are for developers; only a sentence is shown.
         case "invalid_orchestration": return detail.flatMap { $0.first?.isUppercase == true ? $0 : nil } ?? "The desktop couldn't accept these orchestration settings."
-        case "orchestration_has_helpers": return "This agent has helpers running. Turn orchestration off on the desktop to keep or dispose of them."
+        case "orchestration_has_helpers": return "This agent has helpers running, maybe in other projects. Turn orchestration off on the desktop to keep or dispose of them."
+        // The Dispatcher (`dispatcher` v1).
+        case "dispatcher_off": return "The Dispatcher is turned off on the desktop. Turn it on first."
+        case "dispatcher_locked": return "The desktop doesn't let you change this for the Dispatcher."
+        case "dispatcher_flag_off": return CompanionDispatcher.flagOffNote
+        case "dispatcher_layout_off": return CompanionDispatcher.layoutOffNote
         // Chat commands (`docs/mobile-control-v1.md` → Commands).
         case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."
         case "not_chat": return "This agent isn't running in chat. Start it first."

@@ -56,11 +56,12 @@ struct CompanionMessageView: View {
                 .accessibilityIdentifier("companion-message-source")
             }
             if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
-            if !message.text.isEmpty || message.images.isEmpty {
-                Text(message.text).textSelection(.enabled)
+            if !message.displayText.isEmpty || message.images.isEmpty {
+                // A relayed message shows without its tags; Copy message keeps them.
+                Text(message.displayText).textSelection(.enabled)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.text)" : message.text)
+                    .accessibilityLabel(message.sourceLabel == nil && message.timestamp == nil ? "You: \(message.displayText)" : message.displayText)
             }
             deliveryStatus
             if let state = message.queueState {
@@ -80,7 +81,7 @@ struct CompanionMessageView: View {
     }
 
     private var userCaption: String {
-        var parts = ["You"]
+        var parts = [message.relay == nil ? "You" : nil].compactMap { $0 }
         if let label = message.sourceLabel { parts.append(label) }
         if let timestamp = message.timestamp { parts.append(timestamp.formatted(date: .omitted, time: .shortened)) }
         return parts.joined(separator: ", ")
