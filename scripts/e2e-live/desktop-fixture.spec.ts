@@ -184,7 +184,8 @@ async function callMcp(agentId: string, targetName: string, suffix: string, args
   };
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'phone-e2e', version: '1' } });
   const names = (await rpc('tools/list')).tools.map((t: any) => t.name) as string[];
-  const name = names.find(n => n.endsWith(`__${suffix}`) && n.toLowerCase().includes(targetName.toLowerCase()));
+  const name = names.find(n => targetName
+    ? n.endsWith(`__${suffix}`) && n.toLowerCase().includes(targetName.toLowerCase()) : n === suffix);
   if (!name) throw new Error(`No ${suffix} for ${targetName}; tools: ${names.join(', ')}`);
   const result = await rpc('tools/call', { name, arguments: args });
   expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
@@ -296,6 +297,25 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         let result: unknown;
         try {
           switch (request.op) {
+            case 'helper': {
+              // Create a genuine helper through the real bridge, never by manufacturing a parent link on disk.
+              const existing = await window.evaluate(async ({ projectPath, parentId }) => {
+                const helpers = await (window as any).clubhouse.agent.listHelpers(projectPath, parentId);
+                return helpers.find((h: any) => h.config.name === 'Relay-Fixture')?.config.id;
+              }, { projectPath: projectDir, parentId: agents.echo });
+              let helperId = existing;
+              if (!helperId) {
+                const started = await callMcp(agents.echo, '', 'start_helper', { name: 'Relay-Fixture', task: 'PHONE_HELPER_FIXTURE' },
+                  fixtureAgentIds, electronApp.process().pid!);
+                const body = JSON.parse(started.content[0].text);
+                expect(body.state).toBe('starting');
+                helperId = body.helperId;
+              }
+              rememberAgents(helperId);
+              await expect.poll(async () => (await observer!.request('GET', `/api/v1/mobile/agents/${helperId}/settings`)).body?.state,
+                { timeout: 60_000 }).toBe('running');
+              result = { agentId: helperId }; break;
+            }
             case 'phoneDisconnected':
               // The observer is the sole remaining WebSocket. Prove the phone disconnected before changing state.
               await expect.poll(async () => (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount,
