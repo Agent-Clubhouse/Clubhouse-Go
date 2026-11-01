@@ -45,18 +45,70 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Dispatcher settings")
     }
 
+    func testARoutedBurstShowsEachSenderAndMessageSeparately() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
+        let expected = [
+            "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.",
+            "Reviewer: The reconnect tests pass. The PR is ready for review.",
+            "Clubhouse: All helper updates have been delivered.",
+            "Another agent: The review notes are attached to the PR."
+        ]
+        for (index, label) in expected.enumerated() {
+            let part = element(app, "companion-routed-relay-1-\(index)")
+            XCTAssertTrue(scrollUntilExists(part, in: app, up: false, maxSwipes: 8))
+            XCTAssertEqual(part.label, label, "VoiceOver names each message's own sender and body")
+        }
+        XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-routed-relay-1-")).count, 4)
+        XCTAssertFalse(text(app, containing: "[TASK:").exists)
+        XCTAssertFalse(text(app, containing: "updates, oldest first:").exists)
+        let part = element(app, "companion-routed-relay-1-1")
+        XCTAssertTrue(scrollTo(part, in: app, up: false, maxSwipes: 8), "Bring the message on screen before copying")
+        screenshot(app, "Routed burst with four senders")
+        longPressUntilMenu(part, shows: app.buttons["Copy message"])
+        XCTAssertTrue(app.buttons["Copy message"].exists, "Copy remains available on each routed message")
+        app.buttons["Copy message"].tap()
+        let raw = """
+        4 updates, oldest first:
+
+        --- 1 of 4 ---
+        [TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.
+
+        --- 2 of 4 ---
+        [FROM:Reviewer] The reconnect tests pass. The PR is ready for review.
+
+        --- 3 of 4 ---
+        [Clubhouse] All helper updates have been delivered.
+
+        --- 4 of 4 ---
+        The review notes are attached to the PR.
+        """
+        // Read through the system Paste action: reading the runner's pasteboard directly asks for cross-app permission.
+        let composer = element(app, "companion-composer")
+        let paste = app.menuItems["Paste"]
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        _ = paste.waitForExistence(timeout: 1)
+        waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
+        paste.tap()
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "Copy from one part keeps the entire raw delivery")
+    }
+
     func testARelayedTaskIsCaptionedWithItsSender() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app), "River's row must be on screen")
         let header = element(app, "companion-chat-header")
         waitAndTap(river, until: header, timeout: 10)
-        let body = text(app, containing: "Finish the reconnect fix and open a PR")
+        let body = element(app, "companion-routed-relay-1-0")
         XCTAssertTrue(scrollUntilExists(body, in: app, up: false, maxSwipes: 8), "The relayed task shows in River's chat")
+        XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")
-        let caption = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ AND label CONTAINS %@",
-                                                                             "companion-message-source", "From Dispatcher")).firstMatch
-        XCTAssertTrue(caption.exists, "Captioned with who sent it")
+        let part = element(app, "companion-routed-relay-1-0")
+        XCTAssertTrue(part.exists && part.label.hasPrefix("Dispatcher:"), "Captioned with who sent it")
         screenshot(app, "Relayed task")
     }
 }

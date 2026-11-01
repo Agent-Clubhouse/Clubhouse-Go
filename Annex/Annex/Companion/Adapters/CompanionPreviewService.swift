@@ -146,10 +146,30 @@ import Foundation
         .message(.init(id: "dispatcher-agent-1", role: .assistant, text: "I've asked **River** in Clubhouse to finish the reconnect fix and open a PR. I'll report back when it's ready for review.",
                        timestamp: Date().addingTimeInterval(-380))),
     ]
-    /// The task the Dispatcher relayed to River, as the desktop delivers it: an `mcp` message with its tags.
+    /// A burst delivered as one MCP event: raw delivery stays whole, but chat shows each routed message separately.
     static let relayedTask = CompanionTimelineItem.message(.init(id: "relay-1", role: .user,
-        text: "[TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.",
-        timestamp: Date().addingTimeInterval(-370), source: "mcp"))
+        text: """
+        4 updates, oldest first:
+
+        --- 1 of 4 ---
+        [TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.
+
+        --- 2 of 4 ---
+        [FROM:Reviewer] The reconnect tests pass. The PR is ready for review.
+
+        --- 3 of 4 ---
+        [Clubhouse] All helper updates have been delivered.
+
+        --- 4 of 4 ---
+        The review notes are attached to the PR.
+        """,
+        timestamp: Date().addingTimeInterval(-370), source: "mcp", routed: [
+            .init(sender: .init(agentID: "durable_dispatcher", name: "Dispatcher"),
+                  text: "Finish the reconnect fix and open a PR. Report back when it's in review."),
+            .init(sender: .init(name: "Reviewer"), text: "The reconnect tests pass. The PR is ready for review."),
+            .init(fromClubhouse: true, text: "All helper updates have been delivered."),
+            .init(text: "The review notes are attached to the PR.")
+        ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
         return .init(items: [

@@ -28,6 +28,22 @@ struct CompanionChatProjector {
     /// The composer's `/` menu: the session's latest `commands_available`, or the snapshot's `slashCommands`.
     var slashCommands: [CompanionSlashCommand] = []
 
+    /// Decode parts independently so a bad neighbour cannot hide a valid message. Unknown fields are additive.
+    private static func routedParts(_ value: AnnexJSON?) -> [CompanionRoutedMessagePart] {
+        value.arrayValue.compactMap { part in
+            guard let text = part["text"]?.string else { return nil }
+            var sender: CompanionRoutedMessagePart.Sender?
+            // Attribution is best effort: malformed metadata must never discard a message's valid text.
+            if let raw = part["sender"], let name = raw["name"]?.string,
+               !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               raw["agentId"] == nil || raw["agentId"] == .null || raw["agentId"]?.string != nil {
+                sender = .init(agentID: raw["agentId"]?.string, name: name)
+            }
+            let fromClubhouse = part["fromClubhouse"] == .bool(true)
+            return .init(sender: sender, fromClubhouse: fromClubhouse, text: text)
+        }
+    }
+
     mutating func apply(_ event: AnnexJSON, allowOlderPending: Bool = false) {
         guard let session = event["sessionId"]?.string,
               let sequence = event["seq"]?.integer, let type = event["type"]?.string else { return }
@@ -68,7 +84,7 @@ struct CompanionChatProjector {
                                   clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
                                   queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil,
                                   source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer",
-                                  fromName: data["fromName"]?.string, images: Self.userImages(content, messageID: messageID))))
+                                  routed: Self.routedParts(data["routed"]), images: Self.userImages(content, messageID: messageID))))
         case "queue_state":
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence
