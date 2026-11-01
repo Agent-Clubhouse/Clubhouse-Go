@@ -4,6 +4,21 @@ import Testing
 @testable import CompanionDomain
 
 @Suite struct CompanionSettingsContractTests {
+    @Test func helperIdentityComesFromTheSettingsRouteAndIsNotRetainedAfterHandoff() throws {
+        let helper = try CompanionAgentSettings(json: ContractFixtures.body("agent-settings-helper.json"))
+        #expect(helper.parentAgentID == "durable_chat")
+        #expect(helper.orchestration?.connectToDispatcher == false)
+        #expect(helper.name.editable == .sleeping && helper.model.editable == .sleeping)
+        let topLevel = try CompanionAgentSettings(json: ContractFixtures.body("agent-settings-running.json"))
+        #expect(topLevel.parentAgentID == nil)
+        #expect(topLevel.keepingOptions(of: helper).parentAgentID == nil, "Handoff removes helper identity; it isn't an option to retain")
+        guard case .object(var body) = try ContractFixtures.body("agent-settings-helper.json") else { return }
+        for value in [AnnexJSON.null, .bool(true), .integer(42), .array([])] {
+            body["parentAgentId"] = value
+            #expect(try CompanionAgentSettings(json: .object(body)).parentAgentID == nil)
+        }
+    }
+
     @Test func mcpEnabledDefaultsTrueUnlessABooleanIsSent() throws {
         for (raw, expected) in [("true", true), ("false", false), ("null", true), (#""false""#, true), ("0", true)] {
             let json = try JSONDecoder().decode(AnnexJSON.self, from: Data("{\"mcpEnabled\":\(raw)}".utf8))
@@ -87,11 +102,10 @@ import Testing
     @Test func desktopResultWinsWhenAHelperCannotConnect() async throws {
         let harness = try await start()
         defer { harness.stop() }
-        guard case .object(var result) = try ContractFixtures.body("agent-settings-running.json"),
-              case .object(var policy)? = result["orchestration"] else { Issue.record("Missing policy"); return }
-        policy["connectToDispatcher"] = .bool(false)
-        policy["sources"] = .object(["connectToDispatcher": .string("default")])
-        result["orchestration"] = .object(policy)
+        guard case .object(var result) = try ContractFixtures.body("agent-settings-helper.json") else { return }
+        // Older desktops resolve helpers false too, but do not identify them. Their visible switch must still
+        // follow this returned value rather than optimistically applying the submitted true.
+        result.removeValue(forKey: "parentAgentId")
         await harness.transport.enqueue(.completed(.object(result)))
         let saved = try await harness.store.updateSettings(.init(orchestration: .init(connectToDispatcher: .set(true))), target: harness.target)
         var previous = saved

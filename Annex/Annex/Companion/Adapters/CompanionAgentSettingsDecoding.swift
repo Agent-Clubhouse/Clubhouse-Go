@@ -93,6 +93,7 @@ extension CompanionAgentSettings {
         }
         if let details = json["details"], case .object = details { workspace = CompanionAgentWorkspace(json: details) }
         orchestration = CompanionOrchestration(json: json["orchestration"])
+        parentAgentID = json["parentAgentId"]?.string
     }
 
     /// `"inherit"`, `"never"` or a number of minutes; anything else inherits, as the desktop's `normalizeIdleSleep`.

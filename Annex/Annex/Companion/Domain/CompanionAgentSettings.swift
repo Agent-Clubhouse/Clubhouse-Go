@@ -172,6 +172,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var workspace: CompanionAgentWorkspace?
     /// The Orchestrate card's policy. Nil from desktops without `orchestration` v1.
     var orchestration: CompanionOrchestration?
+    /// Helpers talk to their parent, even when the parent is in another project. Older desktops omit this.
+    var parentAgentID: String?
 
     /// Any setting is waiting for the agent to sleep, so the sheet shows the desktop's hint.
     var hasLockedSettings: Bool {

@@ -1,9 +1,32 @@
 import Foundation
 import Testing
+import ClubhouseTransport
 @testable import CompanionDomain
 
 /// Ports desktop message-routing.test.ts and the sender/fold rules in MessageBlocks.test.tsx.
 @Suite struct CompanionMessageRoutingTests {
+    /// The real fixtures cover single, burst, Clubhouse and unattributed deliveries. Helper questions, task markers,
+    /// footer anchors and malformed input below remain explicit edge cases not present in that fixture corpus.
+    @Test func recordedDeliveriesHaveTheSameBodiesInStructuredAndLegacyRouting() throws {
+        let cases: [(String, [CompanionRoutedMessagePart])] = [
+            ("msg_routed_one", [from("Docs", "The docs are up to date.", id: "durable_docs")]),
+            ("msg_routed_burst", [from("Docs", "Started on the guide.", id: "durable_docs"), from("reviewer", "The tests pass.")]),
+            ("msg_routed_clubhouse", [.init(fromClubhouse: true, text: "Docs was disposed.")]),
+            ("msg_routed_no_sender", [.init(text: "The nightly build finished.")])
+        ]
+        for (id, expected) in cases {
+            var projector = CompanionChatProjector()
+            projector.apply(try ContractFixtures.chatEvent(id))
+            let message = try #require(projector.items.compactMap { if case .message(let m) = $0 { m } else { nil } }.first)
+            #expect(message.routed == expected)
+            #expect(display("mcp", message.text, routed: message.routed) == .others(expected))
+            // The legacy text contains names, but not the structured sender's stable agent id.
+            let legacy = expected.map { part -> CompanionRoutedMessagePart in
+                var part = part; part.sender?.agentID = nil; return part
+            }
+            #expect(CompanionMessageRouting.parseRoutedText(message.text) == legacy)
+        }
+    }
     private let reply = "\n\n---\nReply to rover via tool \"clubhouse__x__send_message\" with task_id=\"t_1\". Prefix your response with TASK_RESULT:t_1."
     private let mission = "\n\n---\nYou are a helper agent started by boss. Use the message_parent tool to send boss your progress, questions and results."
     private func from(_ name: String, _ text: String, id: String? = nil) -> CompanionRoutedMessagePart {
@@ -35,11 +58,6 @@ import Testing
         #expect(CompanionMessageRouting.parseRoutedText("[FROM:rover] Hi\(reply)\n") == [from("rover", "Hi\(reply)\n")])
         let notice = "File delivered: /tmp/a.md — read this file for content from rover.\n"
         #expect(CompanionMessageRouting.parseRoutedText("[FROM:rover] " + notice) == [from("rover", notice)])
-    }
-
-    @Test func splitsBurstInOrderAndReadsClubhouse() {
-        let text = "3 updates, oldest first:\n\n--- 1 of 3 ---\n[FROM HELPER:a (1)] one\n\n--- 2 of 3 ---\n[Clubhouse] two\n\n--- 3 of 3 ---\n[FROM HELPER:b (2)] three\n\nmore"
-        #expect(CompanionMessageRouting.parseRoutedText(text) == [from("a", "one", id: "1"), .init(fromClubhouse: true, text: "two"), from("b", "three\n\nmore", id: "2")])
     }
 
     @Test func leavesUntaggedAndMalformedTagsAndBurstsWhole() {

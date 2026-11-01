@@ -251,6 +251,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var isDispatcher = false
     /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
     var orchestration: CompanionOrchestration?
+    /// Durable helper identity; quick-agent parent metadata belongs to a different payload.
+    var parentAgentID: String?
     /// What the desktop says the agent is doing (`detailedStatus`), for Needs you's wording and order.
     var detail: CompanionAgentDetail?
     /// The desktop has a previous session to resume (`hasSession`). Nil when the desktop doesn't say.

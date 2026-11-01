@@ -18,6 +18,13 @@ enum ContractFixtures {
     }
     static func cases(_ name: String) throws -> [AnnexJSON] { (try json(name)["cases"]).arrayValue }
     static func files() throws -> [String] { (try json("index.json")["files"]).arrayValue.compactMap(\.string) }
+    /// Event types repeat (five user_message fixtures). Pick the intended delivery by its stable message id.
+    static func chatEvent(_ messageID: String) throws -> AnnexJSON {
+        let events = try json("chat-events.json")["frames"].arrayValue.compactMap { $0["payload"]?["event"] }
+            .filter { $0["data"]?["messageId"]?.string == messageID }
+        #expect(events.count == 1, "Expected one fixture delivery for \(messageID)")
+        return try #require(events.first)
+    }
 }
 
 /// A desktop that answers from the fixtures. Commands must be accepted-shaped: within the desktop's field list and
@@ -64,6 +71,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
             switch agent {
             case "durable_sleepy": return try ContractFixtures.body("agent-settings.json")
             case "durable_chat": return try ContractFixtures.body("agent-settings-running.json")
+            case "durable_docs": return try ContractFixtures.body("agent-settings-helper.json")
             default: throw AnnexTransportError.rejected(status: 404, code: "agent_not_found")
             }
         default: throw AnnexTransportError.unsupportedCapability("fixture")
@@ -130,6 +138,25 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
 
     // MARK: Snapshot and catalog
 
+    @Test func helperParentCanBeOutsideTheCatalogAndDisappearsOnHandoff() async throws {
+        let (service, store, transport) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.hostID) }
+        let target = CompanionTarget(hostID: Self.hostID, projectID: "proj_app", agentID: "durable_docs")
+        guard case .object(var frame)? = try ContractFixtures.json("snapshot.json")["frame"],
+              case .object(var payload)? = frame["payload"], case .object(var agents)? = payload["agents"],
+              case .array(var app)? = agents["proj_app"],
+              let index = app.firstIndex(where: { $0["id"]?.string == "durable_docs" }),
+              case .object(var helper) = app[index] else { throw AnnexTransportError.malformedResponse }
+        helper["parentAgentId"] = .string("parent_in_another_project")
+        app[index] = .object(helper); agents["proj_app"] = .array(app); payload["agents"] = .object(agents); frame["payload"] = .object(payload)
+        try transport.emit(.object(frame))
+        try await waitUntil { store.agent(for: target)?.parentAgentID == "parent_in_another_project" }
+        helper.removeValue(forKey: "parentAgentId")
+        app[index] = .object(helper); agents["proj_app"] = .array(app); payload["agents"] = .object(agents); frame["payload"] = .object(payload)
+        try transport.emit(.object(frame))
+        try await waitUntil { store.agent(for: target)?.parentAgentID == nil }
+    }
+
     @Test func snapshotBecomesTheHostTheUserSees() async throws {
         let (service, store, _) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.hostID) }
@@ -144,6 +171,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(planner.orchestration?.orchestrate == true && planner.orchestration?.maxHelpers == 3 && planner.orchestration?.sources["maxHelpers"] == .agent)
         let quick = try #require(app.agents.first { $0.id.agentID == "quick_1" })
         #expect(quick.isQuick && quick.color == "gray" && quick.subtitle == "Fix the flaky test" && quick.status == .working)
+        #expect(quick.parentAgentID == nil, "Quick-agent parent metadata is a different payload, not durable helper identity")
+        let helper = try #require(app.agents.first { $0.id.agentID == "durable_docs" })
+        #expect(helper.parentAgentID == "durable_chat")
+        #expect(planner.parentAgentID == nil)
+        #expect(try await service.settings(for: helper.id).parentAgentID == "durable_chat")
         #expect(app.agents.first { $0.id.agentID == "durable_term" }?.runsInTerminal == true)
 
         // Capability-gated features, from the desktop's capabilities.
@@ -349,7 +381,8 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         var projection = CompanionChatProjector()
         let frames = (try ContractFixtures.json("chat-events.json")["frames"]).arrayValue
         for frame in frames { projection.apply(try #require(frame["payload"]?["event"])) }
-        #expect(projection.sessionID == "sess_live" && projection.lastSequence == 130)
+        #expect(projection.sessionID == "sess_live" && projection.lastSequence == 134)
+        #expect(frames.filter { $0["payload"]?["event"]?["type"]?.string == "user_message" }.count == 5)
         guard case .message(let user)? = projection.items.first(where: { $0.id == "message:msg_10" }) else { Issue.record("no user message"); return }
         #expect(user.isSteered && user.images.count == 1 && user.images[0].name == "p.jpg" && user.text.contains("Like this?"))
         guard case .tool(let tool)? = projection.items.first(where: { $0.id == "tool:tool_2" }) else { Issue.record("no tool"); return }

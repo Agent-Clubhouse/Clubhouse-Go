@@ -9,7 +9,8 @@ struct CompanionPreviewRoot: View {
                                                                                    showsLongBlocks: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-blocks"),
                                                                                    showsLongReply: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-reply"),
                                                                                    showsDispatcher: ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher"),
-                                                                                   mcpEnabled: !ProcessInfo.processInfo.arguments.contains("--companion-preview-mcp-off")))
+                                                                                   mcpEnabled: !ProcessInfo.processInfo.arguments.contains("--companion-preview-mcp-off"),
+                                                                                   showsHelperIdentity: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-identity")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
         UserDefaults.standard.removePersistentDomain(forName: "companion-preview")

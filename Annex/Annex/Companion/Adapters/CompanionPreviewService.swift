@@ -22,9 +22,11 @@ import Foundation
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
     private let mcpEnabled: Bool
+    private let showsHelperIdentity: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false) {
+        self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
         self.streamsUpdates = streamsUpdates
@@ -172,7 +174,7 @@ import Foundation
             .init(fromClubhouse: true, text: "All helper updates have been delivered."),
             .init(text: "The review notes are attached to the PR.")
         ]))
-    /// Hand-built routed data until desktop #2617 supplies contract fixtures. The sent name is deliberately old.
+    /// Preview-specific long routed messages and stale sender names exercise folding and identity resolution.
     static let longSenderText = "## Helper report\n\n" + Array(repeating: "The reconnect tests pass, and the saved conversation keeps each sender’s message and reading position.", count: 10).joined(separator: "\n\n")
     static let senderPreview = CompanionTimelineItem.message(.init(id: "sender-preview", role: .user,
         text: "[FROM HELPER:Old Cedar (cedar)] " + longSenderText,
@@ -347,7 +349,7 @@ import Foundation
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: Self.agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
-                     orchestration: policy)
+                     orchestration: policy, parentAgentID: showsHelperIdentity && sleeping ? Self.target.agentID : nil)
     }
     /// What the desktop lets you change on the Dispatcher: its CLI, model, runtime, Free Agent Mode and auto-sleep.
     static let dispatcherSettings = CompanionAgentSettings(

@@ -978,6 +978,7 @@ import ClubhouseTransport
         if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
         agent.branch = value["branch"]?.string
         agent.orchestrator = value["orchestrator"]?.string
+        if !isQuick { agent.parentAgentID = value["parentAgentId"]?.string }
         agent.session = projection.map(\.session)
         agent.chatControls = projection.flatMap { chatControls($0, target: target) }
         agent.slashCommands = projection.flatMap { slashCommands($0, target: target) }
