@@ -97,6 +97,50 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
                       "Copy from one part keeps the entire raw delivery")
     }
 
+    func testSenderAvatarAndIndependentFoldsSurviveScrollingRefreshAndNavigation() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], allowance: 360)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"))
+        let first = app.buttons["companion-routed-sender-preview-0"]
+        let second = app.buttons["companion-routed-sender-preview-1"]
+        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(first.label.contains("Cedar sent a long message"), "The helper resolves to its live name")
+        XCTAssertEqual(first.value as? String, "Collapsed")
+        XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
+        XCTAssertTrue(scrollTo(second, in: app))
+        XCTAssertEqual(second.value as? String, "Collapsed")
+        XCTAssertTrue(scrollTo(first, in: app, up: false))
+        tapToExpand(first)
+        XCTAssertEqual(second.value as? String, "Collapsed", "Each part folds independently")
+        let body = element(app, "companion-routed-body-sender-preview-0")
+        XCTAssertTrue(body.exists)
+        screenshot(app, "Helper avatar and expanded long message")
+
+        // Leave the row's viewport, then return. A fold must not depend on a row's lifetime.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
+        let top = text(app, containing: "Preview conversation")
+        XCTAssertTrue(scrollTo(top, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(scrollTo(first, in: app, maxSwipes: 15))
+        XCTAssertEqual(first.value as? String, "Expanded")
+
+        let actions = app.navigationBars.buttons["Conversation actions"]
+        let refresh = app.buttons["Refresh conversation"]
+        waitAndTap(actions, until: refresh)
+        refresh.tap()
+        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        XCTAssertEqual(first.value as? String, "Expanded", "A new history snapshot keeps the fold open")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"))
+        XCTAssertTrue(scrollTo(first, in: app, up: false, maxSwipes: 12))
+        XCTAssertEqual(first.value as? String, "Expanded", "Leaving the conversation keeps its open state")
+        first.tap()
+        XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
+        XCTAssertFalse(body.exists, "Collapsed parts do not build their markdown")
+        longPressUntilMenu(first, shows: app.buttons["Copy message"])
+    }
+
     func testARelayedTaskIsCaptionedWithItsSender() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         let river = element(app, "agent-preview-studio-river")
