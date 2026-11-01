@@ -14,11 +14,19 @@ for file in [fixture / 'invitation.json', *fixture.glob('mcp-*.json')]:
     for key in ('pin', 'CLUBHOUSE_HOOK_NONCE'):
         if value := data.get(key):
             secrets.add(str(value))
-sources = [*output.glob('*.log'), *(fixture / name for name in ('desktop-stdout.log', 'desktop-stderr.log'))]
+sources = [*output.glob('*.log'), *(fixture / name for name in ('desktop-stdout.log', 'desktop-stderr.log', 'dispatcher-wire.json'))]
 for file in sources:
     if not file.is_file():
         continue
     text = file.read_text(errors='replace')
-    for secret in sorted(secrets, key=len, reverse=True):
-        text = text.replace(secret, '<redacted>')
+    def redact(value):
+        if isinstance(value, str):
+            for secret in sorted(secrets, key=len, reverse=True):
+                value = value.replace(secret, '<redacted>')
+        elif isinstance(value, dict):
+            value = {key: redact(item) for key, item in value.items()}
+        elif isinstance(value, list):
+            value = [redact(item) for item in value]
+        return value
+    text = json.dumps(redact(json.loads(text))) if file.suffix == '.json' else redact(text)
     (output / file.name).write_text(text)

@@ -41,6 +41,19 @@ function writeFile(file: string, content: string, mode = 0o644) {
   fs.writeFileSync(file, content, { mode });
 }
 
+/** Defense in depth for fixture replies and wire evidence; secrets stay only in their private temp files. */
+function evidence(value: unknown): string {
+  const secrets: string[] = [];
+  for (const file of fs.readdirSync(FIXTURE_DIR).filter(f => f === 'invitation.json' || /^mcp-.*\.json$/.test(f))) {
+    const credentials = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, file), 'utf8'));
+    for (const key of ['pin', 'CLUBHOUSE_HOOK_NONCE']) {
+      if (credentials[key]) secrets.push(String(credentials[key]));
+    }
+  }
+  return JSON.stringify(value, (_key, item) => typeof item === 'string'
+    ? secrets.reduce((text, secret) => text.split(secret).join('<redacted>'), item) : item);
+}
+
 /** A git repository with one commit, so a worktree agent can branch from it. */
 function makeProject(dir: string) {
   writeFile(path.join(dir, 'README.md'), '# Phone E2E fixture\n\nA project the Clubhouse Go live suite drives.\n');
@@ -277,15 +290,16 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               observer!.ws.send(JSON.stringify({ type: 'mobile:replay', epoch: (await observer!.request('GET', '/api/v1/mobile/capabilities')).body.epoch, since: request.since ?? 0 }));
               await expect.poll(() => observer!.frames.slice(before).some(f => f.type === 'replay:end')).toBe(true);
               result = observer!.frames;
+              writeFile(path.join(FIXTURE_DIR, 'dispatcher-wire.json'), evidence(result));
               break;
             }
             default: throw new Error(`Unknown fixture operation ${request.op}`);
           }
-          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), JSON.stringify({ id: request.id, result }));
+          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), evidence({ id: request.id, result }));
         } catch (err) {
           const error = err instanceof Error ? err.message : String(err);
-          log(`Dispatcher fixture ${request.op} failed: ${error}`);
-          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), JSON.stringify({ id: request.id, error }));
+          log(`Dispatcher fixture ${request.op} failed: ${evidence(error)}`);
+          writeFile(path.join(FIXTURE_DIR, 'dispatcher-done.json'), evidence({ id: request.id, error }));
         }
       }
       await new Promise((r) => setTimeout(r, 500));

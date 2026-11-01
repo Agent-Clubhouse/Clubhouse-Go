@@ -738,7 +738,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue((config["model"] as? String)?.contains("haiku") == true, "The phone model choice persists on desktop")
         XCTAssertEqual(config["runtimeMode"] as? String, "chat")
         XCTAssertEqual(config["idleSleep"] as? Int, 15)
-        XCTAssertEqual(config["freeAgentMode"] as? Bool, false)
+        // Desktop canonicalizes false by removing the stored flag; its settings route returns explicit false.
+        XCTAssertFalse(config["freeAgentMode"] as? Bool ?? false)
+        let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
+        let body = try XCTUnwrap(response["body"] as? [String: Any])
+        let persisted = try XCTUnwrap(body["settings"] as? [String: Any])
+        XCTAssertEqual((persisted["freeAgentMode"] as? [String: Any])?["value"] as? Bool, false)
         XCTAssertFalse(element(app, "agent-settings-error").exists)
         screenshot(app, "Dispatcher settings saved on real desktop")
         waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
