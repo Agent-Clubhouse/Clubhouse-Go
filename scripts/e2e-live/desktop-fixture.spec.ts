@@ -132,9 +132,11 @@ async function observeDesktop(status: any) {
     alias: 'Live E2E wire observer', pairingMode: 'session' })).status).toBe(200);
   const caps = await request('GET', '/api/v1/mobile/capabilities');
   const frames: any[] = [];
+  let lastSequence = 0;
   const ws = new WebSocket(`wss://127.0.0.1:${status.port}/ws`, options);
   ws.on('message', data => {
     const frame = JSON.parse(data.toString());
+    lastSequence = Math.max(lastSequence, frame.seq ?? frame.payload?.lastSeq ?? 0);
     // Persist only Dispatcher/catalog evidence and routed chat events; no pairing or transport credentials.
     if (frame.type === 'snapshot') {
       frames.push({ type: frame.type, seq: frame.seq, replayed: frame.replayed, payload: { dispatcher: frame.payload?.dispatcher } });
@@ -147,7 +149,7 @@ async function observeDesktop(status: any) {
     }
   });
   await new Promise<void>((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject); });
-  return { frames, ws, request, command: (fields: Record<string, unknown>) => request('POST', '/api/v1/mobile/commands',
+  return { frames, ws, request, lastSequence: () => lastSequence, command: (fields: Record<string, unknown>) => request('POST', '/api/v1/mobile/commands',
     { version: 1, epoch: caps.body.epoch, commandId: crypto.randomUUID(), ...fields }) };
 }
 
@@ -320,6 +322,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
                 { timeout: 60_000 }).toBe('running');
               result = { agentId: helperId }; break;
             }
+            case 'checkpoint': result = observer!.lastSequence(); break;
             case 'phoneDisconnected':
               // The observer is the sole remaining WebSocket. Prove the phone disconnected before changing state.
               await expect.poll(async () => (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount,
@@ -348,7 +351,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
             case 'wire': {
               // Replay the actual server buffer, independently of the phone's UI catch-up assertion.
               const before = observer!.frames.length;
-              observer!.ws.send(JSON.stringify({ type: 'mobile:replay', epoch: (await observer!.request('GET', '/api/v1/mobile/capabilities')).body.epoch, since: request.since ?? 0 }));
+              observer!.ws.send(JSON.stringify({ type: 'mobile:replay', epoch: (await observer!.request('GET', '/api/v1/mobile/capabilities')).body.epoch, since: request.since ?? observer!.lastSequence() }));
               await expect.poll(() => observer!.frames.slice(before).some(f => f.type === 'replay:end')).toBe(true);
               result = observer!.frames;
               writeFile(path.join(FIXTURE_DIR, 'dispatcher-wire.json'), evidence(result));

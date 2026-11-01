@@ -526,6 +526,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Runs after the existing tests: the Dispatcher is disabled until this point so test0's idle rules still hold.
     func test9aDispatcherPhoneSwitchDesktopChangesAndReplay() throws {
         try dispatcherFixture("setEnabled", ["enabled": false])
+        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
         let app = launchPaired()
         let row = dispatcherRow(app)
         XCTAssertFalse(row.exists)
@@ -558,7 +559,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The background change must catch up after reconnect")
-        let frames = try XCTUnwrap(try dispatcherFixture("wire") as? [[String: Any]])
+        let frames = try XCTUnwrap(try dispatcherFixture("wire", ["since": checkpoint]) as? [[String: Any]])
         let changes = frames.enumerated().filter { $0.element["type"] as? String == "dispatcher:changed" && $0.element["replayed"] as? Bool != true }
         XCTAssertGreaterThanOrEqual(changes.count, 5, "Observe both phone and desktop changes on the real wire")
         for change in changes {
@@ -626,6 +627,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9cAgentDispatcherSwitchesAndRealMCPDelivery() throws {
+        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
         let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
         let id = try XCTUnwrap(state["agentId"] as? String)
         let app = launchPaired()
@@ -665,7 +667,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let caption = any(app).matching(NSPredicate(format: "identifier == 'companion-message-source' AND label CONTAINS 'From Dispatcher'")).firstMatch
         XCTAssertTrue(caption.exists, "Real MCP message is captioned with its sender")
         screenshot(app, "Real MCP delivery from Dispatcher")
-        let frames = try XCTUnwrap(try dispatcherFixture("wire") as? [[String: Any]])
+        let frames = try XCTUnwrap(try dispatcherFixture("wire", ["since": checkpoint]) as? [[String: Any]])
         let deliveredEvent = try XCTUnwrap(frames.compactMap { frame -> [String: Any]? in
             guard let payload = frame["payload"] as? [String: Any], let event = payload["event"] as? [String: Any],
                   let data = event["data"] as? [String: Any], data["source"] as? String == "mcp",
