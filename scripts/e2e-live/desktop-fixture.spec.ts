@@ -325,8 +325,9 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
             case 'state': result = await window.evaluate(() => (window as any).clubhouse.dispatcher.get()); break;
             case 'policy': result = await window.evaluate(async ({ projectPath, agentId }) => {
               const ch = (window as any).clubhouse;
-              return { policy: await ch.agent.getOrchestrationPolicy(projectPath, agentId), bindings: await ch.mcpBinding.getBindings() };
-            }, { projectPath: projectDir, agentId: agents.echo }); break;
+              const config = (await ch.agent.listDurable(projectPath)).find((a: any) => a.id === agentId);
+              return { config, policy: await ch.agent.getOrchestrationPolicy(projectPath, agentId), bindings: await ch.mcpBinding.getBindings() };
+            }, { projectPath: projectDir, agentId: request.agentId ?? agents.echo }); break;
             case 'command': result = await observer!.command(request.fields); break;
             case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings`); break;
             case 'mcpEnabled': result = await window.evaluate(async enabled => {
