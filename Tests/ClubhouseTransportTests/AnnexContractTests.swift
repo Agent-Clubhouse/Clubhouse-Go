@@ -6,7 +6,8 @@ import Testing
 @Suite struct AnnexContractTests {
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
-                                       "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear"]
+                                       "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
+                                       "dispatcher.setEnabled"]
 
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
@@ -295,6 +296,7 @@ import Testing
             .helperDecline(requestID: "r"),
             .setModel(agentID: "a", sessionID: "s", model: "m", effort: .providerDefault),
             .setLevel(agentID: "a", sessionID: "s", level: "plan"),
+            .setDispatcherEnabled(true),
         ]
         return kinds.map { AnnexCommand(commandID: "c", epoch: "e", kind: $0) }
     }

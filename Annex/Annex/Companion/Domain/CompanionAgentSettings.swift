@@ -324,6 +324,8 @@ enum CompanionAgentCommandError {
         case "invalid_orchestration": return detail.flatMap { $0.first?.isUppercase == true ? $0 : nil } ?? "The desktop couldn't accept these orchestration settings."
         case "orchestration_has_helpers": return "This agent has helpers running, maybe in other projects. Turn orchestration off on the desktop to keep or dispose of them."
         // The Dispatcher (`dispatcher` v1).
+        // The desktop's sentence starts with the model id ("opus isn't a model this CLI lists."), so it isn't shown as is.
+        case "invalid_model": return "That model isn't one this CLI lists. Choose another."
         case "dispatcher_off": return "The Dispatcher is turned off on the desktop. Turn it on first."
         case "dispatcher_locked": return "The desktop doesn't let you change this for the Dispatcher."
         case "dispatcher_flag_off": return CompanionDispatcher.flagOffNote
