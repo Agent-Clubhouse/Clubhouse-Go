@@ -13,7 +13,8 @@ import subprocess
 import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
-policy = json.loads((root / 'scripts/isolated-deinit-policy.json').read_text())
+policy_path = 'scripts/isolated-deinit-policy.json'
+policy = json.loads((root / policy_path).read_text())
 binary = pathlib.Path(sys.argv[1])
 symbols = subprocess.check_output(['xcrun', 'nm', '-j', str(binary)], text=True)
 demangled = subprocess.check_output(['xcrun', 'swift-demangle'], input=symbols, text=True)
@@ -27,11 +28,21 @@ for source, expected in policy['reviewedSources'].items():
     if hashlib.sha256((root / source).read_bytes()).hexdigest() != expected:
         errors.append(f'{source}: field/ownership review is stale; re-review before changing its fingerprint')
 for name in isolated - policy['classes'].keys():
-    errors.append(f'{name}: new synthesized isolated deinit needs a field-affinity classification')
+    errors.append(
+        f'{name}: add this class to {policy_path} and the docs/isolated-deinit.md ownership table. '
+        'Use arc_only only after reviewing stored fields, constructor/callback captures and pointee teardown '
+        'to prove off-main ARC is safe; then add an empty nonisolated deinit. '
+        'Otherwise use main_actor and retain isolated teardown. Record reviewed source fingerprints only after that review.'
+    )
 for name, entry in policy['classes'].items():
     mode = entry['policy']
     if mode not in ('arc_only', 'main_actor', 'generated') or not entry['reason']:
         errors.append(f'{name}: invalid/missing teardown-affinity rationale')
+    source = entry['source']
+    if mode != 'generated' and not source:
+        errors.append(f'{name}: {policy_path} requires the reviewed class source path for {mode}')
+    if source and source not in policy['reviewedSources']:
+        errors.append(f'{name}: add {source} to {policy_path} reviewedSources only after field/capture ownership review')
     if mode == 'arc_only' and name in isolated:
         errors.append(f'{name}: ARC-only policy requires an explicit nonisolated deinit')
     if mode in ('main_actor', 'generated') and name not in isolated:
@@ -52,5 +63,6 @@ for name, allowed in policy['reviewedCallbackFiles'].items():
                 errors.append(f'{source.relative_to(root)}: new {name} assignment needs capture-affinity review')
 if errors:
     print('\n'.join(errors), file=sys.stderr)
+    print(f'Review rules: {policy_path}; docs/isolated-deinit.md. Do not waive UI teardown affinity or refresh fingerprints without ownership review.', file=sys.stderr)
     sys.exit(1)
 print(f'Deinit policy: {sum(e["policy"] == "arc_only" for e in policy["classes"].values())} ARC-only protections; {len(isolated)} reviewed isolated paths retained. UI affinity is not waived.')
