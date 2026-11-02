@@ -360,14 +360,20 @@ import SwiftUI
         var made = 0
         func make() -> Int { made += 1; return made }
         let host = UIHostingController(rootView: TelemetryLifetimeProbe(make: make))
-        host.view.frame = CGRect(x: 0, y: 0, width: 320, height: 600)
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let originalKey = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 320, height: 600)
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; originalKey?.makeKey() }
         host.view.setNeedsLayout(); host.view.layoutIfNeeded()
-        await Task.yield()
+        try await Task.sleep(for: .milliseconds(30))
         #expect(made == 1)
         for _ in 0..<3 {
             host.rootView = TelemetryLifetimeProbe(make: make)
             host.view.setNeedsLayout(); host.view.layoutIfNeeded()
-            await Task.yield()
+            try await Task.sleep(for: .milliseconds(30))
         }
         #expect(made == 1)
     }
