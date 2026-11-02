@@ -13,6 +13,21 @@ import ClubhouseTransport
         projection.items.compactMap { item -> CompanionMessage? in if case .message(let m) = item, m.id == id { m } else { nil } }.first
     }
 
+    @Test func structuredTerminalExitCodeKeepsCompletedFailureVisible() {
+        var projection = CompanionChatProjector()
+        projection.apply(event("tool_call", seq: 1, data: ["toolCallId": .string("t"), "status": .string("completed"), "content": .array([
+            .object(["type": .string("terminal"), "output": .string("not prose guessed"), "exitCode": .integer(2)])
+        ])]))
+        guard case .tool(let tool) = projection.items.first else { Issue.record("Missing tool"); return }
+        #expect(tool.exitCode == 2)
+        #expect(tool.requiresAttention)
+        #expect(CompanionTimelineFolding.rows(for: projection.items) == [.item(.tool(tool))])
+        projection.apply(event("tool_call_update", seq: 2, data: ["toolCallId": .string("t"), "title": .string("renamed")]))
+        guard case .tool(let updated) = projection.items.first else { Issue.record("Missing update"); return }
+        #expect(updated.exitCode == 2)
+        #expect(!CompanionTool(id: "ok", name: "Run", summary: "exit code 3", state: .completed).requiresAttention)
+    }
+
     @Test func planEntriesShowTheirProgressAndUpdateInPlace() {
         var projection = CompanionChatProjector()
         projection.apply(event("plan", seq: 1, data: ["entries": .array([

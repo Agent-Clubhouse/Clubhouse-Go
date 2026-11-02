@@ -89,34 +89,91 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
 enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     case item(CompanionTimelineItem)
     case tools([CompanionTool])
+    case activity([CompanionActivityPart])
+    case routed(CompanionMessage, Int)
 
     var id: String {
         switch self {
         case .item(let item): item.id
         case .tools(let tools): "tools:\(tools.first?.id ?? "")"
+        case .activity(let parts): "activity:\(parts.first?.id ?? "")"
+        case .routed(let message, let index): "routed:\(message.id):\(index)"
         }
     }
 }
 
+/// Ordered fragments retain message/part identity even when one delivery crosses a visible notice boundary.
+enum CompanionActivityPart: Identifiable, Sendable, Equatable {
+    case tool(CompanionTool)
+    case routed(CompanionMessage, Int)
+
+    var id: String {
+        switch self {
+        case .tool(let tool): "tool:\(tool.id)"
+        case .routed(let message, let index): "routed:\(message.id):\(index)"
+        }
+    }
+    var sender: String {
+        switch self {
+        case .tool: return "Tools"
+        case .routed(let message, let index):
+            if case .others(let parts) = message.display { return parts[index].sender?.name ?? "Another agent" }
+            return "Another agent"
+        }
+    }
+    var isRunning: Bool { if case .tool(let tool) = self { tool.state == .running } else { false } }
+    var attachmentCount: Int {
+        switch self {
+        case .tool(let tool): tool.images.count
+        case .routed(let message, let index): index == 0 ? message.images.count : 0
+        }
+    }
+    static func summary(_ parts: [Self]) -> String {
+        let tools = parts.filter { if case .tool = $0 { true } else { false } }.count
+        let messages = parts.count - tools
+        let images = parts.reduce(0) { $0 + $1.attachmentCount }
+        var labels: [String] = []
+        if tools > 0 { labels.append("\(tools) tool \(tools == 1 ? "call" : "calls")") }
+        if messages > 0 { labels.append("\(messages) \(messages == 1 ? "message" : "messages")") }
+        if images > 0 { labels.append("\(images) \(images == 1 ? "attachment" : "attachments")") }
+        if parts.contains(where: \.isRunning) { labels.append("Running…") }
+        return labels.joined(separator: " · ")
+    }
+}
+
+extension CompanionTool {
+    var requiresAttention: Bool { state == .failed || awaitsApproval || (exitCode.map { $0 != 0 } ?? false) }
+}
+
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
 enum CompanionTimelineFolding {
-    /// Folds runs of two or more read-only tool calls, running ones included, into one "Explored" row.
-    /// Failed tools, tools waiting for approval and tools that changed something stay on their own.
+    /// Mobile keeps all routine traffic compact. Actionable entries are hard boundaries.
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
         var rows: [CompanionTimelineRow] = []
-        var run: [CompanionTool] = []
+        var run: [CompanionActivityPart] = []
         func flush() {
-            if run.count >= 2 { rows.append(.tools(run)) } else { rows += run.map { .item(.tool($0)) } }
-            run = []
+            if !run.isEmpty { rows.append(.activity(run)); run.removeAll(keepingCapacity: true) }
         }
         for item in items {
-            if case .tool(let tool) = item, tool.isExplore { run.append(tool); continue }
-            flush()
-            rows.append(.item(item))
+            switch item {
+            case .tool(let tool) where !tool.requiresAttention && tool.images.isEmpty:
+                run.append(.tool(tool))
+            case .message(let message) where message.role == .user && message.delivery == .confirmed && (message.queueState == nil || message.queueState == .delivered || message.queueState == .removed):
+                if case .others(let parts) = message.display {
+                    for (index, part) in parts.enumerated() {
+                        if canCollapse(part) { run.append(.routed(message, index)) }
+                        else { flush(); rows.append(.routed(message, index)) }
+                    }
+                } else { flush(); rows.append(.item(item)) }
+            default: flush(); rows.append(.item(item))
+            }
         }
         flush()
         return rows
     }
+
+    /// Clubhouse notices have no severity field yet; even routine notices stay visible to avoid hiding a failure.
+    static func canCollapse(_ part: CompanionRoutedMessagePart) -> Bool { !part.fromClubhouse && !part.text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("[QUESTION FROM HELPER:") }
 
     /// "Explored 3 files, 2 searches", or "Exploring…" while one of them runs.
     static func exploreLabel(_ tools: [CompanionTool]) -> String {

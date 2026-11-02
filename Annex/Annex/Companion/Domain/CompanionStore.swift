@@ -103,6 +103,12 @@ import Observation
     }
     /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
     func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
+    @ObservationIgnored private var readingBookmarks: [CompanionTarget: CompanionReadingBookmark] = [:]
+    func readingBookmark(for target: CompanionTarget) -> CompanionReadingBookmark {
+        if let bookmark = readingBookmarks[target] { return bookmark }
+        let bookmark = CompanionReadingBookmark(); readingBookmarks[target] = bookmark; return bookmark
+    }
+
     private struct TranscriptKey: Hashable { var target: CompanionTarget; var sessionID: String? }
     @ObservationIgnored private var transcriptExpansions: [TranscriptKey: CompanionTranscriptExpansion] = [:]
     func transcriptExpansion(for target: CompanionTarget, sessionID: String? = nil) -> CompanionTranscriptExpansion {
