@@ -109,7 +109,7 @@ teardown() {
   }
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
   if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
-  rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" 2>/dev/null
+  rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live/icon-fixture.ts" "$DESKTOP_DIR/e2e/phone-live/live-icon-images.json" 2>/dev/null
   rm -rf "$FIXTURE_DIR"
   if [[ $status -eq 0 ]]; then log "Live E2E passed"; else log "Live E2E failed (exit $status); see $OUT"; fi
   exit $status
@@ -198,6 +198,7 @@ fi
 log "Launching the desktop fixture (log: $OUT/desktop-fixture.log)"
 mkdir -p "$DESKTOP_DIR/e2e/phone-live"
 cp "$ROOT/scripts/e2e-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts"
+cp "$ROOT/scripts/e2e-live/icon-fixture.ts" "$ROOT/scripts/e2e-live/live-icon-images.json" "$DESKTOP_DIR/e2e/phone-live/"
 (
   cd "$DESKTOP_DIR"
   # The isolated profile flags are set by the fixture itself; nothing inherits the user's Clubhouse profile.
@@ -238,6 +239,7 @@ run_tests() {
   TEST_RUNNER_CLUBHOUSE_E2E_ECHO_AGENT="$(fixture echo)" \
   TEST_RUNNER_CLUBHOUSE_E2E_BUILDER_AGENT="$(fixture builder)" \
   TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR="$FIXTURE_DIR" \
+  TEST_RUNNER_CLUBHOUSE_E2E_ICON_FIXTURE="${E2E_ICON_FIXTURE:-0}" \
   xcodebuild test-without-building \
     -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
     -derivedDataPath "$DERIVED" "${ONLY[@]}" \

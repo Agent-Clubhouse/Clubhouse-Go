@@ -27,6 +27,7 @@ import * as https from 'https';
 import forge from 'node-forge';
 import WebSocket from 'ws';
 import { launchApp } from '../launch';
+import { createIconFixture } from './icon-fixture';
 
 const FIXTURE_DIR = process.env.E2E_FIXTURE_DIR ?? '';
 const DESKTOP = path.resolve(__dirname, '..', '..');
@@ -240,6 +241,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
   electronApp.process().stderr?.on('data', (d) => fs.appendFileSync(path.join(FIXTURE_DIR, 'desktop-stderr.log'), d));
 
   let observer: Awaited<ReturnType<typeof observeDesktop>> | undefined;
+  let icons: Awaited<ReturnType<typeof createIconFixture>> | undefined;
   try {
     const agents = await window.evaluate(async (projectPath) => {
       const ch = (window as any).clubhouse;
@@ -250,6 +252,11 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     }, projectDir);
     rememberAgents(agents.echo, agents.builder);
     log(`project and agents ready: ${JSON.stringify(agents)}`);
+    if (process.env.E2E_ICON_FIXTURE === '1') {
+      icons = await createIconFixture(electronApp, window, userDataDir, projectDir, agents.echo);
+      rememberAgents((await icons.state()).dispatcherId);
+      log('Real icon fixtures and passive TLS/WebSocket capture ready');
+    }
 
     await window.evaluate(async () => {
       const annex = (window as any).clubhouse.annex;
@@ -304,6 +311,23 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         let result: unknown;
         try {
           switch (request.op) {
+            case 'iconsState': {
+              if (!icons) throw new Error('Set E2E_ICON_FIXTURE=1 for live icons');
+              result = await icons.state();
+              writeFile(path.join(FIXTURE_DIR, 'icon-wire.json'), evidence(result)); break;
+            }
+            case 'iconsChange': {
+              if (!icons) throw new Error('Live icons not enabled');
+              result = await icons.change(request.image, request.broadcast === true); break;
+            }
+            case 'iconsSnapshot': {
+              if (!icons) throw new Error('Live icons not enabled');
+              await icons.snapshot(); result = 'ok'; break;
+            }
+            case 'iconsRemove': {
+              if (!icons) throw new Error('Live icons not enabled');
+              await icons.remove(); result = 'ok'; break;
+            }
             case 'helper': {
               // Create a genuine helper through the real bridge, never by manufacturing a parent link on disk.
               const existing = await window.evaluate(async ({ projectPath, parentId }) => {
@@ -374,6 +398,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     }
     log('stop requested');
   } finally {
+    if (icons) writeFile(path.join(FIXTURE_DIR, 'icon-wire.json'), evidence(await icons.state()));
     // Read only this launch's profile. Project Annex diagnostics onto a closed schema: never copy raw metadata
     // (peer certificates, fingerprints, tokens and request bodies have no place in the nightly artifacts).
     try {

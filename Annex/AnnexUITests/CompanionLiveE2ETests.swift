@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Clubhouse Go against a real Clubhouse desktop: `scripts/e2e-live.sh` (nightly in `.github/workflows/e2e-nightly.yml`).
 ///
@@ -29,10 +30,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     // MARK: - Helpers
 
     /// Launches the app paired, in memory, with the fixture desktop, and waits for its project.
-    private func launchPaired(_ extra: [String] = [], file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
+    private func launchPaired(_ extra: [String] = [], allowance: TimeInterval = 300,
+                              file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
         let invitation = ["CLUBHOUSE_COMPANION_TEST_INVITATION": env["CLUBHOUSE_COMPANION_TEST_INVITATION"] ?? "",
                           "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
-        let launched = launchApp(extra, environment: invitation, allowance: 300, file: file, line: line)
+        let launched = launchApp(extra, environment: invitation, allowance: allowance, file: file, line: line)
         // Home coverage is explicit: an enabled Dispatcher is now the default launch screen.
         let home = launched.tabBars.buttons["Home"]
         XCTAssertTrue(home.waitForExistence(timeout: 30), file: file, line: line)
@@ -943,4 +945,147 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Genuine helper hides Dispatcher connection after a true request resolves false")
     }
 
+    /// Real TLS/WS evidence and actual avatar pixels, separately from the scripted CLI flows.
+    /// Opt in with E2E_ICON_FIXTURE=1 and --only CompanionLiveE2ETests/test9fRealIconsAndDiskReuse.
+    func test9fRealIconsAndDiskReuse() throws {
+        try XCTSkipUnless(env["CLUBHOUSE_E2E_ICON_FIXTURE"] == "1", "Needs the iconRefs desktop fixture")
+        func state() throws -> [String: Any] {
+            try XCTUnwrap(try dispatcherFixture("iconsState") as? [String: Any])
+        }
+        func downloads(_ value: [String: Any]) -> [[String: Any]] { value["downloads"] as? [[String: Any]] ?? [] }
+        func snapshot(_ value: [String: Any]) -> [String: Any] { (value["snapshots"] as? [[String: Any]])?.last ?? [:] }
+        func refs(_ value: [String: Any], _ kind: String) -> [String: Any] {
+            (snapshot(value)["refs"] as? [String: Any])?[kind] as? [String: Any] ?? [:]
+        }
+        func waitState(_ ready: ([String: Any]) -> Bool) throws -> [String: Any] {
+            var value = try state()
+            for _ in 0..<30 {
+                if ready(value) { return value }
+                checkTimeLeft("waiting for real icon traffic")
+                sleep(1); value = try state()
+            }
+            XCTFail("Real icon snapshot/download did not arrive: \(value)"); return value
+        }
+        func assertEvidence(_ value: [String: Any]) throws {
+            XCTAssertTrue((value["errors"] as? [String] ?? []).isEmpty)
+            let connects = try XCTUnwrap(value["connects"] as? [[String: Any]])
+            XCTAssertFalse(connects.isEmpty)
+            XCTAssertTrue(connects.allSatisfy { $0["mobile"] as? Bool == true && $0["iconRefs"] as? Bool == true }, "Every real phone connection opts in")
+            XCTAssertEqual((snapshot(value)["agentIcons"] as? [String: Any])?.count, 0)
+            XCTAssertEqual((snapshot(value)["projectIcons"] as? [String: Any])?.count, 0)
+            for response in downloads(value) {
+                XCTAssertEqual(response["status"] as? Int, 200)
+                let hash = try XCTUnwrap(response["sha"] as? String)
+                XCTAssertEqual(response["version"] as? String, hash)
+                XCTAssertEqual(response["etag"] as? String, "\"\(hash)\"")
+                XCTAssertTrue(["image/png", "image/jpeg", "image/gif"].contains(response["type"] as? String ?? ""))
+                XCTAssertTrue((1...73728).contains(response["bytes"] as? Int ?? 0))
+            }
+        }
+        func assertReferences(_ value: [String: Any]) throws {
+            let metadata = try XCTUnwrap(value["expected"] as? [String: Any])
+            for (kind, idKey) in [("agents", "agentId"), ("projects", "projectId")] {
+                let id = try XCTUnwrap(value[idKey] as? String)
+                let actual = try XCTUnwrap(refs(value, kind)[id] as? [String: Any])
+                for field in ["version", "type"] { XCTAssertEqual(actual[field] as? String, metadata[field] as? String) }
+                for field in ["bytes", "width", "height"] { XCTAssertEqual(actual[field] as? Int, metadata[field] as? Int) }
+            }
+            let dispatcher = try XCTUnwrap(refs(value, "agents")[try XCTUnwrap(value["dispatcherId"] as? String)] as? [String: Any])
+            XCTAssertEqual(dispatcher["version"] as? String, (value["dispatcherExpected"] as? [String: Any])?["version"] as? String)
+        }
+        var app = launchPaired(allowance: 600)
+        // Sample the center of the avatar, excluding its status dot and clipping shape.
+        func sample(_ element: XCUIElement, project: Bool = false, half: Int = 0) throws -> [String: Int] {
+            let frame = element.frame
+            // Navigation rows include 16pt content padding before the 32pt avatar.
+            let center = CGPoint(x: project ? frame.minX - 17 : frame.minX + 32, y: frame.midY)
+            var rect = CGRect(x: center.x - 8, y: center.y - 8, width: 16, height: 16)
+            if half != 0 { rect.size.height = 8; if half > 0 { rect.origin.y += 8 } }
+            let shot = try XCTUnwrap(app.screenshot().image.cgImage), window = app.windows.firstMatch.frame
+            let scale = CGFloat(shot.width) / window.width
+            let crop = try XCTUnwrap(shot.cropping(to: CGRect(x: rect.minX * scale, y: rect.minY * scale,
+                                                          width: rect.width * scale, height: rect.height * scale)))
+            let context = try XCTUnwrap(CGContext(data: nil, width: 24, height: 24, bitsPerComponent: 8, bytesPerRow: 96,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: 24, height: 24))
+            let bytes = try XCTUnwrap(context.data).assumingMemoryBound(to: UInt8.self)
+            var counts = ["red": 0, "green": 0, "blue": 0, "yellow": 0, "ink": 0]
+            for pixel in 0..<576 {
+                let r = Int(bytes[pixel * 4]), g = Int(bytes[pixel * 4 + 1]), b = Int(bytes[pixel * 4 + 2])
+                if r > 180 && g < 100 && b < 100 { counts["red", default: 0] += 1 }
+                if g > 150 && r < 100 && b < 100 { counts["green", default: 0] += 1 }
+                if b > 180 && r < 100 && g < 100 { counts["blue", default: 0] += 1 }
+                if r > 180 && g > 140 && b < 100 { counts["yellow", default: 0] += 1 }
+                if (r < 80 && g < 80 && b < 80) || (r > 220 && g > 220 && b > 220) { counts["ink", default: 0] += 1 }
+            }
+            return counts
+        }
+        func painted(_ target: XCUIElement, _ color: String, project: Bool = false, half: Int = 0) throws {
+            var counts = try sample(target, project: project, half: half)
+            for _ in 0..<15 {
+                if counts[color, default: 0] > (color == "ink" ? 10 : 400) { return }
+                sleep(1); counts = try sample(target, project: project, half: half)
+            }
+            XCTFail("Avatar should draw \(color), saw \(counts)")
+        }
+        try painted(dispatcherRow(app), "red")
+        _ = revealAgent(app, echoID)
+        var audit = try waitState { downloads($0).count == 3 }
+        try assertEvidence(audit); try assertReferences(audit)
+        try painted(agentRow(app, echoID), "red"); try painted(projectHeader(app), "red", project: true)
+        screenshot(app, "Real PNG agent and project icons")
+
+        let count = downloads(audit).count, connects = (audit["connects"] as? [Any])?.count ?? 0
+        app.terminate(); app = launchPaired(allowance: 600)
+        try painted(dispatcherRow(app), "red"); _ = revealAgent(app, echoID)
+        try painted(agentRow(app, echoID), "red"); try painted(projectHeader(app), "red", project: true)
+        audit = try state()
+        XCTAssertGreaterThan((audit["connects"] as? [Any])?.count ?? 0, connects)
+        XCTAssertEqual(downloads(audit).count, count, "Relaunch uses validated disk bytes, no HTTP re-download")
+        try assertEvidence(audit)
+
+        // A direct same-name replacement does not broadcast. Keep displaying the prior version until a snapshot.
+        let beforeSnapshot = (audit["snapshots"] as? [Any])?.count
+        try dispatcherFixture("iconsChange", ["image": "bluePNG", "broadcast": false])
+        sleep(2)
+        audit = try state()
+        XCTAssertEqual((audit["snapshots"] as? [Any])?.count, beforeSnapshot)
+        XCTAssertEqual(downloads(audit).count, count)
+        try painted(agentRow(app, echoID), "red"); try painted(projectHeader(app), "red", project: true)
+        try dispatcherFixture("iconsSnapshot")
+        audit = try waitState { downloads($0).count == count + 2 }
+        try assertReferences(audit)
+        try painted(agentRow(app, echoID), "blue"); try painted(projectHeader(app), "blue", project: true)
+
+        for (image, color) in [("greenJPEG", "green"), ("rotatedJPEG", "red"), ("yellowGIF", "yellow")] {
+            let before = downloads(audit).count
+            try dispatcherFixture("iconsChange", ["image": image, "broadcast": true])
+            audit = try waitState { downloads($0).count == before + 2 }
+            try assertReferences(audit); try assertEvidence(audit)
+            if image == "rotatedJPEG" {
+                for project in [false, true] {
+                    let target = project ? projectHeader(app) : agentRow(app, echoID)
+                    try painted(target, "red", project: project, half: -1)
+                    try painted(target, "blue", project: project, half: 1)
+                }
+            } else {
+                try painted(agentRow(app, echoID), color); try painted(projectHeader(app), color, project: true)
+            }
+            screenshot(app, "Real \(image) avatars")
+        }
+        let beforeRemoval = downloads(audit).count
+        try dispatcherFixture("iconsRemove")
+        audit = try waitState { value in
+            refs(value, "agents")[echoID] == nil && refs(value, "projects")[value["projectId"] as? String ?? ""] == nil
+        }
+        try painted(agentRow(app, echoID), "ink"); try painted(projectHeader(app), "ink", project: true)
+        for project in [false, true] {
+            let pixels = try sample(project ? projectHeader(app) : agentRow(app, echoID), project: project)
+            for color in ["red", "green", "blue", "yellow"] { XCTAssertLessThan(pixels[color, default: 0], 40, "Removed icons draw initials") }
+        }
+        XCTAssertEqual(downloads(audit).count, beforeRemoval)
+        XCTAssertNotNil(refs(audit, "agents")[try XCTUnwrap(audit["dispatcherId"] as? String)], "Removal preserves the Dispatcher's own association")
+        try assertEvidence(audit)
+        screenshot(app, "Removed real icons fall back to initials")
+    }
 }
