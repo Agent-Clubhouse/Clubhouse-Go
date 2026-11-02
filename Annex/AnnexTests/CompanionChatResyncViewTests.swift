@@ -45,8 +45,9 @@ import ClubhouseTransport
 /// The 50 ms read is synthetic; request counts/body counts are evidence, not real network timings.
 @MainActor final class CompanionChatResyncViewTests: XCTestCase {
     func testNavigationAndForegroundResyncRequestCounts() async throws {
-        try XCTSkipUnless(ProcessInfo.processInfo.arguments.contains("--companion-preview"),
-                          "Run this measurement with an isolated --companion-preview test host; default-launch teardown is tracked in #218")
+        guard #available(iOS 26.1, *) else {
+            throw XCTSkip("iOS 26.0 actor-isolated deinit abort (#218); this resync measurement runs on newer runtimes, including CI iOS 26.5")
+        }
         try await Task.sleep(for: .seconds(2))
         let service = ResyncCountingService(), navigation = ResyncNavigation()
         let store = CompanionStore(service: service), target = CompanionPreviewService.dispatcherTarget
