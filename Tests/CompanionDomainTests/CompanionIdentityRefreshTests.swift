@@ -153,13 +153,27 @@ import Testing
         try await h.waitUntil { h.store.agent(for: target) == nil }
     }
 
-    @Test(arguments: ["projects", "agents"]) func malformedRESTCatalogIsNotDeletion(route: String) async throws {
+    @Test(arguments: ["projects", "agents"]) func malformedRESTCatalogIsNotDeletionOrConnectionFailure(route: String) async throws {
         let h = try await start(); defer { h.stop() }
         await h.transport.setRead(route, .object([:]))
-        await h.transport.emit(.resyncRequired(.reconnected))
-        try await h.waitUntil { if case .failed = h.host?.connection { true } else { false } }
+        try await h.refreshCatalog(allowingFailure: true)
+        #expect(h.host?.connection == .connected)
         #expect(h.store.agent(for: h.target) != nil)
         #expect(h.store.agent(for: dispatcher) != nil)
+    }
+
+    @Test(arguments: ["projects", "agents"]) func incompleteRESTEntriesKeepGoodDataAndLastKnownAgents(route: String) async throws {
+        let h = try await start(); defer { h.stop() }
+        if route == "projects" {
+            await h.transport.setProjects(.array([.object(["id": .string("project"), "name": .string("Renamed")]), .object(["name": .string("Missing ID")])]))
+        } else {
+            await h.transport.setAgents(.array([.object(["id": .string("new"), "name": .string("New agent")]), .object(["name": .string("Missing ID")])]))
+        }
+        try await h.refreshCatalog(allowingFailure: true)
+        #expect(h.host?.connection == .connected)
+        #expect(h.store.agent(for: h.target) != nil, "A partial list cannot confirm deletion")
+        if route == "projects" { #expect(h.host?.projects.first?.name == "Renamed") }
+        else { #expect(h.host?.projects.first?.agents.contains { $0.id.agentID == "new" } == true) }
     }
 
     @Test func reconnectResyncAndConnectedShareOneCatalogRefresh() async throws {
