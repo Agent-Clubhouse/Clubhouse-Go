@@ -384,8 +384,12 @@ import ClubhouseTransport
         return page
     }
     func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting {
-        guard capabilities[hostID]?.supportsHelperRoutingUpdate == true, update.scope == "app",
+        guard capabilities[hostID]?.supportsHelperRoutingUpdate == true,
               let feature = capabilities[hostID]?.helperRouting,
+              feature.scopes.contains(update.scope),
+              (update.auto == nil || feature.modes.contains("auto")),
+              ((update.cells == nil && update.reset == nil) || feature.canEditPresets),
+              (update.scope == "app" || (update.scope == "project" && update.projectId != nil && update.auto != nil && update.cells == nil && update.reset == nil)),
               update.cells?.allSatisfy({ feature.difficulties.contains($0.difficulty) }) != false else {
             throw CompanionServiceError.unavailable("This desktop does not offer these helper preset changes.")
         }
@@ -425,6 +429,9 @@ import ClubhouseTransport
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
         guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
+        if change.orchestration?.autoHelpers != nil, (capabilities[target.hostID]?.helperRouting?.modes.contains("auto") != true || capabilities[target.hostID]?.helperRouting?.scopes.contains("agent") != true) {
+            throw CompanionServiceError.unavailable("This desktop does not offer Auto provider.")
+        }
         if change.contextWindow != nil, capabilities[target.hostID]?.supportsContextWindow != true {
             throw CompanionServiceError.unavailable("This desktop doesn't offer context setting changes from the phone.")
         }
@@ -446,13 +453,14 @@ import ClubhouseTransport
         guard !consumedHelperRequests.contains(request.slot) else { throw CompanionServiceError.rejected("This helper request has already been answered.") }
         let kind: AnnexCommand.Kind = approve ? .helperApprove(requestID: request.id, force: force) : .helperDecline(requestID: request.id)
         let receipt = try await execute(kind, id: clientCommandID, hostID: request.hostID, validateReceipt: false)
-        if approve, receipt.status == .rejected, receipt.error?.code == "no_valid_mapping" {
+        if approve, receipt.status == .rejected, ["no_valid_mapping", "auto_off", "no_candidate"].contains(receipt.error?.code ?? "") {
             consumedHelperRequests.insert(request.slot)
             hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
             emitHosts()
             throw CompanionHelperRequestConsumed(message: Self.rejectionMessage(receipt.error))
         }
         if let error = Self.receiptError(receipt) { throw error }
+        if let warning = CompanionHelperStartWarning(json: receipt.result?["warning"]) { emit(.helperStartWarning(warning)) }
         // The desktop broadcasts a snapshot without it; drop it now so it can't be answered twice.
         hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
         emitHosts()
@@ -481,7 +489,7 @@ import ClubhouseTransport
             return .init(id: id, hostID: hostID, projectID: projectID, kind: kind, requesterID: requesterID, requesterName: requesterName,
                          helperID: helperID, helperName: helperName, requestedAt: item["requestedAt"].flatMap(date(from:)),
                          expiresAt: item["expiresAt"].flatMap(date(from:)), summary: summary,
-                         task: item["start"]?["task"]?.string, requestedRouting: CompanionRequestedRouting(json: item["requestedRouting"]), dispose: dispose)
+                         task: item["start"]?["task"]?.string, requestedRouting: CompanionRequestedRouting(json: item["requestedRouting"]), startWarning: CompanionHelperStartWarning(json: item["startWarning"]), dispose: dispose)
         }
     }
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {

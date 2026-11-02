@@ -20,6 +20,7 @@ import Observation
     /// Helper requests being answered, and why an answer failed, by `CompanionHelperRequest.slot`.
     private(set) var helperRequestsInFlight: Set<String> = []
     var helperRequestNotice: String?
+    var helperStartWarning: CompanionHelperStartWarning?
     private var consumedHelperRequests: Set<String> = []
     private(set) var helperRequestErrors: [String: String] = [:]
     private(set) var spawnInProgress = false
@@ -823,12 +824,13 @@ import Observation
                 let hostIDs = Set(hosts.map(\.id))
                 timelineProjections = timelineProjections.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
                 readingBookmarks = readingBookmarks.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
-            case .resyncRequired: break
+            case .resyncRequired, .helperStartWarning: break
             }
         }
     }
     private func applyEvent(_ event: CompanionEvent) {
         switch event {
+        case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let hosts):
             clearRemovedChats(in: hosts)
             self.hosts = hosts

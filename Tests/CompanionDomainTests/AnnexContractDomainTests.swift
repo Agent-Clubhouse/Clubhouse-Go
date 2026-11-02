@@ -356,7 +356,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(workspace.branch == "brave-otter/standby" && workspace.worktree == ".clubhouse/agents/brave-otter")
         #expect(workspace.changes?.files == 2 && workspace.changes?.additions == 94 && workspace.changes?.deletions == 51 && workspace.changes?.ahead == 2)
 
-        #expect(settings.orchestration == CompanionOrchestration(sources: ["orchestrate": .default, "access": .default, "control": .default, "maxHelpers": .default,
+        #expect(settings.orchestration == CompanionOrchestration(autoHelpersEffective: false, sources: ["orchestrate": .default, "access": .default, "control": .default, "maxHelpers": .default,
                                                                           "crossProjectHelpers": .default, "connectToDispatcher": .default, "autoHelpers": .default]))
 
         let running = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-running.json"))

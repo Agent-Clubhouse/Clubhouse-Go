@@ -172,6 +172,8 @@ extension CompanionOrchestration {
         crossProjectHelpers = json["crossProjectHelpers"]?.boolOrNil ?? false
         connectToDispatcher = json["connectToDispatcher"]?.boolOrNil ?? false
         mcpEnabled = json["mcpEnabled"]?.boolOrNil ?? true
+        autoHelpers = json["autoHelpers"]?.boolOrNil
+        autoHelpersEffective = json["autoHelpersEffective"]?.boolOrNil
         controls = strings("controls") ?? Self.defaultControls
         accessLevels = strings("accessLevels") ?? Self.defaultAccessLevels
         if case .object(let sources)? = json["sources"] {
@@ -190,7 +192,7 @@ extension AnnexOrchestrationPatch {
             }
         }
         self.init(orchestrate: field(change.orchestrate), access: field(change.access), control: field(change.control), maxHelpers: field(change.maxHelpers),
-                  crossProjectHelpers: field(change.crossProjectHelpers), connectToDispatcher: field(change.connectToDispatcher))
+                  crossProjectHelpers: field(change.crossProjectHelpers), connectToDispatcher: field(change.connectToDispatcher), autoHelpers: field(change.autoHelpers))
     }
 }
 
@@ -234,5 +236,5 @@ extension AnnexAgentUpdate {
 }
 
 extension AnnexJSON {
-    var boolOrNil: Bool? { if case .bool(let value) = self { value } else { nil } }
+    nonisolated var boolOrNil: Bool? { if case .bool(let value) = self { value } else { nil } }
 }

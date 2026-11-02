@@ -198,6 +198,7 @@ struct CompanionHelperRequest: Identifiable, Sendable, Equatable {
     /// For a start: what the helper is asked to do.
     var task: String?
     var requestedRouting: CompanionRequestedRouting?
+    var startWarning: CompanionHelperStartWarning?
     var dispose: Dispose?
 
     /// The agent whose Needs you row shows it: the helper for a dispose, the orchestrator for a start.
@@ -638,6 +639,7 @@ struct CompanionHistory: Sendable {
 
 enum CompanionEvent: Sendable {
     case hosts([CompanionHost])
+    case helperStartWarning(CompanionHelperStartWarning)
     case timeline(CompanionTarget, items: [CompanionTimelineItem], sequence: Int, reset: Bool, sessionID: String? = nil)
     case upsert(CompanionTarget, CompanionTimelineItem, sequence: Int?)
     case textDelta(CompanionTarget, messageID: String, text: String, sequence: Int?)

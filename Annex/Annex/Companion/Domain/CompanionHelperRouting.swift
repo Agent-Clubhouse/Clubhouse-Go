@@ -33,6 +33,7 @@ nonisolated struct CompanionHelperRouting: Sendable, Equatable {
         var choicesAsOf: String?
         var models: [Model]
         var cells: [String: Cell]
+        var quota: CompanionHelperQuota?
     }
     struct Agent: Sendable, Equatable {
         var usable: Bool
@@ -42,6 +43,9 @@ nonisolated struct CompanionHelperRouting: Sendable, Equatable {
     var labels: Labels
     var providers: [String: Provider]
     var agent: Agent?
+    var auto: CompanionHelperAuto?
+    var serverTime: Date?
+    var nextRefreshDelay: Double? { CompanionHelperQuota.nextRefreshDelay(providers.values.compactMap(\.quota)) }
     static func label(_ labels: Labels, family: String, code: String) -> String {
         labels[family]?[code] ?? labels["generic"]?["unknownCode"] ?? "Other"
     }
@@ -57,6 +61,13 @@ nonisolated struct CompanionHelperRoutingDecision: Sendable, Equatable {
     var summary: String?
     var displayReason: String?
     var displayFallback: String?
+    var decidedAt: Date?
+    var balanced = false
+    var load: [String: Int] = [:]
+    var quota: [String: CompanionHelperQuota] = [:]
+    var skipped: [String: String] = [:]
+    var warning: CompanionHelperStartWarning?
+    var displayWarning: String?
     func reasonText(labels: CompanionHelperRouting.Labels) -> String {
         displayReason ?? CompanionHelperRouting.label(labels, family: "reason", code: reason)
     }
@@ -85,22 +96,33 @@ nonisolated struct CompanionHelperRequestConsumed: Error, LocalizedError {
     private(set) var settings: CompanionHelperRouting?
     private(set) var error: String?
     private(set) var saving = false
-    private var loading = false
+    private var readID = UUID()
+    private(set) var refreshID = UUID()
+    private(set) var receivedAt: ContinuousClock.Instant = .now
     // SwiftUI may discard eager State candidates away from the main actor. This model owns no cleanup resources.
     nonisolated deinit {}
     func load(_ read: () async throws -> CompanionHelperRouting) async {
-        guard !saving, !loading else { return }
-        loading = true
-        defer { loading = false }
-        do { settings = try await read(); error = nil }
-        catch { self.error = error.localizedDescription }
+        guard !saving else { return }
+        let id = UUID()
+        readID = id
+        defer { if readID == id { refreshID = UUID() } }
+        do {
+            let fresh = try await read()
+            guard readID == id else { return }
+            settings = fresh; receivedAt = .now; error = nil
+        } catch {
+            guard readID == id else { return }
+            self.error = error.localizedDescription
+        }
     }
     func save(_ write: (String) async throws -> CompanionHelperRouting) async {
-        guard !saving, !loading, let revision = settings?.revision else { return }
+        guard !saving, let revision = settings?.revision else { return }
+        // A periodic read cannot swallow an explicit edit, or replace its result afterward.
+        readID = UUID()
         saving = true; error = nil
-        defer { saving = false }
-        do { settings = try await write(revision) }
-        catch CompanionHelperRoutingError.stale(let fresh, let message) { settings = fresh; error = message }
+        defer { saving = false; refreshID = UUID() }
+        do { settings = try await write(revision); receivedAt = .now }
+        catch CompanionHelperRoutingError.stale(let fresh, let message) { settings = fresh; receivedAt = .now; error = message }
         catch { self.error = error.localizedDescription }
     }
 }

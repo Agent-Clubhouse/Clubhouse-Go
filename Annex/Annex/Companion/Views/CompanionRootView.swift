@@ -87,9 +87,7 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
-        .alert("Helper couldn't start", isPresented: Binding(get: { store.helperRequestNotice != nil }, set: { if !$0 { store.helperRequestNotice = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(store.helperRequestNotice ?? "") }
+        .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start() }
         .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
         .onChange(of: tab) { _, current in store.selection = paths[current]?.last?.agent }
@@ -812,6 +810,10 @@ struct CompanionHelperRequestActions: View {
             if let requested = request.requestedRouting {
                 Text(requested.summary).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     .accessibilityIdentifier("helper-request-routing")
+            }
+            if let warning = request.startWarning {
+                CompanionHelperWarningView(warning: warning, phase: "Warning when requested")
+                    .accessibilityIdentifier("helper-request-warning")
             }
             if let note = Self.note(for: request) {
                 Text(note).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)

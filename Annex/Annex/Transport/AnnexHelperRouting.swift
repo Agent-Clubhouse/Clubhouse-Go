@@ -76,6 +76,12 @@ extension AnnexCapabilities {
         public let reasons: [String]
         public let fallbacks: [String]
         public let cellStates: [String]
+        public let autoOffReasons: [String]?
+        public let skipped: [String]?
+        public let quotaStates: [String]?
+        public let unknownReasons: [String]?
+        public let quotaSources: [String]?
+        public var canUpdate: Bool { version == 1 && commands.contains("helperRouting.update") && (canEditPresets || modes.contains("auto")) }
         public var supportsPresets: Bool { version == 1 && modes.contains("preset") }
         public var canEditPresets: Bool { supportsPresets && scopes.contains("app") && commands.contains("helperRouting.update") }
     }

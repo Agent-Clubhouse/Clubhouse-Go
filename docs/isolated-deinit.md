@@ -31,7 +31,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
 | `CompanionDecisionQueue` | arc_only | Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted. |
-| `CompanionHelperPresetsScreen` | arc_only | Sendable routing snapshot, String/Bool and Observation state; read/write closures are not retained. No UI fields or cleanup resources. |
+| `CompanionHelperPresetsScreen` | arc_only | Sendable routing/Auto/quota snapshot, String/Bool, Date, UUID, ContinuousClock.Instant and Observation state; read/write closures are not retained. No UI fields, retained tasks/timers or cleanup resources. |
 | `CompanionImageBytes` | arc_only | Immutable Data bytes, Sendable; no decoded UIImage is stored. |
 | `CompanionLifecycle` | main_actor | Owns injected main-actor transition closure; arbitrary captures not proved UI-free. |
 | `CompanionLiveService` | arc_only | Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. |
