@@ -34,6 +34,37 @@ import Testing
         conversation.items.append(.notice(id: "local", text: "Local edit"))
         #expect(store.timelineProjection(for: target).rows(for: conversation).last?.id == "notice:local")
     }
+    @Test func toolChunksOnlyReplaceTheirRunAndAttentionChangesStillSplitIt() {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let target = CompanionPreviewService.target
+        let history = (0..<5_000).map { CompanionTimelineItem.notice(id: "notice-\($0)", text: "Visible notice") }
+        var tool = CompanionTool(id: "tool", name: "Run", summary: "", state: .running)
+        store.apply(.timeline(target, items: history + [.tool(tool)], sequence: 1, reset: true))
+        _ = store.timelineRows(for: target)
+        let projection = store.timelineProjection(for: target)
+        for step in 2...201 {
+            tool.output = "Chunk \(step)"
+            store.apply(.upsert(target, .tool(tool), sequence: step))
+            #expect(store.timelineRows(for: target).last?.id == "activity:tool:tool")
+        }
+        #expect(projection.regroupedItemCount == 5_001)
+        #expect(projection.toolUpdateCount == 200)
+        tool.state = .failed
+        store.apply(.upsert(target, .tool(tool), sequence: 202))
+        #expect(store.timelineRows(for: target).last == .item(.tool(tool)))
+        #expect(projection.regroupedItemCount == 10_002)
+    }
+    @Test func snapshotsReleaseStaleHiddenRowsBeforeTheNextRender() {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let target = CompanionPreviewService.target
+        store.apply(.timeline(target, items: [.notice(id: "old", text: "Old payload")], sequence: 1, reset: true))
+        _ = store.timelineRows(for: target)
+        let projection = store.timelineProjection(for: target)
+        #expect(projection.retainedRowCount == 1)
+        store.apply(.timeline(target, items: [], sequence: 2, reset: true))
+        #expect(projection.retainedRowCount == 0)
+        #expect(store.timelineRows(for: target).isEmpty)
+    }
     @Test func revisionDoesNotChangeSemanticConversationEquality() {
         let a = CompanionConversation()
         var b = a; b.items = []
