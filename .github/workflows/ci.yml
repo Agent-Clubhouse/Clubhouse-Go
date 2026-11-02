@@ -138,7 +138,9 @@ jobs:
             -quiet
 
       - name: Check reviewed deinit field-affinity policy
-        run: python3 scripts/check-isolated-deinits.py DerivedData/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
+        run: |
+          python3 -m unittest discover -s scripts/deinit/tests
+          python3 scripts/check-isolated-deinits.py DerivedData/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
 
       # tar keeps the bundles' symlinks and executable bits, which an artifact zip drops.
       - name: Package test products

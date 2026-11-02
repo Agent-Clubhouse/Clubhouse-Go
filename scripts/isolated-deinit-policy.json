@@ -3,12 +3,82 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review."
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {
+          "CompanionStore.TranscriptKey": {
+            "sessionID": "String ?",
+            "target": "CompanionTarget"
+          }
+        },
+        "properties": {
+          "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",
+          "clock": "AnnexClock",
+          "contentRoots": "[ CompanionTarget : CompanionContentRoots ]",
+          "conversations": "[ CompanionTarget : CompanionConversation ]",
+          "createError": "String ?",
+          "createInProgress": "Bool",
+          "dispatcherErrors": "[ String : String ]",
+          "dispatcherSwitching": "Set < String >",
+          "draftPersistence": "( any CompanionDraftPersistence ) ?",
+          "drafts": "[ CompanionTarget : String ]",
+          "finishedError": "String ?",
+          "finishedPersistence": "( any CompanionFinishedPersistence ) ?",
+          "finishedRuns": "CompanionFinishedRuns",
+          "helperRequestErrors": "[ String : String ]",
+          "helperRequestsInFlight": "Set < String >",
+          "historyGenerations": "[ CompanionTarget : UUID ]",
+          "hosts": "[ CompanionHost ]",
+          "imagesRefused": "[ CompanionTarget : String ]",
+          "justCreated": "CompanionTarget ?",
+          "listeningTask": "Task < Void , Never > ?",
+          "operationErrors": "[ CompanionTarget : String ]",
+          "pendingCommands": "Set < CompanionTarget >",
+          "pendingFinishedRemovals": "Set < CompanionTarget >",
+          "pendingProjectStates": "[ CompanionProjectTarget : CompanionProjectState ]",
+          "projectStateError": "String ?",
+          "remoteImageOrder": "[ String ]",
+          "remoteImages": "[ String : CompanionImageBytes ]",
+          "selection": "CompanionTarget ?",
+          "sendRequests": "[ String : CompanionSendRequest ]",
+          "service": "any CompanionService",
+          "spawnError": "String ?",
+          "spawnInProgress": "Bool",
+          "transcriptExpansions": "[ TranscriptKey : CompanionTranscriptExpansion ]",
+          "uncertainCreateRequest": "CompanionCreateRequest ?",
+          "uncertainSpawnRequest": "CompanionSpawnRequest ?",
+          "uploadedAttachmentIDs": "[ String : String ]"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "AnnexManualClock": {
       "policy": "arc_only",
       "source": "Annex/Annex/Transport/AnnexClock.swift",
-      "reason": "Lock-protected value state and Sendable task continuations; no UIKit ownership."
+      "reason": "Lock-protected value state and Sendable task continuations; no UIKit ownership.",
+      "surface": {
+        "bases": [
+          "@ unchecked Sendable"
+        ],
+        "nestedValueProperties": {
+          "AnnexManualClock.Sleeper": {
+            "continuation": "CheckedContinuation < Void , Error >",
+            "deadline": "Duration"
+          }
+        },
+        "properties": {
+          "cancelled": "Set < UUID >",
+          "elapsed": "Duration",
+          "lock": "NSLock",
+          "origin": "Date",
+          "sleepers": "[ UUID : Sleeper ]",
+          "waiters": "[ ( count : Int , continuation : CheckedContinuation < Void , Never > ) ]"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionRuntime": {
       "policy": "main_actor",
@@ -18,7 +88,17 @@
     "CompanionMarkdown.Box": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionMarkdown.swift",
-      "reason": "Immutable markdown document value; NSObject cache wrapper has no UI fields."
+      "reason": "Immutable markdown document value; NSObject cache wrapper has no UI fields.",
+      "surface": {
+        "bases": [
+          "NSObject"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "document": "CompanionMarkdownDocument"
+        },
+        "storageMacros": []
+      }
     },
     "PassthroughWindow": {
       "policy": "main_actor",
@@ -38,7 +118,18 @@
     "CompanionImageBytes": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionModels.swift",
-      "reason": "Immutable Data bytes, Sendable; no decoded UIImage is stored."
+      "reason": "Immutable Data bytes, Sendable; no decoded UIImage is stored.",
+      "surface": {
+        "bases": [
+          "Sendable",
+          "Hashable"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "data": "Data"
+        },
+        "storageMacros": []
+      }
     },
     "ResourceBundleClass": {
       "policy": "generated",
@@ -53,57 +144,240 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review."
+      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review.",
+      "surface": {
+        "bases": [
+          "CompanionService"
+        ],
+        "nestedValueProperties": {
+          "CompanionLiveService.LiveState": {
+            "pendingPermission": "Bool",
+            "pendingQuestion": "Bool",
+            "sessionState": "String ?",
+            "status": "String ?"
+          }
+        },
+        "properties": {
+          "buffers": "[ CompanionTarget : [ AnnexJSON ] ]",
+          "capabilities": "[ String : AnnexCapabilities ]",
+          "dispatcherCatalog": "[ String : AnnexJSON ]",
+          "dispatcherFlags": "[ String : ( enabled : Bool , flagOn : Bool ) ]",
+          "eventGenerations": "[ String : UUID ]",
+          "eventTasks": "[ String : Task < Void , Never > ]",
+          "historyGenerations": "[ CompanionTarget : UUID ]",
+          "hosts": "[ String : CompanionHost ]",
+          "iconCatalog": "[ String : ( projects : AnnexJSON , agents : AnnexJSON ) ]",
+          "isSuspended": "Bool",
+          "knownCapabilities": "Set < String >",
+          "needsCatchUp": "Set < String >",
+          "onRoutes": "( ( String , AnnexCapabilities . Routes ) -> Void ) ?",
+          "onUnreachable": "( ( String ) -> Void ) ?",
+          "prepareResume": "( ( ) async -> Set < String > ) ?",
+          "projections": "[ CompanionTarget : CompanionChatProjector ]",
+          "quickCatalog": "[ String : AnnexJSON ]",
+          "readOnly": "Set < CompanionTarget >",
+          "refreshAgain": "Set < String >",
+          "refreshTasks": "[ String : Task < Void , Never > ]",
+          "savedCommands": "[ String : AnnexCommand ]",
+          "streamDiagnostics": "CompanionStreamDiagnostics",
+          "subscribers": "[ UUID : AsyncStream < CompanionEvent > . Continuation ]",
+          "transports": "[ String : any AnnexTransporting ]",
+          "windowsHosts": "Set < String >"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionLocalDrafts": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift",
-      "reason": "UserDefaults (thread-safe Foundation) plus fixed String; deinit performs no write."
+      "reason": "UserDefaults (thread-safe Foundation) plus fixed String; deinit performs no write.",
+      "surface": {
+        "bases": [
+          "CompanionDraftPersistence"
+        ],
+        "nestedValueProperties": {
+          "CompanionLocalDrafts.Entry": {
+            "target": "CompanionTarget",
+            "text": "String"
+          }
+        },
+        "properties": {
+          "defaults": "UserDefaults",
+          "key": "String"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionPreferences": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreferences.swift",
-      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained."
+      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "collapsedAgentKeys": "Set < String >",
+          "defaults": "UserDefaults",
+          "deviceName": "String",
+          "expandedFolds": "Set < String >",
+          "idleDays": "Int",
+          "idleExpanded": "Bool",
+          "inactiveProjects": "[ String ]",
+          "lastHostID": "String ?",
+          "pinnedProjects": "[ String ]",
+          "projectActivity": "[ String : Date ]",
+          "projectOrder": "[ String ]",
+          "projectSort": "CompanionProjectSort",
+          "systemDeviceName": "String"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "CompanionArchiveReader": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift",
-      "reason": "Sendable transport reference and value target/session/event dictionary; no UI fields."
+      "reason": "Sendable transport reference and value target/session/event dictionary; no UI fields.",
+      "surface": {
+        "bases": [
+          "CompanionArchiveReading"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "eventsBySequence": "[ Int64 : AnnexJSON ]",
+          "readOnly": "Bool",
+          "sessionID": "String",
+          "target": "CompanionTarget",
+          "transport": "any AnnexTransporting"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionDecisionQueue": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionDecisionQueue.swift",
-      "reason": "Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted."
+      "reason": "Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {
+          "CompanionDecisionQueue.Pending": {
+            "agentName": "String",
+            "approval": "CompanionApproval",
+            "option": "CompanionApprovalOption",
+            "target": "CompanionTarget"
+          }
+        },
+        "properties": {
+          "commit": "@ MainActor ( Pending ) async -> Void",
+          "delay": "Duration",
+          "pending": "[ Pending ]",
+          "timers": "[ String : Task < Void , Never > ]"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "CompanionLocalFinished": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift",
-      "reason": "UserDefaults plus fixed String; no UI fields or deinit I/O."
+      "reason": "UserDefaults plus fixed String; no UI fields or deinit I/O.",
+      "surface": {
+        "bases": [
+          "CompanionFinishedPersistence"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "defaults": "UserDefaults",
+          "key": "String"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionMessageSlices.Box": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift",
-      "reason": "Immutable array of message-slice values; NSObject cache wrapper has no UI fields."
+      "reason": "Immutable array of message-slice values; NSObject cache wrapper has no UI fields.",
+      "surface": {
+        "bases": [
+          "NSObject"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "slices": "[ CompanionMessageSlice ]"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionPartExpansion": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift",
-      "reason": "Optional Bool and Observation registrar only."
+      "reason": "Optional Bool and Observation registrar only.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "open": "Bool ?"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "CompanionStateLifetime": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift",
-      "reason": "Restricted reviewed production constructors: Queue or Int; factory captures only actor-owned model references, never raw UI. Any new constructor site requires review. Runtime use from #213 requires re-review when merged."
+      "reason": "Reviewed constructors produce Queue or actor-isolated Runtime. Factories capture Store or a Bool; Runtime retains isolated teardown for its UIKit fields. New constructor/capture sites require review.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "cached": "Value ?",
+          "makeValue": "( ) -> Value"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionTerminalFocus": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",
-      "reason": "Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view."
+      "reason": "Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "isEditing": "Bool",
+          "view": "weak CompanionTerminalUIView ?"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "CompanionPreviewService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
-      "reason": "Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields."
+      "reason": "Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields.",
+      "surface": {
+        "bases": [
+          "CompanionService"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "continuation": "AsyncStream < CompanionEvent > . Continuation ?",
+          "mcpEnabled": "Bool",
+          "showsDispatcher": "Bool",
+          "showsHelperIdentity": "Bool",
+          "showsHelperRequests": "Bool",
+          "showsHelperTree": "Bool",
+          "showsLongBlocks": "Bool",
+          "showsLongReply": "Bool",
+          "showsTerminalAgent": "Bool",
+          "streamsUpdates": "Bool"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionTerminalUIView": {
       "policy": "main_actor",
@@ -143,82 +417,190 @@
     "CompanionStreamDiagnostics": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionStreamDiagnostics.swift",
-      "reason": "Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields."
+      "reason": "Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {
+          "CompanionStreamDiagnostics.Cursor": {
+            "sequence": "Int64",
+            "session": "String",
+            "turn": "AnnexStreamDiagnostic ?"
+          }
+        },
+        "properties": {
+          "cursors": "[ CompanionTarget : Cursor ]",
+          "telemetry": "AnnexTelemetry"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionLiveTerminalChannel": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift",
-      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned."
+      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned.",
+      "surface": {
+        "bases": [
+          "CompanionTerminalChannel"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "awaitingSnapshot": "Bool",
+          "connected": "Bool",
+          "continuation": "AsyncStream < CompanionTerminalChannelEvent > . Continuation ?",
+          "id": "String",
+          "isOpen": "Bool",
+          "listening": "Task < Void , Never > ?",
+          "lost": "Bool",
+          "pendingOutput": "[ ( data : String , outputSeq : Int64 ? ) ]",
+          "scope": "CompanionTerminalScope",
+          "size": "( cols : Int , rows : Int ) ?",
+          "snapshotSeq": "Int64 ?",
+          "subscription": "Task < AsyncStream < AnnexTerminalEvent > , Never > ?",
+          "transport": "any AnnexTransporting"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionTranscriptExpansion": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift",
-      "reason": "Dictionary owns only ARC-safe CompanionPartExpansion values."
+      "reason": "Dictionary owns only ARC-safe CompanionPartExpansion values.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "parts": "[ String : CompanionPartExpansion ]"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionPreviewTerminalChannel": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreviewTerminal.swift",
-      "reason": "Value scope/text/size and Sendable stream continuation; no UI fields."
+      "reason": "Value scope/text/size and Sendable stream continuation; no UI fields.",
+      "surface": {
+        "bases": [
+          "CompanionTerminalChannel"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "continuation": "AsyncStream < CompanionTerminalChannelEvent > . Continuation ?",
+          "isOpen": "Bool",
+          "line": "String",
+          "scope": "CompanionTerminalScope",
+          "size": "( cols : Int , rows : Int ) ?"
+        },
+        "storageMacros": []
+      }
     }
   },
-  "reviewedSources": {
-    "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift": "2be583a2a27f53ddee3a51ffafe2c81a0f8a632df00276365a0653643f49dcca",
-    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "470348ece6003bd4818903fdb73ac3c6901bd3d4cb0d5187da60fabe31634a86",
-    "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift": "a15a474464e096a03265d539254d1f5ace5eb1a97cf127d9764d7fb824f26dcb",
-    "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift": "f1ed5c16fa4be0d5e34eb12817a671d691b8814b6ce17c7b832dc10f743d7ea0",
-    "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift": "cfe559f2a4d58b3a5ab3ea7a5a68ba1d482a470c347babbc4426e90733ed840d",
-    "Annex/Annex/Companion/Adapters/CompanionPreferences.swift": "0713614b41cae1bdda1556cf7be3f2a5c18ddec86da757e78c34040e158c6dc2",
-    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "0a9a8b2f8d7b9a14b8f97d9ad72a03900f09ab859e1baf3be4695b290d7d5240",
-    "Annex/Annex/Companion/Adapters/CompanionPreviewTerminal.swift": "ee5484910ed7f02b8d3ff3d2a74608ecac9f19e3c3016fd3a81848614ea078ee",
-    "Annex/Annex/Companion/Adapters/CompanionStreamDiagnostics.swift": "b22aec540b25ea83bc01fc3f6b43d78c9d5c38ec86c0fea7e505c25a5bfb761d",
-    "Annex/Annex/Companion/Domain/CompanionArchive.swift": "ddc4c3c4f3bd69ff62b202ddf9e705f83a946d3f5a6a397401905f431ef31234",
-    "Annex/Annex/Companion/Domain/CompanionDecisionQueue.swift": "de4f58d5f56a7593f540f0dad5a7ac86ddb283686cc30ca288222102a5700eca",
-    "Annex/Annex/Companion/Domain/CompanionLifecycle.swift": "52caa3ecdcba6ba0b1833797ba3242e082b8de0e6a1d12e915e8e26dc9f14284",
-    "Annex/Annex/Companion/Domain/CompanionMarkdown.swift": "83dee5602ce75d8cfac80dd16c2df9b50c78f246f468c7c33b007d818d5682bb",
-    "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift": "8dbf9536ba2041c0c50089db45db54c9abed4c6a828975076a04303c45e04d94",
-    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "b58e4b2618da6b96b34042d9779b870152dbc32ca12c8b6bad434850a295b181",
-    "Annex/Annex/Companion/Domain/CompanionModels.swift": "08f2f70769fde378b6bf62bb3bd11a131583f4f58a347b0f7d6437cfac847982",
-    "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift": "6caccc162ea3a3de8ad9be13a25c0cb96cb5913fccf59c262b6176e64586c6cc",
-    "Annex/Annex/Companion/Domain/CompanionStore.swift": "fa9d2f79158e820c3a6cccbfe7409ddcdc0b8bc2dfc05116592028623fe2a0ee",
-    "Annex/Annex/Companion/Domain/CompanionTerminal.swift": "d5ece39d22f0e2f6766dbc40a0db956fecf13f94fa3f3e0fb2193374e7a2327d",
-    "Annex/Annex/Companion/Views/CompanionAppRoot.swift": "83720114a48e9545daf92686436c8a58f8bc58fc3297afc5e466f3325479c860",
-    "Annex/Annex/Companion/Views/CompanionComposerPaste.swift": "ee5fee74fdd7cff0c74206e5cb3e42b588e0bfede2295b70a67483d45bf923ce",
-    "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift": "078553d0e0544a0989596dfde8e567240c62c127a7f931b213d08c14feec6af6",
-    "Annex/Annex/Companion/Views/CompanionFeedback.swift": "053722d6e95b70ca08ae0b5510abbe4e737dd62f74decb8a5109796c1443f3f8",
-    "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift": "4d1dab3165c72409c4a325c4cffc0d32e334366028bb2b5e51ff87faac138b09",
-    "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": "2c544c05e5b01d16c76d52a1c269914d06ab79b5e45c263a18ed59907702e9ee",
-    "Annex/Annex/Companion/Views/CompanionQRPairing.swift": "c5792548bf9d7bcd496c543e27f60603130ecec83abcca9dd3d4e49e0f1d3168",
-    "Annex/Annex/Companion/Views/CompanionRootView.swift": "cb99a9f4fef300df2a7bc6f35596fc1f4aa06d4e4e1f34c314c00a18e388eef6",
-    "Annex/Annex/Companion/Views/CompanionTelemetry.swift": "f93fff721a15baa395b925b4a3c727f2979044bc57ac927a0a075e1b6457c34c",
-    "Annex/Annex/Companion/Views/CompanionTerminalView.swift": "c99b93596c6d6a09b745ef93f5973736ec9cf9ed06f111a3926a2eb8c65f1f33",
-    "Annex/Annex/Companion/Views/CompanionWelcome.swift": "02a823a23de87d4dc9ea0965a8ff4ce055c26ce4e6efdff15b3150482a8116bc",
-    "Annex/Annex/Transport/AnnexClock.swift": "99e568c5b6c7a3a6596bc3179cacfdffb1b91cf81bda237652654c9789dd192f"
-  },
-  "reviewedConstructorFiles": {
-    "CompanionStateLifetime": [
-      "Annex/Annex/Companion/Views/CompanionRootView.swift",
-      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
-    ],
-    "CompanionDecisionQueue": [
-      "Annex/Annex/Companion/Views/CompanionRootView.swift",
-      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
-    ],
-    "CompanionStore": [
-      "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
-      "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift",
-      "Annex/Annex/Companion/Views/CompanionWelcome.swift",
-      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
-    ]
-  },
-  "reviewedCallbackFiles": {
-    "onUnreachable": [
-      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
-    ],
-    "onRoutes": [
-      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
-    ],
-    "prepareResume": [
-      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
-    ]
+  "captureSites": {
+    "Annex/Annex/Companion/Views/CompanionAppRoot.swift": {
+      "callback:onRoutes": [
+        {
+          "expression": "service . onRoutes = { [ weak self ] hostID , routes in guard let self else { return } Task { try ? await self . registry . learnRoutes ( hostID : hostID , routes . endpoints ) } }",
+          "producers": {
+            "self": "CompanionRuntime"
+          }
+        }
+      ],
+      "callback:onUnreachable": [
+        {
+          "expression": "service . onUnreachable = { [ weak self ] hostID in Task { await self ? . rediscover ( hostID : hostID ) } }",
+          "producers": {
+            "self": "CompanionRuntime"
+          }
+        }
+      ],
+      "callback:prepareResume": [
+        {
+          "expression": "service . prepareResume = { [ weak self ] in await self ? . switchToAnsweringRoutes ( ) ?? [ ] }",
+          "producers": {
+            "self": "CompanionRuntime"
+          }
+        }
+      ],
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionRuntime ( ) }",
+          "producers": {}
+        },
+        {
+          "expression": "CompanionStateLifetime { CompanionRuntime ( registry : testMode ? AnnexTransportRegistry ( ) : AnnexTransportRegistry ( pairings : KeychainAnnexPairingStore ( ) ) , persistsDrafts : ! testMode ) }",
+          "producers": {
+            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil"
+          }
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : service , draftPersistence : persistsDrafts ? CompanionLocalDrafts ( ) : nil , finishedPersistence : persistsDrafts ? CompanionLocalFinished ( ) : nil )",
+          "producers": {
+            "persistsDrafts": "Bool",
+            "service": "CompanionLiveService ( )"
+          }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift": {
+      "constructor:CompanionDecisionQueue": [
+        {
+          "expression": "CompanionDecisionQueue { _ in }",
+          "producers": {}
+        },
+        {
+          "expression": "CompanionDecisionQueue { _ in }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionDecisionQueue { _ in } }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : service )",
+          "producers": {
+            "service": "CompanionPreviewService ( showsDispatcher : true )"
+          }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( streamsUpdates : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-stream \" ) , showsHelperRequests : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-requests \" ) , showsTerminalAgent : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-terminal-agent \" ) , showsLongBlocks : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-blocks \" ) , showsLongReply : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-reply \" ) , showsDispatcher : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-dispatcher \" ) , mcpEnabled : ! ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-mcp-off \" ) , showsHelperIdentity : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-identity \" ) , showsHelperTree : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-tree \" ) ) )",
+          "producers": {}
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionRootView.swift": {
+      "constructor:CompanionDecisionQueue": [
+        {
+          "expression": "CompanionDecisionQueue { decision in await store . respond ( decision . approval , option : decision . option , target : decision . target ) }",
+          "producers": {
+            "store": "CompanionStore"
+          }
+        }
+      ],
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { [ store ] in CompanionDecisionQueue { decision in await store . respond ( decision . approval , option : decision . option , target : decision . target ) } }",
+          "producers": {
+            "store": "CompanionStore"
+          }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionWelcome.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( ) )",
+          "producers": {}
+        }
+      ]
+    }
   }
 }

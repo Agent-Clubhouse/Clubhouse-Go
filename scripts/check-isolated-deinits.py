@@ -5,12 +5,12 @@ Field/constructor changes invalidate review fingerprints; new isolated classes r
 classification. Never update the policy merely to suppress a failure: review owned
 fields, callback captures and pointee deinits, then document the decision in the PR.
 """
-import hashlib
 import json
 import pathlib
 import re
 import subprocess
 import sys
+from deinit_surface import extract
 
 root = pathlib.Path(__file__).resolve().parent.parent
 policy_path = 'scripts/isolated-deinit-policy.json'
@@ -24,15 +24,14 @@ for line in demangled.splitlines():
         name = line.removeprefix('ClubhouseGo.').removesuffix('.__isolated_deallocating_deinit')
         isolated.add(re.sub(r'\((\w+) in _[0-9A-F]+\)', r'\1', name))
 errors = []
-for source, expected in policy['reviewedSources'].items():
-    if hashlib.sha256((root / source).read_bytes()).hexdigest() != expected:
-        errors.append(f'{source}: field/ownership review is stale; re-review before changing its fingerprint')
+sources = [str(p.relative_to(root)) for p in (root / 'Annex/Annex').rglob('*.swift')]
+surfaces = extract(root, sources)
 for name in isolated - policy['classes'].keys():
     errors.append(
         f'{name}: add this class to {policy_path} and the docs/isolated-deinit.md ownership table. '
         'Use arc_only only after reviewing stored fields, constructor/callback captures and pointee teardown '
         'to prove off-main ARC is safe; then add an empty nonisolated deinit. '
-        'Otherwise use main_actor and retain isolated teardown. Record reviewed source fingerprints only after that review.'
+        'Otherwise use main_actor and retain isolated teardown. Record the narrow stored-property/type and capture surfaces only after that review.'
     )
 for name, entry in policy['classes'].items():
     mode = entry['policy']
@@ -41,8 +40,12 @@ for name, entry in policy['classes'].items():
     source = entry['source']
     if mode != 'generated' and not source:
         errors.append(f'{name}: {policy_path} requires the reviewed class source path for {mode}')
-    if source and source not in policy['reviewedSources']:
-        errors.append(f'{name}: add {source} to {policy_path} reviewedSources only after field/capture ownership review')
+    if mode == 'arc_only':
+        actual = surfaces.get(source, {}).get('classes', {}).get(name)
+        if actual is None or entry.get('surface') != actual:
+            errors.append(f'{name}: stored properties/types, base storage, or storage macros changed; review ownership and update only this class surface in {policy_path}')
+        if '<requires explicit type>' in json.dumps(actual):
+            errors.append(f'{name}: add an explicit stored-property type so ownership review does not depend on method implementations')
     if mode == 'arc_only' and name in isolated:
         errors.append(f'{name}: ARC-only policy requires an explicit nonisolated deinit')
     if mode in ('main_actor', 'generated') and name not in isolated:
@@ -50,19 +53,14 @@ for name, entry in policy['classes'].items():
     if mode == 'arc_only' and entry['source']:
         if 'nonisolated deinit {}' not in (root / entry['source']).read_text():
             errors.append(f'{name}: missing reviewed empty nonisolated deinit')
-for name, allowed in policy['reviewedConstructorFiles'].items():
-    for source in (root / 'Annex/Annex').rglob('*.swift'):
-        text = re.sub(r'\b(?:class|extension)\s+' + name + r'\b', '', source.read_text())
-        if re.search(r'\b' + name + r'\s*(?:<[^>]*>\s*)?(?:\(|\{)', text):
-            if str(source.relative_to(root)) not in allowed:
-                errors.append(f'{source.relative_to(root)}: new {name} constructor needs capture/value ownership review')
-for name, allowed in policy['reviewedCallbackFiles'].items():
-    for source in (root / 'Annex/Annex').rglob('*.swift'):
-        if re.search(r'\.' + name + r'\s*=', source.read_text()):
-            if str(source.relative_to(root)) not in allowed:
-                errors.append(f'{source.relative_to(root)}: new {name} assignment needs capture-affinity review')
+actual_sites = {path: data['captureSites'] for path, data in surfaces.items() if data['captureSites']}
+for path in actual_sites.keys() | policy['captureSites'].keys():
+    actual, expected = actual_sites.get(path, {}), policy['captureSites'].get(path, {})
+    for site in actual.keys() | expected.keys():
+        if actual.get(site) != expected.get(site):
+            errors.append(f'{path}: {site} capture/producer site changed; review the captured owners and update this site in {policy_path} captureSites')
 if errors:
     print('\n'.join(errors), file=sys.stderr)
-    print(f'Review rules: {policy_path}; docs/isolated-deinit.md. Do not waive UI teardown affinity or refresh fingerprints without ownership review.', file=sys.stderr)
+    print(f'Review rules: {policy_path}; docs/isolated-deinit.md. Do not waive UI teardown affinity or refresh ownership surfaces without review.', file=sys.stderr)
     sys.exit(1)
 print(f'Deinit policy: {sum(e["policy"] == "arc_only" for e in policy["classes"].values())} ARC-only protections; {len(isolated)} reviewed isolated paths retained. UI affinity is not waived.')
