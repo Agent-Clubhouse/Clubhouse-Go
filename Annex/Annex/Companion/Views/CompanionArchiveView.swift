@@ -66,7 +66,7 @@ private struct CompanionArchivedSessionView: View {
     @State private var shownEntries = CompanionTimelineWindow.pageSize
 
     private var window: CompanionTimelineWindow? {
-        transcript.map { CompanionTimelineWindow(CompanionTimelineEntry.entries(for: $0.items.map { .item(archived($0)) }), limit: shownEntries) }
+        transcript.map { CompanionTimelineWindow(rows: $0.items.map { .item(archived($0)) }, limit: shownEntries) }
     }
 
     var body: some View {

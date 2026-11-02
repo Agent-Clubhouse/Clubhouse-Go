@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// One piece of a long agent reply, shown as its own row in the conversation (#188). A row thousands of points
 /// tall kept the timeline's lazy stack re-estimating its layout as you scrolled past it, which stalled the main
@@ -213,6 +216,29 @@ struct CompanionTimelineWindow: Equatable, Sendable {
     var entries: [CompanionTimelineEntry]
     /// How many older entries are left out.
     var hiddenCount: Int
+
+    /// Number of rows expanded into entries; useful for a deterministic bound independent of timing.
+    private(set) var preparedRowCount = 0
+
+    /// Build newest rows first, stopping before parsing Markdown for hidden history. A whole reply still crosses
+    /// the window edge intact. `hiddenCount` here counts omitted rows (only its nonzero state is presented).
+    init(rows: [CompanionTimelineRow], limit: Int) {
+        self = AnnexTelemetry.shared.measurePerformance(.timelineBuild, messageCount: rows.count) {
+            var remaining = rows.count
+            var groups: [[CompanionTimelineEntry]] = []
+            var count = 0
+            while remaining > 0 && count < max(0, limit) {
+                remaining -= 1
+                let group = CompanionTimelineEntry.entries(for: [rows[remaining]])
+                groups.append(group); count += group.count
+            }
+            var window = CompanionTimelineWindow([], limit: 0)
+            window.entries = groups.reversed().flatMap { $0 }
+            window.hiddenCount = remaining
+            window.preparedRowCount = groups.count
+            return window
+        }
+    }
 
     /// At least the newest `limit` entries, widened so a reply's slices are never split across the window's edge.
     init(_ all: [CompanionTimelineEntry], limit: Int) {

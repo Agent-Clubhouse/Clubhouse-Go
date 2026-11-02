@@ -275,3 +275,24 @@ private struct RoutineFailure: Error {}
     telemetry.clear()
     #expect(telemetry.drainSummaries().isEmpty)
 }
+
+@Test func localPerformanceSummariesAreBoundedNumericAndGenerationFenced() {
+    let clock = DiagnosticClock()
+    let telemetry = AnnexTelemetry(clock: { clock.now() })
+    telemetry.measurePerformance(.projectorApply, messageCount: 50) { clock.advance(0.001) }
+    #expect(telemetry.drainSummaries().isEmpty)
+    telemetry.setEnabled(true)
+    for operation in AnnexPerformanceOperation.allCases {
+        for _ in 0..<100 {
+            telemetry.measurePerformance(operation, messageCount: 5_000) { clock.advance(0.002) }
+        }
+    }
+    let summaries = telemetry.drainSummaries()
+    #expect(summaries.count == AnnexPerformanceOperation.allCases.count)
+    #expect(summaries.allSatisfy { $0.count == 100 && $0.messageCount == 5_000 && abs($0.totalMs - 200) < 0.001 })
+    #expect(telemetry.snapshot().records.isEmpty, "Routine work must not allocate a span per body or chunk")
+    telemetry.measurePerformance(.timelineBuild, messageCount: Int.max) { clock.advance(0.002) }
+    #expect(telemetry.drainSummaries().first?.messageCount == 1_000_000)
+    telemetry.measurePerformance(.markdownParse) { telemetry.clear() }
+    #expect(telemetry.drainSummaries().isEmpty, "Clear must fence an operation already in progress")
+}

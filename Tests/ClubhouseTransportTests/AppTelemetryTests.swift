@@ -158,3 +158,15 @@ private func strings(_ signals: [AnnexAppTelemetry.Signal]) -> [String] {
     }
     #expect(AnnexAppTelemetry.commonAttributes == ["app.telemetry.schema_version": .int(1), "app.platform": .string("ios")])
 }
+
+@Test func chatPerformanceSummaryExportsOnlyClosedKindAndNumbers() {
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    telemetry.measurePerformance(.timelineBuild, messageCount: 5_000) {}
+    let summary = telemetry.drainSummaries().first!
+    let log = logs(AnnexAppTelemetry.signals(for: summary)).first
+    #expect(log?.0 == "app.performance.summary")
+    #expect(log?.1["app.performance.kind"] == .string("timelineBuild"))
+    #expect(log?.1["count"] == .int(1))
+    #expect(log?.1["messageCount"] == .int(5_000))
+    #expect(log?.1["durationMs"] != nil)
+}

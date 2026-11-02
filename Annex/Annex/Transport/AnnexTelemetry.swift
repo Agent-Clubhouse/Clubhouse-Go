@@ -10,6 +10,12 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake, upload
     case createAgent, agentOptions, agentSettings, updateAgent, helperRequest, changes, updateProject, finishedQuick
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
+    case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
+}
+/// Only these fixed kinds can produce UI/model performance summaries.
+nonisolated public enum AnnexPerformanceOperation: String, CaseIterable, Sendable {
+    case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
+    var diagnostic: AnnexDiagnosticOperation { AnnexDiagnosticOperation(rawValue: rawValue)! }
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
@@ -94,6 +100,8 @@ nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
     public let failed: Int
     public let totalMs: Double
     public let maxMs: Double
+    public var messageCount: Int = 0
+    public var textBytes: Int = 0
     public var meanMs: Double { count == 0 ? 0 : totalMs / Double(count) }
 }
 nonisolated public struct AnnexDiagnosticSnapshot: Codable, Sendable {
@@ -351,6 +359,23 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         do { let value = try await body(); finish(.none); return value }
         catch { finish(AnnexDiagnosticFailure.classify(error)); throw error }
     }
+    /// High-frequency local work is aggregated, never one span per chunk/body pass. The caller supplies only a count.
+    /// Synchronous timing covers construction/model work, not subsequent SwiftUI layout or GPU rendering.
+    public func measurePerformance<T>(_ operation: AnnexPerformanceOperation, messageCount: Int = 0, textBytes: Int = 0, body: () throws -> T) rethrows -> T {
+        guard let generation = exporter.captureGeneration() else { return try body() }
+        let started = clock()
+        defer {
+            let elapsed = max(0, (clock() - started) * 1000)
+            _ = summarize(operation.diagnostic, elapsed, slow: elapsed >= 16, failed: false,
+                          messageCount: messageCount, textBytes: textBytes, generation: generation)
+        }
+        return try body()
+    }
+    /// Scheduling delay is supplied by a monotonic-clock probe; never records a stack or free-form label.
+    public func recordMainActorDelay(durationMs: Double, messageCount: Int) {
+        guard durationMs.isFinite else { return }
+        _ = summarize(.mainActorDelay, max(0, durationMs), slow: durationMs >= 100, failed: false, messageCount: messageCount)
+    }
     /// Returns and resets the routine summaries counted since the last call (or since capture changed).
     public func drainSummaries() -> [AnnexDiagnosticSummary] {
         lock.withLock {
@@ -359,13 +384,14 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         }
     }
     /// False, counting nothing, while capture is off.
-    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool) -> Bool {
+    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool, messageCount: Int = 0, textBytes: Int = 0, generation: Int? = nil) -> Bool {
         lock.withLock {
-            guard exporter.captureGeneration() != nil else { return false }
+            guard let current = exporter.captureGeneration(), generation == nil || generation == current else { return false }
             let ms = min(600_000, ms), old = summaries[operation]
             summaries[operation] = AnnexDiagnosticSummary(operation: operation, count: min(1_000_000, (old?.count ?? 0) + 1),
                 slow: min(1_000_000, (old?.slow ?? 0) + (slow ? 1 : 0)), failed: min(1_000_000, (old?.failed ?? 0) + (failed ? 1 : 0)),
-                totalMs: min(1e12, (old?.totalMs ?? 0) + ms), maxMs: max(old?.maxMs ?? 0, ms))
+                totalMs: min(1e12, (old?.totalMs ?? 0) + ms), maxMs: max(old?.maxMs ?? 0, ms), messageCount: max(old?.messageCount ?? 0, min(1_000_000, max(0, messageCount))),
+                textBytes: max(old?.textBytes ?? 0, min(1_000_000_000, max(0, textBytes))))
             return true
         }
     }

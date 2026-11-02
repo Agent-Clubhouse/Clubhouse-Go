@@ -82,7 +82,9 @@ import ClubhouseTransport
                 projection.sessionID = snapshot["sessionId"]?.string
                 // Queue kind must be known before replaying turn_started from a snapshot tail.
                 if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
-                projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
+                if projection.sessionID == projections[target]?.sessionID {
+                    projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
+                }
                 for event in snapshot["events"].arrayValue { projection.apply(event) }
                 if projection.sessionID == nil { projection.sessionID = snapshot["sessionId"]?.string }
                 for event in snapshot["pendingPermissions"].arrayValue + snapshot["pendingQuestions"].arrayValue {
@@ -1027,22 +1029,25 @@ import ClubhouseTransport
         hosts[hostID]?.allAgents.first { $0.id.agentID == agentID }?.id
     }
     private func project(_ event: AnnexJSON, target: CompanionTarget) {
-        var projection = projections[target] ?? .init()
-        projection.queueStateEventsSupported = capabilities[target.hostID]?.supportsQueueState == true
-        let oldSession = projection.sessionID
-        projection.apply(event)
+        let oldSession = projections[target]?.sessionID
+        let oldSequence = projections[target]?.lastSequence ?? 0
+        projections[target, default: .init()].queueStateEventsSupported = capabilities[target.hostID]?.supportsQueueState == true
+        AnnexTelemetry.shared.measurePerformance(.projectorApply, messageCount: projections[target]?.items.count ?? 0) {
+            projections[target, default: .init()].apply(event)
+        }
+        guard let projection = projections[target], projection.sessionID != oldSession || projection.lastSequence > oldSequence else { return }
         // A live session started after a read-only snapshot, as when history loads before a new agent's chat is up.
         // Its start (with the capabilities) may have arrived before the agent was listed, so re-read the snapshot.
         if let session = projection.sessionID, session != oldSession, readOnly.remove(target) != nil {
             Task { _ = try? await history(for: target) }
         }
-        projections[target] = projection
-        updateAgent(target, projection: projection)
-        emit(.timeline(target, items: projection.items, sequence: projection.lastSequence, reset: oldSession != projection.sessionID, sessionID: projection.sessionID))
-        emitHosts()
+        let changed = updateAgent(target, projection: projection)
+        emit(projection.liveUpdate(for: event, target: target, previousSessionID: oldSession))
+        if changed { emitHosts() }
     }
-    private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) {
-        guard var agent = hosts[target.hostID]?.agent(for: target) else { return }
+    @discardableResult private func updateAgent(_ target: CompanionTarget, projection: CompanionChatProjector) -> Bool {
+        guard var agent = hosts[target.hostID]?.agent(for: target) else { return false }
+        let previous = agent
         // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
         let runsOutsideChat = readOnly.contains(target) && agent.executionMode != nil
         if !runsOutsideChat { agent.status = projection.status }
@@ -1053,10 +1058,12 @@ import ClubhouseTransport
         agent.session = projection.session
         agent.chatControls = chatControls(projection, target: target)
         agent.slashCommands = slashCommands(projection, target: target)
-        if hosts[target.hostID]?.dispatcher?.agent?.id == target { hosts[target.hostID]?.dispatcher?.agent = agent; return }
+        guard agent != previous else { return false }
+        if hosts[target.hostID]?.dispatcher?.agent?.id == target { hosts[target.hostID]?.dispatcher?.agent = agent; return true }
         guard let projectIndex = hosts[target.hostID]?.projects.firstIndex(where: { $0.id == target.projectID }),
-              let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return }
+              let agentIndex = hosts[target.hostID]?.projects[projectIndex].agents.firstIndex(where: { $0.id == target }) else { return false }
         hosts[target.hostID]?.projects[projectIndex].agents[agentIndex] = agent
+        return true
     }
 
     // MARK: Dispatcher (`dispatcher` v1)

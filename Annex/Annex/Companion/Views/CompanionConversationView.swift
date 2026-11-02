@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 struct CompanionConversationView: View {
     @Bindable var store: CompanionStore
@@ -17,6 +18,7 @@ struct CompanionConversationView: View {
     @State private var slashHighlight = 0
     /// Where the slash was when the menu was dismissed; it stays closed for that word.
     @State private var slashDismissedAt: Int?
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
@@ -61,6 +63,7 @@ struct CompanionConversationView: View {
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
 
     var body: some View {
+        AnnexTelemetry.shared.measurePerformance(.conversationBody, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { composerFocused = true } }
@@ -117,6 +120,19 @@ struct CompanionConversationView: View {
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
+        .task(id: scenePhase == .active && showsActions) {
+            // A bounded summary while an open conversation is active. This is scheduling delay, not GPU frame time.
+            guard scenePhase == .active, showsActions else { return }
+            let clock = ContinuousClock()
+            while !Task.isCancelled {
+                let start = clock.now
+                do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+                guard !Task.isCancelled, scenePhase == .active else { return }
+                let elapsed = start.duration(to: clock.now).components
+                let ms = Double(elapsed.seconds) * 1_000 + Double(elapsed.attoseconds) / 1e15
+                AnnexTelemetry.shared.recordMainActorDelay(durationMs: max(0, ms - 250), messageCount: conversation.items.count)
+            }
+        }
         .onChange(of: connection) { _, current in
             if current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
@@ -125,6 +141,7 @@ struct CompanionConversationView: View {
         .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
+        }
     }
 
     private var contextHeader: some View {
@@ -216,7 +233,7 @@ struct CompanionConversationView: View {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
                 // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
                 // is a row per slice, so no row is far taller than the screen.
-                let window = CompanionTimelineWindow(CompanionTimelineEntry.entries(for: rows), limit: shownEntries)
+                let window = CompanionTimelineWindow(rows: rows, limit: shownEntries)
                 let entries = window.entries
                 // Each entry sets its own spacing, never negative.
                 VStack(alignment: .leading, spacing: 0) {
@@ -344,7 +361,7 @@ struct CompanionConversationView: View {
             Task { await store.retry(messageID: message.id, target: target) }
         }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
            removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
-           slice: slice, expansion: store.transcriptExpansion(for: target))
+           slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
     }
 
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
