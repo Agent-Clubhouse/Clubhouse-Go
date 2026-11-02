@@ -386,9 +386,24 @@ import SwiftUI
         #expect(text.contains("saved feedback stays on this device"))
     }
 
-    @Test func scopedSnapshotIsDurableThroughPauseBackoffAndKeepsFailuresWithoutAnExcerptCopy() async throws {
-        let clock = TelemetryFixtureClock(), network = TelemetryMockTransport(now: { clock.now })
-        let (_, model, bridge, source) = try compose(network, now: { clock.now })
+    @Test(arguments: [false, true])
+    func scopedSnapshotIsDurableThroughPauseBackoffAndKeepsFailuresWithoutAnExcerptCopy(holdRefresh: Bool) async throws {
+        // An offset catches wall-time mock expiries: the SDK rejects tokens over an hour ahead.
+        let clock = TelemetryFixtureClock(now: Date().addingTimeInterval(-60))
+        let network = TelemetryMockTransport(now: { clock.now })
+        // This test advances both retry clocks. The ordinary compose helper deliberately exercises
+        // Go's production factory, whose telemetry clock is wall time; advancing only Client's clock
+        // leaves a paused marker's telemetry backoff pending in real time.
+        let source = AnnexTelemetry()
+        let client = try Client(configuration: config, transport: network, enrollmentStore: TelemetryMemoryEnrollment(),
+                                feedbackStore: TelemetryMemoryQueue(), now: { clock.now })
+        CompanionFeedback.adoptSession(of: source)
+        let bridge = try CompanionTelemetry(client: client, configuration: config, source: source,
+                                            transport: network, observeAppLifecycle: false, now: { clock.now })
+        let model = FeedbackModel(client: client, telemetry: bridge.telemetry,
+                                  incidentProvider: { CompanionFeedback.snapshotIncident(telemetry: source) },
+                                  diagnosticsProvider: { CompanionFeedback.diagnosticsSnapshot(from: source) },
+                                  reportDiagnostics: .off)
         defer { bridge.stop() }
         await model.setActive(true); await model.connect(String(repeating: "i", count: 43))
         recordRetry(on: source)
@@ -405,14 +420,47 @@ import SwiftUI
         #expect(report.diagnostics == frozen)
         #expect(await model.deliver(report, includeDiagnostics: true) == .saved(.paused))
         #expect(await network.reportBodies.isEmpty)
+        // Force the same busy-client interleaving as the unstructured marker's token refresh.
+        // A slow access response must not be mistaken for a completed report pump pass.
+        if holdRefresh { await network.holdNextRefresh() }
         await model.setActive(true); await network.setReportStatus(503)
+        var refresh: Task<String?, Never>?
+        if holdRefresh {
+            refresh = Task { await client.telemetryToken() }
+            try await waitUntil { await network.refreshIsHeld }
+        }
         await model.tick(); await model.tick()
+        if holdRefresh {
+            #expect(await network.reportBodies.isEmpty)
+            await network.releaseRefresh()
+            _ = await refresh?.value
+        }
+        // tick may return while the marker owns access refresh. Model the foreground pump's
+        // later passes until an attempt actually completes, without advancing the retry clock.
+        try await waitUntil {
+            await model.tick()
+            return await network.reportBodies.count >= 1
+        }
+        await model.tick()
         #expect(await network.reportBodies.count == 1)
-        clock.advance(61); await network.setReportStatus(200); await model.tick()
+        #expect(model.status?.lastDeliveryResult == "server")
+        clock.advance(59); await model.tick()
+        #expect(await network.reportBodies.count == 1, "Foreground passes do not bypass the report backoff")
+        clock.advance(2); await network.setReportStatus(200)
+        try await waitUntil {
+            await model.tick()
+            return await network.reportBodies.count >= 2 && model.status?.queued == 0
+        }
         let sent = await network.requests.filter { $0.url!.path.hasSuffix("/reports") }.compactMap(\.httpBody)
         #expect(sent.count == 2 && sent[0] == sent[1], "Retry sends the frozen body, not a new capture")
         #expect(model.status?.queued == 0)
-        _ = await bridge.telemetry.flush()
+        // deliver schedules this marker in a separate Task. flush() alone need not have seen it.
+        try await waitUntil {
+            _ = await bridge.telemetry.flush()
+            return await network.bodies(for: "logs").flatMap(logRecords).contains {
+                attributes($0)["feedback.report.id"] as? String == report.id.uuidString.lowercased()
+            }
+        }
         let records = await network.bodies(for: "logs").flatMap(logRecords) + network.bodies(for: "traces").flatMap(spans)
         let tagged = records.filter { attributes($0)["feedback.report.id"] as? String == report.id.uuidString.lowercased() }
         #expect(tagged.count == 1)
@@ -491,9 +539,17 @@ private actor TelemetryMockTransport: HTTPTransport {
     private let now: @Sendable () -> Date
     private(set) var reportAttemptTimes: [Date] = []
     private var reportStatus = 200
-    init(now: @escaping @Sendable () -> Date = { Date() }) { self.now = now }
+    private var holdsNextRefresh = false
+    private var heldRefresh: CheckedContinuation<Void, Never>?
+    init(now: @escaping @Sendable () -> Date = { Date() }) {
+        self.now = now
+        refreshEnd = now().addingTimeInterval(86400).ISO8601Format()
+    }
     func setReportStatus(_ status: Int) { reportStatus = status }
-    private let refreshEnd = Date().addingTimeInterval(86400).ISO8601Format()
+    func holdNextRefresh() { holdsNextRefresh = true }
+    var refreshIsHeld: Bool { heldRefresh != nil }
+    func releaseRefresh() { heldRefresh?.resume(); heldRefresh = nil }
+    private let refreshEnd: String
     var reportBodies: [[String: Any]] {
         requests.filter { $0.url!.path.hasSuffix("/reports") }.compactMap { $0.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
     }
@@ -502,13 +558,17 @@ private actor TelemetryMockTransport: HTTPTransport {
         requests.filter { $0.url!.path.hasSuffix("/v1/otlp/v1/\(signal)") }
             .compactMap { $0.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
     }
-    func send(_ request: URLRequest) throws -> HTTPResponse {
+    func send(_ request: URLRequest) async throws -> HTTPResponse {
         requests.append(request)
         let path = request.url!.path
+        if path.hasSuffix("access/refresh"), holdsNextRefresh {
+            holdsNextRefresh = false
+            await withCheckedContinuation { heldRefresh = $0 }
+        }
         let object: [String: Any]
         if path.hasSuffix("access/redeem") || path.hasSuffix("access/refresh") {
             object = ["v": 1, "scopeVersion": 2, "gameId": "phone-ui-fixture", "token": String(repeating: "b", count: 43),
-                      "refreshToken": String(repeating: "r", count: 43), "expiresAt": Date().addingTimeInterval(3600).ISO8601Format(),
+                      "refreshToken": String(repeating: "r", count: 43), "expiresAt": now().addingTimeInterval(3600).ISO8601Format(),
                       "refreshExpiresAt": refreshEnd, "feedbackCorrelationVersion": 1]
         } else if path.hasSuffix("/reports") {
             reportAttemptTimes.append(now())
@@ -533,7 +593,8 @@ nonisolated private final class TelemetryRecordCounter: @unchecked Sendable {
 
 nonisolated private final class TelemetryFixtureClock: @unchecked Sendable {
     private let lock = NSLock()
-    private var value = Date()
+    private var value: Date
+    init(now: Date = Date()) { value = now }
     var now: Date { lock.withLock { value } }
     func advance(_ seconds: TimeInterval) { lock.withLock { value = value.addingTimeInterval(seconds) } }
 }
