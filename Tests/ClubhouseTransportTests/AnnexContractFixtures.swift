@@ -33,7 +33,9 @@ extension Optional where Wrapped == AnnexJSON {
 }
 
 /// Serves recorded responses in order; every request is kept for inspection.
-actor AnnexContractIO: AnnexIO {
+// The nonisolated AnnexIO conformance belongs to the adapter below. Inferring
+// that isolation on an actor (including its initializer) is rejected by Swift.
+actor AnnexContractIO {
     private var responses: [AnnexHTTPResponse]
     private(set) var requests: [URLRequest] = []
     init(_ responses: [AnnexHTTPResponse]) { self.responses = responses }
@@ -45,10 +47,16 @@ actor AnnexContractIO: AnnexIO {
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket { throw AnnexTransportError.disconnected }
 }
 
+private struct AnnexContractIOAdapter: AnnexIO {
+    let fixture: AnnexContractIO
+    func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse { try await fixture.perform(request) }
+    func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket { try await fixture.openWebSocket(request) }
+}
+
 func annexContractTransport(_ io: AnnexContractIO) async throws -> AnnexTransport {
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 7432), verifiedHostID: "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef",
                                    verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fixture-token"), for: host.hostID)
-    return AnnexTransport(host: host, credentials: credentials, io: io)
+    return AnnexTransport(host: host, credentials: credentials, io: AnnexContractIOAdapter(fixture: io))
 }
