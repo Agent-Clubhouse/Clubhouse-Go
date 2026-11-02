@@ -99,6 +99,11 @@ import XCTest
     }
     func testDispatcherAutoScopesAreReadOnly() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-dispatcher"])
+        // Dispatcher is the default start screen; its pinned row belongs to Home.
+        // Use the visible tab button on both iPhone and iPad.
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        home.tap()
         let row = element(app, "dispatcher-row-preview-studio")
         XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app))
         waitAndTap(row, until: element(app, "companion-chat-header"))

@@ -474,7 +474,19 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         expandFold(sleeping, revealing: juniper, in: app)
         XCTAssertTrue(juniper.waitForExistence(timeout: 10))
         let rowDetails = app.buttons["Agent details"]
-        longPressUntilMenu(juniper, shows: rowDetails, "The long-press menu offers the agent's details")
+        // A recorded center press opened the chat instead (#247). Exercise the
+        // visible name explicitly; center-press behavior remains an open product investigation.
+        let name = juniper.staticTexts["Juniper"].firstMatch
+        XCTAssertTrue(name.exists && name.isHittable)
+        let frame = juniper.frame
+        XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
+        XCTAssertLessThanOrEqual(frame.maxY, app.tabBars.firstMatch.frame.minY - 12)
+        let point = CGPoint(x: name.frame.midX, y: name.frame.midY)
+        XCTAssertTrue(frame.contains(point))
+        XCTContext.runActivity(named: "Long-press visible Juniper name at \(point), row \(frame)") { _ in
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).press(forDuration: 1.2)
+        }
+        XCTAssertTrue(rowDetails.waitForExistence(timeout: 5), "The long-press menu offers the agent's details")
         let worktree = element("agent-details-worktree")
         waitAndTap(rowDetails, until: worktree, timeout: 10)
         XCTAssertTrue(worktree.label.contains("Works in the project folder"), worktree.label)
@@ -680,7 +692,16 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(message.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["wake-agent-picker"].label.contains("Juniper") || any.matching(NSPredicate(format: "label CONTAINS 'Juniper'")).firstMatch.exists)
         XCTAssertFalse(app.buttons["wake-send"].isEnabled, "Wake needs a message")
+        // The sheet's intermittent missing autofocus is tracked in #246. Exercise
+        // a real field tap here, then require every character before sending once.
+        XCTAssertTrue(message.isHittable)
+        message.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Tapping the wake message must open the keyboard")
         message.typeText("Draft the release notes")
+        let entered = NSPredicate(format: "value == %@", "Draft the release notes")
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: entered, object: message)], timeout: 5), .completed,
+                       "The wake message retains the exact typed text")
+        XCTAssertEqual(message.value as? String, "Draft the release notes")
         let send = app.buttons["wake-send"]
         XCTAssertTrue(send.wait(for: \.isEnabled, toEqual: true, timeout: 5), "A message enables Wake")
         send.tap()
