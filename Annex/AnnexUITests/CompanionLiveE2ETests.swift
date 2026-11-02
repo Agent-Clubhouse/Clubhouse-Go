@@ -94,9 +94,17 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(projectHeader(app).waitForExistence(timeout: 10), "The project must be on Home", file: file, line: line)
     }
 
-    /// Shows an agent's row on Home, opening the project's sleeping fold when it's in there.
-    private func revealAgent(_ app: XCUIApplication, _ agentID: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+    /// Shows an agent's row on Home, opening its parent's helper disclosure or the sleeping fold.
+    private func revealAgent(_ app: XCUIApplication, _ agentID: String, parentID: String? = nil,
+                             file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         revealProject(app, file: file, line: line)
+        if let parentID {
+            _ = revealAgent(app, parentID, file: file, line: line)
+            let disclosure = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'helpers-toggle-' AND identifier ENDSWITH %@", "-\(parentID)")).firstMatch
+            XCTAssertTrue(disclosure.waitForExistence(timeout: 15), "A parent with a real helper has a disclosure", file: file, line: line)
+            XCTAssertTrue(scrollTo(disclosure, in: app, file: file, line: line), file: file, line: line)
+            tapToExpand(disclosure, file: file, line: line)
+        }
         let row = agentRow(app, agentID)
         if row.waitForExistence(timeout: 3) { scrollTo(row, in: app, file: file, line: line); return row }
         let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-sleeping-'")).firstMatch
@@ -701,8 +709,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
         let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
+        // #217 adds an outer activity fold, independent of the routed part's own long-message fold.
         revealActivityContent(delivered, in: app, timeout: 30)
         XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message must render as a structured routed part")
+        bringRoutedCaptionIntoView(delivered, in: app)
         XCTAssertTrue(delivered.label.hasPrefix("Dispatcher"), "The routed caption uses the real sender: \(delivered.label)")
         XCTAssertTrue(delivered.label.hasSuffix(": \(deliveryText)"), "The exact body keeps inline tags and excludes CLI reply instructions: \(delivered.label)")
         let avatarID = delivered.identifier.replacingOccurrences(of: "companion-routed-", with: "companion-sender-avatar-")
@@ -737,6 +747,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let longID = try XCTUnwrap(longEvent["messageId"] as? String)
         XCTAssertEqual((longEvent["routed"] as? [[String: Any]])?.first?["text"] as? String, longText)
         let long = app.buttons["companion-routed-\(longID)-0"]
+        // Open only the enclosing activity; the long part must still start Collapsed below.
         revealActivityContent(long, in: app, timeout: 30)
         XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message folds behind its sender caption")
         bringRoutedCaptionIntoView(long, in: app)
@@ -885,7 +896,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             "orchestration": ["orchestrate": true]]]) as? [String: Any])
         XCTAssertEqual(configured["status"] as? Int, 200)
         backToHome(app)
-        let helper = revealAgent(app, helperID)
+        _ = revealAgent(app, echoID)
+        let parentDisclosure = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'helpers-toggle-' AND identifier ENDSWITH %@", "-\(echoID)")).firstMatch
+        XCTAssertTrue(parentDisclosure.waitForExistence(timeout: 15))
+        XCTAssertTrue(scrollTo(parentDisclosure, in: app))
+        if parentDisclosure.value as? String == "Expanded" { parentDisclosure.tap() }
+        XCTAssertEqual(parentDisclosure.value as? String, "Collapsed")
+        XCTAssertFalse(agentRow(app, helperID).exists, "#208 nests the real helper beneath its collapsed parent")
+        let helper = revealAgent(app, helperID, parentID: echoID)
+        XCTAssertEqual(helper.value as? String, "Helper of Echo")
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(helper, shows: settings)
         waitAndTap(settings, until: element(app, "agent-settings-name"), timeout: 15)
