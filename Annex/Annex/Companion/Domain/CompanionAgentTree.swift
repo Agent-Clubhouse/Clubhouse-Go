@@ -90,17 +90,21 @@ struct CompanionAgentTree: Sendable, Equatable {
         return tree
     }
 
-    /// Host-scoped lookup: an absent parent stays a root without a label. Local parents need no line.
-    static func parentLines(hosts: [CompanionHost]) -> [CompanionTarget: String] {
+    /// Host-scoped lookup: an absent parent stays a root without a label. Flat views also name local parents.
+    static func parentLines(hosts: [CompanionHost], includingLocal: Bool = false) -> [CompanionTarget: String] {
         var lines: [CompanionTarget: String] = [:]
         for host in hosts {
             let parents = Dictionary(host.projects.flatMap { project in
-                project.agents.filter { !$0.isQuick }.map { ($0.id.agentID, (agent: $0, project: project)) }
+                project.agents.map { ($0.id.agentID, (agent: $0, project: project)) }
             }, uniquingKeysWith: { first, _ in first })
             for project in host.projects {
                 for helper in project.agents where !helper.isQuick {
-                    guard let id = helper.parentAgentID, let parent = parents[id], parent.project.id != project.id else { continue }
-                    lines[helper.id] = "Helper of \(parent.agent.name) in \(parent.project.name)"
+                    guard let id = helper.parentAgentID, let parent = parents[id] else { continue }
+                    if parent.project.id != project.id {
+                        lines[helper.id] = "Helper of \(parent.agent.name) in \(parent.project.name)"
+                    } else if includingLocal {
+                        lines[helper.id] = "Helper of \(parent.agent.name)"
+                    }
                 }
             }
         }

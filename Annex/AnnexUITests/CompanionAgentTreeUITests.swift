@@ -47,7 +47,7 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         // Needs you is a flat destination and still opens River while Cedar is folded.
         let river = element(app, "agent-preview-studio-river")
         let composer = element(app, "companion-composer")
-        XCTAssertTrue(scrollTo(river, in: app))
+        XCTAssertTrue(scrollTo(river, in: app, up: false))
         waitAndTap(river, until: composer)
         XCTAssertTrue(app.navigationBars["River"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()

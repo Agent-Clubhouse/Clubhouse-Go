@@ -864,7 +864,7 @@ struct CompanionAgentsView: View {
 
     var body: some View {
         let agents = store.agentsNeedsYouFirst().filter { filter.matches($0.status) }
-        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts, includingLocal: true)
         let names = Dictionary(store.hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         List {
             Section {
@@ -913,7 +913,7 @@ struct CompanionSearchView: View {
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
-        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts, includingLocal: true)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let agents = trimmed.isEmpty ? [] : store.allAgents.filter { "\($0.name) \($0.subtitle)".localizedCaseInsensitiveContains(trimmed) }
         let projects = trimmed.isEmpty ? [] : store.projectEntries.filter { $0.project.name.localizedCaseInsensitiveContains(trimmed) }

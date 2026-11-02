@@ -12,7 +12,7 @@ struct CompanionAgentTreeRows: View {
         let collapsed = preferences.collapsedAgents(in: rows)
         let hasDisclosureColumn = rows.contains { $0.rollup.count > 0 }
         ForEach(tree.visible(rows, collapsed: collapsed)) { row in
-            CompanionAgentTreeNavigationRow(row: row, collapsed: collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn,
+            CompanionAgentTreeNavigationRow(row: row, collapsed: row.rollup.count > 0 && collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn,
                                             toggle: { preferences.toggleAgentCollapsed(row.id) })
                 .equatable()
                 .listRowBackground(CompanionCardBackground())
@@ -53,7 +53,8 @@ private struct CompanionAgentTreeNavigationRow: View, Equatable {
                 CompanionAgentListRow(agent: row.agent, parentLine: parentLine, helperRollup: collapsed ? row.rollup : nil)
             }
             .accessibilityIdentifier("agent-\(row.id.hostID)-\(row.id.agentID)")
-            .accessibilityHint(row.parentName.map { "Helper of \($0)" } ?? "Opens conversation")
+            .accessibilityValue(row.parentName.map { "Helper of \($0)" } ?? "")
+            .accessibilityHint("Opens conversation")
         }
         .padding(.leading, CGFloat(min(row.depth, 3)) * 14)
     }

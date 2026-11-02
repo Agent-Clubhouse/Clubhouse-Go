@@ -79,6 +79,11 @@ struct CompanionAgentTreeTests {
         let lines = CompanionAgentTree.parentLines(hosts: [host])
         #expect(lines[helper.id] == "Helper of Ada in Annex")
         #expect(lines[parent.id] == nil)
+        let localHost = CompanionHost(id: "host", name: "Mac", endpoint: "", connection: .connected,
+                                      projects: [.init(id: "p", name: "App", agents: [treeAgent("Ada"), helper])])
+        #expect(CompanionAgentTree.parentLines(hosts: [localHost], includingLocal: true)[helper.id] == "Helper of Ada")
+        var foreign = host; foreign.id = "different-host"; foreign.projects = [.init(id: "elsewhere", name: "Elsewhere", agents: [treeAgent("Ada", project: "elsewhere")])]
+        #expect(CompanionAgentTree.parentLines(hosts: [host, foreign])[helper.id] == "Helper of Ada in Annex")
         #expect(tree([helper]).active.first?.depth == 0)
         #expect(CompanionAgentTree.parentLines(hosts: [.init(id: "host", name: "Mac", endpoint: "", connection: .connected, projects: [projects[0]])]).isEmpty)
         #expect(CompanionAgentTree.parentLines(hosts: [.init(id: "host", name: "Mac", endpoint: "", connection: .connected,
