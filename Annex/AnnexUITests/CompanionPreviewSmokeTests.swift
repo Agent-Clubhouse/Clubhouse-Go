@@ -191,43 +191,41 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let title = app.navigationBars["test-log.txt"]
 
         let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
-        func openNewestLog(until expected: XCUIElement) {
-            XCTAssertTrue(bringTranscriptRowIntoView(links.element(boundBy: max(0, links.count - 1)), in: app))
-            let deadline = Date().addingTimeInterval(20)
-            var previousFrame = CGRect.null
-            var previousCount = -1
-            var stableSince = Date()
-            while Date() < deadline {
-                checkTimeLeft("opening the streaming card's log")
-                if expected.exists { return }
-                // Re-query each time: an indexed element retained across updates can point at a moving card.
-                let count = links.count
-                let top = app.navigationBars.firstMatch.frame.maxY + 12
-                let bottom = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.frame.minY - 12
-                let candidate = (max(0, count - 4)..<count).reversed().lazy.map { links.element(boundBy: $0) }.first {
-                    $0.isHittable && $0.frame.minY >= top && $0.frame.maxY <= bottom
-                }
-                if let candidate {
-                    let frame = candidate.frame
-                    if count != previousCount || frame != previousFrame { stableSince = Date() }
-                    else if Date().timeIntervalSince(stableSince) >= 0.6 {
-                        XCTContext.runActivity(named: "Tap freshly resolved log after its frame settled at \(frame)") { _ in
-                            candidate.tap()
-                        }
-                        if expected.waitForExistence(timeout: 5) { return }
-                        stableSince = Date()
-                    }
-                    previousFrame = frame; previousCount = count
-                } else { previousFrame = .null; previousCount = -1; stableSince = Date() }
-                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        func openVisibleLog(until expected: XCUIElement) {
+            let transcript = app.scrollViews.containing(.button, identifier: "companion-content-link").firstMatch
+            XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+            let approval = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch
+            let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+            let top = transcript.frame.minY + 12
+            let bottom = min(composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
+            let viewport = CGRect(x: transcript.frame.minX, y: top, width: transcript.frame.width, height: bottom - top)
+            XCTAssertGreaterThan(viewport.height, 100)
+            // Stop following the live bottom with a real reading gesture; updates keep streaming.
+            // Waiting for the total link count to settle can prevent every tap as new runs arrive.
+            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.midX, dy: viewport.minY + viewport.height * 0.3))
+            from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: viewport.height * 0.4)))
+            XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
+            // Existing links precede appended runs. Reveal one instead of chasing the newest index.
+            let candidate = links.firstMatch
+            XCTAssertTrue(bringTranscriptRowIntoView(candidate, in: app), "A real log link must be visible in the transcript")
+            XCTAssertTrue(candidate.isHittable)
+            let frame = candidate.frame
+            XCTAssertTrue(viewport.contains(frame))
+            let point = CGPoint(x: frame.midX, y: frame.midY)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Visible log before one checked tap"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            XCTContext.runActivity(named: "Tap visible log once at \(point), link \(frame), transcript \(viewport)") { _ in
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
             }
-            XCTAssertTrue(expected.exists, "The streaming card's log must open")
+            XCTAssertTrue(expected.waitForExistence(timeout: 5), "The streaming card's log must open after one real tap")
         }
 
         // Done: wait through several updates, including a fold, before closing.
         revealActivityContent(link, in: app)
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
-        openNewestLog(until: done)
+        openVisibleLog(until: done)
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         XCTAssertTrue(done.isHittable, "Done must stay reachable while updates stream")
@@ -236,10 +234,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         screenshot.name = "After closing preview with Done"
         add(screenshot)
 
-        // Swipe down. New runs keep pushing older cards up under the header, so open the newest card's log,
-        // which stays next to the composer.
+        // Open another visible log while updates continue, then swipe down to dismiss.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
-        openNewestLog(until: title)
+        openVisibleLog(until: title)
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))
