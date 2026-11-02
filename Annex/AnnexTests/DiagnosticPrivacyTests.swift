@@ -28,4 +28,18 @@ import Framebriar
         #expect(off.hostInstanceIds.isEmpty); #expect(off.backendRef == nil)
     }
 
+    @Test func incidentReferencesOnlyFinishedSpansAtCapture() throws {
+        let source = AnnexTelemetry(); source.setEnabled(true)
+        let parent = source.begin(.connection)
+        let child = source.begin(.http, parent: parent)
+        child.end()
+        let before = try #require(CompanionFeedback.snapshotIncident(telemetry: source))
+        #expect(before.traces.count == 1)
+        #expect(source.snapshot().records.map(\.operation) == [.http])
+        parent.end()
+        let after = try #require(CompanionFeedback.snapshotIncident(telemetry: source))
+        #expect(after.traces.count == 2)
+        #expect(before.traces.count == 1) // opening capture remains immutable
+    }
+
 }

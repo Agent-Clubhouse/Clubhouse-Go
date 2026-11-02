@@ -15,7 +15,12 @@ extension EnvironmentValues {
     static let promptDuration: Duration = .seconds(8)
     let model: FeedbackModel?
     private let defaults: UserDefaults
-    private var observer: NSObjectProtocol?
+    private var observers: [NSObjectProtocol] = []
+    private var statusTask: Task<Void, Never>?
+    private var screenshotLifecycle = CompanionScreenshotPromptLifecycle()
+    private var screenshotData: Data?
+    private weak var screenshotScene: UIWindowScene?
+    private weak var screenshotWindow: UIWindow?
     private var explainedThisSession = false
     private var promptWindow: UIWindow?
     private var promptTask: Task<Void, Never>?
@@ -25,45 +30,86 @@ extension EnvironmentValues {
     init(model: FeedbackModel?, defaults: UserDefaults = .standard) {
         self.model = model
         self.defaults = defaults
-        observer = NotificationCenter.default.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) { [weak self] _ in
+        observers.append(NotificationCenter.default.addObserver(forName: UIApplication.userDidTakeScreenshotNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.screenshotTaken() }
+        })
+        for name in [UIScene.didActivateNotification, UIScene.willDeactivateNotification, UIScene.didDisconnectNotification] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self, let scene = note.object as? UIWindowScene, scene === self.screenshotScene else { return }
+                    if name == UIScene.didDisconnectNotification { self.dismissPrompt() }
+                    else if name == UIScene.willDeactivateNotification { self.hidePrompt() }
+                    else { self.resumeScreenshotOffer() }
+                }
+            })
         }
     }
-    deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
+    deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
-    /// The menu items: always answer, enrolled or not.
-    func sendFeedback() {
+    /// Resolve the local enrollment status before choosing a route, including at cold launch.
+    func sendFeedback(screenshotPNG: Data? = nil, from sourceWindow: UIWindow? = nil) {
         guard let model, presented == nil else { return }
         dismissPrompt()
-        if model.status?.canSubmit == true { presentComposer(screenshot: nil) }
-        else { explainEnrollment(fromScreenshot: false) }
+        statusTask?.cancel()
+        statusTask = Task { [weak self] in
+            if model.status == nil { await model.update() }
+            guard let self, !Task.isCancelled, self.presented == nil else { return }
+            if model.status?.canSubmit == true { self.presentComposer(screenshot: screenshotPNG, from: sourceWindow) }
+            else { self.explainEnrollment(fromScreenshot: false) }
+        }
     }
 
     func screenshotTaken() {
-        let window = Self.keyWindow()
-        let secure = window.map(Self.hasSecureFirstResponder) ?? false
-        switch CompanionScreenshotFeedback.decide(enabled: CompanionScreenshotFeedback.isEnabled(defaults), configured: model != nil,
-                                                  canSubmit: model?.status.map(\.canSubmit), secureFieldActive: secure,
-                                                  explainedThisSession: explainedThisSession, busy: presented != nil) {
-        case .ignore: return
-        case .explainEnrollment: explainEnrollment(fromScreenshot: true)
+        // An inactive window is usable only as a capture source. Never present into its scene.
+        guard let window = Self.keyWindow(allowInactive: true) else { return }
+        let decision = CompanionScreenshotFeedback.decide(enabled: CompanionScreenshotFeedback.isEnabled(defaults), configured: model != nil,
+            canSubmit: model?.status.map(\.canSubmit), secureFieldActive: Self.hasSecureFirstResponder(window),
+            explainedThisSession: explainedThisSession, busy: presented != nil)
+        guard decision != .ignore else { return }
+        dismissPrompt()
+        screenshotData = Self.capture(window)
+        screenshotScene = window.windowScene
+        screenshotWindow = window
+        _ = screenshotLifecycle.request(active: false, ready: false)
+        if decision == .waitForStatus, let model {
+            statusTask?.cancel()
+            statusTask = Task { [weak self] in
+                await model.update()
+                guard !Task.isCancelled else { return }
+                self?.resumeScreenshotOffer()
+            }
+        } else { resumeScreenshotOffer() }
+    }
+
+    private func resumeScreenshotOffer() {
+        guard screenshotLifecycle.pending, let scene = screenshotScene,
+              scene.activationState == .foregroundActive else { return }
+        let decision = CompanionScreenshotFeedback.decide(enabled: CompanionScreenshotFeedback.isEnabled(defaults), configured: model != nil,
+            canSubmit: model?.status.map(\.canSubmit), secureFieldActive: scene.windows.contains(where: Self.hasSecureFirstResponder),
+            explainedThisSession: explainedThisSession, busy: presented != nil)
+        switch decision {
+        case .ignore: dismissPrompt()
+        case .waitForStatus: break
+        case .explainEnrollment: dismissPrompt(); explainEnrollment(fromScreenshot: true)
         case .offer:
-            // The same window snapshot a shake attaches; nothing is kept unless the person opens the form.
-            guard let window else { return }
-            showPrompt(screenshot: Self.capture(window), in: window.windowScene)
+            if screenshotLifecycle.resume(active: true, ready: true) == .show {
+                showPrompt(screenshot: screenshotData, in: scene)
+            }
         }
     }
 
     // MARK: Prompt
 
     private func showPrompt(screenshot: Data?, in scene: UIWindowScene?) {
-        guard let scene else { return }
-        dismissPrompt()
+        guard let scene, scene.activationState == .foregroundActive else { return }
+        hidePrompt()
+        _ = screenshotLifecycle.resume(active: true, ready: true)
         let window = PassthroughWindow(windowScene: scene)
+        let sourceWindow = screenshotWindow
         let prompt = CompanionScreenshotFeedbackPrompt(
             frameChanged: { [weak window] in window?.interactiveFrame = $0 },
             // Present before closing: closing releases this prompt and the closure that holds the capture.
-            open: { [weak self] in self?.presentComposer(screenshot: screenshot); self?.dismissPrompt() },
+            open: { [weak self] in self?.presentComposer(screenshot: screenshot, from: sourceWindow); self?.dismissPrompt() },
             close: { [weak self] in self?.dismissPrompt() })
         let host = UIHostingController(rootView: prompt)
         host.view.backgroundColor = .clear
@@ -78,6 +124,15 @@ extension EnvironmentValues {
     }
 
     private func dismissPrompt() {
+        screenshotLifecycle.dismiss()
+        screenshotData = nil
+        screenshotScene = nil
+        screenshotWindow = nil
+        hidePrompt()
+    }
+
+    private func hidePrompt() {
+        _ = screenshotLifecycle.resume(active: false, ready: false)
         promptTask?.cancel(); promptTask = nil
         promptWindow?.isHidden = true
         promptWindow = nil
@@ -85,9 +140,9 @@ extension EnvironmentValues {
 
     // MARK: Presentation
 
-    private func presentComposer(screenshot: Data?) {
+    private func presentComposer(screenshot: Data?, from sourceWindow: UIWindow? = nil) {
         guard let model else { return }
-        present(UIHostingController(rootView: NavigationStack { FeedbackView(model: model, initialScreenshotPNG: screenshot) }))
+        present(UIHostingController(rootView: NavigationStack { FeedbackView(model: model, initialScreenshotPNG: screenshot) }), from: sourceWindow)
     }
 
     private func explainEnrollment(fromScreenshot: Bool) {
@@ -111,8 +166,9 @@ extension EnvironmentValues {
         present(alert)
     }
 
-    private func present(_ controller: UIViewController) {
-        guard let root = Self.keyWindow()?.rootViewController else { return }
+    private func present(_ controller: UIViewController, from sourceWindow: UIWindow? = nil) {
+        guard let window = sourceWindow ?? Self.keyWindow(), window.windowScene?.activationState == .foregroundActive,
+              let root = window.rootViewController else { return }
         var top = root
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
         presented = controller
@@ -121,10 +177,10 @@ extension EnvironmentValues {
 
     // MARK: Window
 
-    static func keyWindow() -> UIWindow? {
+    static func keyWindow(allowInactive: Bool = false) -> UIWindow? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let active = scenes.filter { $0.activationState == .foregroundActive }
-        let windows = (active.isEmpty ? scenes : active).flatMap(\.windows).filter { !($0 is PassthroughWindow) && !$0.isHidden }
+        let windows = (active.isEmpty && allowInactive ? scenes : active).flatMap(\.windows).filter { !($0 is PassthroughWindow) && !$0.isHidden }
         return windows.first(where: \.isKeyWindow) ?? windows.first { $0.windowLevel == .normal }
     }
 

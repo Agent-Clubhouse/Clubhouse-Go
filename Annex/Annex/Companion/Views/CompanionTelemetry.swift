@@ -15,6 +15,8 @@ import ClubhouseTransport
     private let source: AnnexTelemetry
     private let enrollment: EnrollmentSignal
     private var observer: UUID?
+    private var recordObserver: UUID?
+    private let captureOwner = UUID()
     private var lastSummary: Date
     private let now: @Sendable () -> Date
     #if canImport(MetricKit) && os(iOS)
@@ -25,16 +27,19 @@ import ClubhouseTransport
          observeAppLifecycle: Bool = true, bundle: Bundle = .main, now: @escaping @Sendable () -> Date = { Date() }) throws {
         let version = CompanionBuildInfo.version(bundle: bundle)
         // Background flush (didEnterBackground/willTerminate) is the SDK's own lifecycle observer.
+        var commonAttributes = CompanionTelemetryForwarder.attributes(AnnexAppTelemetry.commonAttributes)
+        if let sha = configuration.buildSHA { commonAttributes["app.build.sha"] = .string(sha) }
         telemetry = try Telemetry(client: client, configuration: configuration, appVersion: version.version, appBuild: version.build,
-                                  commonAttributes: CompanionTelemetryForwarder.attributes(AnnexAppTelemetry.commonAttributes),
+                                  commonAttributes: commonAttributes,
                                   transport: transport, observeAppLifecycle: observeAppLifecycle, now: now)
         self.source = source; self.enrollment = client.enrollmentSignal; self.now = now; lastSummary = now()
-        source.setRecordSink { [telemetry] record in
+        recordObserver = source.observeRecords { [telemetry] record in
             CompanionTelemetryForwarder.forward(AnnexAppTelemetry.signals(for: record), to: telemetry)
         }
-        source.setEnrolledCapture(enrollment.isEnrolled(at: now()))
+        let captureOwner = self.captureOwner
+        source.setEnrolledCapture(enrollment.isEnrolled(at: now()), owner: captureOwner)
         observer = enrollment.observe { [source, telemetry] enrolled in
-            source.setEnrolledCapture(enrolled)
+            source.setEnrolledCapture(enrolled, owner: captureOwner)
             if enrolled { telemetry.log(.info, "app.session.start") }
         }
     }
@@ -64,7 +69,9 @@ import ClubhouseTransport
     func stop() {
         if let observer { enrollment.removeObserver(observer) }
         observer = nil
-        source.setRecordSink(nil); source.setEnrolledCapture(false)
+        if let recordObserver { source.removeRecordObserver(recordObserver) }
+        recordObserver = nil
+        source.setEnrolledCapture(false, owner: captureOwner)
         #if canImport(MetricKit) && os(iOS)
         metricKit?.stop(); metricKit = nil
         #endif

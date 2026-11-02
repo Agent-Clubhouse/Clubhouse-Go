@@ -31,7 +31,7 @@ nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
 }
-nonisolated public enum AnnexDiagnosticFailure: String, Codable, Sendable {
+nonisolated public enum AnnexDiagnosticFailure: String, Codable, CaseIterable, Sendable {
     case none, cancelled, timeout, offline, dns, connection, tls, trust, identity, authentication
     case forbidden, invalidInput, malformed, tooLarge, overflow, unsupported, busy, conflict
     case outcomeUnknown, storage, server, rejected, unknown, abandoned
@@ -125,8 +125,13 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     private let capacity: Int
     private let instanceID: UUID
     private var sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?
+    private var observers: [UUID: @Sendable (AnnexDiagnosticRecord) -> Void] = [:]
     init(capacity: Int, instanceID: UUID = UUID()) { self.capacity = min(512, max(1, capacity)); self.instanceID = instanceID }
     func setSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { lock.withLock { self.sink = sink } }
+    func observe(_ observer: @escaping @Sendable (AnnexDiagnosticRecord) -> Void) -> UUID {
+        lock.withLock { let token = UUID(); observers[token] = observer; return token }
+    }
+    func removeObserver(_ token: UUID) { _ = lock.withLock { observers.removeValue(forKey: token) } }
     func configure(enabled: Bool) -> Int {
         lock.withLock { self.enabled = enabled; generation += 1; records.removeAll(); dropped = 0; return generation }
     }
@@ -137,8 +142,8 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     }
     func drop() { lock.withLock { if enabled { dropped = min(Int.max - 1, dropped + 1) } } }
     private func receive(_ spans: [SpanData]) -> SpanExporterResultCode {
-        let (accepted, recipient) = lock.withLock { () -> ([AnnexDiagnosticRecord], (@Sendable (AnnexDiagnosticRecord) -> Void)?) in
-            guard enabled else { return ([], nil) }
+        let (accepted, recipients) = lock.withLock { () -> ([AnnexDiagnosticRecord], [@Sendable (AnnexDiagnosticRecord) -> Void]) in
+            guard enabled else { return ([], []) }
             var accepted: [AnnexDiagnosticRecord] = []
             for span in spans.prefix(512) {
                 guard span.attributes["capture.generation"] == .int(generation),
@@ -175,10 +180,10 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                     failure: failure, measurements: numbers, events: events.map(\.0), eventOffsetsMs: events.map(\.1))
                 records.append(record); accepted.append(record)
             }
-            return (accepted, self.sink)
+            return (accepted, Array(observers.values) + (sink.map { [$0] } ?? []))
         }
         // Outside the lock: the sink may record into other telemetry.
-        if let recipient { accepted.forEach(recipient) }
+        for recipient in recipients { accepted.forEach(recipient) }
         return .success
     }
     func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode { receive(spans) }
@@ -243,6 +248,8 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     private var localCapture = false
     /// Capture because the user enrolled in developer feedback, whose telemetry exports these records.
     private var enrolledCapture = false
+    private var legacyEnrolledCapture = false
+    private var enrolledOwners: Set<UUID> = []
     public var capturesForEnrollment: Bool { lock.withLock { enrolledCapture } }
     @TaskLocal public static var current: AnnexDiagnosticSpan?
     private let lock = NSLock()
@@ -270,15 +277,28 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     /// On while the user is enrolled in developer feedback, so its telemetry has spans to export; off
     /// (clearing everything, unless the user also chose capture) the moment enrollment ends.
     public func setEnrolledCapture(_ enabled: Bool) {
+        lock.withLock { legacyEnrolledCapture = enabled; updateEnrolledCaptureLocked() }
+    }
+    /// A bridge releases only its own capture lease. Disposing an older bridge cannot turn off
+    /// capture required by a newer bridge, or the user's separate local capture choice.
+    public func setEnrolledCapture(_ enabled: Bool, owner: UUID) {
         lock.withLock {
-            guard enrolledCapture != enabled else { return }
-            let wasOn = localCapture || enrolledCapture
-            enrolledCapture = enabled
-            if wasOn != (localCapture || enrolledCapture) { reconfigureLocked() }
+            if enabled { enrolledOwners.insert(owner) } else { enrolledOwners.remove(owner) }
+            updateEnrolledCaptureLocked()
         }
+    }
+    private func updateEnrolledCaptureLocked() {
+        let enabled = legacyEnrolledCapture || !enrolledOwners.isEmpty
+        guard enrolledCapture != enabled else { return }
+        let wasOn = localCapture || enrolledCapture
+        enrolledCapture = enabled
+        if wasOn != (localCapture || enrolledCapture) { reconfigureLocked() }
     }
     /// Receives each record as it is captured, outside any lock. One sink; nil removes it.
     public func setRecordSink(_ sink: (@Sendable (AnnexDiagnosticRecord) -> Void)?) { exporter.setSink(sink) }
+    /// Independent observers cannot replace each other; removing one leaves the others installed.
+    @discardableResult public func observeRecords(_ observer: @escaping @Sendable (AnnexDiagnosticRecord) -> Void) -> UUID { exporter.observe(observer) }
+    public func removeRecordObserver(_ token: UUID) { exporter.removeObserver(token) }
     public func clear() { lock.withLock { reconfigureLocked() } }
     private func reconfigureLocked() {
         _ = exporter.configure(enabled: localCapture || enrolledCapture) // Fence late completion before ending old scopes.

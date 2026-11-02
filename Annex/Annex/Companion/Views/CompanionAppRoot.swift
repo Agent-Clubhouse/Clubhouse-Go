@@ -151,7 +151,8 @@ import ClubhouseTransport
 }
 
 struct CompanionAppRoot: View {
-    @State private var runtime: CompanionRuntime
+    @State private var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>
+    private var runtime: CompanionRuntime { runtimeLifetime.value }
     @State private var showPairing = false
     /// A pairing invitation opened from the iPhone Camera (`clubhousego://pair?...`).
     @State private var openedLink: CompanionPairingLink?
@@ -172,11 +173,13 @@ struct CompanionAppRoot: View {
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
         if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
         showsWelcome = !testMode
-        _runtime = State(initialValue: CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode))
+        _runtimeLifetime = State(initialValue: CompanionStateLifetime {
+            CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode)
+        })
         #else
         // Before the runtime restores pairings or the feedback client reads its enrollment.
         CompanionInstallReset.clearLeftoversIfFreshInstall()
-        _runtime = State(initialValue: CompanionRuntime())
+        _runtimeLifetime = State(initialValue: CompanionStateLifetime { CompanionRuntime() })
         #endif
     }
     var body: some View {
@@ -234,11 +237,20 @@ struct CompanionAppRoot: View {
                 }
                 await runtime.telemetryExporter.endSession(session)
             }
-            .task(id: scenePhase) {
+            .onChange(of: runtime.feedback?.status?.queued) { previous, current in
                 guard let feedback = runtime.feedback else { return }
-                await feedback.setActive(scenePhase == .active)
+                Task {
+                    await CompanionFeedback.deliverNewlyQueued(model: feedback, previous: previous, current: current,
+                                                              isBackground: scenePhase == .background)
+                }
+            }
+            // Inactive is a transient foreground interruption (including screenshot previews).
+            // Keep the pump alive through it; pause only on background, like the transport.
+            .task(id: scenePhase == .background) {
+                guard let feedback = runtime.feedback else { return }
+                await feedback.setActive(scenePhase != .background)
                 // Hand over the ping summary before the SDK's background flush.
-                guard scenePhase == .active else { runtime.appTelemetry?.tick(force: true); return }
+                guard scenePhase != .background else { runtime.appTelemetry?.tick(force: true); return }
                 while !Task.isCancelled {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()
@@ -271,8 +283,8 @@ struct CompanionAppRoot: View {
             // Closed diagnostic vocabulary only. XCTest captures stdout in its result bundle: no host, path,
             // invitation, certificate, identity or arbitrary error string is ever written here.
             AnnexTelemetry.shared.setEnabled(true)
-            AnnexTelemetry.shared.setRecordSink { record in
-                guard [.pairing, .connection, .reconnect, .identity, .capabilities, .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
+            AnnexTelemetry.shared.observeRecords { record in
+                guard [.pairing, .connection, .reconnect, .backoff, .identity, .capabilities, .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
                 let value: [String: Any] = ["at": record.startedAt.timeIntervalSince1970,
                     "operation": record.operation.rawValue, "durationMs": record.durationMs,
                     "failure": record.failure.rawValue, "events": record.events]
