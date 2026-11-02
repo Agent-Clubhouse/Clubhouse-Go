@@ -6,7 +6,8 @@ import UIKit
 
 /// Test fixture only. In-memory stores and a fake transport: it opens no socket and has no real invitation.
 /// Launch arguments: --callback (route through `onFeedbackShake`), --offline, --not-enrolled, --no-capture,
-/// --passthrough-window (a non-key overlay like a host's PassthroughWindow).
+/// --passthrough-window (a non-key overlay like a host's PassthroughWindow), --model-off (the model's
+/// default report diagnostics mode), --override-on (the first composer passes `.on`), --reenroll-after-open.
 @MainActor @Observable final class Counters {
     static let shared = Counters()
     var chain = 0
@@ -44,7 +45,7 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
     }
 }
 
-@MainActor func makeHarnessModel(offline: Bool, enrolled: Bool) async throws -> FeedbackModel {
+@MainActor func makeHarnessModel(offline: Bool, enrolled: Bool, reportDiagnostics: FeedbackReportDiagnostics = .on) async throws -> FeedbackModel {
     let config = try Configuration(gameID: "harness", endpoint: URL(string: "https://harness.invalid/api")!)
     let client = try Client(configuration: config, transport: FakeTransport(offline: offline), enrollmentStore: MemoryEnrollment(), feedbackStore: MemoryQueue())
     await client.resume()
@@ -54,7 +55,7 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
             .init(at: Date() - 2, level: .warn, ns: "transport", event: "connect.failed", attrs: ["failure": "timeout", "attempt": 1]),
             .init(at: Date() - 1, level: .error, ns: "transport", event: "socket.closed", attrs: ["closeCode": 1006])
         ])
-    })
+    }, reportDiagnostics: reportDiagnostics)
     await model.update()
     return model
 }
@@ -173,13 +174,22 @@ struct RootView: View {
 
 /// The way a host routes a shake to its own presenter: from `event.window`, reusing `event.screenshotPNG`.
 @MainActor final class HostPresenter {
+    private var overrideOn = ProcessInfo.processInfo.arguments.contains("--override-on")
     func present(model: FeedbackModel, event: FeedbackShakeEvent) {
+        let reportDiagnostics: FeedbackReportDiagnostics? = overrideOn ? .on : nil
+        overrideOn = false
         var top = event.window.rootViewController
         while let next = top?.presentedViewController { top = next }
         let host = UIHostingController(rootView: NavigationStack {
-            FeedbackView(model: model, initialScreenshotPNG: event.screenshotPNG) { [weak top] in top?.dismiss(animated: true) }
+            FeedbackView(model: model, initialScreenshotPNG: event.screenshotPNG, onClose: { [weak top] in top?.dismiss(animated: true) }, reportDiagnostics: reportDiagnostics)
         })
         top?.present(host, animated: true)
+        if ProcessInfo.processInfo.arguments.contains("--reenroll-after-open") {
+            Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await model.client.connect(invitation: String(repeating: "j", count: 43))
+            }
+        }
     }
 }
 
@@ -197,7 +207,8 @@ struct RootView: View {
             .task {
                 _ = ChainProbe.installed
                 if model == nil {
-                    model = try? await makeHarnessModel(offline: arguments.contains("--offline"), enrolled: !arguments.contains("--not-enrolled"))
+                    model = try? await makeHarnessModel(offline: arguments.contains("--offline"), enrolled: !arguments.contains("--not-enrolled"),
+                                                     reportDiagnostics: arguments.contains("--model-off") ? .off : .on)
                 }
                 if arguments.contains("--passthrough-window"), overlay == nil,
                    let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {

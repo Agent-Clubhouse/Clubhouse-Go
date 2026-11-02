@@ -34,7 +34,7 @@ private let traceID = String(repeating: "a", count: 32), spanID = String(repeati
         try FeedbackIncident(capturedAt: r.clock.now(), windowStart: r.clock.now() - 60, availability: .recorded, phoneInstanceId: phone,
                              traces: [.init(traceId: traceID, spanId: spanID)])
     }
-    func model(_ client: Client, telemetry: Telemetry? = nil, withProvider: Bool = true, withIncident: Bool = false) throws -> FeedbackModel {
+    func model(_ client: Client, telemetry: Telemetry? = nil, withProvider: Bool = true, withIncident: Bool = false, mode: FeedbackReportDiagnostics = .on) throws -> FeedbackModel {
         let provider = provider
         let snapshot: FeedbackIncident? = withIncident ? try incident() : nil
         let clock = r.clock
@@ -44,7 +44,7 @@ private let traceID = String(repeating: "a", count: 32), spanID = String(repeati
             return provider.next
         }
         return FeedbackModel(client: client, telemetry: telemetry, incidentProvider: { snapshot },
-                             diagnosticsProvider: withProvider ? source : nil, now: { clock.now() })
+                             diagnosticsProvider: withProvider ? source : nil, reportDiagnostics: mode, now: { clock.now() })
     }
     func connected(correlation: Bool = false) async throws -> Client {
         let client = try r.client(); await client.resume()
@@ -68,18 +68,18 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let model = try rig.model(client)
     rig.provider.next = rig.entries(2)
     let attached = model.openDraft()
-    #expect(attached.capturedDiagnostics.state == .attached && attached.capturedDiagnostics.lines == 2)
+    #expect(attached.capturedDiagnostics?.state == .attached && attached.capturedDiagnostics?.lines == 2)
     rig.provider.next = nil
-    let none = model.openDraft().capturedDiagnostics
+    let none = try #require(model.openDraft().capturedDiagnostics)
     #expect(none.state == .none && none.reason == "empty")
     rig.provider.next = .unavailable(reason: "provider-failed")
-    #expect(model.openDraft().capturedDiagnostics.state == .unavailable)
+    #expect(model.openDraft().capturedDiagnostics?.state == .unavailable)
     rig.provider.fail = true
-    let failed = model.openDraft().capturedDiagnostics
+    let failed = try #require(model.openDraft().capturedDiagnostics)
     #expect(failed.state == .unavailable && failed.reason == "provider-failed")
-    #expect(attached.diagnostics(included: false).state == .left_out)
+    #expect(attached.diagnostics(included: false)?.state == .left_out)
     let plain = try rig.model(client, withProvider: false)
-    let noProvider = plain.openDraft().capturedDiagnostics
+    let noProvider = try #require(plain.openDraft().capturedDiagnostics)
     #expect(noProvider.state == .none && noProvider.reason == "no-provider")
 }
 
@@ -102,12 +102,12 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let rig = ComposerRig(); let client = try await rig.connected()
     let model = try rig.model(client); rig.provider.next = rig.entries()
     await model.update()
-    #expect(model.openDraft().capturedDiagnostics.delivery == .init(queued: 0, lastResult: "none"))
+    #expect(model.openDraft().capturedDiagnostics?.delivery == .init(queued: 0, lastResult: "none"))
     let first = model.openDraft()
     #expect(await model.send(first, notes: "first", screenshotPNG: nil, includeDiagnostics: true) == .saved(.offline))
     let second = model.openDraft()
-    #expect(second.capturedDiagnostics.delivery == .init(queued: 1, lastResult: "offline"), "A report filed while the connection is down says so")
-    #expect(second.capturedDiagnostics.entries.count == 3, "and keeps its failure entries")
+    #expect(second.capturedDiagnostics?.delivery == .init(queued: 1, lastResult: "offline"), "A report filed while the connection is down says so")
+    #expect(second.capturedDiagnostics?.entries.count == 3, "and keeps its failure entries")
 }
 
 @MainActor @Test func reentrantCaptureNeverRunsTheProviderTwice() async throws {
@@ -120,12 +120,12 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
         calls += 1
         nested = holder?.openDraft() // e.g. expiring a span notifies an observer that opens feedback
         return entries
-    }, now: { clock.now() })
+    }, reportDiagnostics: .on, now: { clock.now() })
     holder = model
     let draft = model.openDraft()
     #expect(calls == 1)
-    #expect(draft.capturedDiagnostics.state == .attached, "The outer capture is unaffected")
-    #expect(nested?.capturedDiagnostics.state == .unavailable && nested?.capturedDiagnostics.entries.isEmpty == true)
+    #expect(draft.capturedDiagnostics?.state == .attached, "The outer capture is unaffected")
+    #expect(nested?.capturedDiagnostics?.state == .unavailable && nested?.capturedDiagnostics?.entries.isEmpty == true)
     _ = model.openDraft()
     #expect(calls == 2, "The guard resets once the capture ends")
 }
@@ -140,7 +140,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
         _ = draft.summary(notes: "n", hasScreenshot: false, includeDiagnostics: include)
     }
     #expect(rig.provider.calls == 1)
-    #expect(draft.diagnostics(included: true).entries.count == 3)
+    #expect(draft.diagnostics(included: true)?.entries.count == 3)
 }
 
 // MARK: telemetry fallback
@@ -150,14 +150,14 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let t = try Telemetry(client: client, configuration: rig.r.config, commonAttributes: ["app.platform": "ios"], transport: rig.r.network,
                           observeAppLifecycle: false, now: rig.r.clock.now, sleep: { _ in try? await Task.sleep(nanoseconds: 3_600_000_000_000) }, random: { 0 })
     let model = try rig.model(client, telemetry: t, withProvider: false)
-    #expect(model.openDraft().capturedDiagnostics.reason == "empty", "A ring with nothing in it is none/empty")
+    #expect(model.openDraft().capturedDiagnostics?.reason == "empty", "A ring with nothing in it is none/empty")
     t.log(.error, "app.error", ["error.type": "timeout", "attempt": 2, "http.response.status_code": 503, "prompt": "never"])
     let span = t.startSpan("app.flow"); rig.r.clock.advance(1); span.setStatus(.error); span.end()
     await rig.r.network.add { _ in json([:]) }
     await rig.r.network.add { _ in json([:]) }
     _ = await t.flush()
     #expect(t.stats().sent == 2)
-    let value = model.openDraft().capturedDiagnostics
+    let value = try #require(model.openDraft().capturedDiagnostics)
     #expect(value.state == .attached && value.lines == 2, "Already-exported events are still in the report's own copy")
     let log = value.entries[0]
     #expect(log.level == .error && log.ns == "app" && log.event == "app.error")
@@ -173,7 +173,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 
 /// Open, choose the switch, Send offline, fail once more after a relaunch, then succeed after another.
 /// Returns every report POST's exact bytes. Uses the real file store, so the round trip is real.
-@MainActor private func offlineRelaunchRun(include: Bool, png: Data? = nil) async throws -> (bodies: [Data], rig: ComposerRig, frozen: FeedbackDiagnostics) {
+@MainActor private func offlineRelaunchRun(include: Bool, png: Data? = nil, mode: FeedbackReportDiagnostics = .on, override: FeedbackReportDiagnostics? = nil) async throws -> (bodies: [Data], rig: ComposerRig, frozen: FeedbackDiagnostics?) {
     let rig = ComposerRig(); let r = rig.r
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("framebriar-tests-" + UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -189,10 +189,10 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let first = try client(); await first.resume()
     await r.network.add(reply); try await first.connect(invitation: invitation)
 
-    let model = try rig.model(first, withIncident: true)
+    let model = try rig.model(first, withIncident: true, mode: mode)
     rig.provider.next = rig.entries(3)
     await model.update()
-    let draft = model.openDraft()
+    let draft = model.openDraft(reportDiagnostics: override)
     #expect(await model.send(draft, notes: "It broke", screenshotPNG: png, includeDiagnostics: include) == .saved(.offline))
 
     // The provider would answer differently now. Nothing may ask it.
@@ -211,7 +211,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     try await third.flush()
     #expect(await third.status().queued == 0)
     #expect(await third.status().lastReceivedID == draft.id)
-    #expect(rig.provider.calls == 1, "Captured once, at open")
+    #expect(rig.provider.calls == (override ?? mode == .on ? 1 : 0), "Captured once, at open, and only under .on")
     return (await rig.reports, rig, draft.capturedDiagnostics)
 }
 
@@ -247,7 +247,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let report = try parsed(bodies.last!)
     let diagnostics = report["diagnostics"] as! [String: Any]
     #expect(diagnostics["state"] as? String == "attached" && (diagnostics["entries"] as! [Any]).count == 3, "The original three, not the nine now on offer")
-    #expect(diagnostics["windowEnd"] as? String == frozen.windowEnd)
+    #expect(diagnostics["windowEnd"] as? String == frozen?.windowEnd)
     #expect(report["traceId"] as? String == traceID && report["spanId"] as? String == spanID && report["incident"] != nil)
 }
 
@@ -485,4 +485,245 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(await model.submit(try rig.r.review()))
     #expect(await client.status().queued == 1)
     #expect(model.message == "Saved on this device. Delivery is confirmed separately.")
+}
+
+// MARK: report diagnostics mode
+
+private func hasField(_ body: Data) throws -> Bool {
+    let found = try parsed(body)["diagnostics"] != nil
+    #expect(text(body).contains("\"diagnostics\"") == found, "The parsed key and the raw bytes agree")
+    return found
+}
+private func field(_ report: ReviewedFeedback) throws -> Bool { try hasField(try report.wire()) }
+private func noIncident(_ body: Data) -> Bool {
+    let raw = text(body)
+    return !raw.contains("\"incident\"") && !raw.contains("traceId") && !raw.contains("spanId")
+}
+
+/// Sends one report with live `Telemetry` in excerpt-only mode, which holds `app.error` until a report asks
+/// for it, and returns the delivered report bytes and every telemetry body up to the marker.
+@MainActor private func telemetryRun(mode: FeedbackReportDiagnostics, override: FeedbackReportDiagnostics? = nil, include: Bool, withProvider: Bool = true, withIncident: Bool = true) async throws -> (report: Data, telemetry: String, id: UUID, rig: ComposerRig) {
+    let rig = ComposerRig(); let client = try await rig.connected(correlation: true)
+    let t = try Telemetry(client: client, configuration: rig.r.config, mode: .excerptOnly, transport: rig.r.network, observeAppLifecycle: false,
+                          now: rig.r.clock.now, sleep: { _ in try? await Task.sleep(nanoseconds: 3_600_000_000_000) }, random: { 0 })
+    t.log(.error, "app.error")
+    let model = try rig.model(client, telemetry: t, withProvider: withProvider, withIncident: withIncident, mode: mode); rig.provider.next = rig.entries(2)
+    await model.update()
+    await rig.r.network.add { ack($0) }
+    for _ in 0..<4 { await rig.r.network.add { _ in json([:]) } }
+    let draft = model.openDraft(reportDiagnostics: override)
+    #expect(await model.send(draft, notes: "n", screenshotPNG: nil, includeDiagnostics: include) == .sent)
+    var sent = ""
+    for _ in 0..<500 where !sent.contains("feedback.submitted") {
+        try? await Task.sleep(nanoseconds: 2_000_000)
+        let requests: [URLRequest] = await rig.r.network.requests
+        sent = requests.filter { ["logs", "traces", "telemetry"].contains($0.url!.lastPathComponent) }.compactMap { $0.httpBody.map(text) }.joined(separator: "\n")
+    }
+    #expect(sent.contains("feedback.submitted") && sent.contains(draft.id.uuidString.lowercased()), "The marker names the report")
+    return (try #require(await rig.reports.first), sent, draft.id, rig)
+}
+
+@MainActor @Test func theDefaultModeIsOff() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected()
+    let model = FeedbackModel(client: client, diagnosticsProvider: { rig.provider.calls += 1; return nil })
+    #expect(model.reportDiagnostics == .off)
+    let draft = model.openDraft()
+    #expect(draft.reportDiagnosticsMode == .off && draft.capturedDiagnostics == nil && rig.provider.calls == 0)
+}
+
+@MainActor @Test func offNeverCapturesAndNeverSendsTheFieldInEitherSwitchPosition() async throws {
+    for include in [true, false] {
+        let (report, _, _, rig) = try await telemetryRun(mode: .off, include: include)
+        #expect(try !hasField(report))
+        #expect(rig.provider.calls == 0, "The provider is never asked")
+        let (ringReport, _, _, _) = try await telemetryRun(mode: .off, include: include, withProvider: false)
+        #expect(try !hasField(ringReport) && !text(ringReport).contains("app.error"), "Nor is the ring read into the report")
+    }
+}
+
+@MainActor @Test func offBytesAreIdenticalAcrossRetriesAndRelaunchInEitherSwitchPosition() async throws {
+    for include in [true, false] {
+        let (bodies, rig, frozen) = try await offlineRelaunchRun(include: include, mode: .off)
+        #expect(bodies.count == 3 && bodies.allSatisfy { $0 == bodies[0] }, "Byte-identical across retries")
+        #expect(frozen == nil && rig.provider.calls == 0)
+        for body in bodies {
+            #expect(try !hasField(body))
+            #expect(!noIncident(body) == include, "The switch governs incident references")
+        }
+    }
+}
+
+@MainActor @Test func offSwitchChoosesBetweenTheExcerptAndTheMarker() async throws {
+    let on = try await telemetryRun(mode: .off, include: true)
+    #expect(on.telemetry.contains("app.error") && on.telemetry.contains("feedback.excerpt"), "The excerpt goes, tagged with the report ID")
+    #expect(!noIncident(on.report))
+    let off = try await telemetryRun(mode: .off, include: false)
+    #expect(!off.telemetry.contains("app.error") && !off.telemetry.contains("feedback.excerpt"), "Marker only")
+    #expect(noIncident(off.report), "Incident references go with the switch")
+}
+
+@MainActor @Test func onAttachedCarriesTheEventsOnceWithAMarkerOnlyInTelemetry() async throws {
+    let run = try await telemetryRun(mode: .on, include: true)
+    let diagnostics = try #require(try parsed(run.report)["diagnostics"] as? [String: Any])
+    #expect(diagnostics["state"] as? String == "attached" && (diagnostics["entries"] as! [Any]).count == 2)
+    #expect(!run.telemetry.contains("app.error") && !run.telemetry.contains("feedback.excerpt"), "No excerpt duplicate")
+    let ring = try await telemetryRun(mode: .on, include: true, withProvider: false)
+    #expect(text(ring.report).contains("app.error"), "The report's own copy, from the ring")
+    #expect(!ring.telemetry.contains("app.error") && !ring.telemetry.contains("feedback.excerpt"))
+}
+
+@MainActor @Test func onLeftOutSendsTheStateAloneAndAMarker() async throws {
+    let run = try await telemetryRun(mode: .on, include: false)
+    let diagnostics = try #require(try parsed(run.report)["diagnostics"] as? [String: Any])
+    #expect(diagnostics["state"] as? String == "left_out" && (diagnostics["entries"] as! [Any]).isEmpty)
+    #expect(noIncident(run.report))
+    #expect(!run.telemetry.contains("app.error") && !run.telemetry.contains("feedback.excerpt"))
+}
+
+@MainActor @Test func onWithNoProviderAndNoTelemetryIsNoneNoProvider() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected()
+    let draft = try rig.model(client, withProvider: false).openDraft()
+    let wire = try parsed(try draft.report(configuration: rig.r.config, notes: "n", screenshotPNG: nil, includeDiagnostics: true).wire())
+    let diagnostics = try #require(wire["diagnostics"] as? [String: Any])
+    #expect(diagnostics["state"] as? String == "none" && diagnostics["reason"] as? String == "no-provider")
+}
+
+@MainActor @Test func aDraftKeepsItsModeWhateverTheModelSendingItUses() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected()
+    rig.provider.next = rig.entries(2)
+    let on = try rig.model(client, mode: .on), off = try rig.model(client, mode: .off)
+    let openedOn = on.openDraft(), openedOff = off.openDraft()
+    #expect(rig.provider.calls == 1)
+    await rig.r.network.add { ack($0) }
+    await rig.r.network.add { ack($0) }
+    #expect(await off.send(openedOn, notes: "n", screenshotPNG: nil, includeDiagnostics: true) == .sent)
+    #expect(await on.send(openedOff, notes: "n", screenshotPNG: nil, includeDiagnostics: true) == .sent)
+    #expect(rig.provider.calls == 1, "Sending captures nothing")
+    let bodies = await rig.reports
+    #expect((try parsed(bodies[0])["diagnostics"] as? [String: Any])?["state"] as? String == "attached")
+    #expect(try !hasField(bodies[1]))
+}
+
+// MARK: per-draft override
+
+@MainActor @Test func anOverrideOnAppliesToThatDraftAndNeverChangesTheModel() async throws {
+    let run = try await telemetryRun(mode: .off, override: .on, include: true)
+    let diagnostics = try #require(try parsed(run.report)["diagnostics"] as? [String: Any])
+    #expect(diagnostics["state"] as? String == "attached" && (diagnostics["entries"] as! [Any]).count == 2)
+    #expect(!run.telemetry.contains("app.error") && !run.telemetry.contains("feedback.excerpt"), "Marker only")
+
+    let rig = ComposerRig(); let client = try await rig.connected(); rig.provider.next = rig.entries(1)
+    let model = try rig.model(client, mode: .off)
+    let cancelled = model.openDraft(reportDiagnostics: .on)
+    #expect(cancelled.reportDiagnosticsMode == .on && model.reportDiagnostics == .off && !model.sendsDiagnostics)
+    // Cancel: the draft is dropped. The next composer takes no argument.
+    let next = model.openDraft()
+    #expect(next.reportDiagnosticsMode == .off && rig.provider.calls == 1)
+    #expect(try !field(try next.report(configuration: rig.r.config, notes: "n", screenshotPNG: nil, includeDiagnostics: true)))
+    let onModel = try rig.model(client, mode: .on)
+    #expect(try !field(try onModel.openDraft(reportDiagnostics: .off).report(configuration: rig.r.config, notes: "n", screenshotPNG: nil, includeDiagnostics: true)), "An override can turn it off too")
+}
+
+@MainActor @Test func anOverrideOnWithTheSwitchOffIsLeftOutWithNoReferences() async throws {
+    let run = try await telemetryRun(mode: .off, override: .on, include: false)
+    let diagnostics = try #require(try parsed(run.report)["diagnostics"] as? [String: Any])
+    #expect(diagnostics["state"] as? String == "left_out" && (diagnostics["entries"] as! [Any]).isEmpty && diagnostics["delivery"] == nil)
+    #expect(noIncident(run.report))
+    #expect(!run.telemetry.contains("feedback.excerpt"))
+}
+
+@MainActor @Test func anOverrideOnIsStableAcrossRetriesAndRelaunch() async throws {
+    let (bodies, rig, frozen) = try await offlineRelaunchRun(include: true, mode: .off, override: .on)
+    #expect(bodies.count == 3 && bodies.allSatisfy { $0 == bodies[0] })
+    #expect((try parsed(bodies[0])["diagnostics"] as? [String: Any])?["windowEnd"] as? String == frozen?.windowEnd)
+    #expect(rig.provider.calls == 1)
+}
+
+/// The same calls `FeedbackView` makes: `openDraft(reportDiagnostics:)` once, then a bare `openDraft()`
+/// when saving throws `enrollmentChanged`. The view itself runs in `Harness/UITests/ComposerUITests`.
+@MainActor @Test func anEnrollmentChangeInAComposerOpenedOnReopensWithTheModelsMode() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected(); rig.provider.next = rig.entries(2)
+    let model = try rig.model(client, withIncident: true, mode: .off)
+    let first = model.openDraft(reportDiagnostics: .on)
+    #expect(first.summary(notes: "n", hasScreenshot: false, includeDiagnostics: true).contains("recent diagnostics"))
+    await rig.r.network.add { [clock = rig.r.clock] _ in access(clock) }
+    try await client.connect(invitation: String(repeating: "j", count: 43))
+    await #expect(throws: FramebriarError.enrollmentChanged) { try await model.save(first, notes: "n", screenshotPNG: nil, includeDiagnostics: true) }
+    #expect(await client.status().queued == 0)
+    #expect(await rig.reports.isEmpty, "Nothing goes until a new Send")
+
+    let second = model.openDraft()
+    #expect(second.id != first.id && second.enrollmentRef != first.enrollmentRef && second.reportDiagnosticsMode == .off)
+    #expect(second.summary(notes: "n", hasScreenshot: false, includeDiagnostics: true) == "Included: note · incident references")
+    #expect(rig.provider.calls == 1, "No capture for the new draft")
+    await client.pause() // saved, not delivered: the new Send is what's being checked, on its bytes.
+    #expect(await model.send(second, notes: "n", screenshotPNG: nil, includeDiagnostics: true) == .saved(.paused))
+    #expect(!FeedbackDisclosure.enrollmentChangedNotice.contains("diagnostics"))
+    let report = try second.report(configuration: rig.r.config, notes: "n", screenshotPNG: nil, includeDiagnostics: true)
+    #expect(try !field(report) && report.id == second.id)
+}
+
+// MARK: wording under each mode
+
+@MainActor @Test func theSummaryMatchesTheWireInEveryMode() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected(correlation: true); rig.provider.next = rig.entries(2)
+    let cases: [(mode: FeedbackReportDiagnostics, include: Bool, incident: Bool, expected: String)] = [
+        (.off, true, true, "Included: note · incident references"),
+        (.off, true, false, "Included: note"),
+        (.off, false, true, "Included: note"),
+        (.on, true, true, "Included: note · recent diagnostics (2 events) · incident references"),
+        (.on, false, true, "Included: note · diagnostics left out")
+    ]
+    for item in cases {
+        let draft = try rig.model(client, withIncident: item.incident, mode: item.mode).openDraft()
+        let summary = draft.summary(notes: "n", hasScreenshot: false, includeDiagnostics: item.include)
+        #expect(summary == item.expected)
+        let wire = try parsed(try draft.report(configuration: rig.r.config, notes: "n", screenshotPNG: nil, includeDiagnostics: item.include).wire())
+        #expect(summary.contains("diagnostics") == (wire["diagnostics"] != nil))
+        #expect(summary.contains("event") == ((wire["diagnostics"] as? [String: Any])?["state"] as? String == "attached"))
+        #expect(summary.contains("incident references") == (wire["incident"] != nil))
+    }
+    let off = try rig.model(client, mode: .off).openDraft()
+    #expect(off.summary(notes: " ", hasScreenshot: false, includeDiagnostics: true) == "Included: nothing yet")
+    #expect(off.summary(notes: "", hasScreenshot: true, includeDiagnostics: true) == "Included: screenshot")
+}
+
+@MainActor @Test func theSwitchAndItsWordingFollowWhatTheDraftCanDo() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected()
+    let t = try Telemetry(client: client, configuration: rig.r.config, transport: rig.r.network, observeAppLifecycle: false,
+                          now: rig.r.clock.now, sleep: { _ in try? await Task.sleep(nanoseconds: 3_600_000_000_000) }, random: { 0 })
+    let offAlone = try rig.model(client, mode: .off).openDraft()
+    #expect(!offAlone.offersDiagnosticsSwitch && offAlone.diagnosticsMeaning == nil, "Nothing to switch: no telemetry and no field")
+    #expect(offAlone.telemetryNote(telemetry: nil, includeDiagnostics: false) == nil)
+
+    let off = try rig.model(client, telemetry: t, mode: .off).openDraft()
+    #expect(off.offersDiagnosticsSwitch && off.diagnosticsMeaning == FeedbackDisclosure.telemetryDiagnosticsMeaning)
+    #expect(off.diagnosticsMeaning?.contains("aren't part of this report") == true)
+    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: true)?.contains("A copy of the last five minutes") == true)
+    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: false)?.contains("A marker") == true)
+
+    let on = try rig.model(client, telemetry: t, mode: .on).openDraft()
+    #expect(on.offersDiagnosticsSwitch && on.diagnosticsMeaning == FeedbackDisclosure.diagnosticsMeaning)
+    for include in [true, false] {
+        let note = try #require(on.telemetryNote(telemetry: t, includeDiagnostics: include))
+        #expect(note.contains("A marker") && !note.contains("copy"), "No copy claim when the report carries the events")
+    }
+    #expect(try rig.model(client, mode: .on).openDraft().offersDiagnosticsSwitch, "The field's switch needs no telemetry")
+}
+
+@MainActor @Test func sendsDiagnosticsAndTheEnrollmentCopyStayTrueInBothModes() async throws {
+    let rig = ComposerRig(); let client = try await rig.connected()
+    let t = try Telemetry(client: client, configuration: rig.r.config, transport: rig.r.network, observeAppLifecycle: false,
+                          now: rig.r.clock.now, sleep: { _ in try? await Task.sleep(nanoseconds: 3_600_000_000_000) }, random: { 0 })
+    #expect(try !rig.model(client, mode: .off).sendsDiagnostics)
+    #expect(try !rig.model(client, telemetry: t, mode: .off).sendsDiagnostics)
+    #expect(try rig.model(client, mode: .on).sendsDiagnostics)
+    #expect(try rig.model(client, telemetry: t, withProvider: false, mode: .on).sendsDiagnostics)
+    #expect(try !rig.model(client, withProvider: false, mode: .on).sendsDiagnostics)
+
+    let telemetryOnly = FeedbackDisclosure.enrollment(hasTelemetry: true, sendsDiagnostics: false)
+    #expect(telemetryOnly.contains("Connecting also shares performance and diagnostic data with the developer"), "Required by docs/telemetry.md")
+    #expect(!telemetryOnly.contains("Each report can include"))
+    #expect(FeedbackDisclosure.enrollment(hasTelemetry: true, sendsDiagnostics: true).contains("Each report can include recent diagnostics"))
+    #expect(!FeedbackDisclosure.enrollment(hasTelemetry: false, sendsDiagnostics: false).contains("diagnostics"))
 }

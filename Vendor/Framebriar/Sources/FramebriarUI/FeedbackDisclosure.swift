@@ -11,7 +11,8 @@ public enum FeedbackDisclosure {
     public static func enrollment(hasTelemetry: Bool, sendsDiagnostics: Bool) -> String {
         if hasTelemetry {
             // Required disclosure (docs/telemetry.md): enrollment enables telemetry.
-            return "Connecting also shares performance and diagnostic data with the developer: event names, counts, timings and error classes, designed not to include prompts, agent content, file paths or account details. Clearing enrollment stops it immediately. Feedback is shared only when you send it. Each report can include recent diagnostics, which you can switch off before sending. Review images for private information before sending."
+            let reports = sendsDiagnostics ? "Each report can include recent diagnostics, which you can switch off before sending. " : ""
+            return "Connecting also shares performance and diagnostic data with the developer: event names, counts, timings and error classes, designed not to include prompts, agent content, file paths or account details. Clearing enrollment stops it immediately. Feedback is shared only when you send it. \(reports)Review images for private information before sending."
         }
         if sendsDiagnostics {
             return "Only feedback you choose to send is shared. Each report can include recent app diagnostics (event names, counts, timings and error categories), which you can switch off before sending. They are designed not to include prompts or agent content. Optional trace references can link a report to separately configured tracing. Review images for private information before sending."
@@ -45,27 +46,33 @@ public enum FeedbackDisclosure {
     public static let notesPrompt = "Describe the issue without prompts, agent responses, credentials, or other private information. A screenshot is optional."
     public static let capturedScreenNote = "This is the screen you were on. It stays on this device unless you tap Send. Check it for private information, then keep, remove or replace it."
     public static let diagnosticsToggle = "Include recent diagnostics"
-    public static let enrollmentChangedNotice = "Your enrollment changed while this was open, so nothing was saved or sent. Your note and image are still here, and diagnostics were captured again for the new enrollment. Check what's included, then tap Send."
+    public static let enrollmentChangedNotice = "Your enrollment changed while this was open, so nothing was saved or sent. Your note and image are still here. Check what's included, then tap Send."
 
     /// The one-line summary, built from the same values that go on the wire.
-    public static func summary(hasNote: Bool, hasScreenshot: Bool, diagnostics: FeedbackDiagnostics, hasIncident: Bool) -> String {
+    /// Nil `diagnostics` means the report has no such field, so the line doesn't mention them.
+    public static func summary(hasNote: Bool, hasScreenshot: Bool, diagnostics: FeedbackDiagnostics?, hasIncident: Bool) -> String {
         var items: [String] = []
         if hasNote { items.append("note") }
         if hasScreenshot { items.append("screenshot") }
-        switch diagnostics.state {
-        case .attached: items.append("recent diagnostics (\(diagnostics.entries.count) \(diagnostics.entries.count == 1 ? "event" : "events"))")
-        case .none: items.append("no diagnostics recorded")
+        switch diagnostics?.state {
+        case .attached: items.append("recent diagnostics (\(diagnostics?.entries.count ?? 0) \(diagnostics?.entries.count == 1 ? "event" : "events"))")
+        case .none?: items.append("no diagnostics recorded")
         case .unavailable: items.append("diagnostics unavailable")
         case .left_out: items.append("diagnostics left out")
+        case nil: break
         }
         if hasIncident { items.append("incident references") }
-        return "Included: " + items.joined(separator: " · ")
+        return items.isEmpty ? "Included: nothing yet" : "Included: " + items.joined(separator: " · ")
     }
 
     public static let alwaysIncluded = "Every report includes your note, any image shown here, the app's identifier and build, iOS, touch input, the time, and random report and session IDs."
     public static let diagnosticsMeaning = "Recent diagnostics are this app's event names, levels, times, counts, timings, error categories and random connection and trace IDs, recorded before this form opened. They are short fixed-format labels and numbers, not free text, and are designed not to include your messages or file paths. Turning the switch off also removes incident references, which are random IDs that link this report to other diagnostics."
 
+    /// `diagnosticsMeaning` for a report with no `diagnostics` field, where the switch governs the telemetry excerpt.
+    public static let telemetryDiagnosticsMeaning = "Recent diagnostics are this app's telemetry events: event names, counts, timings and error classes, designed not to include your messages or file paths. They aren't part of this report. Turning the switch off also removes any incident references, which are random IDs that link this report to other diagnostics."
+
     /// What the app's own telemetry does around this report, which the switch only partly controls.
+    /// `includeDiagnostics` means an excerpt goes out, which never happens for a report carrying its own.
     public static func telemetryNote(enabled: Bool, excerptOnly: Bool, includeDiagnostics: Bool) -> String? {
         guard enabled else { return nil }
         if includeDiagnostics { return "A copy of the last five minutes of these events not yet delivered also goes to the developer's telemetry, labeled with this report's ID." }
@@ -138,19 +145,40 @@ public enum FeedbackSendBlock: Sendable, Equatable {
     }
 }
 
+/// Whether reports carry their own `diagnostics` field. Only `.on` captures anything for it.
+public enum FeedbackReportDiagnostics: Sendable { case off, on }
+
 /// One composer session. Diagnostics and incident references are captured once, when it opens;
 /// the switch only chooses whether the frozen capture goes out.
 public struct FeedbackDraft: Sendable {
     public let id: UUID
     public let openedAt: Date
-    public let capturedDiagnostics: FeedbackDiagnostics
+    /// Frozen at open, whatever the model's mode is later.
+    public let reportDiagnosticsMode: FeedbackReportDiagnostics
+    /// Whether the composer shows the switch. `.off` has something to switch only when telemetry was enabled
+    /// at open. A composer that hides it passes `includeDiagnostics: false`, so nothing goes out unswitchable.
+    public let offersDiagnosticsSwitch: Bool
+    /// Nil under `.off`, where nothing is captured.
+    public let capturedDiagnostics: FeedbackDiagnostics?
     public let incident: FeedbackIncident?
     /// The enrollment this was opened under, beside the report and never in its bytes. Saving under any
     /// other enrollment fails with `enrollmentChanged`, and this draft can never send after that.
     public let enrollmentRef: String?
 
-    public func diagnostics(included: Bool) -> FeedbackDiagnostics {
-        included ? capturedDiagnostics : .leftOut(at: openedAt)
+    /// What goes in the report's `diagnostics` field. Nil under `.off`, which omits the field.
+    public func diagnostics(included: Bool) -> FeedbackDiagnostics? {
+        guard reportDiagnosticsMode == .on else { return nil }
+        return included ? capturedDiagnostics : .leftOut(at: openedAt)
+    }
+    /// What the switch means for this draft. Nil when it has no switch.
+    public var diagnosticsMeaning: String? {
+        guard offersDiagnosticsSwitch else { return nil }
+        return reportDiagnosticsMode == .on ? FeedbackDisclosure.diagnosticsMeaning : FeedbackDisclosure.telemetryDiagnosticsMeaning
+    }
+    /// The telemetry note for this draft. Under `.on` the report carries the events, so telemetry gets only the marker.
+    public func telemetryNote(telemetry: Telemetry?, includeDiagnostics: Bool) -> String? {
+        FeedbackDisclosure.telemetryNote(enabled: telemetry?.isEnabled == true, excerptOnly: telemetry?.mode == .excerptOnly,
+                                         includeDiagnostics: reportDiagnosticsMode == .off && includeDiagnostics)
     }
     public func summary(notes: String, hasScreenshot: Bool, includeDiagnostics: Bool) -> String {
         FeedbackDisclosure.summary(hasNote: !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, hasScreenshot: hasScreenshot,

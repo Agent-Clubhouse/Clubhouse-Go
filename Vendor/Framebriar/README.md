@@ -143,7 +143,7 @@ A custom composer can use the same parts: `model.openDraft()` once when it opens
 
 A report can carry its own bounded recent diagnostics (`report.diagnostics`, v1, `docs/feedback-diagnostics-v1.md` in the service change). Unlike the telemetry excerpt, they travel with the report through the offline queue.
 
-**Don't ship this SDK to users before that service change is deployed.** The deployed service drops the unknown field and still acknowledges the report, so diagnostics are silently lost while the composer says they were included. It also refuses a body over 16 KiB with a 413, which the queue treats as permanent, so a large excerpt blocks its report. Nothing makes a report depend on the field: it can be omitted, and existing `ReviewedFeedback` callers send no field at all.
+**The field is off by default.** Pass `reportDiagnostics: .on` only once the service accepts it. A service without that change drops the unknown field and still acknowledges the report, so diagnostics are silently lost while the composer says they were included. It also refuses a body over 16 KiB with a 413, which the queue treats as permanent, so a large excerpt blocks its report. Nothing makes a report depend on the field, and existing `ReviewedFeedback` callers send no field at all.
 
 ```swift
 let feedback = FeedbackModel(client: client, telemetry: telemetry, diagnosticsProvider: {
@@ -151,10 +151,22 @@ let feedback = FeedbackModel(client: client, telemetry: telemetry, diagnosticsPr
         .init(at: $0.date, level: .warn, ns: "transport", event: "connect.failed",
               attrs: ["failure": "timeout", "attempt": 2, "closeCode": 1006, "connectionId": .string(id)])
     }, dropped: alreadyDropped)
-})
+}, reportDiagnostics: .on)
 ```
 
-The provider runs on the main actor, once, when a composer opens. It must be synchronous and do no I/O. The result is frozen and stored with the queued report, so every retry, including after a relaunch, sends the same bytes. The switch only chooses whether the frozen capture goes out; it never runs the provider again. A reentrant `openDraft()` while the provider runs (say a provider that synchronously notifies something that opens feedback) gets an empty `unavailable` draft and doesn't call the provider again.
+| | `.off` (default) | `.on` |
+|---|---|---|
+| `diagnostics` field | Never present, in any switch position | Always present: one of the states below |
+| Provider and ring | Not read for the report | Read once, at open |
+| Switch | Shown only if telemetry is enabled at open. It governs the telemetry excerpt and incident references. When hidden, neither goes out | Always shown. It governs the field and incident references |
+| Telemetry | Excerpt when the switch is on, marker when it's off | Marker only, whatever the switch says. The report already carries the events |
+| Summary | Doesn't mention diagnostics | States what the field holds |
+
+`FeedbackDraft.reportDiagnosticsMode` is frozen at `openDraft()`, and a saved report keeps its bytes, so retries, relaunches and held-report release send the same thing whatever the model's mode is later. `capturedDiagnostics` and `diagnostics(included:)` are nil under `.off`.
+
+**One draft, on purpose.** `openDraft(reportDiagnostics:)` and `FeedbackView(model:initialScreenshotPNG:onClose:reportDiagnostics:)` set the mode for one draft, and never change the model, for a test build that turns the field on before the default changes. `FeedbackView` applies it only to the first draft it opens. If the enrollment changes while it's open, the new draft uses the model's mode, so a test authorization doesn't carry across enrollments: to send `.on` again, present a new composer with the argument. A custom composer does the same, and honors `draft.offersDiagnosticsSwitch` by passing `includeDiagnostics: false` when it's false. `sendsDiagnostics` and `EnrollmentView` describe the model's mode, not an override.
+
+Under `.on`, the provider runs on the main actor, once, when a composer opens. It must be synchronous and do no I/O. The result is frozen and stored with the queued report, so every retry, including after a relaunch, sends the same bytes. The switch only chooses whether the frozen capture goes out; it never runs the provider again. A reentrant `openDraft()` while the provider runs (say a provider that synchronously notifies something that opens feedback) gets an empty `unavailable` draft and doesn't call the provider again.
 
 | State | When | Entries |
 |---|---|---|
@@ -165,7 +177,7 @@ The provider runs on the main actor, once, when a composer opens. It must be syn
 
 Enrollment isn't one of these states: a report filed while the app's connection is down still attaches its failure entries. Nothing here ever blocks Send.
 
-With no provider, the `Telemetry` ring is used, including events already exported (the report's copy is independent). OTel names map where there's an obvious match (`http.response.status_code` to `statusCode`, `error.type` and `app.error.class` to `failure`), and everything else goes through the allowlist. Hosts can read the same thing with `telemetry.diagnosticsSnapshot()`.
+Under `.on` with no provider, the `Telemetry` ring is used, including events already exported (the report's copy is independent). OTel names map where there's an obvious match (`http.response.status_code` to `statusCode`, `error.type` and `app.error.class` to `failure`), and everything else goes through the allowlist. Hosts can read the same thing with `telemetry.diagnosticsSnapshot()`.
 
 **Limits**, enforced before sending: 64 KiB serialized in total, 500 entries (oldest trimmed first and counted in `dropped`), tokens `^[A-Za-z0-9_.:+-]{1,64}$` with no free-text field. A well-formed token that looks like a secret (`ghp_…`, `token:abc`) becomes `redacted`.
 
@@ -236,9 +248,9 @@ On an accepted shake, and before anything is presented, the SDK renders that win
 
 Source-compatible: `FeedbackView(model:initialScreenshotPNG:)`, `ReviewedFeedback.init` (`diagnostics:` is a new defaulted parameter), `FeedbackModel(client:telemetry:incidentProvider:)`, `shakeToOpenFeedback(...)` and `Client.enqueue` all still compile. `FeedbackModel.submit` still works and is deprecated: use `save` and `deliver`.
 
-**Order: deploy the service first.** See [Report diagnostics](#report-diagnostics).
+**Order: deploy the service first, and open its gate, before passing `reportDiagnostics: .on`.** See [Report diagnostics](#report-diagnostics).
 
-1. **Provider.** Pass `diagnosticsProvider:` (above), mapping your diagnostic records. Keep it memory-only. Without it you get the `Telemetry` ring.
+1. **Provider.** Pass `diagnosticsProvider:` (above), mapping your diagnostic records. Keep it memory-only. Without it, `.on` uses the `Telemetry` ring.
 2. **Shake.**
    - Take `showSettings` and other ordinary sheets out of `isPresenting`, or shake stays off over them. Keep flags for flows that shouldn't be interrupted, like pairing and restore.
    - To use your own presenter, switch to `onFeedbackShake(...)` and present from `event.window` with `event.screenshotPNG`.
@@ -257,7 +269,7 @@ Source-compatible: `FeedbackView(model:initialScreenshotPNG:)`, `ReviewedFeedbac
 
 The optional `FeedbackIncident` value follows `docs/incident-correlation-v1.md`. It holds only bounded trace/span references, opaque process/socket IDs and an optional logical tracing-destination UUID. It never configures or exports telemetry. The service may use a different backend from the phone and host.
 
-Pass a synchronous main-actor provider to `FeedbackModel(client:incidentProvider:)`. `FeedbackView` calls the provider once when the composer first appears, lists incident references in its summary, removes them with the diagnostics switch, and persists the snapshot with `ReviewedFeedback.incident`. Hosts using a custom composer snapshot once at open (`model.openDraft()` does this), then pass `incident:` to `ReviewedFeedback` on Send. Do not refresh this value while composing, retrying or restoring the queue. A provider may return `nil`; old calls without a provider remain valid.
+Pass a synchronous main-actor provider to `FeedbackModel(client:incidentProvider:)`. `FeedbackView` calls the provider once when the composer first appears, lists incident references in its summary, removes them with the diagnostics switch, and persists the snapshot with `ReviewedFeedback.incident`. Under `.off` with no enabled telemetry there's no switch, so `FeedbackView` leaves them out. Hosts using a custom composer snapshot once at open (`model.openDraft()` does this), then pass `incident:` to `ReviewedFeedback` on Send. Do not refresh this value while composing, retrying or restoring the queue. A provider may return `nil`; old calls without a provider remain valid.
 
 ```swift
 let model = FeedbackModel(client: client, incidentProvider: {
@@ -313,7 +325,7 @@ The service change must be separately deployed before incident feedback can uplo
 **Correlation** ([docs/correlation.md](../../docs/correlation.md)):
 - **One session ID:** `FramebriarSession.id` (a random lowercase UUID per process) is both the report `sessionId` and the resource `session.id`.
 - **Submit marker:** `feedbackSubmitted(reportID:trace:includeDiagnostics:)` runs after `Client.enqueue` commits. It emits the `feedback.submitted` log with `feedback.report.id` and the incident's first trace/span. With consent, it also re-sends the last 5 minutes of spans and logs not already delivered (at most 200 each), tagged `feedback.excerpt=true`, then flushes.
-- **FeedbackModel:** `FeedbackModel(client:telemetry:incidentProvider:diagnosticsProvider:)` does this for you after the delivery attempt. The composer's one diagnostics switch controls this excerpt too.
+- **FeedbackModel:** `FeedbackModel(client:telemetry:incidentProvider:diagnosticsProvider:reportDiagnostics:)` does this for you after the delivery attempt. The composer's one diagnostics switch controls this excerpt too. A report carrying its own diagnostics gets the marker only, so no event goes out twice.
 - **Excerpt-only mode:** `mode: .excerptOnly` sends nothing until a report is submitted, and metrics are off.
 
 **Incident buffers.** A host that already records spans locally (Clubhouse Go's incident ring) exports them with `record(RecordedSpan)`, which keeps the span's events, status, kind and parent. `recentTraces()` returns up to eight recent trace references from the SDK's own ring for a `FeedbackIncident` snapshot.
@@ -350,7 +362,8 @@ telemetry.recordError(class: "decode_failed", error)  // type name only, never t
    - Don't export successful `ping` spans; count them instead.
 5. **Errors:** `recordError(class:)` with `AnnexDiagnosticFailure` raw values.
 6. **Settings copy:** the SDK `EnrollmentView` shows the required disclosure when `telemetry` is set. If the app has its own enrollment text, add "Connecting also shares performance and diagnostic data with the developer."
-7. **Owner side (not code):** the registry entry must not have telemetry off (`admin games set clubhouse-annex --telemetry on` if it does), with Mason's go-ahead. Until then the gateway answers 403, and the emitter stops quietly until the next enrollment.
+7. **Report diagnostics:** keep the default `.off` while the service's gate for `report.diagnostics` is closed, so the field stays off the wire. Pass `reportDiagnostics: .on` only after the gate opens. Reports already queued keep the bytes they were saved with.
+8. **Owner side (not code):** the registry entry must not have telemetry off (`admin games set clubhouse-annex --telemetry on` if it does), with Mason's go-ahead. Until then the gateway answers 403, and the emitter stops quietly until the next enrollment.
 
 ### Privacy manifest (PrivacyInfo.xcprivacy)
 

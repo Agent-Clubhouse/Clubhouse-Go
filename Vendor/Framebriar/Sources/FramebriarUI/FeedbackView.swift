@@ -5,8 +5,8 @@ import PhotosUI
 import UIKit
 
 /// The one feedback screen. It never captures the screen itself; a host (such as the shake shortcut)
-/// may pass a screenshot it captured, which starts attached and can be removed or replaced. Diagnostics
-/// are captured once when it opens. Nothing is saved or sent until the user taps Send.
+/// may pass a screenshot it captured, which starts attached and can be removed or replaced. Report
+/// diagnostics, under `.on`, are captured once when it opens. Nothing is saved or sent until the user taps Send.
 /// All wording about what's included lives in `FeedbackDisclosure`.
 public struct FeedbackView: View {
     private enum Phase: Equatable { case composing, saving, sending, finished(FeedbackDeliveryOutcome) }
@@ -23,11 +23,15 @@ public struct FeedbackView: View {
     @State private var error: String?
     @State private var loading = false
     private let onClose: (@MainActor () -> Void)?
+    private let reportDiagnostics: FeedbackReportDiagnostics?
 
-    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil) { self.init(model: model, initialScreenshotPNG: initialScreenshotPNG, onClose: nil) }
-    /// `onClose` replaces the SwiftUI dismiss action, for a host that presents this from UIKit.
-    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil, onClose: (@MainActor () -> Void)?) {
-        self.model = model; self.onClose = onClose
+    /// - Parameters:
+    ///   - onClose: replaces the SwiftUI dismiss action, for a host that presents this from UIKit.
+    ///   - reportDiagnostics: the mode for the first draft this view opens, and no other. If the enrollment
+    ///     changes, its new draft uses the model's mode: to send `.on` again, present a new composer.
+    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil, onClose: (@MainActor () -> Void)? = nil,
+                reportDiagnostics: FeedbackReportDiagnostics? = nil) {
+        self.model = model; self.onClose = onClose; self.reportDiagnostics = reportDiagnostics
         let attachment = ShakeScreenshot.validatedAttachment(initialScreenshotPNG)
         _imageData = State(initialValue: attachment)
         _imageIsCapture = State(initialValue: attachment != nil)
@@ -37,6 +41,7 @@ public struct FeedbackView: View {
         FeedbackSendBlock.evaluate(status: model.status, notes: notes, hasScreenshot: imageData != nil, preparingImage: loading, saving: phase == .saving)
     }
     private func close() { if let onClose { onClose() } else { dismiss() } }
+    private func including(_ draft: FeedbackDraft) -> Bool { includeDiagnostics && draft.offersDiagnosticsSwitch }
 
     public var body: some View {
         Group {
@@ -62,7 +67,7 @@ public struct FeedbackView: View {
         .interactiveDismissDisabled(phase == .saving || (phase == .composing && !notes.isEmpty))
         .onAppear {
             model.composerAppeared()
-            if draft == nil { draft = model.openDraft() }
+            if draft == nil { draft = model.openDraft(reportDiagnostics: reportDiagnostics) }
         }
         .onDisappear { model.composerDisappeared() }
         .task { await model.update() }
@@ -96,10 +101,11 @@ public struct FeedbackView: View {
             Section {
                 DisclosureGroup("What this means") {
                     Text(FeedbackDisclosure.alwaysIncluded).font(.caption)
-                    Text(FeedbackDisclosure.diagnosticsMeaning).font(.caption)
-                    if let note = FeedbackDisclosure.telemetryNote(enabled: model.telemetry?.isEnabled == true, excerptOnly: model.telemetry?.mode == .excerptOnly,
-                                                                   includeDiagnostics: includeDiagnostics) {
-                        Text(note).font(.caption)
+                    if let draft {
+                        if let meaning = draft.diagnosticsMeaning { Text(meaning).font(.caption) }
+                        if let note = draft.telemetryNote(telemetry: model.telemetry, includeDiagnostics: including(draft)) {
+                            Text(note).font(.caption)
+                        }
                     }
                 }
             }
@@ -115,10 +121,12 @@ public struct FeedbackView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 if let draft {
-                    Text(draft.summary(notes: notes, hasScreenshot: imageData != nil, includeDiagnostics: includeDiagnostics))
+                    Text(draft.summary(notes: notes, hasScreenshot: imageData != nil, includeDiagnostics: including(draft)))
                         .font(.footnote).accessibilityIdentifier("framebriar-included")
+                    if draft.offersDiagnosticsSwitch {
+                        Toggle(FeedbackDisclosure.diagnosticsToggle, isOn: $includeDiagnostics).font(.footnote).accessibilityIdentifier("framebriar-diagnostics-switch")
+                    }
                 }
-                Toggle(FeedbackDisclosure.diagnosticsToggle, isOn: $includeDiagnostics).font(.footnote).accessibilityIdentifier("framebriar-diagnostics-switch")
             }
             .padding(.horizontal).padding(.vertical, 8).background(.bar)
         }
@@ -158,7 +166,7 @@ public struct FeedbackView: View {
     private func send() {
         guard let draft, sendBlock == nil else { return }
         phase = .saving; error = nil
-        let notes = notes, png = imageData, include = includeDiagnostics
+        let notes = notes, png = imageData, include = including(draft)
         // Not tied to the view: closing the sheet after the commit must not cancel the attempt.
         Task {
             do {
@@ -167,7 +175,8 @@ public struct FeedbackView: View {
                 phase = .finished(await model.deliver(report, includeDiagnostics: include))
             } catch FramebriarError.enrollmentChanged {
                 // This draft can never send. Notes and image stay; the rest is captured again, and the
-                // summary above follows. Nothing is resent until the user taps Send.
+                // summary above follows. Nothing is resent until the user taps Send. The model's mode,
+                // not this view's: an override doesn't carry across enrollments.
                 self.draft = model.openDraft()
                 self.error = FeedbackDisclosure.enrollmentChangedNotice
                 phase = .composing

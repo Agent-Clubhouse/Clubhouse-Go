@@ -145,7 +145,7 @@ private func ids(_ network: HeldNetwork) async -> [String] {
 @Test func deadDraftStaysDeadAndAReopenIsANewReportWithNewCaptures() async throws {
     let r = HeldRig(), c = try await r.started(); try await r.enrolled(c)
     let box = LabelBox(); box.label = "old.capture"
-    let model = await FeedbackModel(client: c, diagnosticsProvider: { box.snapshot(r.clock.now()) }); let draft = await model.openDraft()
+    let model = await FeedbackModel(client: c, diagnosticsProvider: { box.snapshot(r.clock.now()) }, reportDiagnostics: .on); let draft = await model.openDraft()
     try await r.enrolled(c, "b")
     for _ in 0..<2 {
         await #expect(throws: FramebriarError.enrollmentChanged) { try await model.save(draft, notes: "n", screenshotPNG: nil, includeDiagnostics: true) }
@@ -164,6 +164,28 @@ private func ids(_ network: HeldNetwork) async -> [String] {
     let bytes = String(decoding: try report.wire(), as: UTF8.self)
     #expect(bytes.contains("new.capture")); #expect(!bytes.contains("old.capture")); #expect(!bytes.contains(draft.id.uuidString.lowercased()))
     #expect(!bytes.contains(try #require(again.enrollmentRef)), "identity is never in the report")
+}
+@Test func releaseSendsTheFrozenBytesWhateverTheModelsDiagnosticsModeIsNow() async throws {
+    for current in [FeedbackReportDiagnostics.off, .on] {
+        let r = HeldRig(), c = try await r.started(); try await r.enrolled(c)
+        let box = LabelBox(); box.label = "frozen.capture"
+        let provider: @MainActor () -> FeedbackDiagnostics? = { box.snapshot(r.clock.now()) }
+        let saving = await FeedbackModel(client: c, diagnosticsProvider: provider, reportDiagnostics: .off)
+        let on = try await saving.save(await saving.openDraft(reportDiagnostics: .on), notes: "on", screenshotPNG: nil, includeDiagnostics: true)
+        let off = try await saving.save(await saving.openDraft(), notes: "off", screenshotPNG: nil, includeDiagnostics: true)
+        let frozenOn = try on.wire(), frozenOff = try off.wire()
+        try await r.enrolled(c, "b"); #expect(await c.status().heldForEnrollment == 2)
+
+        box.label = "later.capture"
+        let releasing = await FeedbackModel(client: c, diagnosticsProvider: provider, reportDiagnostics: current)
+        let token = await c.status().releaseToken
+        #expect(await releasing.releaseHeldReports(releaseToken: token).released == 2)
+        let bodies = await r.network.reports.map(\.body)
+        #expect(bodies.count == 2); #expect(bodies.contains(frozenOn)); #expect(bodies.contains(frozenOff))
+        let sentOn = String(decoding: frozenOn, as: UTF8.self), sentOff = String(decoding: frozenOff, as: UTF8.self)
+        #expect(sentOn.contains("\"diagnostics\"")); #expect(sentOn.contains("frozen.capture"))
+        #expect(!sentOff.contains("\"diagnostics\"")); #expect(!sentOff.contains("frozen.capture"))
+    }
 }
 @Test func sameEnrollmentRetryIsIdempotentAndByteIdentical() async throws {
     let r = HeldRig(), c = try await r.started(); try await r.enrolled(c)

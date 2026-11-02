@@ -55,6 +55,42 @@ final class ComposerUITests: XCTestCase {
         XCTAssertTrue(app.buttons["open-sheet"].waitForExistence(timeout: 5))
     }
 
+    func testModelOffShowsNoDiagnosticsOrSwitch() {
+        open("--model-off")
+        XCTAssertEqual(included, "Included: screenshot")
+        XCTAssertFalse(app.switches["framebriar-diagnostics-switch"].exists, "No telemetry, so nothing to switch")
+    }
+
+    func testOverrideAppliesToTheFirstComposerOnly() {
+        open("--model-off", "--override-on")
+        XCTAssertEqual(included, "Included: screenshot · recent diagnostics (2 events)")
+        XCTAssertTrue(app.switches["framebriar-diagnostics-switch"].exists)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["open-sheet"].waitForExistence(timeout: 5))
+        Thread.sleep(forTimeInterval: 2.5)
+        notify_post("com.apple.UIKit.SimulatorShake")
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
+        XCTAssertEqual(included, "Included: screenshot", "A cancelled override doesn't reach the next composer")
+    }
+
+    func testEnrollmentChangeDropsTheOverrideInTheSameComposer() {
+        open("--model-off", "--override-on", "--reenroll-after-open", "--no-capture")
+        let notes = app.textViews["framebriar-notes"]
+        notes.tap(); notes.typeText("It broke")
+        XCTAssertEqual(included, "Included: note · recent diagnostics (2 events)")
+        Thread.sleep(forTimeInterval: 2)
+        send.tap()
+        XCTAssertTrue(app.staticTexts["framebriar-error"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["framebriar-error"].label, "Your enrollment changed while this was open, so nothing was saved or sent. Your note and image are still here. Check what's included, then tap Send.")
+        XCTAssertEqual(included, "Included: note", "The new draft uses the model's mode")
+        XCTAssertFalse(app.switches["framebriar-diagnostics-switch"].exists)
+        XCTAssertFalse(app.staticTexts["framebriar-result-title"].exists, "Nothing sends until a new Send")
+        send.tap()
+        let title = app.staticTexts["framebriar-result-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        wait(for: [expectation(for: NSPredicate(format: "label == 'Sent'"), evaluatedWith: title)], timeout: 10)
+    }
+
     func testOfflineSendSaysSaved() {
         open("--offline")
         send.tap()

@@ -7,8 +7,11 @@ import Framebriar
     public private(set) var status: ClientStatus?
     public private(set) var message: String?
     public private(set) var working = false
-    /// Optional. When set, a saved report emits `feedback.submitted` and the consented diagnostics excerpt.
+    /// Optional. When set, a saved report emits `feedback.submitted`, plus the consented diagnostics
+    /// excerpt when the report doesn't carry its own diagnostics.
     public let telemetry: Telemetry?
+    /// The mode for drafts opened without their own. Each draft keeps the mode it opened with.
+    public let reportDiagnostics: FeedbackReportDiagnostics
     /// True while a `FeedbackView` for this model is on screen, however it was presented.
     public private(set) var isComposerOpen = false
     private var openComposers = 0
@@ -16,12 +19,15 @@ import Framebriar
     private let incidentProvider: @MainActor () -> FeedbackIncident?
     private let diagnosticsProvider: (@MainActor () throws -> FeedbackDiagnostics?)?
     private let now: @MainActor () -> Date
-    /// - Parameter diagnosticsProvider: synchronous, no I/O; runs once when a composer opens. Without one,
-    ///   the `telemetry` ring is used if there is one. Nil, a throw or unusable output never block Send.
+    /// - Parameters:
+    ///   - diagnosticsProvider: synchronous, no I/O; runs once when a composer opens under `.on`. Without
+    ///     one, the `telemetry` ring is used if there is one. Nil, a throw or unusable output never block Send.
+    ///   - reportDiagnostics: `.off` keeps the `diagnostics` field off the wire and runs no capture.
     public init(client: Client, telemetry: Telemetry? = nil, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil },
-                diagnosticsProvider: (@MainActor () throws -> FeedbackDiagnostics?)? = nil, now: @escaping @MainActor () -> Date = { Date() }) {
+                diagnosticsProvider: (@MainActor () throws -> FeedbackDiagnostics?)? = nil, reportDiagnostics: FeedbackReportDiagnostics = .off,
+                now: @escaping @MainActor () -> Date = { Date() }) {
         self.client = client; self.telemetry = telemetry; self.incidentProvider = incidentProvider
-        self.diagnosticsProvider = diagnosticsProvider; self.now = now
+        self.diagnosticsProvider = diagnosticsProvider; self.reportDiagnostics = reportDiagnostics; self.now = now
     }
     public func snapshotIncident() -> FeedbackIncident? { incidentProvider() }
     public func update() async { status = await client.status() }
@@ -67,18 +73,25 @@ import Framebriar
         return result
     }
     /// Whether a report from this model can carry diagnostics, for wording that has to stay true.
-    public var sendsDiagnostics: Bool { diagnosticsProvider != nil || telemetry != nil }
+    /// Follows the model's mode; a draft opened with its own says so in its own summary.
+    public var sendsDiagnostics: Bool { reportDiagnostics == .on && (diagnosticsProvider != nil || telemetry != nil) }
 
     func composerAppeared() { openComposers += 1; isComposerOpen = true }
     func composerDisappeared() { openComposers = max(0, openComposers - 1); isComposerOpen = openComposers > 0 }
 
     /// Freezes what this composer can send. A reentrant call, such as a provider synchronously notifying
     /// something that opens feedback, runs no provider and captures nothing.
-    public func openDraft() -> FeedbackDraft {
-        let at = now(), ref = client.enrollmentSignal.enrollmentRef
-        guard !capturing else { return FeedbackDraft(id: UUID(), openedAt: at, capturedDiagnostics: .unavailable(at: at), incident: nil, enrollmentRef: ref) }
+    /// - Parameter reportDiagnostics: the mode for this draft only. Nil uses the model's. Never changes the model.
+    public func openDraft(reportDiagnostics: FeedbackReportDiagnostics? = nil) -> FeedbackDraft {
+        let at = now(), ref = client.enrollmentSignal.enrollmentRef, mode = reportDiagnostics ?? self.reportDiagnostics
+        let offersSwitch = mode == .on || telemetry?.isEnabled == true
+        func draft(_ captured: FeedbackDiagnostics?, _ incident: FeedbackIncident?) -> FeedbackDraft {
+            FeedbackDraft(id: UUID(), openedAt: at, reportDiagnosticsMode: mode, offersDiagnosticsSwitch: offersSwitch,
+                          capturedDiagnostics: captured, incident: incident, enrollmentRef: ref)
+        }
+        guard !capturing else { return draft(mode == .on ? .unavailable(at: at) : nil, nil) }
         capturing = true; defer { capturing = false }
-        return FeedbackDraft(id: UUID(), openedAt: at, capturedDiagnostics: captureDiagnostics(at: at), incident: incidentProvider(), enrollmentRef: ref)
+        return draft(mode == .on ? captureDiagnostics(at: at) : nil, incidentProvider())
     }
     private func captureDiagnostics(at: Date) -> FeedbackDiagnostics {
         var captured: FeedbackDiagnostics
@@ -111,11 +124,13 @@ import Framebriar
     }
     /// Attempts delivery now and reports what happened. The telemetry marker follows the attempt, so the
     /// two don't compete for the client. Telemetry failure never affects the report.
+    /// A report carrying its own diagnostics, in any state, gets the marker only, so no event goes out twice.
     public func deliver(_ report: ReviewedFeedback, includeDiagnostics: Bool) async -> FeedbackDeliveryOutcome {
         let outcome = await client.deliver(report.id)
         await update()
         if let telemetry {
-            Task { await telemetry.feedbackSubmitted(reportID: report.id, trace: report.incident?.traces.first, includeDiagnostics: includeDiagnostics) }
+            let excerpt = includeDiagnostics && report.diagnostics == nil
+            Task { await telemetry.feedbackSubmitted(reportID: report.id, trace: report.incident?.traces.first, includeDiagnostics: excerpt) }
         }
         return outcome
     }
