@@ -36,6 +36,7 @@ function frame(opcode, payload) {
   return Buffer.concat([header, payload]);
 }
 
+const closes = [];
 const server = https.createServer({ cert, key, requestCert: true, rejectUnauthorized: false }, (req, res) => {
   if (req.url === '/trace') {
     const parent = req.headers.traceparent;
@@ -57,6 +58,8 @@ server.on('upgrade', (req, socket) => {
     clientCN: peer?.subject?.CN ?? null, traceparent: req.headers.traceparent ?? null,
   }))));
   let muted = false;
+  let sizeSent;
+  let sentAt;
   let buffer = Buffer.alloc(0);
   socket.on('data', (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -74,7 +77,11 @@ server.on('upgrade', (req, socket) => {
       const payload = Buffer.from(buffer.subarray(offset, offset + length));
       if (masked) for (let i = 0; i < payload.length; i++) payload[i] ^= buffer[maskOffset + (i % 4)];
       buffer = buffer.subarray(offset + length);
-      if (opcode === 0x8) { socket.end(frame(0x8, payload.subarray(0, 2))); return; }
+      if (opcode === 0x8) {
+        closes.push({ code: payload.length >= 2 ? payload.readUInt16BE(0) : null, size: sizeSent,
+          elapsedMs: sentAt === undefined ? null : performance.now() - sentAt });
+        socket.end(frame(0x8, payload.subarray(0, 2))); return;
+      }
       if (opcode === 0x9) {
         if (muted) socket.write(frame(1, Buffer.from('got-ping')));
         else socket.write(frame(0xA, payload));
@@ -83,6 +90,11 @@ server.on('upgrade', (req, socket) => {
       if (opcode === 0x1) {
         const text = payload.toString('utf8');
         if (text === 'binary') socket.write(frame(2, Buffer.from([0xde, 0xad, 0xbe, 0xef])));
+        else if (/^size:(text|binary):\d+$/.test(text)) {
+          const [, kind, size] = text.split(':');
+          sizeSent = Number(size); sentAt = performance.now();
+          socket.write(frame(kind === 'text' ? 1 : 2, Buffer.alloc(sizeSent, 'x')));
+        }
         else if (text === 'mute') { muted = true; socket.write(frame(1, Buffer.from('muted'))); }
         else socket.write(frame(1, payload));
       }
@@ -95,6 +107,7 @@ const collector = http.createServer((req, res) => {
   req.resume();
   req.on('end', () => {
     switch (req.url) {
+      case '/closes': res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(closes)); break;
       case '/ok': res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ partialSuccess: { rejectedSpans: 2 } })); break;
       case '/empty': res.writeHead(200); res.end(); break;
       case '/busy': res.writeHead(429, { 'Retry-After': '7' }); res.end('slow down'); break;
