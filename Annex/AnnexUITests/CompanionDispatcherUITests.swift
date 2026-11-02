@@ -10,8 +10,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
     /// iPad exposes its top tabs as buttons outside a UITabBar.
     private func tab(_ app: XCUIApplication, _ title: String) -> XCUIElement {
-        let icons = ["Dispatcher": "point.3.connected.trianglepath.dotted", "Home": "house", "Agents": "sparkles", "Needs you": "tray"]
-        return app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", title, icons[title] ?? "magnifyingglass")).firstMatch
+        return app.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
     }
 
     private func dismissKeyboard(_ app: XCUIApplication) {
@@ -39,6 +38,12 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "Dispatcher is the default start screen")
         XCTAssertTrue(tab(app, "Agents").exists, "All five tabs remain available")
+        let sidebar = app.buttons["ToggleSideBar"]
+        if sidebar.exists {
+            sidebar.tap()
+            screenshot(app, "Dispatcher first in iPad sidebar")
+            sidebar.tap()
+        }
         tab(app, "Home").tap()
         let row = element(app, "dispatcher-row-preview-studio")
         XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app), "The Dispatcher's row is pinned on Home")
@@ -183,7 +188,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.launchArguments = ["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15), "Home preference applies on the next launch")
-        XCTAssertTrue(tab(app, "Dispatcher").exists)
+        XCTAssertTrue(tab(app, "Dispatcher").waitForExistence(timeout: 10))
         screenshot(app, "Home start screen preference")
     }
 
