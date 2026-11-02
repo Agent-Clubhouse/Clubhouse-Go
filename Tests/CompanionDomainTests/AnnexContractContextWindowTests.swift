@@ -31,6 +31,11 @@ import Testing
         #expect(unavailable.canReset(sleeping: false, isDispatcher: true))
         let dispatcher = try #require(CompanionContextWindow(json: cases["dispatcher"]))
         #expect(dispatcher.canEdit(sleeping: false))
+        var tier = try #require(CompanionContextWindow(json: cases["tier"]))
+        #expect(tier.change(to: "default") == .init(contextWindow: .set("default")), "The standard tier is a choice, distinct from no saved choice")
+        tier.value = "default"
+        #expect(tier.selectedLabel == "Standard (200K input)")
+        #expect(tier.change(to: nil) == .init(contextWindow: .clear))
     }
 
     @Test func currentAndPendingRemainIndependentAndNoticeIsVerbatim() throws {
