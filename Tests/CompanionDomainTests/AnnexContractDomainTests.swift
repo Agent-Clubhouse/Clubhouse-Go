@@ -166,6 +166,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(app.color == "indigo" && app.iconData != nil)
         let planner = try #require(app.agents.first { $0.id.agentID == "durable_chat" })
         #expect(planner.name == "planner" && planner.emoji == "🦊" && planner.color == "indigo" && planner.iconData != nil)
+        #expect(CompanionSenderIdentity(agent: planner).face == .emoji("🦊"), "The fixture has both an emoji and icon; emoji wins")
         #expect(planner.hasSession == true && planner.branch == "planner/standby" && planner.orchestrator == "claude-code" && !planner.isQuick)
         #expect(planner.detail?.state == "needs_permission")
         #expect(planner.orchestration?.orchestrate == true && planner.orchestration?.maxHelpers == 3 && planner.orchestration?.sources["maxHelpers"] == .agent)

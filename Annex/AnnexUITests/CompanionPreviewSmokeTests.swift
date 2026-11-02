@@ -89,6 +89,25 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Home's New agent button, which shows only on Home.
     private func homeNewAgent(_ app: XCUIApplication) -> XCUIElement { app.navigationBars.buttons["New agent"] }
 
+    func testKnownGoneAndQuickSendersHaveAccessibleAvatars() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        openRiver(app)
+        let any = app.descendants(matching: .any)
+        for (id, label) in [
+            ("companion-sender-avatar-sender-preview-3", "willow avatar"),
+            ("companion-sender-avatar-relay-1-0", "Dispatcher avatar"),
+            ("companion-sender-avatar-relay-1-1", "Reviewer avatar")
+        ] {
+            let avatar = any.matching(identifier: id).firstMatch
+            XCTAssertTrue(scrollUntilExists(avatar, in: app, up: false, maxSwipes: 8), id)
+            XCTAssertEqual(avatar.label, label)
+        }
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Known and gone sender faces"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testPreviewOpensScopedConversationAndKeepsCommandsNonLive() {
         let app = launchApp(["--companion-preview"])
         openRiver(app)

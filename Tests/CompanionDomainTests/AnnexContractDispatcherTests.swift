@@ -40,6 +40,44 @@ import Testing
         #expect(harness.store.isDispatcher(target))
     }
 
+    @Test func dispatcherAppearanceSnapshotsUpdateRowAndSenderIdentity() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        var value = try #require(try ContractFixtures.json("snapshot-dispatcher.json")["value"])
+        let original = value
+        await harness.transport.emit(harness.snapshotEvent(["dispatcher": original]))
+        try await harness.waitUntil { harness.store.agent(for: target) != nil }
+        let sender = CompanionRoutedMessagePart.Sender(agentID: target.agentID, name: "Dispatcher")
+        var previous = CompanionSenderResolver(agents: harness.host!.allAgents)
+        // Custom colour alone, emoji with an image present, then image alone.
+        for (emoji, icon, expected): (String?, String?, CompanionAgentFace) in [
+            (nil, nil, .initials("D")), ("🧭", "data:image/png;base64,AQID", .emoji("🧭")),
+            (nil, "data:image/png;base64,BAUG", .icon)
+        ] {
+            guard case .object(var entry)? = original["agent"], case .object(var block) = original else {
+                Issue.record("Missing Dispatcher fixture agent"); return
+            }
+            entry["color"] = .string("rose")
+            entry["emoji"] = emoji.map(AnnexJSON.string) ?? .null
+            entry["icon"] = icon == nil ? .null : .string("dispatcher.png")
+            block["agent"] = .object(entry); value = .object(block)
+            let icons: AnnexJSON = .object(icon.map { [target.agentID: .string($0)] } ?? [:])
+            await harness.transport.emit(harness.snapshotEvent(["dispatcher": value, "agentIcons": icons]))
+            try await harness.waitUntil {
+                guard let agent = harness.store.agent(for: target) else { return false }
+                return agent.color == "rose" && agent.emoji == emoji && agent.iconData == CompanionIdentityColor.data(fromDataURL: icon)
+            }
+            let row = try #require(harness.host?.dispatcher?.liveAgent)
+            let resolver = CompanionSenderResolver(agents: harness.host!.allAgents)
+            let identity = try #require(resolver.avatarIdentity(for: sender))
+            #expect(resolver != previous, "A snapshot appearance change invalidates the identity-only resolver")
+            #expect(identity == CompanionSenderIdentity(agent: row), "Pinned row and sender use the same live identity")
+            #expect(identity.face == expected)
+            #expect(CompanionIdentityColor.agentRGB(row.color) == CompanionRGB(hex: "#f43f5e"))
+            previous = resolver
+        }
+    }
+
     @Test func dispatcherChangedFramesTurnItOffAndOn() async throws {
         let harness = try await start()
         defer { harness.stop() }
