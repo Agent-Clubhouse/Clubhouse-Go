@@ -49,10 +49,11 @@ import Testing
         try await harness.waitUntil { harness.store.agent(for: target) != nil }
         let sender = CompanionRoutedMessagePart.Sender(agentID: target.agentID, name: "Dispatcher")
         var previous = CompanionSenderResolver(agents: harness.host!.allAgents)
+        let iconURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
         // Custom colour alone, emoji with an image present, then image alone.
         for (emoji, icon, expected): (String?, String?, CompanionAgentFace) in [
-            (nil, nil, .initials("D")), ("🧭", "data:image/png;base64,AQID", .emoji("🧭")),
-            (nil, "data:image/png;base64,BAUG", .icon)
+            (nil, nil, .initials("D")), ("🧭", iconURL, .emoji("🧭")),
+            (nil, iconURL, .icon)
         ] {
             guard case .object(var entry)? = original["agent"], case .object(var block) = original else {
                 Issue.record("Missing Dispatcher fixture agent"); return
