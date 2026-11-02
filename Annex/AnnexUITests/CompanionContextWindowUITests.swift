@@ -29,6 +29,7 @@ import XCTest
         XCTAssertTrue(scrollTo(picker, in: app) && picker.isEnabled)
         XCTAssertTrue(picker.label.contains("Working context") && picker.label.contains("500K"), picker.label)
         XCTAssertTrue(app.staticTexts["Applies the next time the agent starts. Also applies when resuming a session."].exists)
+        screenshot(app, "Context - sleeping agent pending choice (preview)")
         let reset = app.buttons["agent-settings-context-window-reset"]
         XCTAssertTrue(scrollTo(reset, in: app) && reset.isEnabled)
         // SwiftUI can call a partially clipped form control hittable; keep this action inside the viewport.
@@ -37,7 +38,6 @@ import XCTest
             app.swipeUp()
         }
         XCTAssertLessThan(reset.frame.maxY, app.windows.firstMatch.frame.maxY - 120)
-        screenshot(app, "Context - sleeping agent pending choice (preview)")
         reset.tap()
         let error = app.staticTexts["agent-settings-error"]
         XCTAssertTrue(scrollUntilExists(error, in: app, up: false) && error.waitForExistence(timeout: 10))
