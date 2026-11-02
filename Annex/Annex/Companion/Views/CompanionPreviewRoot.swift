@@ -34,9 +34,6 @@ struct CompanionPreviewRoot: View {
     @State private var showSettings = false
     var body: some View {
         CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: { showSettings = true }, isPreview: true)
-            .companionFeedbackEntryPoints(feedback)
-            .shakeToOpenFeedback(model: feedback?.model, enabled: true)
-            .task { await feedback?.model?.setActive(true) }
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     Form {
@@ -56,6 +53,9 @@ struct CompanionPreviewRoot: View {
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
                 }
             }
+            .companionFeedbackEntryPoints(feedback)
+            .shakeToOpenFeedback(model: feedback?.model, enabled: true)
+            .task { await feedback?.model?.setActive(true) }
     }
     private func report(enabled: Bool? = nil, flagOn: Bool? = nil, connection: CompanionConnection? = nil) {
         var hosts = store.hosts
