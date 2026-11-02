@@ -152,8 +152,9 @@ Framebriar v0.5.0's Swift `Telemetry` (vendored from tag `v0.5.0`, commit
 `{framebriar}/v1/otlp/v1/{traces,logs,metrics}` with the enrollment's access token. It follows the
 "Clubhouse Go integration recipe" in `Vendor/Framebriar/README.md`.
 
-- **Gate:** only while the user is enrolled (has redeemed an invitation). Before enrollment nothing is
-  captured or sent. Clearing enrollment, revocation or expiry stops it and forgets the in-memory queue;
+- **Gate:** only while the user is enrolled (has redeemed an invitation). Before enrollment no developer
+  telemetry is captured or sent; separately enabled local Connection diagnostics is independent.
+  Clearing enrollment, revocation or expiry stops developer telemetry and forgets its in-memory queue;
   a 403 stops it until the next enrollment. Memory only: nothing is written to disk. Settings states
   next to Developer feedback that enrolling also sends usage and diagnostic telemetry to the developer.
 - **Capture:** `AnnexTelemetry` captures while enrolled (`setEnrolledCapture`), independent of the
@@ -270,7 +271,91 @@ ISO 8601 UTC with `Z`. If the SDK supplies `delivery`, `queued` is an integer re
 open, and `lastResult` is `ok`, `none` (no attempt this process), or a closed failure value.
 
 The report diagnostics release gate remains off, with a fake outgoing-request test proving the
-`diagnostics` field is absent. Enable only after confirmed API deployment, a compatible tagged SDK,
-and a separately validated Go adoption. The current 16-KiB endpoint can strip unknown fields or
+`diagnostics` field is absent. API deployment with the 256-KiB limit is confirmed; the approved identity-binding
+v0.7.0 tag is available at `f57b75fe5d38d7e2c3d221d246c9e01445da41dc`, with Go adoption still pending. The legacy 16-KiB endpoint could strip unknown fields or
 permanently reject larger reports; do not bypass the pinned SDK to send this prepared value.
 See [TestFlight release gates](testflight.md#report-diagnostics-release-gate).
+
+## Feedback SDK adoption checklist
+
+This checklist is tag-independent preparation, not an implemented identity-binding flow. The pinned
+SDK remains v0.5.0. The orchestrator has approved identity-binding v0.7.0 at
+`f57b75fe5d38d7e2c3d221d246c9e01445da41dc` for a separate adoption branch. Build against that tag,
+not the earlier unbuilt API sketch; do not re-vendor 0.6.0. No production report or physical-device/host-app installation is
+authorized here. Draft store/privacy changes are [not effective](testflight.md#draft-app-privacy-update--not-effective).
+
+### Go's presentation boundaries
+
+Settings, menu and screenshot composer routes use `CompanionFeedbackComposer`; Settings and both
+enrollment explainers use `CompanionFeedbackEnrollment`. `CompanionEnrollmentSheet` retains its Done
+action and the SDK enrollment form, including **Clear queued feedback**. The separate Saved feedback
+section also exposes that confirmed destructive action without requiring enrollment. Clearing local
+reports does not delete server copies. The SDK still owns draft capture/review/submission; these
+wrappers neither recreate a draft nor invent an SDK recovery status.
+
+| Surface | Present now | Slot for the tagged adoption |
+|---|---|---|
+| Developer feedback | Enrollment, access, Send feedback, Go's scoped telemetry disclosure | Use the tagged SDK's disclosure text/component after checking it against Go's actual configuration; remove the temporary Go enrollment summary then. |
+| Saved feedback | Count, Clear queued feedback confirmation and operation result | Adjacent row: “N reports held from an earlier connection”, with Send and Clear. Use SDK-supplied held counts/bytes; exclude permanently blocked reports. Do not derive held state from today's generic blocked count. |
+| Composer | Existing SDK notes/image/review/submit form | SDK's single-screen editor, Included summary, top-bar Send and actual delivery/attention status. Go wrapper routes recovery; it does not duplicate the composer state machine. |
+| Scoped test | No action or report-field emission | An explicitly labeled test-draft entry beside Send feedback, added only after tagged support and fake-wire checks. General feedback stays separate. |
+
+Held reports' **Clear** must work while unenrolled and clear held reports only; **Clear queued
+feedback** remains the separate all-saved-reports action. Held **Send** opens a confirmation naming
+the current connection and report count: “Queue N held reports for the current connection?” Freeze
+the SDK's opaque confirmation token with the displayed count/connection. Do not refresh it at action
+time. A stale token requires a new status and a new confirmation; it is not automatic approval of a
+changed report set or connection. Successful release means **queued for delivery**, never **Sent**.
+
+Distinguish an enrollment change before saving from a saved-but-held report. An unsaved draft remains
+open with its text/image and a clear “Connection changed; review again” action. Reopening creates a
+new report ID, capture and enrollment/correlation references; carry only user text and image, update
+Included and require another Send tap. Do not transfer old diagnostics or incident references. A
+saved-held report goes through the separate held-report confirmation, not a second submission.
+Do not promise safe downgrade of the new durable queue format.
+
+### Adoption checks — pending Go adoption
+
+- [ ] Obtain exact tag/commit/API from the orchestrator; refresh the complete SDK with the verified
+  vendoring script, run its tests and hash verification, and leave no direct vendor edits.
+- [ ] Match SDK disclosure and Included summary to Go's automatic telemetry, optional diagnostics,
+  notes/image and incident fields. A single diagnostics off switch removes entries, incident and flat
+  trace/span fields while retaining user text/image. Absence, capture off, unavailable and disconnected
+  states must be honest; an empty report must not silently imply useful logs were attached.
+- [ ] Keep general diagnostics emission off. After tagged adoption, the scoped test requires an explicit
+  request and a non-empty visible test label, and authorizes only one draft/report ID with its captured
+  enrollment. Freeze once at open, review the included content, then require an intentional Send. Once
+  saved, the one-report permission travels with that immutable queued report through retries/holds;
+  the current settings/access state must not erase its entries. Cancel or enrollment change invalidates
+  an unsaved draft's scope; reopening needs a newly labeled test draft. Keep the label in reviewed
+  report content, not in transport attributes. The toggle derives omission from the frozen value without recapture; retries retain the same value.
+- [ ] Fake-wire tests: ordinary reports have no `diagnostics` field; only the labeled test report has it;
+  cancel sends nothing; a second ordinary report emits none; retries preserve the captured body. Do not
+  pass a missing provider if the SDK interprets that as permission to fall back to its telemetry ring.
+- [ ] Inject connection failure/backoff, freeze diagnostics, then disconnect/change access before saving
+  and retrying. The gate/pump must preserve those reviewed entries even when the desktop is offline;
+  enrollment binding may hold delivery but must not rewrite captured diagnostics to empty/not-connected.
+  Entries attached to a report must not also be emitted as a report-specific telemetry excerpt.
+  Ordinary consented telemetry remains separate; confirm both pipelines explicitly with fake transports.
+- [ ] Fake enrollment-race tests: change enrollment between open/review/save and while confirming a held
+  release; preserve unsaved text/image, distinguish saved-held status, reject stale confirmation tokens,
+  prove no automatic rebind/resubmit, prove held-only Clear works unenrolled, and preserve permanently
+  blocked reports. Check persistence/restart and describe downgrade compatibility from actual evidence.
+- [ ] Replace both old shake receivers with the tagged callback in one change; Go presents through its
+  existing single-presenter guard using the callback's screenshot/window. Prove one event → one composer,
+  and typing/secure-field suppression, scenes/windows, sheets, tab changes and Settings presentation.
+  Remove Settings from the suppression flag only with the tagged topmost-presentation support. Preserve
+  screenshot foreground-active timing and active-scene fallback. Real shake and Full-Screen Previews
+  remain physical-device checks, not claims from synthetic events.
+- [x] Record the SDK's [iPad harness-limit outcome](testflight.md#sdk-ipad-timeout-assessment): the exact
+  v0.6.0 sequence took 11m00s against a ten-minute limit, with 32 pass / 0 skip on a new 26.0 iPad simulator.
+  No app hang is established or fixed; one run cannot exclude an intermittent stall.
+- [ ] Investigate the separate one-off secure-keyboard issue from evidence. Check portrait/landscape,
+  full/split view, keyboard, image picker, confirmation cancel/confirm, and repeated open/close without backgrounding or duplicate sends.
+- [ ] Recheck lazy runtime ownership, sink/capture leases and foreground/inactive/background delivery;
+  mock timestamps/backoff must show no duplicate send. Run packages/coverage, vendor tests/hashes,
+  Debug/Release and authorized app/preview tests; record actual OS/compiler and any skipped checks.
+- [ ] Before a candidate is installed, obtain the user's approval for any store/privacy declaration
+  changes. Report the candidate commit/build and gaps to the orchestrator. The user chooses any install
+  and submits their own labeled phone test report; Framebriar reads its body from Azure. Until that
+  happens, real device, Azure readback and URLSession delivery remain unproven. No automatic live send.
