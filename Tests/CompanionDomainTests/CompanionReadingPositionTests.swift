@@ -2,6 +2,15 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionReadingPositionTests {
+    @Test func nativeScrollToTopRecognizesTheFinalSubpixelAnimationStep() {
+        let old = CompanionScrollMetrics(offset: -99.2, contentHeight: 5_000, containerHeight: 500, topInset: 100)
+        let top = CompanionScrollMetrics(offset: -100, contentHeight: 5_000, containerHeight: 500, topInset: 100)
+        #expect(top.didReachTop(from: old))
+        var keyboard = top; keyboard.containerHeight = 300
+        #expect(!keyboard.didReachTop(from: old))
+        var initialLayout = old; initialLayout.contentHeight = 0
+        #expect(!top.didReachTop(from: initialLayout))
+    }
     @Test func latestIndicatorStaysHiddenWhenDragOrKeyboardLeavesUsAtBottom() {
         // A drag pauses following before geometry changes. The indicator must use actual geometry too.
         let bookmark = CompanionReadingPosition(followsLatest: false)

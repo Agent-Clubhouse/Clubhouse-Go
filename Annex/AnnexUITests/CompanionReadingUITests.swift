@@ -71,6 +71,7 @@ import XCTest
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5))
         let point = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
         point.press(forDuration: 0.05, thenDragTo: point.withOffset(CGVector(dx: 0, dy: 14)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(latest.waitForExistence(timeout: 5), "A real tiny upscroll pauses following, even near the bottom")
         // A paused reader may remain inside the 16pt near-bottom band. A downward return/bounce must clear it.
         point.press(forDuration: 0.05, thenDragTo: point.withOffset(CGVector(dx: 0, dy: -40)), withVelocity: .slow, thenHoldForDuration: 0.1)
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Returning to bottom clears Latest")
