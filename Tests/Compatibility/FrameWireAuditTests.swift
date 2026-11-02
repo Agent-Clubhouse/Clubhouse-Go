@@ -78,6 +78,13 @@ private actor AuditIO: AnnexIO {
     var fixtureAgentID = "agent"
     var initialSequence: Int64 = 0
     var receipts: [String: AnnexJSON] = [:]
+    var helperReceipt: AnnexJSON?
+    var holdHelper = false
+    var helperWaiting = false
+    var helperGate: CheckedContinuation<Void, Never>?
+    func setHelperReceipt(_ value: AnnexJSON, hold: Bool = false) { helperReceipt = value; holdHelper = hold }
+    func releaseHelper() { holdHelper = false; helperGate?.resume(); helperGate = nil }
+
     var recordedCommands: [AnnexJSON] = []
     func configureFixture(agentID: String, sequence: Int64, persistent: Bool) async {
         fixtureAgentID = agentID; initialSequence = sequence
@@ -95,6 +102,7 @@ private actor AuditIO: AnnexIO {
     var chatProxy: (PinnedAnnexIO, UInt16)?
     func setChatProxy(_ value: PinnedAnnexIO, port: UInt16) { chatProxy = (value, port) }
     func terminalSends() async -> [AnnexJSON] { await socket?.sent.compactMap { try? JSONDecoder().decode(AnnexJSON.self, from: $0) } ?? [] }
+    func setInitialSequence(_ value: Int64) { initialSequence = value }
     func setChat(_ value: AnnexJSON) { chat = value; chatStatus = 200 }
     func setChatResponse(_ value: AnnexJSON, status: Int) { chat = value; chatStatus = status }
     var socket: AuditSocket?
@@ -127,7 +135,12 @@ private actor AuditIO: AnnexIO {
             commands += 1
             let command = try JSONDecoder().decode(AnnexJSON.self, from: request.httpBody!)
             recordedCommands.append(command)
-            if command["type"]?.string == "chat.permission", let receipt = receipts[command["optionId"]?.string ?? ""], case .object(var body)? = receipt["body"] {
+            if command["type"]?.string?.hasPrefix("helper.") == true, let receipt = helperReceipt, case .object(var body)? = receipt["body"] {
+                if holdHelper { helperWaiting = true; await withCheckedContinuation { helperGate = $0 }; helperWaiting = false }
+                status = Int(receipt["status"]?.integer ?? 200)
+                body["epoch"] = .string("epoch"); body["commandId"] = command["commandId"]
+                value = .object(body)
+            } else if command["type"]?.string == "chat.permission", let receipt = receipts[command["optionId"]?.string ?? ""], case .object(var body)? = receipt["body"] {
                 status = Int(receipt["status"]?.integer ?? 200)
                 body["epoch"] = .string("epoch"); body["commandId"] = command["commandId"]
                 value = .object(body)
@@ -1037,5 +1050,179 @@ extension FrameWireAuditTests {
             print("QUESTION_FALLBACK synthetic=true noOptionsNoFreeText=disabled noOptionsFreeText=answerable missingPrompt=emptyPrompts emptyAnswers=sent HTTP503=preferredExplicitFailure")
             await h.stop()
         } catch { await h.stop(); throw error }
+    }
+}
+
+@MainActor private extension FrameWireAuditTests {
+    func toolDeltaCapture() throws -> AnnexJSON {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("frame-2686-delta/tool-delta.json")
+        return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root))
+    }
+    func deltaTool(_ h: FullAuditHarness, _ id: String) -> CompanionTool? {
+        h.store.conversation(for: h.target).items.compactMap { if case .tool(let t) = $0, t.id == id { t } else { nil } }.first
+    }
+}
+
+@MainActor extension FrameWireAuditTests {
+    @Test func final2686DeltaActualFixtureAndGeneratedCallHaveNoteAndLocation() async throws {
+        let captured = try toolDeltaCapture(), note = try #require(captured["note"]?.string)
+        #expect(captured["sha"]?.string == "274d3acb975f9160a130df611f4547a3a431c7e0")
+        for key in ["fixture", "actualCall"] {
+            let h = try await FullAuditHarness.start(agentID: "durable_chat", initialSequence: 999)
+            do {
+                await h.io.setChat(fixturePage([])); await h.store.load(h.target, force: true)
+                let frame = try #require(key == "fixture" ? captured[key]?["frame"] : captured[key])
+                await h.io.push(try JSONEncoder().encode(frame))
+                try await h.wait { deltaTool(h, "call_write") != nil }
+                let t = try #require(deltaTool(h, "call_write"))
+                #expect(t.output == note); #expect(t.location == "/work/app/big.ts"); #expect(t.summary == "big.ts")
+                #expect(t.name == "Write big.ts"); #expect(t.kind == .edit); #expect(t.state == .running); #expect(t.awaitsApproval)
+                #expect(h.store.conversation(for: h.target).lastSequence == 101)
+                #expect(t.verb == "Edit"); #expect(t.target == "/work/app/big.ts")
+                print("TOOL_DELTA_CALL source=\(key) note=firstOutputBlock location=kept title=WriteBigTs state=pending UI=collapsedDisclosureOutput")
+                await h.stop()
+            } catch { await h.stop(); throw error }
+        }
+    }
+
+    @Test func final2686DeltaNoteAppendRepeatsReplayAndHistoryThenReplacement() async throws {
+        let c = try toolDeltaCapture(), note = try #require(c["note"]?.string)
+        let start = try #require(c["start"]), append = try #require(c["append"]), repeats = c["repetitions"].arrayValue
+        let h = try await FullAuditHarness.start(agentID: "durable_chat", initialSequence: 999)
+        func count(_ text: String) -> Int { text.components(separatedBy: note).count - 1 }
+        func output() -> String { deltaTool(h, "append_tool")?.output ?? "" }
+        do {
+            await h.io.setChat(fixturePage([])); await h.store.load(h.target, force: true)
+            await h.io.push(try JSONEncoder().encode(start)); try await h.wait { deltaTool(h, "append_tool") != nil }
+            let old = output()
+            await h.io.push(try JSONEncoder().encode(append)); try await h.wait { deltaTool(h, "append_tool")?.state == .completed }
+            #expect(output() == old + note); #expect(count(output()) == 1)
+            #expect(deltaTool(h, "append_tool")?.awaitsApproval == false)
+            for frame in repeats { await h.io.push(try JSONEncoder().encode(frame)) }
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 230 }
+            let accumulated = output()
+            #expect(count(accumulated) == 129); #expect(accumulated == old + String(repeating: note, count: 129))
+            #expect(accumulated.utf8.count == old.utf8.count + note.utf8.count * 129)
+            let events = ([start, append] + repeats).compactMap { $0["payload"]?["event"] }
+            await h.io.setChat(fixturePage([], extra: events))
+            // Real disconnect/connect boundary with same-epoch authoritative snapshot cursor.
+            await h.io.setInitialSequence(1129)
+            await h.transport.disconnect(); try await h.transport.connect()
+            try await h.wait { await h.io.opened == 2 && h.host?.connection == .connected }
+            for frame in [start, append] + repeats {
+                if case .object(var fields) = frame { fields["replayed"] = .bool(true); await h.io.push(try JSONEncoder().encode(AnnexJSON.object(fields))) }
+            }
+            // Transport drops old global seq; projector also drops same inner seq under a new global seq.
+            try await h.frame("chat:event", seq: 1130, payload: try #require(repeats.last?["payload"]), replayed: true)
+            let barrier = LiveServiceHarness.chatEvent("sess_live", sequence: 231, type: "agent_message", data: ["messageId": .string("after-replay"), "text": .string("after replay")])
+            try await h.frame("chat:event", seq: 1131, payload: .object(["agentId": .string("durable_chat"), "event": barrier]), replayed: true)
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 231 }
+            #expect(output() == accumulated); #expect(count(output()) == 129)
+            #expect(await h.io.opened == 2)
+            await h.io.setChat(fixturePage([], extra: events + [barrier])); await h.store.load(h.target, force: true)
+            #expect(output() == accumulated); #expect(count(output()) == 129)
+            await h.store.load(h.target, force: true); #expect(output() == accumulated)
+            let replacement = try #require(c["replacement"])
+            await h.io.push(try JSONEncoder().encode(replacement)); try await h.wait { h.store.conversation(for: h.target).lastSequence == 300 }
+            let replaced = output()
+            #expect(replaced.hasPrefix("REPLACEMENT HEAD")); #expect(replaced.contains("bytes of this output are omitted")); #expect(!replaced.contains("EARLIER CONTENT")); #expect(!replaced.contains(note))
+            #expect(deltaTool(h, "append_tool")?.state == .completed); #expect(deltaTool(h, "append_tool")?.id == "append_tool")
+            await h.io.setChat(fixturePage([], extra: events + [try #require(replacement["payload"]?["event"])])); await h.store.load(h.target, force: true)
+            #expect(output() == replaced); #expect(await h.io.opened == 2)
+            print("TOOL_DELTA_APPEND initialNotes=1 repeatUnique=128 totalNotes=129 aggregateGrowthBytes=\(note.utf8.count * 129) replayDuplicateGrowth=0 HTTPReloadGrowth=0 replacement=clearsOldContent reconnects=1 final=completed")
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+}
+
+@MainActor extension FrameWireAuditTests {
+    @Test func final2686DeltaDesktopOnlyWarningAndRefusalReachCard() async throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("frame-2686-delta/desktop-only-copy.json")
+        let c = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root)), event = try #require(c["preview"])
+        let warning = "Incomplete input: this request is too large to show in full here. Review it on the desktop."
+        let refusal = "This request is too large to review here. Review it on the desktop."
+        let h = try await FullAuditHarness.start(agentID: "durable_chat")
+        do {
+            await h.io.setChat(fixturePage([event])); await h.store.load(h.target, force: true)
+            let a = try #require(fixtureApproval(h, id: "no-deny")); #expect(a.summary.hasPrefix(warning)); #expect(a.detail?.hasPrefix(warning) == true)
+            #expect(!a.summary.contains("deny it here")); #expect(a.options.map(\.id) == ["allow"])
+            await h.io.setReceipts(["allow": try #require(c["receipt"])])
+            await h.store.respond(a, option: a.options[0], target: h.target)
+            #expect(h.store.operationErrors[h.target] == refusal); #expect(fixtureApproval(h, id: "no-deny")?.resolution == .pending)
+            #expect(await h.io.commands == 1)
+            print("DESKTOP_ONLY_COPY sha=274d3ac warning=visibleSummaryAndDetails refusal=exactDesktopSentence pending=true noDenyPromise=true")
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+}
+
+@MainActor extension FrameWireAuditTests {
+    @Test func proposedHelperConsumedReceiptsBothSnapshotOrdersAndIdempotency() async throws {
+        let noMapping = "No valid helper mapping remains. This request was consumed; nothing was created."
+        let notFound = "This request was already answered, or what it would change has changed. Check Needs you again."
+        let startRefused = "The desktop refused to start this helper. The consumed request will disappear."
+        func receipt(_ status: String, code: String, message: String, http: Int = 409) -> AnnexJSON {
+            .object(["status": .integer(Int64(http)), "body": .object(["version": .integer(1), "commandId": .string("<commandId>"), "epoch": .string("<epoch>"), "status": .string(status), "error": .object(["code": .string(code), "message": .string(message)])])])
+        }
+        for failed in [false, true] { for snapshotFirst in [false, true] {
+            let h = try await FullAuditHarness.start(); await h.seed()
+            func snapshot(_ present: Bool) async throws {
+                var payload = try AuditIO.fullPayload()
+                payload["helperRequests"] = .array(present ? [.object(["requestId": .string("consumed-start"), "kind": .string("start"), "projectId": .string("project"), "requester": .object(["agentId": .string("agent"), "name": .string("Agent")]), "helper": .object(["name": .string("Helper")]), "summary": .string("Start helper"), "requestedAt": .string("2026-11-01T00:00:00Z"), "expiresAt": .null, "start": .object(["task": .string("Synthetic helper task")])])] : [])
+                try await h.frame("snapshot", payload: .object(payload))
+                try await h.wait { h.host?.helperRequests.contains { $0.id == "consumed-start" } == present && h.host?.connection == .connected }
+            }
+            do {
+                try await snapshot(true)
+                let request = try #require(h.host?.helperRequests.first { $0.id == "consumed-start" })
+                #expect(h.store.canAnswer(request))
+                let sentence = failed ? startRefused : noMapping
+                await h.io.setHelperReceipt(receipt(failed ? "failed" : "rejected", code: failed ? "helper_start_refused" : "no_valid_mapping", message: sentence), hold: true)
+                let answer = Task { await h.store.answer(request, approve: true) }
+                try await h.wait { await h.io.helperWaiting && h.store.helperRequestsInFlight.contains(request.slot) }
+                #expect(!h.store.canAnswer(request))
+                let command = try #require(await h.io.recordedCommands.last), commandID = try #require(command["commandId"]?.string)
+                #expect(command["type"]?.string == "helper.approve")
+                if snapshotFirst {
+                    try await snapshot(false)
+                    #expect(h.store.helperRequestsInFlight.contains(request.slot))
+                    #expect(h.store.helperRequestErrors[request.slot] == nil)
+                }
+                await h.io.releaseHelper(); await answer.value
+                #expect(!h.store.helperRequestsInFlight.contains(request.slot))
+                #expect(h.store.helperRequestErrors[request.slot] == sentence)
+                #expect(h.store.canAnswer(request) == !snapshotFirst)
+                #expect(h.host?.helperRequests.contains { $0.id == request.id } == !snapshotFirst)
+                // Real transport idempotency record: same commandId yields cached receipt, zero new POSTs.
+                let before = await h.io.commands
+                do { try await h.service.answerHelperRequest(request, approve: true, force: false, clientCommandID: commandID); Issue.record("Consumed helper must not succeed") }
+                catch { #expect(error.localizedDescription == sentence) }
+                #expect(await h.io.commands == before)
+                // A second manual tap in the receipt-before-snapshot window uses a fresh UUID.
+                await h.io.setHelperReceipt(receipt("rejected", code: "helper_request_not_found", message: "Already consumed", http: 404))
+                if !snapshotFirst {
+                    await h.store.answer(request, approve: true)
+                    #expect(await h.io.commands == before + 1)
+                    let second = try #require(await h.io.recordedCommands.last?["commandId"]?.string)
+                    #expect(second != commandID); #expect(h.store.helperRequestErrors[request.slot] == notFound)
+                    try await snapshot(false)
+                } else {
+                    await h.store.answer(request, approve: true)
+                    #expect(await h.io.commands == before) // removed row blocks stale UI invocation
+                    do { try await h.service.answerHelperRequest(request, approve: true, force: false, clientCommandID: UUID().uuidString); Issue.record("Consumed helper must stay refused") }
+                    catch { #expect(error.localizedDescription == notFound) }
+                    #expect(await h.io.commands == before + 1)
+                }
+                let after = await h.io.commands
+                try await Task.sleep(for: .milliseconds(100)); #expect(await h.io.commands == after)
+                #expect(!h.store.canAnswer(request)); #expect(!h.store.helperRequestsInFlight.contains(request.slot))
+                #expect(h.store.helperRequestErrors[request.slot] == (snapshotFirst ? sentence : notFound))
+                #expect(h.host?.helperRequests.isEmpty == true)
+                #expect(await h.io.recordedCommands.allSatisfy { $0["type"]?.string == "helper.approve" })
+                h.assertCritical()
+                print("HELPER_CONSUMED synthetic=true outcome=\(failed ? "failed" : "rejected") snapshotFirst=\(snapshotFirst) row=removed inFlight=cleared staleErrorMap=retained errorWasVisibleBeforeRemoval=\(!snapshotFirst) repeatSameID=cacheHit secondNewID=404 autoRetry=false duplicateCreation=noneInFake")
+                await h.stop()
+            } catch { await h.io.releaseHelper(); await h.stop(); throw error }
+        } }
     }
 }

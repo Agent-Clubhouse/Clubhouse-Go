@@ -4,7 +4,7 @@ Scratch evidence only; no production Go changes. Icon PR #214 remains separate a
 
 Pinned clients: build 147 `6c32b12`, current-main comparison `9441c43`.
 Final CH #2682 serializer: `ae2cf9b7d95ed2ae4229221d4be37320686f960a`.
-Final CH #2686 permission fixture/command: `1a684c1cef0d1b7ca7b3da6dff04ceccab500d2a`.
+Base CH #2686 approval fixture/command: `1a684c1cef0d1b7ca7b3da6dff04ceccab500d2a`.
 
 Tests use real Annex envelope decoding, transport receive/cursor handling, CompanionLiveService, projector, observable Store, and terminal channel/session/screen. IO/socket/runtime/clock are controlled. No host app, phone, live desktop, installs, native UI automation, or shared simulator. Rendered wording is established by observable model plus the pinned SwiftUI source; these are not screenshot tests.
 
@@ -26,7 +26,7 @@ Exact rejected approval sentence:
 
 > This request is too large to review here. Review it on the desktop to approve it, or deny it here.
 
-A zero-deny row must not retain the standard warning's promise “You can still deny it here.” Use desktop-only wording when no supported actual deny is available; the measured card has no button.
+The old zero-deny warning promised “You can still deny it here.” The focused 274d3ac delta below fixes that wording; the base evidence in this table remains pinned to 1a684c1.
 
 The actual permission fixture abbreviates the preview's middle; this audit does not claim it contains a literal 256 KiB payload. Large original server events are synthesized from its fields for command-boundary cases. Record restart uses the real `_forgetSentPermissionsForTest` hook. CH runtime is fake, but its command fold, pending lookup, bounds, guard and respond path are unchanged extracted source. The outer HTTP server/router is not running.
 
@@ -41,6 +41,36 @@ Relevant production references (same relative files in each archived commit):
 - Permission projector: 147 `CompanionChatProjector.swift:150`, main `:153`. Missing prompt is compact-mapped at 147 `:179`, main `:182`. Raw input 400-Character fallback: 147 `:344`, main `:426`.
 - Approval summary is outside disclosure: 147 `CompanionTimelineCards.swift:530`, main `:525`; empty option text: 147 `:586`, main `:581`. One-off/persistent availability: `CompanionModels.swift:531`.
 - CH `annex-chat-bounds.ts:159` final refusal precedence; `mobile-control.ts:215` actual permission command lookup/bounds/guard/respond.
+
+## Focused tool/copy delta and consumed-helper receipt race
+
+CH #2686 focused head: `274d3acb975f9160a130df611f4547a3a431c7e0`, replacing `ef3744bc`. The capture script asserts that `boundChatEvent`, `toolPreviewNote`, `withNoteIfUncut`, `previewContent`, `previewBlock`, `previewText` and the tool fixture are unchanged from ef3744bc. It runs the actual functions at 274d3ac. Approval evidence above is reused, not broadly rerun.
+
+Three focused delta tests passed on each client:
+
+- `final2686DeltaActualFixtureAndGeneratedCallHaveNoteAndLocation`: updated literal fixture and actual bounds-produced call have first output block equal to the preview note; location preserved. Collapsed title is **Edit /work/app/big.ts**, summary **big.ts**, status **Waiting for approval**. Note is hidden until the existing tool disclosure is expanded (`CompanionTimelineCards.swift:390–398`, both commits); it leads output then. There is no separate long-output line fold in either pinned client. This is model/source evidence, not a screenshot.
+- `final2686DeltaNoteAppendRepeatsReplayAndHistoryThenReplacement`: one note-only append retains exact prior output and adds one 119-byte note, completed state/ID/location intact. Another 128 distinct updates yield 129 identical notices, +15351 bytes: aggregate content grows linearly without a client cap or semantic notice deduplication. Actual disconnect/connect, same-seq global replay and a fresh global seq carrying an old inner seq add no duplicates. HTTP rebuild and repeat reload reproduce 129 notes without multiplying them. Replacement preview separately clears prior content/notices; later HTTP matches. Client concat: 147 `CompanionChatProjector.swift:147`, main `:150`; seq guards `AnnexReplay.swift:47` and projector `:64`. Server should emit at most one append notice per tool identity; content-only warning is not immediately visible in collapsed cards.
+- `final2686DeltaDesktopOnlyWarningAndRefusalReachCard`: actual preview/command guard produces **Incomplete input: this request is too large to show in full here. Review it on the desktop.** at the start of summary/detail, and **This request is too large to review here. Review it on the desktop.** as exact rejection sentence. Card remains pending; no false deny promise. Actual original has an allow option and no deny; no options are fabricated.
+
+Reproduce with CH at 274d3ac:
+
+```sh
+node Tests/Compatibility/capture-2686-tool-notes.cjs build/ch-frame-2682 build/frame-2686-delta build/serializer-typescript/lib/typescript.js
+swift test --package-path build/build147 --filter FrameWireAuditTests.final2686Delta
+swift test --package-path build/frame-main --filter FrameWireAuditTests.final2686Delta
+```
+
+`proposedHelperConsumedReceiptsBothSnapshotOrdersAndIdempotency` passed on each pinned client, four synthetic scenarios each: rejected `no_valid_mapping` and failed `helper_start_refused`, snapshot before/after receipt. This is the proposed #2689 contract; no server helper is started.
+
+- Full matching version/epoch/commandId 409 receipt is accepted definitively. Authoritative `snapshot.helperRequests=[]` removes the row in either order; rejection never resurrects it. Service removes optimistically only after successful command (`CompanionLiveService.swift` 147 `:377–385`, main `:381–389`); snapshot replacement 147 `:696`, main `:703` handles consumed errors.
+- In-flight flag remains while command is gated, then defer clears. Receipt first: supplied sentence visible and another manual tap possible until snapshot removal. Snapshot first: late sentence stored but row gone, so user does not see it. In both orders, `helperRequestErrors[slot]` remains orphaned in memory (`Store.swift:432–453`, no pruning at host replacement `:762–766`). Existing failed/consumed behavior is unchanged.
+- Same command ID reuses real transport's cached receipt without new HTTP. A second Store tap uses a new UUID; synthetic consumed server returns definitive 404 `helper_request_not_found`, no automatic retry or recreation. After snapshot, stale Store call sends nothing. All emitted commands are helper.approve; no agent.start/spawn. Actual duplicate server creation cannot be tested with a fake server; contract must guarantee consumed-request refusal/idempotency.
+- Receipt alone does not request refresh or remove row on error. Server must promptly broadcast the removing complete snapshot. REST catalog refresh preserves the helper list, so that alone is insufficient.
+- Possible later Go improvement: prune orphan slot errors and ignore late per-row errors when row is gone; use ephemeral result notice if explanation must survive removal. Do not convert existing helper_start_refused failed receipts. The harness initially raced catalog synchronization, then waited for connected before tapping and passed the focused rerun.
+
+Reproduce with `--filter FrameWireAuditTests.proposedHelperConsumed` on each archive. Existing `.swift` file must be recopied to both test targets after updates.
+
+Final head recheck subsequently observed `0090d8648d2c65b7733aa5e59fe1c3405efd2345`; that head has **not** been validated by the 274d3ac delta evidence.
 
 ## Earlier evidence reused unchanged
 
