@@ -16,12 +16,9 @@ enum CompanionAgentFace: Equatable, Sendable {
         return .initials(initials(name))
     }
 
-    /// `name.split('-').map(w => w[0]).join('').toUpperCase().slice(0, 2)`.
-    /// JavaScript indexes UTF-16 units, not letters or grapheme clusters. An isolated surrogate
-    /// (e.g. the first half of a fox emoji) displays as a replacement character on both platforms.
+    /// First character of each hyphen-separated part, uppercased and limited to two initials.
+    /// Preserve whole emoji and composed characters rather than the desktop's UTF-16 indexing bug.
     static func initials(_ name: String) -> String {
-        let firstUnits = name.utf16.split(separator: 0x2D).compactMap(\.first)
-        let upper = String(decoding: firstUnits, as: UTF16.self).uppercased()
-        return String(decoding: upper.utf16.prefix(2), as: UTF16.self)
+        String(name.split(separator: "-").compactMap(\.first).map(String.init).joined().uppercased().prefix(2))
     }
 }
