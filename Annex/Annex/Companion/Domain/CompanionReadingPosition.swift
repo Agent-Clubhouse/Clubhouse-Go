@@ -74,4 +74,5 @@ enum CompanionAssistantNavigation {
 
 @MainActor final class CompanionReadingBookmark {
     var position = CompanionReadingPosition()
+    var hasMounted = false
 }

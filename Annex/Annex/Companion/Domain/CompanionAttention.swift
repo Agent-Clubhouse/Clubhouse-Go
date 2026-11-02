@@ -100,6 +100,13 @@ enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
         case .routed(let message, let index): "routed:\(message.id):\(index)"
         }
     }
+    func contains(entryID: String) -> Bool {
+        if id == entryID { return true }
+        if case .item(.message(let message)) = self, message.role != .user, entryID.hasPrefix(id + "#") { return true }
+        if case .activity(let parts) = self { return parts.contains { "activity:\($0.id)" == entryID } }
+        return false
+    }
+
 }
 
 /// Ordered fragments retain message/part identity even when one delivery crosses a visible notice boundary.
@@ -126,7 +133,7 @@ enum CompanionActivityPart: Identifiable, Sendable, Equatable {
         case .tool(let tool): return tool.subagentID.map { "Helper \($0)" } ?? "Tools"
         case .empty: return ""
         case .routed(let message, let index):
-            if case .others(let parts) = message.display { return parts[index].sender?.name ?? "Another agent" }
+            if case .others(let parts) = message.display { return parts[index].sender?.name ?? (message.source == "group_project" ? "Group project" : "Another agent") }
             return "Another agent"
         }
     }
@@ -165,10 +172,16 @@ enum CompanionTimelineFolding {
         var rows: [CompanionTimelineRow] = []
         var run: [CompanionActivityPart] = []
         var carried: [CompanionMessage] = []
+        var runSubagentID: String?
         func flush() {
             if !run.isEmpty { rows.append(.activity(run)); run = [] }
             rows += carried.map { .item(.message($0)) }
             carried = []
+            runSubagentID = nil
+        }
+        func begin(subagentID: String?) {
+            if !run.isEmpty && runSubagentID != subagentID { flush() }
+            if run.isEmpty { runSubagentID = subagentID }
         }
         func append(_ part: CompanionActivityPart) {
             if !carried.isEmpty {
@@ -178,19 +191,15 @@ enum CompanionTimelineFolding {
             run.append(part)
         }
         for item in items {
-            let subagentID: String?
-            switch item {
-            case .tool(let tool): subagentID = tool.subagentID
-            case .message(let message): subagentID = message.subagentID
-            default: subagentID = nil
-            }
-            if !run.isEmpty && run.first?.subagentID != subagentID { flush() }
             switch item {
             case .tool(let tool) where !tool.requiresAttention && tool.images.isEmpty:
+                begin(subagentID: tool.subagentID)
                 append(.tool(tool))
             case .message(let message) where message.role == .assistant && message.text.isEmpty && !message.isStreaming && !run.isEmpty:
-                carried.append(message)
+                begin(subagentID: message.subagentID)
+                if run.isEmpty { rows.append(.item(item)) } else { carried.append(message) }
             case .message(let message) where message.role == .user && message.delivery == .confirmed && (message.queueState == nil || message.queueState == .delivered || message.queueState == .removed):
+                begin(subagentID: message.subagentID)
                 if case .others(let parts) = message.display {
                     for (index, part) in parts.enumerated() {
                         if canCollapse(part) { append(.routed(message, index)) }
@@ -205,7 +214,7 @@ enum CompanionTimelineFolding {
     }
 
     /// Clubhouse notices have no severity field yet; even routine notices stay visible to avoid hiding a failure.
-    static func canCollapse(_ part: CompanionRoutedMessagePart) -> Bool { !part.fromClubhouse && !part.text.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("[QUESTION FROM HELPER:") }
+    static func canCollapse(_ part: CompanionRoutedMessagePart) -> Bool { !part.fromClubhouse && !part.text.hasPrefix("[QUESTION FROM HELPER:") }
 
     /// "Explored 3 files, 2 searches", or "Exploring…" while one of them runs.
     static func exploreLabel(_ tools: [CompanionTool]) -> String {

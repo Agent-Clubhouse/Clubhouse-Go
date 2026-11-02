@@ -28,7 +28,7 @@ struct CompanionReadingPositionTests {
         let window = CompanionTimelineWindow(rows: rows, limit: 10, retaining: anchorID)
         #expect(window.entries.contains { $0.id == anchorID })
         #expect(window.entries.count >= 51)
-        #expect(pinned.hiddenCount == 0, "An absent bookmark falls back safely to loaded history")
+        #expect(pinned.hiddenCount == 190, "An absent bookmark must not prepare hidden history")
     }
     @Test func bounceTinyScrollAndKeyboardRecomputeActualBottom() {
         for offset in [540.0, 545, 539, 525] {

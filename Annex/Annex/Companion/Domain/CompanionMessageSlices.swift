@@ -227,15 +227,13 @@ struct CompanionTimelineWindow: Equatable, Sendable {
             var remaining = rows.count
             var groups: [[CompanionTimelineEntry]] = []
             var count = 0
-            var retained = entryID == nil
-            while remaining > 0 && (count < max(0, limit) || !retained) {
+            // Locate identity without preparing Markdown for history that cannot contain the bookmark.
+            let retainedRow = entryID.flatMap { entryID in
+                rows.lastIndex { $0.contains(entryID: entryID) }
+            }
+            while remaining > 0 && (count < max(0, limit) || retainedRow.map { remaining > $0 } == true) {
                 remaining -= 1
                 let group = CompanionTimelineEntry.entries(for: [rows[remaining]])
-                if let entryID {
-                    if group.contains(where: { $0.id == entryID }) { retained = true }
-                    // A prepended routine fragment may have changed its group's first-fragment key.
-                    if case .activity(let parts) = rows[remaining], parts.contains(where: { "activity:\($0.id)" == entryID }) { retained = true }
-                }
                 groups.append(group); count += group.count
             }
             var window = CompanionTimelineWindow([], limit: 0)

@@ -42,6 +42,8 @@ struct CompanionMessageView: View, Equatable {
                     if let subagentID = message.subagentID, slice?.index ?? 0 == 0 {
                         Label("Helper activity · \(subagentID)", systemImage: "person.crop.circle.badge.gearshape")
                             .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Helper activity · \(subagentID)")
                             .accessibilityIdentifier("companion-subagent-\(message.id)")
                     }
                     richText
@@ -475,7 +477,8 @@ struct CompanionToolTitle: View {
 }
 
 /// No child view, content link scan or Markdown parse exists until this row opens.
-struct CompanionActivityCard: View {
+struct CompanionActivityCard: View, Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.parts == rhs.parts && lhs.expansion === rhs.expansion }
     let parts: [CompanionActivityPart]
     let expansion: CompanionTranscriptExpansion
     @Environment(\.companionSenderResolver) private var resolver

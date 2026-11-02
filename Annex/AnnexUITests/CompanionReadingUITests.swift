@@ -16,14 +16,17 @@ import XCTest
         openRiver(app)
         let latest = app.buttons["Latest"]
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Opening at the latest hides the indicator")
+        XCTAssertLessThan(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).count, 40, "The reading fixture uses a small window")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01)).tap()
         let earlier = app.buttons["companion-show-earlier"]
         XCTAssertTrue(earlier.waitForExistence(timeout: 10))
         XCTAssertTrue(bringTranscriptRowIntoView(earlier, in: app))
         let visibleMarkers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).allElementsBoundByIndex
-        guard let anchor = visibleMarkers.first(where: { $0.frame.minY > 150 && $0.frame.maxY < 500 }) else {
+        guard let candidate = visibleMarkers.first(where: { $0.frame.minY > 150 && $0.frame.maxY < 500 }) else {
             XCTFail("A reading entry must intersect the viewport"); return
         }
+        // A bound-by-index query changes identity when history is prepended. Re-query the same marker by label.
+        let anchor = app.staticTexts[candidate.label]
         let before = anchor.frame.minY
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
@@ -36,10 +39,12 @@ import XCTest
         composer.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertEqual(anchor.frame.minY, before, accuracy: 6, "Opening the keyboard keeps the reading anchor")
-        app.swipeDown(velocity: .slow)
         let returned = anchor.frame.minY
+        // This base hides the tab bar inside a chat; #211 supplies direct tab switching separately.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         app.tabBars.buttons["Agents"].tap()
         app.tabBars.buttons["Home"].tap()
+        openRiver(app)
         XCTAssertTrue(anchor.waitForExistence(timeout: 10))
         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Tab return preserves the reader's place")
 
@@ -53,6 +58,21 @@ import XCTest
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(latest.exists, "Keyboard and safe area changes at the bottom cannot leave a stale indicator")
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Reading controls above the composer"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    func testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
+        openRiver(app)
+        let latest = app.buttons["Latest"]
+        XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5))
+        let point = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+        point.press(forDuration: 0.05, thenDragTo: point.withOffset(CGVector(dx: 0, dy: 14)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        // A paused reader may remain inside the 16pt near-bottom band. A downward return/bounce must clear it.
+        point.press(forDuration: 0.05, thenDragTo: point.withOffset(CGVector(dx: 0, dy: -40)), withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Returning to bottom clears Latest")
+        element(app, "companion-composer").tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Keyboard resizing at bottom cannot latch Latest")
     }
 
     func testFailedOutputFoldsButErrorStatusStaysVisible() {
