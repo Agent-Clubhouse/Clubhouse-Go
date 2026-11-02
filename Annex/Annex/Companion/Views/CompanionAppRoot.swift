@@ -426,6 +426,7 @@ struct CompanionStartScreenPicker: View {
         Picker("Start screen", selection: $preferences.startScreen) {
             ForEach(CompanionStartScreen.allCases, id: \.self) { screen in Text(screen.label).tag(screen) }
         }
+        .pickerStyle(.navigationLink)
         .accessibilityIdentifier("companion-start-screen")
     }
 }

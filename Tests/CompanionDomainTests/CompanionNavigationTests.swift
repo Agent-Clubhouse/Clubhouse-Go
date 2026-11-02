@@ -115,6 +115,20 @@ import Testing
         #expect(navigation.tab == .dispatcher && navigation.paths[.search] == [])
     }
 
+    @Test func notificationBeforeFirstSnapshotRoutesOnceAndCanBeCancelled() throws {
+        let target = try #require(host().dispatcher?.agent?.id)
+        var navigation = CompanionNavigation(startScreen: .home)
+        navigation.open(target, hosts: [])
+        navigation.update(hosts: [host()])
+        #expect(navigation.tab == .dispatcher && navigation.visibleAgent == target)
+        #expect(navigation.paths[.home] == [])
+        var cancelled = CompanionNavigation(startScreen: .dispatcher)
+        cancelled.open(target, hosts: [])
+        cancelled.select(.search)
+        cancelled.update(hosts: [host()])
+        #expect(cancelled.tab == .search)
+    }
+
     @MainActor @Test func disconnectRetainsConversationAndDraftButExplicitOffDropsOnlyConversation() throws {
         let store = CompanionStore(service: CompanionPreviewService())
         let host = host()

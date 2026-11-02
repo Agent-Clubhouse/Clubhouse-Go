@@ -63,7 +63,8 @@ import ClubhouseTransport
             if self.showsMultipleDispatchers {
                 hosts[1].connection = .connected
                 hosts[1].dispatcher = Self.dispatcher(now: Date())
-                hosts[1].dispatcher?.agent?.id.hostID = hosts[1].id
+                let hostID = hosts[1].id
+                hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
