@@ -71,9 +71,13 @@ import XCTest
         XCTAssertTrue(summary.label == "gpt-6.1-sol, high effort. From the helper settings for this difficulty.")
         XCTAssertTrue(element(app, "helper-routing-reason").label == "From the helper settings for this difficulty")
         capture(app, "Helper settings - routing explanation (preview)")
-        app.buttons["Done"].tap()
-        app.tabBars.buttons["Needs you"].tap()
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
+        let tab = app.tabBars.buttons["Needs you"]
+        // iOS can keep the tab bar minimized after scrolling the settings sheet.
+        // Tapping the selected Home tab expands it before choosing another tab.
+        if !tab.exists { waitAndTap(app.tabBars.buttons["Home"], until: tab) }
         let request = element(app, "helper-request-routing")
+        waitAndTap(tab, until: request)
         XCTAssertTrue(scrollUntilExists(request, in: app) && scrollTo(request, in: app))
         XCTAssertTrue(request.label == "codex-cli · hard")
         capture(app, "Held start - requested routing (preview)")
