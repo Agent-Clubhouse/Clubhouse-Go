@@ -107,6 +107,8 @@ enum CompanionAssistantNavigation {
 }
 
 @MainActor final class CompanionReadingBookmark {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     var position = CompanionReadingPosition()
     var hasMounted = false
     // One holder per target, rather than a discarded actor-isolated allocation on every View init.
@@ -115,6 +117,8 @@ enum CompanionAssistantNavigation {
 
 /// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.
 @MainActor final class CompanionReadingViewport {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     var gesture = CompanionReadingGesture()
     var frames: [String: ClosedRange<Double>] = [:]
     var metrics: CompanionScrollMetrics?

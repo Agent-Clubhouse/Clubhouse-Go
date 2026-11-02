@@ -32,7 +32,14 @@ private enum DeinitTestLocal { @TaskLocal static var marker = 0 }
         let holder = CompanionStateLifetime { queue }
         XCTAssertTrue(holder.value === queue)
         XCTAssertTrue(part.isOpen(for: "fixture"))
-        withExtendedLifetime((holder, queue, transcript, part)) {}
+        let bookmark = CompanionReadingBookmark()
+        bookmark.position.offset = 123
+        bookmark.viewport.frames = ["fixture": 0...100]
+        let viewport = CompanionReadingViewport()
+        viewport.metrics = .init(offset: 1, contentHeight: 100, containerHeight: 50)
+        let projection = CompanionTimelineProjection()
+        XCTAssertEqual(projection.rows(for: .init(items: [.notice(id: "fixture", text: "fixture")])).count, 1)
+        withExtendedLifetime((holder, queue, transcript, part, bookmark, viewport, projection)) {}
     }
 
     func testRenderedLifetimeDoesNotConstructDiscardedValues() {

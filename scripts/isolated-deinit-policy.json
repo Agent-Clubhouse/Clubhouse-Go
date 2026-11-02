@@ -38,6 +38,7 @@
           "pendingFinishedRemovals": "Set < CompanionTarget >",
           "pendingProjectStates": "[ CompanionProjectTarget : CompanionProjectState ]",
           "projectStateError": "String ?",
+          "readingBookmarks": "[ CompanionTarget : CompanionReadingBookmark ]",
           "remoteImageOrder": "[ String ]",
           "remoteImages": "[ String : CompanionImageBytes ]",
           "selection": "CompanionTarget ?",
@@ -45,6 +46,7 @@
           "service": "any CompanionService",
           "spawnError": "String ?",
           "spawnInProgress": "Bool",
+          "timelineProjections": "[ CompanionTarget : CompanionTimelineProjection ]",
           "transcriptExpansions": "[ TranscriptKey : CompanionTranscriptExpansion ]",
           "uncertainCreateRequest": "CompanionCreateRequest ?",
           "uncertainSpawnRequest": "CompanionSpawnRequest ?",
@@ -375,6 +377,7 @@
           "showsLongBlocks": "Bool",
           "showsLongReply": "Bool",
           "showsQuestions": "Bool",
+          "showsReadingScenario": "Bool",
           "showsTerminalAgent": "Bool",
           "streamsUpdates": "Bool"
         },
@@ -494,6 +497,62 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionReadingBookmark": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
+      "reason": "Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UIKit, SwiftUI handles or callbacks.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "hasMounted": "Bool",
+          "position": "CompanionReadingPosition",
+          "viewport": "CompanionReadingViewport"
+        },
+        "storageMacros": []
+      }
+    },
+    "CompanionReadingViewport": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
+      "reason": "Only gesture/scroll metric value structs, String-to-Double-range geometry, optional Doubles and Bools; no UI object or callback ownership.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "frameContentHeight": "Double ?",
+          "frames": "[ String : ClosedRange < Double > ]",
+          "gesture": "CompanionReadingGesture",
+          "hasInitialized": "Bool",
+          "isInteracting": "Bool",
+          "isRestoring": "Bool",
+          "metrics": "CompanionScrollMetrics ?",
+          "previousMetrics": "CompanionScrollMetrics ?",
+          "restoreOffset": "Double ?"
+        },
+        "storageMacros": []
+      }
+    },
+    "CompanionTimelineProjection": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionTimelineProjection.swift",
+      "reason": "UUID, Int counters/index dictionaries and Sendable timeline-row values; reachable image-byte wrappers are immutable Data with reviewed ARC-only teardown. No UI or callback ownership.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "assistantIndices": "[ String : ( row : Int , item : Int ) ]",
+          "assistantUpdateCount": "Int",
+          "itemCount": "Int",
+          "regroupedItemCount": "Int",
+          "revision": "UUID ?",
+          "rows": "[ CompanionTimelineRow ]",
+          "toolIndices": "[ String : ( row : Int , item : Int , part : Int ) ]",
+          "toolUpdateCount": "Int"
+        },
+        "storageMacros": []
+      }
     }
   },
   "captureSites": {
@@ -573,7 +632,7 @@
     "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": {
       "constructor:CompanionStore": [
         {
-          "expression": "CompanionStore ( service : CompanionPreviewService ( streamsUpdates : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-stream \" ) , showsHelperRequests : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-requests \" ) , showsTerminalAgent : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-terminal-agent \" ) , showsLongBlocks : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-blocks \" ) , showsLongReply : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-reply \" ) , showsDispatcher : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-dispatcher \" ) , mcpEnabled : ! ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-mcp-off \" ) , showsHelperIdentity : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-identity \" ) , showsHelperTree : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-tree \" ) , showsQuestions : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-questions \" ) , showsContextWindow : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-context-window \" ) ) )",
+          "expression": "CompanionStore ( service : CompanionPreviewService ( streamsUpdates : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-stream \" ) , showsHelperRequests : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-requests \" ) , showsTerminalAgent : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-terminal-agent \" ) , showsLongBlocks : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-blocks \" ) , showsLongReply : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-reply \" ) , showsDispatcher : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-dispatcher \" ) , mcpEnabled : ! ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-mcp-off \" ) , showsHelperIdentity : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-identity \" ) , showsHelperTree : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-tree \" ) , showsQuestions : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-questions \" ) , showsContextWindow : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-context-window \" ) , showsReadingScenario : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-reading \" ) ) )",
           "producers": {}
         }
       ]

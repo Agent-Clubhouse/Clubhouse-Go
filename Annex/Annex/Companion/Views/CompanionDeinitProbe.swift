@@ -36,6 +36,7 @@ struct CompanionDeinitProbe: View {
             case "expansion": releaseExpansion()
             case "part": releasePart()
             case "holder": releaseHolder()
+            case "reading": releaseReading()
             default: fatalError("Unknown deinit probe")
             }
         }
@@ -55,6 +56,16 @@ struct CompanionDeinitProbe: View {
     }
     @inline(never) private static func releaseHolder() {
         let value = CompanionStateLifetime { CompanionDecisionQueue { _ in } }; _ = value.value; withExtendedLifetime(value) {}
+    }
+    @inline(never) private static func releaseReading() {
+        let bookmark = CompanionReadingBookmark()
+        bookmark.position.offset = 123
+        bookmark.viewport.frames = ["fixture": 0...100]
+        let viewport = CompanionReadingViewport()
+        viewport.metrics = .init(offset: 1, contentHeight: 100, containerHeight: 50)
+        let projection = CompanionTimelineProjection()
+        _ = projection.rows(for: .init(items: [.notice(id: "fixture", text: "fixture")]))
+        withExtendedLifetime((bookmark, viewport, projection)) {}
     }
     private static func nextStage() {
         report("cycle=\(cycle) stage=\(stage)")
