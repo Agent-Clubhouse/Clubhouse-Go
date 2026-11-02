@@ -36,3 +36,49 @@ Never run live E2E, contact a physical phone, or control the host desktop app.
 
 Only the owned simulator and private loopback peers were used; both peers stopped and
 that simulator was deleted after validation. The negotiated wire adapter remains off.
+
+## Rebased review on main 9d23c7f
+
+Package coverage tests and the coverage ratchet were rerun after integrating #216.
+The previous simulator/build results above remain evidence for the prior base; they
+were not rerun for this focused rebase request. No new wire adapter is enabled.
+
+Reviewed `git diff origin/main...HEAD` file by file, using merge base
+`9d23c7f61cbe4d67cab00fd3e4e357cf44fc418c`. No existing file or test case is deleted.
+All removed lines are intentional replacement of retained image bytes with references,
+replacement of synchronous UIKit caching with async bounded loading, or corresponding
+fixture/assertion updates. Main's catalog completeness, capability retention, Dispatcher
+unknown state, loading navigation, chat deletion rules and foreground/identity tests
+remain intact. An earlier two-tree comparison was against an origin/main that advanced
+during validation; the final three-dot review is against the requested #216 base.
+
+File review:
+
+- `CompanionLiveService.swift`: icon catalog/store lifecycle and reference parameters only;
+  #216 catalog/Dispatcher/capability state is preserved.
+- `CompanionAgentFace.swift`, `CompanionMessageRouting.swift`, `CompanionModels.swift`:
+  image presence/reference equality replaces byte equality; avatar precedence retained.
+- `CompanionIconCatalog.swift`, `CompanionIconStore.swift`: new contract-independent
+  inline adapter and bounded disk/decode/fetch implementation.
+- `CompanionDesign.swift`: visible avatar tasks replace body decoding and old UIImage cache.
+- `CompanionTimelineCards.swift`: routed face passes reference; main's long-output UI retained.
+- `AnnexAppTelemetry.swift`, `AnnexTelemetry.swift`, `docs/opentelemetry.md`: additive
+  closed-vocabulary icon measurements, keeping main's performance measurements.
+- `CompanionAvatarRenderingTests.swift`, `CompanionIconDecoderTests.swift`: actual bounded
+  image path and SVG/GIF smoke coverage; existing avatar test retained as async.
+- `AppTelemetryTests.swift`: additive icon test; main's performance test preserved.
+- `AnnexContractDispatcherTests.swift`, `AnnexContractDomainRobustnessTests.swift`,
+  `AnnexContractDomainTests.swift`, `AnnexContractSenderIdentityTests.swift`: reference
+  expectations; truncated fixture image headers rejected and valid raster supplied
+  in memory for precedence tests. No server fixtures changed.
+- `CompanionAgentFaceTests.swift`, `CompanionHomeLayoutTests.swift`,
+  `CompanionLiveServiceSyncTests.swift`, `CompanionMessageRoutingTests.swift`: preserve
+  cases and change icon arguments/assertions to references.
+- `CompanionIconStoreTests.swift`: new bounds, disk, lifecycle, fallback and retention cases.
+- `ScriptedAnnexTransport.swift`: optional injected temp icon store only; main's paused
+  reads and refresh/failure helpers retained.
+- `Build147SnapshotShapeTests.swift`, `Build147TransportAuditTests.swift`,
+  `websocket_close_peer.py`: isolated archived-client compatibility harness additions.
+- `docs/icon-store.md`, `docs/testing/icon-store.md`, `build147-overflow-options.md`,
+  `build147-permission-previews.md`, `build147-snapshot-compatibility.md`: design,
+  contract hold, measured compatibility results and validation limits.
