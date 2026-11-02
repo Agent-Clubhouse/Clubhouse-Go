@@ -92,6 +92,26 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(oversize.allSatisfy { $0["code"]?.integer == 1009 })
 }
 
+@Test(.timeLimit(.minutes(1))) func serverOverrunClose1013UsesRecoverableURLSessionFailure() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let socket = try await io.openWebSocket(fixture.webSocketRequest())
+    _ = try await socket.receive()
+    try await socket.send(Data("close:1013".utf8))
+    do {
+        _ = try await socket.receive()
+        Issue.record("The server closed with 1013")
+    } catch {
+        let failure = error as NSError
+        print("Server close 1013: \(failure.domain) code \(failure.code); classification \(AnnexDiagnosticFailure.classify(error))")
+        #expect(failure.domain == NSPOSIXErrorDomain)
+        #expect(failure.code == Int(ENOTCONN))
+        #expect(AnnexDiagnosticFailure.classify(error) == .unknown)
+    }
+    await socket.close()
+}
+
 @Test(.timeLimit(.minutes(1))) func pinnedWebSocketCarriesTextBinaryAndPings() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }
@@ -253,5 +273,77 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(try await sender.send(post("/redirect")).status == 302)
     await #expect(throws: AnnexTransportError.malformedResponse) { try await sender.send(post("/bad")) }
     await #expect(throws: AnnexTransportError.responseTooLarge) { try await sender.send(post("/huge")) }
+}
+#endif
+
+#if os(macOS)
+private actor HeldReceiptIO: AnnexIO {
+    let pinned: PinnedAnnexIO
+    let host: TrustedAnnexHost
+    var errorDomain: String?, errorCode: Int?
+    private(set) var dispatches = 0
+    init(pinned: PinnedAnnexIO, host: TrustedAnnexHost) { self.pinned = pinned; self.host = host }
+    func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
+        if request.url?.path.hasSuffix("capabilities") == true {
+            return AnnexHTTPResponse(status: 200, data: Data(#"{"version":1,"epoch":"e","controlAuth":"mtls-pinned-client","controlAvailable":true,"commands":["chat.interrupt"],"idempotency":{"scope":"peer-and-epoch","maxEntries":2048,"ttlMs":3600000}}"#.utf8))
+        }
+        dispatches += 1
+        var held = request
+        held.url = try host.endpoint.url(path: ["hold-command"])
+        do { return try await pinned.perform(held) }
+        catch { let value = error as NSError; errorDomain = value.domain; errorCode = value.code; throw error }
+    }
+    func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket { throw AnnexTransportError.disconnected }
+}
+
+@Test(.enabled(if: ProcessInfo.processInfo.environment["ANNEX_REAL_CADENCE_TESTS"] == "1"), .timeLimit(.minutes(2)))
+func aHeldHTTPCommandReceiptTimesOutToOutcomeUnknownOnRealURLSession() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let io = HeldReceiptIO(pinned: PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry()), host: fixture.host)
+    let credentials = MemoryAnnexCredentialStore()
+    await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: fixture.host.hostID)
+    let transport = AnnexTransport(host: fixture.host, credentials: credentials, io: io, telemetry: AnnexTelemetry())
+    _ = try await transport.read(.capabilities)
+    let command = AnnexCommand(commandID: "held", epoch: "e", kind: .interrupt(agentID: "a", sessionID: "s"))
+    let started = ContinuousClock.now
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: "held")) { try await transport.execute(command) }
+    let elapsed = ContinuousClock.now - started
+    #expect(elapsed >= .seconds(29) && elapsed < .seconds(70))
+    #expect(await io.errorDomain == NSURLErrorDomain)
+    #expect(await io.errorCode == URLError.timedOut.rawValue)
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: "held")) { try await transport.execute(command) }
+    #expect(await io.dispatches == 1)
+    print("Real held HTTP receipt: \(await io.errorDomain ?? "") \(await io.errorCode ?? 0), elapsed=\(elapsed), execute=commandOutcomeUnknown; duplicate command not re-dispatched")
+}
+#endif
+
+#if os(macOS)
+@Test(.timeLimit(.minutes(2))) func actualLargeTerminalAndToolSizesHitTheProductionURLSessionLimit() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    defer { session.invalidateAndCancel() }
+    for size in [1_247_805, 20 * 1024 * 1024, 26 * 1024 * 1024, 40 * 1024 * 1024, 66 * 1024 * 1024] {
+        let task = session.webSocketTask(with: try fixture.webSocketRequest())
+        task.maximumMessageSize = 16 * 1024 * 1024; task.resume()
+        _ = try await task.receive()
+        let started = ContinuousClock.now
+        try await task.send(.string("size:text:\(size)"))
+        do {
+            let frame = try await task.receive()
+            guard case .string(let value) = frame else { Issue.record("Expected text"); return }
+            #expect(size < 16 * 1024 * 1024)
+            #expect(value.utf8.count == size)
+            print("Production-limit URLSession size \(size): accepted in \(ContinuousClock.now - started)")
+        } catch {
+            let value = error as NSError
+            #expect(size > 16 * 1024 * 1024)
+            #expect(value.domain == NSPOSIXErrorDomain && value.code == Int(EMSGSIZE))
+            print("Production-limit URLSession size \(size): \(value.domain)/\(value.code) in \(ContinuousClock.now - started)")
+        }
+        task.cancel(with: .goingAway, reason: nil)
+    }
 }
 #endif

@@ -38,6 +38,7 @@ function frame(opcode, payload) {
 
 const closes = [];
 const server = https.createServer({ cert, key, requestCert: true, rejectUnauthorized: false }, (req, res) => {
+  if (req.url === '/hold-command') { req.resume(); return; }
   if (req.url === '/trace') {
     const parent = req.headers.traceparent;
     const headers = { 'Content-Type': 'application/json' };
@@ -94,6 +95,10 @@ server.on('upgrade', (req, socket) => {
           const [, kind, size] = text.split(':');
           sizeSent = Number(size); sentAt = performance.now();
           socket.write(frame(kind === 'text' ? 1 : 2, Buffer.alloc(sizeSent, 'x')));
+        }
+        else if (text === 'close:1013') {
+          const reason = Buffer.alloc(2); reason.writeUInt16BE(1013);
+          socket.write(frame(8, reason));
         }
         else if (text === 'mute') { muted = true; socket.write(frame(1, Buffer.from('muted'))); }
         else socket.write(frame(1, payload));
