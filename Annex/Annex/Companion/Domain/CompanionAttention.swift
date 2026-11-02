@@ -161,8 +161,11 @@ enum CompanionActivityPart: Identifiable, Sendable, Equatable {
 extension CompanionTool {
     var isFailure: Bool { state == .failed || (exitCode.map { $0 != 0 } ?? false) }
     var requiresAttention: Bool { isFailure || awaitsApproval }
-    var outputOpenByDefault: Bool { awaitsApproval || (isFailure && (output ?? "").split(separator: "\n", omittingEmptySubsequences: false).count <= 6) }
-    var outputPreview: String { (output ?? "").split(separator: "\n").last.map(String.init) ?? "" }
+    private var nonemptyOutputLines: [Substring] {
+        (output ?? "").split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+    var outputOpenByDefault: Bool { awaitsApproval || (isFailure && nonemptyOutputLines.count <= 6) }
+    var outputPreview: String { nonemptyOutputLines.last.map(String.init) ?? "" }
 }
 
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
