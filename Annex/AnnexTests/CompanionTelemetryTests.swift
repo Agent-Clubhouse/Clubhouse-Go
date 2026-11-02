@@ -381,7 +381,9 @@ import SwiftUI
     @Test func settingsDiscloseTelemetryNextToEnrollment() {
         let text = CompanionFeedbackSettings.telemetryDisclosure
         #expect(text.contains("Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer"))
-        #expect(text.contains("never includes prompts"))
+        #expect(text.contains("Automated telemetry excludes prompts"))
+        #expect(text.contains("Notes and images you choose to submit can contain private information"))
+        #expect(text.contains("saved feedback stays on this device"))
     }
 
     @Test func buildSHAReachesTheConfiguration() throws {

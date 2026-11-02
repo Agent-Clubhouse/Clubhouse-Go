@@ -25,7 +25,7 @@ struct CompanionWelcomeView: View {
                     Divider().padding(.leading, 56)
                     step("hand.raised", "Answer from anywhere", "Approve requests and answer questions from Needs you.")
                     Divider().padding(.leading, 56)
-                    step("lock.shield", "Stays between your devices", "Your phone talks to your Mac directly. Your code and prompts never leave your devices.")
+                    step("lock.shield", "Connects directly to your Mac", "Your phone talks directly to your paired Mac. Developer feedback is optional; review notes and images before sharing them.")
                 }
                 .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 VStack(spacing: 12) {
