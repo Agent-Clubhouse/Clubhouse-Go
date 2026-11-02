@@ -707,8 +707,8 @@ import ClubhouseTransport
             guard let payload = envelope.payload else { return }
             switch envelope.type {
             case "snapshot":
-                quickCatalog[hostID] = payload["quickAgents"] ?? .object([:])
-                rememberDispatcher(payload["dispatcher"] ?? .null, hostID: hostID)
+                if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
+                if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 // A snapshot is complete. Catalog refreshes may reuse these maps, so missing icons
                 // must clear the cache too; otherwise a removed image can come back after refresh.
