@@ -10,7 +10,7 @@ Named mobile parity exceptions:
 - **Single-item activity:** one routine item also gets a compact expandable row; desktop groups runs of at least two.
 - **Attachment summary:** routed attachment counts appear in the summary; tool images remain visible outside runs.
 
-Running status remains visible in the summary. Opening a run exposes its ordered children, existing sender/avatar metadata, Copy message, tool outputs and content links. Existing per-part folds stay independent; expansion choices survive transcript refresh and navigation in the per-target store. Closed runs create no detail views, content-link scans, slices or Markdown. Failed tool rows always show status and exit code; output up to six lines starts open, longer output starts folded with its last line visible. A saved user toggle wins.
+Running status remains visible in the summary. Opening a run exposes its ordered children, existing sender/avatar metadata, Copy message, tool outputs and content links. Existing per-part folds stay independent; expansion choices survive transcript refresh and navigation in the per-target store. Closed runs create no detail views, content-link scans, slices or Markdown. Failed tool rows always show status and exit code; output up to six nonempty lines starts open, longer output starts folded with its last line visible. A saved user toggle wins.
 
 Existing wire subagent IDs are preserved through streamed chunks and tool updates. Go labels their inline text as helper activity and splits tool runs at sender changes; it does not implement the desktop full-capability subagent card.
 

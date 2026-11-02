@@ -101,6 +101,9 @@ import Testing
         #expect(short.requiresAttention && short.outputOpenByDefault)
         #expect(long.requiresAttention && !long.outputOpenByDefault)
         #expect(long.outputPreview == "Failure")
+        let spaced = CompanionTool(id: "spaced", name: "Run", summary: "", output: "one\n\n \n\ttwo\n\n \n", state: .failed)
+        #expect(spaced.outputOpenByDefault)
+        #expect(spaced.outputPreview == "\ttwo", "Blank lines do not hide the final error; indentation is preserved")
         #expect(CompanionTimelineFolding.rows(for: [.tool(long)]) == [.item(.tool(long))])
         #expect(CompanionTool(id: "permission", name: "Run", summary: "", output: long.output, state: .running, awaitsApproval: true).outputOpenByDefault)
     }
