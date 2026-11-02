@@ -31,6 +31,51 @@ import XCTest
     }
 
 
+    func testNativeScrollToTopSticksWithAndWithoutStreaming() {
+        for streaming in [false, true] {
+            let app = launchApp(["--companion-preview", "--companion-preview-reading"] + (streaming ? ["--companion-preview-stream"] : []))
+            openRiver(app)
+            let earlier = app.buttons["companion-show-earlier"], latest = app.buttons["Latest"]
+            XCTAssertTrue(earlier.waitForExistence(timeout: 5))
+            XCTAssertFalse(latest.exists)
+            let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply.")).firstMatch
+            if streaming { XCTAssertTrue(live.waitForExistence(timeout: 5)) }
+            let before = streaming ? live.label : ""
+            // Exactly one native tap: no drag or second tap can rescue a failed jump.
+            tapChatStatusBar(in: app)
+            XCTAssertTrue(earlier.wait(for: \.isHittable, toEqual: true, timeout: 5), "Native top must finish (streaming: \(streaming))")
+            XCTAssertTrue(latest.waitForExistence(timeout: 5))
+            let y = earlier.frame.minY
+            if streaming {
+                XCTAssertTrue(waitFor(live, NSPredicate(format: "label != %@", before), timeout: 5), "The stream must continue while reading")
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(2))
+            XCTAssertTrue(earlier.isHittable, "Later chunks must not pull the reader back down")
+            XCTAssertEqual(earlier.frame.minY, y, accuracy: 1)
+            XCTAssertTrue(latest.exists)
+            screenshot(app, "Native top remains with streaming \(streaming)")
+        }
+    }
+
+    func testStreamingKeepsFollowingWhenNobodyScrolls() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"])
+        openRiver(app)
+        let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply.")).firstMatch
+        let activity = app.buttons["companion-activity-tool:live-0"]
+        XCTAssertTrue(live.waitForExistence(timeout: 5))
+        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        let initialHeight = live.frame.height, initialActivity = activity.label
+        // The reply must gain height while routine tools update their collapsed
+        // summary. No gesture or Latest tap may keep the final row in view.
+        XCTAssertTrue(waitFor(live, NSPredicate { _, _ in live.frame.height > initialHeight }, timeout: 15))
+        XCTAssertTrue(waitFor(activity, NSPredicate(format: "label != %@", initialActivity), timeout: 5))
+        XCTAssertTrue(activity.isHittable)
+        XCTAssertGreaterThanOrEqual(activity.frame.minY, element(app, "companion-chat-header").frame.maxY)
+        XCTAssertLessThanOrEqual(activity.frame.maxY, element(app, "companion-composer").frame.minY)
+        XCTAssertFalse(app.buttons["Latest"].exists, "Growth without scrolling must keep following")
+        screenshot(app, "Streaming continues following with no scroll")
+    }
+
     func testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"], allowance: 360)
         openRiver(app)
@@ -42,7 +87,7 @@ import XCTest
         let composer = element(app, "companion-composer")
         let header = element(app, "companion-chat-header")
         // This test prepares a reading position by dragging. Native status-bar
-        // scrolling under a stream is covered separately by #252.
+        // scrolling has its own on/off regression above.
         for _ in 0..<8 {
             checkTimeLeft("moving to the earlier-history control")
             if earlier.isHittable && earlier.frame.minY >= header.frame.maxY && earlier.frame.maxY <= composer.frame.minY { break }
