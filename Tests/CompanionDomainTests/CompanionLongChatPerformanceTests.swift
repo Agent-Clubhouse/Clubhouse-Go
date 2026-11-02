@@ -14,8 +14,25 @@ import ClubhouseTransport
         malloc_zone_statistics(malloc_default_zone(), &stats)
         return (UInt(stats.blocks_in_use), UInt(stats.size_in_use))
     }
+    /// The pre-reading #215 folding algorithm, kept only in this profiling harness for same-head comparisons.
+    private func baselineRows(_ items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
+        var rows: [CompanionTimelineRow] = []
+        var run: [CompanionTool] = []
+        func flush() {
+            if run.count >= 2 { rows.append(.tools(run)) } else { rows += run.map { .item(.tool($0)) } }
+            run = []
+        }
+        for item in items {
+            if case .tool(let tool) = item, tool.isExplore { run.append(tool); continue }
+            flush(); rows.append(.item(item))
+        }
+        flush()
+        return rows
+    }
+
     @Test func profileLongDispatcher() {
         guard ProcessInfo.processInfo.environment["CLUBHOUSE_PROFILE_LONG_CHAT"] == "1" else { return }
+        let foldMode = ProcessInfo.processInfo.environment["CLUBHOUSE_PROFILE_FOLD"] ?? "incremental"
         for count in [1_000, 5_000] {
             let heapBefore = heap()
             var projector = CompanionChatProjector()
@@ -32,6 +49,7 @@ import ClubhouseTransport
             store.apply(.timeline(target, items: projector.items, sequence: count, reset: true, sessionID: projector.sessionID))
             let heapLoaded = heap()
             var applyMs = 0.0, storeMs = 0.0, layoutMs = 0.0
+            var preparedRows = 0
             for i in 1...200 {
                 let begin = Date()
                 let event = Self.event("agent_message_chunk", count + i, ["messageId": .string("reply"), "text": .string("Streaming **reply** chunk. ")])
@@ -46,11 +64,17 @@ import ClubhouseTransport
                 storeMs += Date().timeIntervalSince(merge) * 1000
                 let layout = Date()
                 #if PROFILE_OPTIMIZED
-                let window = CompanionTimelineWindow(rows: CompanionTimelineFolding.rows(for: store.conversation(for: target).items), limit: 150)
+                let rows: [CompanionTimelineRow] = switch foldMode {
+                case "baseline": baselineRows(store.conversation(for: target).items)
+                case "uncached": CompanionTimelineFolding.rows(for: store.conversation(for: target).items)
+                default: store.timelineRows(for: target)
+                }
+                let window = CompanionTimelineWindow(rows: rows, limit: 150)
                 #else
                 let window = CompanionTimelineWindow(CompanionTimelineEntry.entries(for: CompanionTimelineFolding.rows(for: store.conversation(for: target).items)), limit: 150)
                 #endif
                 #expect(window.entries.count <= 160)
+                preparedRows = window.preparedRowCount
                 layoutMs += Date().timeIntervalSince(layout) * 1000
             }
             let heapStreamed = heap()
@@ -61,7 +85,7 @@ import ClubhouseTransport
             let heapReconnected = heap()
             print("LONG_CHAT_HEAP items=\(count) beforeBlocks=\(heapBefore.blocks) beforeBytes=\(heapBefore.bytes) loadedBlocks=\(heapLoaded.blocks) loadedBytes=\(heapLoaded.bytes) streamedBlocks=\(heapStreamed.blocks) streamedBytes=\(heapStreamed.bytes) reconnectBlocks=\(heapReconnected.blocks) reconnectBytes=\(heapReconnected.bytes) reconnect26Catalog2HistoryMs=\(reconnectMs)")
             let textBytes = projector.items.reduce(0) { result, item in if case .message(let message) = item { result + message.text.utf8.count + message.routed.reduce(0) { $0 + $1.text.utf8.count } } else { result } }
-            print("LONG_CHAT items=\(count) events=\(count + 200) retained=\(projector.items.count) textPayloadBytes=\(textBytes) seedMs=\(seedMs) apply200Ms=\(applyMs) store200Ms=\(storeMs) timeline200Ms=\(layoutMs)")
+            print("LONG_CHAT items=\(count) events=\(count + 200) retained=\(projector.items.count) textPayloadBytes=\(textBytes) seedMs=\(seedMs) apply200Ms=\(applyMs) store200Ms=\(storeMs) timeline200Ms=\(layoutMs) fold=\(foldMode) preparedRows=\(preparedRows)")
             #expect(store.conversation(for: target).items == projector.items)
         }
     }

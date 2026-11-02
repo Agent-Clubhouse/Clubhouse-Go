@@ -95,13 +95,24 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let any = app.descendants(matching: .any)
         for (id, label) in [
             ("companion-sender-avatar-sender-preview-3", "willow avatar"),
+            ("companion-sender-avatar-sender-preview-0", "Cedar avatar"),
+            ("companion-sender-avatar-sender-preview-1", "Maple avatar"),
             ("companion-sender-avatar-relay-1-0", "Dispatcher avatar"),
             ("companion-sender-avatar-relay-1-1", "Reviewer avatar")
         ] {
             let avatar = any.matching(identifier: id).firstMatch
             XCTAssertTrue(scrollUntilExists(avatar, in: app, up: false, maxSwipes: 8), id)
+            XCTAssertTrue(bringTranscriptRowIntoView(avatar, in: app), "The compact sender face must be visible")
             XCTAssertEqual(avatar.label, label)
+            if id == "companion-sender-avatar-sender-preview-3" {
+                let quickFaces = XCTAttachment(screenshot: app.screenshot())
+                quickFaces.name = "Collapsed known and quick sender faces"
+                quickFaces.lifetime = .keepAlways
+                add(quickFaces)
+            }
         }
+        XCTAssertFalse(any.matching(identifier: "companion-routed-sender-preview-0").firstMatch.exists, "Avatars remain accessible while routed detail stays collapsed")
+        XCTAssertEqual(app.buttons["companion-activity-routed:relay-1:0"].value as? String, "Collapsed")
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Known and gone sender faces"
         attachment.lifetime = .keepAlways
@@ -185,6 +196,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
 
         // Done: wait through several updates, including a fold, before closing.
+        revealActivityContent(link, in: app)
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
         waitAndTap(newestLinkOnScreen(), until: done, timeout: 5, "Done must show while the preview loads")
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
@@ -233,7 +245,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         add(screenshot)
     }
 
-    /// Desktop parity (#149): read-only lookups fold into "Explored 2 files, 1 search" and keep their links;
+    /// Mobile activity groups all four routine calls and keeps their links available on expansion;
     /// the approval card shows its own title, "1 of 2", and the persistent option the desktop answers;
     /// the header shows what the agent waits on and its context fill.
     func testExploredFoldAndApprovalCardMatchDesktop() {
@@ -268,17 +280,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         add(approvalShot)
 
         // The explored fold sits above the replies: scroll up to it.
-        let fold = app.buttons.matching(identifier: "companion-explore-group").firstMatch
+        let fold = app.buttons.matching(identifier: "companion-activity-tool:tool-1").firstMatch
         scrollTo(fold, in: app, up: false, maxSwipes: 8)
         XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
-        XCTAssertTrue(fold.label.contains("Explored 2 files, 1 search"), "The fold counts like the desktop: \(fold.label)")
+        XCTAssertTrue(fold.label.contains("4 tool calls"), "The fold counts like the desktop: \(fold.label)")
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
-        XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Run' AND label CONTAINS 'swift test --filter'")).firstMatch.exists,
-                      "The test run stays unfolded, labelled with the desktop's verb")
-        let links = app.buttons.matching(identifier: "companion-content-link")
-        XCTAssertTrue(links.matching(NSPredicate(format: "label == %@", "/Users/river/clubhouse/.build/test.log")).firstMatch.exists,
-                      "An absolute path inside the agent's content roots is offered")
-        XCTAssertFalse(links.matching(NSPredicate(format: "label == %@", "/tmp/scratch.txt")).firstMatch.exists, "A path outside the roots is not")
+        XCTAssertFalse(app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "/Users/river/clubhouse/.build/test.log")).firstMatch.exists,
+                       "Collapsed tool content and links are not built")
 
         // Each lookup's link opens from inside the fold, and its preview closes.
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch
@@ -287,10 +295,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         foldShot.name = "Explored fold expanded"
         foldShot.lifetime = .keepAlways
         add(foldShot)
-        // The expanded calls open under the composer: bring the fold's header up near the top first.
-        fold.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)))
-        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        // The bookmark keeps the header in place as it expands. Scroll from a safe transcript coordinate;
+        // a short drag on the header itself can become a second tap and close the group.
+        XCTAssertTrue(bringTranscriptRowIntoView(link, in: app))
         let done = app.buttons["companion-preview-done"]
         waitAndTap(link, until: done, timeout: 5, "A link inside the fold opens its preview")
         waitAndTap(done, untilGone: done, "The preview closes")

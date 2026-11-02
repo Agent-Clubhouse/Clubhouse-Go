@@ -222,12 +222,16 @@ struct CompanionTimelineWindow: Equatable, Sendable {
 
     /// Build newest rows first, stopping before parsing Markdown for hidden history. A whole reply still crosses
     /// the window edge intact. `hiddenCount` here counts omitted rows (only its nonzero state is presented).
-    init(rows: [CompanionTimelineRow], limit: Int) {
+    init(rows: [CompanionTimelineRow], limit: Int, retaining entryID: String? = nil) {
         self = AnnexTelemetry.shared.measurePerformance(.timelineBuild, messageCount: rows.count) {
             var remaining = rows.count
             var groups: [[CompanionTimelineEntry]] = []
             var count = 0
-            while remaining > 0 && count < max(0, limit) {
+            // Locate identity without preparing Markdown for history that cannot contain the bookmark.
+            let retainedRow = entryID.flatMap { entryID in
+                rows.lastIndex { $0.contains(entryID: entryID) }
+            }
+            while remaining > 0 && (count < max(0, limit) || retainedRow.map { remaining > $0 } == true) {
                 remaining -= 1
                 let group = CompanionTimelineEntry.entries(for: [rows[remaining]])
                 groups.append(group); count += group.count

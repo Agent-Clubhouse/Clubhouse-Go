@@ -109,6 +109,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         guard type != UITextView.self, patched.insert(ObjectIdentifier(type)).inserted else { return }
         patchCanPerformAction(type)
         patchPaste(type)
+        patchTypingProbe(type)
     }
 
     /// Rich text actions the composer never offers.
@@ -167,6 +168,30 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         }
         replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
     }
+
+    #if DEBUG
+    /// #234: preview-only numeric diagnostics distinguish input delivery from composer/binding rollback.
+    static let tracesPreviewTyping = ProcessInfo.processInfo.environment["CLUBHOUSE_PREVIEW_TYPING_PROBE"] == "1"
+        && ProcessInfo.processInfo.arguments.contains("--companion-preview")
+    private static func patchTypingProbe(_ type: AnyClass) {
+        guard tracesPreviewTyping else { return }
+        typealias Function = @convention(c) (AnyObject, Selector, String) -> Void
+        let selector = #selector(UIKeyInput.insertText(_:))
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+        let block: @convention(block) (AnyObject, String) -> Void = { object, text in
+            original(object, selector, text)
+            MainActor.assumeIsolated {
+                if let view = object as? UITextView {
+                    print("COMPOSER_INPUT input=\(text.utf16.count) length=\(view.text.utf16.count) focused=\(view.isFirstResponder)")
+                }
+            }
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+    #else
+    private static func patchTypingProbe(_ type: AnyClass) {}
+    #endif
 
     /// Adds the override to the class itself, or replaces its own implementation if it already has one.
     private static func replace(_ selector: Selector, in type: AnyClass, method: Method, with implementation: IMP) {

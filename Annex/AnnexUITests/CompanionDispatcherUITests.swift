@@ -46,10 +46,12 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
+        revealActivityContent(element(app, "companion-routed-relay-1-0"), in: app)
+        revealActivityContent(element(app, "companion-routed-relay-1-3"), in: app)
         let expected = [
             "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.",
             "Reviewer: The reconnect tests pass. The PR is ready for review.",
@@ -65,7 +67,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertFalse(text(app, containing: "[TASK:").exists)
         XCTAssertFalse(text(app, containing: "updates, oldest first:").exists)
         let part = element(app, "companion-routed-relay-1-1")
-        XCTAssertTrue(scrollTo(part, in: app, up: false, maxSwipes: 8), "Bring the message on screen before copying")
+        XCTAssertTrue(bringTranscriptRowIntoView(part, in: app), "Bring the message inside the transcript before copying")
+        XCTContext.runActivity(named: "Copy target frame: \(part.frame)") { _ in }
         screenshot(app, "Routed burst with four senders")
         longPressUntilMenu(part, shows: app.buttons["Copy message"])
         XCTAssertTrue(app.buttons["Copy message"].exists, "Copy remains available on each routed message")
@@ -93,8 +96,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         _ = paste.waitForExistence(timeout: 1)
         waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
         paste.tap()
-        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", raw), timeout: 5),
-                      "Copy from one part keeps the entire raw delivery")
+        // Focused UITextView AX values can lag the visibly pasted text on iOS 26.5. Reopening also proves
+        // the complete raw delivery reached the draft binding, rather than only the UIKit editor.
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(river.waitForExistence(timeout: 10))
+        XCTAssertTrue(scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
+        let restored = app.textFields["companion-composer"]
+        XCTAssertTrue(waitFor(restored, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "Copy from one part preserves the entire raw delivery in the draft after navigation")
     }
 
     /// SwiftUI can report a caption below the scroll viewport as hittable. Keep taps inside the transcript,
@@ -129,6 +139,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
         let short = element(app, "companion-routed-sender-preview-2")
+        revealActivityContent(short, in: app)
         bringCaptionIntoView(short, in: app)
         XCTAssertEqual(short.label, "Maple: Short helper update.")
         let shortValue = short.value as? String ?? ""
@@ -186,6 +197,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let header = element(app, "companion-chat-header")
         waitAndTap(river, until: header, timeout: 10)
         let body = element(app, "companion-routed-relay-1-0")
+        revealActivityContent(body, in: app)
         XCTAssertTrue(scrollUntilExists(body, in: app, up: false, maxSwipes: 8), "The relayed task shows in River's chat")
         XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")

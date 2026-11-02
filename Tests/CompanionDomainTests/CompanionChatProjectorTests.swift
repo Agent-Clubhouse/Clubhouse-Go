@@ -32,7 +32,7 @@ import ClubhouseTransport
     @Test func persistentPermissionOptionsAreAnswerableOnlyWhenTheDesktopTakesThem() {
         var projection = CompanionChatProjector()
         projection.apply(event("permission_request", seq: 1, data: [
-            "requestId": .string("p"), "title": .string("Run command"), "options": .array([
+            "requestId": .string("p"), "toolCallId": .string("terminal"), "title": .string("Run command"), "options": .array([
                 .object(["optionId": .string("once-native"), "kind": .string("allow_once"), "label": .string("Allow once")]),
                 .object(["optionId": .string("always-native"), "kind": .string("allow_always"), "label": .string("Always allow")]),
                 .object(["optionId": .string("reject-native"), "kind": .string("reject_once"), "label": .string("Reject")])
@@ -43,6 +43,7 @@ import ClubhouseTransport
         #expect(approval.options.filter { $0.isAnswerable(persistentApprovals: true) }.map(\.id) == ["once-native", "always-native", "reject-native"])
         #expect(approval.options[1].kind == .allowAlways)
         #expect(approval.title == "Run command")
+        #expect(approval.toolCallID == "terminal")
     }
 
     @Test func pendingInteractionOutsideHistoryTailSurvives() {

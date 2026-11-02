@@ -103,6 +103,21 @@ import Observation
     }
     /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
     func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
+    @ObservationIgnored private var timelineProjections: [CompanionTarget: CompanionTimelineProjection] = [:]
+    func timelineProjection(for target: CompanionTarget) -> CompanionTimelineProjection {
+        if let projection = timelineProjections[target] { return projection }
+        let projection = CompanionTimelineProjection(); timelineProjections[target] = projection; return projection
+    }
+    func timelineRows(for target: CompanionTarget) -> [CompanionTimelineRow] {
+        timelineProjection(for: target).rows(for: conversation(for: target))
+    }
+
+    @ObservationIgnored private var readingBookmarks: [CompanionTarget: CompanionReadingBookmark] = [:]
+    func readingBookmark(for target: CompanionTarget) -> CompanionReadingBookmark {
+        if let bookmark = readingBookmarks[target] { return bookmark }
+        let bookmark = CompanionReadingBookmark(); readingBookmarks[target] = bookmark; return bookmark
+    }
+
     private struct TranscriptKey: Hashable { var target: CompanionTarget; var sessionID: String? }
     @ObservationIgnored private var transcriptExpansions: [TranscriptKey: CompanionTranscriptExpansion] = [:]
     func transcriptExpansion(for target: CompanionTarget, sessionID: String? = nil) -> CompanionTranscriptExpansion {
@@ -765,7 +780,34 @@ import Observation
     func dismissError(for target: CompanionTarget) { operationErrors[target] = nil }
 
     func apply(_ event: CompanionEvent) {
-        AnnexTelemetry.shared.measurePerformance(.storeApply) { applyEvent(event) }
+        AnnexTelemetry.shared.measurePerformance(.storeApply) {
+            let assistant: (CompanionTarget, String)? = switch event {
+            case .upsert(let target, .message(let message), _) where message.role == .assistant: (target, message.id)
+            case .textDelta(let target, let id, _, _), .streamFinished(let target, let id, _): (target, id)
+            default: nil
+            }
+            let tool: (CompanionTarget, String)? = switch event {
+            case .upsert(let target, .tool(let tool), _): (target, tool.id)
+            default: nil
+            }
+            let previousRevision = (assistant ?? tool).flatMap { conversations[$0.0]?.itemsRevision }
+            applyEvent(event)
+            if let (target, id) = assistant {
+                timelineProjections[target]?.updateAssistant(id, previousRevision: previousRevision, conversation: conversation(for: target))
+            }
+            if let (target, id) = tool {
+                timelineProjections[target]?.updateTool(id, previousRevision: previousRevision, conversation: conversation(for: target))
+            }
+            switch event {
+            case .timeline(let target, _, _, _, _), .upsert(let target, _, _), .textDelta(let target, _, _, _), .streamFinished(let target, _, _):
+                timelineProjections[target]?.discardIfStale(revision: conversation(for: target).itemsRevision)
+            case .hosts(let hosts):
+                let hostIDs = Set(hosts.map(\.id))
+                timelineProjections = timelineProjections.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
+                readingBookmarks = readingBookmarks.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
+            case .resyncRequired: break
+            }
+        }
     }
     private func applyEvent(_ event: CompanionEvent) {
         switch event {

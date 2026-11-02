@@ -3,7 +3,7 @@ import Testing
 import ClubhouseTransport
 @testable import CompanionDomain
 
-/// The desktop's tool folding (`view-model.ts` `buildStreamBlocks`, `exploreLabel`) and tool verbs (`ToolBlocks.tsx`).
+/// Mobile tool folding (named parity exceptions in docs/chat-reading.md); desktop verbs (`view-model.ts` `buildStreamBlocks`, `exploreLabel`) and tool verbs (`ToolBlocks.tsx`).
 struct CompanionTimelineFoldingTests {
     private func tool(_ id: String, _ kind: CompanionTool.Kind?, _ state: CompanionTool.State = .completed,
                       location: String? = nil, hasChanges: Bool = false, awaitsApproval: Bool = false,
@@ -12,7 +12,7 @@ struct CompanionTimelineFoldingTests {
                     hasChanges: hasChanges, awaitsApproval: awaitsApproval))
     }
     private func folded(_ row: CompanionTimelineRow) -> [String]? {
-        if case .tools(let tools) = row { tools.map(\.id) } else { nil }
+        if case .activity(let parts) = row { parts.compactMap { if case .tool(let tool) = $0 { tool.id } else { nil } } } else { nil }
     }
 
     @Test func foldsRunsOfReadOnlyTools() {
@@ -20,13 +20,14 @@ struct CompanionTimelineFoldingTests {
         let rows = CompanionTimelineFolding.rows(for: [tool("1", .read), tool("2", .search), tool("3", .fetch), tool("4", .think), message])
         #expect(rows.count == 2)
         #expect(folded(rows[0]) == ["1", "2", "3", "4"])
-        #expect(rows[0].id == "tools:1")
+        #expect(rows[0].id == "activity:tool:1")
     }
 
     @Test func runningReadOnlyToolsFoldToo() {
         let rows = CompanionTimelineFolding.rows(for: [tool("1", .read), tool("2", .read, .running)])
         #expect(folded(rows[0]) == ["1", "2"])
-        guard case .tools(let tools) = rows[0] else { Issue.record("expected a fold"); return }
+        guard case .activity(let parts) = rows[0] else { Issue.record("expected a fold"); return }
+        let tools = parts.compactMap { if case .tool(let tool) = $0 { tool } else { nil } }
         #expect(CompanionTimelineFolding.exploreLabel(tools) == "Exploring 2 files")
     }
 
@@ -36,26 +37,26 @@ struct CompanionTimelineFoldingTests {
             tool("edit", .edit), tool("read", .read, .failed), tool("ok", .read),
             tool("pending", .read, .running, awaitsApproval: true), tool("search", .search, hasChanges: true)
         ])
-        #expect(rows.allSatisfy { folded($0) == nil }, "Only consecutive read-only, unfailed lookups fold")
-        #expect(rows.count == 7)
+        #expect(folded(rows[0]) == ["run1", "run2", "edit"])
+        #expect(rows.count == 5)
     }
 
     @Test func aFailedToolBreaksTheRun() {
         let rows = CompanionTimelineFolding.rows(for: [tool("1", .read), tool("2", .read), tool("x", .read, .failed), tool("3", .read), tool("4", .search)])
-        #expect(rows.map(\.id) == ["tools:1", "tool:x", "tools:3"])
+        #expect(rows.map(\.id) == ["activity:tool:1", "tool:x", "activity:tool:3"])
     }
 
     @Test func singleLookupsAndUnknownKindsDontFold() {
-        // Older desktops send no kind: those tools are never folded.
+        // Mobile also folds unknown kinds, while retaining every tool in order.
         let rows = CompanionTimelineFolding.rows(for: [tool("1", .read), tool("m", nil), tool("n", nil)])
-        #expect(rows.map(\.id) == ["tool:1", "tool:m", "tool:n"])
+        #expect(rows.map(\.id) == ["activity:tool:1"])
     }
 
     /// Images are worth seeing, so a lookup that returned some keeps its own card and its preview link.
     @Test func lookupsWithImagesStayOutOfTheFold() {
         let image = CompanionContentReference.image(String(repeating: "a", count: 64) + ".png")
         let rows = CompanionTimelineFolding.rows(for: [tool("1", .read), tool("2", .read, images: [image]), tool("3", .read)])
-        #expect(rows.map(\.id) == ["tool:1", "tool:2", "tool:3"])
+        #expect(rows.map(\.id) == ["activity:tool:1", "tool:2", "activity:tool:3"])
     }
 
     /// Folding never drops a call's content links: the fold offers each, so a preview opened from one isn't orphaned.
@@ -64,8 +65,8 @@ struct CompanionTimelineFoldingTests {
         let b = CompanionTool(id: "b", name: "Read", summary: "", output: "`b.txt`", state: .running, kind: .read)
         let rows = CompanionTimelineFolding.rows(for: [.tool(a), .tool(b)])
         #expect(rows.count == 1)
-        #expect(CompanionContentReference.references(in: rows[0]) == [.file("a.txt"), .file("b.txt")])
-        #expect(CompanionContentReference.hintRowID(in: rows, richContentAvailable: false) == "tools:a")
+        #expect(CompanionContentReference.references(in: rows[0]).isEmpty, "Collapsed detail is not scanned for links")
+        #expect(CompanionContentReference.hintRowID(in: rows, richContentAvailable: false) == nil)
     }
 
     @Test func exploreLabelCountsLikeTheDesktop() {

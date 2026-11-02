@@ -393,6 +393,8 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     }
     var id: String
     var role: Role
+    var subagentID: String?
+    var isUserFacingAssistant: Bool { role == .assistant && subagentID == nil }
     var text: String { didSet { updateDisplay() } }
     var timestamp: Date?
     var isStreaming = false
@@ -420,8 +422,8 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
 
     init(id: String, role: Role, text: String, timestamp: Date? = nil, isStreaming: Bool = false,
          delivery: Delivery = .confirmed, clientCommandID: String? = nil, queueState: QueueState? = nil,
-         source: String? = nil, isSteered: Bool = false, routed: [CompanionRoutedMessagePart] = [], images: [CompanionMessageImage] = []) {
-        self.id = id; self.role = role; self.text = text; self.timestamp = timestamp; self.isStreaming = isStreaming
+         source: String? = nil, isSteered: Bool = false, routed: [CompanionRoutedMessagePart] = [], images: [CompanionMessageImage] = [], subagentID: String? = nil) {
+        self.id = id; self.role = role; self.subagentID = subagentID; self.text = text; self.timestamp = timestamp; self.isStreaming = isStreaming
         self.delivery = delivery; self.clientCommandID = clientCommandID; self.queueState = queueState
         self.source = source; self.isSteered = isSteered; self.routed = routed; self.images = images
         updateDisplay()
@@ -494,6 +496,10 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
     /// Waiting for your approval, not yet running.
     var awaitsApproval = false
 
+    /// Only structured terminal content supplies this value; output prose never does.
+    var exitCode: Int?
+    var subagentID: String?
+
     /// "Read", "Run"…, or nil when the desktop didn't say what kind of tool this is.
     var verb: String? { kind?.verb }
     /// What follows the verb: the file it touches, else its title (`toolTarget`).
@@ -516,6 +522,8 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
     var deadline: Date?
     var resolution: Resolution = .pending
     var options: [CompanionApprovalOption] = []
+    /// The pending permission can arrive separately from an in-progress tool update.
+    var toolCallID: String? = nil
     func isExpired(at date: Date) -> Bool { deadline.map { $0 <= date } ?? false }
 }
 
@@ -587,7 +595,9 @@ enum CompanionTimelineItem: Identifiable, Sendable, Equatable {
 }
 
 struct CompanionConversation: Equatable, Sendable {
-    var items: [CompanionTimelineItem] = []
+    /// Revision metadata is deliberately excluded from semantic equality. No old item array is retained.
+    var itemsRevision = UUID()
+    var items: [CompanionTimelineItem] = [] { didSet { itemsRevision = UUID() } }
     var isLoading = false
     var isLoaded = false
     var error: String?
@@ -595,6 +605,12 @@ struct CompanionConversation: Equatable, Sendable {
     var lastSequence: Int?
     var requiresResync = false
     var sessionID: String?
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.items == rhs.items && lhs.isLoading == rhs.isLoading && lhs.isLoaded == rhs.isLoaded
+            && lhs.error == rhs.error && lhs.hasEarlierMessages == rhs.hasEarlierMessages
+            && lhs.lastSequence == rhs.lastSequence && lhs.requiresResync == rhs.requiresResync && lhs.sessionID == rhs.sessionID
+    }
+
 }
 
 struct CompanionHistory: Sendable {

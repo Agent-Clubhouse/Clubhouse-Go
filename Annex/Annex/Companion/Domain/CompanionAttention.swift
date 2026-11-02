@@ -89,34 +89,159 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
 enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     case item(CompanionTimelineItem)
     case tools([CompanionTool])
+    case activity([CompanionActivityPart])
+    case routed(CompanionMessage, Int)
 
     var id: String {
         switch self {
         case .item(let item): item.id
         case .tools(let tools): "tools:\(tools.first?.id ?? "")"
+        case .activity(let parts): "activity:\(parts.first?.id ?? "")"
+        case .routed(let message, let index): "routed:\(message.id):\(index)"
         }
     }
+    func contains(entryID: String) -> Bool {
+        if id == entryID { return true }
+        if case .item(.message(let message)) = self, message.role != .user, entryID.hasPrefix(id + "#") { return true }
+        if case .activity(let parts) = self { return parts.contains { "activity:\($0.id)" == entryID } }
+        return false
+    }
+
+}
+
+/// Ordered fragments retain message/part identity even when one delivery crosses a visible notice boundary.
+enum CompanionActivityPart: Identifiable, Sendable, Equatable {
+    case tool(CompanionTool)
+    case routed(CompanionMessage, Int)
+    case empty(CompanionMessage)
+
+    var id: String {
+        switch self {
+        case .tool(let tool): "tool:\(tool.id)"
+        case .routed(let message, let index): "routed:\(message.id):\(index)"
+        case .empty(let message): "message:\(message.id)"
+        }
+    }
+    var subagentID: String? {
+        switch self {
+        case .tool(let tool): tool.subagentID
+        case .routed(let message, _), .empty(let message): message.subagentID
+        }
+    }
+    var sender: String {
+        switch self {
+        case .tool(let tool): return tool.subagentID.map { "Helper \($0)" } ?? "Tools"
+        case .empty: return ""
+        case .routed(let message, let index):
+            if case .others(let parts) = message.display { return parts[index].sender?.name ?? (message.source == "group_project" ? "Group project" : "Another agent") }
+            return "Another agent"
+        }
+    }
+    var isRunning: Bool { if case .tool(let tool) = self { tool.state == .running } else { false } }
+    var attachmentCount: Int {
+        switch self {
+        case .tool(let tool): tool.images.count
+        case .empty: 0
+        case .routed(let message, let index): index == 0 ? message.images.count : 0
+        }
+    }
+    struct Avatar: Identifiable, Equatable {
+        let id: String
+        let identity: CompanionSenderIdentity
+    }
+    /// Summary identity only: never prepares routed text, Markdown or content links.
+    static func avatars(_ parts: [Self], resolver: CompanionSenderResolver) -> [Avatar] {
+        var seen: Set<String> = []
+        return parts.compactMap { part in
+            guard case .routed(let message, let index) = part, case .others(let routed) = message.display,
+                  routed.indices.contains(index), let identity = resolver.avatarIdentity(for: routed[index].sender),
+                  seen.insert(identity.id).inserted else { return nil }
+            return Avatar(id: "companion-sender-avatar-\(message.id)-\(index)", identity: identity)
+        }
+    }
+    static func summary(_ parts: [Self]) -> String {
+        let tools = parts.filter { if case .tool = $0 { true } else { false } }.count
+        let messages = parts.filter { if case .routed = $0 { true } else { false } }.count
+        let images = parts.reduce(0) { $0 + $1.attachmentCount }
+        var labels: [String] = []
+        if tools > 0 { labels.append("\(tools) tool \(tools == 1 ? "call" : "calls")") }
+        if messages > 0 { labels.append("\(messages) \(messages == 1 ? "message" : "messages")") }
+        if images > 0 { labels.append("\(images) \(images == 1 ? "attachment" : "attachments")") }
+        if parts.contains(where: \.isRunning) { labels.append("Running…") }
+        return labels.joined(separator: " · ")
+    }
+}
+
+extension CompanionTool {
+    var isFailure: Bool { state == .failed || (exitCode.map { $0 != 0 } ?? false) }
+    var requiresAttention: Bool { isFailure || awaitsApproval }
+    private var nonemptyOutputLines: [Substring] {
+        (output ?? "").split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+    var outputOpenByDefault: Bool { awaitsApproval || (isFailure && nonemptyOutputLines.count <= 6) }
+    var outputPreview: String { nonemptyOutputLines.last.map(String.init) ?? "" }
 }
 
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
 enum CompanionTimelineFolding {
-    /// Folds runs of two or more read-only tool calls, running ones included, into one "Explored" row.
-    /// Failed tools, tools waiting for approval and tools that changed something stay on their own.
+    /// Mobile keeps all routine traffic compact. Actionable entries are hard boundaries.
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
+        let waitingToolIDs = Set(items.compactMap { item -> String? in
+            guard case .approval(let approval) = item,
+                  [.pending, .submitting, .uncertain].contains(approval.resolution) else { return nil }
+            return approval.toolCallID
+        })
         var rows: [CompanionTimelineRow] = []
-        var run: [CompanionTool] = []
+        var run: [CompanionActivityPart] = []
+        var carried: [CompanionMessage] = []
+        var runSubagentID: String?
         func flush() {
-            if run.count >= 2 { rows.append(.tools(run)) } else { rows += run.map { .item(.tool($0)) } }
-            run = []
+            if !run.isEmpty { rows.append(.activity(run)); run = [] }
+            rows += carried.map { .item(.message($0)) }
+            carried = []
+            runSubagentID = nil
+        }
+        func begin(subagentID: String?) {
+            if !run.isEmpty && runSubagentID != subagentID { flush() }
+            if run.isEmpty { runSubagentID = subagentID }
+        }
+        func append(_ part: CompanionActivityPart) {
+            if run.isEmpty { runSubagentID = part.subagentID }
+            if !carried.isEmpty {
+                run += carried.map { .empty($0) }
+                carried = []
+            }
+            run.append(part)
         }
         for item in items {
-            if case .tool(let tool) = item, tool.isExplore { run.append(tool); continue }
-            flush()
-            rows.append(.item(item))
+            switch item {
+            case .tool(var tool) where waitingToolIDs.contains(tool.id):
+                flush()
+                tool.awaitsApproval = true
+                rows.append(.item(.tool(tool)))
+            case .tool(let tool) where !tool.requiresAttention && tool.images.isEmpty:
+                begin(subagentID: tool.subagentID)
+                append(.tool(tool))
+            case .message(let message) where message.role == .assistant && message.text.isEmpty && !message.isStreaming && !run.isEmpty:
+                begin(subagentID: message.subagentID)
+                if run.isEmpty { rows.append(.item(item)) } else { carried.append(message) }
+            case .message(let message) where message.role == .user && message.delivery == .confirmed && (message.queueState == nil || message.queueState == .delivered || message.queueState == .removed):
+                begin(subagentID: message.subagentID)
+                if case .others(let parts) = message.display {
+                    for (index, part) in parts.enumerated() {
+                        if canCollapse(part) { append(.routed(message, index)) }
+                        else { flush(); rows.append(.routed(message, index)) }
+                    }
+                } else { flush(); rows.append(.item(item)) }
+            default: flush(); rows.append(.item(item))
+            }
         }
         flush()
         return rows
     }
+
+    /// Clubhouse notices have no severity field yet; even routine notices stay visible to avoid hiding a failure.
+    static func canCollapse(_ part: CompanionRoutedMessagePart) -> Bool { !part.fromClubhouse && !part.text.hasPrefix("[QUESTION FROM HELPER:") }
 
     /// "Explored 3 files, 2 searches", or "Exploring…" while one of them runs.
     static func exploreLabel(_ tools: [CompanionTool]) -> String {

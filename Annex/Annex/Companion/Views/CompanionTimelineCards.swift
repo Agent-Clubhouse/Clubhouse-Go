@@ -39,6 +39,13 @@ struct CompanionMessageView: View, Equatable {
                 }
             case .assistant:
                 VStack(alignment: .leading, spacing: 10) {
+                    if let subagentID = message.subagentID, slice?.index ?? 0 == 0 {
+                        Label("Helper activity · \(subagentID)", systemImage: "person.crop.circle.badge.gearshape")
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Helper activity · \(subagentID)")
+                            .accessibilityIdentifier("companion-subagent-\(message.id)")
+                    }
                     richText
                     if message.isStreaming && slice?.isLast != false { ProgressView().controlSize(.small).accessibilityLabel("Responding") }
                 }
@@ -178,7 +185,7 @@ private struct CompanionSentPartsView: View {
 }
 
 /// The caption is a native button for long parts. Its body is constructed only while open.
-private struct CompanionSentPartView: View {
+struct CompanionSentPartView: View {
     let part: CompanionRoutedMessagePart
     let message: CompanionMessage
     let index: Int
@@ -192,7 +199,7 @@ private struct CompanionSentPartView: View {
     private var longCaption: String { (["\(name) sent a long message"] + message.metaLabels).joined(separator: " · ") }
 
     var body: some View {
-        let collapsible = CompanionMessageRouting.isLongMessage(part.text)
+        let collapsible = CompanionTimelineFolding.canCollapse(part) && CompanionMessageRouting.isLongMessage(part.text)
         let open = expansion.isOpen(for: part.text)
         HStack(alignment: .top, spacing: 8) {
             if let identity {
@@ -395,27 +402,28 @@ struct CompanionCodeBlock: View {
 
 struct CompanionToolCard: View {
     let tool: CompanionTool
-    @State private var expanded = false
+    var expansion: CompanionPartExpansion = CompanionPartExpansion()
     @Environment(\.companionPalette) private var palette
+    private var expanded: Bool { expansion.open ?? tool.outputOpenByDefault }
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            VStack(alignment: .leading, spacing: 10) {
-                if !tool.summary.isEmpty { Text(tool.summary).font(.callout.monospaced()).textSelection(.enabled) }
-                if let output = tool.output, !output.isEmpty {
-                    Divider()
-                    Text(output).font(.callout.monospaced()).textSelection(.enabled)
+        VStack(alignment: .leading, spacing: 10) {
+            if tool.requiresAttention {
+                header
+                if tool.awaitsApproval { detail }
+                else if let result = tool.output, !result.isEmpty {
+                    Button { expansion.open = !expanded } label: { Label(expanded ? "Hide output" : "Show output", systemImage: expanded ? "chevron.up" : "chevron.down") }
+                        .font(.caption).accessibilityIdentifier("companion-tool-toggle-\(tool.id)")
+                    if expanded { detail }
+                    else { Text(tool.outputPreview).font(.caption.monospaced()).lineLimit(2).accessibilityIdentifier("companion-tool-preview-\(tool.id)") }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 10)
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: symbol).foregroundStyle(color).padding(.top, 2)
-                VStack(alignment: .leading, spacing: 4) {
-                    CompanionToolTitle(tool: tool)
-                    Text(tool.awaitsApproval ? "Waiting for approval" : tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if !tool.summary.isEmpty { Text(tool.summary).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2) }
-                }
+            else {
+                Button { expansion.open = !expanded } label: {
+                    HStack { header; Spacer(); Image(systemName: expanded ? "chevron.up" : "chevron.down") }
+                }.buttonStyle(.plain)
+                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                .accessibilityHint(expanded ? "Hide tool details" : "Show tool details")
+                if expanded { detail }
             }
         }
         .tint(.secondary)
@@ -423,8 +431,32 @@ struct CompanionToolCard: View {
         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.07)))
     }
-    private var symbol: String { tool.state == .running ? "terminal" : tool.state == .completed ? "checkmark.circle" : "exclamationmark.circle" }
-    private var color: Color { tool.state == .failed ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
+    private var detail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !tool.summary.isEmpty { Text(tool.summary).font(.callout.monospaced()).textSelection(.enabled) }
+            output
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    @ViewBuilder private var output: some View {
+        if let result = tool.output, !result.isEmpty {
+            Text(result).font(.callout.monospaced()).textSelection(.enabled)
+                .accessibilityIdentifier("companion-tool-output-\(tool.id)")
+        }
+    }
+    private var header: some View {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: symbol).foregroundStyle(color).padding(.top, 2)
+                VStack(alignment: .leading, spacing: 4) {
+                    CompanionToolTitle(tool: tool)
+                    Text(tool.awaitsApproval ? "Waiting for approval" : (tool.exitCode.map { $0 != 0 } ?? false) ? "Failed (exit \(tool.exitCode ?? 0))" : tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("companion-tool-status-\(tool.id)")
+                    if !tool.summary.isEmpty { Text(tool.summary).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2) }
+                }
+            }
+    }
+    private var symbol: String { tool.isFailure ? "exclamationmark.circle" : tool.state == .running ? "terminal" : tool.state == .completed ? "checkmark.circle" : "exclamationmark.circle" }
+    private var color: Color { tool.isFailure ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
 }
 
 /// A tool's verb and what it acts on ("Read Sources/App.swift"), as the desktop labels tool rows.
@@ -440,6 +472,99 @@ struct CompanionToolTitle: View {
             .accessibilityElement(children: .combine)
         } else {
             Text(tool.name).font(.subheadline.weight(.semibold))
+        }
+    }
+}
+
+/// No child view, content link scan or Markdown parse exists until this row opens.
+struct CompanionActivityCard: View, Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.parts == rhs.parts && lhs.expansion === rhs.expansion }
+    let parts: [CompanionActivityPart]
+    let expansion: CompanionTranscriptExpansion
+    @Environment(\.companionSenderResolver) private var resolver
+    @Environment(\.companionPalette) private var palette
+    private var state: CompanionPartExpansion { expansion.state(key: "activity:\(parts.first?.id ?? "")") }
+    var body: some View {
+        let open = state.open == true
+        let avatars = open ? [] : CompanionActivityPart.avatars(parts, resolver: resolver)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                if !avatars.isEmpty {
+                    HStack(spacing: 3) {
+                        ForEach(avatars.prefix(3)) { avatar in
+                            CompanionIdentityFace(name: avatar.identity.name, color: avatar.identity.color,
+                                emoji: avatar.identity.emoji, iconData: avatar.identity.iconData, size: 24, isQuick: avatar.identity.isQuick)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(avatar.identity.name) avatar")
+                                .accessibilityHidden(false)
+                                .accessibilityIdentifier(avatar.id)
+                        }
+                        if avatars.count > 3 {
+                            Text("+\(avatars.count - 3)").font(.caption)
+                                .accessibilityLabel(avatars.dropFirst(3).map { "\($0.identity.name) avatar" }.joined(separator: ", "))
+                        }
+                    }
+                }
+                Button { state.open = !open } label: {
+                    HStack(spacing: 8) {
+                        if parts.contains(where: \.isRunning) { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "ellipsis.bubble") }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(CompanionActivityPart.summary(parts)).font(.subheadline)
+                            Text(senders).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption)
+                    }.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(open ? "Expanded" : "Collapsed")
+                .accessibilityHint(open ? "Hide activity" : "Show activity messages and tool calls")
+                .accessibilityIdentifier("companion-activity-\(parts.first?.id ?? "")")
+            }
+            if open {
+                ForEach(parts) { part in
+                    switch part {
+                    case .empty: EmptyView()
+                    case .tool(let tool):
+                        CompanionToolCard(tool: tool, expansion: expansion.state(key: "tool:\(tool.id)"))
+                        CompanionContentLinks(references: CompanionContentReference.references(in: .tool(tool)))
+                    case .routed(let message, let index):
+                        CompanionRoutedFragmentView(message: message, index: index, expansion: expansion)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 16))
+    }
+    private var senders: String {
+        var names: [String] = []
+        for part in parts {
+            let name: String
+            if case .routed(let message, let index) = part, case .others(let routed) = message.display {
+                name = resolver.resolve(routed[index].sender)?.name ?? part.sender
+            } else { name = part.sender }
+            if !name.isEmpty && !names.contains(name) { names.append(name) }
+        }
+        return names.joined(separator: ", ")
+    }
+}
+
+struct CompanionRoutedFragmentView: View {
+    let message: CompanionMessage
+    let index: Int
+    let expansion: CompanionTranscriptExpansion
+    @Environment(\.companionSenderResolver) private var resolver
+    var body: some View {
+        if case .others(let parts) = message.display, parts.indices.contains(index) {
+            CompanionSentPartView(part: parts[index], message: message, index: index,
+                                  identity: resolver.avatarIdentity(for: parts[index].sender),
+                                  expansion: expansion.part(messageID: message.id, index: index))
+            if index == 0 && !message.images.isEmpty { CompanionMessageImages(images: message.images) }
+            if index == parts.count - 1 && message.queueState == .delivered {
+                Text("Delivered to the agent").font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }
