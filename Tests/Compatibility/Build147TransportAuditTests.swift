@@ -72,6 +72,9 @@ private actor AuditIO: AnnexIO {
     var mode = OverflowMode.healthy
     var opened = 0
     var commands = 0
+    var permissionRejections = 0
+    var chat: AnnexJSON?
+    func setChat(_ value: AnnexJSON) { chat = value }
     var socket: AuditSocket?
     let port: Int
     init(port: Int, script: ScriptedAnnexTransport) { self.port = port; self.script = script }
@@ -85,18 +88,24 @@ private actor AuditIO: AnnexIO {
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
         let path = request.url!.path
         let value: AnnexJSON
+        var status = 200
         if path.hasSuffix("/identity") {
             value = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
         } else if request.httpMethod == "POST" {
             commands += 1
             let command = try JSONDecoder().decode(AnnexJSON.self, from: request.httpBody!)
-            value = .object(["version": .integer(1), "epoch": .string("epoch"), "commandId": command["commandId"]!, "status": .string("completed")])
+            if command["type"]?.string == "chat.permission", command["optionId"]?.string == "allow" {
+                permissionRejections += 1; status = 409
+                value = .object(["version": .integer(1), "epoch": .string("epoch"), "commandId": command["commandId"]!, "status": .string("rejected"), "error": .object(["code": .string("incomplete_representation"), "message": .string("This input is incomplete. Review the full request on desktop before approving.")])])
+            } else {
+                value = .object(["version": .integer(1), "epoch": .string("epoch"), "commandId": command["commandId"]!, "status": .string("completed")])
+            }
         } else if path.hasSuffix("/capabilities") { value = try await script.read(.capabilities)
         } else if path.hasSuffix("/projects") { value = try await script.read(.projects)
-        } else if path.hasSuffix("/chat") { value = await LiveServiceHarness.chatSnapshot()
+        } else if path.hasSuffix("/chat") { if let chat { value = chat } else { value = await LiveServiceHarness.chatSnapshot() }
         } else if path.hasSuffix("/agents") { value = try await script.read(.agents(projectID: "project"))
         } else { value = .object([:]) }
-        return try .init(status: 200, data: JSONEncoder().encode(value))
+        return try .init(status: status, data: JSONEncoder().encode(value))
     }
     static func fullPayload(name: String = "Project") throws -> [String: AnnexJSON] {
         ["projects": .array([.object(["id": .string("project"), "name": .string(name)])]),
@@ -177,6 +186,74 @@ private actor AuditIO: AnnexIO {
 }
 
 @MainActor @Suite(.serialized) struct Build147TransportAuditTests {
+    @Test func permissionPreviewSnapshotLiveReplayAndRefusedApproval() async throws {
+        let h = try await FullAuditHarness.start()
+        do {
+            let preview = "HEAD α🙂\n[20 MB input omitted]\nTAIL Ω"
+            let note = "INCOMPLETE INPUT: full request must be reviewed on desktop."
+            var sequence: Int64 = 2
+            var wireSequence: Int64 = 1
+            for route in ["snapshot", "live", "replay"] {
+                for shape in ["rawInput", "textContent", "toolInputOnly", "warningDescription", "longRawInput"] {
+                    let id = "\(route)-\(shape)"
+                    let input: AnnexJSON = .object(["file_path": .string("/private/example/large.txt"), "content": .string(shape == "longRawInput" ? String(repeating: "a", count: 450) + "\nINCOMPLETE TAIL NOTE" : preview), "truncated": .bool(true), "totalBytes": .integer(20_000_000)])
+                    var fields: [String: AnnexJSON] = ["requestId": .string(id), "toolName": .string("Write"), "title": .string("Write large.txt"), "description": .string(shape == "warningDescription" ? note : "Write file"), "truncated": .bool(true), "totalBytes": .integer(20_000_000), "options": .array([.object(["optionId": .string("allow"), "label": .string("Allow once"), "kind": .string("allow_once")]), .object(["optionId": .string("deny"), "label": .string("Deny"), "kind": .string("reject_once")])])]
+                    fields["toolInput"] = input
+                    if shape != "toolInputOnly" { fields["rawInput"] = input }
+                    if shape == "textContent" { fields["content"] = .array([.object(["type": .string("text"), "text": .string(note + "\n" + preview)])]) }
+                    let event = LiveServiceHarness.chatEvent("s1", sequence: sequence, type: "permission_request", data: fields)
+                    if route == "snapshot" {
+                        await h.io.setChat(LiveServiceHarness.chatSnapshot(fields: ["pendingPermissions": .array([event])]))
+                        await h.store.load(h.target, force: true)
+                    } else {
+                        let envelope: AnnexJSON = .object(["type": .string("chat:event"), "epoch": .string("epoch"), "seq": .integer(wireSequence), "replayed": .bool(route == "replay"), "payload": .object(["agentId": .string("agent"), "event": event])])
+                        await h.io.push(try JSONEncoder().encode(envelope))
+                        wireSequence += 1
+                    }
+                    func approval() -> CompanionApproval? { h.store.conversation(for: h.target).items.compactMap { if case .approval(let value) = $0, value.id == id { return value }; return nil }.first }
+                    try await h.wait { approval() != nil }
+                    let initial = try #require(approval())
+                    #expect(initial.title == "Write large.txt")
+                    #expect(initial.summary == (shape == "warningDescription" ? note : "Write file"))
+                    switch shape {
+                    case "toolInputOnly": #expect(initial.detail == nil)
+                    case "textContent": #expect(initial.detail == note + "\n" + preview)
+                    case "longRawInput": #expect(initial.detail == "large.txt\n" + String(repeating: "a", count: 400))
+                    default: #expect(initial.detail == "large.txt\n" + preview)
+                    }
+                    #expect(initial.options.map(\.label) == ["Allow once", "Deny"])
+                    #expect(initial.resolution == .pending)
+                    #expect(h.store.canOperate(h.target))
+                    #expect(h.store.agent(for: h.target)?.capabilities.contains(.approve) == true)
+                    let before = await h.io.commands
+                    await h.store.respond(initial, option: initial.options[0], target: h.target)
+                    #expect(approval()?.resolution == .pending)
+                    #expect(h.store.operationErrors[h.target] == "This input is incomplete. Review the full request on desktop before approving.")
+                    #expect(!h.store.pendingCommands.contains(h.target))
+                    #expect(!h.store.conversation(for: h.target).requiresResync)
+                    // No automatic retry; a second user tap retries, and is refused again.
+                    try await Task.sleep(for: .milliseconds(25))
+                    #expect(await h.io.commands == before + 1)
+                    await h.store.respond(initial, option: initial.options[0], target: h.target)
+                    #expect(approval()?.resolution == .pending)
+                    #expect(await h.io.commands == before + 2)
+                    await h.store.respond(initial, option: initial.options[1], target: h.target)
+                    #expect(approval()?.resolution == .denied)
+                    #expect(h.store.operationErrors[h.target] == nil)
+                    print("BUILD147_PERMISSION route=\(route) shape=\(shape) title=\(initial.title ?? initial.toolName) summary=\(initial.summary) detail=\(initial.detail.debugDescription) approve=pending+desktopSentence+noRetry deny=denied")
+                    sequence += 1
+                }
+            }
+            #expect(await h.io.permissionRejections == 30)
+            // The desktop's literal permission:request is not the rich chat event 147 projects.
+            let before = h.store.conversation(for: h.target).items.count
+            await h.io.push(try JSONEncoder().encode(AnnexJSON.object(["type": .string("permission:request"), "epoch": .string("epoch"), "seq": .integer(wireSequence), "payload": .object(["requestId": .string("literal-event"), "toolName": .string("Write"), "toolInput": .string(preview)])])))
+            try await Task.sleep(for: .milliseconds(30))
+            #expect(h.store.conversation(for: h.target).items.count == before)
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+
     @Test func optionalFieldsThroughTheRealSocketTransport() async throws {
         let h = try await FullAuditHarness.start()
         do {
