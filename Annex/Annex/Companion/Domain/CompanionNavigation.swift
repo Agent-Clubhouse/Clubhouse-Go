@@ -31,6 +31,7 @@ struct CompanionNavigation {
     private let startScreen: CompanionStartScreen
     private var awaitingFirstReport: Bool
     private var observedHostIDs: Set<String> = []
+    private var pendingDispatcherLink: CompanionTarget?
 
     init(startScreen: CompanionStartScreen, cached: [CompanionDispatcherDesktop]? = nil, lastHostID: String? = nil) {
         self.startScreen = startScreen
@@ -43,13 +44,11 @@ struct CompanionNavigation {
     var tabs: [CompanionTab] { (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.home, .needsYou, .agents, .search] }
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     var visibleAgent: CompanionTarget? { paths[tab]?.last?.agent ?? (tab == .dispatcher && (paths[tab] ?? []).isEmpty ? dispatcherTarget : nil) }
-    /// Nil cache means the phone has never received a desktop report.
-    var resolvedInitialReport: Bool { !awaitingFirstReport }
-
     mutating func interact() { awaitingFirstReport = false }
 
     mutating func select(_ tab: CompanionTab) {
         interact()
+        pendingDispatcherLink = nil
         self.tab = tabs.contains(tab) ? tab : .home
     }
 
@@ -85,13 +84,21 @@ struct CompanionNavigation {
         }
         // Selection changes in the same value update as visibility, before SwiftUI removes the Tab.
         if tab == .dispatcher, previousDispatcherHostID != nil, !dispatcherDesktops.contains(where: { $0.id == previousDispatcherHostID }) { tab = .home }
+        if let target = pendingDispatcherLink, hosts.contains(where: { $0.id == target.hostID && $0.dispatcher != nil }) {
+            pendingDispatcherLink = nil
+            // A notification arriving before the catalog is an explicit navigation request, not a start preference.
+            if dispatcherDesktops.contains(where: { $0.id == target.hostID }) { open(target, hosts: hosts) }
+        }
         for key in paths.keys {
-            paths[key] = paths[key]?.filter { !removed.contains($0.hostID) && !isDispatcher($0.agent, hosts: hosts) }
+            paths[key] = paths[key]?.filter { route in
+                !removed.contains(route.hostID) && !dispatcherDesktops.contains(where: { $0.target == route.agent })
+            }
         }
     }
 
     mutating func open(_ target: CompanionTarget, hosts: [CompanionHost]) {
         interact()
+        pendingDispatcherLink = nil
         if isDispatcher(target, hosts: hosts), dispatcherDesktops.contains(where: { $0.id == target.hostID }) {
             for key in paths.keys { paths[key] = paths[key]?.filter { !isDispatcher($0.agent, hosts: hosts) } }
             dispatcherHostID = target.hostID
@@ -99,6 +106,9 @@ struct CompanionNavigation {
             tab = .dispatcher
         } else {
             paths[tab] = [.agent(target)]
+            if isDispatcher(target, hosts: hosts), !hosts.contains(where: { $0.id == target.hostID && $0.dispatcher != nil }) {
+                pendingDispatcherLink = target
+            }
         }
     }
 
@@ -111,7 +121,7 @@ struct CompanionNavigation {
 
     private func isDispatcher(_ target: CompanionTarget?, hosts: [CompanionHost]) -> Bool {
         guard let target else { return false }
-        return hosts.contains { $0.isDispatcher(target) } || dispatcherDesktops.contains { $0.target == target }
+        return target.projectID == CompanionDispatcher.defaultProjectID || hosts.contains { $0.isDispatcher(target) } || dispatcherDesktops.contains { $0.target == target }
     }
 }
 

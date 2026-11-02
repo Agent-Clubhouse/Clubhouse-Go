@@ -44,7 +44,8 @@ struct CompanionRootView: View {
             Tab("Home", systemImage: "house", value: CompanionTab.home) {
                 stack(.home) {
                     CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); onSettings() },
-                                      onNewAgent: { spawnProject = $0 }, isPreview: isPreview)
+                                      onNewAgent: { navigation.interact(); spawnProject = $0 }, isPreview: isPreview,
+                                      onInteraction: { navigation.interact() })
                 }
             }
             Tab("Needs you", systemImage: "tray", value: CompanionTab.needsYou) {
@@ -91,10 +92,6 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
-        .simultaneousGesture(TapGesture().onEnded { if !navigation.resolvedInitialReport { navigation.interact() } })
-        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in
-            if !navigation.resolvedInitialReport { navigation.interact() }
-        })
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
         .onChange(of: store.selection) { _, target in
@@ -239,6 +236,7 @@ struct CompanionHomeView: View {
     var onSettings: () -> Void
     var onNewAgent: (CompanionProjectTarget) -> Void
     var isPreview = false
+    var onInteraction: () -> Void = {}
     @State private var arranging = false
     /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
     @State private var hold: CompanionListHold?
@@ -276,6 +274,7 @@ struct CompanionHomeView: View {
         }
         .companionListStyle()
         .onScrollPhaseChange { _, phase in
+            if phase == .interacting { onInteraction() }
             if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
             else if hold == nil { hold = layout.hold }
         }
