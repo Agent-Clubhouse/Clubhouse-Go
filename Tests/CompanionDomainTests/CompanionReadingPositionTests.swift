@@ -2,6 +2,21 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionReadingPositionTests {
+    @Test @MainActor func bookmarkOwnsOneViewportWhileGeometryResetsOnUnmount() {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let target = CompanionPreviewService.target
+        let bookmark = store.readingBookmark(for: target)
+        let viewport = bookmark.viewport
+        bookmark.position = .init(followsLatest: false, entryID: "message:anchor", distanceFromEntry: 8, offset: 400, shownEntries: 300)
+        for _ in 0..<20 { #expect(store.readingBookmark(for: target).viewport === viewport) }
+        viewport.frames = ["message:anchor": 392...500]
+        viewport.hasInitialized = true
+        viewport.metrics = .init(offset: 400, contentHeight: 1_000, containerHeight: 500)
+        viewport.clearGeometry()
+        #expect(viewport.frames.isEmpty && viewport.metrics == nil && !viewport.hasInitialized)
+        #expect(bookmark.position.entryID == "message:anchor" && bookmark.position.offset == 400)
+        #expect(bookmark.position.shownEntries == 300 && !bookmark.position.followsLatest)
+    }
     @Test func swiftUIAvailableViewportDoesNotCountComposerAndKeyboardInsetsTwice() {
         let bottom = CompanionScrollMetrics(offset: 500, contentHeight: 1_000, availableHeight: 500, topInset: 0, bottomInset: 166)
         #expect(bottom.maximumOffset == 500 && bottom.isAtTrueBottom)

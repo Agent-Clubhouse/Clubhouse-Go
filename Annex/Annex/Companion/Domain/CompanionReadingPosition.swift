@@ -109,4 +109,32 @@ enum CompanionAssistantNavigation {
 @MainActor final class CompanionReadingBookmark {
     var position = CompanionReadingPosition()
     var hasMounted = false
+    // One holder per target, rather than a discarded actor-isolated allocation on every View init.
+    let viewport = CompanionReadingViewport()
+}
+
+/// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.
+@MainActor final class CompanionReadingViewport {
+    var gesture = CompanionReadingGesture()
+    var frames: [String: ClosedRange<Double>] = [:]
+    var metrics: CompanionScrollMetrics?
+    var previousMetrics: CompanionScrollMetrics?
+    var frameContentHeight: Double?
+    var isInteracting = false
+    var isRestoring = false
+    var hasInitialized = false
+    var restoreOffset: Double?
+
+    /// Geometry belongs to one mounted transcript; the entry-relative bookmark survives unmounting.
+    func clearGeometry() {
+        gesture.end()
+        frames = [:]
+        metrics = nil
+        previousMetrics = nil
+        frameContentHeight = nil
+        isInteracting = false
+        isRestoring = false
+        hasInitialized = false
+        restoreOffset = nil
+    }
 }

@@ -9,7 +9,6 @@ struct CompanionConversationView: View {
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
-    @State private var readingViewport = CompanionReadingViewport()
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showRefreshing = false
@@ -39,6 +38,7 @@ struct CompanionConversationView: View {
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
+    private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
@@ -239,6 +239,7 @@ struct CompanionConversationView: View {
 
     private var timeline: some View {
         let rows = store.timelineRows(for: target)
+        let viewport = readingViewport
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
@@ -417,6 +418,7 @@ struct CompanionConversationView: View {
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
+            .onDisappear { viewport.clearGeometry() }
 
         }
     }
@@ -801,18 +803,6 @@ struct CompanionContextRing: View {
     }
 }
 
-/// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.
-private final class CompanionReadingViewport {
-    var gesture = CompanionReadingGesture()
-    var frames: [String: ClosedRange<Double>] = [:]
-    var metrics: CompanionScrollMetrics?
-    var previousMetrics: CompanionScrollMetrics?
-    var frameContentHeight: Double?
-    var isInteracting = false
-    var isRestoring = false
-    var hasInitialized = false
-    var restoreOffset: Double?
-}
 private struct CompanionReadingFrames: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
