@@ -1142,9 +1142,23 @@ import ClubhouseTransport
             dropDispatcher(hostID: hostID)
             return
         }
-        dispatcherCatalog[hostID] = value
-        guard case .object = value, value["agent"]?["id"]?.string != nil else { return }
-        dispatcherFlags[hostID] = (value["enabled"]?.boolOrNil ?? true, value["flagOn"]?.boolOrNil ?? true)
+        guard case .object = value else { return }
+        let enabled = value["enabled"]?.boolOrNil
+        let flagOn = value["flagOn"]?.boolOrNil
+        let previous = dispatcherFlags[hostID]
+        if enabled == false || flagOn == false {
+            dispatcherFlags[hostID] = (enabled ?? previous?.enabled ?? false, flagOn ?? previous?.flagOn ?? true)
+            dropDispatcher(hostID: hostID)
+        } else if value["agent"]?["id"]?.string?.isEmpty == false {
+            dispatcherCatalog[hostID] = value
+            dispatcherFlags[hostID] = (enabled ?? true, flagOn ?? true)
+        } else {
+            // A starting or partial entry does not revoke the last known identity.
+            if enabled != nil || flagOn != nil {
+                dispatcherFlags[hostID] = (enabled ?? previous?.enabled ?? false, flagOn ?? previous?.flagOn ?? true)
+            }
+            if dispatcherCatalog[hostID] == nil, enabled == true { dispatcherCatalog[hostID] = value }
+        }
     }
     /// Its live status, kept on the remembered entry: REST refreshes never carry the Dispatcher, and the next snapshot may be a while.
     private func rememberDispatcherStatus(_ payload: AnnexJSON, hostID: String) {

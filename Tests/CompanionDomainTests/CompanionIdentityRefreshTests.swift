@@ -17,7 +17,7 @@ import Testing
     @Test func resumeAndRelocationKeepEveryPublishedIdentityAndLongChat() async throws {
         let h = try await start()
         defer { h.stop() }
-        let events = (1...2000).map { LiveServiceHarness.chatEvent("d", sequence: Int64($0 + 1), type: "agent_message", data: ["messageId": .string("m\($0)"), "text": .string(String(repeating: "chat ", count: 40))]) }
+        let events = (1...2000).map { LiveServiceHarness.chatEvent("d", sequence: Int64($0 + 1), type: "agent_message", data: ["messageId": .string("m\($0)"), "text": .string("chat")]) }
         await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot(session: "d", events: events))
         await h.store.load(dispatcher)
         let original = h.store.conversation(for: dispatcher)
@@ -112,6 +112,24 @@ import Testing
         await h.transport.emit(h.snapshotEvent(["dispatcher": .null]))
         try await h.waitUntil { h.store.agent(for: dispatcher) == nil }
         #expect(h.host?.dispatcher?.enabled == false)
+    }
+
+    @Test(arguments: [AnnexJSON.object([:]), .object(["enabled": .bool(true), "flagOn": .bool(true)]), .object(["enabled": .bool(true), "agent": .null]), .string("invalid")])
+    func incompleteDispatcherEntryKeepsKnownIdentity(value: AnnexJSON) async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.transport.emit(h.snapshotEvent(["dispatcher": value]))
+        await h.transport.emit(.connection(.reconnecting(attempt: 1, delaySeconds: 1)))
+        try await h.waitUntil { h.host?.connection == .reconnecting }
+        #expect(h.store.agent(for: dispatcher) != nil)
+    }
+
+    @Test func explicitDispatcherOffObjectClearsIdentityAndChat() async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
+        await h.store.load(dispatcher)
+        await h.transport.emit(h.snapshotEvent(["dispatcher": .object(["enabled": .bool(false), "flagOn": .bool(true)])]))
+        try await h.waitUntil { h.host?.dispatcher?.enabled == false }
+        #expect(!h.store.conversation(for: dispatcher).isLoaded)
     }
 
     @Test func completeSnapshotRemovesMissingAgentsAndProjects() async throws {
