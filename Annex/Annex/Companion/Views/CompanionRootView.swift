@@ -9,6 +9,7 @@ struct CompanionRootView: View {
     var onPair: () -> Void
     var onSettings: () -> Void
     var isPreview = false
+    var pairedHostIDs: Set<String>?
     @State private var navigation: CompanionNavigation
     @State private var spawnProject: CompanionProjectTarget?
     @State private var settingsTarget: CompanionTarget?
@@ -17,12 +18,13 @@ struct CompanionRootView: View {
     @State private var terminal: CompanionTerminalScope?
     @State private var decisions: CompanionDecisionQueue
 
-    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false) {
+    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false, pairedHostIDs: Set<String>? = nil) {
         _store = Bindable(store)
         self.preferences = preferences
         self.onPair = onPair
         self.onSettings = onSettings
         self.isPreview = isPreview
+        self.pairedHostIDs = pairedHostIDs
         var navigation = CompanionNavigation(startScreen: preferences.startScreen, cached: preferences.dispatcherDesktops,
                                              lastHostID: preferences.lastHostID)
         navigation.update(hosts: store.hosts)
@@ -100,9 +102,16 @@ struct CompanionRootView: View {
             guard let target, navigation.visibleAgent != target else { return }
             open(target)
         }
-        .onChange(of: store.hosts) { _, hosts in
+        .onChange(of: pairedHostIDs, initial: true) { _, ids in
+            guard let ids else { return }
+            navigation.retainPairedDesktops(ids)
+            if preferences.dispatcherDesktops != nil { preferences.dispatcherDesktops = navigation.dispatcherDesktops }
+            mirrorSelection()
+        }
+        .onChange(of: store.hosts) { previous, hosts in
             navigation.update(hosts: hosts)
-            if hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
+            let removedHost = !Set(previous.map(\.id)).isSubset(of: Set(hosts.map(\.id)))
+            if removedHost || hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
                 preferences.dispatcherDesktops = navigation.dispatcherDesktops
             }
             mirrorSelection()
@@ -144,7 +153,7 @@ struct CompanionRootView: View {
             ForEach(navigation.dispatcherDesktops) { desktop in
                 let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
                     && (navigation.paths[.dispatcher] ?? []).isEmpty
-                Group {
+                VStack(spacing: 0) {
                     if let target = desktop.target, let agent = store.agent(for: target) {
                         conversation(agent, visible: visible).id(target)
                     } else {
@@ -154,6 +163,7 @@ struct CompanionRootView: View {
                 }
                 .opacity(navigation.dispatcherHostID == desktop.id ? 1 : 0)
                 .allowsHitTesting(visible)
+                .accessibilityElement(children: .contain)
                 .accessibilityHidden(!visible)
             }
         }

@@ -112,9 +112,11 @@ struct CompanionConversationView: View {
             }
         }
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
+        .safeAreaBar(edge: .top, spacing: 0) { if isVisible { otherAgentBanner } }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
+            if isVisible {
+                if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
+            }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: isVisible) {

@@ -19,6 +19,7 @@ import ClubhouseTransport
     var restoreError: String?
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
+    private(set) var restoredHostIDs: Set<String>?
     private var started = false
     private var rediscovering: Set<String> = []
     private var nextRediscovery: [String: Date] = [:]
@@ -53,7 +54,9 @@ import ClubhouseTransport
         service.prepareResume = { [weak self] in await self?.switchToAnsweringRoutes() ?? [] }
         defer { isRestoring = false }
         do {
-            for registration in try await registry.restoreSaved() { await service.register(await answeringRoute(for: registration)) }
+            let restored = try await registry.restoreSaved()
+            restoredHostIDs = Set(restored.map { $0.host.hostID })
+            for registration in restored { await service.register(await answeringRoute(for: registration)) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
     }
     /// The desktop at the first of its saved routes that answers with its pinned certificate, so opening
@@ -86,6 +89,7 @@ import ClubhouseTransport
         preferences.saveDeviceName()
         if remember { sessionHosts.remove(host.hostID) }
         else { sessionHosts.insert(host.hostID) }
+        restoredHostIDs?.insert(host.hostID)
         await service.register(registration)
     }
     /// Pairs from a scanned or opened QR invitation. Tries each advertised address in order and only pairs
@@ -139,12 +143,14 @@ import ClubhouseTransport
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)
         sessionHosts.remove(hostID)
+        restoredHostIDs?.remove(hostID)
         service.remove(hostID: hostID)
         if store.selection?.hostID == hostID { store.selection = nil }
     }
     func endSession(hostID: String) async throws {
         try await registry.revokeSessionAndRemove(hostID: hostID)
         sessionHosts.remove(hostID)
+        restoredHostIDs?.remove(hostID)
         service.remove(hostID: hostID)
         if store.selection?.hostID == hostID { store.selection = nil }
     }
@@ -181,7 +187,7 @@ struct CompanionAppRoot: View {
     }
     var body: some View {
         ZStack {
-            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true }, pairedHostIDs: runtime.restoredHostIDs)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })

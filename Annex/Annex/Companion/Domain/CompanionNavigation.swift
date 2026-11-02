@@ -44,7 +44,7 @@ struct CompanionNavigation {
     var tabs: [CompanionTab] { (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.home, .needsYou, .agents, .search] }
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     var visibleAgent: CompanionTarget? { paths[tab]?.last?.agent ?? (tab == .dispatcher && (paths[tab] ?? []).isEmpty ? dispatcherTarget : nil) }
-    mutating func interact() { awaitingFirstReport = false }
+    mutating func interact() { awaitingFirstReport = false; pendingDispatcherLink = nil }
 
     mutating func select(_ tab: CompanionTab) {
         interact()
@@ -57,6 +57,17 @@ struct CompanionNavigation {
         interact()
         dispatcherHostID = hostID
         paths[.dispatcher] = []
+    }
+
+    /// Saved UI state cannot restore a session-only or forgotten pairing on the next launch.
+    mutating func retainPairedDesktops(_ ids: Set<String>) {
+        let selectedWasRemoved = dispatcherHostID.map { !ids.contains($0) } ?? false
+        dispatcherDesktops.removeAll { !ids.contains($0.id) }
+        if selectedWasRemoved {
+            dispatcherHostID = dispatcherDesktops.first?.id
+            if tab == .dispatcher { tab = .home }
+        }
+        for key in paths.keys { paths[key]?.removeAll { !ids.contains($0.hostID) } }
     }
 
     mutating func update(hosts: [CompanionHost]) {
