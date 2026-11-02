@@ -51,8 +51,15 @@ private actor RecoverySocket: AnnexWebSocket {
 }
 private actor RecoveryIO: AnnexIO {
     let identity = AnnexPairingIdentity()
-    let rest: ScriptedAnnexTransport
-    init(rest: ScriptedAnnexTransport) { self.rest = rest }
+    private var reads: [String: AnnexJSON] = [:]
+    private var extraCapabilities: [String: AnnexJSON] = [:]
+    func setRead(_ name: String, _ value: AnnexJSON) { reads[name] = value }
+    func setCapability(_ name: String, _ value: AnnexJSON) { extraCapabilities[name] = value }
+    private var capabilities: AnnexJSON {
+        var fields: [String: AnnexJSON] = ["version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"), "controlAvailable": .bool(true), "commands": .array([]), "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(2048), "ttlMs": .integer(3600000)])]
+        fields.merge(extraCapabilities) { _, new in new }
+        return .object(fields)
+    }
     private(set) var sockets: [RecoverySocket] = []
     private var oversizeUntil: Date?
     private var recoverAfterWindow = false
@@ -78,12 +85,12 @@ private actor RecoveryIO: AnnexIO {
         let body: AnnexJSON
         if path.hasSuffix("/identity") {
             body = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
-        } else if path.hasSuffix("/capabilities") { body = try await rest.read(.capabilities) }
-        else if path.hasSuffix("/projects") { body = try await rest.read(.projects) }
-        else if path.hasSuffix("/agents") { body = try await rest.read(.agents(projectID: "project")) }
+        } else if path.hasSuffix("/capabilities") { body = capabilities }
+        else if path.hasSuffix("/projects") { body = .array([.object(["id": .string("project"), "name": .string("Project")])]) }
+        else if path.hasSuffix("/agents") { body = .array([.object(["id": .string("agent"), "name": .string("Agent"), "status": .string("idle")])]) }
         else if path.hasSuffix("/chat") {
-            if request.url?.query != nil { body = try await rest.read(.chatHistory(agentID: "agent", sessionID: nil, beforeSeq: nil, limit: 1)) }
-            else { body = try await rest.read(.chat(agentID: "agent")) }
+            if request.url?.query != nil { body = reads["chatHistory"] ?? .null }
+            else { body = reads["chat"] ?? .null }
         } else { body = .object([:]) }
         return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
     }
@@ -148,14 +155,14 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
     let monitor: AsyncThrowingStream<AnnexTransportEvent, Error>
     var host: CompanionHost? { store.hosts.first }
     static func start(liveClock: Bool = false, oversizeWindow: TimeInterval? = nil, terminalAckBytes: Int? = nil) async throws -> Self {
-        let io = RecoveryIO(rest: ScriptedAnnexTransport()), clock = AnnexManualClock()
+        let io = RecoveryIO(), clock = AnnexManualClock()
         if let oversizeWindow { await io.simulateOversizeWindow(seconds: oversizeWindow) }
         if let terminalAckBytes {
             await io.configureTerminal(bytes: terminalAckBytes)
-            await io.rest.setCapability("terminal", .object(["version": .integer(1), "agentAttach": .bool(true), "projectShell": .bool(true), "agentShell": .bool(true)]))
+            await io.setCapability("terminal", .object(["version": .integer(1), "agentAttach": .bool(true), "projectShell": .bool(true), "agentShell": .bool(true)]))
         }
-        await io.rest.setRead("chat", recoveryHistory(final: false))
-        await io.rest.setRead("chatHistory", recoveryHistory(final: false))
+        await io.setRead("chat", recoveryHistory(final: false))
+        await io.setRead("chatHistory", recoveryHistory(final: false))
         let id = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: id,
             verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
@@ -177,8 +184,8 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
         Issue.record("Recovery condition timed out"); throw AnnexTransportError.disconnected
     }
     func makeHistoryFresh() async {
-        await io.rest.setRead("chat", recoveryHistory(final: true))
-        await io.rest.setRead("chatHistory", recoveryHistory(final: true))
+        await io.setRead("chat", recoveryHistory(final: true))
+        await io.setRead("chatHistory", recoveryHistory(final: true))
     }
     func reconnectAfterGap() async throws -> [AnnexResyncReason] {
         var reasons: [AnnexResyncReason] = []
@@ -375,7 +382,7 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
         await h.makeHistoryFresh()
         await socket.setReplay(recoveryFrames())
         try await socket.push(recoveryFrames() + [recoverySnapshot(100), recoveryFrames().last!])
-        try await h.wait { h.store.conversation(for: h.target).lastSequence == 12 && h.host?.helperRequests.isEmpty == true }
+        try await h.wait { h.store.conversation(for: h.target).lastSequence == 12 && h.host?.helperRequests.isEmpty == true && h.host?.agent(for: h.target)?.status == .idle && h.host?.connection == .connected }
         h.assertFinal()
         try await socket.push([.init(type: "fixture:recovered")])
         var delivered: [Int64] = [], reasons: [AnnexResyncReason] = []
