@@ -142,7 +142,7 @@ extension EnvironmentValues {
 
     private func presentComposer(screenshot: Data?, from sourceWindow: UIWindow? = nil) {
         guard let model else { return }
-        present(UIHostingController(rootView: NavigationStack { FeedbackView(model: model, initialScreenshotPNG: screenshot) }), from: sourceWindow)
+        present(UIHostingController(rootView: NavigationStack { CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot) }), from: sourceWindow)
     }
 
     private func explainEnrollment(fromScreenshot: Bool) {
@@ -237,12 +237,12 @@ private struct CompanionScreenshotFeedbackPrompt: View {
 }
 
 /// The same enrollment screen Settings opens, with a way back.
-private struct CompanionEnrollmentSheet: View {
+struct CompanionEnrollmentSheet: View {
     let model: FeedbackModel
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            EnrollmentView(model: model).toolbar {
+            CompanionFeedbackEnrollment(model: model).toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }
         }

@@ -33,7 +33,8 @@ final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
         XCTAssertFalse(prompt.waitForExistence(timeout: 1))
 
         // Settings states the requirement next to the toggle.
-        waitAndTap(app.buttons["Settings"], until: app.staticTexts["shake-enrollment-required"], timeout: 5)
+        waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 5)
+        XCTAssertTrue(scrollTo(app.staticTexts["shake-enrollment-required"], in: app, maxSwipes: 5))
         app.buttons["Done"].tap()
         XCTAssertTrue(shake.waitForExistence(timeout: 5))
 
@@ -45,7 +46,8 @@ final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
         shake.tap()
         XCTAssertFalse(prompt.waitForExistence(timeout: 2))
         let toggle = app.switches["Shake to open feedback"]
-        waitAndTap(app.buttons["Settings"], until: toggle, timeout: 5)
+        waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 5)
+        XCTAssertTrue(scrollTo(toggle, in: app, maxSwipes: 4))
         XCTAssertEqual(toggle.value as? String, "0")
         app.buttons["Done"].tap()
         XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))

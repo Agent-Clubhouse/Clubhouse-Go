@@ -6,8 +6,8 @@ import ClubhouseTransport
 
 /// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
-    /// Hard release gate: the deployed API strips this field or permanently rejects large reports.
-    /// Enable only after API deployment confirmation, a tagged SDK, and app adoption with wire tests.
+    /// API deployment and the v0.7.0 tag are confirmed; the identity-binding SDK is not yet adopted.
+    /// General sending and any scoped test stay off until that adoption and its wire tests.
     /// The local AnnexFeedbackDiagnostics provider is intentionally not connected to the report path.
     static let reportDiagnosticsSendingEnabled = false
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
@@ -77,7 +77,8 @@ struct CompanionFeedbackSettings: View {
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
     /// Framebriar's rule: enrolling enables telemetry, and Settings must say so next to enrollment.
-    static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and diagnostic events such as connection, pairing and chat timings, error types and counts. It never includes prompts, agent content, names, file paths, addresses or URLs. Clearing enrollment stops it. Feedback reports share only submitted notes, an optional reviewed image (including a shake screenshot you kept) and optional reviewed incident trace references. Your own tracing collector, in Connection diagnostics, is separate."
+    static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and events such as connection, pairing and chat timings, error types and counts. Automated telemetry excludes prompts, agent content, names, file paths, addresses and URLs. Notes and images you choose to submit can contain private information; review them first. Reports may also include reviewed incident trace references. Clearing enrollment stops automatic telemetry; saved feedback stays on this device until delivered or explicitly cleared. Your own tracing collector, in Connection diagnostics, is separate."
+    static let feedbackOnlyDisclosure = "Feedback shares the notes and optional image you choose to submit, plus optional reviewed incident trace references. Notes and images can contain private information; review them first. Automatic developer telemetry is unavailable in this session. Your own tracing collector, in Connection diagnostics, is separate."
     static func label(_ access: AccessState) -> String {
         switch access {
         case .connected: "Connected"
@@ -89,29 +90,78 @@ struct CompanionFeedbackSettings: View {
         }
     }
     var body: some View {
-        Section("Developer feedback") {
-            if let model {
-                NavigationLink("Invitation & enrollment") { EnrollmentView(model: model) }
-                if model.status?.canSubmit == true {
-                    NavigationLink("Send feedback") { FeedbackView(model: model) }
+        Group {
+            Section("Developer feedback") {
+                if let model {
+                    NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }
+                    if model.status?.canSubmit == true {
+                        NavigationLink("Send feedback") { CompanionFeedbackComposer(model: model) }
+                    }
+                    Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
+                    Text(model.telemetry == nil ? Self.feedbackOnlyDisclosure : Self.telemetryDisclosure)
+                        .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")
+                } else {
+                    Text("Feedback is not configured for this build or local storage is unavailable.")
                 }
-                Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
-                Text("\(model.status?.queued ?? 0) reports on this device")
-            } else {
-                Text("Feedback is not configured for this build or local storage is unavailable.")
             }
-            Toggle("Shake to open feedback", isOn: $shakeEnabled)
-            Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)
-            Toggle("Offer feedback when you take a screenshot", isOn: $screenshotOffersFeedback)
-            if let model, model.status != nil, model.status?.canSubmit != true {
-                Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
-                    .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
+            if let model {
+                Section("Saved feedback") {
+                    if let status = model.status { Text("\(status.queued) reports on this device") }
+                    else { Text("Checking saved feedback…") }
+                    // The tagged SDK's held-report row belongs here, adjacent to Clear queued feedback.
+                    // Do not infer held counts or recovery from the old SDK's generic blocked count.
+                    CompanionFeedbackQueueActions(model: model)
+                }
             }
-            Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
-                .font(.caption).foregroundStyle(.secondary)
-            Text(Self.telemetryDisclosure)
-                .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")
+            Section("Feedback shortcuts") {
+                Toggle("Shake to open feedback", isOn: $shakeEnabled)
+                Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)
+                Toggle("Offer feedback when you take a screenshot", isOn: $screenshotOffersFeedback)
+                if let model, model.status != nil, model.status?.canSubmit != true {
+                    Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
+                        .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
+                }
+                Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
+    }
+}
+
+/// Go-owned boundaries for all menu/settings/screenshot routes. Adopt tagged SDK changes here;
+/// draft capture, review and intentional submission remain owned by the SDK composer.
+struct CompanionFeedbackComposer: View {
+    let model: FeedbackModel
+    var initialScreenshotPNG: Data? = nil
+    var body: some View { FeedbackView(model: model, initialScreenshotPNG: initialScreenshotPNG) }
+}
+
+struct CompanionFeedbackEnrollment: View {
+    let model: FeedbackModel
+    var body: some View {
+        EnrollmentView(model: model)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Text(model.telemetry == nil
+                     ? "Review notes and images for private information before submitting feedback. Automatic developer telemetry is unavailable in this session."
+                     : "Enrollment shares automatic usage and diagnostic telemetry with the developer. Review notes and images before submitting feedback.")
+                    .font(.footnote).foregroundStyle(.secondary).padding()
+                    .frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+            }
+    }
+}
+
+private struct CompanionFeedbackQueueActions: View {
+    let model: FeedbackModel
+    @State private var confirmingClear = false
+    var body: some View {
+        Button("Clear queued feedback", role: .destructive) { confirmingClear = true }
+            .disabled(model.working)
+            .confirmationDialog("Clear queued feedback from this device?", isPresented: $confirmingClear, titleVisibility: .visible) {
+                Button("Clear queued feedback", role: .destructive) { Task { await model.clearQueue() } }
+            } message: {
+                Text("This removes saved reports and attachments from this device. It does not delete reports already received by the service.")
+            }
+        if let message = model.message { Text(message).accessibilityIdentifier("feedback-queue-status") }
     }
 }
 
@@ -153,11 +203,7 @@ private struct ShakeEnrollmentPrompt: ViewModifier {
             }
             .sheet(isPresented: $showingEnrollment) {
                 if let model {
-                    NavigationStack {
-                        EnrollmentView(model: model).toolbar {
-                            ToolbarItem(placement: .confirmationAction) { Button("Done") { showingEnrollment = false } }
-                        }
-                    }
+                    CompanionEnrollmentSheet(model: model)
                 }
             }
     }

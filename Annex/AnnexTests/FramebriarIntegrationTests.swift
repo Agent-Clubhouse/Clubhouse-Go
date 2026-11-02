@@ -56,6 +56,25 @@ private actor FeedbackMockTransport: HTTPTransport {
     }
 }
 @MainActor extension FramebriarIntegrationTests {
+    @Test func clearingSavedFeedbackWorksAfterEnrollmentIsClearedWithoutSending() async throws {
+        let network = FeedbackMockTransport()
+        let config = try Configuration(gameID: "phone-ui-fixture")
+        let client = try Client(configuration: config, transport: network, enrollmentStore: FeedbackMemoryEnrollment(), feedbackStore: FeedbackMemoryQueue())
+        let model = FeedbackModel(client: client)
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        let reviewed = try ReviewedFeedback(configuration: config, notes: "Local queue fixture")
+        #expect(await model.submit(reviewed))
+        await model.disconnect()
+        #expect(model.status?.canSubmit == false)
+        #expect(model.status?.queued == 1)
+        let before = await network.paths
+        await model.clearQueue()
+        #expect(model.status?.queued == 0)
+        #expect(await network.paths == before)
+        #expect(!before.contains { $0.hasSuffix("/reports") })
+    }
+
     @Test func feedbackModelReviewsQueuesDeliversAndDisconnectsUsingMocksOnly() async throws {
         let network = FeedbackMockTransport()
         let config = try Configuration(gameID: "phone-ui-fixture")
