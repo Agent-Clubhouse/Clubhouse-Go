@@ -183,6 +183,8 @@ struct CompanionTerminalPane: View {
 
 /// Lets SwiftUI buttons show and hide the keyboard of the UIKit view that takes typing.
 @MainActor @Observable final class CompanionTerminalFocus {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     @ObservationIgnored weak var view: CompanionTerminalUIView?
     private(set) var isEditing = false
     func toggle() { if isEditing { _ = view?.resignFirstResponder() } else { _ = view?.becomeFirstResponder() } }

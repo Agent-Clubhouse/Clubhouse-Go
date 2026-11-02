@@ -3,6 +3,8 @@ import Foundation
 /// Drafts contain no connection credentials. This storage is local to the app;
 /// no iCloud defaults or external synchronization is used.
 @MainActor final class CompanionLocalDrafts: CompanionDraftPersistence {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private struct Entry: Codable { var target: CompanionTarget; var text: String }
     private let defaults: UserDefaults
     private let key = "clubhouse.companion.drafts.v1"

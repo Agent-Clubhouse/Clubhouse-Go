@@ -162,6 +162,8 @@ enum CompanionMessageSlices {
     }
 
     private final class Box: NSObject {
+        // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+        nonisolated deinit {}
         let slices: [CompanionMessageSlice]
         init(_ slices: [CompanionMessageSlice]) { self.slices = slices }
     }

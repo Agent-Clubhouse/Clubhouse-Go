@@ -18,7 +18,8 @@ struct CompanionRootView: View {
     @State private var detailsTarget: CompanionTarget?
     @State private var review: CompanionReviewLaunch?
     @State private var terminal: CompanionTerminalScope?
-    @State private var decisions: CompanionDecisionQueue
+    @State private var decisionsLifetime: CompanionStateLifetime<CompanionDecisionQueue>
+    private var decisions: CompanionDecisionQueue { decisionsLifetime.value }
 
     init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false) {
         _store = Bindable(store)
@@ -26,8 +27,10 @@ struct CompanionRootView: View {
         self.onPair = onPair
         self.onSettings = onSettings
         self.isPreview = isPreview
-        _decisions = State(initialValue: CompanionDecisionQueue { [store] decision in
-            await store.respond(decision.approval, option: decision.option, target: decision.target)
+        _decisionsLifetime = State(initialValue: CompanionStateLifetime { [store] in
+            CompanionDecisionQueue { decision in
+                await store.respond(decision.approval, option: decision.option, target: decision.target)
+            }
         })
     }
 

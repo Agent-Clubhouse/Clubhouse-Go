@@ -6,6 +6,8 @@ import ClubhouseTransport
 /// A terminal over a desktop's WebSocket (`docs/mobile-control-v1.md` § Terminals): a shell this phone spawned, keyed
 /// by its own session id, or a terminal-mode agent's PTY, keyed by the agent's id.
 @MainActor final class CompanionLiveTerminalChannel: CompanionTerminalChannel {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     let scope: CompanionTerminalScope
     /// The `agentId` of every input, resize and output frame.
     let id: String

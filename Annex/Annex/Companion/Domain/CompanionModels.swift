@@ -341,6 +341,8 @@ struct CompanionCapabilities: OptionSet, Sendable, Equatable {
 
 /// Image bytes held on the phone. Compared by identity, so timeline diffs never compare megabytes.
 final class CompanionImageBytes: Sendable, Hashable {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     let data: Data
     init(_ data: Data) { self.data = data }
     static func == (lhs: CompanionImageBytes, rhs: CompanionImageBytes) -> Bool { lhs === rhs }
