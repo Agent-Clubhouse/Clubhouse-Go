@@ -394,3 +394,44 @@ private func BigInt(_ value: Any?) -> UInt64 { UInt64(value as! String)! }
         #expect(NSDictionary(dictionary: value) == expected, "otlp-\(signal(request)).json")
     }
 }
+
+@Test func statsNameWhyRecordsAreHeldWhileTheClientIsPaused() async throws {
+    let r = Rig(); let client = try await r.connected()
+    let t = try telemetry(r, client)
+    #expect(t.stats().blockedReason == .none && t.stats().lastSuccessAt == nil)
+    await client.pause()
+    t.log(.info, "app.held")
+    #expect(await t.flush() == false)
+    #expect(t.stats().blockedReason == .noToken, "A paused Client gives no token")
+    #expect(t.stats().buffered == 1, "Held in memory, not dropped")
+    await client.resume()
+    let renewed = access(r.clock) // the refresh deadline can't move, so build this before the clock does
+    await r.network.add { _ in renewed }
+    await r.network.add(accepted)
+    r.clock.advance(TelemetryLimits.maxBackoff + 1)
+    #expect(await t.flush())
+    #expect(t.stats().blockedReason == .none && t.stats().buffered == 0)
+    #expect(t.stats().lastSuccessAt == r.clock.now())
+}
+
+@Test func statsNameBackoffForbiddenAndDisabled() async throws {
+    let r = Rig(); let client = try await r.connected()
+    let t = try telemetry(r, client)
+    t.log(.info, "app.one")
+    await r.network.add { _ in json([:], status: 500) }
+    #expect(await t.flush() == false)
+    #expect(t.stats().blockedReason == .backoff)
+    r.clock.advance(TelemetryLimits.maxBackoff + 1)
+    #expect(t.stats().blockedReason == .none, "Backoff is over; the record is about to go")
+    await r.network.add { _ in json([:], status: 403) }
+    #expect(await t.flush() == false)
+    #expect(t.stats().blockedReason == .forbidden)
+
+    let r2 = Rig(); let client2 = try r2.client(); await client2.resume()
+    let idle2 = try telemetry(r2, client2)
+    #expect(idle2.stats().blockedReason == .disabled, "Not enrolled")
+    let enrolled = Rig(); let client3 = try await enrolled.connected()
+    let gone = try telemetry(enrolled, client3)
+    gone.dispose()
+    #expect(gone.stats().blockedReason == .disabled)
+}

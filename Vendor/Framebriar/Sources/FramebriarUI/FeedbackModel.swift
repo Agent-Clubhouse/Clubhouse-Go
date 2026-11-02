@@ -9,9 +9,19 @@ import Framebriar
     public private(set) var working = false
     /// Optional. When set, a saved report emits `feedback.submitted` and the consented diagnostics excerpt.
     public let telemetry: Telemetry?
+    /// True while a `FeedbackView` for this model is on screen, however it was presented.
+    public private(set) var isComposerOpen = false
+    private var openComposers = 0
+    private var capturing = false
     private let incidentProvider: @MainActor () -> FeedbackIncident?
-    public init(client: Client, telemetry: Telemetry? = nil, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil }) {
+    private let diagnosticsProvider: (@MainActor () throws -> FeedbackDiagnostics?)?
+    private let now: @MainActor () -> Date
+    /// - Parameter diagnosticsProvider: synchronous, no I/O; runs once when a composer opens. Without one,
+    ///   the `telemetry` ring is used if there is one. Nil, a throw or unusable output never block Send.
+    public init(client: Client, telemetry: Telemetry? = nil, incidentProvider: @escaping @MainActor () -> FeedbackIncident? = { nil },
+                diagnosticsProvider: (@MainActor () throws -> FeedbackDiagnostics?)? = nil, now: @escaping @MainActor () -> Date = { Date() }) {
         self.client = client; self.telemetry = telemetry; self.incidentProvider = incidentProvider
+        self.diagnosticsProvider = diagnosticsProvider; self.now = now
     }
     public func snapshotIncident() -> FeedbackIncident? { incidentProvider() }
     public func update() async { status = await client.status() }
@@ -34,16 +44,104 @@ import Framebriar
     public func disconnect() async {
         await perform {
             let revoked = try await self.client.disconnect()
-            self.message = revoked ? "Enrollment cleared. Queued reports remain on this device." : "Enrollment cleared locally. Remote revocation could not be confirmed. Queued reports remain."
+            self.message = revoked ? "Enrollment cleared. Queued reports remain on this device, and won't send under a later enrollment unless you choose." : "Enrollment cleared locally. Remote revocation could not be confirmed. Queued reports remain, and won't send under a later enrollment unless you choose."
         }
     }
     public func clearQueue() async {
         await perform { try await self.client.clearQueuedFeedback(); self.message = "Queued reports cleared from this device." }
     }
+    /// Sends reports held from a previous enrollment with this one. Pass the `status.releaseToken` the user
+    /// saw when they confirmed, not a fresh one, so a change since then fails with `stale-release`
+    /// instead of sending. Delivery is attempted afterwards; the result doesn't mean delivered.
+    @discardableResult public func releaseHeldReports(releaseToken: String?) async -> HeldReleaseResult {
+        let result = await client.releaseHeldReports(releaseToken: releaseToken)
+        message = FeedbackDisclosure.releaseResult(result)
+        if result.released > 0 { await tick() } else { await update() }
+        return result
+    }
+    /// Discards held reports from this device without sending them. Works while unenrolled.
+    @discardableResult public func clearHeldReports() async -> HeldClearResult {
+        let result = await client.clearHeldReports()
+        message = FeedbackDisclosure.clearHeldResult(result)
+        await update()
+        return result
+    }
+    /// Whether a report from this model can carry diagnostics, for wording that has to stay true.
+    public var sendsDiagnostics: Bool { diagnosticsProvider != nil || telemetry != nil }
+
+    func composerAppeared() { openComposers += 1; isComposerOpen = true }
+    func composerDisappeared() { openComposers = max(0, openComposers - 1); isComposerOpen = openComposers > 0 }
+
+    /// Freezes what this composer can send. A reentrant call, such as a provider synchronously notifying
+    /// something that opens feedback, runs no provider and captures nothing.
+    public func openDraft() -> FeedbackDraft {
+        let at = now(), ref = client.enrollmentSignal.enrollmentRef
+        guard !capturing else { return FeedbackDraft(id: UUID(), openedAt: at, capturedDiagnostics: .unavailable(at: at), incident: nil, enrollmentRef: ref) }
+        capturing = true; defer { capturing = false }
+        return FeedbackDraft(id: UUID(), openedAt: at, capturedDiagnostics: captureDiagnostics(at: at), incident: incidentProvider(), enrollmentRef: ref)
+    }
+    private func captureDiagnostics(at: Date) -> FeedbackDiagnostics {
+        var captured: FeedbackDiagnostics
+        if let diagnosticsProvider {
+            do {
+                let value = try diagnosticsProvider()
+                // Only the user's switch can leave diagnostics out.
+                captured = value?.state == .left_out ? .unavailable(reason: FeedbackDiagnostics.Reason.invalid, at: at) : value?.normalized(at: at) ?? .none(at: at)
+            } catch { captured = .unavailable(at: at) }
+        } else if let telemetry {
+            captured = telemetry.diagnosticsSnapshot()?.normalized(at: at) ?? .none(at: at)
+        } else {
+            captured = .none(reason: FeedbackDiagnostics.Reason.noProvider, at: at)
+        }
+        captured.setDelivery(status.map { .init(queued: $0.queued, lastResult: $0.lastDeliveryResult ?? "none") })
+        return (try? captured.validate()) == nil ? .unavailable(reason: FeedbackDiagnostics.Reason.invalid, at: at) : captured
+    }
+
+    /// The local commit. When this returns, the report survives a crash or relaunch. Sends nothing.
+    /// On a throw nothing was saved, and the draft can be sent again with the same ID, except after
+    /// `enrollmentChanged`: that draft can never send. Call `openDraft()` for a new ID and new captures.
+    public func save(_ draft: FeedbackDraft, notes: String, screenshotPNG: Data?, includeDiagnostics: Bool) async throws -> ReviewedFeedback {
+        guard !working else { throw FramebriarError.busy }
+        working = true; defer { working = false }
+        let report = try draft.report(configuration: client.configuration, notes: notes, screenshotPNG: screenshotPNG, includeDiagnostics: includeDiagnostics)
+        do { try await client.enqueue(report, enrollmentRef: draft.enrollmentRef) }
+        catch { await update(); throw error }
+        await update()
+        return report
+    }
+    /// Attempts delivery now and reports what happened. The telemetry marker follows the attempt, so the
+    /// two don't compete for the client. Telemetry failure never affects the report.
+    public func deliver(_ report: ReviewedFeedback, includeDiagnostics: Bool) async -> FeedbackDeliveryOutcome {
+        let outcome = await client.deliver(report.id)
+        await update()
+        if let telemetry {
+            Task { await telemetry.feedbackSubmitted(reportID: report.id, trace: report.incident?.traces.first, includeDiagnostics: includeDiagnostics) }
+        }
+        return outcome
+    }
+    /// `save` then `deliver`. A failed save comes back as `needsAttention` with the draft still usable.
+    public func send(_ draft: FeedbackDraft, notes: String, screenshotPNG: Data?, includeDiagnostics: Bool) async -> FeedbackDeliveryOutcome {
+        do {
+            let report = try await save(draft, notes: notes, screenshotPNG: screenshotPNG, includeDiagnostics: includeDiagnostics)
+            return await deliver(report, includeDiagnostics: includeDiagnostics)
+        } catch { return .needsAttention(Self.notSaved(error)) }
+    }
+    nonisolated static func notSaved(_ error: any Error) -> FeedbackDeliveryOutcome.AttentionReason {
+        switch error as? FramebriarError {
+        case .capacity: .storageFull
+        case .storage: .storageUnavailable
+        case .accessRequired, .expired: .notEnrolled
+        case .busy: .busy
+        case .enrollmentChanged: .enrollmentChanged
+        default: .invalidReport
+        }
+    }
+
+    @available(*, deprecated, message: "FeedbackView now uses save and deliver, which report a delivery result. See the README's migration note.")
     public func submit(_ reviewed: ReviewedFeedback, includeDiagnostics: Bool = true) async -> Bool {
         var saved = false
         await perform {
-            try await self.client.enqueue(reviewed); saved = true
+            try await self.client.enqueue(reviewed, enrollmentRef: self.client.enrollmentSignal.enrollmentRef); saved = true
             self.message = "Saved on this device. Delivery is confirmed separately."
         }
         if saved, let telemetry {
@@ -75,16 +173,14 @@ public struct EnrollmentView: View {
     @State private var invitation = ""
     @State private var confirmClear = false
     @State private var confirmDisconnect = false
+    @State private var confirmClearHeld = false
+    /// The token and count the confirmation showed, so a change before the tap makes the release stale.
+    @State private var pendingRelease: (token: String, count: Int)?
     public init(model: FeedbackModel) { self.model = model }
     public var body: some View {
         Form {
             Section("Feedback enrollment") {
-                if model.telemetry == nil {
-                    Text("Only feedback you choose to submit is shared. No prompts, agent content or logs are collected. Optional reviewed trace references can link a report to separately configured tracing. Review images for private information before sending.")
-                } else {
-                    // Required disclosure (docs/telemetry.md): enrollment enables telemetry.
-                    Text("Connecting also shares performance and diagnostic data with the developer: event names, counts, timings and error classes, never prompts, agent content, file paths or account details. Clearing enrollment stops it immediately. Feedback is shared only when you submit it; review images for private information before sending.")
-                }
+                Text(FeedbackDisclosure.enrollment(hasTelemetry: model.telemetry != nil, sendsDiagnostics: model.sendsDiagnostics))
                 Text("Status: \(model.status?.access.rawValue ?? "checking")")
                 if let end = model.status?.enrollmentExpiresAt { Text("Enrollment ends \(end.formatted())") }
                 SecureField("Invitation", text: $invitation).textContentType(.oneTimeCode)
@@ -100,6 +196,15 @@ public struct EnrollmentView: View {
                 Text("Unsent reports remain until delivered or explicitly cleared. Device loss or app removal can lose local reports. Server media and context expire after seven days, with possible cleanup delay.")
                 if let status = model.status, status.correlationWaiting > 0 { Text("\(status.correlationWaiting) reports are retained until the service supports incident correlation. No metadata is silently discarded.") }
                 if let status = model.status, status.blocked > 0 { Text("\(status.blocked) reports need review after service rejection.") }
+                if let status = model.status, status.heldForEnrollment > 0 {
+                    Text(FeedbackDisclosure.heldSummary(count: status.heldForEnrollment)).accessibilityIdentifier("framebriar-held-summary")
+                    if let token = status.releaseToken {
+                        Button("Send with this enrollment…") { pendingRelease = (token, status.heldForEnrollment) }
+                            .disabled(model.working).accessibilityIdentifier("framebriar-release-held")
+                    }
+                    Button("Clear these reports", role: .destructive) { confirmClearHeld = true }
+                        .disabled(model.working).accessibilityIdentifier("framebriar-clear-held")
+                }
                 Button("Retry delivery") { Task { await model.tick() } }.disabled(model.working)
                 Button("Clear queued feedback", role: .destructive) { confirmClear = true }.disabled(model.working)
             }
@@ -110,6 +215,14 @@ public struct EnrollmentView: View {
         .task { await model.update() }
         .confirmationDialog("Clear queued feedback from this device?", isPresented: $confirmClear, titleVisibility: .visible) {
             Button("Clear queued feedback", role: .destructive) { Task { await model.clearQueue() } }
+        }
+        .confirmationDialog(pendingRelease.map { FeedbackDisclosure.releaseConfirmation(count: $0.count) } ?? "", isPresented: Binding(get: { pendingRelease != nil }, set: { if !$0 { pendingRelease = nil } }), titleVisibility: .visible) {
+            if let token = pendingRelease?.token {
+                Button("Send") { Task { await model.releaseHeldReports(releaseToken: token) } }
+            }
+        }
+        .confirmationDialog("Clear reports saved under a previous enrollment? They won't be sent.", isPresented: $confirmClearHeld, titleVisibility: .visible) {
+            Button("Clear these reports", role: .destructive) { Task { await model.clearHeldReports() } }
         }
         .confirmationDialog("Clear enrollment? Queued reports will remain.", isPresented: $confirmDisconnect, titleVisibility: .visible) {
             Button("Clear enrollment", role: .destructive) { Task { await model.disconnect() } }

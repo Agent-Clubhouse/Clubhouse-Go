@@ -60,7 +60,17 @@ public final class Telemetry: @unchecked Sendable {
     public struct Stats: Sendable {
         public let sent: Int, dropped: Int, requests: Int, buffered: Int, bufferedBytes: Int, series: Int
         public let forbidden: Bool, blockedUntil: Date, nextFlushAt: Date?, ringLogs: Int, ringSpans: Int
+        /// Why records aren't leaving right now. `noToken` includes a paused Client.
+        public let blockedReason: BlockedReason
+        /// Last 2xx from the gateway in this process.
+        public let lastSuccessAt: Date?
     }
+    public enum BlockedReason: String, Sendable { case none, noToken = "no-token", backoff, forbidden, disabled }
+
+    /// Instances alive in this process that haven't been disposed. Hosts can assert on this in tests:
+    /// expect one per Client.
+    public static var liveInstanceCount: Int { liveInstances.withLock { $0 } }
+    private static let liveInstances = LiveInstanceCount()
     public static let sdkVersion = "0.1.0"
     @TaskLocal static var activeSpan: TelemetrySpanContext?
 
@@ -112,6 +122,8 @@ public final class Telemetry: @unchecked Sendable {
     private var timerAt: Date?
     private var inflight: Task<Bool, Never>?
     private var sent = 0, dropped = 0, requests = 0
+    private var lastSuccessAt: Date?
+    private var counted = true
 
     /// - Parameters:
     ///   - appVersion: human version (e.g. CFBundleShortVersionString); with `appBuild` it becomes
@@ -152,8 +164,10 @@ public final class Telemetry: @unchecked Sendable {
             self.lock.withLock { self.forbidden = false; if !enrolled { self.clearAllLocked() } }
         }
         if observeAppLifecycle { installLifecycleObservers() }
+        Telemetry.liveInstances.withLock { $0 += 1 }
     }
     deinit {
+        if counted { Telemetry.liveInstances.withLock { $0 -= 1 } }
         if let observer { access.enrollmentSignal.removeObserver(observer) }
         for token in lifecycle { NotificationCenter.default.removeObserver(token) }
         timer?.cancel(); inflight?.cancel()
@@ -339,6 +353,57 @@ public final class Telemetry: @unchecked Sendable {
         }
     }
 
+    /// The ring's recent spans and logs as report diagnostics, including events already exported: the
+    /// report keeps its own copy. Mapped through the allowlist; unknown attributes are dropped and counted.
+    /// Sends nothing and changes nothing. Nil when the ring has nothing in the window.
+    public func diagnosticsSnapshot(window: TimeInterval = TelemetryLimits.ringWindow) -> FeedbackDiagnostics? {
+        let (records, end): ([(Date, Payload)], Date) = lock.withLock {
+            pruneLocked()
+            let end = now(), cutoff = end.addingTimeInterval(-window)
+            return (ring.filter { $0.at >= cutoff }.map { ($0.at, $0.payload) }, end)
+        }
+        guard !records.isEmpty else { return nil }
+        let entries = records.compactMap { at, payload -> FeedbackDiagnostics.Entry? in
+            switch payload {
+            case .log(let l):
+                var attrs = diagnosticAttrs(l.attributes)
+                if let trace = l.traceId { attrs["traceId"] = .string(trace) }
+                if let span = l.spanId { attrs["spanId"] = .string(span) }
+                let level: FeedbackDiagnostics.Level = l.severityNumber >= TelemetrySeverity.error.rawValue ? .error
+                    : l.severityNumber >= TelemetrySeverity.warn.rawValue ? .warn : l.severityNumber >= TelemetrySeverity.info.rawValue ? .info : .debug
+                return .init(at: at, level: level, ns: diagnosticNamespace(l.body.stringValue), event: l.body.stringValue, attrs: attrs)
+            case .span(let s):
+                var attrs = diagnosticAttrs(s.attributes)
+                attrs["traceId"] = .string(s.traceId); attrs["spanId"] = .string(s.spanId)
+                if let start = Double(s.startTimeUnixNano), let stop = Double(s.endTimeUnixNano), stop >= start {
+                    attrs["durationMs"] = .number(((stop - start) / 1_000_000).rounded())
+                }
+                return .init(at: at, level: s.status.code == TelemetrySpanStatus.error.code ? .error : .info,
+                             ns: diagnosticNamespace(s.name), event: s.name, attrs: attrs)
+            case .metric: return nil
+            }
+        }
+        return FeedbackDiagnostics(windowStart: end.addingTimeInterval(-window), windowEnd: end, entries: entries)
+    }
+    private func diagnosticNamespace(_ name: String) -> String {
+        name.split(separator: ".", maxSplits: 1).first.flatMap { $0.count < name.count ? String($0) : nil } ?? "app"
+    }
+    private func diagnosticAttrs(_ list: [KeyValue]) -> [String: FeedbackDiagnostics.Value] {
+        // OTel names for allowlisted concepts; every other key reaches the allowlist as-is and is counted there.
+        let aliases = ["http.response.status_code": "statusCode", "error.type": "failure", "app.error.class": "failure"]
+        var out: [String: FeedbackDiagnostics.Value] = [:]
+        for item in list {
+            let key = aliases[item.key] ?? item.key
+            switch item.value.value {
+            case .int(let i): out[key] = .number(Double(i))
+            case .double(let d): out[key] = .number(d)
+            case .string(let s): out[key] = .string(s)
+            case .bool(let b): out[key] = .string(b ? "true" : "false")
+            }
+        }
+        return out
+    }
+
     // MARK: queue and ring
 
     private func emitLocked(_ payload: Payload) {
@@ -486,7 +551,7 @@ public final class Telemetry: @unchecked Sendable {
                 let status = reply?.status ?? 0
                 switch status {
                 case 200..<300:
-                    sent += items.count; failures = 0; blockedForToken = false; for item in items { item.entry?.state = .sent }
+                    sent += items.count; failures = 0; blockedForToken = false; lastSuccessAt = now(); for item in items { item.entry?.state = .sent }
                     return nil
                 case 401 where refreshFailed:
                     // No fresh token (paused, offline or revoked): keep the data for the next pass.
@@ -603,12 +668,20 @@ public final class Telemetry: @unchecked Sendable {
         lock.withLock {
             let logs = ring.filter { if case .log = $0.payload { return true }; return false }.count
             return Stats(sent: sent, dropped: dropped, requests: requests, buffered: queue.count, bufferedBytes: queuedBytes, series: seriesTotal,
-                         forbidden: forbidden, blockedUntil: blockedUntil, nextFlushAt: timerAt, ringLogs: logs, ringSpans: ring.count - logs)
+                         forbidden: forbidden, blockedUntil: blockedUntil, nextFlushAt: timerAt, ringLogs: logs, ringSpans: ring.count - logs,
+                         blockedReason: blockedReasonLocked(), lastSuccessAt: lastSuccessAt)
         }
+    }
+    private func blockedReasonLocked() -> BlockedReason {
+        if forbidden { return .forbidden }
+        if !enabledLocked() { return .disabled }
+        if blockedForToken { return .noToken }
+        return now() < blockedUntil ? .backoff : .none
     }
     /// Stops recording and forgets everything buffered. Irreversible for this instance.
     public func dispose() {
-        lock.withLock { clearAllLocked(); disposed = true }
+        let first: Bool = lock.withLock { clearAllLocked(); disposed = true; defer { counted = false }; return counted }
+        if first { Telemetry.liveInstances.withLock { $0 -= 1 } }
         if let observer { access.enrollmentSignal.removeObserver(observer) }
         for token in lifecycle { NotificationCenter.default.removeObserver(token) }
         lifecycle = []
@@ -641,6 +714,13 @@ public final class Telemetry: @unchecked Sendable {
         Task { await self.flushForBackground(); await MainActor.run { end() } }
     }
     #endif
+}
+
+/// Process-wide count behind `Telemetry.liveInstanceCount`.
+private final class LiveInstanceCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    func withLock<T>(_ body: (inout Int) -> T) -> T { lock.withLock { body(&value) } }
 }
 
 /// A live span. All methods are thread-safe no-ops after `end()` or when telemetry is off.

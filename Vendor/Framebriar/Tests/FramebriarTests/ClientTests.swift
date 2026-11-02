@@ -415,6 +415,14 @@ actor Gate {
         #expect(body["capturedAt"] as? String == iso(report.capturedAt))
         return ack(request)
     }
+    // Held until released: replacement enrollment never delivers on its own.
+    let before = await r.network.count()
+    try await upgraded.flush()
+    #expect(await upgraded.status().queued == 1)
+    #expect(await upgraded.status().heldForEnrollment == 1)
+    #expect(await r.network.count() == before)
+    let released = await upgraded.releaseHeldReports(releaseToken: upgraded.status().releaseToken)
+    #expect(released.released == 1)
     try await upgraded.flush()
     #expect(await upgraded.status().queued == 0)
 }

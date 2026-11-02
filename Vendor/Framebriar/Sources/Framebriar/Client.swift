@@ -18,6 +18,9 @@ public actor Client {
     private var busy = false
     private var generation = 0
     private var lastReceivedID: UUID?
+    private var receivedIDs: [UUID] = []
+    private var lastDeliveryResult: String?
+    private var lastFaults: [UUID: FramebriarError] = [:]
     private var lastAttempt: (invitation: String, id: String, at: Date)?
     private var accessBackoff: Date = .distantPast
 
@@ -37,9 +40,54 @@ public actor Client {
                 try item.feedback.validate(for: configuration)
                 guard (0...32).contains(item.attempts), item.nextAttemptAt.timeIntervalSince1970.isFinite else { throw FramebriarError.storage }
             }
-            self.enrollment = enrollment; self.queue = queue
+            // A record from before refs existed gets one, kept from now on.
+            var settled = enrollment
+            if settled.enrollmentRef == nil, settled.enrolled {
+                settled.enrollmentRef = UUID().uuidString.lowercased()
+                try enrollmentStore.save(settled, scope: configuration.storageScope)
+            }
+            self.enrollment = settled; self.queue = queue
+            // Fence on load too, so a downgrade right after this launch can't send a held report.
+            let fenced = Self.settled(queue, enrollment: settled, seen: true)
+            if !Self.sameBindings(fenced, queue) {
+                try feedbackStore.save(fenced, scope: configuration.storageScope)
+                self.queue = fenced
+            }
         } catch { throw FramebriarError.storage }
-        enrollmentSignal.update(enrollment)
+        enrollmentSignal.update(self.enrollment)
+    }
+
+    private static let unbound = "unbound"
+    /// Reports from an older SDK can't be told apart: bind them once to the enrollment present now, or
+    /// persist `unbound` so a later enrollment can never claim them. `seen` is false during a change: a
+    /// report first seen then never belonged to the new enrollment. Then fence held reports with
+    /// `blocked`, which older SDKs skip and keep. Attempts are unchanged.
+    private static func settled(_ items: [QueuedFeedback], enrollment: EnrollmentRecord, seen: Bool) -> [QueuedFeedback] {
+        items.map { source in
+            var item = source
+            if item.enrollmentRef == nil {
+                // A blocked report with no ref may be one an older SDK re-encoded: it keeps `blocked`.
+                item.enrollmentRef = seen && enrollment.refreshToken != nil ? enrollment.enrollmentRef : unbound
+            }
+            if !item.heldForEnrollment, !item.blocked, item.enrollmentRef != enrollment.enrollmentRef {
+                item.heldForEnrollment = true; item.blocked = true; item.nextAttemptAt = .distantPast
+            }
+            return item
+        }
+    }
+    private static func sameBindings(_ a: [QueuedFeedback], _ b: [QueuedFeedback]) -> Bool {
+        zip(a, b).allSatisfy { $0.enrollmentRef == $1.enrollmentRef && $0.heldForEnrollment == $1.heldForEnrollment }
+    }
+    private func isHeld(_ item: QueuedFeedback) -> Bool { item.heldForEnrollment || (!item.blocked && item.enrollmentRef != enrollment.enrollmentRef) }
+    private func held() -> [QueuedFeedback] { queue.filter(isHeld) }
+    /// Changes with the current enrollment or the set of held reports; can't be reversed to the ref.
+    private func releaseToken(_ items: [QueuedFeedback]) -> String? {
+        guard !items.isEmpty, let ref = enrollment.enrollmentRef, hasActiveEnrollment else { return nil }
+        let ids = items.map { $0.feedback.id.uuidString.lowercased() }.sorted()
+        return digest(Data((["framebriar-release-v1", ref] + ids).joined(separator: "\n").utf8))
+    }
+    private var hasActiveEnrollment: Bool {
+        enrollment.refreshToken != nil && enrollment.expiresAt.map { $0 > now() } == true
     }
 
     public func status() -> ClientStatus {
@@ -48,8 +96,11 @@ public actor Client {
             accessExpiry.map { $0 > now() } == true ? .connected : (enrollment.notice == .connected ? .offline : enrollment.notice)
         return ClientStatus(access: state, canSubmit: enrollment.enrolled, enrollmentExpiresAt: enrollment.expiresAt,
                             queued: queue.count, queuedBytes: queue.reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
-                            blocked: queue.filter(\.blocked).count, lastReceivedID: lastReceivedID,
-                            correlationWaiting: correlationSupported && accessExpiry.map { $0 > now() } == true ? 0 : queue.filter { $0.feedback.incident != nil }.count)
+                            blocked: queue.filter { $0.blocked && !$0.heldForEnrollment }.count, lastReceivedID: lastReceivedID,
+                            correlationWaiting: correlationSupported && accessExpiry.map { $0 > now() } == true ? 0 : queue.filter { $0.feedback.incident != nil && !isHeld($0) }.count,
+                            lastDeliveryResult: lastDeliveryResult,
+                            heldForEnrollment: held().count, heldBytes: held().reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
+                            releaseToken: releaseToken(held()))
     }
 
     /// Lifecycle pause stops subsequent requests. Already transmitted bytes cannot be recalled.
@@ -95,9 +146,24 @@ public actor Client {
         return try? await token(generation)
     }
 
-    /// Commits locally before returning. No network request or capture is performed here.
+    /// Commits locally before returning, bound to the enrollment the draft was opened under. A different
+    /// or nil ref saves nothing and throws `enrollmentChanged`. The same report under the same enrollment
+    /// is idempotent.
+    @discardableResult public func enqueue(_ feedback: ReviewedFeedback, enrollmentRef: String?) throws -> UUID {
+        guard enrollment.enrolled else { throw FramebriarError.accessRequired }
+        guard let enrollmentRef, enrollmentRef == enrollment.enrollmentRef else { throw FramebriarError.enrollmentChanged }
+        return try commit(feedback, enrollmentRef: enrollmentRef)
+    }
+
+    /// Binds to the enrollment at this call, for a report built just now with no open draft. Use
+    /// `enqueue(_:enrollmentRef:)` for anything captured earlier.
+    @available(*, deprecated, message: "Use enqueue(_:enrollmentRef:) with the ref recorded when the report was opened.")
     @discardableResult public func enqueue(_ feedback: ReviewedFeedback) throws -> UUID {
         guard enrollment.enrolled else { throw FramebriarError.accessRequired }
+        return try commit(feedback, enrollmentRef: enrollment.enrollmentRef ?? Self.unbound)
+    }
+
+    private func commit(_ feedback: ReviewedFeedback, enrollmentRef: String) throws -> UUID {
         try feedback.validate(for: configuration)
         if let existing = queue.first(where: { $0.feedback.id == feedback.id }) {
             guard existing.feedback == feedback else { throw FramebriarError.conflict }
@@ -105,8 +171,41 @@ public actor Client {
         }
         guard queue.count < ClientStatus.maxItems,
               queue.reduce(0, { $0 + ($1.feedback.screenshotPNG?.count ?? 0) }) + (feedback.screenshotPNG?.count ?? 0) <= ClientStatus.maxBytes else { throw FramebriarError.capacity }
-        try persist(queue + [QueuedFeedback(feedback: feedback)])
+        try persist(queue + [QueuedFeedback(feedback: feedback, enrollmentRef: enrollmentRef)])
         return feedback.id
+    }
+
+    /// The only way a held report gets a new enrollment. Pass the `releaseToken` from the status the user
+    /// saw: if the enrollment or the held set has changed since, nothing rebinds. Each report rebinds
+    /// durably or stays held. Report bytes don't change. Delivery follows on the next `flush()`, so
+    /// `released` doesn't mean delivered.
+    @discardableResult public func releaseHeldReports(releaseToken supplied: String?) -> HeldReleaseResult {
+        let items = held()
+        guard hasActiveEnrollment, let ref = enrollment.enrollmentRef else {
+            return HeldReleaseResult(released: 0, remaining: items.count, failed: 0, code: "not-enrolled")
+        }
+        guard let supplied, supplied == releaseToken(items) else {
+            return HeldReleaseResult(released: 0, remaining: items.count, failed: 0, code: "stale-release")
+        }
+        var released = 0, failed = 0
+        for item in items {
+            var updated = queue
+            guard let index = updated.firstIndex(where: { $0.feedback.id == item.feedback.id }) else { continue }
+            updated[index].enrollmentRef = ref; updated[index].heldForEnrollment = false; updated[index].blocked = false
+            updated[index].nextAttemptAt = .distantPast
+            do { try persist(updated); released += 1 } catch { failed += 1 }
+        }
+        return HeldReleaseResult(released: released, remaining: items.count - released, failed: failed)
+    }
+
+    /// Discards held reports only. Takes no token and sends nothing, so it works while unenrolled.
+    @discardableResult public func clearHeldReports() -> HeldClearResult {
+        let items = held()
+        var cleared = 0, failed = 0
+        for item in items {
+            do { try persist(queue.filter { $0.feedback.id != item.feedback.id }); cleared += 1 } catch { failed += 1 }
+        }
+        return HeldClearResult(cleared: cleared, remaining: items.count - cleared, failed: failed)
     }
 
     /// One bounded pass, at most ten reports. The host schedules future foreground passes.
@@ -115,12 +214,50 @@ public actor Client {
         guard !paused else { throw FramebriarError.paused }
         guard !busy else { return }
         busy = true; defer { busy = false }
-        let ticket = generation
-        for item in queue {
+        try await pass(queue, ticket: generation)
+    }
+
+    /// Attempts one committed report now, for an immediate result after Send. Other queued reports
+    /// wait for the next `flush()`. Never throws and never removes an undelivered report. An older
+    /// pass still running after `waitLimit` seconds leaves this report queued for the next one.
+    public func deliver(_ id: UUID, waitLimit: TimeInterval = 10) async -> FeedbackDeliveryOutcome {
+        var waited: TimeInterval = 0
+        while busy, waited < waitLimit {
+            try? await Task.sleep(nanoseconds: 50_000_000); waited += 0.05
+        }
+        guard !busy else { return .saved(.serviceBusy) }
+        if !paused, let item = queue.first(where: { $0.feedback.id == id }), !item.blocked, !isHeld(item), item.nextAttemptAt <= now() {
+            busy = true; defer { busy = false }
+            try? await pass([item], ticket: generation)
+        }
+        return outcome(of: id)
+    }
+
+    private func outcome(of id: UUID) -> FeedbackDeliveryOutcome {
+        if receivedIDs.contains(id) { return .sent }
+        guard let item = queue.first(where: { $0.feedback.id == id }) else { return .needsAttention(.removed) }
+        if isHeld(item) { return .needsAttention(.heldForEnrollment) }
+        if item.blocked { return .needsAttention(.rejected) }
+        if enrollment.refreshToken == nil || enrollment.expiresAt.map({ $0 <= now() }) == true { return .needsAttention(.accessRequired) }
+        if paused { return .saved(.paused) }
+        switch lastFaults[id] {
+        case .storage?: return .needsAttention(.deliveryUnconfirmed)
+        case .network?: return .saved(.offline)
+        case .some: return .saved(.serviceBusy)
+        case nil: return item.feedback.incident != nil && !correlationSupported ? .saved(.waitingForService) : .saved(.serviceBusy)
+        }
+    }
+
+    private func pass(_ items: [QueuedFeedback], ticket: Int) async throws {
+        for item in items {
             try check(ticket)
             guard !item.blocked, item.nextAttemptAt <= now() else { continue }
+            // Before any token, and read again from the queue: a release may have run during an await.
+            guard let current = queue.first(where: { $0.feedback.id == item.feedback.id }), !isHeld(current) else { continue }
             do {
                 let bearer = try await token(ticket)
+                // A token only exists for the current enrollment. Refuse if it moved during that await.
+                guard current.enrollmentRef == enrollment.enrollmentRef else { continue }
                 let report = item.feedback
                 // An old service silently drops unknown report fields. Retain this report
                 // unchanged until refreshed access explicitly advertises schema support.
@@ -142,8 +279,14 @@ public actor Client {
                 try check(ticket)
                 try persist(queue.filter { $0.feedback.id != report.id })
                 lastReceivedID = report.id
+                receivedIDs = Array((receivedIDs + [report.id]).suffix(ClientStatus.maxItems * 2))
+                lastDeliveryResult = "ok"; lastFaults[report.id] = nil
             } catch {
                 try check(ticket)
+                // The enrollment moved during this attempt: the report is held now. No retry is spent.
+                if current.enrollmentRef != enrollment.enrollmentRef { continue }
+                lastFaults[item.feedback.id] = error as? FramebriarError ?? .network
+                lastDeliveryResult = failureName(error as? FramebriarError ?? .network)
                 if error as? FramebriarError == .storage { throw FramebriarError.storage }
                 var updated = queue
                 guard let index = updated.firstIndex(where: { $0.feedback.id == item.feedback.id }) else { continue }
@@ -172,6 +315,7 @@ public actor Client {
         let old = enrollment.refreshToken
         enrollmentSignal.update(EnrollmentRecord()) // telemetry stops even if the local save fails
         try saveEnrollment(EnrollmentRecord())
+        fenceHeldReports()
         accessToken = nil; accessExpiry = nil; correlationSupported = false; lastAttempt = nil
         guard let old else { return true }
         do {
@@ -180,9 +324,26 @@ public actor Client {
         } catch { return false }
     }
 
+    private func failureName(_ fault: FramebriarError) -> String {
+        switch fault {
+        case .network: "offline"
+        case .unavailable: "server"
+        case .accessRequired, .expired: "auth"
+        case .rejected, .conflict, .invalidInput, .invalidResponse: "protocol"
+        case .storage, .capacity: "storage"
+        case .busy: "busy"
+        case .paused: "cancelled"
+        case .enrollmentChanged: "auth"
+        case .invalidConfiguration: "unknown"
+        }
+    }
     private func check(_ ticket: Int, allowPaused: Bool = false) throws {
         guard generation == ticket, allowPaused || !paused else { throw FramebriarError.paused }
         try Task.checkCancellation()
+    }
+    /// Best effort. If this save fails the next launch retries, and this code still won't send them.
+    private func fenceHeldReports() {
+        try? persist(Self.settled(queue, enrollment: enrollment, seen: false))
     }
     private func persist(_ items: [QueuedFeedback]) throws {
         do { try feedbackStore.save(items, scope: configuration.storageScope); queue = items }
@@ -232,7 +393,11 @@ public actor Client {
               expiry > now(), expiry.timeIntervalSince(now()) <= 3600, end >= expiry,
               end.timeIntervalSince(now()) <= 365 * 86400,
               previous == nil || (previous?.refreshToken == refresh && previous?.expiresAt == end) else { throw FramebriarError.invalidResponse }
-        try saveEnrollment(EnrollmentRecord(refreshToken: refresh, expiresAt: end, enrolled: true, notice: .connected))
+        // A redemption is a new enrollment, even under the same invitation. A refresh is not.
+        let ref = previous == nil ? UUID().uuidString.lowercased() : previous?.enrollmentRef
+        try saveEnrollment(EnrollmentRecord(refreshToken: refresh, expiresAt: end, enrolled: true, notice: .connected, enrollmentRef: ref))
+        // In the same actor turn, before the new token can be used for anything.
+        if previous == nil { fenceHeldReports() }
         accessToken = token; accessExpiry = expiry
         correlationSupported = (value["feedbackCorrelationVersion"] as? NSNumber).map { CFGetTypeID($0) != CFBooleanGetTypeID() && $0 == 1 } ?? false
     }
