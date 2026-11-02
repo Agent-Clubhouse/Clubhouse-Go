@@ -7,6 +7,9 @@ struct CompanionConversationView: View {
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
     @State private var followLatest = true
+    @State private var atLatest = true
+    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
+    @State private var readingViewport = CompanionReadingViewport()
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showRefreshing = false
@@ -28,6 +31,7 @@ struct CompanionConversationView: View {
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
 
+    private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
@@ -227,20 +231,24 @@ struct CompanionConversationView: View {
     }
 
     private var timeline: some View {
-        ScrollViewReader { proxy in
+        let rows = CompanionTimelineFolding.rows(for: conversation.items)
+        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries)
+        let entries = window.entries
+        let stops = CompanionAssistantNavigation.targets(in: entries)
+        return ScrollViewReader { proxy in
             ScrollView {
-                let rows = CompanionTimelineFolding.rows(for: conversation.items)
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
                 // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
                 // is a row per slice, so no row is far taller than the screen.
-                let window = CompanionTimelineWindow(rows: rows, limit: shownEntries)
-                let entries = window.entries
                 // Each entry sets its own spacing, never negative.
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: 22) {
                         timelineHeader
                         if window.hiddenCount > 0 {
-                            Button("Show earlier messages", systemImage: "arrow.up.circle") { shownEntries += CompanionTimelineWindow.pageSize }
+                            Button("Show earlier messages", systemImage: "arrow.up.circle") {
+                                followLatest = false
+                                shownEntries += CompanionTimelineWindow.pageSize
+                            }
                                 .font(.caption).frame(maxWidth: .infinity)
                                 .accessibilityIdentifier("companion-show-earlier")
                         }
@@ -255,15 +263,23 @@ struct CompanionConversationView: View {
                         }
                         .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
                         .id(entry.id)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(key: CompanionReadingFrames.self,
+                                    value: [entry.id: geometry.frame(in: .named("companion-transcript-content"))])
+                            }
+                        }
                     }
                     Color.clear.frame(height: 1).padding(.top, 22).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.vertical, 24)
+                .coordinateSpace(name: "companion-transcript-content")
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
-            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .scrollPosition($readingScrollPosition)
+            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
             .defaultScrollAnchor(.bottom, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
@@ -273,15 +289,43 @@ struct CompanionConversationView: View {
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { _, phase, context in
-                if phase == .interacting, followLatest { followLatest = false }
-                if phase == .idle, !followLatest, Self.isAtLatest(context.geometry) { followLatest = true }
+                readingViewport.isInteracting = phase == .interacting || phase == .decelerating
+                if phase == .interacting { followLatest = false }
+                if phase == .idle && !readingViewport.isRestoring {
+                    let metrics = Self.metrics(context.geometry)
+                    atLatest = metrics.isAtLatest
+                    followLatest = metrics.isAtLatest
+                    saveReadingPosition(metrics)
+                }
             }
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
-                if Self.isAtLatest(new) {
-                    if !followLatest { followLatest = true }
-                } else if followLatest && Self.scrolledToTop(from: old, to: new) {
-                    // Tapping the status bar scrolls to the top with no scroll phase at all (#188).
-                    followLatest = false
+                guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
+                let metrics = Self.metrics(new)
+                readingViewport.metrics = metrics
+                atLatest = metrics.isAtLatest
+                if readingViewport.isRestoring {
+                    let desired = min(readingViewport.restoreOffset ?? readingBookmark.position.offset, metrics.maximumOffset)
+                    guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
+                    readingViewport.isRestoring = false
+                    saveReadingPosition(metrics)
+                }
+                if !readingViewport.isInteracting {
+                    if metrics.isAtLatest { followLatest = true }
+                    else if followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
+                }
+                // On a layout change, the frame callback restores the existing entry, before capturing a new one.
+                if old.contentSize == new.contentSize { saveReadingPosition(metrics) }
+            }
+            .onPreferenceChange(CompanionReadingFrames.self) { rects in
+                let frames = rects.mapValues { Double($0.minY)...Double($0.maxY) }
+                readingViewport.frames = frames
+                guard !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
+                let saved = readingBookmark.position
+                let offset = saved.restoredOffset(frames: frames)
+                if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
+                    readingViewport.isRestoring = true
+                    readingViewport.restoreOffset = offset
+                    readingScrollPosition.scrollTo(y: offset)
                 }
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
@@ -289,14 +333,24 @@ struct CompanionConversationView: View {
             // A tap outside the composer closes its / menu.
             .simultaneousGesture(TapGesture().onEnded { dismissSlashMenu() }, isEnabled: !slashMatches.isEmpty)
             .overlay(alignment: .bottomTrailing) {
-                if !followLatest && !conversation.items.isEmpty {
-                    Button {
-                        // Follow first, so rows that resize on the way, such as a streaming reply, keep the bottom anchored.
-                        followLatest = true
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
-                    } label: { Label("Latest", systemImage: "arrow.down") }
-                    .buttonStyle(.glass).padding()
+                HStack(spacing: 8) {
+                    if !stops.isEmpty {
+                        Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
+                            .accessibilityLabel("Previous assistant message")
+                            .accessibilityIdentifier("companion-previous-message")
+                        Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
+                            .accessibilityLabel("Next assistant message")
+                            .accessibilityIdentifier("companion-next-message")
+                    }
+                    if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
+                        Button {
+                            followLatest = true
+                            readingBookmark.position.followsLatest = true
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                        } label: { Label("Latest", systemImage: "arrow.down") }
+                    }
                 }
+                .buttonStyle(.glass).controlSize(.small).padding(10)
             }
             .onChange(of: conversation.items) { _, _ in
                 if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
@@ -304,10 +358,19 @@ struct CompanionConversationView: View {
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
             // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
             .task(id: conversation.isLoaded) {
-                guard conversation.isLoaded, followLatest else { return }
+                let saved = readingBookmark.position
+                shownEntries = max(shownEntries, saved.shownEntries)
+                followLatest = saved.followsLatest
+                readingViewport.isRestoring = !saved.followsLatest
+                readingViewport.restoreOffset = saved.offset
+                guard conversation.isLoaded else { return }
                 await Task.yield()
-                proxy.scrollTo("latest", anchor: .bottom)
+                if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                else { readingScrollPosition.scrollTo(y: saved.offset) }
             }
+            .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
+            .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
+
         }
     }
 
@@ -334,9 +397,26 @@ struct CompanionConversationView: View {
     /// Loading and the empty state show only without entries, so they never sit above one.
     private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
 
-    private static func isAtLatest(_ geometry: ScrollGeometry) -> Bool {
-        geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height + geometry.contentInsets.bottom - 40
+    private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
+        .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
+              containerHeight: geometry.containerSize.height, topInset: geometry.contentInsets.top,
+              bottomInset: geometry.contentInsets.bottom)
     }
+    private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
+        readingBookmark.position.followsLatest = followLatest
+        readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
+    }
+    private func jump(stops: [String], forward: Bool, proxy: ScrollViewProxy) {
+        let offset = readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset
+        guard let id = CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
+                                                                viewportTop: offset, forward: forward) else {
+            if !forward { followLatest = false; shownEntries += CompanionTimelineWindow.pageSize }
+            return
+        }
+        followLatest = false
+        proxy.scrollTo(id, anchor: .top)
+    }
+
     /// The offset moved up to the very top while the content, the screen and the insets stayed the same: the status bar's
     /// scroll to the top, which following the latest never does. Rows loading and streaming change the content's size;
     /// the keyboard and the composer change the screen or the insets.
@@ -368,6 +448,9 @@ struct CompanionConversationView: View {
         switch row {
         case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID, items: items)
         case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
+        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target))
+        case .routed(let message, let index):
+            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
         }
     }
 
@@ -379,7 +462,7 @@ struct CompanionConversationView: View {
                 CompanionContentLinks(references: CompanionContentReference.references(in: item))
             }
         case .tool(let tool):
-            CompanionToolCard(tool: tool)
+            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
@@ -671,5 +754,20 @@ struct CompanionContextRing: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
+    }
+}
+
+/// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.
+private final class CompanionReadingViewport {
+    var frames: [String: ClosedRange<Double>] = [:]
+    var metrics: CompanionScrollMetrics?
+    var isInteracting = false
+    var isRestoring = false
+    var restoreOffset: Double?
+}
+private struct CompanionReadingFrames: PreferenceKey {
+    static let defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

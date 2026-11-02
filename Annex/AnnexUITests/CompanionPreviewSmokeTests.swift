@@ -185,6 +185,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
 
         // Done: wait through several updates, including a fold, before closing.
+        revealActivityContent(link, in: app)
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
         waitAndTap(newestLinkOnScreen(), until: done, timeout: 5, "Done must show while the preview loads")
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
@@ -268,17 +269,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         add(approvalShot)
 
         // The explored fold sits above the replies: scroll up to it.
-        let fold = app.buttons.matching(identifier: "companion-explore-group").firstMatch
+        let fold = app.buttons.matching(identifier: "companion-activity-tool:tool-1").firstMatch
         scrollTo(fold, in: app, up: false, maxSwipes: 8)
         XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
-        XCTAssertTrue(fold.label.contains("Explored 2 files, 1 search"), "The fold counts like the desktop: \(fold.label)")
+        XCTAssertTrue(fold.label.contains("4 tool calls"), "The fold counts like the desktop: \(fold.label)")
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
-        XCTAssertTrue(any.matching(NSPredicate(format: "label BEGINSWITH 'Run' AND label CONTAINS 'swift test --filter'")).firstMatch.exists,
-                      "The test run stays unfolded, labelled with the desktop's verb")
-        let links = app.buttons.matching(identifier: "companion-content-link")
-        XCTAssertTrue(links.matching(NSPredicate(format: "label == %@", "/Users/river/clubhouse/.build/test.log")).firstMatch.exists,
-                      "An absolute path inside the agent's content roots is offered")
-        XCTAssertFalse(links.matching(NSPredicate(format: "label == %@", "/tmp/scratch.txt")).firstMatch.exists, "A path outside the roots is not")
+        XCTAssertFalse(app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "/Users/river/clubhouse/.build/test.log")).firstMatch.exists,
+                       "Collapsed tool content and links are not built")
 
         // Each lookup's link opens from inside the fold, and its preview closes.
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch

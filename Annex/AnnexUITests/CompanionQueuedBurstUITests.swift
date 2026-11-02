@@ -7,6 +7,8 @@ import XCTest
         let river = element("agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element("companion-chat-header"), timeout: 10)
+        revealActivityContent(element("companion-routed-relay-1-0"), in: app)
+        revealActivityContent(element("companion-routed-relay-1-3"), in: app)
         for index in 0..<4 {
             let part = element("companion-routed-relay-1-\(index)")
             XCTAssertTrue(scrollUntilExists(part, in: app, up: false, maxSwipes: 8))

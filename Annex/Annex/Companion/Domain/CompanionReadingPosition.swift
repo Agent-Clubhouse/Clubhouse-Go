@@ -25,9 +25,13 @@ struct CompanionReadingPosition: Equatable, Sendable {
 
     mutating func capture(offset: Double, frames: [String: ClosedRange<Double>]) {
         self.offset = offset
-        if let entry = frames.filter({ $0.value.upperBound > offset }).min(by: { $0.value.lowerBound < $1.value.lowerBound }) {
-            entryID = entry.key
-            distanceFromEntry = offset - entry.value.lowerBound
+        var first: (key: String, value: ClosedRange<Double>)?
+        for entry in frames where entry.value.upperBound > offset {
+            if first == nil || entry.value.lowerBound < first!.value.lowerBound { first = entry }
+        }
+        if let first {
+            entryID = first.key
+            distanceFromEntry = offset - first.value.lowerBound
         }
     }
     func restoredOffset(frames: [String: ClosedRange<Double>]) -> Double {
@@ -47,7 +51,7 @@ enum CompanionAssistantNavigation {
             default: return nil
             }
             guard message.role == .assistant, case .you = message.display,
-                  !message.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !CompanionMessageRouting.stripTaskMarker(message.text).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   seen.insert(message.id).inserted else { return nil }
             return entry.id
         }

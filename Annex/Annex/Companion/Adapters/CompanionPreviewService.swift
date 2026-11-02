@@ -22,6 +22,7 @@ import ClubhouseTransport
     private let showsLongBlocks: Bool
     /// UI tests add a reply of about 10,000 words with large blocks in it (`--companion-preview-long-reply`).
     private let showsLongReply: Bool
+    private let showsReadingScenario: Bool
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
     private let mcpEnabled: Bool
@@ -32,10 +33,11 @@ import ClubhouseTransport
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
          showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
-         showsQuestions: Bool = false, showsContextWindow: Bool = false) {
+         showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false) {
         self.showsQuestions = showsQuestions
         self.showsContextWindow = showsContextWindow
         self.showsHelperTree = showsHelperTree
+        self.showsReadingScenario = showsReadingScenario
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
@@ -79,6 +81,10 @@ import ClubhouseTransport
             for (index, at) in [2, 5].enumerated() where step % 10 >= at {
                 updates.append(.init(id: "live-\(run)-read-\(index)", name: "Read file", summary: "Fixture\(index).swift", output: nil, state: step % 10 == at ? .running : .completed,
                                      kind: .read, location: "Tests/Fixture\(index).swift"))
+            }
+            if showsReadingScenario {
+                continuation?.yield(.upsert(Self.target, .message(.init(id: "reading-live", role: .assistant,
+                    text: String(repeating: "Streaming preview reply. ", count: step), isStreaming: true)), sequence: nil))
             }
             for tool in updates {
                 guard case .enqueued = continuation?.yield(.upsert(Self.target, .tool(tool), sequence: nil)) else { return }
@@ -238,6 +244,10 @@ import ClubhouseTransport
                 .question(.init(id: "partial", prompts: [prompt], hasUnreadablePrompts: true)),
                 .question(.init(id: "complete", prompts: [prompt])),
             ], capabilities: [.chat, .answer])
+        }
+        if showsReadingScenario {
+            return .init(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
+                text: "Reading marker \($0).\n\nA stable preview paragraph for testing history, keyboard and streaming position.")) })
         }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),

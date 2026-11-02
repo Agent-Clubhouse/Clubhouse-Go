@@ -20,6 +20,24 @@ struct CompanionReadingPositionTests {
         #expect(bookmark.restoredOffset(frames: ["b": 500...600]) == 510)
         #expect(bookmark.restoredOffset(frames: [:]) == 110)
     }
+    @Test func bounceTinyScrollAndKeyboardRecomputeActualBottom() {
+        for offset in [540.0, 545, 539, 525] {
+            let metrics = CompanionScrollMetrics(offset: offset, contentHeight: 1_000, containerHeight: 500, bottomInset: 40)
+            #expect(metrics.isAtLatest)
+            #expect(!CompanionReadingPosition(followsLatest: false).showsLatestButton(metrics))
+        }
+        #expect(!CompanionScrollMetrics(offset: 523, contentHeight: 1_000, containerHeight: 500, bottomInset: 40).isAtLatest)
+        #expect(CompanionScrollMetrics(offset: -100, contentHeight: 200, containerHeight: 800, topInset: 100, bottomInset: 50).isAtLatest)
+    }
+    @Test func navigationUsesViewportTopAndIncludesStructuredQuestions() {
+        let entries: [CompanionTimelineEntry] = [.row(.item(.question(.init(id: "q", prompts: []))))]
+        #expect(CompanionAssistantNavigation.targets(in: entries) == ["question:q"])
+        let targets = ["a", "b", "c"]
+        let frames: [String: ClosedRange<Double>] = ["a": 0...100, "b": 100...200, "c": 200...300]
+        #expect(CompanionAssistantNavigation.destination(in: targets, frames: frames, viewportTop: 110, forward: false) == "b")
+        #expect(CompanionAssistantNavigation.destination(in: targets, frames: frames, viewportTop: 100, forward: false) == "a")
+        #expect(CompanionAssistantNavigation.destination(in: targets, frames: frames, viewportTop: 110, forward: true) == "c")
+    }
     @Test func navigationOnlyTargetsUserFacingAssistantRepliesOncePerMessage() {
         let rows: [CompanionTimelineRow] = [
             .item(.message(.init(id: "user", role: .user, text: "Hello"))),
