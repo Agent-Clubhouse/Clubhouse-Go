@@ -9,6 +9,7 @@ struct CompanionPreviewRoot: View {
                                                                                    showsLongBlocks: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-blocks"),
                                                                                    showsLongReply: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-reply"),
                                                                                    showsDispatcher: ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher"),
+                                                                                   showsMultipleDispatchers: ProcessInfo.processInfo.arguments.contains("--companion-preview-multiple-dispatchers"),
                                                                                    mcpEnabled: !ProcessInfo.processInfo.arguments.contains("--companion-preview-mcp-off"),
                                                                                    showsHelperIdentity: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-identity"),
                                                                                    showsHelperTree: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree"),
@@ -23,7 +24,9 @@ struct CompanionPreviewRoot: View {
         if !ProcessInfo.processInfo.arguments.contains("--companion-preview-keep-preferences") {
             UserDefaults.standard.removePersistentDomain(forName: suite)
         }
-        return CompanionPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
+        let preferences = CompanionPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-home") { preferences.startScreen = .home }
+        return preferences
     }()
     /// `--companion-preview-feedback`: an enrolled in-memory feedback client, for the Send feedback menu items.
     @State private var feedback: CompanionFeedbackPresenter? = ProcessInfo.processInfo.arguments.contains("--companion-preview-feedback")
@@ -33,14 +36,34 @@ struct CompanionPreviewRoot: View {
         CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: { showSettings = true }, isPreview: true)
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
-                    List { CompanionHelperPresetLinks(store: store) }
-                        .navigationTitle("Settings")
-                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
+                    Form {
+                        CompanionHelperPresetLinks(store: store)
+                        CompanionStartScreenPicker(preferences: preferences)
+                        if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-controls") {
+                            Section("Preview desktop reports") {
+                                Button("Report Dispatcher off") { report(enabled: false) }
+                                Button("Report Dispatcher on") { report(enabled: true) }
+                                Button("Report flag off") { report(enabled: true, flagOn: false) }
+                                Button("Disconnect desktop") { report(connection: .offline) }
+                                Button("Reconnect desktop") { report(connection: .connected) }
+                            }
+                        }
+                    }
+                    .navigationTitle("Settings")
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
                 }
             }
             .companionFeedbackEntryPoints(feedback)
             .shakeToOpenFeedback(model: feedback?.model, enabled: true)
             .task { await feedback?.model?.setActive(true) }
+    }
+    private func report(enabled: Bool? = nil, flagOn: Bool? = nil, connection: CompanionConnection? = nil) {
+        var hosts = store.hosts
+        guard let index = hosts.firstIndex(where: { $0.id == CompanionPreviewService.dispatcherTarget.hostID }) else { return }
+        if let enabled { hosts[index].dispatcher?.enabled = enabled }
+        if let flagOn { hosts[index].dispatcher?.flagOn = flagOn }
+        if let connection { hosts[index].connection = connection }
+        store.apply(.hosts(hosts))
     }
 }
 #endif

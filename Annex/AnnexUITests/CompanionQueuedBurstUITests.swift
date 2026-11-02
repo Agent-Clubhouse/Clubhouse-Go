@@ -3,6 +3,9 @@ import XCTest
 @MainActor final class CompanionQueuedBurstUITests: ReliableUITestCase {
     func testQueuedJoinsKeepOneDeliveredRowAndStablePartIdentifiers() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        home.tap()
         func element(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
         let river = element("agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))

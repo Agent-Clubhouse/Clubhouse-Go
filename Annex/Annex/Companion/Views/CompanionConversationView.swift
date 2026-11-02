@@ -6,6 +6,8 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
+    /// A parent-managed tab supplies visibility; navigation destinations use their normal appear/disappear lifecycle.
+    var isVisible: Bool? = nil
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -79,6 +81,22 @@ struct CompanionConversationView: View {
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
 
     var body: some View {
+        #if DEBUG
+        let _ = CompanionConversationBuildProbe.record?(.body, target)
+        #endif
+        Group {
+            if isVisible != false { content }
+            else { Color.clear }
+        }
+        .onChange(of: isVisible) { _, visible in
+            if visible == false {
+                composerFocused = false
+                readingViewport.clearGeometry()
+            }
+        }
+    }
+
+    private var content: some View {
         AnnexTelemetry.shared.measurePerformance(.conversationBody, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
@@ -243,6 +261,9 @@ struct CompanionConversationView: View {
     }
 
     private var timeline: some View {
+        #if DEBUG
+        let _ = CompanionConversationBuildProbe.record?(.timeline, target)
+        #endif
         let rows = store.timelineRows(for: target)
         let viewport = readingViewport
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
@@ -423,7 +444,11 @@ struct CompanionConversationView: View {
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
-            .onDisappear { viewport.clearGeometry() }
+            .onDisappear {
+                // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
+                // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
+                if isVisible == nil { viewport.clearGeometry() }
+            }
 
         }
     }

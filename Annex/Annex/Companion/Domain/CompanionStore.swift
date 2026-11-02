@@ -831,7 +831,14 @@ import Observation
     private func applyEvent(_ event: CompanionEvent) {
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
-        case .hosts(let hosts):
+        case .hosts(let incoming):
+            let hosts = incoming.map { host in
+                var host = host
+                if host.dispatcher == nil, !host.connection.canOperate {
+                    host.dispatcher = self.hosts.first { $0.id == host.id }?.dispatcher
+                }
+                return host
+            }
             clearRemovedChats(in: hosts)
             self.hosts = hosts
             var runs = finishedRuns

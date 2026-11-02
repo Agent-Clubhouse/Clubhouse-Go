@@ -6,6 +6,8 @@ import XCTest
 final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Opens River's conversation from Home, tapping again if a slow runner drops the tap.
     private func openRiver(_ app: XCUIApplication, maxSwipes: Int = 4, file: StaticString = #filePath, line: UInt = #line) {
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        if home.exists && !home.isSelected { home.tap() }
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         scrollUntilExists(agent, in: app, maxSwipes: maxSwipes, file: file, line: line)
         XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear", file: file, line: line)
@@ -16,6 +18,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
 
     private func openAgentSettings(_ app: XCUIApplication, sleeping: Bool = false) {
+        let home = app.tabBars.buttons["Home"]
+        if home.waitForExistence(timeout: 5), !home.isSelected { home.tap() }
         let any = app.descendants(matching: .any)
         let row = any.matching(identifier: sleeping ? "agent-preview-studio-juniper" : "agent-preview-studio-river").firstMatch
         if sleeping { expandFold(any.matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch, revealing: row, in: app) }
