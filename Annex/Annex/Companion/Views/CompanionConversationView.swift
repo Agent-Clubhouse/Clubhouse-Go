@@ -48,6 +48,11 @@ struct CompanionConversationView: View {
     /// The draft as the composer edits it. Return while the `/` menu offers a started name picks it, as on the desktop.
     private var composerText: Binding<String> {
         Binding(get: { draft.wrappedValue }, set: { text in
+            #if DEBUG
+            if CompanionImagePaste.tracesPreviewTyping {
+                print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
+            }
+            #endif
             if composerFocused, let commands = agent.slashCommands,
                let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
                                                              highlighted: slashHighlight, dismissedAt: slashDismissedAt) {

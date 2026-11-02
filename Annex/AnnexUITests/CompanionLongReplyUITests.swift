@@ -48,7 +48,7 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
     }
 
     func testLongReplyScrollsToTheTopAndBackWithoutStalling() {
-        let app = launchApp(["--companion-preview", "--companion-preview-long-reply"], allowance: 600)
+        let app = launchApp(["--companion-preview", "--companion-preview-long-reply"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"], allowance: 600)
         openRiver(app)
         let top = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Preview conversation'")).firstMatch
         let end = app.staticTexts["End of the long reply."]
