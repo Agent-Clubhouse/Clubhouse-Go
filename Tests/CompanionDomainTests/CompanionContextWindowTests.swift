@@ -173,9 +173,52 @@ private func settingsBody(context: AnnexJSON?, model: String = "model-a", provid
         #expect(CompanionContextWindowReset(json: .null) == nil)
         #expect(CompanionContextWindowReset(json: .object(["reason": .bool(true)])) == nil)
     }
+
+    @Test func unavailableKeepsSavedChoiceWithoutClaimingItWasCleared() throws {
+        var fields = contextFields(value: .string("long_context"))
+        fields["state"] = .string("unavailable")
+        fields["configurable"] = .bool(false)
+        fields["choices"] = .array([])
+        fields["notice"] = .null
+        fields["reason"] = .string("The model catalog hasn't been confirmed.")
+        let settings = try CompanionAgentSettings(json: settingsBody(context: .object(fields)))
+        let context = try #require(settings.contextWindow)
+        #expect(context.value == "long_context" && context.isSavedNotApplied)
+        #expect(context.selectedLabel == "long_context (saved; not applied)")
+        #expect(context.notice == nil && settings.contextWindowReset == nil)
+    }
+
+    @Test func terminalClearShowsSettingsNoticeWithoutRequiringChat() throws {
+        var fields = contextFields()
+        let notice = "The saved context choice was cleared because this model no longer supports it."
+        fields["notice"] = .string(notice)
+        guard case .object(var body) = settingsBody(context: .object(fields)),
+              case .object(var settings)? = body["settings"] else { return }
+        settings["runtime"] = .object(["value": .string("terminal")])
+        body["settings"] = .object(settings)
+        let decoded = try CompanionAgentSettings(json: .object(body))
+        #expect(decoded.runtime.value == "terminal" && decoded.contextWindow?.value == nil)
+        #expect(decoded.contextWindow?.notice == notice)
+    }
 }
 
 @Suite struct CompanionChatContextTests {
+    // Hand-built projection coverage only; this does not prove start/resume-to-phone wire delivery.
+    @Test func notAppliedUsesTheExistingNoticeMessageWithoutParsingIt() {
+        var projector = CompanionChatProjector()
+        let message = "Saved choice wasn't passed. Keep this provider's wording: [1m] / long_context."
+        let notice: AnnexJSON = .object([
+            "agentId": .string("agent"), "sessionId": .string("session"), "seq": .integer(2),
+            "ts": .integer(1_793_566_800_000), "type": .string("notice"),
+            "data": .object(["level": .string("warn"), "code": .string("context_window_not_applied"), "message": .string(message)])
+        ])
+        let previousStatus = projector.status
+        projector.apply(notice)
+        projector.apply(notice) // Replayed sequence doesn't duplicate the once-per-start/resume notice.
+        #expect(projector.items == [.notice(id: "event-session-2", text: message)])
+        #expect(projector.status == previousStatus)
+    }
+
     @Test func readOnlyReportKeepsCapacityCompactionAndReservedDistinct() throws {
         let context: AnnexJSON = .object(["effectiveTokens": .integer(200_000), "compactAtTokens": .integer(160_000),
                                           "reservedTokens": .integer(20_000), "note": .string("Reported by this session.")])
