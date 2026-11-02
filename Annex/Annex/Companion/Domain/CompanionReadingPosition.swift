@@ -11,6 +11,11 @@ struct CompanionScrollMetrics: Equatable, Sendable {
     var maximumOffset: Double { max(0, contentHeight + topInset + bottomInset - containerHeight) }
     var isAtLatest: Bool { normalizedOffset >= maximumOffset - 16 }
     var isAtTrueBottom: Bool { normalizedOffset >= maximumOffset - 1 }
+    func didReachTop(from old: Self) -> Bool {
+        old.containerHeight == containerHeight && old.topInset == topInset && old.bottomInset == bottomInset
+            && old.contentHeight > old.containerHeight && abs(contentHeight - old.contentHeight) < containerHeight
+            && normalizedOffset < old.normalizedOffset && normalizedOffset <= 1
+    }
 }
 
 /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive

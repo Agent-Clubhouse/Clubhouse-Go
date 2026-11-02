@@ -379,7 +379,7 @@ struct CompanionConversationView: View {
                 }
                 .buttonStyle(.glass).controlSize(.small).padding(10)
             }
-            .onChange(of: conversation.items) { _, _ in
+            .onChange(of: conversation.itemsRevision) { _, _ in
                 if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
             }
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
@@ -458,10 +458,7 @@ struct CompanionConversationView: View {
 
     /// A status-bar jump can race a streaming content-size update, so it must not require unchanged content.
     private static func scrolledToTop(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
-        old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
-            && old.contentSize.height > old.containerSize.height
-            && abs(new.contentSize.height - old.contentSize.height) < new.containerSize.height
-            && new.contentOffset.y < old.contentOffset.y - 1 && new.contentOffset.y <= -new.contentInsets.top + 1
+        old.containerSize == new.containerSize && metrics(new).didReachTop(from: metrics(old))
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
