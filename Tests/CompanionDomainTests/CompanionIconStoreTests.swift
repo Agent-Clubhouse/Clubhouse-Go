@@ -193,6 +193,19 @@ import Testing
         #expect(FileManager.default.fileExists(atPath: await store.fileURL(for: key(token: "v2")).path))
     }
 
+    @Test func aSupersededResponseWithInvalidBytesAlsoWaitsForTheNextVersion() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let clock = Clock()
+        let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: Data([1, 2]), version: "v2"))
+        let store = CompanionIconStore(directory: root, now: { clock.now })
+        await store.setFetcher(for: "desktop") { key, _ in await fetcher.fetch(version: key.version) }
+        #expect(await store.image(for: key(), points: 32) == nil)
+        clock.advance(100_000)
+        #expect(await store.image(for: key(), points: 32) == nil)
+        #expect(await fetcher.calls == 1)
+        #expect(await store.statistics.totalBytes == 0)
+    }
+
     @Test func anUnversionedSuccessOr304WithoutBytesCannotCreateACacheAssociation() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let png = try Self.png()
