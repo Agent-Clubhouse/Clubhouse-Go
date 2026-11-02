@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 import Markdown
 
 /// Agent replies parsed into native blocks. cmark-gfm (via swift-markdown) does the parsing, so headings,
@@ -47,7 +50,9 @@ enum CompanionMarkdown {
     static func document(_ text: String, streaming: Bool = false) -> CompanionMarkdownDocument {
         let key = "\(streaming ? 1 : 0)\u{0}\(text)" as NSString
         if let cached = cache.object(forKey: key) { return cached.document }
-        let document = parse(text, streaming: streaming)
+        let document = AnnexTelemetry.shared.measurePerformance(.markdownParse, textBytes: text.utf8.count) {
+            parse(text, streaming: streaming)
+        }
         cache.setObject(Box(document), forKey: key)
         return document
     }

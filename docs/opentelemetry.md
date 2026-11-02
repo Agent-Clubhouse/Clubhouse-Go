@@ -213,3 +213,18 @@ Service redeem/refresh must advertise `feedbackCorrelationVersion:1`; otherwise 
 reports remain queued without sending or dropping metadata. Ordinary reports remain compatible.
 The service owner owns normalization/storage and capability advertisement; no deployment is
 included. See [incident contract](feedback-incident-v1.md). Vendor SOURCE.json records the exact upstream commit and file hashes; there are no local SDK patches.
+
+## Local chat performance summaries
+
+Open conversations aggregate `projectorApply`, `storeApply`, `timelineBuild`, `markdownParse`,
+`conversationBody`, `messageBody`, and `mainActorDelay` into the existing bounded routine-summary
+map. Each kind exports at most one `app.performance.summary` per flush interval, with numeric
+`count`, `durationMs` (sum), `mean_ms`, `max_ms`, `over_threshold`, `messageCount` (maximum), and
+`textBytes` (maximum, where applicable). There is no per-chunk span or retained message content.
+Collection uses the existing diagnostics/enrollment gate and clear/opt-out generation fence.
+
+Body timing measures synchronous SwiftUI view construction, not layout or GPU rendering. A 250 ms
+probe while an open conversation is active records excess main-actor scheduling delay; delays of
+100 ms or more count as over threshold. This can reveal a stall but is not a frame-rate/hitch metric
+and must not be interpreted as a measured display frame. Counts and sizes distinguish a long
+history, large rows, repeated body passes, and reconnect fan-out without exporting agent/session IDs.
