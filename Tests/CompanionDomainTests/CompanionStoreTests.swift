@@ -11,6 +11,7 @@ import Testing
     var spawnCount = 0
     var spawnResult: SendResult = .accepted
     var spawned: [CompanionSpawnRequest] = []
+    var createdTarget: CompanionTarget?
     var removedMessages: [String] = []
     var removalIsUncertain = false
     var historyValue = CompanionHistory(items: [])
@@ -46,7 +47,11 @@ import Testing
         spawned.append(request)
         if spawnResult == .uncertain { throw CompanionServiceError.uncertain("Reply lost") }
         if spawnResult == .rejected { throw CompanionServiceError.rejected("Not started") }
-        return .init(clientCommandID: request.clientCommandID)
+        return .init(clientCommandID: request.clientCommandID, agentTarget: createdTarget)
+    }
+    func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
+        guard let target = createdTarget else { throw CompanionServiceError.rejected("No fixture target") }
+        return .init(target: target, isCreating: false)
     }
     func reconnect(hostID: String) async {}
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
@@ -69,6 +74,89 @@ import Testing
               projects: [.init(id: "project", name: "Project", agents: [
                 .init(id: .init(hostID: id, projectID: "project", agentID: "agent"), name: "Agent", subtitle: "Task", status: .working, capabilities: [.chat, .steer, .cancel, .approve])
               ])])
+    }
+
+    @Test(arguments: [false, true]) func staleCatalogDoesNotClearNewlyOpenedUnlistedChat(isQuick: Bool) async {
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service)
+        var stale = host(id: "host-a")
+        stale.hasLoadedCatalog = true; stale.canSpawn = true; stale.canCreateDurable = true
+        store.apply(.hosts([stale]))
+        let new = CompanionTarget(hostID: "host-a", projectID: "project", agentID: "new-agent")
+        service.createdTarget = new
+        service.historyValue = .init(items: [.message(.init(id: "history", role: .assistant, text: "Keep this chat"))])
+        if isQuick {
+            #expect(await store.spawn(project: .init(hostID: new.hostID, projectID: new.projectID), prompt: "Task", provider: nil, model: nil))
+        } else {
+            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, persona: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
+        }
+        #expect(store.selection == new)
+        await store.load(new)
+        store.apply(.hosts([stale])) // The read started before the create/spawn receipt.
+        #expect(store.conversation(for: new).isLoaded)
+        #expect(store.conversation(for: new).items.count == 1)
+        store.apply(.hosts([]))
+        #expect(!store.conversation(for: new).isLoaded, "Forgetting a host clears even a never-listed chat")
+    }
+
+    @Test(arguments: [false, true]) func staleCatalogKeepsNewAgentChatAndInFlightCommand(isQuick: Bool) async {
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service)
+        var stale = host(id: "host-a"); stale.hasLoadedCatalog = true; stale.canSpawn = true; stale.canCreateDurable = true
+        store.apply(.hosts([stale]))
+        let new = CompanionTarget(hostID: "host-a", projectID: "project", agentID: "new-agent")
+        service.createdTarget = new
+        if isQuick {
+            #expect(await store.spawn(project: .init(hostID: new.hostID, projectID: new.projectID), prompt: "Task", provider: nil, model: nil))
+        } else {
+            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, persona: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
+        }
+        var fresh = stale
+        fresh.projects[0].agents.append(.init(id: new, name: "New", subtitle: "Task", status: .idle, capabilities: [.chat], isQuick: isQuick))
+        store.apply(.hosts([fresh])) // Creation is listed before an older catalog read finishes.
+        await store.load(new)
+        service.shouldSuspendSend = true
+        store.drafts[new] = "Follow up"
+        let send = Task { await store.sendDraft(to: new) }
+        while service.sendGate == nil { await Task.yield() }
+        #expect(store.pendingCommands.contains(new))
+        store.apply(.hosts([stale]))
+        #expect(store.conversation(for: new).isLoaded)
+        #expect(store.pendingCommands.contains(new))
+        #expect(!store.conversation(for: new).items.isEmpty)
+        service.sendGate?.resume(returning: .init(clientCommandID: service.sent[0].clientCommandID))
+        await send.value
+        #expect(store.conversation(for: new).isLoaded)
+    }
+
+    @Test func confirmedListedDurableRemovalStillClearsChat() async {
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service)
+        var listed = host(id: "host-a"); listed.hasLoadedCatalog = true
+        store.apply(.hosts([listed]))
+        await store.load(target)
+        listed.projects[0].agents = []
+        store.apply(.hosts([listed]))
+        #expect(!store.conversation(for: target).isLoaded)
+    }
+
+    @Test func quickAgentCatalogExpiryKeepsItsLoadedChat() async {
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service)
+        var listed = host(id: "host-a"); listed.hasLoadedCatalog = true
+        listed.projects[0].agents[0].isQuick = true
+        listed.projects[0].agents[0].hasExited = true
+        listed.projects[0].agents[0].status = .completed
+        store.apply(.hosts([listed]))
+        service.historyValue = .init(items: [.message(.init(id: "result", role: .assistant, text: "Finished result"))])
+        await store.load(target)
+        var expired = listed; expired.projects[0].agents = []
+        store.apply(.hosts([expired])) // Desktop's quick-agent catalog retention has elapsed.
+        #expect(store.agent(for: target) == nil)
+        #expect(store.conversation(for: target).isLoaded)
+        #expect(store.conversation(for: target).items.count == 1)
+        store.apply(.hosts([]))
+        #expect(!store.conversation(for: target).isLoaded, "Forgetting the host still clears even expired quick chat")
     }
 
     @Test func hostIdentityAndDraftsStayIsolated() async {

@@ -34,6 +34,11 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // Other reads, keyed by route name (see `key(_:)`).
     private var reads: [String: Result<AnnexJSON, AnnexTransportError>] = [:]
+    private var pauseNext: Set<String> = []
+    private var paused: [String: CheckedContinuation<Void, Never>] = [:]
+    func pauseNextRead(_ route: String) { pauseNext.insert(route) }
+    func isReadPaused(_ route: String) -> Bool { paused[route] != nil }
+    func resumeRead(_ route: String) { paused.removeValue(forKey: route)?.resume() }
     private(set) var readRoutes: [AnnexReadRouteRecord] = []
 
     // Commands.
@@ -109,6 +114,9 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         readRoutes.append(.init(route))
+        let name = Self.key(route)
+        if pauseNext.remove(name) != nil { await withCheckedContinuation { paused[name] = $0 } }
+        if let result = reads[Self.key(route)] { return try result.get() }
         switch route {
         case .capabilities: return capabilitiesDocument
         case .projects:
@@ -211,7 +219,7 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     /// It follows the service's own events, subscribed before the resync: the host goes synchronizing, then
     /// connected once the refresh has applied everything. Then it waits for the store to show that same host.
     /// Read counts or the store's view alone can't say this: the store may still show the connection from before.
-    func refreshCatalog(sourceLocation: SourceLocation = #_sourceLocation) async throws {
+    func refreshCatalog(allowingFailure: Bool = false, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         let events = service.events()
         await transport.emit(.resyncRequired(.reconnected))
         let watcher = Task { @MainActor () -> CompanionHost? in
@@ -219,7 +227,10 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
             for await event in events {
                 guard case .hosts(let hosts) = event, let host = hosts.first(where: { $0.id == Self.hostID }) else { continue }
                 if host.connection == .synchronizing { synchronizing = true }
-                else if synchronizing, host.connection == .connected { return host }
+                else if synchronizing {
+                    if host.connection == .connected { return host }
+                    if allowingFailure, case .failed = host.connection { return host }
+                }
             }
             return nil
         }
