@@ -102,7 +102,13 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
 7. **Approvals and questions.** Use a harmless pending approval and a structured question; answer once
    and check both phone and desktop agree. Long-press the **center of an agent row**, then its **label**
    separately; note which opens the menu, whether the finger target is obscured, and whether it belongs
-   to the right agent. Check agent navigation and Needs you lead to the pending item.
+   to the right agent. Repeat each press and record any press that opens the chat instead of the menu,
+   with iOS version and the point used ([investigation #247](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/247)).
+   Check agent navigation and Needs you lead to the pending item.
+   Open **Wake with a message** a few times: record whether the keyboard and caret appear before
+   touching the field ([intermittent autofocus investigation #246](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/246)).
+   Then tap the field, type a distinctive harmless sentence and check every character before waking.
+   A successful field tap does not count as an autofocus pass.
 8. **Terminal.** Open a disposable shell, type a harmless command, scroll and copy output, then close.
    Reopen/reconnect and check clear state and working input; older scrollback may be absent and a shell
    may be new. Do not judge reconnect as continuity of the old shell.
