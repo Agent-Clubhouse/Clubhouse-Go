@@ -240,6 +240,7 @@ struct CompanionAgentListRow: View {
     var parentLine: String?
     var helperRollup: CompanionHelperRollup?
     @Environment(\.companionPalette) private var palette
+    @Environment(\.companionHelperLabels) private var helperLabels
     var body: some View {
         HStack(spacing: 12) {
             CompanionAgentAvatar(agent: agent)
@@ -266,6 +267,11 @@ struct CompanionAgentListRow: View {
                     }
                 }
                 .font(.subheadline)
+                if let routing = agent.routing {
+                    Text(routing.selection.summary + " · " + routing.reasonText(labels: helperLabels[agent.id.hostID] ?? [:]))
+                        .font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
+                        .accessibilityIdentifier("helper-routing-row")
+                }
                 if let parentLine {
                     Text(parentLine).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
                 }

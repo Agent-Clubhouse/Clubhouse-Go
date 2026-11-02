@@ -212,6 +212,20 @@
         "requestId"
       ]
     },
+    "helperRouting.update": {
+      "fields": [
+        "revision",
+        "scope",
+        "projectId",
+        "cells",
+        "reset",
+        "auto"
+      ],
+      "required": [
+        "revision",
+        "scope"
+      ]
+    },
     "project.setInactive": {
       "fields": [
         "projectId",

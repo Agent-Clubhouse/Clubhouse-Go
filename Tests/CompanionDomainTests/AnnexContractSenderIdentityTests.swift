@@ -20,6 +20,32 @@ import Testing
         }
     }
 
+    @Test func initialsContrastAndFoxRowRenderingMatchTheDesktopFixture() throws {
+        let fixture = try ContractFixtures.json("sender-identity.json")
+        let colors = fixture["colors"].arrayValue
+        #expect(colors.count == 8)
+        for row in colors {
+            let color = CompanionIdentityColor.agentRGB(try #require(row["id"]?.string))
+            let text = color.contrast(with: .white) >= color.contrast(with: .black) ? CompanionRGB.white : .black
+            #expect(text.hex == row["initialsText"]?.string, "Initials on \(row["id"]?.string ?? "") match the desktop's contrast choice")
+        }
+        let expected = try #require(fixture["expected"].arrayValue.first { $0["messageId"]?.string == "emoji_over_image" })
+        let part = try #require(expected["parts"].arrayValue.first)
+        let id = try #require(part["agentId"]?.string)
+        let raw = try #require(fixture["catalog"]?["agents"]?["proj_app"].arrayValue.first { $0["id"]?.string == id })
+        var agent = CompanionAgent(id: .init(hostID: "fixture", projectID: "proj_app", agentID: id),
+                                   name: try #require(raw["name"]?.string), subtitle: "", status: .idle)
+        CompanionLiveService.applyIdentity(raw, icon: fixture["catalog"]?["agentIcons"]?[id], to: &agent)
+        #expect(agent.emoji == "🦊" && agent.iconData != nil, "The fox wins even with the fixture's image present")
+        let frame = try #require(fixture["frames"].arrayValue.first { $0["payload"]?["event"]?["data"]?["messageId"]?.string == expected["messageId"]?.string })
+        var projector = CompanionChatProjector()
+        projector.apply(try #require(frame["payload"]?["event"]))
+        guard case .message(let message)? = projector.items.first,
+              case .others(let renderedParts) = message.display else { Issue.record("Missing fox sender row"); return }
+        #expect(renderedParts.count == 1)
+        try assertPart(#require(renderedParts.first), expected: part, message: message, resolver: .init(agents: [agent]))
+    }
+
     @Test func senderFacesMatchTheDesktopFixture() async throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
         let harness = try await LiveServiceHarness.start(configure: { transport in

@@ -29,6 +29,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case setLevel(agentID: String, sessionID: String, level: String)
         /// Turns the desktop's app-wide Dispatcher on or off (`dispatcher` v1). Turning it on needs the experimental flag.
         case setDispatcherEnabled(Bool)
+        case updateHelperRouting(AnnexHelperRoutingUpdate)
     }
     /// A reasoning effort to switch to, or the provider's default (sent as `null`; needs `effortDefault`).
     public enum Effort: Sendable, Equatable {
@@ -67,6 +68,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .dismissFinishedQuick: "quick.dismiss"
         case .clearFinishedQuick: "quick.clear"
         case .setDispatcherEnabled: "dispatcher.setEnabled"
+        case .updateHelperRouting: "helperRouting.update"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -132,6 +134,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             v["projectId"] = .string(project); v["agentId"] = .string(agent)
         case .clearFinishedQuick(let project): v["projectId"] = .string(project)
         case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
+        case .updateHelperRouting(let update):
+            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil else { throw AnnexTransportError.malformedResponse }
+            v.merge(update.fields) { _, new in new }
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(AnnexJSON.object(v))
@@ -153,10 +158,12 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     public var crossProjectHelpers: Field<Bool>?
     /// "Connect to Dispatcher": the Dispatcher may message the agent. Refused (`dispatcher_off`) while the Dispatcher is off.
     public var connectToDispatcher: Field<Bool>?
+    public var autoHelpers: Field<Bool>?
     /// Sends `"orchestration": null` on `agent.update`, clearing every field the agent sets. The fields above are ignored.
     public var clearsAll = false
     public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil,
-                crossProjectHelpers: Field<Bool>? = nil, connectToDispatcher: Field<Bool>? = nil) {
+                crossProjectHelpers: Field<Bool>? = nil, connectToDispatcher: Field<Bool>? = nil, autoHelpers: Field<Bool>? = nil) {
+        self.autoHelpers = autoHelpers
         self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
         self.crossProjectHelpers = crossProjectHelpers; self.connectToDispatcher = connectToDispatcher
     }
@@ -173,6 +180,7 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
         if let maxHelpers { v["maxHelpers"] = value(maxHelpers) { .integer(Int64($0)) } }
         if let crossProjectHelpers { v["crossProjectHelpers"] = value(crossProjectHelpers, AnnexJSON.bool) }
         if let connectToDispatcher { v["connectToDispatcher"] = value(connectToDispatcher, AnnexJSON.bool) }
+        if let autoHelpers { v["autoHelpers"] = value(autoHelpers, AnnexJSON.bool) }
         return .object(v)
     }
     /// The set fields only, for `agent.create`, which refuses `null`.
@@ -297,6 +305,9 @@ nonisolated public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public let epoch: String
     public let status: Status
     public let result: AnnexJSON?
+    /// A stale helper preset write returns the fresh page alongside its refusal.
+    public let revision: String?
+    public let settings: AnnexJSON?
     public let error: Failure?
     /// 'completed' means dispatch completed, not that the agent's turn ended.
     public var isDispatchAcknowledged: Bool { status == .completed }
@@ -375,6 +386,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
     public let orchestration: Feature?
     public let contextWindow: Feature?
+    public let helperRouting: HelperRouting?
+    public var supportsHelperRouting: Bool { helperRouting?.version == 1 }
+    public var supportsHelperRoutingUpdate: Bool { supportsHelperRouting && helperRouting?.canEditPresets == true && commands.contains("helperRouting.update") }
     public var supportsContextWindow: Bool { commands.contains("agent.update") && contextWindow?.version == 1 }
     public var supportsOrchestration: Bool { commands.contains("agent.update") && (orchestration?.version ?? 0) >= 1 }
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
@@ -473,6 +487,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
         contextWindow = optional(.contextWindow)
+        helperRouting = optional(.helperRouting)
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
@@ -480,7 +495,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }
 

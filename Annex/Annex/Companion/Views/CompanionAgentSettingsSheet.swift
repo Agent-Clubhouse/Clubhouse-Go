@@ -215,6 +215,15 @@ struct CompanionAgentSettingsForm: View {
             }
         }
 
+        if let routing = settings.routing, store.host(for: target)?.helperRouting != nil {
+            Section("Helper routing") {
+                if let summary = routing.summary { Text(summary).accessibilityIdentifier("helper-routing-summary") }
+                Text(routing.reasonText(labels: store.host(for: target)?.helperRoutingLabels ?? [:]))
+                    .accessibilityIdentifier("helper-routing-reason")
+                if let fallback = routing.displayFallback { Text(fallback).font(.subheadline).foregroundStyle(.secondary) }
+            }
+        }
+
         if isDispatcher {
             Section { CompanionDispatcherSwitch(store: store, hostID: target.hostID) }
         }

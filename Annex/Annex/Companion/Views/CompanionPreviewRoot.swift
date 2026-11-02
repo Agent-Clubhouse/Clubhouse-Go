@@ -14,7 +14,8 @@ struct CompanionPreviewRoot: View {
                                                                                    showsHelperTree: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree"),
                                                                                    showsQuestions: ProcessInfo.processInfo.arguments.contains("--companion-preview-questions"),
                                                                                    showsContextWindow: ProcessInfo.processInfo.arguments.contains("--companion-preview-context-window"),
-                                                                                   showsReadingScenario: ProcessInfo.processInfo.arguments.contains("--companion-preview-reading")))
+                                                                                   showsReadingScenario: ProcessInfo.processInfo.arguments.contains("--companion-preview-reading"),
+                                                                                   showsHelperPresets: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-presets")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
         let suite = ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree") ? "companion-preview-tree" : "companion-preview"
@@ -26,8 +27,16 @@ struct CompanionPreviewRoot: View {
     /// `--companion-preview-feedback`: an enrolled in-memory feedback client, for the Send feedback menu items.
     @State private var feedback: CompanionFeedbackPresenter? = ProcessInfo.processInfo.arguments.contains("--companion-preview-feedback")
         ? CompanionFeedbackPresenter(model: FramebriarShakePreview.fixtureModel(enrolled: true).0) : nil
+    @State private var showSettings = false
     var body: some View {
-        CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: {}, isPreview: true)
+        CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: { showSettings = true }, isPreview: true)
+            .sheet(isPresented: $showSettings) {
+                NavigationStack {
+                    List { CompanionHelperPresetLinks(store: store) }
+                        .navigationTitle("Settings")
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
+                }
+            }
             .companionFeedbackEntryPoints(feedback)
             .shakeToOpenFeedback(model: feedback?.model, enabled: true)
             .task { await feedback?.model?.setActive(true) }

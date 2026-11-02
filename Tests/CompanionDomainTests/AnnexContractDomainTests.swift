@@ -357,7 +357,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(workspace.changes?.files == 2 && workspace.changes?.additions == 94 && workspace.changes?.deletions == 51 && workspace.changes?.ahead == 2)
 
         #expect(settings.orchestration == CompanionOrchestration(sources: ["orchestrate": .default, "access": .default, "control": .default, "maxHelpers": .default,
-                                                                          "crossProjectHelpers": .default, "connectToDispatcher": .default]))
+                                                                          "crossProjectHelpers": .default, "connectToDispatcher": .default, "autoHelpers": .default]))
 
         let running = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-running.json"))
         #expect(running.state == "running" && !running.sleeping && running.hasLockedSettings)
@@ -423,7 +423,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
                 seen.insert(code)
                 let error = try #require(CompanionLiveService.receiptError(receipt))
                 let text = try #require((error as? LocalizedError)?.errorDescription)
-                #expect(!text.isEmpty && !text.contains(code) && text.first?.isUppercase == true, "\(file) \(code): \(text)")
+                if file == "commands/helperRouting.update.json", let message = receipt.error?.message, message != code {
+                    #expect(text == message, "Preset refusals preserve the desktop's words, including provider ids")
+                } else {
+                    #expect(!text.isEmpty && !text.contains(code) && text.first?.isUppercase == true, "\(file) \(code): \(text)")
+                }
                 if receipt.status == .failed { #expect(error is CompanionServiceError, "\(code)") }
             }
         }

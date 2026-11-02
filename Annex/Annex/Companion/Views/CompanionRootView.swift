@@ -56,6 +56,7 @@ struct CompanionRootView: View {
         .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
         .companionTheme(preferences.sharedTheme(hosts: store.hosts))
+        .environment(\.companionHelperLabels, Dictionary(uniqueKeysWithValues: store.hosts.map { ($0.id, $0.helperRoutingLabels) }))
         .environment(\.companionOpenAgent) { target in open(target) }
         .environment(\.companionAgentSettings, .init(canOpen: { [store] in store.canEditSettings($0) }, open: { settingsTarget = $0 },
                                                       openDetails: { detailsTarget = $0 }))
@@ -86,6 +87,9 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
+        .alert("Helper couldn't start", isPresented: Binding(get: { store.helperRequestNotice != nil }, set: { if !$0 { store.helperRequestNotice = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(store.helperRequestNotice ?? "") }
         .task { store.start() }
         .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
         .onChange(of: tab) { _, current in store.selection = paths[current]?.last?.agent }
@@ -805,6 +809,10 @@ struct CompanionHelperRequestActions: View {
         let busy = store.helperRequestsInFlight.contains(request.slot)
         let enabled = store.canAnswer(request)
         VStack(alignment: .leading, spacing: 8) {
+            if let requested = request.requestedRouting {
+                Text(requested.summary).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                    .accessibilityIdentifier("helper-request-routing")
+            }
             if let note = Self.note(for: request) {
                 Text(note).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("helper-request-note")

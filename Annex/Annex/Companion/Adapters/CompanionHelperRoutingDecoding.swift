@@ -1,0 +1,60 @@
+import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
+
+extension CompanionHelperRouting {
+    init(json: AnnexJSON) throws {
+        guard let revision = json["revision"]?.string, !revision.isEmpty,
+              case .object(let providers)? = json["providers"], case .object(let labels)? = json["labels"] else {
+            throw AnnexTransportError.malformedResponse
+        }
+        self.revision = revision
+        self.labels = labels.compactMapValues { family in
+            guard case .object(let codes) = family else { return nil }
+            return codes.compactMapValues { $0.string }
+        }
+        self.providers = providers.compactMapValues { raw in
+            guard case .object = raw else { return nil }
+            var cells: [String: Cell] = [:]
+            if case .object(let values)? = raw["cells"] {
+                cells = values.compactMapValues { cell in
+                    guard let source = cell["source"]?.string, let state = cell["state"]?.string else { return nil }
+                    return Cell(effective: .init(json: cell["effective"]), custom: .init(json: cell["custom"]), builtin: .init(json: cell["builtin"]),
+                                source: source, state: state, staleReason: cell["staleReason"]?.string, fallback: cell["fallback"]?.string,
+                                editable: cell["editable"].boolValue)
+                }
+            }
+            let models = raw["choices"]?["models"].arrayValue.compactMap { value -> Model? in
+                guard let id = value["id"]?.string, !id.isEmpty, id != "default" else { return nil }
+                return .init(id: id, label: value["label"]?.string ?? id, efforts: value["efforts"].arrayValue.compactMap(\.string))
+            }
+            return Provider(autoEligible: raw["autoEligible"].boolValue, reason: raw["reason"]?.string,
+                            choicesSource: raw["choices"]?["source"]?.string, choicesAsOf: raw["choices"]?["asOf"]?.string,
+                            models: models ?? [], cells: cells)
+        }
+        if let usable = json["agent"]?["usable"]?.boolOrNil { agent = .init(usable: usable, reason: json["agent"]?["reason"]?.string) }
+    }
+}
+extension CompanionHelperRouting.Selection {
+    init?(json: AnnexJSON?) {
+        guard let model = json?["model"]?.string, !model.isEmpty else { return nil }
+        self.init(model: model, effort: json?["effort"]?.string)
+    }
+}
+extension CompanionRequestedRouting {
+    init?(json: AnnexJSON?) {
+        guard let json, case .object = json else { return nil }
+        self.init(provider: json["provider"]?.string, model: json["model"]?.string, effort: json["effort"]?.string, difficulty: json["difficulty"]?.string)
+        if summary.isEmpty { return nil }
+    }
+}
+extension CompanionHelperRoutingDecision {
+    init?(json: AnnexJSON?) {
+        guard let json, let mode = json["mode"]?.string, let reason = json["reason"]?.string,
+              let selection = CompanionRequestedRouting(json: json["resolved"] ?? json) else { return nil }
+        self.init(mode: mode, selection: selection, reason: reason, fallback: json["fallback"]?.string,
+                  summary: json["display"]?["summary"]?.string, displayReason: json["display"]?["reason"]?.string,
+                  displayFallback: json["display"]?["fallback"]?.string)
+    }
+}

@@ -32,6 +32,8 @@ import ClubhouseTransport
     private var windowsHosts: Set<String> = []
     /// The snapshot's `projectIcons` and `agentIcons` per host, kept for catalog refreshes that don't carry them.
     private var iconCatalog: [String: (projects: AnnexJSON, agents: AnnexJSON)] = [:]
+    private var helperLabelsCache: [String: (revision: String, labels: CompanionHelperRouting.Labels)] = [:]
+    private var consumedHelperRequests: Set<String> = []
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
@@ -369,6 +371,51 @@ import ClubhouseTransport
         return .init(target: .init(hostID: request.project.hostID, projectID: projectID, agentID: agentID),
                      isCreating: receipt.result?["state"]?.string == "creating")
     }
+    func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
+        guard capabilities[hostID]?.supportsHelperRouting == true else { throw CompanionServiceError.unavailable("This desktop does not offer helper presets.") }
+        let generation = eventGenerations[hostID]
+        let revision = hosts[hostID]?.helperRoutingRevision
+        let raw = try await transport(for: hostID).read(.helperRouting(projectID: projectID, agentID: agentID))
+        try Task.checkCancellation()
+        guard eventGenerations[hostID] == generation else { throw CancellationError() }
+        let page = try CompanionHelperRouting(json: raw)
+        guard hosts[hostID]?.helperRoutingRevision == revision || hosts[hostID]?.helperRoutingRevision == page.revision else { throw CancellationError() }
+        rememberHelperRouting(page, hostID: hostID)
+        return page
+    }
+    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting {
+        guard capabilities[hostID]?.supportsHelperRoutingUpdate == true, update.scope == "app",
+              let feature = capabilities[hostID]?.helperRouting,
+              update.cells?.allSatisfy({ feature.difficulties.contains($0.difficulty) }) != false else {
+            throw CompanionServiceError.unavailable("This desktop does not offer these helper preset changes.")
+        }
+        let receipt = try await execute(.updateHelperRouting(update), id: clientCommandID, hostID: hostID, validateReceipt: false)
+        if receipt.status == .rejected, receipt.error?.code == "helper_routing_stale", let raw = receipt.settings {
+            let fresh = try CompanionHelperRouting(json: raw)
+            rememberHelperRouting(fresh, hostID: hostID)
+            throw CompanionHelperRoutingError.stale(fresh, Self.rejectionMessage(receipt.error))
+        }
+        if let error = Self.receiptError(receipt) { throw error }
+        // The result is already fresh. Never repeat a write or follow it with another read.
+        let page = try CompanionHelperRouting(json: receipt.result ?? .null)
+        rememberHelperRouting(page, hostID: hostID)
+        return page
+    }
+    private func rememberHelperRouting(_ page: CompanionHelperRouting, hostID: String) {
+        guard hosts[hostID] != nil else { return }
+        helperLabelsCache[hostID] = (page.revision, page.labels)
+        hosts[hostID]?.helperRoutingRevision = page.revision
+        hosts[hostID]?.helperRoutingLabels = page.labels
+        emitHosts()
+    }
+    private func refreshHelperRoutingLabels(hostID: String) async {
+        guard capabilities[hostID]?.supportsHelperRouting == true else { return }
+        if let cached = helperLabelsCache[hostID], cached.revision == hosts[hostID]?.helperRoutingRevision {
+            hosts[hostID]?.helperRoutingLabels = cached.labels
+            return
+        }
+        _ = try? await helperRouting(hostID: hostID)
+    }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
         do { return try CompanionAgentSettings(json: try await transport(for: target.hostID).read(.agentSettings(agentID: target.agentID))) }
@@ -396,8 +443,16 @@ import ClubhouseTransport
         guard capabilities[request.hostID]?.supportsHelperRequests == true else {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to answer helper requests from your phone.")
         }
+        guard !consumedHelperRequests.contains(request.slot) else { throw CompanionServiceError.rejected("This helper request has already been answered.") }
         let kind: AnnexCommand.Kind = approve ? .helperApprove(requestID: request.id, force: force) : .helperDecline(requestID: request.id)
-        _ = try await execute(kind, id: clientCommandID, hostID: request.hostID)
+        let receipt = try await execute(kind, id: clientCommandID, hostID: request.hostID, validateReceipt: false)
+        if approve, receipt.status == .rejected, receipt.error?.code == "no_valid_mapping" {
+            consumedHelperRequests.insert(request.slot)
+            hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
+            emitHosts()
+            throw CompanionHelperRequestConsumed(message: Self.rejectionMessage(receipt.error))
+        }
+        if let error = Self.receiptError(receipt) { throw error }
         // The desktop broadcasts a snapshot without it; drop it now so it can't be answered twice.
         hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
         emitHosts()
@@ -426,7 +481,7 @@ import ClubhouseTransport
             return .init(id: id, hostID: hostID, projectID: projectID, kind: kind, requesterID: requesterID, requesterName: requesterName,
                          helperID: helperID, helperName: helperName, requestedAt: item["requestedAt"].flatMap(date(from:)),
                          expiresAt: item["expiresAt"].flatMap(date(from:)), summary: summary,
-                         task: item["start"]?["task"]?.string, dispose: dispose)
+                         task: item["start"]?["task"]?.string, requestedRouting: CompanionRequestedRouting(json: item["requestedRouting"]), dispose: dispose)
         }
     }
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {
@@ -541,6 +596,7 @@ import ClubhouseTransport
         buffers = buffers.filter { $0.key.hostID != hostID }
         historyGenerations = historyGenerations.filter { $0.key.hostID != hostID }
         readOnly = readOnly.filter { $0.hostID != hostID }
+        helperLabelsCache.removeValue(forKey: hostID)
         windowsHosts.remove(hostID)
         iconCatalog.removeValue(forKey: hostID)
         dispatcherCatalog.removeValue(forKey: hostID)
@@ -620,14 +676,14 @@ import ClubhouseTransport
         }
     }
 
-    private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String) async throws -> AnnexCommandReceipt {
+    private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String, validateReceipt: Bool = true) async throws -> AnnexCommandReceipt {
         guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }
         let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
         guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.") }
         savedCommands[id] = command
         do {
             let receipt = try await transport(for: hostID).execute(command)
-            if let error = Self.receiptError(receipt, attachmentCount: command.attachmentCount) { throw error }
+            if validateReceipt, let error = Self.receiptError(receipt, attachmentCount: command.attachmentCount) { throw error }
             return receipt
         } catch let error as CompanionServiceError { throw error }
         catch let error as CompanionAttachmentError { throw error }
@@ -728,7 +784,8 @@ import ClubhouseTransport
                 iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
-                if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID) }
+                if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID).filter { !consumedHelperRequests.contains($0.slot) } }
+                hosts[hostID]?.helperRoutingRevision = payload["helperRoutingRevision"]?.string
                 // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
                 hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])
                 // Also sent only after the desktop's one-time migration; without it the phone keeps its own finished list.
@@ -736,6 +793,13 @@ import ClubhouseTransport
                 hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
                 if let theme = Self.theme(from: payload["theme"], terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
+                await refreshHelperRoutingLabels(hostID: hostID)
+            case "helper_routing:changed":
+                if let revision = payload["revision"]?.string {
+                    hosts[hostID]?.helperRoutingRevision = revision
+                    emitHosts()
+                    await refreshHelperRoutingLabels(hostID: hostID)
+                }
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
                 if let theme = Self.theme(from: payload, terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme; emitHosts() }
@@ -812,6 +876,13 @@ import ClubhouseTransport
                 hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
                 hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
                 hosts[hostID]?.canSetContextWindow = newCapabilities?.supportsContextWindow == true
+                hosts[hostID]?.helperRouting = newCapabilities?.supportsHelperRouting == true ? newCapabilities?.helperRouting : nil
+                hosts[hostID]?.canEditHelperPresets = newCapabilities?.supportsHelperRoutingUpdate == true
+                if newCapabilities?.supportsHelperRouting != true {
+                    hosts[hostID]?.helperRoutingLabels = [:]
+                    hosts[hostID]?.helperRoutingRevision = nil
+                    helperLabelsCache[hostID] = nil
+                }
                 hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
@@ -831,6 +902,7 @@ import ClubhouseTransport
                 if caughtUp { needsCatchUp.remove(hostID) }
             }
             hosts[hostID]?.connection = .connected
+            await refreshHelperRoutingLabels(hostID: hostID)
         } catch {
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             hosts[hostID]?.connection = .failed(Self.readableError(error))
@@ -1042,6 +1114,7 @@ import ClubhouseTransport
         if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
         agent.branch = value["branch"]?.string
         agent.orchestrator = value["orchestrator"]?.string
+        agent.routing = capabilities[target.hostID]?.supportsHelperRouting == true ? CompanionHelperRoutingDecision(json: value["routing"]) : nil
         if !isQuick { agent.parentAgentID = value["parentAgentId"]?.string }
         agent.session = projection.map(\.session)
         agent.chatControls = projection.flatMap { chatControls($0, target: target) }

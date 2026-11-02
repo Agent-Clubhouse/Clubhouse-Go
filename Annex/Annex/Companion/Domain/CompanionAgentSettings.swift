@@ -263,6 +263,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var orchestration: CompanionOrchestration?
     /// Helpers talk to their parent, even when the parent is in another project. Older desktops omit this.
     var parentAgentID: String?
+    var routing: CompanionHelperRoutingDecision?
 
     /// Any setting is waiting for the agent to sleep, so the sheet shows the desktop's hint.
     var hasLockedSettings: Bool {

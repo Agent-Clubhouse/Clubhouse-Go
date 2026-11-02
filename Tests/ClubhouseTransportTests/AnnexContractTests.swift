@@ -7,7 +7,7 @@ import Testing
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled"]
+                                       "dispatcher.setEnabled", "helperRouting.update"]
 
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
@@ -259,6 +259,7 @@ import Testing
         case "helper.decline": return s("requestId").map { .helperDecline(requestID: $0) }
         case "quick.dismiss": return s("projectId").flatMap { p in s("agentId").map { .dismissFinishedQuick(projectID: p, agentID: $0) } }
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
+        case "helperRouting.update": return (try? r.decode(AnnexHelperRoutingUpdate.self)).map { .updateHelperRouting($0) }
         case "dispatcher.setEnabled": return b("enabled").map { .setDispatcherEnabled($0) }
         default: return nil
         }
@@ -275,7 +276,8 @@ import Testing
         return .init(orchestrate: field("orchestrate") { if case .bool(let v) = $0 { v } else { nil } }, access: field("access") { $0.string },
                      control: field("control") { $0.string }, maxHelpers: field("maxHelpers") { $0.int },
                      crossProjectHelpers: field("crossProjectHelpers") { if case .bool(let v) = $0 { v } else { nil } },
-                     connectToDispatcher: field("connectToDispatcher") { if case .bool(let v) = $0 { v } else { nil } })
+                     connectToDispatcher: field("connectToDispatcher") { if case .bool(let v) = $0 { v } else { nil } },
+                     autoHelpers: field("autoHelpers") { if case .bool(let v) = $0 { v } else { nil } })
     }
 
     /// One of every command with every optional field the phone can send.
@@ -302,6 +304,7 @@ import Testing
             .setModel(agentID: "a", sessionID: "s", model: "m", effort: .providerDefault),
             .setLevel(agentID: "a", sessionID: "s", level: "plan"),
             .setDispatcherEnabled(true),
+            .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]
         return kinds.map { AnnexCommand(commandID: "c", epoch: "e", kind: $0) }
     }
