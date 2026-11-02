@@ -35,8 +35,8 @@ opt-in developer feedback (Framebriar), after the user redeems an invitation:
 
 | Data type | Where it comes from | Purposes |
 |---|---|---|
-| **Other User Content** | Feedback notes, sent only when the user taps Submit. | App functionality |
-| **Photos or Videos** | A screenshot attached to feedback, reviewed (or removed) before Submit. | App functionality |
+| **Other User Content** | Feedback notes, sent only when the user taps Send. | App functionality |
+| **Photos or Videos** | A screenshot attached to feedback, reviewed (or removed) before Send. | App functionality |
 | **Other Diagnostic Data** | Incident references on feedback (trace and span IDs, random process and connection IDs, a time window), and telemetry while enrolled: operation names, error classes and random IDs. | App functionality, Analytics |
 | **Performance Data** | Telemetry while enrolled: connection, pairing and chat timings, counts and ping summaries. | App functionality, Analytics |
 | **Crash Data** | Telemetry while enrolled: MetricKit crash, hang and resource-exception reports (classes and numbers, no call stacks). | App functionality, Analytics |
@@ -50,7 +50,7 @@ a pseudonymous per-enrollment ID and has no account; the future linkage assessme
   Separately enabled Connection diagnostics can retain local records without feedback enrollment.
 - Telemetry carries closed enum values, numbers and random UUIDs only: no prompts, agent content, names,
   file paths, addresses or URLs. See `docs/opentelemetry.md`.
-- Feedback reports are sent only when the user taps Submit.
+- Feedback reports are sent only when the user taps Send.
 
 Required-reason APIs:
 
@@ -84,28 +84,35 @@ the note above.
 
 ## Report diagnostics release gate
 
-The local `AnnexFeedbackDiagnostics` provider is not connected; general emission is required to
-stay off. The SDK is refreshed unchanged from user-approved v0.7.0 at
-`f57b75fe5d38d7e2c3d221d246c9e01445da41dc`, and API diagnostics v1 / the 256-KiB request cap are
-confirmed. **The integration is not releasable yet:** v0.7.0's composer always adds the diagnostics
-field, and including diagnostics also invokes a telemetry excerpt. A Go boolean cannot enforce the
-required wire omission through that composer. Framebriar's proper OFF/per-draft policy is pending a
-tag; no vendor patch or replacement composer is used. Keep this PR draft and do not merge a build
-that emits the field until the tagged fix and actual composer/draft wire tests prove omission and
-marker-only delivery. The one-report scoped test is not implemented yet.
+Framebriar is re-vendored unchanged from the approved v0.7.1 tag
+`bb9b614292e54e4a4d0e9a764f9cbc47b7fc1981`; hashes verify. API diagnostics v1 and the 256-KiB
+request cap are confirmed. General report diagnostics remain **OFF**, explicitly at both model and
+ordinary composer boundaries. OFF calls no provider and sends no diagnostics key, whether the
+telemetry/incident switch is on or off. Ordinary consented telemetry remains separately enrolled.
 
-Remaining release gates:
+A single test is deliberately available under **Settings → Feedback diagnostics test → Prepare one
+diagnostics test report… → Prepare test report**. The confirmation and pinned **Diagnostics test
+report** banner explain that this draft alone may attach bounded recent transport records. The user
+is instructed to start the note with “Diagnostics test”; Go does not enforce that text in the SDK's
+editor. The server readback for the user's deliberate report will verify its label/body. Cancel
+leaves ordinary reports OFF. Enrollment-change recovery ends this grant, keeps only text/image,
+creates a fresh OFF draft and incident refs, and requires another Send. Another ON test needs another
+explicit preparation. Nothing is sent by opening the form or toggling its switch.
 
-1. Obtain the exact OFF-policy tag/API from the orchestrator, refresh the entire SDK via the vendoring
-   script and verify hashes. Ordinary feedback must call no provider and have no diagnostics key.
-2. Validate frozen captures, enrollment changes, holds and retries with fake transports. Add the
-   separately requested, clearly labeled one-report test only with tagged per-draft support; cancel
-   and unsaved enrollment-change recovery invalidate its scope. Do not duplicate attached entries as
-   a report-specific telemetry excerpt. Ordinary consented telemetry remains separate.
-3. Review the actual included summary/enrollment disclosure against the privacy draft below. Store
-   declaration changes need the user's approval. No production send or phone/host-app install is
-   authorized by this checklist or by merging a preparatory PR. Real phone, Azure readback and
-   feedback URLSession delivery remain unproven.
+The provider captures once, synchronously and without I/O, then the SDK persists its frozen value
+through retries/holds. It keeps connection-failure/backoff entries independently of delivery/access
+state and does not duplicate them as a report-specific telemetry excerpt. The user switch removes
+report entries plus incident/flat trace/span fields. Missing/unavailable entries are explicit in
+Included; capture-off is called out in the test banner. If feedback telemetry setup is unavailable,
+the test action is disabled and ordinary feedback still works.
+
+Remaining release checks:
+
+1. Review the actual included summary and enrollment/test disclosures against the privacy draft below.
+   Store declaration changes need the user's approval; this adoption changes no manifest/store answer.
+2. The user chooses any candidate installation and deliberately sends their own labeled report;
+   Framebriar reads the body back from Azure. Real phone, Azure readback and feedback URLSession
+   delivery remain unproven. No production send or phone/host-app installation is authorized here.
 
 The legacy 16-KiB endpoint stripped unknown small fields and permanently rejected oversized reports.
 Do not bypass the SDK to add the field. A diagnostics `storage-failed` result means the report was
@@ -118,7 +125,7 @@ unsafe.** A report still bound when downgraded can send under a later enrollment
 Held reports are fenced, but an older Swift writer drops their refs/held marker on a queue save;
 after upgrading, those reports can only be cleared, not released. Before a planned downgrade,
 let bound reports deliver and explicitly release or clear held reports. Follow the tagged
-[rollback guidance](https://github.com/masra91/framebriar/blob/f57b75fe5d38d7e2c3d221d246c9e01445da41dc/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
+[rollback guidance](https://github.com/masra91/framebriar/blob/bb9b614292e54e4a4d0e9a764f9cbc47b7fc1981/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
 changing only the dependency pin is not a supported rollback.” This draft is not a release announcement.
 
 Migration limit: older queued reports have no enrollment ref. On first load the SDK binds them to
@@ -183,6 +190,6 @@ kill; it is not an app hang fix or a general device/runtime guarantee.
   prove physical shake, Full-Screen Previews or real-device delivery. If a future stall occurs, retain
   timestamps and a process sample/stack before classifying it.
 
-The user approved identity-binding v0.7.0, now vendored unchanged for the integration. Release is
-still blocked on tagged diagnostics-OFF support. No Go iPad run is claimed here; the 0.6.0 evidence
-belongs to Framebriar's harness, and real-device checks remain separate.
+The approved identity-binding SDK is now pinned to v0.7.1 unchanged. General report diagnostics
+remain OFF; only the explicitly prepared test draft can opt in. No Go iPad run is claimed here;
+the 0.6.0 evidence belongs to Framebriar's harness, and real-device checks remain separate.
