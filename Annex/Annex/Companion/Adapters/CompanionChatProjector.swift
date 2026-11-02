@@ -72,7 +72,10 @@ struct CompanionChatProjector {
         switch type {
         case "session_started", "session_info":
             // Another run in the same session can follow a crash with no session_ended (or resumed flag).
-            if type == "session_started" { settleQueuedMessages() }
+            if type == "session_started" {
+                settleQueuedMessages()
+                status = .idle; turnStartedAt = nil; finishStreams()
+            }
             if let caps = data["capabilities"] { updateCapabilities(caps) }
             if let model = data["model"]?.string { self.model = model }
             applySessionFacts(data)
