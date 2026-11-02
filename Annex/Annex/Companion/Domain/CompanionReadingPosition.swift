@@ -13,9 +13,38 @@ struct CompanionScrollMetrics: Equatable, Sendable {
     var isAtTrueBottom: Bool { normalizedOffset >= maximumOffset - 1 }
     func didReachTop(from old: Self) -> Bool {
         old.containerHeight == containerHeight && old.topInset == topInset && old.bottomInset == bottomInset
-            && old.contentHeight > old.containerHeight && abs(contentHeight - old.contentHeight) < containerHeight
+            && old.maximumOffset > 0 && abs(contentHeight - old.contentHeight) < containerHeight
             && normalizedOffset < old.normalizedOffset && normalizedOffset <= 1
     }
+}
+
+extension CompanionScrollMetrics {
+    /// SwiftUI's available container height already excludes its content insets. Convert it to full bounds before
+    /// applying the scroll-range formula, otherwise keyboard/composer insets are counted twice at the bottom.
+    init(offset: Double, contentHeight: Double, availableHeight: Double, topInset: Double, bottomInset: Double) {
+        self.init(offset: offset, contentHeight: contentHeight, containerHeight: availableHeight + topInset + bottomInset,
+                  topInset: topInset, bottomInset: bottomInset)
+    }
+}
+
+/// Measure a gesture cumulatively: a slow drag can move over a point through many subpixel geometry samples.
+struct CompanionReadingGesture {
+    private var highestOffset: Double?
+    mutating func begin(at offset: Double) { highestOffset = offset }
+    mutating func begin(at current: CompanionScrollMetrics, last: CompanionScrollMetrics?, beforeLast: CompanionScrollMetrics?) {
+        // Geometry and phase callbacks can arrive in either order. Retain the first pan delta in both cases.
+        let before = last == current ? beforeLast : last
+        if let before, before.contentHeight == current.contentHeight, before.containerHeight == current.containerHeight,
+           before.topInset == current.topInset, before.bottomInset == current.bottomInset {
+            begin(at: max(before.normalizedOffset, current.normalizedOffset))
+        } else { begin(at: current.normalizedOffset) }
+    }
+    mutating func movedUp(to offset: Double) -> Bool {
+        guard let highestOffset else { begin(at: offset); return false }
+        self.highestOffset = max(highestOffset, offset)
+        return offset < highestOffset - 1
+    }
+    mutating func end() { highestOffset = nil }
 }
 
 /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive

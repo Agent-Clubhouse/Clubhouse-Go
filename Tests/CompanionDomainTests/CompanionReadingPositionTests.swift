@@ -2,6 +2,41 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionReadingPositionTests {
+    @Test func swiftUIAvailableViewportDoesNotCountComposerAndKeyboardInsetsTwice() {
+        let bottom = CompanionScrollMetrics(offset: 500, contentHeight: 1_000, availableHeight: 500, topInset: 0, bottomInset: 166)
+        #expect(bottom.maximumOffset == 500 && bottom.isAtTrueBottom)
+        #expect(!CompanionReadingPosition(followsLatest: false).showsLatestButton(bottom))
+        let keyboard = CompanionScrollMetrics(offset: 800, contentHeight: 1_000, availableHeight: 200, topInset: 0, bottomInset: 466)
+        #expect(keyboard.isAtTrueBottom)
+    }
+    @Test func slowUpwardGestureAccumulatesFractionalSamples() {
+        var gesture = CompanionReadingGesture()
+        gesture.begin(at: 500)
+        let first = gesture.movedUp(to: 499.6)
+        let second = gesture.movedUp(to: 499.2)
+        let third = gesture.movedUp(to: 498.8)
+        #expect(!first && !second && third)
+        gesture.end()
+        gesture.begin(at: 500)
+        let down = gesture.movedUp(to: 510)
+        let reversed = gesture.movedUp(to: 508.5)
+        #expect(!down && reversed, "Changing direction is measured from the gesture's highest offset")
+    }
+    @Test func firstPanDeltaSurvivesBothGeometryAndPhaseDeliveryOrders() {
+        let before = CompanionScrollMetrics(offset: 500, contentHeight: 1_000, containerHeight: 500)
+        let current = CompanionScrollMetrics(offset: 497, contentHeight: 1_000, containerHeight: 500)
+        for last in [before, current] {
+            var gesture = CompanionReadingGesture()
+            gesture.begin(at: current, last: last, beforeLast: before)
+            let paused = gesture.movedUp(to: 497)
+            #expect(paused)
+        }
+        var keyboard = current; keyboard.containerHeight = 300
+        var gesture = CompanionReadingGesture()
+        gesture.begin(at: keyboard, last: before, beforeLast: nil)
+        let paused = gesture.movedUp(to: 497)
+        #expect(!paused, "A layout change is not itself an upward gesture")
+    }
     @Test func nativeScrollToTopRecognizesTheFinalSubpixelAnimationStep() {
         let old = CompanionScrollMetrics(offset: -99.2, contentHeight: 5_000, containerHeight: 500, topInset: 100)
         let top = CompanionScrollMetrics(offset: -100, contentHeight: 5_000, containerHeight: 500, topInset: 100)
