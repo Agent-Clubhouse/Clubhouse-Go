@@ -75,7 +75,19 @@ private actor AuditIO: AnnexIO {
     var opened = 0
     var commands = 0
     var permissionRejections = 0
+    var fixtureAgentID = "agent"
+    var initialSequence: Int64 = 0
+    var receipts: [String: AnnexJSON] = [:]
+    var recordedCommands: [AnnexJSON] = []
+    func configureFixture(agentID: String, sequence: Int64, persistent: Bool) async {
+        fixtureAgentID = agentID; initialSequence = sequence
+        await script.setAgents(.array([.object(["id": .string(agentID), "name": .string("Fixture agent"), "status": .string("idle")])]))
+        await script.setFeature("permissions", .object(["version": .integer(1), "persistentApprovals": .bool(persistent)]))
+    }
+    func setReceipts(_ value: [String: AnnexJSON]) { receipts = value }
+
     var chat: AnnexJSON?
+    var chatStatus = 200
     var chatReads = 0
     var wireProxy: (PinnedAnnexIO, UInt16)?
     func setWireProxy(_ value: PinnedAnnexIO, port: UInt16) { wireProxy = (value, port) }
@@ -83,7 +95,8 @@ private actor AuditIO: AnnexIO {
     var chatProxy: (PinnedAnnexIO, UInt16)?
     func setChatProxy(_ value: PinnedAnnexIO, port: UInt16) { chatProxy = (value, port) }
     func terminalSends() async -> [AnnexJSON] { await socket?.sent.compactMap { try? JSONDecoder().decode(AnnexJSON.self, from: $0) } ?? [] }
-    func setChat(_ value: AnnexJSON) { chat = value }
+    func setChat(_ value: AnnexJSON) { chat = value; chatStatus = 200 }
+    func setChatResponse(_ value: AnnexJSON, status: Int) { chat = value; chatStatus = status }
     var socket: AuditSocket?
     let port: Int
     init(port: Int, script: ScriptedAnnexTransport) { self.port = port; self.script = script }
@@ -113,7 +126,12 @@ private actor AuditIO: AnnexIO {
         } else if request.httpMethod == "POST" {
             commands += 1
             let command = try JSONDecoder().decode(AnnexJSON.self, from: request.httpBody!)
-            if command["type"]?.string == "chat.permission", command["optionId"]?.string == "allow" {
+            recordedCommands.append(command)
+            if command["type"]?.string == "chat.permission", let receipt = receipts[command["optionId"]?.string ?? ""], case .object(var body)? = receipt["body"] {
+                status = Int(receipt["status"]?.integer ?? 200)
+                body["epoch"] = .string("epoch"); body["commandId"] = command["commandId"]
+                value = .object(body)
+            } else if command["type"]?.string == "chat.permission", command["optionId"]?.string == "allow" {
                 permissionRejections += 1; status = 409
                 value = .object(["version": .integer(1), "epoch": .string("epoch"), "commandId": command["commandId"]!, "status": .string("rejected"), "error": .object(["code": .string("incomplete_representation"), "message": .string("This input is incomplete. Review the full request on desktop before approving.")])])
             } else {
@@ -121,7 +139,7 @@ private actor AuditIO: AnnexIO {
             }
         } else if path.hasSuffix("/capabilities") { value = try await script.read(.capabilities)
         } else if path.hasSuffix("/projects") { value = try await script.read(.projects)
-        } else if path.hasSuffix("/chat") { if let chat { value = chat } else { value = await LiveServiceHarness.chatSnapshot() }
+        } else if path.hasSuffix("/chat") { status = chatStatus; if let chat { value = chat } else { value = await LiveServiceHarness.chatSnapshot() }
         } else if path.hasSuffix("/agents") { value = try await script.read(.agents(projectID: "project"))
         } else { value = .object([:]) }
         return try .init(status: status, data: JSONEncoder().encode(value))
@@ -150,6 +168,8 @@ private actor AuditIO: AnnexIO {
             frame = .object(["type": .string("error"), "payload": .object(["message": .string(mode == .failed ? "snapshot_failed" : "snapshot_too_large")])])
         } else {
             var payload = try Self.fullPayload()
+            payload["lastSeq"] = .integer(initialSequence)
+            payload["agents"] = .object(["project": try await script.read(.agents(projectID: "project"))])
             if mode == .emptyMinimal || mode == .emptyExplicit {
                 payload = ["projects": .array([]), "agents": .object([:]), "lastSeq": .integer(0), "snapshotTruncated": .object(["version": .integer(1), "reason": .string("core_overflow")])]
                 if mode == .emptyExplicit { payload["dispatcher"] = .null; payload["helperRequests"] = .array([]) }
@@ -170,13 +190,16 @@ private actor AuditIO: AnnexIO {
     let hostID: String
     let tape: HostTape
     let observer: Task<Void, Never>
-    var target: CompanionTarget { .init(hostID: hostID, projectID: "project", agentID: "agent") }
+    let fixtureAgentID: String
+    var target: CompanionTarget { .init(hostID: hostID, projectID: "project", agentID: fixtureAgentID) }
     var dispatcher: CompanionTarget { .init(hostID: hostID, projectID: "__dispatcher__", agentID: "dispatcher") }
     var host: CompanionHost? { store.hosts.first }
-    static func start(mode: OverflowMode = .healthy, realTime: Bool = false, wireProxy: (PinnedAnnexIO, UInt16)? = nil) async throws -> Self {
+    static func start(mode: OverflowMode = .healthy, realTime: Bool = false, wireProxy: (PinnedAnnexIO, UInt16)? = nil, agentID: String = "agent", initialSequence: Int64 = 0, persistent: Bool = false, chatOverride: AnnexJSON? = nil, chatStatus: Int = 200) async throws -> Self {
         let io = AuditIO(port: 0, script: ScriptedAnnexTransport())
         if let (proxy, port) = wireProxy { await io.setWireProxy(proxy, port: port) }
         await io.configure(); await io.setMode(mode)
+        await io.configureFixture(agentID: agentID, sequence: initialSequence, persistent: persistent)
+        if let chatOverride { await io.setChatResponse(chatOverride, status: chatStatus) }
         let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 8443), verifiedHostID: hostID, verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "01", count: 32)))
         let credentials = MemoryAnnexCredentialStore(); await credentials.save(try AnnexCredential(bearerToken: "fixture-only"), for: hostID)
@@ -188,7 +211,7 @@ private actor AuditIO: AnnexIO {
         let service = CompanionLiveService(); let store = CompanionStore(service: service, clock: clock); store.start()
         let tape = HostTape(); let events = service.events()
         let observer = Task { for await event in events { if case .hosts(let hosts) = event { tape.record(hosts) } } }
-        let harness = Self(io: io, transport: transport, service: service, store: store, manual: manual, sleeps: sleeps, hostID: hostID, tape: tape, observer: observer)
+        let harness = Self(io: io, transport: transport, service: service, store: store, manual: manual, sleeps: sleeps, hostID: hostID, tape: tape, observer: observer, fixtureAgentID: agentID)
         await service.register(.init(host: host, alias: "fixture", transport: transport))
         if mode == .healthy {
             try await harness.wait { harness.host?.connection == .connected && harness.host?.dispatcher?.liveAgent != nil && harness.host?.helperRequests.isEmpty == false }
@@ -252,6 +275,49 @@ private extension FullAuditHarness {
 }
 
 @MainActor @Suite(.serialized) struct FrameWireAuditTests {
+    @Test func proposedPendingOverflowRefreshAndRemoval() async throws {
+        let h = try await FullAuditHarness.start(); await h.seed()
+        func permission(_ id: String, _ seq: Int64) -> AnnexJSON {
+            LiveServiceHarness.chatEvent("s1", sequence: seq, type: "permission_request", data: ["requestId": .string(id), "toolName": .string("Write"), "description": .string("Review " + id), "options": .array([.object(["optionId": .string("deny"), "label": .string("Deny"), "kind": .string("reject_once")])])])
+        }
+        func page(_ pending: [AnnexJSON], events: [AnnexJSON] = [], watermark: Int64) -> AnnexJSON {
+            LiveServiceHarness.chatSnapshot(events: events + [LiveServiceHarness.chatEvent("s1", sequence: watermark, type: "agent_message", data: ["messageId": .string("watermark"), "text": .string("current")])], fields: ["state": .string("waiting_permission"), "pendingPermissions": .array(pending), "pendingPermissionsOmitted": .object(["count": .integer(1), "oldestOmittedSeq": .integer(7)]), "capabilities": .object(["chat": .bool(true), "permissions": .bool(true)])])
+        }
+        func approval(_ id: String) -> CompanionApproval? { h.store.conversation(for: h.target).items.compactMap { if case .approval(let a) = $0, a.id == id { a } else { nil } }.first }
+        do {
+            let a = permission("oldest", 6), b = permission("omitted", 7)
+            await h.io.setChat(page([a], watermark: 8)); await h.store.load(h.target, force: true)
+            #expect(approval("oldest") != nil); #expect(approval("omitted") == nil)
+            let reads = await h.io.chatReads
+            try await h.chatEvent("permission_resolved", seq: 9, global: 1, data: ["requestId": .string("oldest"), "decision": .string("allow")])
+            try await h.wait { approval("oldest")?.resolution == .allowed }
+            await h.io.setChat(page([b], watermark: 10))
+            try await Task.sleep(for: .milliseconds(150))
+            #expect(await h.io.chatReads == reads); #expect(approval("omitted") == nil)
+            h.store.selection = h.dispatcher; h.store.selection = h.target
+            await h.store.load(h.target, force: h.store.conversation(for: h.target).requiresResync)
+            #expect(await h.io.chatReads == reads); #expect(approval("omitted") == nil)
+            await h.store.load(h.target, force: true)
+            #expect(approval("omitted")?.resolution == .pending)
+            // Live card missing from a current capped history disappears when its request event is absent too.
+            try await h.chatEvent("permission_request", seq: 11, global: 2, data: ["requestId": .string("live"), "toolName": .string("Write"), "options": .array([])])
+            try await h.wait { approval("live") != nil }
+            await h.io.setChat(page([a], watermark: 12)); await h.store.load(h.target, force: true)
+            #expect(approval("live") == nil); #expect(approval("omitted") == nil)
+            // Missing only from pendingPermissions is not deletion if the event tail includes the request.
+            await h.io.setChat(page([a], events: [b], watermark: 13)); await h.store.load(h.target, force: true)
+            #expect(approval("omitted")?.resolution == .pending)
+            // A stale HTTP page preserves newer live items in Store (not an authoritative safety guarantee).
+            try await h.chatEvent("permission_request", seq: 20, global: 3, data: ["requestId": .string("newer"), "toolName": .string("Write"), "options": .array([])])
+            try await h.wait { approval("newer") != nil }
+            await h.io.setChat(page([a], watermark: 14)); await h.store.load(h.target, force: true)
+            #expect(approval("newer")?.resolution == .pending)
+            #expect(await h.io.opened == 1)
+            print("PERMISSION_OVERFLOW synthetic=true resolvedAutoRead=false reenterRead=false menuForceRefresh=recovers currentCappedPage=removesMissingLive pendingListOnly=notAuthoritativeIfEventPresent stalePage=keepsNewer")
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+
     @Test func unknownNextSequenceAdvancesWithoutResyncButDoesNotRecoverOmittedState() async throws {
         let h = try await FullAuditHarness.start(); await h.seed(); h.assertCritical()
         do {
@@ -752,5 +818,224 @@ extension FrameWireAuditTests {
             try await verifyTerminalUnavailableError(captured: captured)
             print("FRAME_FINAL_FAILURE sha=ae2cf9b7d95ed2ae4229221d4be37320686f960a source=\(source) bytes=\(captured.count) proposal=exact failedWithoutAck=true recoveredAfterManualRetry=true")
         }
+    }
+}
+
+@MainActor private extension FrameWireAuditTests {
+    func permissionCapture(_ name: String) throws -> AnnexJSON {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("frame-2686")
+        return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root.appendingPathComponent(name)))
+    }
+    func fixturePage(_ pending: [AnnexJSON], extra: [AnnexJSON] = []) -> AnnexJSON {
+        let question = LiveServiceHarness.chatEvent("sess_live", sequence: 3, type: "question", data: ["requestId": .string("kept-question"), "questions": .array([.object(["id": .string("q"), "prompt": .string("Which?"), "allowFreeText": .bool(true)])])])
+        let queued = LiveServiceHarness.chatEvent("sess_live", sequence: 4, type: "user_message", data: ["messageId": .string("kept-queued"), "text": .string("queued"), "delivery": .string("queued")])
+        let queue = LiveServiceHarness.chatEvent("sess_live", sequence: 5, type: "queue_state", data: ["queuedMessageIds": .array([.string("kept-queued")])])
+        return LiveServiceHarness.chatSnapshot(session: "sess_live", events: [queued, queue] + extra, fields: ["state": .string("waiting_permission"), "pendingPermissions": .array(pending), "pendingQuestions": .array([question]), "queuedMessageIds": .array([.string("kept-queued")]), "queueStateSeq": .integer(5), "capabilities": .object(["chat": .bool(true), "questions": .bool(true), "queue": .string("client")])])
+    }
+    func fixtureApproval(_ h: FullAuditHarness, id: String = "perm_1") -> CompanionApproval? {
+        h.store.conversation(for: h.target).items.compactMap { if case .approval(let a) = $0, a.id == id { a } else { nil } }.first
+    }
+    func fixtureCritical(_ h: FullAuditHarness, cursor: Int) {
+        let c = h.store.conversation(for: h.target)
+        #expect(c.sessionID == "sess_live"); #expect(c.lastSequence == cursor)
+        #expect(c.items.contains { if case .question(let q) = $0 { q.id == "kept-question" && q.resolution == .pending } else { false } })
+        #expect(c.items.contains { if case .message(let m) = $0 { m.id == "kept-queued" && m.queueState == .queued } else { false } })
+        #expect(h.store.agent(for: h.target)?.status == .approval)
+        #expect(h.host?.connection == .connected)
+    }
+}
+
+@MainActor extension FrameWireAuditTests {
+    @Test func final2686RealPermissionFixtureBothRoutesAndPersistentOptions() async throws {
+        let fixture = try permissionCapture("permission-fixture.json"), pending = try #require(fixture["pendingPermission"])
+        let warning = "Incomplete input: this request is too large to show in full here. Review it on the desktop to approve it. You can still deny it here."
+        let refusal = "This request is too large to review here. Review it on the desktop to approve it, or deny it here."
+        for live in [false, true] { for persistent in [false, true] {
+            let h = try await FullAuditHarness.start(agentID: "durable_chat", persistent: persistent)
+            do {
+                await h.io.setReceipts(["allow": fixture["approve"]!["response"]!, "always": fixture["approve"]!["response"]!, "deny": fixture["deny"]!])
+                await h.io.setChat(fixturePage(live ? [] : [pending])); await h.store.load(h.target, force: true)
+                if live { try await h.frame("chat:event", seq: 1, payload: .object(["agentId": .string("durable_chat"), "event": pending])); try await h.wait { fixtureApproval(h) != nil } }
+                var a = try #require(fixtureApproval(h)); #expect(a.title == "Write big.ts"); #expect(a.toolName == "Write")
+                #expect(a.summary.hasPrefix(warning)); #expect(a.detail?.hasPrefix(warning) == true)
+                #expect(a.detail?.contains("big.ts") == true)
+                #expect(a.options.map(\.id) == ["allow", "always", "deny"]); #expect(a.options.map(\.label) == ["Allow", "Always allow", "Deny"])
+                #expect(a.options[1].scope == "npm test:*"); #expect(a.options[1].needsConfirmation)
+                fixtureCritical(h, cursor: 8)
+                let before = await h.io.commands
+                await h.store.respond(a, option: a.options[0], target: h.target)
+                #expect(fixtureApproval(h)?.resolution == .pending); #expect(h.store.operationErrors[h.target] == refusal)
+                #expect(await h.io.commands == before + 1)
+                a = try #require(fixtureApproval(h)); await h.store.respond(a, option: a.options[1], target: h.target)
+                #expect(await h.io.commands == before + (persistent ? 2 : 1)); #expect(fixtureApproval(h)?.resolution == .pending)
+                if persistent { #expect(h.store.operationErrors[h.target] == refusal) }
+                a = try #require(fixtureApproval(h)); await h.store.respond(a, option: a.options[2], target: h.target)
+                #expect(fixtureApproval(h)?.resolution == .denied); #expect(h.store.operationErrors[h.target] == nil)
+                fixtureCritical(h, cursor: 8)
+                let commands = await h.io.recordedCommands
+                #expect(commands.last?["optionId"]?.string == "deny")
+                #expect(commands.allSatisfy { $0["options"] == nil && $0["label"] == nil })
+                #expect(await h.io.opened == 1)
+                print("PERMISSION_FIXTURE route=\(live ? "live" : "HTTP") persistent=\(persistent) warning=immediate allow=409 pending=true always=\(persistent ? "409" : "desktopOnly") deny=settled critical=kept")
+                await h.stop()
+            } catch { await h.stop(); throw error }
+        } }
+    }
+
+    @Test func final2686ActualCommandReceiptsSmallMismatchRestartAndPreview() async throws {
+        let captured = try permissionCapture("commands.json")
+        #expect(captured["sha"]?.string == "1a684c1cef0d1b7ca7b3da6dff04ceccab500d2a")
+        let deny = try #require(try permissionCapture("permission-fixture.json")["deny"])
+        var emitted: [AnnexJSON] = []
+        for c in captured["cases"].arrayValue where c["optionId"]?.string != "deny" {
+            let h = try await FullAuditHarness.start(agentID: "durable_chat", persistent: true)
+            do {
+                let event = try #require(c["event"]), optionID = c["optionId"]?.string ?? "allow"
+                await h.io.setChat(fixturePage([event])); await h.store.load(h.target, force: true)
+                await h.io.setReceipts([optionID: c, "deny": deny])
+                var a = try #require(fixtureApproval(h)); let option = try #require(a.options.first { $0.id == optionID })
+                await h.store.respond(a, option: option, target: h.target)
+                let rejected = c["status"]?.integer == 409
+                #expect(fixtureApproval(h)?.resolution == (rejected ? .pending : .allowed))
+                let sent = try #require(await h.io.recordedCommands.last)
+                #expect(sent["type"]?.string == "chat.permission"); #expect(sent["requestId"]?.string == "perm_1"); #expect(sent["optionId"]?.string == optionID)
+                #expect(sent["options"] == nil); #expect(sent["label"] == nil)
+                emitted.append(.object(["name": c["name"]!, "command": sent]))
+                if rejected {
+                    #expect(h.store.operationErrors[h.target] == c["body"]?["error"]?["message"]?.string)
+                    a = try #require(fixtureApproval(h)); let reject = try #require(a.options.first { $0.id == "deny" })
+                    await h.store.respond(a, option: reject, target: h.target)
+                    #expect(fixtureApproval(h)?.resolution == .denied)
+                }
+                print("PERMISSION_COMMAND actualCH=true case=\(c["name"]?.string ?? "") status=\(c["status"]?.integer ?? 0) optionId=unaltered labels=notSent rejectedRemainsDeniable=\(rejected)")
+                await h.stop()
+            } catch { await h.stop(); throw error }
+        }
+        let archive = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        try JSONEncoder().encode(AnnexJSON.array(emitted)).write(to: archive.deletingLastPathComponent().appendingPathComponent("frame-2686/go-commands-" + archive.lastPathComponent + ".json"), options: .atomic)
+    }
+
+    @Test func final2686RealToolPreviewFixtureAndSyntheticNoticeOptions() async throws {
+        let fixture = try permissionCapture("tool-fixture.json"), frame = try #require(fixture["frame"])
+        let h = try await FullAuditHarness.start(agentID: "durable_chat", initialSequence: 999)
+        do {
+            await h.io.setChat(fixturePage([])); await h.store.load(h.target, force: true)
+            await h.io.push(try JSONEncoder().encode(frame))
+            func tool() -> CompanionTool? { h.store.conversation(for: h.target).items.compactMap { if case .tool(let t) = $0 { t } else { nil } }.first }
+            try await h.wait { tool()?.id == "call_write" }
+            #expect(tool()?.name == "Write big.ts"); #expect(tool()?.summary == "big.ts"); #expect(tool()?.kind == .edit)
+            #expect(tool()?.awaitsApproval == true)
+            #expect(h.store.conversation(for: h.target).lastSequence == 101)
+            #expect(await h.io.opened == 1)
+            // Unbuilt overflow proposal: summary has no 400-character limit; rawInput content does.
+            let warning = "Incomplete input: this request is too large to show in full here. Review it on the desktop to approve it. You can still deny it here."
+            let note = "3 additional requests are pending; use Refresh conversation or review them on desktop."
+            var options: [AnnexJSON] = (0..<15).map { .object(["optionId": .string("allow-\($0)"), "label": .string(String(repeating: "L", count: 256)), "kind": .string("allow_once"), "scope": .string(String(repeating: "S", count: 256))]) }
+            options.append(.object(["optionId": .string("deny-kept"), "label": .string("Deny"), "kind": .string("reject_once")]))
+            let p = LiveServiceHarness.chatEvent("sess_live", sequence: 102, type: "permission_request", data: ["requestId": .string("synthetic"), "title": .string("Write big.ts"), "toolName": .string("Write"), "description": .string(warning + " " + String(repeating: "context ", count: 60) + note), "rawInput": .object(["file_path": .string("/work/app/big.ts"), "content": .string(String(repeating: "x", count: 500))]), "options": .array(options)])
+            await h.io.setChat(fixturePage([p])); await h.store.load(h.target, force: true)
+            let a = try #require(fixtureApproval(h, id: "synthetic")); #expect(a.summary.hasPrefix(warning)); #expect(a.summary.hasSuffix(note)); #expect(a.summary.count > 400)
+            #expect(a.detail == "big.ts\n" + String(repeating: "x", count: 400)); #expect(a.options.count == 16); #expect(a.options[0].label.utf8.count == 256); #expect(a.options[0].scope?.utf8.count == 256)
+            #expect(a.options.last?.id == "deny-kept"); await h.store.respond(a, option: a.options[15], target: h.target)
+            #expect(fixtureApproval(h, id: "synthetic")?.resolution == .denied)
+            #expect(await h.io.recordedCommands.last?["optionId"]?.string == "deny-kept")
+            print("TOOL_FIXTURE actual=true id=kept kind=edit pendingApproval=true smallRaw=big.ts notice=summaryUnclipped rawBody=400chars proposalOptions=16 denyID=kept")
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+}
+
+@MainActor extension FrameWireAuditTests {
+    @Test func proposedAllRowsOr503CachedAndColdRecovery() async throws {
+        let failure: AnnexJSON = .object(["error": .string("pending_overflow"), "pendingCount": .integer(9999), "message": .string("9999 requests are pending, too many to show here. Review them on the desktop.")])
+        let expected = "Desktop request failed (503): pending_overflow."
+        let h = try await FullAuditHarness.start(); await h.seed()
+        let items = h.store.conversation(for: h.target).items, cursor = h.store.conversation(for: h.target).lastSequence
+        await h.io.setChatResponse(failure, status: 503); await h.store.load(h.target, force: true)
+        #expect(h.store.conversation(for: h.target).items == items); #expect(h.store.conversation(for: h.target).lastSequence == cursor)
+        #expect(h.store.conversation(for: h.target).error == expected); #expect(!h.store.conversation(for: h.target).isLoading); #expect(h.store.conversation(for: h.target).requiresResync)
+        h.assertCritical(); #expect(await h.io.opened == 1)
+        #expect(!h.store.canOperate(h.target)); #expect(!h.store.canSend(h.target))
+        let reads = await h.io.chatReads; try await Task.sleep(for: .milliseconds(100)); #expect(await h.io.chatReads == reads)
+        await h.io.setChat(FullAuditHarness.criticalSnapshot()); await h.store.load(h.target, force: true)
+        #expect(h.store.conversation(for: h.target).error == nil); #expect(!h.store.conversation(for: h.target).requiresResync); h.assertCritical(); #expect(h.store.canOperate(h.target))
+        await h.stop()
+        let cold = try await FullAuditHarness.start(chatOverride: failure, chatStatus: 503)
+        #expect(cold.store.conversation(for: cold.target).items.isEmpty); #expect(cold.store.conversation(for: cold.target).error == expected)
+        #expect(!cold.store.conversation(for: cold.target).isLoading); #expect(!cold.store.conversation(for: cold.target).isLoaded)
+        await cold.io.setChat(FullAuditHarness.criticalSnapshot()); await cold.store.load(cold.target, force: true)
+        cold.assertCritical(); #expect(cold.store.conversation(for: cold.target).error == nil)
+        print("PENDING503 synthetic=true visible=\(expected) cached=retained cursor=retained autoRetry=false cold=explicitFailure retry=recovered serverMessage=ignored")
+        await cold.stop()
+    }
+
+    @Test func proposedMinimalDenyOnlyZeroOptionsAndDuplicateTail() async throws {
+        let warning = "Incomplete input: this request is too large to show in full here. Review it on the desktop to approve it. You can still deny it here."
+        for persistent in [false, true] {
+            let h = try await FullAuditHarness.start(persistent: persistent)
+            func request(_ id: String, seq: Int64, kinds: [String], minimal: Bool = true, omitOptions: Bool = false) -> AnnexJSON {
+                var data: [String: AnnexJSON] = ["requestId": .string(id), "toolCallId": .string("tool-" + id), "toolName": .string("Write"), "title": .string("Write big.ts"), "description": .string(minimal ? warning : "FULL ORIGINAL"), "options": .array(kinds.map { .object(["optionId": .string($0), "label": .string($0), "kind": .string($0)]) })]
+                if minimal { data["truncated"] = .object(["originalBytes": .integer(500000)]) } else { data["rawInput"] = .object(["file_path": .string("/work/app/big.ts"), "content": .string("full input")]) }
+                if omitOptions { data.removeValue(forKey: "options") }
+                return LiveServiceHarness.chatEvent("s1", sequence: seq, type: "permission_request", data: data)
+            }
+            func page(_ pending: [AnnexJSON], events: [AnnexJSON] = []) -> AnnexJSON { LiveServiceHarness.chatSnapshot(events: events, fields: ["state": .string("waiting_permission"), "pendingPermissions": .array(pending), "capabilities": .object(["chat": .bool(true)])]) }
+            do {
+                for kind in ["reject_once", "reject_always", "cancel_turn"] {
+                    await h.io.setChat(page([request(kind, seq: 6, kinds: [kind])]))
+                    await h.store.load(h.target, force: true)
+                    let a = try #require(fixtureApproval(h, id: kind)); #expect(a.summary == warning); #expect(a.detail == nil); #expect(a.options.count == 1); #expect(!a.options[0].allows)
+                    let before = await h.io.commands
+                    await h.store.respond(a, option: a.options[0], target: h.target)
+                    let answerable = kind != "reject_always" || persistent
+                    #expect(fixtureApproval(h, id: kind)?.resolution == (answerable ? .denied : .pending))
+                    #expect(await h.io.commands == before + (answerable ? 1 : 0))
+                }
+                for missing in [false, true] {
+                    await h.io.setChat(page([request("view-only", seq: 6, kinds: [], omitOptions: missing)])); await h.store.load(h.target, force: true)
+                    let a = try #require(fixtureApproval(h, id: "view-only")); #expect(a.options.isEmpty); #expect(a.resolution == .pending); #expect(h.store.pinnedApproval(for: h.target) == nil)
+                    let before = await h.io.commands
+                    await h.store.respond(a, option: .init(id: "invented", label: "Allow", kind: .allowOnce), target: h.target)
+                    #expect(await h.io.commands == before)
+                    h.store.drafts[h.target] = "Chat still works"; await h.store.sendDraft(to: h.target)
+                    #expect(await h.io.commands == before + 1)
+                }
+                let full = request("duplicate", seq: 8, kinds: ["allow_once", "reject_once"], minimal: false)
+                let minimal = request("duplicate", seq: 8, kinds: ["reject_once"])
+                await h.io.setChat(page([minimal], events: [full])); await h.store.load(h.target, force: true)
+                let a = try #require(fixtureApproval(h, id: "duplicate")); #expect(a.summary == warning); #expect(a.options.map(\.id) == ["reject_once"]); #expect(a.detail == nil)
+                #expect(h.store.conversation(for: h.target).items.filter { $0.id == "approval:duplicate" }.count == 1)
+                print("MINIMAL_PERMISSION synthetic=true persistent=\(persistent) denyOnce=works cancelTurn=works rejectAlways=\(persistent ? "works" : "desktopOnly") emptyOrMissingOptions=viewOnly chat=works duplicateTail=minimalWins")
+                await h.stop()
+            } catch { await h.stop(); throw error }
+        }
+    }
+
+    @Test func proposedQuestionFallbacksMustNotInventOrOmitPromptText() async throws {
+        let h = try await FullAuditHarness.start()
+        func question(_ fields: [String: AnnexJSON]) -> AnnexJSON { LiveServiceHarness.chatEvent("s1", sequence: 6, type: "question", data: ["requestId": .string("oversized-question"), "questions": .array([.object(fields)])]) }
+        func q() -> CompanionQuestion? { h.store.conversation(for: h.target).items.compactMap { if case .question(let q) = $0, q.id == "oversized-question" { q } else { nil } }.first }
+        func page(_ event: AnnexJSON) -> AnnexJSON { LiveServiceHarness.chatSnapshot(fields: ["state": .string("waiting_input"), "pendingQuestions": .array([event]), "capabilities": .object(["chat": .bool(true), "questions": .bool(true)])]) }
+        do {
+            let exactID = "Exact unshortened Claude question?"
+            await h.io.setChat(page(question(["id": .string(exactID), "prompt": .string(exactID), "options": .array([]), "allowFreeText": .bool(false)])))
+            await h.store.load(h.target, force: true)
+            var card = try #require(q()); #expect(card.prompts.count == 1); #expect(card.prompts[0].id == exactID)
+            #expect(!CompanionStore.validAnswers([exactID: .text("")], for: card)); #expect(!CompanionStore.validAnswers([exactID: .text("invented")], for: card))
+            let before = await h.io.commands; await h.store.answer(card, answers: [exactID: .text("invented")], target: h.target); #expect(await h.io.commands == before)
+            // Free text without options is still an answer path if enabled: unsafe for an incomplete prompt.
+            await h.io.setChat(page(question(["id": .string(exactID), "prompt": .string("Incomplete preview"), "options": .array([]), "allowFreeText": .bool(true)])))
+            await h.store.load(h.target, force: true); card = try #require(q())
+            #expect(CompanionStore.validAnswers([exactID: .text("answer")], for: card))
+            await h.store.answer(card, answers: [exactID: .text("answer")], target: h.target)
+            #expect(await h.io.recordedCommands.last?["answers"]?[exactID]?.string == "answer")
+            // Missing prompt text is silently compactMapped away, permitting an empty answer map.
+            await h.io.setChat(page(question(["id": .string(exactID), "options": .array([])]))); await h.store.load(h.target, force: true)
+            card = try #require(q()); #expect(card.prompts.isEmpty); #expect(CompanionStore.validAnswers([:], for: card))
+            await h.store.answer(card, answers: [:], target: h.target)
+            #expect(q()?.resolution == .answered); #expect(await h.io.recordedCommands.last?["answers"] == .object([:]))
+            print("QUESTION_FALLBACK synthetic=true noOptionsNoFreeText=disabled noOptionsFreeText=answerable missingPrompt=emptyPrompts emptyAnswers=sent HTTP503=preferredExplicitFailure")
+            await h.stop()
+        } catch { await h.stop(); throw error }
     }
 }
