@@ -253,6 +253,8 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     public var orchestrator: String?
     /// `"default"` clears it back to the provider default.
     public var model: String?
+    /// Launch-only provider/model context override; null resets to the desktop's default.
+    public var contextWindow: Clearable?
     public var runtime: Runtime?
     /// Clearing it means the project default.
     public var persona: Clearable?
@@ -262,11 +264,11 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     public var idleSleep: IdleSleep?
     /// Changes any time, even while the agent runs. Needs a desktop that advertises `orchestration` v1.
     public var orchestration: AnnexOrchestrationPatch?
-    public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil,
+    public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil, contextWindow: Clearable? = nil,
                 runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil,
                 orchestration: AnnexOrchestrationPatch? = nil) {
         self.agentID = agentID; self.name = name; self.color = color; self.emoji = emoji; self.orchestrator = orchestrator
-        self.model = model; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode
+        self.model = model; self.contextWindow = contextWindow; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode
         self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep; self.orchestration = orchestration
     }
     /// True when it changes nothing; the desktop needs at least one setting.
@@ -278,6 +280,7 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
         if let emoji { v["emoji"] = emoji.json }
         if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         if let model { v["model"] = .string(model) }
+        if let contextWindow { v["contextWindow"] = contextWindow.json }
         if let runtime { v["runtime"] = .string(runtime.rawValue) }
         if let persona { v["persona"] = persona.json }
         if let clubhouseMode { v["clubhouseMode"] = .bool(clubhouseMode) }
@@ -373,6 +376,8 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let permissions: Permissions?
     /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
     public let orchestration: Feature?
+    public let contextWindow: Feature?
+    public var supportsContextWindow: Bool { commands.contains("agent.update") && contextWindow?.version == 1 }
     public var supportsOrchestration: Bool { commands.contains("agent.update") && (orchestration?.version ?? 0) >= 1 }
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
     public var supportsFreeAgentMode: Bool { (permissions?.version ?? 0) >= 1 && permissions?.freeAgentMode == true }
@@ -469,6 +474,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         slashCommands = optional(.slashCommands)
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
+        contextWindow = optional(.contextWindow)
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
@@ -476,7 +482,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, dispatcher
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher
     }
 }
 

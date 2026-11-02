@@ -74,6 +74,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canAnswerPersistentApprovals = false
     /// The desktop takes Free Agent Mode from a phone (`permissions.freeAgentMode`).
     var canSetFreeAgentMode = false
+    var canSetContextWindow = false
     /// The desktop shows and takes agents' orchestration policy (`orchestration` v1).
     var canOrchestrate = false
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.

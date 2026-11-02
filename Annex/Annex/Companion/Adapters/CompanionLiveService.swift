@@ -376,6 +376,9 @@ import ClubhouseTransport
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
         guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
+        if change.contextWindow != nil, capabilities[target.hostID]?.supportsContextWindow != true {
+            throw CompanionServiceError.unavailable("This desktop doesn't offer context setting changes from the phone.")
+        }
         if change.freeAgentMode != nil, capabilities[target.hostID]?.supportsFreeAgentMode != true {
             throw CompanionServiceError.rejected(CompanionAgentCommandError.message(code: "free_agent_mode_not_allowed", message: nil) ?? "")
         }
@@ -805,6 +808,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
                 hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
                 hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
+                hosts[hostID]?.canSetContextWindow = newCapabilities?.supportsContextWindow == true
                 hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {

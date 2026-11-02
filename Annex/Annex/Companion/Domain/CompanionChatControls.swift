@@ -71,6 +71,20 @@ nonisolated enum CompanionEffortChoice: Sendable, Equatable {
     case providerDefault
 }
 
+/// Read-only context facts reported by the live session, separate from the saved launch setting and phone history.
+nonisolated struct CompanionChatContext: Sendable, Equatable {
+    var effectiveTokens: Int?
+    var compactAtTokens: Int?
+    var reservedTokens: Int?
+    var note: String?
+
+    var summary: String {
+        [effectiveTokens.map { "Effective context: \($0.formatted()) tokens" },
+         compactAtTokens.map { "Auto-compaction at: \($0.formatted()) tokens" },
+         reservedTokens.map { "Reserved: \($0.formatted()) tokens" }].compactMap { $0 }.joined(separator: " · ")
+    }
+}
+
 /// A live session's model, effort and level, and what the phone may switch them to.
 nonisolated struct CompanionChatControls: Sendable, Equatable {
     var model: String?
@@ -93,6 +107,7 @@ nonisolated struct CompanionChatControls: Sendable, Equatable {
     var effortDefault = false
     /// The model changed from the phone and the new model's efforts haven't arrived (`session_info.efforts`) yet.
     var awaitingEfforts = false
+    var context: CompanionChatContext?
 
     /// A null level reads as Ask first, as on the desktop.
     var currentLevel: CompanionPermissionLevel { level ?? .ask }
