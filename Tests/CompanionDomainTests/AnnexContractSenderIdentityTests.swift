@@ -36,8 +36,11 @@ import Testing
         let raw = try #require(fixture["catalog"]?["agents"]?["proj_app"].arrayValue.first { $0["id"]?.string == id })
         var agent = CompanionAgent(id: .init(hostID: "fixture", projectID: "proj_app", agentID: id),
                                    name: try #require(raw["name"]?.string), subtitle: "", status: .idle)
-        CompanionLiveService.applyIdentity(raw, icon: fixture["catalog"]?["agentIcons"]?[id], to: &agent)
-        #expect(agent.emoji == "🦊" && agent.iconData != nil, "The fox wins even with the fixture's image present")
+        #expect(fixture["catalog"]?["agentIcons"]?[id]?.string != nil)
+        let bytes = try #require(CompanionIdentityColor.data(fromDataURL: Self.validIconURL))
+        let icon = CompanionIconReference.inline(host: "fixture", kind: .agent, id: id, data: bytes)
+        CompanionLiveService.applyIdentity(raw, icon: icon, to: &agent)
+        #expect(agent.emoji == "🦊" && agent.icon == icon, "The fox wins even with an image present")
         let frame = try #require(fixture["frames"].arrayValue.first { $0["payload"]?["event"]?["data"]?["messageId"]?.string == expected["messageId"]?.string })
         var projector = CompanionChatProjector()
         projector.apply(try #require(frame["payload"]?["event"]))
