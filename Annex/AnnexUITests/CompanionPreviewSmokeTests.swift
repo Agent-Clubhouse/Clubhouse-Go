@@ -423,7 +423,27 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let app = launchApp(["--companion-preview"])
         let any = app.descendants(matching: .any)
         func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
-        func scrollTo(_ target: XCUIElement) { self.scrollTo(target, in: app) }
+        let sheet = element("agent-details-sheet")
+        func scrollTo(_ target: XCUIElement, up: Bool = true) {
+            let list = sheet.collectionViews.firstMatch
+            XCTAssertTrue(list.waitForExistence(timeout: 5))
+            var reached = false
+            for _ in 0..<12 {
+                checkTimeLeft("scrolling the details list")
+                let frame = list.frame
+                let top = max(frame.minY, sheet.navigationBars.firstMatch.frame.maxY) + 12
+                let visible = CGRect(x: frame.minX + 8, y: top, width: frame.width - 16, height: frame.maxY - top - 12)
+                if target.exists && visible.contains(target.frame) && target.isHittable { reached = true; break }
+                // Whole-app swipes can overshoot a short iPad form sheet.
+                // Keep the drag inside its list and reverse if the row went above it.
+                let down = target.exists ? target.frame.minY < visible.minY : !up
+                let distance = min(180, visible.height * 0.35) * (down ? 1 : -1)
+                let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: visible.midX, dy: visible.midY))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                            withVelocity: XCUIGestureVelocity(rawValue: 250), thenHoldForDuration: 0.1)
+            }
+            XCTAssertTrue(reached, "Details row must scroll into view")
+        }
 
         let river = element("agent-preview-studio-river")
         scrollUntilExists(river, in: app)
@@ -435,12 +455,23 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // The settings route's details fill in the workspace and changes.
         let branch = element("agent-details-branch")
-        waitAndTap(details, until: branch, timeout: 10)
+        waitAndTap(details, until: sheet, timeout: 10)
+        // The iPad form sheet is shorter than the phone sheet. Visit the lazy
+        // list in display order rather than reading rows below its viewport.
+        let cli = element("agent-details-cli")
+        scrollTo(cli, up: false)
+        XCTAssertTrue(cli.label.contains("Claude Code 2.1.4"), "Runs on with the session's CLI version")
+        let effort = element("agent-details-effort")
+        scrollTo(effort)
+        XCTAssertTrue(effort.label.contains("High"))
+        scrollTo(branch)
         XCTAssertTrue(branch.label.contains("river/companion"), branch.label)
-        XCTAssertTrue(element("agent-details-worktree").label.contains(".clubhouse/agents/river"))
-        XCTAssertTrue(element("agent-details-cli").label.contains("Claude Code 2.1.4"), "Runs on with the session's CLI version")
-        XCTAssertTrue(element("agent-details-effort").label.contains("High"))
-        XCTAssertTrue(element("agent-details-access").label.contains("Auto-accept edits"), "The live permission level")
+        let workspace = element("agent-details-worktree")
+        scrollTo(workspace)
+        XCTAssertTrue(workspace.label.contains(".clubhouse/agents/river"))
+        let access = element("agent-details-access")
+        scrollTo(access)
+        XCTAssertTrue(access.label.contains("Auto-accept edits"), "The live permission level")
         let freeAgent = element("agent-details-free-agent-mode")
         scrollTo(freeAgent)
         XCTAssertTrue(freeAgent.label.contains("Off"))
@@ -463,8 +494,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let openSettings = element("agent-details-open-settings")
         scrollTo(openSettings)
         waitAndTap(openSettings, until: element("agent-settings-summary"), timeout: 10, "Details links to the agent's settings")
-        waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: openSettings, timeout: 5)
-        waitAndTap(app.buttons["Done"], untilGone: openSettings)
+        waitAndTap(sheet.navigationBars.buttons.element(boundBy: 0), until: openSettings, timeout: 5)
+        waitAndTap(sheet.buttons["Done"], untilGone: openSettings)
 
         // From an agent row's long-press menu: Juniper works in the project folder, with nothing changed.
         waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: homeNewAgent(app))
@@ -480,7 +511,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(name.exists && name.isHittable)
         let frame = juniper.frame
         XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
-        XCTAssertLessThanOrEqual(frame.maxY, app.tabBars.firstMatch.frame.minY - 12)
+        XCTAssertLessThanOrEqual(frame.maxY, rowContentBottom(in: app))
         let point = CGPoint(x: name.frame.midX, y: name.frame.midY)
         XCTAssertTrue(frame.contains(point))
         XCTContext.runActivity(named: "Long-press visible Juniper name at \(point), row \(frame)") { _ in
@@ -488,7 +519,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
         XCTAssertTrue(rowDetails.waitForExistence(timeout: 5), "The long-press menu offers the agent's details")
         let worktree = element("agent-details-worktree")
-        waitAndTap(rowDetails, until: worktree, timeout: 10)
+        waitAndTap(rowDetails, until: sheet, timeout: 10)
+        scrollTo(worktree)
         XCTAssertTrue(worktree.label.contains("Works in the project folder"), worktree.label)
         XCTAssertFalse(element("agent-details-effort").exists, "No session, so no effort is guessed")
         let juniperChanges = element("agent-details-changes")

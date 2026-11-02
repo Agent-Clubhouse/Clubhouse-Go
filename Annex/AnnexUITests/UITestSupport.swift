@@ -95,6 +95,22 @@ class ReliableUITestCase: XCTestCase {
         return (tabBar.exists ? tabBar.frame.minY : app.frame.maxY) - 12
     }
 
+    /// These pushed fixture chats hide their tab bar. The navigation bar starts
+    /// immediately below the status bar; a fraction of the whole screen can land
+    /// in navigation instead on iPad's shorter status bar.
+    func tapChatStatusBar(in app: XCUIApplication) {
+        let window = app.frame
+        let navigation = app.navigationBars.firstMatch.frame
+        let status = CGRect(x: window.minX, y: window.minY, width: window.width, height: navigation.minY - window.minY)
+        XCTAssertGreaterThan(status.height, 0)
+        let point = CGPoint(x: status.minX + status.width * 0.1, y: status.midY)
+        XCTAssertTrue(status.contains(point))
+        XCTAssertFalse(navigation.contains(point))
+        XCTContext.runActivity(named: "Tap chat status bar at \(point), status band \(status), navigation \(navigation)") { _ in
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        }
+    }
+
     /// Hittability alone can include a row clipped by the navigation bar. Move the
     /// whole row into the content area, then tap its checked center explicitly.
     func tapVisibleRow(_ row: XCUIElement, in app: XCUIApplication, until expected: XCUIElement) {
