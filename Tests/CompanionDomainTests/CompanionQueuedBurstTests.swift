@@ -149,6 +149,27 @@ import ClubhouseTransport
         await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array(Array(events.prefix(3)))]))
         #expect(try await reader.load(before: 12).items == expected.items)
     }
+    @Test func committedSystemTurnKeepsQueuedRowUntilNextPrompt() throws {
+        let fixture = try #require(ContractFixtures.json("queued-bursts.json")["systemTurn"])
+        let rowID = try #require(fixture["rowId"]?.string)
+        let events = fixture["events"].arrayValue
+        let systemIndex = try #require(events.firstIndex { $0["type"]?.string == "turn_started" && $0["data"]?["trigger"]?.string == "system" })
+        let nextPrompt = try #require(events.indices.first { $0 > systemIndex && events[$0]["type"]?.string == "turn_started" && events[$0]["data"]?["trigger"]?.string == "prompt" })
+        var projector = CompanionChatProjector()
+        for event in events.prefix(systemIndex) { projector.apply(event) }
+        let queued = try #require(messages(projector).first { $0.id == rowID })
+        #expect(queued.queueState == .submitted)
+        // The fixture describes a native/legacy queue: prompt turn boundaries, not queue_state, deliver it.
+        for event in events[systemIndex..<nextPrompt] {
+            projector.apply(event)
+            #expect(messages(projector).first { $0.id == rowID } == queued, "A system turn must preserve the entire queued row")
+        }
+        projector.apply(events[nextPrompt])
+        let delivered = try #require(messages(projector).first { $0.id == rowID })
+        #expect(messages(projector).count == 1 && delivered.queueState == nil)
+        #expect(delivered.text == queued.text && delivered.display == queued.display)
+    }
+
     @Test func dispatchingBeforeOrAfterTurnStartedKeepsExactlyOneMergedRow() {
         for dispatchFirst in [false, true] {
             var p = CompanionChatProjector()
