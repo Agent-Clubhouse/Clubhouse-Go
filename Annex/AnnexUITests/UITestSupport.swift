@@ -88,6 +88,13 @@ class ReliableUITestCase: XCTestCase {
         return closed
     }
 
+    /// iPad's top tabs are buttons outside a UITabBar; the content then extends
+    /// to the bottom of the window. Keep the same margin for checked row targets.
+    func rowContentBottom(in app: XCUIApplication) -> CGFloat {
+        let tabBar = app.tabBars.firstMatch
+        return (tabBar.exists ? tabBar.frame.minY : app.frame.maxY) - 12
+    }
+
     /// Hittability alone can include a row clipped by the navigation bar. Move the
     /// whole row into the content area, then tap its checked center explicitly.
     func tapVisibleRow(_ row: XCUIElement, in app: XCUIApplication, until expected: XCUIElement) {
@@ -96,7 +103,7 @@ class ReliableUITestCase: XCTestCase {
             for _ in 0..<6 {
                 checkTimeLeft("moving the agent row clear of the navigation bar")
                 let top = app.navigationBars.firstMatch.frame.maxY + 12
-                let bottom = app.tabBars.firstMatch.frame.minY - 12
+                let bottom = rowContentBottom(in: app)
                 if row.exists && row.isHittable && row.frame.minY >= top && row.frame.maxY <= bottom { break }
                 let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 let dy: CGFloat = row.frame.minY < top ? 120 : -120
@@ -106,7 +113,7 @@ class ReliableUITestCase: XCTestCase {
             let frame = row.frame
             let point = CGPoint(x: frame.midX, y: frame.midY)
             XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
-            XCTAssertLessThanOrEqual(frame.maxY, app.tabBars.firstMatch.frame.minY - 12)
+            XCTAssertLessThanOrEqual(frame.maxY, rowContentBottom(in: app))
             XCTAssertTrue(frame.contains(point))
             XCTAssertFalse(app.navigationBars.firstMatch.frame.contains(point))
             XCTContext.runActivity(named: "Tap visible agent row at \(point), row \(frame), navigation bar \(app.navigationBars.firstMatch.frame)") { _ in

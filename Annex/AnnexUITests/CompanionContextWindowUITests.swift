@@ -23,7 +23,7 @@ import XCTest
         if rowID.hasPrefix("dispatcher-row-") {
             let frame = row.frame
             XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
-            XCTAssertLessThanOrEqual(frame.maxY, app.tabBars.firstMatch.frame.minY - 12)
+            XCTAssertLessThanOrEqual(frame.maxY, rowContentBottom(in: app))
             // The CI press at the outer row's center navigated instead of opening its menu.
             // Target the left-side label content explicitly.
             let point = CGPoint(x: frame.minX + frame.width * 0.25, y: frame.midY)
