@@ -209,6 +209,10 @@ struct CompanionAgentSettingsForm: View {
                 Label(saveError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-error")
             }
+            if let contextResetNotice = settings.contextWindowReset?.message {
+                Label(contextResetNotice, systemImage: "info.circle").font(.subheadline)
+                    .accessibilityIdentifier("agent-settings-context-reset-notice")
+            }
         }
 
         if isDispatcher {
@@ -277,6 +281,7 @@ struct CompanionAgentSettingsForm: View {
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
+            if let context = settings.contextWindow { contextWindow(context, sleeping: sleeping) }
             Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
                 Text("Provider default").tag("default")
                 Text("Chat").tag("chat")
@@ -337,6 +342,55 @@ struct CompanionAgentSettingsForm: View {
         if let orchestration = orchestration(settings) {
             orchestrateSection(orchestration, name: settings.name.value, running: !sleeping,
                                isHelper: settings.parentAgentID != nil || agent?.parentAgentID != nil)
+        }
+    }
+
+    /// Shared by durable agents and the Dispatcher. Choices belong to the returned provider/model settings.
+    private func contextWindow(_ context: CompanionContextWindow, sleeping: Bool) -> some View {
+        let canEdit = context.canEdit(sleeping: sleeping) && store.canEditSettings(target)
+            && store.host(for: target)?.canSetContextWindow == true && !saving
+        let canReset = context.canReset(sleeping: sleeping, isDispatcher: isDispatcher) && store.canEditSettings(target)
+            && store.host(for: target)?.canSetContextWindow == true && !saving
+        return VStack(alignment: .leading, spacing: 6) {
+            Picker(context.displayLabel, selection: Binding<String?>(get: { context.value }, set: {
+                if let change = context.change(to: $0) { save(change) }
+            })) {
+                Text(context.displayDefaultLabel).tag(String?.none)
+                ForEach(context.choices) { choice in
+                    Text(context.isSavedNotApplied && choice.id == context.value ? context.selectedLabel : choice.label).tag(Optional(choice.id))
+                }
+                if let value = context.value, !context.choices.contains(where: { $0.id == value }) {
+                    Text(context.selectedLabel).tag(Optional(value)).disabled(true)
+                }
+            }
+            .disabled(!canEdit)
+            .accessibilityIdentifier("agent-settings-context-window")
+            if let description = context.description {
+                Text(description).font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+            }
+            Text(context.applicationNote)
+                .font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+            if let reason = context.availabilityReason {
+                Text(reason).font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+                    .accessibilityIdentifier("agent-settings-context-window-reason")
+            }
+            if store.host(for: target)?.canSetContextWindow != true {
+                Text("This desktop doesn't offer context setting changes from the phone.").font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+            }
+            if let tokens = context.defaultTokens {
+                Text("Default: \(tokens.formatted()) tokens").font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+            }
+            if let maximum = context.maxTokens {
+                Text("Maximum: \(maximum.formatted()) tokens").font(.footnote).foregroundStyle(Color(palette.secondaryLabel))
+            }
+            if let costNote = context.costNote { Text(costNote).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
+            if let notice = context.notice { Text(notice).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
+            if context.value != nil {
+                Button("Reset to Default") { if let change = context.change(to: nil) { save(change) } }
+                    .buttonStyle(.borderless)
+                    .disabled(!canReset)
+                    .accessibilityIdentifier("agent-settings-context-window-reset")
+            }
         }
     }
 

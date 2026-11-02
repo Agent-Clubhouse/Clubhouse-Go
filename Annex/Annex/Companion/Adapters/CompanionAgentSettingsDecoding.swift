@@ -69,6 +69,8 @@ extension CompanionAgentSettings {
         resolvedOrchestrator = settings["orchestrator"]?["resolved"]?.string ?? string("orchestrator") ?? ""
         changeStartsNewSession = settings["orchestrator"]?["changeStartsNewSession"]?.boolOrNil ?? false
         model = .init(value: string("model") ?? "default", editable: editable("model"))
+        contextWindow = CompanionContextWindow(json: settings["contextWindow"])
+        contextWindowReset = CompanionContextWindowReset(json: json["contextWindowReset"])
         runtime = .init(value: string("runtime") ?? "default", editable: editable("runtime"))
         resolvedRuntime = settings["runtime"]?["resolved"]?.string ?? "chat"
         persona = .init(value: string("persona"), editable: editable("persona"))
@@ -102,6 +104,53 @@ extension CompanionAgentSettings {
         case .string("never"): .never
         default: if let minutes = value?.int, minutes > 0 { .minutes(minutes) } else { .inherit }
         }
+    }
+}
+
+extension CompanionContextWindow {
+    /// A small wire seam: no provider/model IDs, inferred capacities or locally invented choices.
+    init?(json: AnnexJSON?) {
+        guard let json, case .object = json,
+              let rawValue = json["value"], rawValue == .null || rawValue.string?.isEmpty == false,
+              let editable = json["editable"]?.string.flatMap(CompanionSettingEditable.init(rawValue:)),
+              let configurable = json["configurable"]?.boolOrNil,
+              case .array(let offered)? = json["choices"],
+              case .array(let applies)? = json["applies"] else { return nil }
+        for key in ["kind", "label", "description", "defaultLabel", "costNote", "state", "reason", "notice"] {
+            if let value = json[key], value != .null, value.string == nil { return nil }
+        }
+        for key in ["defaultTokens", "maxTokens"] {
+            if let count = json[key], count != .null, count.integer.map({ $0 > 0 }) != true { return nil }
+        }
+        var choices: [Choice] = []
+        var seen: Set<String> = []
+        for choice in offered {
+            guard let id = choice["id"]?.string, !id.isEmpty,
+                  seen.insert(id).inserted else { return nil }
+            if let label = choice["label"], label != .null, label.string == nil { return nil }
+            if let tokens = choice["tokens"], tokens != .null, tokens.integer.map({ $0 > 0 }) != true { return nil }
+            choices.append(.init(id: id, label: choice["label"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? id,
+                                 tokens: choice["tokens"]?.integer.flatMap { Int(exactly: $0) }))
+        }
+        guard applies.allSatisfy({ $0.string != nil }) else { return nil }
+        func text(_ key: String) -> String? { json[key]?.string.flatMap { $0.isEmpty ? nil : $0 } }
+        self.init(value: rawValue.string, editable: editable, configurable: configurable,
+                  kind: text("kind").flatMap(Kind.init(rawValue:)), label: text("label"), description: text("description"),
+                  defaultLabel: text("defaultLabel"), choices: choices,
+                  defaultTokens: json["defaultTokens"]?.integer.flatMap { Int(exactly: $0) },
+                  maxTokens: json["maxTokens"]?.integer.flatMap { Int(exactly: $0) }, costNote: text("costNote"),
+                  applies: applies.compactMap { $0.string.flatMap(Applies.init(rawValue:)) },
+                  state: text("state").flatMap(State.init(rawValue:)), reason: text("reason"), notice: text("notice"))
+    }
+}
+
+extension CompanionContextWindowReset {
+    init?(json: AnnexJSON?) {
+        guard let json, case .object = json else { return nil }
+        for key in ["previous", "reason"] {
+            if let value = json[key], value != .null, value.string == nil { return nil }
+        }
+        self.init(previous: json["previous"]?.string, reason: json["reason"]?.string)
     }
 }
 
@@ -177,7 +226,7 @@ extension AnnexAgentUpdate {
         case nil: nil
         }
         self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
-                  model: change.model, runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
+                  model: change.model, contextWindow: clearable(change.contextWindow), runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
                   clubhouseMode: change.clubhouseMode, freeAgentMode: change.freeAgentMode, idleSleep: idle,
                   orchestration: change.orchestration.map(AnnexOrchestrationPatch.init))
     }

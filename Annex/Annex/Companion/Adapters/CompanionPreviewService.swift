@@ -28,10 +28,13 @@ import ClubhouseTransport
     private let showsHelperIdentity: Bool
     private let showsHelperTree: Bool
     private let showsQuestions: Bool
+    private let showsContextWindow: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false, showsQuestions: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
+         showsQuestions: Bool = false, showsContextWindow: Bool = false) {
         self.showsQuestions = showsQuestions
+        self.showsContextWindow = showsContextWindow
         self.showsHelperTree = showsHelperTree
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
@@ -46,7 +49,8 @@ import ClubhouseTransport
         AsyncStream { continuation in
             self.continuation = continuation
             continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
-                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher, helperTree: self.showsHelperTree)))
+                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher, helperTree: self.showsHelperTree,
+                                                 contextWindow: self.showsContextWindow)))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -82,7 +86,8 @@ import ClubhouseTransport
         }
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
-    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false, helperTree: Bool = false) -> [CompanionHost] {
+    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false, helperTree: Bool = false,
+                      contextWindow: Bool = false) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
@@ -124,14 +129,14 @@ import ClubhouseTransport
                     // Completed rather than failed, so it folds on Home instead of joining Needs you; its exit code still shows.
                     agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .completed, minutesAgo: 180, quick: true, exitCode: 1),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
-                          contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
-                          session: riverSession, chatControls: chatControls, slashCommands: slashCommands)
+                          contextUsage: .init(used: 84_000, size: contextWindow ? 300_000 : 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
+                          session: riverSession, chatControls: contextWindow ? contextPreviewControls : chatControls, slashCommands: slashCommands)
                 ], color: "indigo"),
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
-               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
+               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canSetContextWindow: contextWindow, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
                terminal: .init(projectShell: true, agentShell: true, agentAttach: true),
                dispatcher: dispatcher ? Self.dispatcher(now: now) : nil),
@@ -365,6 +370,19 @@ import ClubhouseTransport
         efforts: ["low", "medium", "high", "xhigh"],
         levelNames: [.plan: "plan", .ask: "default", .autoEdit: "acceptEdits", .auto: "auto", .fullAccess: "bypassPermissions"],
         liveLevels: CompanionPermissionLevel.allCases, modelSwitch: .perTurn, effortSwitch: .perTurn, effortDefault: true)
+    /// Illustrative preview content only; these values don't validate a provider's plan or runtime behaviour.
+    static let contextPreviewControls: CompanionChatControls = {
+        var controls = chatControls
+        controls.context = .init(effectiveTokens: 300_000, compactAtTokens: 267_000, reservedTokens: 33_000,
+                                 note: "Preview: reported working context; the model's own window isn't changed.")
+        return controls
+    }()
+    static func previewContext(editable: CompanionSettingEditable) -> CompanionContextWindow {
+        .init(value: "500000", editable: editable, configurable: true, kind: .workingWindow,
+              label: "Working context", description: "How much conversation the CLI keeps before it compacts. This doesn't change the model's own context window.",
+              defaultLabel: "Auto", choices: [.init(id: "300000", label: "300K", tokens: 300_000), .init(id: "500000", label: "500K", tokens: 500_000)],
+              maxTokens: 1_000_000, costNote: "Preview choices. A larger size sends more history with each message.", applies: [.launch, .resume])
+    }
     func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
@@ -381,7 +399,11 @@ import ClubhouseTransport
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
     /// River is awake, so its spawn settings are locked; Juniper sleeps, so everything can change.
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
-        if target == Self.dispatcherTarget { return Self.dispatcherSettings }
+        if target == Self.dispatcherTarget {
+            var settings = Self.dispatcherSettings
+            if showsContextWindow { settings.contextWindow = Self.previewContext(editable: .always) }
+            return settings
+        }
         let sleeping = target == Self.sleepingTarget
         let name = sleeping ? "Juniper" : "River"
         var policy = sleeping ? Self.juniperOrchestration : CompanionOrchestration(sources: ["crossProjectHelpers": .default, "connectToDispatcher": .default])
@@ -392,6 +414,7 @@ import ClubhouseTransport
                      emoji: .init(value: nil, editable: .sleeping),
                      orchestrator: .init(value: nil, editable: .sleeping), resolvedOrchestrator: "claude-code", changeStartsNewSession: sleeping,
                      model: .init(value: "opus", editable: .sleeping),
+                     contextWindow: showsContextWindow ? Self.previewContext(editable: .sleeping) : nil,
                      runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
                      persona: .init(value: nil, editable: .sleeping),
                      clubhouseMode: .init(value: nil, editable: .never),

@@ -22,6 +22,92 @@ nonisolated struct CompanionModelOption: Identifiable, Sendable, Equatable, Hash
     var label: String
 }
 
+/// The desktop owns labels, available choices and provider/model applicability.
+nonisolated struct CompanionContextWindow: Sendable, Equatable {
+    enum Kind: String, Sendable, Equatable {
+        case workingWindow = "working_window", contextWindow = "context_window", tier
+        var fallbackLabel: String {
+            switch self {
+            case .workingWindow: "Working context"
+            case .contextWindow: "Context window"
+            case .tier: "Context tier"
+            }
+        }
+    }
+    enum Applies: String, Sendable, Equatable { case launch, resume }
+    enum State: String, Sendable, Equatable {
+        case unsupported, pickModel = "pick_model", unavailable
+        var fallbackReason: String {
+            switch self {
+            case .unsupported: "This provider doesn't support a context setting."
+            case .pickModel: "Choose a model to configure its context setting."
+            case .unavailable: "Context choices are unavailable. Check the provider on the desktop."
+            }
+        }
+    }
+    struct Choice: Identifiable, Sendable, Equatable {
+        var id: String
+        var label: String
+        var tokens: Int?
+    }
+    var value: String?
+    var editable: CompanionSettingEditable
+    var configurable: Bool
+    var kind: Kind?
+    var label: String?
+    var description: String?
+    var defaultLabel: String?
+    var choices: [Choice]
+    var defaultTokens: Int?
+    var maxTokens: Int?
+    var costNote: String?
+    var applies: [Applies]
+    var state: State?
+    var reason: String?
+    var notice: String?
+
+    static let nextStartNote = "Applies the next time the agent starts."
+    var displayLabel: String { label ?? kind?.fallbackLabel ?? "Context" }
+    var displayDefaultLabel: String { defaultLabel ?? "Default" }
+    var selectedLabel: String {
+        guard let value else { return displayDefaultLabel }
+        if isSavedNotApplied { return "\(value) (saved; not applied)" }
+        return choices.first { $0.id == value }?.label ?? "\(value) (saved; not applied)"
+    }
+    var isSavedNotApplied: Bool {
+        value.map { value in state != nil || !choices.contains { $0.id == value } } ?? false
+    }
+    var availabilityReason: String? {
+        reason ?? state?.fallbackReason ?? (configurable ? nil : "Unavailable for this provider and model.")
+    }
+    var applicationNote: String {
+        if applies == [.resume] { return "Applies the next time the agent resumes." }
+        return Self.nextStartNote + (applies.contains(.resume) ? " Also applies when resuming a session." : "")
+    }
+    func canEdit(sleeping: Bool) -> Bool {
+        configurable && state == nil && CompanionSetting(value: value, editable: editable).canEdit(sleeping: sleeping)
+    }
+    func isLocked(sleeping: Bool) -> Bool {
+        configurable && state == nil && CompanionSetting(value: value, editable: editable).isLocked(sleeping: sleeping)
+    }
+    /// Clearing needs no catalog confirmation, but ordinary agents must still be asleep.
+    func canReset(sleeping: Bool, isDispatcher: Bool) -> Bool { value != nil && (sleeping || isDispatcher) }
+    /// Only server choices and reset can be submitted; a saved unavailable value is display-only.
+    func change(to selection: String?) -> CompanionSettingsChange? {
+        guard selection != value else { return nil }
+        if let selection, !choices.contains(where: { $0.id == selection }) { return nil }
+        return .init(contextWindow: selection.map(CompanionSettingsChange.Clearable.set) ?? .clear)
+    }
+}
+
+nonisolated struct CompanionContextWindowReset: Sendable, Equatable {
+    var previous: String?
+    var reason: String?
+    var message: String {
+        ["Context setting reset to Default.", previous.map { "Previous choice: \($0)." }, reason].compactMap { $0 }.joined(separator: " ")
+    }
+}
+
 /// A CLI the agent can run on ("Runs on").
 nonisolated struct CompanionOrchestratorOption: Identifiable, Sendable, Equatable {
     var id: String
@@ -153,6 +239,9 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// A different CLI cannot resume this agent's saved conversation. Absent on older desktops.
     var changeStartsNewSession = false
     var model: CompanionSetting<String>
+    /// Absent unless the desktop supplies a usable context setting for this provider/model.
+    var contextWindow: CompanionContextWindow?
+    var contextWindowReset: CompanionContextWindowReset?
     /// `default`, `chat` or `terminal`; `resolvedRuntime` is `chat` or `terminal`.
     var runtime: CompanionSetting<String>
     var resolvedRuntime: String
@@ -179,7 +268,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var hasLockedSettings: Bool {
         [name.isLocked(sleeping: sleeping), color.isLocked(sleeping: sleeping), emoji.isLocked(sleeping: sleeping),
          orchestrator.isLocked(sleeping: sleeping), model.isLocked(sleeping: sleeping), runtime.isLocked(sleeping: sleeping),
-         persona.isLocked(sleeping: sleeping), clubhouseMode.isLocked(sleeping: sleeping), freeAgentMode.isLocked(sleeping: sleeping)].contains(true)
+         persona.isLocked(sleeping: sleeping), clubhouseMode.isLocked(sleeping: sleeping), freeAgentMode.isLocked(sleeping: sleeping),
+         contextWindow?.isLocked(sleeping: sleeping) ?? false].contains(true)
     }
     /// The Settings card's Auto-sleep summary.
     var autoSleepSummary: String { idleSleep.value.summary(appMinutes: appIdleMinutes) }
@@ -223,6 +313,7 @@ nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     var emoji: Clearable?
     var orchestrator: String?
     var model: String?
+    var contextWindow: Clearable?
     var runtime: String?
     var persona: Clearable?
     var clubhouseMode: Bool?
@@ -315,6 +406,7 @@ enum CompanionAgentCommandError {
         case "create_refused": return detail ?? "The desktop couldn't create this agent."
         case "invalid_name": return detail ?? "Choose a different agent name."
         case "invalid_color": return detail ?? "Choose one of the colours offered."
+        case "invalid_context_window": return "That context setting is no longer available for this model. Choose one offered by the desktop or reset to Default."
         case "free_agent_mode_not_allowed": return "Free Agent Mode can only be changed on the desktop."
         case "free_agent_mode_unavailable": return CompanionFreeAgentMode.unsupported
         case "agent_creating": return "This agent is still being set up. Try again when it's ready."

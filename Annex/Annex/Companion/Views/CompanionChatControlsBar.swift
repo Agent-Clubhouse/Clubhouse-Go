@@ -18,10 +18,21 @@ struct CompanionChatControlsBar: View, Equatable {
 
     var body: some View {
         // One row; long names truncate rather than scroll, so the composer has no nested scroll view.
-        HStack(spacing: 8) {
-            levelMenu
-            if let label = controls.modelLabel { modelMenu(label) }
-            if controls.showsEffortChip { effortMenu }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                levelMenu
+                if let label = controls.modelLabel { modelMenu(label) }
+                if controls.showsEffortChip { effortMenu }
+            }
+            if let context = controls.context {
+                VStack(alignment: .leading, spacing: 2) {
+                    if !context.summary.isEmpty { Text(context.summary) }
+                    if let note = context.note { Text(note) }
+                }
+                .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("companion-context-report")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .confirmationDialog(pendingLevel.map { "Switch to \($0.label)?" } ?? "", isPresented: Binding(get: { pendingLevel != nil }, set: { if !$0 { pendingLevel = nil } }),
