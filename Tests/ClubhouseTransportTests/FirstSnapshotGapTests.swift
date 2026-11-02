@@ -12,6 +12,8 @@ private struct SnapshotRaceSession: Sendable {
     var receiveFailure: NSError?
     var omitReplayStart = false
     var omitReplayEnd = false
+    var epoch = "race"
+    var capabilitiesMissing = false
 }
 
 private actor SnapshotRaceSocket: AnnexWebSocket {
@@ -20,6 +22,7 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
     private(set) var closed = false
     private let session: SnapshotRaceSession
     private(set) var replaySince: [Int64] = []
+    private(set) var replayRequests: [AnnexJSON] = []
     init(_ session: SnapshotRaceSession) throws {
         self.session = session
         queue = try session.initial.map { try JSONEncoder().encode($0) }
@@ -32,15 +35,16 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
     }
     func send(_ data: Data) throws {
         let request = try JSONDecoder().decode(AnnexJSON.self, from: data)
-        guard request["type"]?.string == "mobile:replay" else { return }
+        guard ["mobile:replay", "replay"].contains(request["type"]?.string ?? "") else { return }
+        replayRequests.append(request)
         replaySince.append(request["since"]?.integer ?? -1)
         let frames: [AnnexEnvelope]
-        if session.replayGap { frames = [AnnexEnvelope(type: "replay:gap", epoch: "race")] }
+        if session.replayGap { frames = [AnnexEnvelope(type: "replay:gap", epoch: session.epoch)] }
         else {
             let since = request["since"]?.integer ?? 0
-            var response = session.omitReplayStart ? [] : [AnnexEnvelope(type: "replay:start", epoch: "race")]
+            var response = session.omitReplayStart ? [] : [AnnexEnvelope(type: "replay:start", epoch: session.epoch)]
             response.append(contentsOf: session.replay.filter { ($0.seq ?? 0) > since })
-            if !session.omitReplayEnd { response.append(AnnexEnvelope(type: "replay:end", epoch: "race")) }
+            if !session.omitReplayEnd { response.append(AnnexEnvelope(type: "replay:end", epoch: session.epoch)) }
             response.append(contentsOf: session.afterReplay)
             response.append(AnnexEnvelope(type: "fixture:end"))
             frames = response
@@ -79,7 +83,9 @@ private actor SnapshotRaceIO: AnnexIO {
             body = try .object(["publicKey": .string(identity.publicKeyBase64),
                                 "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
         } else {
-            body = .object(["version": .integer(1), "epoch": .string("race"), "controlAuth": .string("mtls-pinned-client"),
+            let session = sessions[min(sockets.count, sessions.count - 1)]
+            if session.capabilitiesMissing { return AnnexHTTPResponse(status: 404, data: Data()) }
+            body = .object(["version": .integer(1), "epoch": .string(session.epoch), "controlAuth": .string("mtls-pinned-client"),
                 "controlAvailable": .bool(true), "commands": .array([]),
                 "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(2048), "ttlMs": .integer(3600000)])])
         }
@@ -381,4 +387,31 @@ func heldEventsAfterSnapshotFailureRecoverOnTheProposedRetrySchedule(recoveredAt
     #expect(!live.contains { if case .connection(.reconnecting) = $0 { true } else { false } })
     #expect(live.compactMap { frame -> Int64? in if case .message(let e) = frame { e.seq } else { nil } } == [104])
     await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func aNewEpochBeforeTheFirstSnapshotWaitsForTheSnapshotToDecideRestart() async throws {
+    let busy = (1...2).map { AnnexEnvelope(type: "chat:event", seq: Int64($0), epoch: "restarted") }
+    let replay = (1...2).map { AnnexEnvelope(type: "chat:event", seq: Int64($0), replayed: true, epoch: "restarted") }
+    let io = SnapshotRaceIO([
+        .init(initial: [snapshot(100)]),
+        .init(initial: busy + [AnnexEnvelope(type: "snapshot", lastSeq: 0, epoch: "restarted")], replay: replay, epoch: "restarted")
+    ], clock: AnnexManualClock())
+    let result = try await observe(io, intentionallyCloseFirst: true)
+    #expect(result.attempts == [1], "Only the deliberate first disconnect may reconnect")
+    #expect(result.messages.filter { $0.type == "snapshot" }.compactMap(\.snapshotSequence) == [100, 0])
+    #expect(result.messages.compactMap(\.seq) == [1, 2])
+    #expect(result.resyncs.filter { $0 == .serverRestart }.count == 1, "The authoritative snapshot decides restart once")
+    #expect(!result.resyncs.contains(.sequenceGap))
+    #expect(await io.sockets.count == 2)
+}
+
+@Test(.timeLimit(.minutes(1))) func missingCapabilitiesRetainsLegacyReplayAndRecoversPreSnapshotFrames() async throws {
+    let busy = (101...103).map { AnnexEnvelope(type: "chat:event", seq: Int64($0)) }
+    let replay = (101...103).map { AnnexEnvelope(type: "chat:event", seq: Int64($0), replayed: true) }
+    let io = SnapshotRaceIO([.init(initial: Array(busy.prefix(2)) + [AnnexEnvelope(type: "snapshot", lastSeq: 100), busy[2]], replay: replay, capabilitiesMissing: true)], clock: AnnexManualClock())
+    let result = try await observe(io)
+    #expect(result.attempts.isEmpty)
+    #expect(result.messages.compactMap(\.seq) == [101, 102, 103])
+    let socket = try #require(await io.sockets.first)
+    #expect(await socket.replayRequests == [.object(["type": .string("replay"), "since": .integer(100)])])
 }

@@ -577,8 +577,8 @@ public actor AnnexTransport: AnnexTransporting {
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
-            var replay: [String: AnnexJSON] = ["type": .string("mobile:replay"), "since": .integer(seq)]
-            if let epoch = capabilities?.epoch ?? cursor.epoch { replay["epoch"] = .string(epoch) }
+            var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
+            if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
             telemetry.record(.replay, event: .replayRequested)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }
