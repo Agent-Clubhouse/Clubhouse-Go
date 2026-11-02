@@ -58,7 +58,7 @@ import Testing
         try original.prefix(25).write(to: path, options: .atomic)
         let reopened = CompanionIconStore(directory: root)
         let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: original))
-        await reopened.setFetcher(for: "desktop") { _, _ in await fetcher.fetch() }
+        await reopened.setFetcher(for: "desktop") { key, _ in await fetcher.fetch(version: key.version) }
         #expect(await reopened.image(for: key(), points: 32) != nil)
         #expect(await fetcher.calls == 1)
         #expect(try Data(contentsOf: path) == original)
@@ -69,14 +69,14 @@ import Testing
         let clock = Clock()
         let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: try Self.png()))
         let store = CompanionIconStore(directory: root, now: { clock.now })
-        await store.setFetcher(for: "desktop") { _, _ in
-            _ = await fetcher.fetch()
+        await store.setFetcher(for: "desktop") { key, _ in
+            _ = await fetcher.fetch(version: key.version)
             throw URLError(.notConnectedToInternet)
         }
         for _ in 0..<10 { #expect(await store.image(for: key(), points: 32) == nil) }
         #expect(await fetcher.calls == 1)
         // New tokens have independent failure state; old bytes never stand in for a new token.
-        await store.setFetcher(for: "desktop") { _, _ in await fetcher.fetch() }
+        await store.setFetcher(for: "desktop") { key, _ in await fetcher.fetch(version: key.version) }
         #expect(await store.image(for: key(token: "v2"), points: 32) != nil)
         #expect(await store.image(for: key(), points: 32) == nil)
         #expect(await fetcher.calls == 2)
@@ -92,7 +92,7 @@ import Testing
         #expect(await store.ingest(dataURL: "data:image/svg+xml;base64," + svg.base64EncodedString(), host: "desktop", kind: .agent, id: "svg") == nil)
         #expect(await store.insert(svg, for: key("direct-svg")) == false)
         await store.setFetcher(for: "desktop") { _, limit in
-            .init(status: 200, contentType: "image/png", data: Data(repeating: 0, count: limit + 1))
+            .init(status: 200, contentType: "image/png", data: Data(repeating: 0, count: limit + 1), version: "v1")
         }
         #expect(await store.image(for: key("oversize"), points: 32) == nil)
         #expect(await store.statistics.totalBytes == 0)
@@ -160,7 +160,7 @@ import Testing
         let clock = Clock()
         let fetcher = Fetcher(response: .init(status: 404, contentType: "application/json", data: Data()))
         let store = CompanionIconStore(directory: root, now: { clock.now })
-        await store.setFetcher(for: "desktop") { _, _ in await fetcher.fetch() }
+        await store.setFetcher(for: "desktop") { key, _ in await fetcher.fetch(version: key.version) }
         for _ in 0..<20 { #expect(await store.image(for: key(), points: 32) == nil) }
         #expect(await fetcher.calls == 1)
         clock.advance(31)
@@ -176,11 +176,39 @@ import Testing
         #expect(await store.statistics.failures == 4)
     }
 
+    @Test func aReturnedVersionCannotBeBoundToAnOldSnapshotOrRefetchedInALoop() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let clock = Clock()
+        let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: try Self.png(), version: "v2"))
+        let store = CompanionIconStore(directory: root, now: { clock.now })
+        await store.setFetcher(for: "desktop") { key, _ in await fetcher.fetch(version: key.version) }
+        #expect(await store.image(for: key(), points: 32) == nil)
+        clock.advance(100_000)
+        for _ in 0..<10 { #expect(await store.image(for: key(), points: 32) == nil) }
+        #expect(await fetcher.calls == 1)
+        // The next matching authoritative snapshot can use the bytes without another download.
+        #expect(await store.image(for: key(token: "v2"), points: 32) != nil)
+        #expect(await fetcher.calls == 1)
+        #expect(!FileManager.default.fileExists(atPath: await store.fileURL(for: key()).path))
+        #expect(FileManager.default.fileExists(atPath: await store.fileURL(for: key(token: "v2")).path))
+    }
+
+    @Test func anUnversionedSuccessOr304WithoutBytesCannotCreateACacheAssociation() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let png = try Self.png()
+        let store = CompanionIconStore(directory: root)
+        await store.setFetcher(for: "desktop") { _, _ in .init(status: 200, contentType: "image/png", data: png) }
+        #expect(await store.image(for: key(), points: 32) == nil)
+        await store.setFetcher(for: "desktop") { _, _ in .init(status: 304, contentType: "image/png", data: Data(), version: "v1") }
+        #expect(await store.image(for: key("304"), points: 32) == nil)
+        #expect(await store.statistics.totalBytes == 0)
+    }
+
     @Test func deduplicationConcurrencyCancellationAndNoRedownload() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: try Self.png()), delayed: true)
         let store = CompanionIconStore(directory: root)
-        await store.setFetcher(for: "desktop") { _, _ in try await fetcher.fetchDelayed() }
+        await store.setFetcher(for: "desktop") { key, _ in try await fetcher.fetchDelayed(version: key.version) }
         let first = Task { await store.image(for: key(), points: 24) }
         let duplicate = Task { await store.image(for: key(), points: 32) }
         let second = Task { await store.image(for: key("two"), points: 32) }
@@ -202,7 +230,7 @@ import Testing
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: try Self.png()), delayed: true)
         let store = CompanionIconStore(directory: root)
-        await store.setFetcher(for: "desktop") { _, _ in try await fetcher.fetchDelayed() }
+        await store.setFetcher(for: "desktop") { key, _ in try await fetcher.fetchDelayed(version: key.version) }
         let first = Task { await store.image(for: key(), points: 32) }
         try await wait { await fetcher.calls == 1 }
         first.cancel()
@@ -279,12 +307,15 @@ import Testing
         var calls = 0; var active = 0; var peak = 0; var delayed: Bool
         init(response: CompanionIconStore.Response, delayed: Bool = false) { self.response = response; self.delayed = delayed }
         func respond(_ response: CompanionIconStore.Response) { self.response = response }
-        func fetch() -> CompanionIconStore.Response { calls += 1; return response }
-        func fetchDelayed() async throws -> CompanionIconStore.Response {
+        private func served(_ version: String) -> CompanionIconStore.Response {
+            .init(status: response.status, contentType: response.contentType, data: response.data, version: response.version ?? version)
+        }
+        func fetch(version: String = "v1") -> CompanionIconStore.Response { calls += 1; return served(version) }
+        func fetchDelayed(version: String = "v1") async throws -> CompanionIconStore.Response {
             calls += 1; active += 1; peak = max(peak, active)
             defer { active -= 1 }
             while delayed { try await Task.sleep(for: .milliseconds(2)) }
-            return response
+            return served(version)
         }
         func release() { delayed = false }
     }
