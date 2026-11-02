@@ -46,7 +46,7 @@ Additional local validation at `35f22dd9d69fbb37230e7836602345435de6dfc0`, based
 - The viewport is now owned once by the per-target reading bookmark; transient geometry clears on unmount. Removed-host bookmarks, viewports and timeline projections are released. Tests cover reuse, geometry reset and pruning.
 - The exact navigation/background/resync/foreground/reopen diagnostic passes four times on iOS 26.0 with bookmark ownership, preserving one viewport identity and request deltas 0/1/1. Restoring only the original `@State` ownership on the same source reproduces the viewport deinit abort. The diagnostic bypassed the 26.0 skip only locally and was removed after the experiment.
 - All five selected reading and LongReply UI tests pass after the ownership change. The combined app/UI batch is not green: a separate `CompanionPartExpansion` teardown abort also reproduces on archived main with unchanged production types. Both stacks and steps are recorded in [#218](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/218#issuecomment-6570281162); no general runtime workaround was added.
-- CI run [41394968971](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/41394968971), on the earlier `944a6e9d587f6d71e517e210e62668e9cc9718a1` with original State ownership, has successful build, Release and package lanes. Its 26.5 resync result is pending; these local commits are intentionally held unpushed until that run finishes.
+- CI run [41394968971](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/41394968971), on the earlier `944a6e9d587f6d71e517e210e62668e9cc9718a1` with original State ownership, has successful build, Release and package lanes. It later finished with the failed resync assertion/fixture precondition and avatar regression described below; it did not hit the viewport allocator abort on 26.5.
 
 `rebased-release-profile-samples.json` records three alternating samples per mode at `35f22dd9d69fbb37230e7836602345435de6dfc0`, in the same Release/PROFILE_OPTIMIZED configuration and two-job setup as the earlier comparison. Median timeline work per 200 chunks:
 
@@ -56,3 +56,28 @@ Additional local validation at `35f22dd9d69fbb37230e7836602345435de6dfc0`, based
 | 5,000 | 209.108ms | 4.292ms | 147 → 2 |
 
 The first scenario includes cold Markdown setup; the second uses warmed shared caches. These are folding/window-preparation measurements, not GPU frame times.
+
+## Final rebase and CI follow-up
+
+Code source `eae2c2e83c8aabc9ebe83e8394b43f9bccaf07e0`, rebased on main `68a11b2`. #231 was still open at final validation; the three new reading-model owners are classified ARC-only in the code document for its lint integration. No general runtime workaround was added.
+
+- 984 package tests pass with coverage; ratchet passes (Transport 96.43%, Domain 94.08%). Debug build-for-testing and Release app build pass.
+- Full `CompanionPreviewSmokeTests`: **18/18 pass**, including actual on-screen known/gone/quick summary avatars while routed detail remains collapsed. [Collapsed sender faces](collapsed-sender-faces.png) show both closed activity rows and the visible Clubhouse notice, captured on the dedicated iOS 26.0 simulator. App source matches the code source above.
+- Dispatcher/LongReply/avatar were each repeated three times with no retries: nine passing executions. The subsequent broad reading/tree run passed all reading, LongReply, avatar and tree methods, plus three Dispatcher methods; Copy-menu setup failed once because its target was underneath the dock, despite reporting hittable. [The saved frame](copy-target-under-dock.png) and AX geometry show Reviewer at y=722–804 behind the composer. The geometry correction then passed **three consecutive Copy runs**, each at y=470–552, checking the exact full raw delivery after leaving/reopening the chat. This was a code correction between runs, not an assertion retry.
+- Final app-hosted batch is **not green** on 26.0: the avatar fixture's deferred release aborts in `CompanionPartExpansion` → dictionary → `CompanionTranscriptExpansion`, through `StopLookupScope`, matching the earlier main reproduction under #218. The isolated real-composer typing test passes, but its interrupted execution in the full batch is not counted as a pass. Nine Swift Testing cases, icon/rendering measurements complete; resync skips only 26.0. #231 owns the general fix.
+
+Original-head CI at `944a6e9d587f6d71e517e210e62668e9cc9718a1` ran on **iOS 26.5 (23F77), Xcode 26.5 (17F42)**. All four reading UI cases passed on their first attempts, including real keyboard/Latest and streaming/prepend/return. The unit resync measurement ran twice through all phases with reads 0/1/1 and **no viewport deinit abort**, but failed the final resync flag assertion. Attempt three then trapped the test-only fixture retention limit, a different SIGTRAP stack. The revised test awaits in-flight reads, retains exact state/request assertions, removes unnecessary process-lifetime retention and logs loading/error; its new 26.5 result is still required. [#218 result](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/218#issuecomment-6573117868).
+
+Two original CI failure frames, extracted from preview-only XCTest recordings:
+
+- [Copy/Paste editor contains the full raw delivery](ci-paste-editor-complete.png), despite the focused AX-value assertion failing. The new navigation/draft assertion checks the stored model too.
+- [LongReply really contains only St](ci-truncated-typing.png). This is not dismissed as a flake. [#234](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/234) tracks the same symptom observed without reading changes in #213. Local main and reading controls each pass three times with all ten UIKit insertions, binding lengths 1…10 and no focus loss; the reading branch also retains 52 paced +100 rapid characters during stream/layout updates. A hosted main control aborts before typing in #218's DecisionQueue path and proves nothing about input. Preview-only numeric tracing and the unchanged full-string assertion run in the next 26.5 CI attempt. The cause of the failed input is still unknown.
+
+`final-release-profile-samples.json`: same source/configuration, three alternating samples per mode, after local UI testing stopped. Medians per 200 chunks:
+
+| History | Baseline | Incremental | Prepared rows |
+| --- | ---: | ---: | ---: |
+| 1,000 | 366.240ms | 315.424ms | 147 → 2 |
+| 5,000 | 187.083ms | 3.774ms | 147 → 2 |
+
+Cold Markdown in the first case and warmed shared caches in the second remain as documented above. This measures timeline folding/window preparation, not GPU frame times.

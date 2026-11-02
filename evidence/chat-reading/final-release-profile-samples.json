@@ -1,0 +1,91 @@
+{
+  "source": "eae2c2e83c8aabc9ebe83e8394b43f9bccaf07e0",
+  "base": "68a11b2",
+  "configuration": "Release -j 2 -DPROFILE_OPTIMIZED; three alternating baseline/incremental runs",
+  "samples": {
+    "1000": {
+      "baseline": [
+        {
+          "apply200Ms": 0.27871131896972656,
+          "store200Ms": 0.9906291961669922,
+          "timeline200Ms": 370.23353576660156,
+          "preparedRows": 147.0
+        },
+        {
+          "apply200Ms": 0.2778768539428711,
+          "store200Ms": 0.7073879241943359,
+          "timeline200Ms": 365.5935525894165,
+          "preparedRows": 147.0
+        },
+        {
+          "apply200Ms": 0.2607107162475586,
+          "store200Ms": 0.7058382034301758,
+          "timeline200Ms": 366.2397861480713,
+          "preparedRows": 147.0
+        }
+      ],
+      "incremental": [
+        {
+          "apply200Ms": 0.26154518127441406,
+          "store200Ms": 0.7681846618652344,
+          "timeline200Ms": 315.42444229125977,
+          "preparedRows": 2.0
+        },
+        {
+          "apply200Ms": 0.25963783264160156,
+          "store200Ms": 0.8090734481811523,
+          "timeline200Ms": 315.0104284286499,
+          "preparedRows": 2.0
+        },
+        {
+          "apply200Ms": 0.2809762954711914,
+          "store200Ms": 0.8029937744140625,
+          "timeline200Ms": 320.42527198791504,
+          "preparedRows": 2.0
+        }
+      ]
+    },
+    "5000": {
+      "baseline": [
+        {
+          "apply200Ms": 0.2359151840209961,
+          "store200Ms": 1.3533830642700195,
+          "timeline200Ms": 187.08264827728271,
+          "preparedRows": 147.0
+        },
+        {
+          "apply200Ms": 0.23603439331054688,
+          "store200Ms": 1.3499259948730469,
+          "timeline200Ms": 189.62359428405762,
+          "preparedRows": 147.0
+        },
+        {
+          "apply200Ms": 0.2219676971435547,
+          "store200Ms": 1.3442039489746094,
+          "timeline200Ms": 184.16976928710938,
+          "preparedRows": 147.0
+        }
+      ],
+      "incremental": [
+        {
+          "apply200Ms": 0.1919269561767578,
+          "store200Ms": 1.3403892517089844,
+          "timeline200Ms": 3.7409067153930664,
+          "preparedRows": 2.0
+        },
+        {
+          "apply200Ms": 0.18966197967529297,
+          "store200Ms": 1.3715028762817383,
+          "timeline200Ms": 3.773927688598633,
+          "preparedRows": 2.0
+        },
+        {
+          "apply200Ms": 0.202178955078125,
+          "store200Ms": 1.3872385025024414,
+          "timeline200Ms": 3.8264989852905273,
+          "preparedRows": 2.0
+        }
+      ]
+    }
+  }
+}
