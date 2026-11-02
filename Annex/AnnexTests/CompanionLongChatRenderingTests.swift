@@ -3,10 +3,22 @@ import SwiftUI
 import ClubhouseTransport
 @testable import ClubhouseGo
 
+/// Test-only process-lifetime retention isolates the known iOS 26.0 actor-deinit abort (#218).
+/// At most seven fixture objects across these two measurements; never used by the app.
+@MainActor enum LongChatMeasurementLifetime {
+    private static var fixtures: [AnyObject] = []
+    static func retain(_ objects: [AnyObject]) {
+        precondition(fixtures.count + objects.count <= 8)
+        fixtures += objects
+    }
+}
+
 /// Hosted by XCTest in the owned simulator. Captures body construction, not GPU frame rate.
 @MainActor final class CompanionLongChatRenderingTests: XCTestCase {
     func testLongChatStreamingTypingAndReconnectFanout() async throws {
         // Let the host app finish its initial scene transition before adding a test-only, non-key window.
+        try XCTSkipUnless(ProcessInfo.processInfo.arguments.contains("--companion-preview"),
+                          "Run this measurement with an isolated --companion-preview test host; default-launch teardown is tracked in #218")
         try await Task.sleep(for: .seconds(2))
         let service = CompanionPreviewService(showsDispatcher: true)
         let store = CompanionStore(service: service)
@@ -22,6 +34,7 @@ import ClubhouseTransport
         let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
         let controller = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        LongChatMeasurementLifetime.retain([service, store, controller])
         let window = UIWindow(windowScene: scene)
         window.frame = scene.screen.bounds
         window.rootViewController = controller; window.isHidden = false
