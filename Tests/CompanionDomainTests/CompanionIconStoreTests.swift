@@ -98,6 +98,19 @@ import Testing
         #expect(await store.statistics.totalBytes == 0)
     }
 
+    @Test func defaultRasterBudgetRejectsHighlyCompressedOversizedImages() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        #expect(CompanionIconStore.Limits().inputPixels == 2048 * 2048)
+        let boundary = try Self.png(width: 2048, height: 2048)
+        let over = try Self.png(width: 2049, height: 2049)
+        #expect(over.count < 72 * 1024, "A small encoded image can still have unsafe source dimensions")
+        #expect(await store.insert(boundary, for: key("boundary-pixels")))
+        #expect(await store.insert(over, for: key("oversized-pixels")) == false)
+        let thumbnail = try #require(await store.image(for: key("boundary-pixels"), points: 32))
+        #expect(thumbnail.cgImage.width == 96 && thumbnail.cgImage.height == 96)
+    }
+
     @Test func downsamplingAndPixelBound() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let store = CompanionIconStore(directory: root, limits: .init(inputPixels: 100_000))
