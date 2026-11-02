@@ -124,6 +124,22 @@ import Testing
         #expect(await reopened.image(for: key(host: "other"), points: 32) != nil)
     }
 
+    @Test func startupRemovesAbandonedAtomicFilesAndUnrecognizedNames() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        let path = await store.fileURL(for: key())
+        try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let abandoned = path.deletingLastPathComponent().appendingPathComponent(".atomic-leftover")
+        let unknown = path.deletingLastPathComponent().appendingPathComponent(String(repeating: "z", count: 64))
+        try Data([1, 2]).write(to: abandoned)
+        try Data([1, 2]).write(to: unknown)
+        #expect(await store.statistics.totalBytes == 0)
+        #expect(!FileManager.default.fileExists(atPath: abandoned.path))
+        #expect(!FileManager.default.fileExists(atPath: unknown.path))
+        #expect(await store.ingest(dataURL: "data:image/png;base64,AQID", host: "desktop", kind: .agent, id: "invalid") == nil)
+        #expect(await store.statistics.failures == 1)
+    }
+
     @Test func lruAndStartupEviction() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let data = try Self.png()
