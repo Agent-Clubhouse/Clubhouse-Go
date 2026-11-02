@@ -215,7 +215,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         add(screenshot)
     }
 
-    /// Desktop parity (#149): read-only lookups fold into "Explored 2 files, 1 search" and keep their links;
+    /// Mobile activity groups all four routine calls and keeps their links available on expansion;
     /// the approval card shows its own title, "1 of 2", and the persistent option the desktop answers;
     /// the header shows what the agent waits on and its context fill.
     func testExploredFoldAndApprovalCardMatchDesktop() {
@@ -265,10 +265,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         foldShot.name = "Explored fold expanded"
         foldShot.lifetime = .keepAlways
         add(foldShot)
-        // The expanded calls open under the composer: bring the fold's header up near the top first.
-        fold.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.22)))
-        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        // The bookmark keeps the header in place as it expands. Scroll from a safe transcript coordinate;
+        // a short drag on the header itself can become a second tap and close the group.
+        XCTAssertTrue(bringTranscriptRowIntoView(link, in: app))
         let done = app.buttons["companion-preview-done"]
         waitAndTap(link, until: done, timeout: 5, "A link inside the fold opens its preview")
         waitAndTap(done, untilGone: done, "The preview closes")
