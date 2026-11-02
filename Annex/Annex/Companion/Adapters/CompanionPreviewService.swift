@@ -175,7 +175,12 @@ import ClubhouseTransport
             hosts[0].helperRouting = Self.autoQuotaCapability
             hosts[0].helperRoutingLabels = Self.autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true).labels
             hosts[0].helperRequests[0].requestedRouting = .init(provider: "auto", difficulty: "hard")
-            hosts[0].helperRequests[0].startWarning = Self.previewStartWarning
+            var warned = hosts[0].helperRequests[0]
+            warned.id = "hstart_warning"
+            warned.helperName = "Quill"
+            warned.requestedRouting = .init(provider: "codex-cli", difficulty: "hard")
+            warned.startWarning = Self.previewStartWarning
+            hosts[0].helperRequests.append(warned)
             for p in hosts[0].projects.indices {
                 for a in hosts[0].projects[p].agents.indices {
                     hosts[0].projects[p].agents[a].orchestration?.autoHelpers = nil

@@ -162,4 +162,43 @@ import Testing
         #expect(CompanionPreviewService.autoQuotaCapability?.modes.contains("auto") == true)
     }
 
+    @Test func allSavedAutoDecisionsUseLabelsAndKeepModelLimitsInformational() throws {
+        let fixture = try ContractFixtures.json("helper-routing-auto.json")
+        let labels = try CompanionHelperRouting(json: #require(ContractFixtures.json("helper-routing.json")["bare"]?["response"]?["body"])).labels
+        guard case .object(let decisions)? = fixture["settingsRouting"] else { Issue.record("Missing saved decisions"); return }
+        for (_, value) in decisions {
+            let decision = try #require(CompanionHelperRoutingDecision(json: value))
+            #expect(decision.reasonText(labels: labels) == value["display"]?["reason"]?.string)
+            #expect(decision.decidedAt != nil)
+            for code in decision.skipped.values { #expect(CompanionHelperRouting.label(labels, family: "skipped", code: code) != labels["generic"]?["unknownCode"]) }
+        }
+        let quota = try #require(CompanionHelperQuota(json: ContractFixtures.json("helper-routing-quota.json")["cases"]?["modelWindow"]))
+        #expect(quota.modelWindows.first?.window.usedPercent == 99 && quota.state == "known")
+        #expect(CompanionHelperRouting.label(labels, family: "quota", code: "future") == labels["generic"]?["unknownCode"])
+        let raw = try ContractFixtures.body("capabilities.json")
+        let caps = try raw.decode(AnnexCapabilities.self)
+        #expect(caps.helperRouting?.quotaStates?.contains("unknown") == true)
+        #expect(caps.helperRouting?.unknownReasons?.contains("stale") == true)
+        #expect(caps.helperRouting?.quotaSources?.contains("session_event") == true)
+        #expect(caps.helperRouting?.autoOffReasons?.contains("persona_off") == true)
+        #expect(caps.helperRouting?.skipped?.contains("cooling_down") == true)
+    }
+
+    @Test func unadvertisedAutoModeAndScopesCannotWrite() async throws {
+        let caps = try ContractFixtures.body("capabilities.json")
+        guard case .object(var feature)? = caps["helperRouting"] else { Issue.record("Missing routing capability"); return }
+        feature["modes"] = .array([.string("preset")]); feature["scopes"] = .array([.string("app")])
+        let page = try #require(ContractFixtures.json("helper-routing.json")["bare"]?["response"]?["body"])
+        let h = try await LiveServiceHarness.start { transport in
+            await transport.setCommands(caps["commands"].arrayValue.compactMap(\.string))
+            await transport.setFeature("helperRouting", .object(feature))
+            await transport.setRead("helperRouting", page)
+        }
+        defer { h.stop() }
+        #expect(await serviceErrorText { _ = try await h.store.updateHelperRouting(.init(revision: "r", auto: .enabled(true)), hostID: LiveServiceHarness.hostID) } != nil)
+        #expect(await serviceErrorText { _ = try await h.store.updateHelperRouting(.init(revision: "r", scope: "project", projectId: "project", auto: .off), hostID: LiveServiceHarness.hostID) } != nil)
+        #expect(await serviceErrorText { _ = try await h.service.updateSettings(.init(orchestration: .init(autoHelpers: .clear)), target: h.target, clientCommandID: "c") } != nil)
+        #expect(await h.transport.executed.isEmpty)
+    }
+
 }

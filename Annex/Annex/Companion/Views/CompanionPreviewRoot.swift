@@ -15,7 +15,8 @@ struct CompanionPreviewRoot: View {
                                                                                    showsQuestions: ProcessInfo.processInfo.arguments.contains("--companion-preview-questions"),
                                                                                    showsContextWindow: ProcessInfo.processInfo.arguments.contains("--companion-preview-context-window"),
                                                                                    showsReadingScenario: ProcessInfo.processInfo.arguments.contains("--companion-preview-reading"),
-                                                                                   showsHelperPresets: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-presets")))
+                                                                                   showsHelperPresets: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-presets"),
+                                                                                   showsAutoQuota: ProcessInfo.processInfo.arguments.contains("--companion-preview-auto-quota")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
         let suite = ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree") ? "companion-preview-tree" : "companion-preview"

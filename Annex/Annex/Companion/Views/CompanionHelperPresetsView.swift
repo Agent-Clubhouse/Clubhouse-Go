@@ -5,7 +5,7 @@ import ClubhouseTransport
 struct CompanionHelperPresetLinks: View {
     @Bindable var store: CompanionStore
     var body: some View {
-        let hosts = store.hosts.filter { $0.helperRouting?.supportsPresets == true }
+        let hosts = store.hosts.filter { $0.helperRouting?.version == 1 }
         if !hosts.isEmpty {
             Section("Helpers") {
                 ForEach(hosts) { host in
@@ -27,11 +27,18 @@ struct CompanionHelperPresetLinks: View {
 struct CompanionHelperPresetsView: View {
     @Bindable var store: CompanionStore
     let hostID: String
+    var projectID: String? = nil
+    var agentID: String? = nil
     @State private var screen = CompanionHelperPresetsScreen()
     @Environment(\.scenePhase) private var scenePhase
     private var host: CompanionHost? { store.hosts.first { $0.id == hostID } }
+    private var title: String {
+        if let agentID, let agent = host?.allAgents.first(where: { $0.id.agentID == agentID }) { return agent.name + " helpers" }
+        if let projectID, let project = host?.projects.first(where: { $0.id == projectID }) { return project.name + " helpers" }
+        return "Helper presets"
+    }
     private var refreshKey: String { "\(host?.helperRoutingRevision ?? "")|\(host?.connection.canOperate == true)" }
-    private var canEdit: Bool { host?.canEditHelperPresets == true && host?.connection.canOperate == true && !screen.saving }
+    private var canEdit: Bool { projectID == nil && agentID == nil && host?.canEditHelperPresets == true && host?.helperRouting?.canEditPresets == true && host?.connection.canOperate == true && !screen.saving }
 
     var body: some View {
         Form {
@@ -39,29 +46,66 @@ struct CompanionHelperPresetsView: View {
             if host?.helperRouting == nil {
                 ContentUnavailableView("Helper presets unavailable", systemImage: "slider.horizontal.3")
             } else if let page = screen.settings {
-                Section {
-                    Text("Choose the model and effort each difficulty uses on this desktop.").font(.subheadline)
-                    if host?.connection.canOperate != true { Text("Connect to the desktop to change presets.").foregroundStyle(.secondary) }
+                if host?.helperRouting?.modes.contains("auto") == true, let auto = page.auto {
+                    CompanionHelperAutoSection(store: store, screen: screen, hostID: hostID, projectID: projectID, agentID: agentID, policy: auto)
                 }
-                ForEach(page.providers.keys.sorted(), id: \.self) { id in
-                    if let provider = page.providers[id], !provider.cells.isEmpty {
-                        providerSection(id, provider: provider, page: page)
+                scopeLinks
+                if host?.helperRouting?.quota == true {
+                    Section("Plan limits") {
+                        ForEach(page.providers.keys.sorted(), id: \.self) { id in
+                            if let provider = page.providers[id], let quota = provider.quota {
+                                DisclosureGroup {
+                                    CompanionQuotaView(quota: quota, labels: page.labels, serverTime: page.serverTime, receivedAt: screen.receivedAt)
+                                    if host?.helperRouting?.modes.contains("auto") == true, !provider.autoEligible, let reason = provider.reason {
+                                        Text(page.label("skipped", reason)).font(.subheadline)
+                                    }
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(providerName(id))
+                                        Text(page.label("quota", quota.state)).font(.subheadline).foregroundStyle(.secondary)
+                                        if let reason = quota.unknownReason { Text(page.label("unknown", reason)).font(.caption).foregroundStyle(.secondary) }
+                                    }
+                                }
+                                .accessibilityIdentifier("helper-quota-\(id)")
+                            }
+                        }
                     }
                 }
-                if page.providers.values.contains(where: { $0.cells.values.contains { $0.custom != nil } }) {
+                if projectID == nil && agentID == nil && host?.helperRouting?.supportsPresets == true {
                     Section {
-                        Button("Reset all presets") { reset(.init()) }.disabled(!canEdit)
-                            .accessibilityIdentifier("helper-presets-reset-all")
+                        Text("Choose the model and effort each difficulty uses on this desktop.").font(.subheadline)
+                        if host?.connection.canOperate != true { Text("Connect to the desktop to change presets.").foregroundStyle(.secondary) }
+                    }
+                    ForEach(page.providers.keys.sorted(), id: \.self) { id in
+                        if let provider = page.providers[id], !provider.cells.isEmpty {
+                            providerSection(id, provider: provider, page: page)
+                        }
+                    }
+                    if page.providers.values.contains(where: { $0.cells.values.contains { $0.custom != nil } }) {
+                        Section {
+                            Button("Reset all presets") { reset(.init()) }.disabled(!canEdit)
+                                .accessibilityIdentifier("helper-presets-reset-all")
+                        }
                     }
                 }
             } else if screen.error == nil {
                 ProgressView("Loading presets…")
             }
         }
-        .navigationTitle("Helper presets")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: refreshKey) {
             if screen.settings == nil || screen.settings?.revision != host?.helperRoutingRevision { await load() }
+        }
+        .task(id: "\(screen.refreshID)|\(scenePhase == .active)|\(host?.connection.canOperate == true)|\(host?.helperRouting?.quota == true)") {
+            guard scenePhase == .active, host?.connection.canOperate == true, host?.helperRouting?.quota == true,
+                  let delay = screen.settings?.nextRefreshDelay else { return }
+            do {
+                let deadline = max(ContinuousClock.now.advanced(by: .seconds(5)), screen.receivedAt.advanced(by: .seconds(delay)))
+                try await ContinuousClock().sleep(until: deadline)
+                try Task.checkCancellation()
+                await load()
+            } catch { }
         }
         .onChange(of: host?.connection.canOperate) { _, connected in if connected == true { Task { await load() } } }
         .refreshable { await load() }
@@ -91,9 +135,29 @@ struct CompanionHelperPresetsView: View {
             }
         } header: { Text(host?.providers.first { $0.id == id }?.name ?? id) }
     }
+    private func providerName(_ id: String) -> String { host?.providers.first { $0.id == id }?.name ?? id }
+    @ViewBuilder private var scopeLinks: some View {
+        if agentID == nil, host?.helperRouting?.modes.contains("auto") == true {
+            if let projectID, let project = host?.projects.first(where: { $0.id == projectID }), host?.helperRouting?.scopes.contains("agent") == true {
+                Section("Agents in " + project.name) {
+                    ForEach(project.agents.filter { !$0.isQuick }) { agent in
+                        NavigationLink(agent.name) { CompanionHelperPresetsView(store: store, hostID: hostID, agentID: agent.id.agentID) }
+                            .accessibilityIdentifier("helper-auto-agent-\(agent.id.agentID)")
+                    }
+                }
+            } else if host?.helperRouting?.scopes.contains("project") == true {
+                Section("Projects") {
+                    ForEach(host?.projects ?? []) { project in
+                        NavigationLink(project.name) { CompanionHelperPresetsView(store: store, hostID: hostID, projectID: project.id) }
+                            .accessibilityIdentifier("helper-auto-project-\(project.id)")
+                    }
+                }
+            }
+        }
+    }
     private func load() async {
         guard host?.helperRouting != nil else { return }
-        await screen.load { try await store.helperRouting(hostID: hostID) }
+        await screen.load { try await store.helperRouting(hostID: hostID, projectID: projectID, agentID: agentID) }
     }
     private func reset(_ reset: AnnexHelperRoutingUpdate.Reset) {
         Task { await screen.save { revision in try await store.updateHelperRouting(.init(revision: revision, reset: reset), hostID: hostID) } }
@@ -113,7 +177,7 @@ private struct CompanionHelperPresetEditor: View {
     private var offered: CompanionHelperRouting.Model? { provider?.models.first { $0.id == model } }
     private var canEdit: Bool {
         let host = store.hosts.first { $0.id == hostID }
-        return host?.connection.canOperate == true && host?.canEditHelperPresets == true && cell?.editable == true && !screen.saving
+        return host?.connection.canOperate == true && host?.canEditHelperPresets == true && host?.helperRouting?.canEditPresets == true && cell?.editable == true && !screen.saving
     }
     var body: some View {
         Form {

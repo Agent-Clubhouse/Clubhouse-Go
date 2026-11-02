@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// Opens an agent's details, and a durable agent's settings, from anywhere: the chat header, or an agent row's long-press menu.
 struct CompanionAgentSettingsAction {
@@ -221,9 +222,19 @@ struct CompanionAgentSettingsForm: View {
                 Text(routing.reasonText(labels: store.host(for: target)?.helperRoutingLabels ?? [:]))
                     .accessibilityIdentifier("helper-routing-reason")
                 if let fallback = routing.displayFallback { Text(fallback).font(.subheadline).foregroundStyle(.secondary) }
+                CompanionHelperDecisionDetails(routing: routing, labels: store.host(for: target)?.helperRoutingLabels ?? [:])
             }
         }
 
+        if let feature = store.host(for: target)?.helperRouting, feature.modes.contains("auto"), feature.scopes.contains("agent") {
+            Section("Helpers") {
+                NavigationLink("Auto provider and plan limits") { CompanionHelperPresetsView(store: store, hostID: target.hostID, agentID: target.agentID) }
+                    .accessibilityIdentifier("agent-settings-helper-auto")
+                if let effective = settings.orchestration?.autoHelpersEffective {
+                    LabeledContent("Auto provider effective", value: effective ? "On" : "Off")
+                }
+            }
+        }
         if isDispatcher {
             Section { CompanionDispatcherSwitch(store: store, hostID: target.hostID) }
         }
