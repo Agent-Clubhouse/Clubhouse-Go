@@ -45,4 +45,28 @@ import ClubhouseTransport
         #expect(message.text == "3 updates, oldest first:\n\n--- 1 of 3 ---\nPart 1\n\n--- 2 of 3 ---\nPart 2\n\n--- 3 of 3 ---\nPart 3")
     }
 
+    @Test func wakeReceiptBeforeTheNewSessionUserMessageStillReconcilesThePhoneSend() throws {
+        var projector = CompanionChatProjector()
+        projector.apply(CompanionLongChatPerformanceTests.event("agent_message", 100,
+            ["messageId": .string("old"), "text": .string("Previous session")]))
+        let previousSession = projector.sessionID
+        let target = CompanionPreviewService.dispatcherTarget
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.apply(.timeline(target, items: projector.items, sequence: 100, reset: true, sessionID: previousSession))
+        store.apply(.upsert(target, .message(.init(id: "local-phone", role: .user, text: "Wake and do work",
+            delivery: .accepted, clientCommandID: "wake-command")), sequence: nil))
+        #expect(projector.reconcile(messageID: "wake-server", commandID: "wake-command") == nil)
+        #expect(projector.commandIDsByMessage["wake-server"] == "wake-command")
+        let first: AnnexJSON = .object(["sessionId": .string("new-session"), "seq": .integer(1), "type": .string("user_message"),
+            "data": .object(["messageId": .string("wake-server"), "clientCommandId": .string("wake-command"),
+                "content": .array([.object(["type": .string("text"), "text": .string("Wake and do work")])])])])
+        projector.apply(first)
+        store.apply(projector.liveUpdate(for: first, target: target, previousSessionID: previousSession))
+        #expect(projector.commandIDsByMessage.isEmpty, "Receipt maps from the prior session are released")
+        let items = store.conversation(for: target).items
+        #expect(items.count == 1, "The new session's wire command id replaces the optimistic phone row")
+        guard case .message(let message) = try #require(items.first) else { Issue.record("Missing wake echo"); return }
+        #expect(message.id == "wake-server" && message.clientCommandID == "wake-command" && message.delivery == .confirmed)
+    }
+
 }

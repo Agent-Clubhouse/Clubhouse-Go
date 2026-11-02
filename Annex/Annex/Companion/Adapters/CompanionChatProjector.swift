@@ -348,7 +348,7 @@ struct CompanionChatProjector {
     }
     private mutating func removeQueuedRows(_ ids: Set<String>) {
         items.removeAll { if case .message(let message) = $0 { return ids.contains(message.id) }; return false }
-        itemIndices = Dictionary(uniqueKeysWithValues: items.enumerated().map { ($0.element.id, $0.offset) })
+        itemIndices = Dictionary(items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, last in last })
         for id in ids { queuedContentParts[id] = nil }
     }
 
