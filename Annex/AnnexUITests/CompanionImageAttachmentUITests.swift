@@ -41,13 +41,26 @@ final class CompanionImageAttachmentUITests: ReliableUITestCase {
         XCTAssertTrue(sentImage.waitForExistence(timeout: 5), "The message shows its image")
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
                       "Preview must never claim a message reached a desktop")
+        // Existence includes rows above the viewport. With the keyboard and pending approvals open,
+        // the sent image can be entirely behind the header even though its delivery text is visible.
+        XCTContext.runActivity(named: "Sent image before reveal: \(sentImage.frame), header \(app.navigationBars.firstMatch.frame), composer \(composer.frame)") { _ in }
+        XCTAssertTrue(bringTranscriptRowIntoView(sentImage, in: app), "The sent image must be visible before tapping")
+        let frame = sentImage.frame
+        XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
+        XCTAssertLessThanOrEqual(frame.maxY, composer.frame.minY - 12)
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists { XCTAssertFalse(keyboard.frame.contains(point)) }
         let sent = XCTAttachment(screenshot: app.screenshot())
         sent.name = "Sent message with its image"
         sent.lifetime = .keepAlways
         add(sent)
 
         let done = app.buttons["companion-preview-done"]
-        waitAndTap(sentImage, until: done, timeout: 5, "Tapping the image opens the preview")
+        XCTContext.runActivity(named: "Tap fully visible sent image at \(point), frame \(frame)") { _ in
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        }
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "Tapping the image opens the preview")
         XCTAssertTrue(app.images["Image you sent"].waitForExistence(timeout: 5), "The phone's own copy shows without a desktop")
         waitAndTap(done, untilGone: done)
     }
