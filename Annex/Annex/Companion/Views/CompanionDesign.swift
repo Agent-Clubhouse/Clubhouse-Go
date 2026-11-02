@@ -84,15 +84,14 @@ extension CompanionAgentStatus {
     func color(in palette: CompanionPalette) -> Color { Color(dot.color(in: palette)) }
 }
 
-/// The agent's desktop identity (icon, emoji, or initials on its color) in a rounded square, with the status dot on its corner.
-/// Without an identity it falls back to initials on the theme tint.
+/// The agent’s circular desktop identity, with its status dot overlapping the lower trailing edge.
 struct CompanionAgentAvatar: View {
     let agent: CompanionAgent
     var size: CGFloat = 32
     @Environment(\.companionPalette) private var palette
     var body: some View {
         let color = agent.status.color(in: palette)
-        CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, size: size)
+        CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, size: size, isQuick: agent.isQuick)
             .overlay(alignment: .bottomTrailing) {
                 let hollow = agent.status.dot.isHollow
                 Circle()
@@ -111,13 +110,59 @@ struct CompanionProjectBadge: View {
     let project: CompanionProject
     var size: CGFloat = 22
     var body: some View {
-        CompanionIdentityFace(name: project.name, color: project.color, emoji: project.emoji, iconData: project.iconData, size: size)
+        CompanionProjectIdentityFace(name: project.name, color: project.color, emoji: project.emoji, iconData: project.iconData, size: size)
             .accessibilityHidden(true)
     }
 }
 
-/// An icon image, else an emoji on a wash of the color, else initials on the color.
+/// Quick bolt, emoji wash, cached image, or initials on the agent colour; always circular.
 struct CompanionIdentityFace: View {
+    let name: String
+    var color: String?
+    var emoji: String?
+    var iconData: Data?
+    var size: CGFloat
+    var isQuick = false
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        let identity = CompanionIdentityColor.agentRGB(color)
+        Group {
+            switch CompanionAgentFace.content(name: name, emoji: emoji, iconData: iconData, isQuick: isQuick) {
+            case .quick:
+                Image(systemName: "bolt")
+                    .font(.system(size: size * 0.5, weight: .semibold))
+                    .foregroundStyle(Color(palette.secondaryLabel))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(palette.fill))
+            case .emoji(let emoji):
+                Text(emoji).font(.system(size: size * 0.6))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(identity).opacity(CompanionAgentFace.emojiWashOpacity))
+            case .icon:
+                if let image = iconData.flatMap(CompanionIconCache.image(for:)) {
+                    Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                    initials(CompanionAgentFace.initials(name), color: identity)
+                }
+            case .initials(let text):
+                initials(text, color: identity)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+    }
+
+    private func initials(_ text: String, color: CompanionRGB) -> some View {
+        Text(text).font(.system(size: size * 0.4, weight: .bold, design: .rounded))
+            .foregroundStyle(Color(color.contrast(with: .white) >= color.contrast(with: .black) ? .white : .black))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(color))
+    }
+}
+
+/// Project rendering is independent of agent parity: retain its square, initials and theme fallback.
+private struct CompanionProjectIdentityFace: View {
     let name: String
     var color: String?
     var emoji: String?

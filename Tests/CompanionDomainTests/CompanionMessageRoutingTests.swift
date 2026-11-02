@@ -147,7 +147,7 @@ import ClubhouseTransport
         let second = agent("b", name: "B")
         var updated = first
         updated.status = .working; updated.subtitle = "Streaming a reply"; updated.model = "New model"
-        updated.capabilities = [.chat, .steer]; updated.lastActivity = Date(); updated.isQuick = true
+        updated.capabilities = [.chat, .steer]; updated.lastActivity = Date()
         #expect(CompanionSenderResolver(agents: [first, second]) == CompanionSenderResolver(agents: [second, updated]))
     }
 
@@ -162,6 +162,8 @@ import ClubhouseTransport
         changed = original; changed.emoji = "✨"
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
         changed = original; changed.iconData = Data([3])
+        #expect(resolver != CompanionSenderResolver(agents: [changed]))
+        changed = original; changed.isQuick = true
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
         changed = original; changed.id.agentID = "different"
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
