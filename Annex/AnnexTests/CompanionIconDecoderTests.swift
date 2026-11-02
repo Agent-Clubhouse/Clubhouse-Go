@@ -13,13 +13,17 @@ final class CompanionIconDecoderTests: XCTestCase {
         XCTAssertEqual(decoded, bytes)
         let uiImage = UIImage(data: decoded)
         let imageIO = CGImageSourceCreateWithData(decoded as CFData, nil)
-        let thumbnail = imageIO.flatMap { CGImageSourceCreateThumbnailAtIndex($0, 0, [
+        let count = imageIO.map(CGImageSourceGetCount) ?? 0
+        let thumbnail = imageIO.flatMap { source -> CGImage? in
+            guard count > 0 else { return nil }
+            return CGImageSourceCreateThumbnailAtIndex(source, 0, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceThumbnailMaxPixelSize: 96,
             kCGImageSourceShouldCacheImmediately: true
-        ] as CFDictionary) }
+            ] as CFDictionary)
+        }
         let imageType = imageIO.flatMap { CGImageSourceGetType($0) as String? } ?? "none"
-        print("ICON_SVG_AUDIT uiImage=\(uiImage != nil) imageIO=\(imageIO != nil) imageType=\(imageType) imageCount=\(imageIO.map(CGImageSourceGetCount) ?? 0) thumbnail=\(thumbnail != nil) thumbnailWidth=\(thumbnail?.width ?? 0) thumbnailHeight=\(thumbnail?.height ?? 0)")
+        print("ICON_SVG_AUDIT uiImage=\(uiImage != nil) imageIO=\(imageIO != nil) imageType=\(imageType) imageCount=\(count) thumbnail=\(thumbnail != nil) thumbnailWidth=\(thumbnail?.width ?? 0) thumbnailHeight=\(thumbnail?.height ?? 0)")
         XCTAssertNil(uiImage, "Build 147's UIImage(data:) cannot render this SVG on the audited runtime")
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("icon-svg-audit-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
