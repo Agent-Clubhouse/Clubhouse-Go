@@ -288,7 +288,7 @@ import Testing
         #expect(harness.host?.projects.first?.agents.first?.icon == nil)
     }
 
-    @Test func aLargeInlineSnapshotRetainsOnlySmallReferences() async throws {
+    @MainActor @Test func aLargeInlineSnapshotRetainsOnlySmallReferences() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let store = CompanionIconStore(directory: root)
         let png = try Self.png() + Data(repeating: 0, count: 256 * 1024)
@@ -304,6 +304,17 @@ import Testing
         #expect(catalog == again)
         let removed = await CompanionIconCatalog.inline(projects: nil, agents: nil, host: "desktop", store: store)
         #expect(removed.agents.isEmpty)
+
+        let harness = try await LiveServiceHarness.start(iconStore: store)
+        defer { harness.stop() }
+        var snapshotIcons = maps; snapshotIcons["agent"] = .string(url)
+        await harness.transport.emit(harness.snapshotEvent(["agentIcons": .object(snapshotIcons)]))
+        try await harness.waitUntil { harness.host?.projects.first?.agents.first?.icon != nil }
+        let liveCatalog = try #require(Mirror(reflecting: harness.service).children.first { $0.label == "iconCatalog" })
+        let liveRetained = String(reflecting: liveCatalog.value)
+        #expect(liveRetained.utf8.count < 32 * 1024)
+        #expect(!liveRetained.contains("base64") && !liveRetained.contains(url))
+        #expect(!String(reflecting: harness.host).contains("base64"))
     }
 
     private func wait(_ condition: () async -> Bool) async throws {
