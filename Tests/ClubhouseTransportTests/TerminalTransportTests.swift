@@ -86,6 +86,8 @@ private func capabilities(_ terminal: String?) throws -> AnnexCapabilities {
 private actor TerminalSocket: AnnexWebSocket {
     private var messages = [Data(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#.utf8)]
     private var pending: CheckedContinuation<Data, Error>?
+    private var holdInput = false
+    private var inputSend: CheckedContinuation<Void, Never>?
     private(set) var sent: [AnnexJSON] = []
     func receive() async throws -> Data {
         if !messages.isEmpty { return messages.removeFirst() }
@@ -95,7 +97,16 @@ private actor TerminalSocket: AnnexWebSocket {
         let data = Data(json.utf8)
         if let pending { self.pending = nil; pending.resume(returning: data) } else { messages.append(data) }
     }
-    func send(_ data: Data) throws { sent.append(try JSONDecoder().decode(AnnexJSON.self, from: data)) }
+    func holdNextInput() { holdInput = true }
+    func releaseInput() { inputSend?.resume(); inputSend = nil }
+    func send(_ data: Data) async throws {
+        let frame = try JSONDecoder().decode(AnnexJSON.self, from: data)
+        sent.append(frame)
+        if holdInput, frame["type"]?.string == "pty:input" {
+            holdInput = false
+            await withCheckedContinuation { inputSend = $0 }
+        }
+    }
     func ping() {}
     func close() { pending?.resume(throwing: AnnexTransportError.disconnected); pending = nil }
 }
@@ -103,8 +114,9 @@ private actor TerminalSocket: AnnexWebSocket {
 private actor TerminalIO: AnnexIO {
     let identity = AnnexPairingIdentity()
     let terminal: Bool
+    let maxInputLength: Int
     let socket = TerminalSocket()
-    init(terminal: Bool) { self.terminal = terminal }
+    init(terminal: Bool, maxInputLength: Int) { self.terminal = terminal; self.maxInputLength = maxInputLength }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         let body: AnnexJSON
         if request.url?.path.hasSuffix("identity") == true {
@@ -114,7 +126,7 @@ private actor TerminalIO: AnnexIO {
                                              "commands": .array([]), "idempotency": .object(["scope": .string("s"), "maxEntries": .integer(1), "ttlMs": .integer(3_600_000)])]
             if terminal {
                 caps["terminal"] = .object(["version": .integer(1), "projectShell": .bool(true), "agentShell": .bool(true), "agentAttach": .bool(true),
-                                            "maxShellsPerConnection": .integer(8), "maxInputLength": .integer(4)])
+                                            "maxShellsPerConnection": .integer(8), "maxInputLength": .integer(Int64(maxInputLength))])
             }
             body = .object(caps)
         }
@@ -123,8 +135,8 @@ private actor TerminalIO: AnnexIO {
     func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket { socket }
 }
 
-private func connected(terminal: Bool) async throws -> (AnnexTransport, TerminalIO, AsyncThrowingStream<AnnexTransportEvent, Error>, AsyncStream<AnnexTerminalEvent>) {
-    let io = TerminalIO(terminal: terminal)
+private func connected(terminal: Bool, maxInputLength: Int = 4) async throws -> (AnnexTransport, TerminalIO, AsyncThrowingStream<AnnexTransportEvent, Error>, AsyncStream<AnnexTerminalEvent>) {
+    let io = TerminalIO(terminal: terminal, maxInputLength: maxInputLength)
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: fingerprint,
                                     verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
@@ -170,5 +182,80 @@ private func connected(terminal: Bool) async throws -> (AnnexTransport, Terminal
     await #expect(throws: AnnexTransportError.unsupportedCapability("terminal")) {
         try await transport.sendTerminal(.spawnShell(sessionID: "s1", projectID: "p1", agentID: nil))
     }
+    await transport.disconnect()
+}
+
+@Test(arguments: [0, 1]) func fullInputFrameBoundary(extraByte: Int) async throws {
+    let id = "s1"
+    let boundary = try 65_536 - AnnexTerminalFrame.input(id: id, data: "").encoded().count
+    let (transport, io, _, _) = try await connected(terminal: true, maxInputLength: 65_536)
+    let text = String(repeating: "a", count: boundary + extraByte)
+    try await transport.sendTerminal(.input(id: id, data: text))
+    let inputs = await io.socket.sent.filter { $0["type"]?.string == "pty:input" }
+    #expect(inputs.count == 1 + extraByte)
+    #expect(try JSONEncoder().encode(inputs[0]).count == 65_536)
+    #expect(inputs.compactMap { $0["payload"]?["data"]?.string }.joined() == text)
+    await transport.disconnect()
+}
+
+@Test func anUnfitTerminalIDFailsBeforeSending() async throws {
+    let (transport, io, _, _) = try await connected(terminal: true)
+    await #expect(throws: AnnexTransportError.rejected(status: 413, code: "terminal_input_too_large")) {
+        try await transport.sendTerminal(.input(id: String(repeating: "x", count: 65_536), data: "x"))
+    }
+    #expect(await io.socket.sent.allSatisfy { $0["type"]?.string != "pty:input" })
+    await transport.disconnect()
+}
+
+@Test func pastedUnicodeAndEscapesFitEncodedFrames() async throws {
+    let (transport, io, _, _) = try await connected(terminal: true, maxInputLength: 65_536)
+    let pasted = "\u{1B}[200~" + String(repeating: "😀\r\"\\/\u{00}", count: 15_000) + "\u{1B}[201~"
+    try await transport.sendTerminal(.input(id: "session-with-a-longer-id", data: pasted))
+    let inputs = await io.socket.sent.filter { $0["type"]?.string == "pty:input" }
+    #expect(inputs.count > 1)
+    for frame in inputs {
+        #expect(try JSONEncoder().encode(frame).count <= 65_536)
+        #expect((frame["payload"]?["data"]?.string?.utf16.count ?? 0) <= 65_536)
+    }
+    let received = inputs.compactMap { $0["payload"]?["data"]?.string }
+    #expect(received.joined() == pasted)
+    #expect(received.filter { $0.contains("\u{1B}[200~") }.count == 1)
+    #expect(received.filter { $0.contains("\u{1B}[201~") }.count == 1)
+    await transport.disconnect()
+}
+
+@Test func encodedInputBoundaryAndUnicodeScalars() throws {
+    for size in [65_534, 65_535] {
+        let text = String(repeating: "a", count: size)
+        let chunks = AnnexTerminalInput.chunks(text)
+        #expect(chunks.count == (size == 65_534 ? 1 : 2))
+        #expect(chunks.joined() == text)
+        for chunk in chunks { #expect(try JSONEncoder().encode(chunk).count <= 65_536) }
+    }
+    let allEscapes = String((0...31).compactMap(UnicodeScalar.init).map(Character.init)) + "\"\\/é😀"
+    let chunks = AnnexTerminalInput.chunks(String(repeating: allEscapes, count: 100), maxEncodedBytes: 17)
+    #expect(chunks.joined() == String(repeating: allEscapes, count: 100))
+    for chunk in chunks { #expect(try JSONEncoder().encode(chunk).count <= 17) }
+}
+
+@Test func aReceivedInputRefusalStopsRemainingChunksAndAllowsFreshInput() async throws {
+    let (transport, io, _, terminalEvents) = try await connected(terminal: true)
+    await io.socket.holdNextInput()
+    let send = Task { try await transport.sendTerminal(.input(id: "s1", data: "abcdefghijkl")) }
+    for _ in 0..<1000 {
+        if await io.socket.sent.contains(where: { $0["type"]?.string == "pty:input" }) { break }
+        await Task.yield()
+    }
+    await io.socket.push(#"{"type":"error","payload":{"message":"pty:input data exceeds 64KB limit","op":"pty:input","agentId":"s1"}}"#)
+    for await event in terminalEvents {
+        if case .frame(let envelope) = event, envelope.type == "error" { break }
+    }
+    await io.socket.releaseInput()
+    await #expect(throws: AnnexTransportError.rejected(status: 400, code: "terminal_input_rejected")) { try await send.value }
+    let sent = await io.socket.sent.filter { $0["type"]?.string == "pty:input" }
+    #expect(sent.count == 1)
+    #expect(sent.first?["payload"]?["data"]?.string == "abcd")
+    try await transport.sendTerminal(.input(id: "s1", data: "new"))
+    #expect(await io.socket.sent.last?["payload"]?["data"]?.string == "new")
     await transport.disconnect()
 }

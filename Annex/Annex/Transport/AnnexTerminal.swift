@@ -84,20 +84,29 @@ nonisolated public enum AnnexTerminalEvent: Sendable, Equatable {
 }
 
 nonisolated public enum AnnexTerminalInput {
-    /// Splits `text` into pieces of at most `maxLength` UTF-16 code units, never inside a Unicode scalar, so each
-    /// piece passes the desktop's `pty:input` cap and a surrogate pair is never cut in two.
-    public static func chunks(_ text: String, maxLength: Int = AnnexCapabilities.Terminal.defaultMaxInputLength) -> [String] {
-        let limit = max(2, maxLength)
-        guard text.utf16.count > limit else { return text.isEmpty ? [] : [text] }
+    /// Keep both the desktop's UTF-16 cap and the encoded JSON-string byte budget. Splitting only
+    /// between Unicode scalars preserves UTF-8, including when a grapheme spans several frames.
+    public static func chunks(_ text: String, maxLength: Int = AnnexCapabilities.Terminal.defaultMaxInputLength,
+                              maxEncodedBytes: Int = 65_536) -> [String] {
+        let limit = max(2, maxLength), byteLimit = max(8, maxEncodedBytes)
         var pieces: [String] = []
         var current = String.UnicodeScalarView()
-        var length = 0
+        var length = 0, bytes = 2 // JSON string quotes.
         for scalar in text.unicodeScalars {
             let width = scalar.utf16.count
-            if length + width > limit {
-                pieces.append(String(current)); current = .init(); length = 0
+            let encoded: Int
+            switch scalar.value {
+            case 8, 9, 10, 12, 13, 34, 47, 92: encoded = 2 // JSONEncoder's short escapes, including slash.
+            case 0...31: encoded = 6
+            case 32...127: encoded = 1
+            case 128...2047: encoded = 2
+            case 2048...65535: encoded = 3
+            default: encoded = 4
             }
-            current.append(scalar); length += width
+            if length + width > limit || bytes + encoded > byteLimit {
+                pieces.append(String(current)); current = .init(); length = 0; bytes = 2
+            }
+            current.append(scalar); length += width; bytes += encoded
         }
         if !current.isEmpty { pieces.append(String(current)) }
         return pieces

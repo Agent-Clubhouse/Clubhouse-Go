@@ -40,6 +40,18 @@ import Foundation
 
     func send(_ input: String) async throws {
         guard isOpen else { throw CompanionServiceError.unavailable("Preview only") }
+        #if DEBUG
+        // An offline UI fixture records the bytes reaching the channel, never a live terminal or clipboard.
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-terminal-input-audit") {
+            if input == "REFUSE" {
+                continuation?.yield(.inputRejected(CompanionTerminalSession.inputRefusedMessage))
+                return
+            }
+            let bytes = input.utf8.map { String(format: "%02x", $0) }.joined()
+            continuation?.yield(.output("\r\nINPUT_BYTES=\(bytes)\r\n"))
+            return
+        }
+        #endif
         // Paste brackets and keys such as arrows aren't the shell's to echo.
         let text = input.replacingOccurrences(of: "\u{1B}[200~", with: "").replacingOccurrences(of: "\u{1B}[201~", with: "")
         guard !text.hasPrefix("\u{1B}") else { return }

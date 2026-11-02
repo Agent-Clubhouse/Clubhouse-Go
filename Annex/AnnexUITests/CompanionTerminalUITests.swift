@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Terminals (#182) against the preview desktop, whose fake shell echoes what's typed and answers `echo`, `pwd` and
 /// `stty size`. Nothing reaches a desktop.
@@ -76,6 +77,60 @@ final class CompanionTerminalUITests: ReliableUITestCase {
         waitAndTap(element(app, "terminal-menu"), until: app.buttons["Copy all"], timeout: 5)
         app.buttons["Copy all"].tap()
         waitAndTap(app.buttons["terminal-done"], untilGone: output, timeout: 5, "Done closes the terminal")
+    }
+
+    func testPasteButtonSendsBytesWithKeyboardShownAndHidden() {
+        let app = launchApp(["--companion-preview", "--companion-preview-terminal-input-audit"])
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        UIPasteboard.general.string = "A\nB\r\nC"
+        let paste = element(app, "terminal-paste")
+        XCTAssertTrue(waitFor(paste, NSPredicate(format: "enabled == true"), timeout: 5))
+        XCTAssertTrue(paste.isHittable)
+        screenshot(app, "Paste enabled with keyboard")
+        paste.tap()
+        waitForOutput(output, containing: "INPUT_BYTES=410d420d43")
+        element(app, "terminal-keyboard").tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        UIPasteboard.general.string = "D\nE"
+        XCTAssertTrue(paste.isEnabled && paste.isHittable)
+        screenshot(app, "Paste enabled without keyboard")
+        paste.tap()
+        waitForOutput(output, containing: "INPUT_BYTES=440d45")
+        XCTAssertFalse(app.alerts.firstMatch.exists, "System Paste must not ask for clipboard permission")
+    }
+
+    func testLongPressOffersPasteAndSendsBytes() {
+        let app = launchApp(["--companion-preview", "--companion-preview-terminal-input-audit"])
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        UIPasteboard.general.string = "menu\npaste"
+        output.press(forDuration: 1.2)
+        screenshot(app, "Terminal long press")
+        let paste = app.menuItems["Paste"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 5), "Long-pressing terminal output offers Paste")
+        XCTAssertEqual(app.menuItems.matching(identifier: "Paste").count, 1)
+        paste.tap()
+        waitForOutput(output, containing: "INPUT_BYTES=6d656e750d7061737465")
+        XCTAssertFalse(app.alerts.firstMatch.exists, "The system Paste action grants clipboard access")
+    }
+
+    func testRefusedPasteExplainsAndLeavesTerminalUsable() {
+        let app = launchApp(["--companion-preview", "--companion-preview-terminal-input-audit"])
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        UIPasteboard.general.string = "REFUSE"
+        element(app, "terminal-paste").tap()
+        let status = element(app, "terminal-status")
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertTrue(status.label.contains("Some text may already have been sent"))
+        screenshot(app, "Refused paste explains partial input")
+        XCTAssertTrue(element(app, "terminal-paste").isEnabled)
+        app.buttons["Dismiss"].tap()
+        UIPasteboard.general.string = "fresh"
+        element(app, "terminal-paste").tap()
+        waitForOutput(output, containing: "INPUT_BYTES=6672657368")
     }
 
     func testTerminalFollowsRotation() {
