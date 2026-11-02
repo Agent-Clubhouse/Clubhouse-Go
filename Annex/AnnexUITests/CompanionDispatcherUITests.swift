@@ -42,7 +42,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         if sidebar.exists {
             sidebar.tap()
             screenshot(app, "Dispatcher first in iPad sidebar")
-            sidebar.tap()
+            app.buttons["Hide Sidebar"].tap()
         }
         tab(app, "Home").tap()
         let row = element(app, "dispatcher-row-preview-studio")
