@@ -189,6 +189,7 @@ enum CompanionTimelineFolding {
             if run.isEmpty { runSubagentID = subagentID }
         }
         func append(_ part: CompanionActivityPart) {
+            if run.isEmpty { runSubagentID = part.subagentID }
             if !carried.isEmpty {
                 run += carried.map { .empty($0) }
                 carried = []
