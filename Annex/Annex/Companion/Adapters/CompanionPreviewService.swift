@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// Sample desktop for the welcome screen's "Look around first" demo (and App Review), and the DEBUG preview launch.
 /// Never selected by pairing; every command fails with "Preview only".
@@ -150,30 +153,44 @@ import Foundation
         .message(.init(id: "dispatcher-agent-1", role: .assistant, text: "I've asked **River** in Clubhouse to finish the reconnect fix and open a PR. I'll report back when it's ready for review.",
                        timestamp: Date().addingTimeInterval(-380))),
     ]
-    /// A burst delivered as one MCP event: raw delivery stays whole, but chat shows each routed message separately.
-    static let relayedTask = CompanionTimelineItem.message(.init(id: "relay-1", role: .user,
-        text: """
-        4 updates, oldest first:
-
-        --- 1 of 4 ---
-        [TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.
-
-        --- 2 of 4 ---
-        [FROM:Reviewer] The reconnect tests pass. The PR is ready for review.
-
-        --- 3 of 4 ---
-        [Clubhouse] All helper updates have been delivered.
-
-        --- 4 of 4 ---
-        The review notes are attached to the PR.
-        """,
-        timestamp: Date().addingTimeInterval(-370), source: "mcp", routed: [
+    /// Exercise queue joins through the real projector, including dispatch with no delivered user_message.
+    static let relayedTask: CompanionTimelineItem = {
+        let texts = [
+            "[TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.",
+            "[FROM:Reviewer] The reconnect tests pass. The PR is ready for review.",
+            "[Clubhouse] All helper updates have been delivered.",
+            "The review notes are attached to the PR."
+        ]
+        let parts: [CompanionRoutedMessagePart] = [
             .init(sender: .init(agentID: "durable_dispatcher", name: "Dispatcher"),
                   text: "Finish the reconnect fix and open a PR. Report back when it's in review."),
             .init(sender: .init(name: "Reviewer"), text: "The reconnect tests pass. The PR is ready for review."),
             .init(fromClubhouse: true, text: "All helper updates have been delivered."),
             .init(text: "The review notes are attached to the PR.")
-        ]))
+        ]
+        var projection = CompanionChatProjector()
+        func event(_ type: String, _ sequence: Int64, _ data: [String: AnnexJSON]) -> AnnexJSON {
+            .object(["sessionId": .string("preview-queue"), "seq": .integer(sequence), "type": .string(type),
+                     "ts": .integer(Int64(Date().addingTimeInterval(-370).timeIntervalSince1970 * 1000)), "data": .object(data)])
+        }
+        for index in texts.indices {
+            var routed: [String: AnnexJSON] = ["text": .string(parts[index].text)]
+            if let sender = parts[index].sender {
+                var identity: [String: AnnexJSON] = ["name": .string(sender.name)]
+                identity["agentId"] = sender.agentID.map(AnnexJSON.string)
+                routed["sender"] = .object(identity)
+            }
+            if parts[index].fromClubhouse { routed["fromClubhouse"] = .bool(true) }
+            var data: [String: AnnexJSON] = ["messageId": .string(index == 0 ? "relay-1" : "relay-join-\(index)"),
+                "content": .array([.object(["type": .string("text"), "text": .string(texts[index])])]),
+                "source": .string("mcp"), "delivery": .string("queued"), "routed": .array([.object(routed)])]
+            if index > 0 { data["queuedWith"] = .string("relay-1") }
+            projection.apply(event("user_message", Int64(index + 1), data))
+        }
+        projection.apply(event("queue_state", 5, ["queuedMessageIds": .array([]),
+            "transition": .object(["messageIds": .array([.string("relay-1")]), "status": .string("delivered")])]))
+        return projection.items[0]
+    }()
     /// Preview-specific long routed messages and stale sender names exercise folding and identity resolution.
     static let longSenderText = "## Helper report\n\n" + Array(repeating: "The reconnect tests pass, and the saved conversation keeps each sender’s message and reading position.", count: 10).joined(separator: "\n\n")
     static let senderPreview = CompanionTimelineItem.message(.init(id: "sender-preview", role: .user,
