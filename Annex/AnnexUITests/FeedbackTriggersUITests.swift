@@ -45,7 +45,11 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         let confirmation = app.sheets.firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
-        confirmation.buttons["Cancel"].tap()
+        // Compact iOS 26 confirmation popovers omit an automatic Cancel row. An outside
+        // tap is their native cancel action; keep the same retained-report assertions.
+        if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
+        else { app.navigationBars["Fixture settings"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        XCTAssertFalse(confirmation.waitForExistence(timeout: 1))
         XCTAssertTrue(summary.exists, "Cancel retains the held reports")
         release.tap()
         confirmation.buttons["Send"].tap()
