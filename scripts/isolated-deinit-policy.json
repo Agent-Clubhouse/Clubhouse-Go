@@ -162,8 +162,8 @@
     }
   },
   "reviewedSources": {
-    "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift": "1d8dddfcdee35ae429e63ed3ad39f2368fcf7f03262baa9e7e232384cee1d03f",
-    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "8ba0ab9e749c37c876c407b4e02bae458a64eea85fbadc29d496cc02e9edf58f",
+    "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift": "2be583a2a27f53ddee3a51ffafe2c81a0f8a632df00276365a0653643f49dcca",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "470348ece6003bd4818903fdb73ac3c6901bd3d4cb0d5187da60fabe31634a86",
     "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift": "a15a474464e096a03265d539254d1f5ace5eb1a97cf127d9764d7fb824f26dcb",
     "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift": "f1ed5c16fa4be0d5e34eb12817a671d691b8814b6ce17c7b832dc10f743d7ea0",
     "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift": "cfe559f2a4d58b3a5ab3ea7a5a68ba1d482a470c347babbc4426e90733ed840d",
