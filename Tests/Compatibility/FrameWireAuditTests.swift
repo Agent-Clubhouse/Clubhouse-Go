@@ -1226,3 +1226,56 @@ extension FrameWireAuditTests {
         } }
     }
 }
+
+@MainActor extension FrameWireAuditTests {
+    @Test func final2686NoteCacheGrowthEvictionStoredReplayAndHistoryLimits() async throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("frame-2686-cache/note-cache.json")
+        let c = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root)), note = try #require(c["note"]?.string)
+        #expect(c["sha"]?.string == "0090d8648d2c65b7733aa5e59fe1c3405efd2345")
+        let before = c["beforeRestart"].arrayValue, after = c["afterRestart"].arrayValue, live = c["live"].arrayValue
+        let h = try await FullAuditHarness.start(agentID: "durable_chat")
+        func output() -> String { deltaTool(h, "cache_tool")?.output ?? "" }
+        func count() -> Int { output().components(separatedBy: note).count - 1 }
+        do {
+            await h.io.setChat(fixturePage([])); await h.store.load(h.target, force: true)
+            for frame in before { await h.io.push(try JSONEncoder().encode(frame)) }
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 230 }
+            #expect(count() == 1); #expect(output() == "EARLIER CONTENT" + note)
+            for frame in after.dropFirst(before.count) { await h.io.push(try JSONEncoder().encode(frame)) }
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 233 }
+            #expect(count() == 2)
+            for frame in live.dropFirst(after.count) { await h.io.push(try JSONEncoder().encode(frame)) }
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 235 }
+            #expect(count() == 3); #expect(output().utf8.count == "EARLIER CONTENT".utf8.count + note.utf8.count * 3)
+            #expect(deltaTool(h, "cache_tool")?.state == .completed); #expect(deltaTool(h, "cache_tool")?.awaitsApproval == false)
+            let aggregate = output(), events = live.compactMap { $0["payload"]?["event"] }
+            await h.io.setChat(fixturePage([], extra: events)); await h.io.setInitialSequence(135)
+            await h.transport.disconnect(); try await h.transport.connect()
+            try await h.wait { await h.io.opened == 2 && h.host?.connection == .connected }
+            // Real CH mobile replay branch, using its stored already-bounded payloads after eviction.
+            for frame in c["replayed"].arrayValue { await h.io.push(try JSONEncoder().encode(frame)) }
+            // Rebounding an original evicted event changes its body; both client cursor guards still ignore it.
+            let rewritten = try #require(c["rewritten"])
+            try await h.frame("chat:event", seq: 3, payload: .object(["agentId": .string("durable_chat"), "event": rewritten]), replayed: true)
+            try await h.frame("chat:event", seq: 136, payload: .object(["agentId": .string("durable_chat"), "event": rewritten]), replayed: true)
+            let barrier = LiveServiceHarness.chatEvent("sess_live", sequence: 236, type: "agent_message", data: ["messageId": .string("cache-replay-barrier"), "text": .string("after replay")])
+            try await h.frame("chat:event", seq: 137, payload: .object(["agentId": .string("durable_chat"), "event": barrier]), replayed: true)
+            try await h.wait { h.store.conversation(for: h.target).lastSequence == 236 }
+            #expect(output() == aggregate); #expect(count() == 3); #expect(await h.io.opened == 2)
+            // Consumer-fold check ONLY: pages projection is unbuilt. Stored projected events rebuild identically.
+            await h.io.setChat(fixturePage([], extra: events + [barrier])); await h.store.load(h.target, force: true)
+            #expect(output() == aggregate)
+            // Reprojecting originals after forgetting chooses one notice, unlike the three live notices.
+            await h.io.setChat(fixturePage([], extra: c["reprojected"].arrayValue + [barrier])); await h.store.load(h.target, force: true)
+            #expect(count() == 1); #expect(output() != aggregate)
+            // Current /chat keeps tool events raw: a small enough raw tail restores the full raw output.
+            // This HTTP body is synthetic, matching current route's no-tool-projection semantics.
+            await h.io.setChat(fixturePage([], extra: c["rawPageEvents"].arrayValue + [barrier])); await h.store.load(h.target, force: true)
+            #expect(h.store.conversation(for: h.target).error == nil)
+            #expect(output().utf8.count == 2 * 1024 * 1024); #expect(count() == 0)
+            #expect(deltaTool(h, "cache_tool")?.state == .completed)
+            print("NOTE_CACHE sha=0090d864 updates129=oneNote restartUpdates3=oneMore eviction=oneMore storedReplayBodies=identical GoReplayGrowth=0 reboundOldBody=changedButDropped storedHistoryFold=matches reprojectedHistory=oneNote rawHTTP=full2MiB historyProjection=unbuilt")
+            await h.stop()
+        } catch { await h.stop(); throw error }
+    }
+}

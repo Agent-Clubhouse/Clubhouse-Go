@@ -70,7 +70,17 @@ swift test --package-path build/frame-main --filter FrameWireAuditTests.final268
 
 Reproduce with `--filter FrameWireAuditTests.proposedHelperConsumed` on each archive. Existing `.swift` file must be recopied to both test targets after updates.
 
-Final head recheck subsequently observed `0090d8648d2c65b7733aa5e59fe1c3405efd2345`; that head has **not** been validated by the 274d3ac delta evidence.
+A subsequent focused run validates `0090d8648d2c65b7733aa5e59fe1c3405efd2345` (rechecked unchanged), in `final2686NoteCacheGrowthEvictionStoredReplayAndHistoryLimits`, passed on both clients. `capture-2686-note-cache.cjs` executes real bounds, broadcast payload bounding, replay ring and the mobile replay branch. 129 updates give one note, restart plus three updates adds one, eviction by 2000 other tool identities permits one more: three notices total, +357 bytes. All 135 persisted replay event bodies remain identical to sent live bodies; Go replay adds zero notices, including a changed body under an old inner sequence. Full stored bounded-event HTTP fold reproduces three notes, but re-projecting originals with a fresh notice cache gives only one. Rebounding an evicted original non-noted seq can add a note at that same seq; this is not what the actual stored replay path does. Future pages projection must define deterministic reconstruction across lost cache state.
+
+Current server `/chat` maps tool events raw (annex-server.ts:2898 only bounds permissions). A synthetic matching raw tail under 16 MiB restores full 2 MiB output with no preview notice. This proves consumer behavior, not an implemented bounded HTTP tool projection. Actual broadcast stores bounded payload before send (:1210–1215), mobile replay sends it (:3448–3463). Cache logic bounds.ts:82–110; no always-visible warning claim. Eviction fillers use actual bounds called with declared oversize metadata; live updates have actual 2 MiB originals.
+
+Reproduce after checking CH out at 0090d864:
+
+```sh
+node Tests/Compatibility/capture-2686-note-cache.cjs build/ch-frame-2682 build/frame-2686-cache build/serializer-typescript/lib/typescript.js
+swift test --package-path build/build147 --filter FrameWireAuditTests.final2686NoteCache
+swift test --package-path build/frame-main --filter FrameWireAuditTests.final2686NoteCache
+```
 
 ## Earlier evidence reused unchanged
 
