@@ -44,6 +44,11 @@ import Testing
         let quick: AnnexJSON = .object(["id": .string("q5"), "name": .string("New helper"), "kind": .string("quick"), "projectId": .string("project"), "status": .string("running")])
         guard case .message(let catalog) = harness.snapshotEvent(["quickAgents": .object(["project": .array([quick])]), "helperRequests": .array([])]) else { return }
         let snapshot = AnnexEnvelope(type: "snapshot", payload: catalog.payload, lastSeq: checkpoint)
+        // The harness already has a connected service and a cached chat. A first
+        // snapshot belongs to a new connection, unlike a same-socket refresh.
+        // #216 deliberately ignores redundant connected events on an established socket.
+        if initial { await harness.transport.emit(.connection(.connecting)) }
+        let statusReadsBeforeSnapshot = await harness.transport.readRoutes.filter { $0.name == "chatHistory" }.count
         let snapshotDecision = cursor.accept(snapshot)
         if case .resync(let reason) = snapshotDecision { await harness.transport.emit(.resyncRequired(reason)) }
         await harness.transport.emit(.connection(.connected))
@@ -63,6 +68,10 @@ import Testing
                 && harness.host?.connection == .connected
                 && harness.host?.agent(for: harness.target)?.status == .approval
                 && harness.host?.projects.first?.agents.contains { $0.id.agentID == "q5" } == true
+        }
+        if initial && currentAtSend {
+            #expect(await harness.transport.readRoutes.filter { $0.name == "chatHistory" }.count == statusReadsBeforeSnapshot + 1,
+                    "The new connection performs status-only catch-up; it does not replace the transcript")
         }
         let items = harness.store.conversation(for: harness.target).items
         let answer = items.compactMap { if case .message(let message) = $0, message.id == "answer" { message.text } else { nil } }.first
