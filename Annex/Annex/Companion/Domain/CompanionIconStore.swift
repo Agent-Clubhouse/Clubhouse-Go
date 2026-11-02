@@ -6,6 +6,28 @@ import UniformTypeIdentifiers
 import ClubhouseTransport
 #endif
 
+/// Validated v1 metadata; source bytes still require hash, MIME and ImageIO validation.
+nonisolated struct CompanionIconMetadata: Hashable, Sendable {
+    let type: String
+    let bytes: Int
+    let width: Int
+    let height: Int
+    static let types = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+    init?(_ value: AnnexJSON) {
+        guard let version = value["version"]?.string, Self.validVersion(version),
+              let type = value["type"]?.string, Self.types.contains(type),
+              let b = value["bytes"]?.integer, (1...73728).contains(b),
+              let w = value["width"]?.integer, (1...256).contains(w),
+              let h = value["height"]?.integer, (1...256).contains(h) else { return nil }
+        self.type = type; bytes = Int(b); width = Int(w); height = Int(h)
+    }
+    static func validVersion(_ value: String) -> Bool { value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }
+    static func version(etag: String?) -> String? {
+        guard let etag, etag.utf8.count == 66, etag.first == "\"", etag.last == "\"" else { return nil }
+        let value = String(etag.dropFirst().dropLast()); return validVersion(value) ? value : nil
+    }
+}
+
 /// Local identity only. The protocol adapter supplies the opaque version; these are not wire fields.
 nonisolated struct CompanionIconReference: Hashable, Sendable {
     enum Kind: String, Sendable { case agent, project }
@@ -13,11 +35,13 @@ nonisolated struct CompanionIconReference: Hashable, Sendable {
     let kind: Kind
     let id: String
     let version: String
+    var metadata: CompanionIconMetadata? = nil
 
     static func digest(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
     static func inline(host: String, kind: Kind, id: String, data: Data) -> Self {
         .init(host: host, kind: kind, id: id, version: digest(data))
     }
+    var identity: Self { var value = self; value.metadata = nil; return value }
     var hostDigest: String { Self.digest(Data(host.utf8)) }
     var digest: String {
         // Length-delimited fields avoid ambiguous identities without putting raw IDs on disk.
@@ -34,7 +58,7 @@ nonisolated struct CompanionIconImage: @unchecked Sendable {
 actor CompanionIconStore {
     static let shared = CompanionIconStore()
     struct Limits: Sendable {
-        var totalBytes = 64 * 1024 * 1024
+        var totalBytes = 32 * 1024 * 1024
         var imageBytes = 1024 * 1024
         var inputPixels = 2048 * 2048
         var concurrentFetches = 2
@@ -61,7 +85,12 @@ actor CompanionIconStore {
         var waiters: [UUID: Waiter] = [:]
         var task: Task<Void, Never>?
     }
-    private final class ImageBox { let image: CompanionIconImage; init(_ image: CompanionIconImage) { self.image = image } }
+    private final class ImageBox {
+        let image: CompanionIconImage
+        init(_ image: CompanionIconImage) { self.image = image }
+        // Immutable CGImage wrapper; no UI ownership or callback teardown.
+        nonisolated deinit {}
+    }
     private let directory: URL
     private let limits: Limits
     private let now: @Sendable () -> Date
@@ -72,6 +101,8 @@ actor CompanionIconStore {
     private var failures: [CompanionIconReference: Failure] = [:]
     private var fetchers: [String: Fetcher] = [:]
     private var removedHosts: Set<String> = []
+    private var references: [String: Set<CompanionIconReference>] = [:]
+    private var suppressed: Set<CompanionIconReference> = []
     private var jobs: [CompanionIconReference: Job] = [:]
     private var queue: [CompanionIconReference] = []
     private var running = 0
@@ -89,6 +120,13 @@ actor CompanionIconStore {
 
     var statistics: Statistics { prepare(); return stats }
     func activate(host: String) { removedHosts.remove(host) }
+    /// Fences are owned by current associations, never evicted by the bounded transient failure cache.
+    func setReferences(_ next: Set<CompanionIconReference>, for host: String) {
+        references[host] = next
+        let identities = Set(next.map(\.identity))
+        suppressed = suppressed.filter { $0.host != host || identities.contains($0) }
+        for key in Array(jobs.keys) where key.host == host && key.metadata != nil && !next.contains(key) { discard(key) }
+    }
     func setFetcher(for host: String, _ fetcher: Fetcher?) { fetchers[host] = fetcher }
     func fileURL(for key: CompanionIconReference) -> URL {
         directory.appendingPathComponent(key.hostDigest, isDirectory: true).appendingPathComponent(key.digest)
@@ -109,7 +147,7 @@ actor CompanionIconStore {
     @discardableResult func insert(_ data: Data, for key: CompanionIconReference) -> Bool {
         prepare()
         guard !removedHosts.contains(key.host), data.count <= limits.imageBytes, data.count <= limits.totalBytes,
-              thumbnail(data, pixels: 96) != nil else { return false }
+              thumbnail(data, pixels: 96, key: key) != nil else { return false }
         let url = fileURL(for: key)
         if files[url] != nil, read(key, pixels: 96) != nil { return true }
         do {
@@ -129,12 +167,12 @@ actor CompanionIconStore {
     }
 
     func image(for key: CompanionIconReference, points: Double) async -> CompanionIconImage? {
-        guard !Task.isCancelled else { return nil }
+        guard !Task.isCancelled, key.metadata == nil || references[key.host]?.contains(key) == true else { return nil }
         prepare()
         let pixels = max(1, min(384, Int((points.isFinite ? max(1, min(128, points)) : 32) * 3)))
         if let image = read(key, pixels: pixels) { stats.hits += 1; metric(.iconHit); return image }
         stats.misses += 1; metric(.iconMiss)
-        guard fetchers[key.host] != nil, failures[key].map({ $0.retry <= now() }) ?? true else { return nil }
+        guard !suppressed.contains(key.identity), fetchers[key.host] != nil, failures[key].map({ $0.retry <= now() }) ?? true else { return nil }
         let consumer = UUID()
         let result: CompanionIconImage? = await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
@@ -154,6 +192,8 @@ actor CompanionIconStore {
     func remove(host: String) {
         prepare()
         removedHosts.insert(host)
+        references.removeValue(forKey: host)
+        suppressed = suppressed.filter { $0.host != host }
         fetchers.removeValue(forKey: host)
         for key in Array(jobs.keys) where key.host == host { discard(key) }
         failures = failures.filter { $0.key.host != host }
@@ -190,12 +230,21 @@ actor CompanionIconStore {
         var superseded = false
         if !cancelled, case .success(let response) = result {
             span.number(.responseBytes, Double(response.data.count))
+            if key.metadata != nil, response.status == 404 { suppressed.insert(key.identity) }
+            if response.status == 304, response.version == key.version { success = read(key, pixels: job.waiters.values.first?.pixels ?? 96) != nil }
             if response.status == 200, response.contentType.lowercased().hasPrefix("image/"),
                let version = response.version, !version.isEmpty {
-                let returned = CompanionIconReference(host: key.host, kind: key.kind, id: key.id, version: version)
-                let admitted = insert(response.data, for: returned)
-                success = admitted && returned == key
-                superseded = returned != key
+                superseded = version != key.version
+                if key.metadata != nil && superseded { suppressed.insert(key.identity) }
+                var returned = CompanionIconReference(host: key.host, kind: key.kind, id: key.id, version: version)
+                if !superseded { returned.metadata = key.metadata }
+                let valid: Bool
+                if key.metadata != nil {
+                    valid = CompanionIconMetadata.validVersion(version) && CompanionIconReference.digest(response.data) == version &&
+                        remoteProperties(response.data, expected: superseded ? nil : key.metadata, contentType: response.contentType)
+                } else { valid = true }
+                let admitted = valid && insert(response.data, for: returned)
+                success = admitted && !superseded
             }
         }
         if !success, !cancelled {
@@ -221,16 +270,33 @@ actor CompanionIconStore {
     private func read(_ key: CompanionIconReference, pixels: Int) -> CompanionIconImage? {
         let url = fileURL(for: key)
         guard files[url] != nil else { return nil }
-        let cacheKey = "\(key.hostDigest)/\(key.digest)/\(pixels)" as NSString
+        let cacheKey = "\(key.hostDigest)/\(key.digest)/\(pixels)/\(String(describing: key.metadata))" as NSString
         if let cached = decoded.object(forKey: cacheKey) { touch(url); return cached.image }
         guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
               size > 0, size <= limits.imageBytes, let data = try? Data(contentsOf: url),
-              let image = thumbnail(data, pixels: pixels) else { delete(url, eviction: false); return nil }
+              let image = thumbnail(data, pixels: pixels, key: key) else { delete(url, eviction: false); return nil }
         decoded.setObject(ImageBox(image), forKey: cacheKey, cost: image.cgImage.bytesPerRow * image.cgImage.height)
         touch(url)
         return image
     }
-    private func thumbnail(_ data: Data, pixels: Int) -> CompanionIconImage? {
+    private func remoteProperties(_ data: Data, expected: CompanionIconMetadata?, contentType: String) -> Bool {
+        guard data.count <= 73728, !data.isEmpty, CompanionIconMetadata.types.contains(contentType),
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              CGImageSourceGetStatus(source) == .statusComplete, CGImageSourceGetCount(source) > 0,
+              let identifier = CGImageSourceGetType(source) as String?, let type = UTType(identifier),
+              let index = [UTType.png, .jpeg, .gif, .webP].firstIndex(where: { type.conforms(to: $0) }),
+              CompanionIconMetadata.types[index] == contentType,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int, let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              (1...256).contains(width), (1...256).contains(height) else { return false }
+        guard let expected else { return true }
+        return expected.bytes == data.count && expected.type == contentType && expected.width == width && expected.height == height
+    }
+    private func thumbnail(_ data: Data, pixels: Int, key: CompanionIconReference? = nil) -> CompanionIconImage? {
+        if let key, CompanionIconMetadata.validVersion(key.version), CompanionIconReference.digest(data) != key.version { return nil }
+        if let key, let metadata = key.metadata {
+            guard remoteProperties(data, expected: metadata, contentType: metadata.type) else { return nil }
+        }
         guard !data.isEmpty, let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               CGImageSourceGetCount(source) > 0, CGImageSourceGetStatus(source) == .statusComplete,
               let identifier = CGImageSourceGetType(source) as String?, let type = UTType(identifier),

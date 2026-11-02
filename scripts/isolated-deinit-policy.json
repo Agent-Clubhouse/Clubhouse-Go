@@ -149,7 +149,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets.",
+      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -173,7 +173,8 @@
           "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",
           "historyGenerations": "[ CompanionTarget : UUID ]",
           "hosts": "[ String : CompanionHost ]",
-          "iconCatalog": "[ String : ( projects : AnnexJSON , agents : AnnexJSON ) ]",
+          "iconCatalog": "[ String : CompanionIconCatalog ]",
+          "iconStore": "CompanionIconStore",
           "isSuspended": "Bool",
           "knownCapabilities": "Set < String >",
           "needsCatchUp": "Set < String >",
@@ -582,6 +583,19 @@
         "storageMacros": [
           "@ Observable"
         ]
+      }
+    },
+    "CompanionIconStore.ImageBox": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionIconStore.swift",
+      "reason": "Private immutable CompanionIconImage owns a Sendable CGImage only. Construction is confined to validated/downsampled ImageIO output in the store actor; no UIKit objects, closures, delegates or main-only teardown. Empty nonisolated deinit preserves ARC-only release.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "image": "CompanionIconImage"
+        },
+        "storageMacros": []
       }
     }
   },

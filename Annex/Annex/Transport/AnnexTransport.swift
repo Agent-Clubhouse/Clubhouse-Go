@@ -23,6 +23,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var state: AnnexConnectionState = .disconnected
     private var capabilities: AnnexCapabilities?
     private var cursor = AnnexReplayCursor()
+    private var socketUsesIconRefs = false
     private var awaitingFirstSnapshot = false
     private var snapshotFailureDeadline: Task<Void, Never>?
     private var droppedBeforeSnapshot = false
@@ -152,6 +153,15 @@ public actor AnnexTransport: AnnexTransporting {
         }
         return request
     }
+    /// Icon reads have their own smaller streaming budget; REST/WS defaults remain unchanged.
+    public func icon(kind: String, id: String, version: String, ifNoneMatch: String? = nil) async throws -> AnnexHTTPResponse {
+        guard socketUsesIconRefs, ["agent", "project"].contains(kind), !id.isEmpty,
+              version.count == 64, version.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw AnnexTransportError.unsupportedCapability("iconRefs") }
+        var request = try await authorizedRequest(path: ["api", "v1", "icons", kind, id], query: [.init(name: "v", value: version)])
+        if let ifNoneMatch { request.setValue(ifNoneMatch, forHTTPHeaderField: "If-None-Match") }
+        return try await io.perform(request, maximumBytes: 72 * 1024)
+    }
+
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         return try await telemetry.measure(route.diagnosticOperation) {
             let requestedGeneration = generation
@@ -364,7 +374,10 @@ public actor AnnexTransport: AnnexTransporting {
                       identity["fingerprint"]?.string?.lowercased() == host.hostID else { throw AnnexTransportError.identityMismatch }
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _, message: _) { capabilities = nil }
-                let request = try await authorizedRequest(path: ["ws"], webSocket: true)
+                socketUsesIconRefs = (capabilities?.iconRefs?.version ?? 0) >= 1
+                var query = [URLQueryItem(name: "client", value: "mobile")]
+                if socketUsesIconRefs { query.append(URLQueryItem(name: "iconRefs", value: "1")) }
+                let request = try await authorizedRequest(path: ["ws"], query: query, webSocket: true)
                 guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)
                 guard current == generation && !Task.isCancelled else { await newSocket.close(); return }
@@ -587,6 +600,7 @@ public actor AnnexTransport: AnnexTransporting {
             transition(.connected)
         }
         if Self.isTerminalFrame(envelope) { emitTerminal(.frame(envelope)); return }
+        if envelope.type == "snapshot" { envelope.iconReferencesEnabled = socketUsesIconRefs }
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {

@@ -63,6 +63,17 @@ import Foundation
         #expect(boundary.data.count == 1024)
         await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.perform(sized(1025)) }
     }
+    let iconIO = PinnedAnnexIO(host: host, clientIdentity: client, telemetry: AnnexTelemetry())
+    for chunked in [false, true] {
+        func iconSized(_ count: Int) throws -> URLRequest {
+            URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: String(count))] + (chunked ? [.init(name: "chunked", value: "1")] : [])))
+        }
+        let exact = try await iconIO.perform(iconSized(73728), maximumBytes: 73728)
+        #expect(exact.data.count == 73728)
+        await #expect(throws: AnnexTransportError.responseTooLarge) { try await iconIO.perform(iconSized(73729), maximumBytes: 73728) }
+        // The ordinary REST cap remains distinct and larger.
+        #expect(try await iconIO.perform(iconSized(73729)).data.count == 73729)
+    }
     telemetry.setEnabled(false)
     request.setValue("injected-secret", forHTTPHeaderField: "baggage")
     request.setValue(propagated, forHTTPHeaderField: "traceparent")

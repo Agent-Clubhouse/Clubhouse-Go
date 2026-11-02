@@ -49,7 +49,7 @@ import Testing
         let original = try Self.png()
         let limit = CompanionIconStore.Limits().imageBytes
         #expect(limit == 1024 * 1024)
-        #expect(CompanionIconStore.Limits().totalBytes == 64 * 1024 * 1024)
+        #expect(CompanionIconStore.Limits().totalBytes == 32 * 1024 * 1024)
         let exact = original + Data(repeating: 0, count: limit - original.count)
         let store = CompanionIconStore(directory: root)
         #expect(await store.insert(exact, for: key()))

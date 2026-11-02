@@ -6,7 +6,9 @@ nonisolated public struct AnnexHTTPResponse: Sendable {
     public let data: Data
     /// Seconds from a `Retry-After` header, when the host sends one (429s).
     public let retryAfter: Int?
-    public init(status: Int, data: Data, retryAfter: Int? = nil) { self.status = status; self.data = data; self.retryAfter = retryAfter }
+    public let contentType: String?
+    public let etag: String?
+    public init(status: Int, data: Data, retryAfter: Int? = nil, contentType: String? = nil, etag: String? = nil) { self.status = status; self.data = data; self.retryAfter = retryAfter; self.contentType = contentType; self.etag = etag }
 }
 
 nonisolated public protocol AnnexWebSocket: Sendable {
@@ -21,6 +23,15 @@ nonisolated public protocol AnnexWebSocket: Sendable {
 nonisolated public protocol AnnexIO: Sendable {
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse
     func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket
+    func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse
+}
+
+nonisolated public extension AnnexIO {
+    func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
+        let result = try await perform(request)
+        guard result.data.count <= maximumBytes else { throw AnnexTransportError.responseTooLarge }
+        return result
+    }
 }
 
 /// Pinned leaf certificate plus exact endpoint; TLS interception, DNS changes
@@ -121,6 +132,10 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         }
     }
     public func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
+        try await perform(request, maximumBytes: maximumResponseBytes)
+    }
+    public func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
+        let limit = min(maximumResponseBytes, max(1, maximumBytes))
         return try await telemetry.measure(.http) {
             try validate(request, scheme: "https")
             var request = request
@@ -132,11 +147,11 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
             let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
             guard let http = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
             diagnostic?.number(.statusCode, Double(http.statusCode))
-            guard response.expectedContentLength <= maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
+            guard response.expectedContentLength <= limit else { throw AnnexTransportError.responseTooLarge }
             var body = Data()
             for try await byte in bytes {
                 try Task.checkCancellation()
-                guard body.count < maximumResponseBytes else { throw AnnexTransportError.responseTooLarge }
+                guard body.count < limit else { throw AnnexTransportError.responseTooLarge }
                 body.append(byte)
             }
             diagnostic?.number(.responseBytes, Double(body.count))
@@ -148,7 +163,7 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
             }
             if http.statusCode >= 400 { diagnostic?.fail(http.statusCode >= 500 ? .server : http.statusCode == 401 ? .authentication : http.statusCode == 403 ? .forbidden : .rejected) }
             let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }.map { max(0, $0) }
-            return AnnexHTTPResponse(status: http.statusCode, data: body, retryAfter: retryAfter)
+            return AnnexHTTPResponse(status: http.statusCode, data: body, retryAfter: retryAfter, contentType: http.value(forHTTPHeaderField: "Content-Type"), etag: http.value(forHTTPHeaderField: "ETag"))
 
         }
     }

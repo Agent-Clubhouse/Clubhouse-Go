@@ -61,6 +61,12 @@ import ClubhouseTransport
     func register(_ registration: AnnexTransportRegistry.Registration) async {
         let id = registration.host.hostID
         await iconStore.activate(host: id)
+        let transport = registration.transport
+        await iconStore.setFetcher(for: id) { key, _ in
+            let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
+            return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
+                         version: CompanionIconMetadata.version(etag: response.etag))
+        }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         let endpoint = registration.host.endpoint
@@ -793,7 +799,17 @@ import ClubhouseTransport
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 let generation = eventGenerations[hostID]
-                let icons = await CompanionIconCatalog.inline(projects: payload["projectIcons"], agents: payload["agentIcons"], host: hostID, store: iconStore)
+                let usesRefs = envelope.iconReferencesEnabled ?? ((capabilities[hostID]?.iconRefs?.version ?? 0) >= 1 || payload["iconRefs"] != nil)
+                let icons: CompanionIconCatalog
+                if usesRefs {
+                    var current = iconCatalog[hostID] ?? .init()
+                    current.applyReferences(payload["iconRefs"], host: hostID)
+                    await iconStore.setReferences(current.references, for: hostID)
+                    icons = current
+                } else {
+                    await iconStore.setReferences([], for: hostID)
+                    icons = await CompanionIconCatalog.inline(projects: payload["projectIcons"], agents: payload["agentIcons"], host: hostID, store: iconStore)
+                }
                 guard eventGenerations[hostID] == generation, hosts[hostID] != nil else { return }
                 iconCatalog[hostID] = icons
                 applyCatalog(payload, hostID: hostID)
