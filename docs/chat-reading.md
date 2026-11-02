@@ -2,7 +2,7 @@
 
 ## Rules and desktop parity (#2664)
 
-The domain folding model groups chronological adjacent routine tool calls and routed parts. Failed tools, nonzero structured terminal exit codes, pending permissions, tool images, own messages, structured questions, notices, and active/uncertain delivery or queue states break runs. A failure/permission update splits a run; resolving it can rejoin it. The first fragment is the stable key. No text search guesses failures. `fromClubhouse` always stays visible, including routine “helper started” notices, until severity is reliable. `[QUESTION FROM HELPER:` parts stay visible too. System/thought rows remain boundaries because Go has no thought discriminator. There was no compaction-specific notice coalescing in Go to preserve.
+The domain folding model groups chronological adjacent routine tool calls and routed parts. Failed tools, nonzero structured terminal exit codes, pending permissions, tool images, own messages, structured questions, notices, and active/uncertain delivery or queue states break runs. A failure/permission update splits a run; resolving it can rejoin it. The first fragment is the stable key. No text search guesses failures. `fromClubhouse` always stays visible, including routine “helper started” notices, until severity is reliable. `[QUESTION FROM HELPER:` parts stay visible too. System/thought rows remain boundaries because Go has no thought discriminator. Finished empty assistant messages are carried uncounted only between countable items; live empty replies stay visible. There was no compaction-specific notice coalescing in Go to preserve.
 
 Named mobile parity exceptions:
 
@@ -10,11 +10,13 @@ Named mobile parity exceptions:
 - **Single-item activity:** one routine item also gets a compact expandable row; desktop groups runs of at least two.
 - **Attachment summary:** routed attachment counts appear in the summary; tool images remain visible outside runs.
 
-Running status remains visible in the summary. Opening a run exposes its ordered children, existing sender/avatar metadata, Copy message, tool outputs and content links. Existing per-part folds stay independent; expansion choices survive transcript refresh and navigation in the per-target store. Closed runs create no detail views, content-link scans, slices or Markdown.
+Running status remains visible in the summary. Opening a run exposes its ordered children, existing sender/avatar metadata, Copy message, tool outputs and content links. Existing per-part folds stay independent; expansion choices survive transcript refresh and navigation in the per-target store. Closed runs create no detail views, content-link scans, slices or Markdown. Failed tool rows always show status and exit code; output up to six lines starts open, longer output starts folded with its last line visible. A saved user toggle wins.
+
+Existing wire subagent IDs are preserved through streamed chunks and tool updates. Go labels their inline text as helper activity and splits tool runs at sender changes; it does not implement the desktop full-capability subagent card.
 
 Jump stops are nonempty user-facing assistant replies (including streaming replies, slash output and projected plan documents) and structured questions. Own messages, tools, system rows and routed traffic are excluded. Previous selects the current stop when its top is above the viewport; otherwise the prior stop. Next selects the first stop below. Controls have VoiceOver labels and sit within the transcript above its composer.
 
-Reading bookmarks retain the first intersecting entry key plus offset, shown history window, and following choice per target. The actual bottom is recomputed from content/viewport geometry and insets with the shared 16-point tolerance. Reaching bottom resumes following; paused following alone never displays Latest. Bookmarks are session-memory state, like expansion choices, not cross-launch storage. #211's hidden-tab unmounting remains separate; its bookmark changes will need reconciliation with this stronger entry-relative bookmark.
+Reading bookmarks retain the first intersecting entry key plus offset, shown history window, and following choice per target. The near-bottom band is 16 points; an upward gesture pauses following even inside it. Reaching the true bottom (within 1 point) resumes following and hides Latest, including after keyboard/layout changes. Bookmarks are session-memory state, like expansion choices, not cross-launch storage. #211's hidden-tab unmounting remains separate; its bookmark changes will need reconciliation with this stronger entry-relative bookmark.
 
 ## Test plan
 

@@ -247,7 +247,10 @@ import ClubhouseTransport
         }
         if showsReadingScenario {
             return .init(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
-                text: "Reading marker \($0).\n\nA stable preview paragraph for testing history, keyboard and streaming position.")) })
+                text: "Reading marker \($0).\n\nA stable preview paragraph for testing history, keyboard and streaming position.")) } + [
+                    .tool(.init(id: "reading-failure", name: "Preview command", summary: "swift test", output: (1...12).map { "Failure output line \($0)" }.joined(separator: "\n") + "\nPreview error: build failed", state: .failed, exitCode: 2)),
+                    .message(.init(id: "reading-helper", role: .assistant, text: "Preview helper streamed update.", isStreaming: true, subagentID: "preview-helper"))
+                ])
         }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),

@@ -393,6 +393,8 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
     }
     var id: String
     var role: Role
+    var subagentID: String?
+    var isUserFacingAssistant: Bool { role == .assistant && subagentID == nil }
     var text: String { didSet { updateDisplay() } }
     var timestamp: Date?
     var isStreaming = false
@@ -420,8 +422,8 @@ struct CompanionMessage: Identifiable, Sendable, Equatable {
 
     init(id: String, role: Role, text: String, timestamp: Date? = nil, isStreaming: Bool = false,
          delivery: Delivery = .confirmed, clientCommandID: String? = nil, queueState: QueueState? = nil,
-         source: String? = nil, isSteered: Bool = false, routed: [CompanionRoutedMessagePart] = [], images: [CompanionMessageImage] = []) {
-        self.id = id; self.role = role; self.text = text; self.timestamp = timestamp; self.isStreaming = isStreaming
+         source: String? = nil, isSteered: Bool = false, routed: [CompanionRoutedMessagePart] = [], images: [CompanionMessageImage] = [], subagentID: String? = nil) {
+        self.id = id; self.role = role; self.subagentID = subagentID; self.text = text; self.timestamp = timestamp; self.isStreaming = isStreaming
         self.delivery = delivery; self.clientCommandID = clientCommandID; self.queueState = queueState
         self.source = source; self.isSteered = isSteered; self.routed = routed; self.images = images
         updateDisplay()
@@ -496,6 +498,7 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
 
     /// Only structured terminal content supplies this value; output prose never does.
     var exitCode: Int?
+    var subagentID: String?
 
     /// "Read", "Run"…, or nil when the desktop didn't say what kind of tool this is.
     var verb: String? { kind?.verb }

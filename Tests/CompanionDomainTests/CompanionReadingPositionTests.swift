@@ -20,11 +20,21 @@ struct CompanionReadingPositionTests {
         #expect(bookmark.restoredOffset(frames: ["b": 500...600]) == 510)
         #expect(bookmark.restoredOffset(frames: [:]) == 110)
     }
+    @Test func incomingRowsAndStreamingSlicesCannotEvictTheReadingAnchor() {
+        let rows = (1...200).map { CompanionTimelineRow.item(.message(.init(id: "m\($0)", role: .assistant, text: "Reply \($0)"))) }
+        let pinned = CompanionTimelineWindow(rows: rows, limit: 10, retaining: "message:m150:slice:0")
+        // Short replies use the timeline row id as their first slice id.
+        let anchorID = CompanionTimelineEntry.entries(for: [rows[149]])[0].id
+        let window = CompanionTimelineWindow(rows: rows, limit: 10, retaining: anchorID)
+        #expect(window.entries.contains { $0.id == anchorID })
+        #expect(window.entries.count >= 51)
+        #expect(pinned.hiddenCount == 0, "An absent bookmark falls back safely to loaded history")
+    }
     @Test func bounceTinyScrollAndKeyboardRecomputeActualBottom() {
         for offset in [540.0, 545, 539, 525] {
             let metrics = CompanionScrollMetrics(offset: offset, contentHeight: 1_000, containerHeight: 500, bottomInset: 40)
             #expect(metrics.isAtLatest)
-            #expect(!CompanionReadingPosition(followsLatest: false).showsLatestButton(metrics))
+            #expect(CompanionReadingPosition(followsLatest: false).showsLatestButton(metrics) == !metrics.isAtTrueBottom)
         }
         #expect(!CompanionScrollMetrics(offset: 523, contentHeight: 1_000, containerHeight: 500, bottomInset: 40).isAtLatest)
         #expect(CompanionScrollMetrics(offset: -100, contentHeight: 200, containerHeight: 800, topInset: 100, bottomInset: 50).isAtLatest)

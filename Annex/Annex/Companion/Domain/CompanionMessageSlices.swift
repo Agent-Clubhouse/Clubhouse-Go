@@ -222,14 +222,20 @@ struct CompanionTimelineWindow: Equatable, Sendable {
 
     /// Build newest rows first, stopping before parsing Markdown for hidden history. A whole reply still crosses
     /// the window edge intact. `hiddenCount` here counts omitted rows (only its nonzero state is presented).
-    init(rows: [CompanionTimelineRow], limit: Int) {
+    init(rows: [CompanionTimelineRow], limit: Int, retaining entryID: String? = nil) {
         self = AnnexTelemetry.shared.measurePerformance(.timelineBuild, messageCount: rows.count) {
             var remaining = rows.count
             var groups: [[CompanionTimelineEntry]] = []
             var count = 0
-            while remaining > 0 && count < max(0, limit) {
+            var retained = entryID == nil
+            while remaining > 0 && (count < max(0, limit) || !retained) {
                 remaining -= 1
                 let group = CompanionTimelineEntry.entries(for: [rows[remaining]])
+                if let entryID {
+                    if group.contains(where: { $0.id == entryID }) { retained = true }
+                    // A prepended routine fragment may have changed its group's first-fragment key.
+                    if case .activity(let parts) = rows[remaining], parts.contains(where: { "activity:\($0.id)" == entryID }) { retained = true }
+                }
                 groups.append(group); count += group.count
             }
             var window = CompanionTimelineWindow([], limit: 0)

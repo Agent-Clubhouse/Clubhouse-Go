@@ -13,6 +13,21 @@ import ClubhouseTransport
         projection.items.compactMap { item -> CompanionMessage? in if case .message(let m) = item, m.id == id { m } else { nil } }.first
     }
 
+    @Test func streamedSubagentIdentitySurvivesChunksAndNeverBecomesAMainAssistantStop() {
+        var projection = CompanionChatProjector()
+        projection.apply(event("agent_message_chunk", seq: 1, data: ["messageId": .string("child"), "text": .string("Working"), "subagentId": .string("helper-1")]))
+        projection.apply(event("agent_message_chunk", seq: 2, data: ["messageId": .string("child"), "text": .string(" on it")]))
+        let child = message(projection, "child")
+        #expect(child?.subagentID == "helper-1")
+        #expect(child?.text == "Working on it")
+        #expect(child?.isUserFacingAssistant == false, "The view labels this as helper activity, not the main assistant")
+        #expect(CompanionAssistantNavigation.targets(in: CompanionTimelineEntry.entries(for: CompanionTimelineFolding.rows(for: projection.items))).isEmpty)
+        projection.apply(event("tool_call", seq: 3, data: ["toolCallId": .string("tool"), "subagentId": .string("helper-1")]))
+        projection.apply(event("tool_call_update", seq: 4, data: ["toolCallId": .string("tool"), "status": .string("completed")]))
+        guard case .tool(let tool) = projection.items.last else { Issue.record("Missing tool"); return }
+        #expect(tool.subagentID == "helper-1")
+    }
+
     @Test func structuredTerminalExitCodeKeepsCompletedFailureVisible() {
         var projection = CompanionChatProjector()
         projection.apply(event("tool_call", seq: 1, data: ["toolCallId": .string("t"), "status": .string("completed"), "content": .array([

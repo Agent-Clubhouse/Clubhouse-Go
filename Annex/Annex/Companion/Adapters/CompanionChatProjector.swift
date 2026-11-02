@@ -129,7 +129,7 @@ struct CompanionChatProjector {
             let existing = message(id: messageID)
             let chunk = type == "agent_message_chunk"
             upsert(.message(.init(id: messageID, role: .assistant, text: chunk ? (existing?.text ?? "") + text : text,
-                                  timestamp: existing?.timestamp ?? time, isStreaming: chunk)))
+                                  timestamp: existing?.timestamp ?? time, isStreaming: chunk, subagentID: data["subagentId"]?.string ?? existing?.subagentID)))
         case "tool_call", "tool_call_update":
             guard let toolID = data["toolCallId"]?.string else { return }
             let old = tool(id: toolID)
@@ -159,7 +159,7 @@ struct CompanionChatProjector {
             let exitCode = blocks.reversed().first { $0["type"]?.string == "terminal" && $0["exitCode"]?.integer != nil }?["exitCode"]?.integer.map(Int.init) ?? old?.exitCode
             let combined: String? = data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output
             upsert(.tool(.init(id: toolID, name: name, summary: input ?? old?.summary ?? "", output: combined, state: state, images: images,
-                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval, exitCode: exitCode)))
+                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval, exitCode: exitCode, subagentID: data["subagentId"]?.string ?? old?.subagentID)))
         case "permission_request":
             guard let requestID = data["requestId"]?.string else { return }
             let options = data["options"].arrayValue.compactMap { value -> CompanionApprovalOption? in

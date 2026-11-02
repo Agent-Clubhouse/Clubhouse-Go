@@ -106,16 +106,25 @@ enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
 enum CompanionActivityPart: Identifiable, Sendable, Equatable {
     case tool(CompanionTool)
     case routed(CompanionMessage, Int)
+    case empty(CompanionMessage)
 
     var id: String {
         switch self {
         case .tool(let tool): "tool:\(tool.id)"
         case .routed(let message, let index): "routed:\(message.id):\(index)"
+        case .empty(let message): "message:\(message.id)"
+        }
+    }
+    var subagentID: String? {
+        switch self {
+        case .tool(let tool): tool.subagentID
+        case .routed(let message, _), .empty(let message): message.subagentID
         }
     }
     var sender: String {
         switch self {
-        case .tool: return "Tools"
+        case .tool(let tool): return tool.subagentID.map { "Helper \($0)" } ?? "Tools"
+        case .empty: return ""
         case .routed(let message, let index):
             if case .others(let parts) = message.display { return parts[index].sender?.name ?? "Another agent" }
             return "Another agent"
@@ -125,12 +134,13 @@ enum CompanionActivityPart: Identifiable, Sendable, Equatable {
     var attachmentCount: Int {
         switch self {
         case .tool(let tool): tool.images.count
+        case .empty: 0
         case .routed(let message, let index): index == 0 ? message.images.count : 0
         }
     }
     static func summary(_ parts: [Self]) -> String {
         let tools = parts.filter { if case .tool = $0 { true } else { false } }.count
-        let messages = parts.count - tools
+        let messages = parts.filter { if case .routed = $0 { true } else { false } }.count
         let images = parts.reduce(0) { $0 + $1.attachmentCount }
         var labels: [String] = []
         if tools > 0 { labels.append("\(tools) tool \(tools == 1 ? "call" : "calls")") }
@@ -142,7 +152,10 @@ enum CompanionActivityPart: Identifiable, Sendable, Equatable {
 }
 
 extension CompanionTool {
-    var requiresAttention: Bool { state == .failed || awaitsApproval || (exitCode.map { $0 != 0 } ?? false) }
+    var isFailure: Bool { state == .failed || (exitCode.map { $0 != 0 } ?? false) }
+    var requiresAttention: Bool { isFailure || awaitsApproval }
+    var outputOpenByDefault: Bool { awaitsApproval || (isFailure && (output ?? "").split(separator: "\n", omittingEmptySubsequences: false).count <= 6) }
+    var outputPreview: String { (output ?? "").split(separator: "\n").last.map(String.init) ?? "" }
 }
 
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
@@ -151,17 +164,36 @@ enum CompanionTimelineFolding {
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
         var rows: [CompanionTimelineRow] = []
         var run: [CompanionActivityPart] = []
+        var carried: [CompanionMessage] = []
         func flush() {
-            if !run.isEmpty { rows.append(.activity(run)); run.removeAll(keepingCapacity: true) }
+            if !run.isEmpty { rows.append(.activity(run)); run = [] }
+            rows += carried.map { .item(.message($0)) }
+            carried = []
+        }
+        func append(_ part: CompanionActivityPart) {
+            if !carried.isEmpty {
+                run += carried.map { .empty($0) }
+                carried = []
+            }
+            run.append(part)
         }
         for item in items {
+            let subagentID: String?
+            switch item {
+            case .tool(let tool): subagentID = tool.subagentID
+            case .message(let message): subagentID = message.subagentID
+            default: subagentID = nil
+            }
+            if !run.isEmpty && run.first?.subagentID != subagentID { flush() }
             switch item {
             case .tool(let tool) where !tool.requiresAttention && tool.images.isEmpty:
-                run.append(.tool(tool))
+                append(.tool(tool))
+            case .message(let message) where message.role == .assistant && message.text.isEmpty && !message.isStreaming && !run.isEmpty:
+                carried.append(message)
             case .message(let message) where message.role == .user && message.delivery == .confirmed && (message.queueState == nil || message.queueState == .delivered || message.queueState == .removed):
                 if case .others(let parts) = message.display {
                     for (index, part) in parts.enumerated() {
-                        if canCollapse(part) { run.append(.routed(message, index)) }
+                        if canCollapse(part) { append(.routed(message, index)) }
                         else { flush(); rows.append(.routed(message, index)) }
                     }
                 } else { flush(); rows.append(.item(item)) }
