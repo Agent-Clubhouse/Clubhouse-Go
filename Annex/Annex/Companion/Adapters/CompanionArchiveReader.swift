@@ -9,6 +9,7 @@ import ClubhouseTransport
     private let target: CompanionTarget
     private let sessionID: String
     private var eventsBySequence: [Int64: AnnexJSON] = [:]
+    private var readOnly = false
 
     init(transport: any AnnexTransporting, target: CompanionTarget, sessionID: String) {
         self.transport = transport; self.target = target; self.sessionID = sessionID
@@ -28,6 +29,13 @@ import ClubhouseTransport
         for sequence in accumulated.keys.sorted() {
             if let event = accumulated[sequence] { projection.apply(event) }
         }
+        // Keep the latest page's dead-session signal when an older page omits it. Settle after replay, so
+        // turn boundaries and late delivery acknowledgments can still clear a row before it is marked unknown.
+        let dead: Bool
+        if case .bool(let value)? = snapshot["readOnly"] { dead = value }
+        else { dead = before == nil ? false : readOnly }
+        if dead { projection.settleQueuedMessages() }
+        readOnly = dead
         eventsBySequence = accumulated
         let next = snapshot["nextBeforeSeq"]?.integer
         // A non-advancing cursor must never trap the user in an endless load loop.

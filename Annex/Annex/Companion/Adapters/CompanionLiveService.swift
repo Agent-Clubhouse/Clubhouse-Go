@@ -78,7 +78,8 @@ import ClubhouseTransport
                 let snapshot = try await transport.read(.chat(agentID: target.agentID))
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 var projection = CompanionChatProjector()
-                projection.queueStateEventsSupported = capabilities[target.hostID]?.supportsQueueState == true
+                // A dead transcript describes its own queue era; today's host capability cannot govern its fallback.
+                projection.queueStateEventsSupported = !snapshot["readOnly"].boolValue && capabilities[target.hostID]?.supportsQueueState == true
                 projection.sessionID = snapshot["sessionId"]?.string
                 // Queue kind must be known before replaying turn_started from a snapshot tail.
                 if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }

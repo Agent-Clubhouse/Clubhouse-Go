@@ -69,6 +69,8 @@ struct CompanionChatProjector {
         let time = event["ts"]?.integer.map { Date(timeIntervalSince1970: Double($0) / 1000) }
         switch type {
         case "session_started", "session_info":
+            // Another run in the same session can follow a crash with no session_ended (or resumed flag).
+            if type == "session_started" { settleQueuedMessages() }
             if let caps = data["capabilities"] { updateCapabilities(caps) }
             if let model = data["model"]?.string { self.model = model }
             applySessionFacts(data)
@@ -77,7 +79,7 @@ struct CompanionChatProjector {
             if status != .working && status != .approval && status != .waiting { turnStartedAt = nil }
         case "turn_started":
             status = .working; turnStartedAt = time ?? turnStartedAt
-            consumeNativeQueueHead()
+            if data["trigger"]?.string != "system" { consumeNativeQueueHead() }
         case "turn_ended":
             turnStartedAt = nil
             // A cancelled turn leaves the session alive between turns, which the desktop shows as Done.
@@ -315,6 +317,8 @@ struct CompanionChatProjector {
     }
 
     mutating func applyQueueSnapshot(_ snapshot: AnnexJSON) {
+        // A dead run's empty queue list must not erase pending evidence before it is settled.
+        if snapshot["readOnly"].boolValue { settleQueuedMessages(); return }
         guard let sequence = snapshot["queueStateSeq"]?.integer, sequence >= queueStateSequence else { return }
         queueStateSequence = sequence
         queuedMessageIDs = Set(snapshot["queuedMessageIds"].arrayValue.compactMap(\.string))
@@ -355,6 +359,24 @@ struct CompanionChatProjector {
         items[index] = .message(message)
         queuedContentParts[message.id] = nil
     }
+
+    /// The run ended without a confirmed send. Native queues and in-flight sends may still have had effects;
+    /// reuse the non-retryable queue-unknown state rather than claiming delivery or a safe retry.
+    mutating func settleQueuedMessages() {
+        queuedMessageIDs = []; queueRemovalSupported = false; capabilities.remove(.removeQueued)
+        guard items.contains(where: { if case .message(let m) = $0 { return Self.isPending(m) }; return false }) else { return }
+        var timeline: [CompanionTimelineItem] = []
+        var waiting: [CompanionTimelineItem] = []
+        for item in items {
+            guard case .message(var message) = item, Self.isPending(message) else { timeline.append(item); continue }
+            let sending = message.queueState == .dispatching
+            message.queueState = .failed
+            queuedContentParts[message.id] = nil
+            // A dispatching row already entered the timeline; rows still waiting join its end in queue order.
+            if sending { timeline.append(.message(message)) } else { waiting.append(.message(message)) }
+        }
+        items = timeline + waiting
+    }
     mutating func reconcile(messageID: String, commandID: String) -> CompanionTimelineItem? {
         commandIDsByMessage[messageID] = commandID
         guard var message = message(id: messageID) else { return nil }
@@ -378,6 +400,7 @@ struct CompanionChatProjector {
     var isAwake: Bool { [.idle, .working, .approval, .waiting].contains(status) }
     /// The session is over, from its `session_ended` or because the desktop says the agent is asleep.
     mutating func endSession(_ status: CompanionAgentStatus) {
+        settleQueuedMessages()
         self.status = status
         capabilities = []; turnStartedAt = nil; finishStreams()
     }
