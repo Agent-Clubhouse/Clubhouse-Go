@@ -21,8 +21,9 @@ not fetched. REST catalogs preserve the last snapshot's associations.
 Authenticated icon reads use the existing pinned transport, with a separate 72 KiB
 streaming budget. Admission checks the strong quoted ETag's lowercase SHA-256 against
 the body, canonical MIME and actual ImageIO type, exact advertised byte count and
-source dimensions (at most 256 pixels per side). Allowed remote formats are PNG, JPEG,
-GIF and WebP. GIF uses its first frame; JPEG orientation is honored. SVG, malformed,
+raw source dimensions (at most 256 pixels per side), before applying EXIF orientation.
+Allowed remote formats are PNG, JPEG, GIF and WebP. GIF uses its first frame; JPEG
+orientation is honored in the thumbnail. SVG, malformed,
 oversized and undecodable images fall back without affecting chat or the socket.
 
 Bytes are cached only under their returned version. A mismatched response never

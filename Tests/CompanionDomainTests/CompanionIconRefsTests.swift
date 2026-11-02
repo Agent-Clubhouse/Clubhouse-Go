@@ -1,4 +1,6 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 import Testing
 @testable import ClubhouseTransport
 @testable import CompanionDomain
@@ -198,5 +200,40 @@ extension CompanionIconRefsTests {
         #expect(await store.image(for: key, points: 32) != nil); #expect(await replies.calls == 1)
         #expect(CompanionIconMetadata.version(etag: route["current"]?["response"]?["headers"]?["etag"]?.string) == key.version)
         #expect(CompanionIconMetadata.version(etag: "W/\"" + key.version + "\"") == nil)
+    }
+}
+
+extension CompanionIconRefsTests {
+    @Test func rotatedJPEGValidatesRawDimensionsAndProducesUprightAvatarPixels() async throws {
+        let canvas = try #require(CGContext(data: nil, width: 200, height: 100, bitsPerComponent: 8, bytesPerRow: 800,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        canvas.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1)); canvas.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
+        canvas.setFillColor(CGColor(red: 0, green: 0, blue: 1, alpha: 1)); canvas.fill(CGRect(x: 100, y: 0, width: 100, height: 100))
+        let bytes = NSMutableData(), sourceImage = try #require(canvas.makeImage())
+        let destination = try #require(CGImageDestinationCreateWithData(bytes, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, sourceImage, [kCGImagePropertyOrientation: 6, kCGImageDestinationLossyCompressionQuality: 1] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        let data = bytes as Data, source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        #expect(properties[kCGImagePropertyPixelWidth] as? Int == 200)
+        #expect(properties[kCGImagePropertyPixelHeight] as? Int == 100)
+        #expect(properties[kCGImagePropertyOrientation] as? Int == 6)
+        let version = CompanionIconReference.digest(data)
+        let metadata = try #require(CompanionIconMetadata(.object(["version": .string(version), "type": .string("image/jpeg"), "bytes": .integer(Int64(data.count)), "width": .integer(200), "height": .integer(100)])))
+        let key = CompanionIconReference(host: "rotated", kind: .agent, id: "jpeg", version: version, metadata: metadata)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        await store.setReferences([key], for: "rotated")
+        await store.setFetcher(for: "rotated") { _, _ in .init(status: 200, contentType: "image/jpeg", data: data, version: version) }
+        let output = try #require(await store.image(for: key, points: 32))
+        #expect(output.cgImage.width == 48); #expect(output.cgImage.height == 96)
+        let sample = try #require(CGContext(data: nil, width: 1, height: 2, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        sample.draw(output.cgImage, in: CGRect(x: 0, y: 0, width: 1, height: 2))
+        let pixels = try #require(sample.data).assumingMemoryBound(to: UInt8.self)
+        #expect(pixels[0] > 200 && pixels[2] < 50)
+        #expect(pixels[4] < 50 && pixels[6] > 200)
+        print("EXIF_JPEG raw=200x100 orientation=6 accepted=true uprightAvatar=48x96 top=red bottom=blue")
     }
 }

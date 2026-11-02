@@ -368,5 +368,3 @@ Do not promise safe downgrade of the new durable queue format.
 `iconFetch` records bounded `responseBytes` and `durationMs`, mapped to
 `app.icons.fetch.duration`. No host, kind/id key, token, filename, URL, MIME string or
 exception text is recorded. Existing capture and enrollment gates apply unchanged.
-
-
