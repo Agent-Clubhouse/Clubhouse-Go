@@ -57,6 +57,19 @@ import Testing
         guard case .activity(let parts) = rows[0] else { Issue.record("Missing run"); return }
         #expect(CompanionActivityPart.summary(parts) == "2 messages · 1 attachment")
     }
+    @Test func linkedPendingApprovalKeepsAnOtherwiseRunningToolVisibleAndOpen() {
+        for resolution in [CompanionApproval.Resolution.pending, .submitting, .uncertain] {
+            let approval = CompanionApproval(id: "permission", toolName: "Run", summary: "Allow?", resolution: resolution, toolCallID: "b")
+            let rows = CompanionTimelineFolding.rows(for: [tool("a"), tool("b", state: .running), tool("c"), .approval(approval)])
+            guard case .item(.tool(let waiting)) = rows[1] else { Issue.record("Waiting tool was collapsed"); continue }
+            #expect(waiting.requiresAttention && waiting.outputOpenByDefault)
+            #expect(rows.map(\.id) == ["activity:tool:a", "tool:b", "activity:tool:c", "approval:permission"])
+        }
+        let resolved = CompanionApproval(id: "permission", toolName: "Run", summary: "Allowed", resolution: .allowed, toolCallID: "b")
+        #expect(CompanionTimelineFolding.rows(for: [tool("a"), tool("b"), tool("c"), .approval(resolved)]).count == 2)
+        let unlinked = CompanionApproval(id: "permission", toolName: "Run", summary: "Allow?")
+        #expect(CompanionTimelineFolding.rows(for: [tool("a"), tool("b"), .approval(unlinked)]).count == 2)
+    }
     @Test func finishedEmptyAssistantIsCarriedOnlyBetweenCountableItems() {
         let empty = CompanionTimelineItem.message(.init(id: "empty", role: .assistant, text: ""))
         let rows = CompanionTimelineFolding.rows(for: [tool("a"), empty, tool("b")])
