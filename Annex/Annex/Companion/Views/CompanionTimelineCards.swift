@@ -189,7 +189,7 @@ private struct CompanionSentPartView: View {
         HStack(alignment: .top, spacing: 8) {
             if let identity {
                 CompanionIdentityFace(name: identity.name, color: identity.color, emoji: identity.emoji,
-                                      iconData: identity.iconData, size: 24)
+                                      iconData: identity.iconData, size: 24, isQuick: identity.isQuick)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(name) avatar")
                     .accessibilityHidden(false)
