@@ -109,6 +109,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         readRoutes.append(.init(route))
+        if let result = reads[Self.key(route)] { return try result.get() }
         switch route {
         case .capabilities: return capabilitiesDocument
         case .projects:
