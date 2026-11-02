@@ -685,12 +685,12 @@ import ClubhouseTransport
             guard let payload = envelope.payload else { return }
             switch envelope.type {
             case "snapshot":
-                if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
-                if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
+                quickCatalog[hostID] = payload["quickAgents"] ?? .object([:])
+                rememberDispatcher(payload["dispatcher"] ?? .null, hostID: hostID)
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
-                if payload["projectIcons"] != nil || payload["agentIcons"] != nil {
-                    iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
-                }
+                // A snapshot is complete. Catalog refreshes may reuse these maps, so missing icons
+                // must clear the cache too; otherwise a removed image can come back after refresh.
+                iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID) }

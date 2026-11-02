@@ -53,7 +53,7 @@ import Testing
         // Custom colour alone, emoji with an image present, then image alone.
         for (emoji, icon, expected): (String?, String?, CompanionAgentFace) in [
             (nil, nil, .initials("D")), ("🧭", iconURL, .emoji("🧭")),
-            (nil, iconURL, .icon)
+            (nil, iconURL, .icon), (nil, nil, .initials("D"))
         ] {
             guard case .object(var entry)? = original["agent"], case .object(var block) = original else {
                 Issue.record("Missing Dispatcher fixture agent"); return
@@ -75,6 +75,9 @@ import Testing
             #expect(identity == CompanionSenderIdentity(agent: row), "Pinned row and sender use the same live identity")
             #expect(identity.face == expected)
             #expect(CompanionIdentityColor.agentRGB(row.color) == CompanionRGB(hex: "#f43f5e"))
+            try await harness.refreshCatalog()
+            let refreshed = CompanionSenderResolver(agents: harness.host!.allAgents)
+            #expect(refreshed.avatarIdentity(for: sender) == identity, "Catalog refresh must not resurrect a removed emoji or icon")
             previous = resolver
         }
     }
