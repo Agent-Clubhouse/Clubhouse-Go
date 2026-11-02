@@ -1,9 +1,9 @@
 import Foundation
 
-/// Go's local adapter for the proposed Framebriar report diagnostics v1. This is deliberately
-/// independent of the pinned SDK: no report wire field or API submission is enabled here.
-/// Capture once on composer open, then persist this immutable value with the reviewed report
-/// once the SDK supports it. Export success/failure never consumes AnnexTelemetry's local ring.
+/// Go's SDK-independent closed-field snapshot for Framebriar report diagnostics v1.
+/// The app adapts this value to the SDK only for an explicitly prepared one-report test;
+/// ordinary feedback keeps report diagnostics OFF. Capture once on composer open, then
+/// persist the frozen value with its report. Export never consumes AnnexTelemetry's ring.
 nonisolated public struct AnnexFeedbackDiagnostics: Codable, Sendable, Equatable {
     public enum State: String, Codable, Sendable { case attached, none, left_out, unavailable }
     public enum Reason: String, Codable, Sendable { case recorded, empty, collection_off, no_provider, user_choice, invalid_provider }

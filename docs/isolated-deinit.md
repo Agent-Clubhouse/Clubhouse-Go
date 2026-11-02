@@ -58,7 +58,6 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionTerminalSession` | main_actor | Injected terminal-channel protocol can own main-only objects; preserve isolation. |
 | `CompanionTerminalUIView` | main_actor | UIView subclass strongly owns key-input view, layers and UI state; preserve isolation. |
 | `CompanionTranscriptExpansion` | arc_only | Dictionary owns only ARC-safe CompanionPartExpansion values. |
-| `EnrollmentShakeReceiver.Receiver` | main_actor | UIViewController subclass and main-only presentation/callback context. |
 | `PassthroughWindow` | main_actor | UIWindow subclass owns UIKit/controller/layer state. |
 | `ResourceBundleClass` | generated | Xcode-generated bundle-accessor class; no source patch. Runtime path remains unprotected. |
 

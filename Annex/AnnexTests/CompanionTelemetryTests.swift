@@ -386,6 +386,63 @@ import SwiftUI
         #expect(text.contains("saved feedback stays on this device"))
     }
 
+    @Test func scopedSnapshotIsDurableThroughPauseBackoffAndKeepsFailuresWithoutAnExcerptCopy() async throws {
+        let clock = TelemetryFixtureClock(), network = TelemetryMockTransport(now: { clock.now })
+        let (_, model, bridge, source) = try compose(network, now: { clock.now })
+        defer { bridge.stop() }
+        await model.setActive(true); await model.connect(String(repeating: "i", count: 43))
+        recordRetry(on: source)
+        #expect(model.reportDiagnostics == .off)
+        #expect(model.openDraft().capturedDiagnostics == nil)
+        let draft = model.openDraft(reportDiagnostics: .on)
+        let frozen = try #require(draft.capturedDiagnostics)
+        #expect(frozen.entries.count == 3)
+        #expect(frozen.entries.contains { $0.attrs?["failure"] == .string("closed") })
+        #expect(frozen.entries.contains { $0.attrs?["failure"] == .string("offline") })
+        #expect(frozen.entries.contains { $0.attrs?["backoffMs"] == .number(30_000) })
+        await model.setActive(false)
+        let report = try await model.save(draft, notes: "Diagnostics test durable fixture", screenshotPNG: nil, includeDiagnostics: true)
+        #expect(report.diagnostics == frozen)
+        #expect(await model.deliver(report, includeDiagnostics: true) == .saved(.paused))
+        #expect(await network.reportBodies.isEmpty)
+        await model.setActive(true); await network.setReportStatus(503)
+        await model.tick(); await model.tick()
+        #expect(await network.reportBodies.count == 1)
+        clock.advance(61); await network.setReportStatus(200); await model.tick()
+        let sent = await network.requests.filter { $0.url!.path.hasSuffix("/reports") }.compactMap(\.httpBody)
+        #expect(sent.count == 2 && sent[0] == sent[1], "Retry sends the frozen body, not a new capture")
+        #expect(model.status?.queued == 0)
+        _ = await bridge.telemetry.flush()
+        let records = await network.bodies(for: "logs").flatMap(logRecords) + network.bodies(for: "traces").flatMap(spans)
+        let tagged = records.filter { attributes($0)["feedback.report.id"] as? String == report.id.uuidString.lowercased() }
+        #expect(tagged.count == 1)
+        #expect((tagged.first?["body"] as? [String: Any])?["stringValue"] as? String == "feedback.submitted")
+    }
+
+    @Test func boundedProviderMatchesTaggedFixtureAndHasAReasonWhenCaptureIsOff() throws {
+        let off = CompanionFeedback.diagnosticsSnapshot(from: AnnexTelemetry())
+        #expect(off.state == .none && off.reason == "empty")
+        let source = AnnexTelemetry(); source.setEnrolledCapture(true)
+        defer { source.setEnrolledCapture(false) }
+        for _ in 0..<220 { recordRetry(on: source) }
+        let started = ContinuousClock.now
+        let result = CompanionFeedback.diagnosticsSnapshot(from: source)
+        let duration = started.duration(to: .now)
+        print("Feedback diagnostics snapshot: \(duration), \(result.lines) entries, \(result.dropped) dropped")
+        try result.validate()
+        let bundle = try #require(Bundle.allBundles.first { $0.bundleURL.lastPathComponent == "ClubhouseGoTests.xctest" })
+        let url = try #require(bundle.url(forResource: "report-diagnostics-v1", withExtension: "json"))
+        let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        let contract = try #require(fixture["contract"] as? [String: Any]), limits = try #require(contract["limits"] as? [String: Int])
+        #expect(result.lines == AnnexFeedbackDiagnostics.maximumEntries && result.lines <= limits["entries"]!)
+        #expect(try JSONEncoder().encode(result).count <= limits["totalBytes"]!)
+        #expect(result.dropped > 0)
+        let attrs = try #require(contract["attrs"] as? [String: Any]), enums = try #require(attrs["enums"] as? [String: [String]])
+        for entry in result.entries {
+            if case .string(let failure) = entry.attrs?["failure"] { #expect(enums["failure"]!.contains(failure)) }
+        }
+    }
+
     @Test func buildSHAReachesTheConfiguration() throws {
         // The key is always in the built Info.plist; local and CI builds expand it to empty, so no buildSha.
         let raw = try #require(Bundle.main.object(forInfoDictionaryKey: CompanionBuildInfo.buildSHAKey) as? String)

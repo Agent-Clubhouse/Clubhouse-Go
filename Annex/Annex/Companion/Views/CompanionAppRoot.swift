@@ -215,11 +215,9 @@ struct CompanionAppRoot: View {
                 CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
-            .shakeToOpenFeedback(model: runtime.feedback, enabled: shakeFeedbackEnabled,
-                                 isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring,
-                                 captureScreen: shakeAttachesScreenshot)
-            .shakeToExplainFeedbackEnrollment(model: runtime.feedback, enabled: $shakeFeedbackEnabled,
-                                              isPresenting: showPairing || showSettings || runtime.restoreError != nil || runtime.isRestoring)
+            .companionFeedbackShake(runtime.feedbackPresenter, enabled: shakeFeedbackEnabled,
+                                    suppressed: showPairing || runtime.restoreError != nil || runtime.isRestoring,
+                                    captureScreen: shakeAttachesScreenshot)
             .overlay(alignment: .top) {
                 if runtime.isRestoring { ProgressView("Restoring desktops…").padding(.horizontal, 18).padding(.vertical, 12).glassEffect(.regular, in: .capsule).padding() }
             }

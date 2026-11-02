@@ -5,6 +5,29 @@ public enum FramebriarError: Error, Equatable, Sendable {
     case invalidConfiguration, invalidInput, invalidResponse, network, storage
     case accessRequired, expired, paused, busy, capacity, conflict, rejected
     case unavailable(retryAfter: TimeInterval)
+    /// The enrollment isn't the one this draft was opened under. Nothing was saved, and that draft
+    /// can't send again: open a new one for a new report ID and new captures.
+    case enrollmentChanged
+
+    /// Stable error code, the same string in every Framebriar SDK where the case exists there.
+    public var code: String {
+        switch self {
+        case .invalidConfiguration: "invalid-configuration"
+        case .invalidInput: "invalid-input"
+        case .invalidResponse: "invalid-ack"
+        case .network: "network"
+        case .storage: "storage-unavailable"
+        case .accessRequired: "access-required"
+        case .expired: "expired"
+        case .paused: "paused"
+        case .busy: "busy"
+        case .capacity: "storage-full"
+        case .conflict: "conflict"
+        case .rejected: "permanent"
+        case .unavailable: "unavailable"
+        case .enrollmentChanged: "enrollment-changed"
+        }
+    }
 }
 
 public struct Configuration: Sendable {
@@ -35,6 +58,15 @@ public struct ClientStatus: Sendable {
     public let blocked: Int
     public let lastReceivedID: UUID?
     public var correlationWaiting: Int = 0
+    /// Most recent delivery attempt in this process: `ok`, a diagnostics `failure` value, or nil if none yet.
+    public var lastDeliveryResult: String? = nil
+    /// Reports saved under another enrollment. Never sent or removed until `releaseHeldReports` or a
+    /// clear. Counted in `queued` and `queuedBytes` and toward capacity; separate from `blocked`.
+    public var heldForEnrollment: Int = 0
+    public var heldBytes: Int = 0
+    /// Pass to `releaseHeldReports` from the status the user saw. Nil if nothing is held or there's no
+    /// active enrollment. Changes with the enrollment or the set of held reports.
+    public var releaseToken: String? = nil
     public static let maxItems = 10
     public static let maxBytes = 32 * 1024 * 1024
 }
@@ -45,6 +77,8 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
     public let notes: String
     public let screenshotPNG: Data?
     public let incident: FeedbackIncident?
+    /// Frozen at composer open and stored with the queued report. Nil omits the field from the wire.
+    public let diagnostics: FeedbackDiagnostics?
     let gameID: String
     let buildSHA: String?
     let capturedAt: Date
@@ -52,8 +86,9 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
 
     public init(configuration: Configuration, notes: String, reviewedScreenshotPNG: Data? = nil,
                 id: UUID = UUID(), capturedAt: Date = Date(), incident: FeedbackIncident? = nil,
-                sessionID: String = FramebriarSession.id) throws {
+                sessionID: String = FramebriarSession.id, diagnostics: FeedbackDiagnostics? = nil) throws {
         try incident?.validate()
+        try diagnostics?.validate()
         guard incident?.id != id.uuidString.lowercased() else { throw FramebriarError.invalidInput }
         guard matches(id.uuidString, "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89aAbB][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"),
               notes.utf16.count <= 2000, matches(sessionID, "^[a-zA-Z0-9_-]{1,64}$") else { throw FramebriarError.invalidInput }
@@ -62,7 +97,7 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
         }
         let clean = redact(notes)
         guard reviewedScreenshotPNG != nil || !clean.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw FramebriarError.invalidInput }
-        self.incident = incident
+        self.incident = incident; self.diagnostics = diagnostics
         self.id = id; self.notes = clean; screenshotPNG = reviewedScreenshotPNG
         gameID = configuration.gameID; buildSHA = configuration.buildSHA
         self.capturedAt = capturedAt; self.sessionID = sessionID
@@ -79,17 +114,40 @@ public struct ReviewedFeedback: Codable, Sendable, Equatable {
             value["incident"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(incident))
             if let primary = incident.traces.first { value["traceId"] = primary.traceId; value["spanId"] = primary.spanId }
         }
-        let data = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
-        guard data.count <= 16384 else { throw FramebriarError.invalidInput }
-        return data
+        // Diagnostics have their own 64 KiB limit, enforced by `validate()`; the rest keeps the 16 KiB one.
+        guard try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]).count <= 16384 else { throw FramebriarError.invalidInput }
+        if let diagnostics {
+            try diagnostics.validate()
+            value["diagnostics"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostics))
+        }
+        return try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
     }
     func validate(for configuration: Configuration) throws {
         guard gameID == configuration.gameID else { throw FramebriarError.invalidInput }
         _ = try ReviewedFeedback(configuration: Configuration(gameID: gameID, buildSHA: buildSHA), notes: notes,
-                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt, incident: incident, sessionID: sessionID)
+                                 reviewedScreenshotPNG: screenshotPNG, id: id, capturedAt: capturedAt, incident: incident, sessionID: sessionID, diagnostics: diagnostics)
         guard notes == redact(notes), matches(sessionID, "^[a-zA-Z0-9_-]{1,64}$"), capturedAt.timeIntervalSince1970.isFinite else { throw FramebriarError.invalidInput }
         _ = try wire()
     }
+}
+
+/// What happened after an explicit Send. Only `sent` means the service confirmed the report.
+public enum FeedbackDeliveryOutcome: Sendable, Equatable {
+    public enum SavedReason: Sendable, Equatable { case offline, paused, serviceBusy, waitingForService }
+    public enum AttentionReason: Sendable, Equatable {
+        /// Saved on this device, but the report can't go until the user acts or a new invitation arrives.
+        case accessRequired, rejected, removed, deliveryUnconfirmed
+        /// Saved on this device under another enrollment. It won't send unless the user releases it.
+        case heldForEnrollment
+        /// Not saved: the draft is still in the composer.
+        case storageFull, storageUnavailable, invalidReport, notEnrolled, busy
+        /// Not saved: the enrollment changed after this draft opened. Open a new one, keeping the
+        /// notes and image, and wait for a new Send.
+        case enrollmentChanged
+    }
+    case sent
+    case saved(SavedReason)
+    case needsAttention(AttentionReason)
 }
 
 public struct EnrollmentRecord: Codable, Sendable {
@@ -97,9 +155,29 @@ public struct EnrollmentRecord: Codable, Sendable {
     public var expiresAt: Date?
     public var enrolled: Bool
     public var notice: AccessState
-    public init(refreshToken: String? = nil, expiresAt: Date? = nil, enrolled: Bool = false, notice: AccessState = .disconnected) {
-        self.refreshToken = refreshToken; self.expiresAt = expiresAt; self.enrolled = enrolled; self.notice = notice
+    /// Random local identity, minted on each redemption. Refresh, expiry and revocation keep it, because
+    /// capture stays allowed. Disconnect clears it. Never on the wire.
+    public var enrollmentRef: String?
+    public init(refreshToken: String? = nil, expiresAt: Date? = nil, enrolled: Bool = false, notice: AccessState = .disconnected, enrollmentRef: String? = nil) {
+        self.refreshToken = refreshToken; self.expiresAt = expiresAt; self.enrolled = enrolled; self.notice = notice; self.enrollmentRef = enrollmentRef
     }
+}
+
+/// `code` is `stale-release`, `not-enrolled` or nil. `released` doesn't mean delivered.
+public struct HeldReleaseResult: Sendable, Equatable {
+    public let released: Int
+    public let remaining: Int
+    public let failed: Int
+    public let code: String?
+    public init(released: Int, remaining: Int, failed: Int, code: String? = nil) {
+        self.released = released; self.remaining = remaining; self.failed = failed; self.code = code
+    }
+}
+public struct HeldClearResult: Sendable, Equatable {
+    public let cleared: Int
+    public let remaining: Int
+    public let failed: Int
+    public init(cleared: Int, remaining: Int, failed: Int) { self.cleared = cleared; self.remaining = remaining; self.failed = failed }
 }
 
 public struct QueuedFeedback: Codable, Sendable {
@@ -107,8 +185,25 @@ public struct QueuedFeedback: Codable, Sendable {
     public var attempts: Int
     public var nextAttemptAt: Date
     public var blocked: Bool
-    public init(feedback: ReviewedFeedback, attempts: Int = 0, nextAttemptAt: Date = .distantPast, blocked: Bool = false) {
+    /// The enrollment this was saved under, beside the report and never inside it. A ref, or `unbound`
+    /// for a report from an older SDK first seen with no enrollment. Nil means not settled yet.
+    public var enrollmentRef: String?
+    /// Fenced: `blocked` is set so an older SDK skips it, and this tells it apart from a real rejection.
+    public var heldForEnrollment: Bool
+    public init(feedback: ReviewedFeedback, attempts: Int = 0, nextAttemptAt: Date = .distantPast, blocked: Bool = false,
+                enrollmentRef: String? = nil, heldForEnrollment: Bool = false) {
         self.feedback = feedback; self.attempts = attempts; self.nextAttemptAt = nextAttemptAt; self.blocked = blocked
+        self.enrollmentRef = enrollmentRef; self.heldForEnrollment = heldForEnrollment
+    }
+    private enum CodingKeys: String, CodingKey { case feedback, attempts, nextAttemptAt, blocked, enrollmentRef, heldForEnrollment }
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        feedback = try c.decode(ReviewedFeedback.self, forKey: .feedback)
+        attempts = try c.decode(Int.self, forKey: .attempts)
+        nextAttemptAt = try c.decode(Date.self, forKey: .nextAttemptAt)
+        blocked = try c.decode(Bool.self, forKey: .blocked)
+        enrollmentRef = try c.decodeIfPresent(String.self, forKey: .enrollmentRef)
+        heldForEnrollment = try c.decodeIfPresent(Bool.self, forKey: .heldForEnrollment) ?? false
     }
 }
 

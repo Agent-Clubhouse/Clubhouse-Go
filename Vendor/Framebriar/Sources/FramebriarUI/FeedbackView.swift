@@ -4,83 +4,135 @@ import Framebriar
 import PhotosUI
 import UIKit
 
-/// Uses the system photo picker only after a user tap. It never captures the screen itself; a host
-/// (such as the shake shortcut) may pass a screenshot it captured, which starts pre-attached for review
-/// and can be removed or replaced. Nothing is saved until the user taps "Submit reviewed feedback".
+/// The one feedback screen. It never captures the screen itself; a host (such as the shake shortcut)
+/// may pass a screenshot it captured, which starts attached and can be removed or replaced. Report
+/// diagnostics, under `.on`, are captured once when it opens. Nothing is saved or sent until the user taps Send.
+/// All wording about what's included lives in `FeedbackDisclosure`.
 public struct FeedbackView: View {
+    private enum Phase: Equatable { case composing, saving, sending, finished(FeedbackDeliveryOutcome) }
+
     @Bindable private var model: FeedbackModel
     @Environment(\.dismiss) private var dismiss
     @State private var notes = ""
     @State private var selection: PhotosPickerItem?
     @State private var imageData: Data?
-    @State private var review: ReviewedFeedback?
+    @State private var imageIsCapture: Bool
+    @State private var draft: FeedbackDraft?
+    @State private var includeDiagnostics = true
+    @State private var phase = Phase.composing
     @State private var error: String?
     @State private var loading = false
-    @State private var incident: FeedbackIncident?
-    @State private var incidentCaptured = false
-    @State private var includeIncident = true
-    @State private var includeDiagnostics = true
-    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil) {
-        self.model = model
-        _imageData = State(initialValue: ShakeScreenshot.validatedAttachment(initialScreenshotPNG))
+    private let onClose: (@MainActor () -> Void)?
+    private let reportDiagnostics: FeedbackReportDiagnostics?
+
+    /// - Parameters:
+    ///   - onClose: replaces the SwiftUI dismiss action, for a host that presents this from UIKit.
+    ///   - reportDiagnostics: the mode for the first draft this view opens, and no other. If the enrollment
+    ///     changes, its new draft uses the model's mode: to send `.on` again, present a new composer.
+    public init(model: FeedbackModel, initialScreenshotPNG: Data? = nil, onClose: (@MainActor () -> Void)? = nil,
+                reportDiagnostics: FeedbackReportDiagnostics? = nil) {
+        self.model = model; self.onClose = onClose; self.reportDiagnostics = reportDiagnostics
+        let attachment = ShakeScreenshot.validatedAttachment(initialScreenshotPNG)
+        _imageData = State(initialValue: attachment)
+        _imageIsCapture = State(initialValue: attachment != nil)
     }
+
+    private var sendBlock: FeedbackSendBlock? {
+        FeedbackSendBlock.evaluate(status: model.status, notes: notes, hasScreenshot: imageData != nil, preparingImage: loading, saving: phase == .saving)
+    }
+    private func close() { if let onClose { onClose() } else { dismiss() } }
+    private func including(_ draft: FeedbackDraft) -> Bool { includeDiagnostics && draft.offersDiagnosticsSwitch }
+
     public var body: some View {
+        Group {
+            switch phase {
+            case .composing, .saving: composer
+            case .sending: result(FeedbackDisclosure.sendingTitle, FeedbackDisclosure.sendingDetail, sending: true)
+            case .finished(let outcome): result(FeedbackDisclosure.title(outcome), FeedbackDisclosure.detail(outcome), sending: false)
+            }
+        }
+        .navigationTitle("Send feedback")
+        .toolbar {
+            switch phase {
+            case .composing, .saving:
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { close() }.disabled(phase == .saving) }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") { send() }.disabled(sendBlock != nil || draft == nil).accessibilityIdentifier("framebriar-send")
+                }
+            case .sending, .finished:
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { close() }.accessibilityIdentifier("framebriar-done") }
+            }
+        }
+        // A swipe must not throw away typed text or interrupt the local commit. Cancel stays explicit.
+        .interactiveDismissDisabled(phase == .saving || (phase == .composing && !notes.isEmpty))
+        .onAppear {
+            model.composerAppeared()
+            if draft == nil { draft = model.openDraft(reportDiagnostics: reportDiagnostics) }
+        }
+        .onDisappear { model.composerDisappeared() }
+        .task { await model.update() }
+    }
+
+    private var composer: some View {
         Form {
             Section {
-                Text("Describe the issue without prompts, agent responses, credentials, or other private information. An attachment is optional.")
-                TextEditor(text: $notes).frame(minHeight: 140).accessibilityLabel("Feedback notes")
+                Text(FeedbackDisclosure.notesPrompt).font(.caption)
+                TextEditor(text: $notes).frame(minHeight: 100).accessibilityLabel("Feedback notes").accessibilityIdentifier("framebriar-notes")
                 Text("\(notes.utf16.count) / 2000 characters").font(.caption)
-                PhotosPicker("Choose screenshot to review", selection: $selection, matching: .images)
+            }
+            Section {
                 if loading { ProgressView("Preparing image…") }
+                HStack {
+                    PhotosPicker(imageData == nil ? "Add screenshot" : "Replace screenshot", selection: $selection, matching: .images)
+                    Spacer()
+                    if imageData != nil {
+                        Button("Remove", role: .destructive) { selection = nil; imageData = nil; imageIsCapture = false }
+                            .accessibilityIdentifier("framebriar-remove-attachment")
+                    }
+                }.buttonStyle(.borderless)
                 if let imageData, let image = UIImage(data: imageData) {
-                    if selection == nil {
-                        Text("This is the screen you were on. It stays on this device unless you submit it. Check it for private information, then keep, remove or replace it.").font(.caption).accessibilityIdentifier("framebriar-captured-screen-note")
+                    if imageIsCapture {
+                        Text(FeedbackDisclosure.capturedScreenNote).font(.caption).accessibilityIdentifier("framebriar-captured-screen-note")
                     }
                     Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 260)
                         .accessibilityLabel("Attached screenshot").accessibilityIdentifier("framebriar-attachment")
-                    Button("Remove attachment", role: .destructive) { selection = nil; self.imageData = nil; review = nil }
-                }
-                if incident != nil { Toggle("Include incident trace references", isOn: $includeIncident) }
-                if model.telemetry?.isEnabled == true { Toggle("Include recent app diagnostics", isOn: $includeDiagnostics) }
-                Button("Review feedback") {
-                    do { review = try ReviewedFeedback(configuration: model.client.configuration, notes: notes, reviewedScreenshotPNG: imageData, incident: includeIncident ? incident : nil); error = nil }
-                    catch { self.error = "Use at most 2000 characters and an image up to 8 MiB." }
-                }.disabled(loading || model.working)
-            }
-            if let review {
-                Section("Review exactly what will be saved") {
-                    Text(review.notes)
-                    Text(review.screenshotPNG == nil ? "No attachment" : "The image shown above will be attached.")
-                    Text("Context: iOS, touch input, app identifier and configured build, submission time and random report/session IDs. No message contents are attached.")
-                    if model.telemetry?.isEnabled == true {
-                        Text(includeDiagnostics ? "The last five minutes of this app's diagnostic events (names, counts and timings only) are sent with the report ID." : "Only a submission marker with the report ID is sent to diagnostics.")
-                    }
-                    if let incident = review.incident {
-                        Text("Incident: \(incident.id) · \(incident.availability.rawValue). \(incident.traces.count) recent local span references; remote availability is unverified.")
-                        Text("Window: \(incident.windowStart) – \(incident.windowEnd)")
-                        Text("Phone process: \(incident.phoneInstanceId)")
-                        ForEach(incident.hostInstanceIds, id: \.self) { Text("Host process: \($0)") }
-                        ForEach(incident.connectionIds, id: \.self) { Text("Connection: \($0)") }
-                        ForEach(Array(incident.traces.enumerated()), id: \.offset) { _, trace in Text("Trace: \(trace.traceId) / \(trace.spanId)") }
-                        if let backend = incident.backendRef { Text("Logical tracing destination: \(backend)") }
-                    }
-                    Button("Submit reviewed feedback") {
-                        Task { if await model.submit(review, includeDiagnostics: includeDiagnostics) { dismiss() } }
-                    }.disabled(model.working || loading || model.status?.canSubmit != true)
                 }
             }
-            if let error { Text(error).foregroundStyle(.red) }
-            if let message = model.message { Text(message) }
+            Section {
+                DisclosureGroup("What this means") {
+                    Text(FeedbackDisclosure.alwaysIncluded).font(.caption)
+                    if let draft {
+                        if let meaning = draft.diagnosticsMeaning { Text(meaning).font(.caption) }
+                        if let note = draft.telemetryNote(telemetry: model.telemetry, includeDiagnostics: including(draft)) {
+                            Text(note).font(.caption)
+                        }
+                    }
+                }
+            }
+            if let error { Text(error).foregroundStyle(.red).accessibilityIdentifier("framebriar-error") }
         }
-        .navigationTitle("Send feedback")
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(model.working) } }
-        .onChange(of: includeIncident) { _, _ in review = nil }
-        .onChange(of: notes) { _, _ in review = nil }
+        .safeAreaInset(edge: .top) {
+            if let sendBlock {
+                Text(FeedbackDisclosure.sendBlocked(sendBlock)).font(.caption).padding(.horizontal).padding(.vertical, 6)
+                    .frame(maxWidth: .infinity).background(.bar).accessibilityIdentifier("framebriar-send-reason")
+            }
+        }
+        // Pinned, so what's about to go out stays in view however long the form gets.
+        .safeAreaInset(edge: .bottom) {
+            VStack(alignment: .leading, spacing: 4) {
+                if let draft {
+                    Text(draft.summary(notes: notes, hasScreenshot: imageData != nil, includeDiagnostics: including(draft)))
+                        .font(.footnote).accessibilityIdentifier("framebriar-included")
+                    if draft.offersDiagnosticsSwitch {
+                        Toggle(FeedbackDisclosure.diagnosticsToggle, isOn: $includeDiagnostics).font(.footnote).accessibilityIdentifier("framebriar-diagnostics-switch")
+                    }
+                }
+            }
+            .padding(.horizontal).padding(.vertical, 8).background(.bar)
+        }
         .task(id: selection) {
-            review = nil
             // A nil selection (first appearance, or Remove) must not discard a pre-attached capture.
             guard let selected = selection else { return }
-            imageData = nil
             loading = true; defer { loading = false }
             do {
                 guard let data = try await selected.loadTransferable(type: Data.self), !Task.isCancelled,
@@ -96,14 +148,43 @@ public struct FeedbackView: View {
                 }
                 guard !Task.isCancelled else { return }
                 // Decode/re-encode to strip source metadata. Only the displayed PNG can be submitted.
-                imageData = png; error = nil
+                imageData = png; imageIsCapture = false; error = nil
             } catch { if !Task.isCancelled { self.error = "Could not read that image." } }
         }
-        .onAppear {
-            guard !incidentCaptured else { return }; incidentCaptured = true
-            incident = model.snapshotIncident()
+    }
+
+    private func result(_ title: String, _ detail: String, sending: Bool) -> some View {
+        Form {
+            Section {
+                if sending { ProgressView() }
+                Text(title).font(.headline).accessibilityIdentifier("framebriar-result-title")
+                Text(detail).accessibilityIdentifier("framebriar-result-detail")
+            }
         }
-        .task { await model.update() }
+    }
+
+    private func send() {
+        guard let draft, sendBlock == nil else { return }
+        phase = .saving; error = nil
+        let notes = notes, png = imageData, include = including(draft)
+        // Not tied to the view: closing the sheet after the commit must not cancel the attempt.
+        Task {
+            do {
+                let report = try await model.save(draft, notes: notes, screenshotPNG: png, includeDiagnostics: include)
+                phase = .sending
+                phase = .finished(await model.deliver(report, includeDiagnostics: include))
+            } catch FramebriarError.enrollmentChanged {
+                // This draft can never send. Notes and image stay; the rest is captured again, and the
+                // summary above follows. Nothing is resent until the user taps Send. The model's mode,
+                // not this view's: an override doesn't carry across enrollments.
+                self.draft = model.openDraft()
+                self.error = FeedbackDisclosure.enrollmentChangedNotice
+                phase = .composing
+            } catch {
+                self.error = FeedbackDisclosure.detail(.needsAttention(FeedbackModel.notSaved(error)))
+                phase = .composing
+            }
+        }
     }
 }
 #endif

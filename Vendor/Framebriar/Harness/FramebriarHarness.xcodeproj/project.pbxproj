@@ -1,0 +1,86 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+		F8B00000000000000000A000 = {isa = PBXFileReference; explicitFileType = "wrapper.application"; includeInIndex = 0; path = FramebriarHarness.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F8B00000000000000000A001 = {isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
+		F8B00000000000000000A002 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A005 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (F8B00000000000000000A003, F8B00000000000000000A004, ); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A006 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A007 = {isa = XCSwiftPackageProductDependency; productName = Framebriar; package = F8B00000000000000000A008; };
+		F8B00000000000000000A003 = {isa = PBXBuildFile; productRef = F8B00000000000000000A007; };
+		F8B00000000000000000A009 = {isa = XCSwiftPackageProductDependency; productName = FramebriarUI; package = F8B00000000000000000A008; };
+		F8B00000000000000000A004 = {isa = PBXBuildFile; productRef = F8B00000000000000000A009; };
+		F8B00000000000000000A00A = {isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = dev.framebriar.harness; PRODUCT_NAME = "$(TARGET_NAME)"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown"; }; name = Debug; };
+		F8B00000000000000000A00B = {isa = XCConfigurationList; buildConfigurations = (F8B00000000000000000A00A,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
+		F8B00000000000000000A00C = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = HarnessUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F8B00000000000000000A00D = {isa = PBXFileSystemSynchronizedRootGroup; path = UnitTests; sourceTree = "<group>"; };
+		F8B00000000000000000A00E = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A00F = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A010 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A011 = {isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = dev.framebriar.harness.unit; PRODUCT_NAME = "$(TARGET_NAME)"; BUNDLE_LOADER = "$(TEST_HOST)"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FramebriarHarness.app/FramebriarHarness"; }; name = Debug; };
+		F8B00000000000000000A012 = {isa = XCConfigurationList; buildConfigurations = (F8B00000000000000000A011,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
+		F8B00000000000000000A013 = {isa = PBXFileReference; explicitFileType = "wrapper.cfbundle"; includeInIndex = 0; path = HarnessUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F8B00000000000000000A014 = {isa = PBXFileSystemSynchronizedRootGroup; path = UITests; sourceTree = "<group>"; };
+		F8B00000000000000000A015 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A016 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A017 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		F8B00000000000000000A018 = {isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = dev.framebriar.harness.ui; PRODUCT_NAME = "$(TARGET_NAME)"; TEST_TARGET_NAME = FramebriarHarness; }; name = Debug; };
+		F8B00000000000000000A019 = {isa = XCConfigurationList; buildConfigurations = (F8B00000000000000000A018,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
+		F8B00000000000000000A01A = {isa = PBXContainerItemProxy; containerPortal = F8B00000000000000000A01B; proxyType = 1; remoteGlobalIDString = F8B00000000000000000A01C; remoteInfo = FramebriarHarness; };
+		F8B00000000000000000A01D = {isa = PBXTargetDependency; target = F8B00000000000000000A01C; targetProxy = F8B00000000000000000A01A; };
+		F8B00000000000000000A01E = {isa = PBXContainerItemProxy; containerPortal = F8B00000000000000000A01B; proxyType = 1; remoteGlobalIDString = F8B00000000000000000A01C; remoteInfo = FramebriarHarness; };
+		F8B00000000000000000A01F = {isa = PBXTargetDependency; target = F8B00000000000000000A01C; targetProxy = F8B00000000000000000A01E; };
+
+		F8B00000000000000000A01C /* FramebriarHarness */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8B00000000000000000A00B;
+			buildPhases = (F8B00000000000000000A002, F8B00000000000000000A005, F8B00000000000000000A006,);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (F8B00000000000000000A001,);
+			name = FramebriarHarness;
+			packageProductDependencies = (F8B00000000000000000A007,F8B00000000000000000A009,);
+			productName = FramebriarHarness;
+			productReference = F8B00000000000000000A000;
+			productType = "com.apple.product-type.application";
+		};
+
+		F8B00000000000000000A020 /* HarnessUnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8B00000000000000000A012;
+			buildPhases = (F8B00000000000000000A00E, F8B00000000000000000A00F, F8B00000000000000000A010,);
+			buildRules = ();
+			dependencies = (F8B00000000000000000A01D,);
+			fileSystemSynchronizedGroups = (F8B00000000000000000A00D,);
+			name = HarnessUnitTests;
+			packageProductDependencies = ();
+			productName = HarnessUnitTests;
+			productReference = F8B00000000000000000A00C;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+
+		F8B00000000000000000A021 /* HarnessUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8B00000000000000000A019;
+			buildPhases = (F8B00000000000000000A015, F8B00000000000000000A016, F8B00000000000000000A017,);
+			buildRules = ();
+			dependencies = (F8B00000000000000000A01F,);
+			fileSystemSynchronizedGroups = (F8B00000000000000000A014,);
+			name = HarnessUITests;
+			packageProductDependencies = ();
+			productName = HarnessUITests;
+			productReference = F8B00000000000000000A013;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		F8B00000000000000000A008 = {isa = XCLocalSwiftPackageReference; relativePath = ..; };
+		F8B00000000000000000A022 = {isa = PBXGroup; children = (F8B00000000000000000A000,F8B00000000000000000A00C,F8B00000000000000000A013,); name = Products; sourceTree = "<group>"; };
+		F8B00000000000000000A023 = {isa = PBXGroup; children = (F8B00000000000000000A001,F8B00000000000000000A00D,F8B00000000000000000A014,F8B00000000000000000A022,); sourceTree = "<group>"; };
+		F8B00000000000000000A024 = {isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_STYLE = Automatic; CODE_SIGN_IDENTITY = "-"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; SWIFT_EMIT_LOC_STRINGS = NO; ENABLE_TESTABILITY = YES; ONLY_ACTIVE_ARCH = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_DEBUG_DYLIB = NO; }; name = Debug; };
+		F8B00000000000000000A025 = {isa = XCConfigurationList; buildConfigurations = (F8B00000000000000000A024,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Debug; };
+		F8B00000000000000000A01B = {isa = PBXProject; attributes = { LastUpgradeCheck = 2600; }; buildConfigurationList = F8B00000000000000000A025; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base,); mainGroup = F8B00000000000000000A023; packageReferences = (F8B00000000000000000A008,); productRefGroup = F8B00000000000000000A022; projectDirPath = ""; projectRoot = ""; targets = (F8B00000000000000000A01C,F8B00000000000000000A020,F8B00000000000000000A021,); };
+	};
+	rootObject = F8B00000000000000000A01B;
+}

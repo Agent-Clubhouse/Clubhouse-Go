@@ -400,11 +400,6 @@
       "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",
       "reason": "UIView subclass strongly owns key-input view, layers and UI state; preserve isolation."
     },
-    "EnrollmentShakeReceiver.Receiver": {
-      "policy": "main_actor",
-      "source": "Annex/Annex/Companion/Views/CompanionFeedback.swift",
-      "reason": "UIViewController subclass and main-only presentation/callback context."
-    },
     "CompanionTerminalSession": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Domain/CompanionTerminal.swift",

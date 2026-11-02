@@ -23,12 +23,16 @@ public final class EnrollmentSignal: @unchecked Sendable {
     private let lock = NSLock()
     private var hasRefresh = false
     private var deadline: Date?
+    private var ref: String?
     private var observers: [UUID: @Sendable (Bool) -> Void] = [:]
 
     public init() {}
     public func isEnrolled(at date: Date) -> Bool {
         lock.withLock { hasRefresh && (deadline.map { $0 > date } ?? false) }
     }
+    /// The local identity of the current enrollment. A draft records it when it opens, to catch a change
+    /// before it saves. Nil with no enrollment. Not a credential, and never on the wire.
+    public var enrollmentRef: String? { lock.withLock { ref } }
     /// The handler runs on the updating thread whenever enrollment is gained or lost.
     public func observe(_ handler: @escaping @Sendable (Bool) -> Void) -> UUID {
         let key = UUID(); lock.withLock { observers[key] = handler }; return key
@@ -39,7 +43,7 @@ public final class EnrollmentSignal: @unchecked Sendable {
         let enrolled = record.refreshToken != nil && record.enrolled
         let (changed, handlers) = lock.withLock { () -> (Bool, [@Sendable (Bool) -> Void]) in
             let changed = enrolled != hasRefresh
-            hasRefresh = enrolled; deadline = enrolled ? record.expiresAt : nil
+            hasRefresh = enrolled; deadline = enrolled ? record.expiresAt : nil; ref = record.enrollmentRef
             return (changed, Array(observers.values))
         }
         if changed { for handler in handlers { handler(enrolled) } }

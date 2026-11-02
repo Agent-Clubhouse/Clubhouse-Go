@@ -54,7 +54,7 @@ struct CompanionPreviewRoot: View {
                 }
             }
             .companionFeedbackEntryPoints(feedback)
-            .shakeToOpenFeedback(model: feedback?.model, enabled: true)
+            .companionFeedbackShake(feedback, enabled: true)
             .task { await feedback?.model?.setActive(true) }
     }
     private func report(enabled: Bool? = nil, flagOn: Bool? = nil, connection: CompanionConnection? = nil) {

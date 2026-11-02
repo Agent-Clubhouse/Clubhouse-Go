@@ -6,9 +6,7 @@ import ClubhouseTransport
 
 /// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
-    /// API deployment and the v0.7.0 tag are confirmed; the identity-binding SDK is not yet adopted.
-    /// General sending and any scoped test stay off until that adoption and its wire tests.
-    /// The local AnnexFeedbackDiagnostics provider is intentionally not connected to the report path.
+    /// Ordinary routes always open OFF. Only the explicit one-test entry overrides one view to ON.
     static let reportDiagnosticsSendingEnabled = false
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
     /// Whether a shake pre-attaches a screenshot of the screen that was showing, for review.
@@ -58,6 +56,33 @@ import ClubhouseTransport
     static func adoptSession(of source: AnnexTelemetry = .shared) {
         try? FramebriarSession.adopt(source.instanceID.uuidString.lowercased())
     }
+    /// Synchronous bounded memory snapshot, independent of enrollment/access/export at send time.
+    /// Annex owns the closed vocabulary; the SDK independently sanitizes and sizes its wire contract.
+    static func diagnosticsSnapshot(from source: AnnexTelemetry = .shared, now: Date = Date()) -> FeedbackDiagnostics {
+        let captured = AnnexFeedbackDiagnostics.capture(from: source, now: now)
+        let dates = ISO8601DateFormatter()
+        dates.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        switch captured.state {
+        case .none: return .none(reason: captured.reason == .no_provider ? FeedbackDiagnostics.Reason.noProvider : FeedbackDiagnostics.Reason.empty, at: now)
+        case .unavailable, .left_out: return .unavailable(reason: FeedbackDiagnostics.Reason.invalid, at: now)
+        case .attached:
+            guard let start = dates.date(from: captured.windowStart), let end = dates.date(from: captured.windowEnd) else {
+                return .unavailable(reason: FeedbackDiagnostics.Reason.invalid, at: now)
+            }
+            var entries: [FeedbackDiagnostics.Entry] = []
+            for entry in captured.entries {
+                guard let at = dates.date(from: entry.at), let level = FeedbackDiagnostics.Level(rawValue: entry.level.rawValue) else {
+                    return .unavailable(reason: FeedbackDiagnostics.Reason.invalid, at: now)
+                }
+                entries.append(.init(at: at, level: level, ns: entry.ns, event: entry.event, attrs: entry.attrs.mapValues {
+                    switch $0 { case .string(let text): .string(text); case .number(let number): .number(number) }
+                }))
+            }
+            return FeedbackDiagnostics(windowStart: start, windowEnd: end, entries: entries,
+                                       dropped: captured.dropped, droppedAttrs: captured.droppedAttrs)
+        }
+    }
+
     /// The feedback model with enrollment-gated telemetry. If telemetry can't be configured, feedback still works without it.
     static func compose(client: Client, source: AnnexTelemetry = .shared, telemetryTransport: any HTTPTransport = URLSessionTransport(),
                         observeAppLifecycle: Bool = true) -> (model: FeedbackModel, telemetry: CompanionTelemetry?) {
@@ -66,7 +91,7 @@ import ClubhouseTransport
                                                 transport: telemetryTransport, observeAppLifecycle: observeAppLifecycle)
         let model = FeedbackModel(client: client, telemetry: telemetry?.telemetry, incidentProvider: {
             snapshotIncident(telemetry: source, backend: AnnexDiagnosticSettings.shared.destination?.backendReference)
-        })
+        }, diagnosticsProvider: { diagnosticsSnapshot(from: source) }, reportDiagnostics: .off)
         return (model, telemetry)
     }
 }
@@ -108,9 +133,11 @@ struct CompanionFeedbackSettings: View {
                 Section("Saved feedback") {
                     if let status = model.status { Text("\(status.queued) reports on this device") }
                     else { Text("Checking saved feedback…") }
-                    // The tagged SDK's held-report row belongs here, adjacent to Clear queued feedback.
-                    // Do not infer held counts or recovery from the old SDK's generic blocked count.
+                    CompanionHeldFeedbackActions(model: model)
                     CompanionFeedbackQueueActions(model: model)
+                }
+                Section {
+                    CompanionFeedbackDiagnosticsTestEntry(model: model)
                 }
             }
             Section("Feedback shortcuts") {
@@ -121,7 +148,7 @@ struct CompanionFeedbackSettings: View {
                     Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
                         .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
                 }
-                Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Submit reviewed feedback. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
+                Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Send. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -133,20 +160,129 @@ struct CompanionFeedbackSettings: View {
 struct CompanionFeedbackComposer: View {
     let model: FeedbackModel
     var initialScreenshotPNG: Data? = nil
-    var body: some View { FeedbackView(model: model, initialScreenshotPNG: initialScreenshotPNG) }
+    var onClose: (@MainActor () -> Void)? = nil
+    var isDiagnosticsTest = false
+    @State private var openedEnrollment: String?
+    @State private var enrollmentChanged = false
+    @State private var captureWasOff = false
+    #if DEBUG
+    @Environment(\.companionFeedbackFixtureControls) private var fixtureControls
+    #endif
+    var body: some View {
+        FeedbackView(model: model, initialScreenshotPNG: screenshot, onClose: onClose,
+                     reportDiagnostics: isDiagnosticsTest ? .on : .off)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if isDiagnosticsTest {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(enrollmentChanged ? "Diagnostics test ended — enrollment changed" : "Diagnostics test report").bold()
+                            .accessibilityIdentifier("feedback-diagnostics-test-banner")
+                        Text(enrollmentChanged
+                             ? "This test permission cannot move to the new enrollment. The replacement draft has report diagnostics off. Cancel and prepare a new test from Settings to include them."
+                             : "Start your note with ‘Diagnostics test’. Only this draft can include the recent records shown in Included. Review them before Send; Cancel leaves the next report off.")
+                        if captureWasOff { Text("Capture was off when this opened; recent transport records may be missing.") }
+                    }.font(.caption).padding().frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+                }
+            }
+            #if DEBUG
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let fixtureControls {
+                    HStack {
+                        Button("Change fixture enrollment", action: fixtureControls.changeEnrollment)
+                        Button("Record later retry", action: fixtureControls.recordLater)
+                    }.font(.caption)
+                }
+            }
+            #endif
+            .onAppear {
+                if openedEnrollment == nil {
+                    openedEnrollment = model.client.enrollmentSignal.enrollmentRef
+                    #if DEBUG
+                    captureWasOff = !(fixtureControls?.captureIsEnabled() ?? AnnexTelemetry.shared.isEnabled)
+                    #else
+                    captureWasOff = !AnnexTelemetry.shared.isEnabled
+                    #endif
+                }
+            }
+            .onChange(of: model.status.map { _ in model.client.enrollmentSignal.enrollmentRef }) { _, current in
+                if current != openedEnrollment { enrollmentChanged = true }
+            }
+    }
+    private var screenshot: Data? {
+        #if DEBUG
+        if isDiagnosticsTest, let image = fixtureControls?.image { return image }
+        #endif
+        return initialScreenshotPNG
+    }
+}
+
+/// No persistent switch. Each deliberate navigation creates a new one-view override.
+private struct CompanionFeedbackDiagnosticsTestEntry: View {
+    let model: FeedbackModel
+    var body: some View {
+        DisclosureGroup("Feedback diagnostics test") {
+            NavigationLink("Prepare one diagnostics test report…") {
+                CompanionFeedbackDiagnosticsTestConfirmation(model: model)
+            }
+            .disabled(model.status?.canSubmit != true || model.telemetry == nil)
+            .accessibilityIdentifier("feedback-prepare-diagnostics-test")
+            if model.telemetry == nil {
+                Text("Diagnostics testing is unavailable in this session. You can still send ordinary feedback.").font(.caption)
+            }
+        }
+    }
+}
+
+/// A stable confirmation screen, rather than a sheet attached to a recyclable Settings row.
+private struct CompanionFeedbackDiagnosticsTestConfirmation: View {
+    let model: FeedbackModel
+    var body: some View {
+        Form {
+            Section("Diagnostics test report") {
+                Text("Use only when a developer asks for a labeled test report. Ordinary feedback keeps report diagnostics off.")
+                Text("Only the draft you prepare now may attach recent transport diagnostics. Start the note with ‘Diagnostics test’, check Included, then choose Send. Cancel leaves ordinary reports off. An enrollment change ends this test permission.")
+                NavigationLink("Prepare test report") { CompanionFeedbackComposer(model: model, isDiagnosticsTest: true) }
+                    .disabled(model.status?.canSubmit != true || model.telemetry == nil)
+            }
+        }.navigationTitle("Diagnostics test")
+    }
 }
 
 struct CompanionFeedbackEnrollment: View {
     let model: FeedbackModel
+    var body: some View { EnrollmentView(model: model) }
+}
+
+/// The confirmation owns the exact token/count that were displayed. Never obtain a fresh token
+/// when Send is tapped: a different enrollment or held set must fail with stale-release.
+private struct CompanionHeldFeedbackActions: View {
+    let model: FeedbackModel
+    @State private var pendingRelease: Release?
+    @State private var confirmingClear = false
+    private struct Release { let token: String; let count: Int }
     var body: some View {
-        EnrollmentView(model: model)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Text(model.telemetry == nil
-                     ? "Review notes and images for private information before submitting feedback. Automatic developer telemetry is unavailable in this session."
-                     : "Enrollment shares automatic usage and diagnostic telemetry with the developer. Review notes and images before submitting feedback.")
-                    .font(.footnote).foregroundStyle(.secondary).padding()
-                    .frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+        if let status = model.status, status.heldForEnrollment > 0 {
+            Text(FeedbackDisclosure.heldSummary(count: status.heldForEnrollment))
+                .accessibilityIdentifier("feedback-held-summary")
+            if let token = status.releaseToken {
+                Button("Send with this enrollment…") {
+                    pendingRelease = Release(token: token, count: status.heldForEnrollment)
+                }.disabled(model.working).accessibilityIdentifier("feedback-release-held")
+                .confirmationDialog(pendingRelease.map { FeedbackDisclosure.releaseConfirmation(count: $0.count) } ?? "",
+                                    isPresented: Binding(get: { pendingRelease != nil }, set: { if !$0 { pendingRelease = nil } }), titleVisibility: .visible) {
+                    if let release = pendingRelease {
+                        Button("Send") { Task { await model.releaseHeldReports(releaseToken: release.token) } }
+                    }
+                }
             }
+            Button("Clear held reports", role: .destructive) { confirmingClear = true }
+                .disabled(model.working).accessibilityIdentifier("feedback-clear-held")
+                .confirmationDialog("Clear reports saved under a previous enrollment? They won't be sent.",
+                                    isPresented: $confirmingClear, titleVisibility: .visible) {
+                    Button("Clear held reports", role: .destructive) { Task { await model.clearHeldReports() } }
+                }
+            Text("Send queues these reports for the current enrollment. Delivery needs a service receipt.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -166,122 +302,13 @@ private struct CompanionFeedbackQueueActions: View {
 }
 
 extension View {
-    /// The Framebriar shortcut ignores shakes until the user is enrolled, which looked broken
-    /// because the preference defaults on. While unenrolled, explain why and offer enrollment.
-    /// Install next to `shakeToOpenFeedback`; the two receivers are never eligible together.
-    func shakeToExplainFeedbackEnrollment(model: FeedbackModel?, enabled: Binding<Bool>, isPresenting: Bool) -> some View {
-        modifier(ShakeEnrollmentPrompt(model: model, enabled: enabled, isPresenting: isPresenting))
-    }
-}
-
-private struct ShakeEnrollmentPrompt: ViewModifier {
-    let model: FeedbackModel?
-    @Binding var enabled: Bool
-    let isPresenting: Bool
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var showingPrompt = false
-    @State private var showingEnrollment = false
-
-    private var unenrolled: Bool { model?.status != nil && model?.status?.canSubmit != true }
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                if model != nil {
-                    EnrollmentShakeReceiver(eligible: enabled && unenrolled && scenePhase == .active
-                                                && !isPresenting && !showingPrompt && !showingEnrollment) {
-                        showingPrompt = true
-                    }.allowsHitTesting(false).accessibilityHidden(true)
-                }
-            }
-            .alert("Feedback enrollment required", isPresented: $showingPrompt) {
-                Button("Set up feedback") { showingEnrollment = true }
-                Button("Turn off shake") { enabled = false }
-                Button("Not now", role: .cancel) {}
-            } message: {
-                Text("Shake opens the feedback form after you redeem a feedback invitation in Settings → Invitation & enrollment.")
-            }
-            .sheet(isPresented: $showingEnrollment) {
-                if let model {
-                    CompanionEnrollmentSheet(model: model)
-                }
-            }
-    }
-}
-
-/// Claims first responder only while eligible, never from active text input or a presentation,
-/// mirroring the Framebriar receiver so a real shake is delivered here while unenrolled.
-private struct EnrollmentShakeReceiver: UIViewControllerRepresentable {
-    let eligible: Bool
-    let onShake: @MainActor () -> Void
-    func makeUIViewController(context: Context) -> Receiver { Receiver() }
-    func updateUIViewController(_ controller: Receiver, context: Context) {
-        controller.eligible = eligible
-        controller.onShake = onShake
-        controller.updateEligibility()
-    }
-    static func dismantleUIViewController(_ controller: Receiver, coordinator: ()) { controller.stop() }
-
-    @MainActor final class Receiver: UIViewController {
-        var eligible = false
-        var onShake: (@MainActor () -> Void)?
-        private var observers: [NSObjectProtocol] = []
-        private var rearmTask: Task<Void, Never>?
-        override var canBecomeFirstResponder: Bool { eligible }
-        override func loadView() { view = UIView(); view.backgroundColor = .clear }
-        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); updateEligibility() }
-        override func viewWillDisappear(_ animated: Bool) { super.viewWillDisappear(animated); rearmTask?.cancel(); resignFirstResponder() }
-        override func viewDidLoad() {
-            super.viewDidLoad()
-            for name in [UIResponder.keyboardDidHideNotification, UIWindow.didBecomeKeyNotification, UIApplication.didBecomeActiveNotification] {
-                observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    Task { @MainActor [weak self] in self?.updateEligibility() }
-                })
-            }
-        }
-        func stop() {
-            eligible = false; onShake = nil; rearmTask?.cancel(); rearmTask = nil; resignFirstResponder()
-            for observer in observers { NotificationCenter.default.removeObserver(observer) }
-            observers.removeAll()
-        }
-        func updateEligibility() {
-            rearmTask?.cancel(); rearmTask = nil
-            guard eligible else { if isFirstResponder { resignFirstResponder() }; return }
-            if claim() { return }
-            // A dismissal transition can still be finishing; retry briefly like the SDK receiver.
-            rearmTask = Task { @MainActor [weak self] in
-                for _ in 0..<30 {
-                    do { try await Task.sleep(for: .milliseconds(100)) } catch { return }
-                    guard let self, !Task.isCancelled, self.eligible else { return }
-                    if self.claim() { return }
-                }
-            }
-        }
-        private func claim() -> Bool {
-            guard let window = viewIfLoaded?.window, window.isKeyWindow,
-                  window.windowScene?.activationState == .foregroundActive,
-                  !Self.hasPresentation(window.rootViewController), !Self.isEditing(window) else { return false }
-            let claimed = isFirstResponder || becomeFirstResponder()
-            #if DEBUG
-            CompanionShakeDiagnostics.trace("enrollment receiver claim -> \(claimed)")
-            #endif
-            return claimed
-        }
-        override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-            #if DEBUG
-            CompanionShakeDiagnostics.trace("enrollment receiver motionEnded eligible=\(self.eligible)")
-            #endif
-            guard motion == .motionShake, eligible, let onShake else { super.motionEnded(motion, with: event); return }
-            onShake()
-        }
-        private static func hasPresentation(_ controller: UIViewController?) -> Bool {
-            guard let controller else { return false }
-            if controller.presentedViewController != nil || controller.isBeingPresented || controller.isBeingDismissed { return true }
-            return controller.children.contains { hasPresentation($0) }
-        }
-        private static func isEditing(_ view: UIView) -> Bool {
-            if view.isFirstResponder && view is any UIKeyInput { return true }
-            return view.subviews.contains { isEditing($0) }
+    /// One SDK window receiver per scene. Ordinary sheets, including Settings, are eligible;
+    /// typing, secure fields and duplicate delivery are guarded by the tagged SDK.
+    func companionFeedbackShake(_ presenter: CompanionFeedbackPresenter?, enabled: Bool,
+                                suppressed: Bool = false, captureScreen: Bool = true) -> some View {
+        onFeedbackShake(model: presenter?.model, enabled: enabled, isPresenting: suppressed,
+                        captureScreen: captureScreen, onNotEnrolled: { presenter?.sendFeedback(fromShake: true) }) { event in
+            presenter?.sendFeedback(screenshotPNG: event.screenshotPNG, from: event.window)
         }
     }
 }
