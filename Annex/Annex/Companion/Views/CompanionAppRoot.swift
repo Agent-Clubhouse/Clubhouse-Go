@@ -237,11 +237,20 @@ struct CompanionAppRoot: View {
                 }
                 await runtime.telemetryExporter.endSession(session)
             }
-            .task(id: scenePhase) {
+            .onChange(of: runtime.feedback?.status?.queued) { previous, current in
                 guard let feedback = runtime.feedback else { return }
-                await feedback.setActive(scenePhase == .active)
+                Task {
+                    await CompanionFeedback.deliverNewlyQueued(model: feedback, previous: previous, current: current,
+                                                              isBackground: scenePhase == .background)
+                }
+            }
+            // Inactive is a transient foreground interruption (including screenshot previews).
+            // Keep the pump alive through it; pause only on background, like the transport.
+            .task(id: scenePhase == .background) {
+                guard let feedback = runtime.feedback else { return }
+                await feedback.setActive(scenePhase != .background)
                 // Hand over the ping summary before the SDK's background flush.
-                guard scenePhase == .active else { runtime.appTelemetry?.tick(force: true); return }
+                guard scenePhase != .background else { runtime.appTelemetry?.tick(force: true); return }
                 while !Task.isCancelled {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()

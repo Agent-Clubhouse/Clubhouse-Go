@@ -170,3 +170,10 @@ private func strings(_ signals: [AnnexAppTelemetry.Signal]) -> [String] {
     #expect(log?.1["messageCount"] == .int(5_000))
     #expect(log?.1["durationMs"] != nil)
 }
+
+@Test func incidentSpanEligibilityExactlyMatchesTheSignalMapper() throws {
+    for operation in AnnexDiagnosticOperation.allCases {
+        let mapped = spans(AnnexAppTelemetry.signals(for: try record(operation)))
+        #expect(AnnexAppTelemetry.exportsSpan(for: operation) == !mapped.isEmpty)
+    }
+}

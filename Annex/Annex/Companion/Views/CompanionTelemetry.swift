@@ -27,8 +27,10 @@ import ClubhouseTransport
          observeAppLifecycle: Bool = true, bundle: Bundle = .main, now: @escaping @Sendable () -> Date = { Date() }) throws {
         let version = CompanionBuildInfo.version(bundle: bundle)
         // Background flush (didEnterBackground/willTerminate) is the SDK's own lifecycle observer.
+        var commonAttributes = CompanionTelemetryForwarder.attributes(AnnexAppTelemetry.commonAttributes)
+        if let sha = configuration.buildSHA { commonAttributes["app.build.sha"] = .string(sha) }
         telemetry = try Telemetry(client: client, configuration: configuration, appVersion: version.version, appBuild: version.build,
-                                  commonAttributes: CompanionTelemetryForwarder.attributes(AnnexAppTelemetry.commonAttributes),
+                                  commonAttributes: commonAttributes,
                                   transport: transport, observeAppLifecycle: observeAppLifecycle, now: now)
         self.source = source; self.enrollment = client.enrollmentSignal; self.now = now; lastSummary = now()
         recordObserver = source.observeRecords { [telemetry] record in

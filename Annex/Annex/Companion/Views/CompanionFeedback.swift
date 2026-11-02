@@ -6,6 +6,10 @@ import ClubhouseTransport
 
 /// Reads sanitized diagnostic records only; never conversations, prompts or pairing credentials.
 @MainActor enum CompanionFeedback {
+    /// Hard release gate: the deployed API strips this field or permanently rejects large reports.
+    /// Enable only after API deployment confirmation, a tagged SDK, and app adoption with wire tests.
+    /// The local AnnexFeedbackDiagnostics provider is intentionally not connected to the report path.
+    static let reportDiagnosticsSendingEnabled = false
     static let shakePreferenceKey = "framebriar.shakeToOpenFeedback"
     /// Whether a shake pre-attaches a screenshot of the screen that was showing, for review.
     static let shakeScreenshotPreferenceKey = "framebriar.shakeAttachesScreenshot"
@@ -13,7 +17,7 @@ import ClubhouseTransport
         let snapshot = telemetry.snapshot()
         let start = now.addingTimeInterval(-300)
         let recent = snapshot.records.reversed().filter { $0.startedAt >= start && $0.startedAt <= now }
-        let traces = recent.prefix(8).compactMap { try? FeedbackIncident.Trace(traceId: $0.traceID, spanId: $0.id) }
+        let traces = recent.filter { AnnexAppTelemetry.exportsSpan(for: $0.operation) }.prefix(8).compactMap { try? FeedbackIncident.Trace(traceId: $0.traceID, spanId: $0.id) }
         func identifiers(_ key: AnnexDiagnosticIdentifier) -> [String] {
             Array(Set(recent.compactMap { $0.identifiers[key.rawValue] })).sorted().prefix(4).map { $0 }
         }
@@ -23,6 +27,13 @@ import ClubhouseTransport
             hostInstanceIds: identifiers(.peerInstanceID), connectionIds: identifiers(.connectionID),
             traces: traces, backendRef: backend?.uuidString.lowercased())
     }
+    /// The SDK commits locally before returning; telemetry has its own immediate flush. Wake
+    /// Go's report pump too, rather than waiting for its next periodic foreground tick.
+    static func deliverNewlyQueued(model: FeedbackModel, previous: Int?, current: Int?, isBackground: Bool) async {
+        guard !isBackground, let current, current > (previous ?? 0) else { return }
+        await model.tick()
+    }
+
     static func makeModel() -> (model: FeedbackModel, telemetry: CompanionTelemetry?)? {
         // The build supplies the registered mobile scope, not an invitation or credential.
         // Enrollment remains an explicit user action. Missing configuration creates no client.

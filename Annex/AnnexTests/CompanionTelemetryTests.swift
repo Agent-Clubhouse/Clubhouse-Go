@@ -4,14 +4,14 @@ import Foundation
 import ClubhouseTransport
 import Framebriar
 import FramebriarUI
+import SwiftUI
 
 /// Framebriar telemetry with mocks only: nothing reaches the live service.
 @MainActor @Suite(.serialized) struct CompanionTelemetryTests {
-    private let config = try! Configuration(gameID: "phone-ui-fixture")
+    private let config = try! Configuration(gameID: "phone-ui-fixture", buildSHA: "6c32b12")
 
-    private func compose(_ network: TelemetryMockTransport) throws -> (Client, FeedbackModel, CompanionTelemetry, AnnexTelemetry) {
-        let client = try Client(configuration: config, transport: network, enrollmentStore: TelemetryMemoryEnrollment(), feedbackStore: TelemetryMemoryQueue())
-        let source = AnnexTelemetry()
+    private func compose(_ network: TelemetryMockTransport, source: AnnexTelemetry = AnnexTelemetry(), enrollment: TelemetryMemoryEnrollment = TelemetryMemoryEnrollment(), now: @escaping @Sendable () -> Date = { Date() }) throws -> (Client, FeedbackModel, CompanionTelemetry, AnnexTelemetry) {
+        let client = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: TelemetryMemoryQueue(), now: now)
         let parts = CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
         return (client, parts.model, try #require(parts.telemetry), source)
     }
@@ -55,6 +55,7 @@ import FramebriarUI
         #expect(attributes(span)["app.flow.name"] as? String == "pair")
         #expect(attributes(span)["app.telemetry.schema_version"] as? String == "1")
         #expect(attributes(span)["app.platform"] as? String == "ios")
+        #expect(attributes(span)["app.build.sha"] as? String == "6c32b12")
         #expect(!spans(traces).contains { $0["name"] as? String == "ping" }) // counted, not a span
         let logs = try #require(await network.bodies(for: "logs").first)
         #expect(logBodies(logs).contains("app.session.start") && logBodies(logs).contains("app.performance.summary"))
@@ -86,6 +87,289 @@ import FramebriarUI
         for body in await network.bodies(for: "logs") + network.bodies(for: "traces") {
             #expect(!String(decoding: try JSONSerialization.data(withJSONObject: body), as: UTF8.self).contains("Reviewed fixture note"))
         }
+    }
+
+    /// Reproduces the old eager State(initialValue: CompanionRuntime()) side effect. The
+    /// discarded runtime replaces the only sink with telemetry backed by a forever-paused client.
+    @Test func discardedEagerRuntimeStealsSinkFromForegroundedFeedbackModel() async throws {
+        let network = TelemetryMockTransport(), enrollment = TelemetryMemoryEnrollment()
+        let source = AnnexTelemetry()
+        let retainedClient = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: TelemetryMemoryQueue())
+        let retained = try Telemetry(client: retainedClient, configuration: config, transport: network, observeAppLifecycle: false)
+        let model = FeedbackModel(client: retainedClient, telemetry: retained)
+        defer { retained.dispose(); source.setRecordSink(nil) }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        source.setEnrolledCapture(true)
+        source.setRecordSink { CompanionTelemetryForwarder.forward(AnnexAppTelemetry.signals(for: $0), to: retained) }
+        let discardedClient = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: TelemetryMemoryQueue())
+        let discarded = try Telemetry(client: discardedClient, configuration: config, transport: network, observeAppLifecycle: false)
+        defer { discarded.dispose() }
+        source.setRecordSink { CompanionTelemetryForwarder.forward(AnnexAppTelemetry.signals(for: $0), to: discarded) }
+        await model.setActive(false)
+        await model.setActive(true)
+        recordRetry(on: source)
+        source.record(.foreground)
+        #expect(source.snapshot().records.count == 4)
+        #expect(await retained.flush())
+        #expect(await discarded.flush() == false) // no token: new Client is paused
+        #expect(await network.bodies(for: "traces").isEmpty)
+        let report = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(report))
+        try await waitUntil { await network.bodies(for: "logs").flatMap(logBodies).contains("feedback.submitted") }
+        #expect(!(await network.bodies(for: "logs").flatMap(logBodies)).contains("app.lifecycle"))
+        #expect(await network.bodies(for: "traces").isEmpty)
+    }
+
+    @Test func lazyStateLifetimeKeepsRetryAndForegroundRecordsFlowingAfterResume() async throws {
+        let network = TelemetryMockTransport(), enrollment = TelemetryMemoryEnrollment()
+        let source = AnnexTelemetry()
+        var constructions = 0
+        func make() -> (Client, FeedbackModel, CompanionTelemetry, AnnexTelemetry) {
+            constructions += 1
+            return try! compose(network, source: source, enrollment: enrollment)
+        }
+        let state = CompanionStateLifetime { make() }
+        let (_, model, bridge, _) = state.value
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        _ = CompanionStateLifetime { make() } // SwiftUI evaluates and discards an initial value
+        #expect(constructions == 1)
+        #expect(state.value.2 === bridge)
+        for _ in 0..<20 {
+            _ = CompanionStateLifetime { make() }
+            await model.setActive(false)
+            source.record(.background)
+            await model.setActive(true)
+            source.record(.foreground)
+            recordRetry(on: source)
+            #expect(await bridge.telemetry.flush())
+        }
+        #expect(constructions == 1)
+        let actual = await network.bodies(for: "traces").flatMap(spans)
+        #expect(actual.count == 60)
+        #expect(actual.contains { attributes($0)["annex.operation"] as? String == "connection" && attributes($0)["error.type"] as? String == "connection" })
+        #expect(actual.contains { $0["name"] as? String == "websocket" && attributes($0)["error.type"] as? String == "offline" })
+        #expect(actual.contains { $0["name"] as? String == "backoff" && attributes($0)["annex.backoffMs"] as? Double == 30_000 })
+        let logs = await network.bodies(for: "logs").flatMap(logRecords)
+        #expect(logs.contains { attributes($0)["app.lifecycle.state"] as? String == "foreground" })
+        #expect(logs.filter { ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.error" }.count == 40)
+    }
+
+    @Test func periodicFlushExcludesSentEntriesFromExcerptButKeepsTheirSessionAndTrace() async throws {
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, source) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        recordRetry(on: source)
+        #expect(await bridge.telemetry.flush())
+        let first = await network.bodies(for: "traces")
+        let incident = try #require(CompanionFeedback.snapshotIncident(telemetry: source))
+        let report = try ReviewedFeedback(configuration: config, notes: "fixture", incident: incident)
+        #expect(await model.submit(report))
+        try await waitUntil { await network.bodies(for: "logs").flatMap(logBodies).contains("feedback.submitted") }
+        #expect(await network.bodies(for: "traces").count == first.count)
+        #expect(Set(first.flatMap(spans).compactMap { $0["traceId"] as? String }).isSuperset(of: incident.traces.map(\.traceId)))
+        let resources = first.compactMap { ($0["resourceSpans"] as? [[String: Any]])?.first?["resource"] as? [String: Any] }
+        #expect(resources.allSatisfy { attributes($0)["session.id"] as? String == source.instanceID.uuidString.lowercased() })
+    }
+
+    private func recordRetry(on source: AnnexTelemetry) {
+        let connection = source.begin(.connection)
+        connection.identifier(.connectionAttemptID, UUID()); connection.fail(.connection); connection.end()
+        let socket = source.begin(.websocket)
+        socket.fail(.offline); socket.end()
+        let backoff = source.begin(.backoff)
+        backoff.number(.attempt, 4); backoff.number(.backoffMs, 30_000); backoff.end()
+    }
+
+    @Test func diagnosticsReleaseGateKeepsFieldOutOfOutgoingReports() async throws {
+        #expect(!CompanionFeedback.reportDiagnosticsSendingEnabled)
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, source) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        recordRetry(on: source)
+        let local = AnnexFeedbackDiagnostics.capture(from: source)
+        #expect(local.state == .attached && local.lines == 3)
+        let report = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(report))
+        await model.tick()
+        let bodies = await network.reportBodies
+        #expect(bodies.count == 1)
+        #expect(bodies.allSatisfy { $0["diagnostics"] == nil })
+    }
+
+    @Test func olderBridgeCleanupPreservesNewerBridgeAndDebugObserver() async throws {
+        let network = TelemetryMockTransport(), source = AnnexTelemetry(), enrollment = TelemetryMemoryEnrollment()
+        let (_, model, older, _) = try compose(network, source: source, enrollment: enrollment)
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        let (_, newModel, newer, _) = try compose(network, source: source, enrollment: enrollment)
+        defer { newer.stop() }
+        await newModel.setActive(true)
+        let debug = TelemetryRecordCounter()
+        let token = source.observeRecords { _ in debug.increment() }
+        defer { source.removeRecordObserver(token) }
+        older.stop()
+        #expect(source.isEnabled)
+        recordRetry(on: source)
+        source.record(.foreground)
+        #expect(await newer.telemetry.flush())
+        #expect(await network.bodies(for: "traces").flatMap(spans).count == 3)
+        #expect(debug.count == 4)
+    }
+
+    @Test func restoredEnrollmentCanResolvePendingTriggerStatusWithoutNetwork() async throws {
+        let network = TelemetryMockTransport(), enrollment = TelemetryMemoryEnrollment()
+        let (_, original, bridge, _) = try compose(network, enrollment: enrollment)
+        defer { bridge.stop() }
+        await original.setActive(true)
+        await original.connect(String(repeating: "i", count: 43))
+        let client = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: TelemetryMemoryQueue())
+        let cold = FeedbackModel(client: client)
+        #expect(cold.status == nil)
+        #expect(CompanionScreenshotFeedback.decide(enabled: true, configured: true, canSubmit: cold.status?.canSubmit,
+            secureFieldActive: false, explainedThisSession: false, busy: false) == .waitForStatus)
+        let requests = await network.requests.count
+        await cold.update()
+        #expect(cold.status?.canSubmit == true)
+        #expect(await network.requests.count == requests)
+    }
+
+    @Test func incidentDoesNotReferenceLocalOnlyNavigationOrLifecycleSpans() async throws {
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, source) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        source.record(.http)
+        for operation in [AnnexDiagnosticOperation.navigation, .settings, .foreground, .background, .navigation, .settings, .appLaunch] {
+            source.record(operation)
+        }
+        #expect(source.snapshot().records.count == 8)
+        let incident = try #require(CompanionFeedback.snapshotIncident(telemetry: source))
+        #expect(incident.traces.count == 1)
+        #expect(await bridge.telemetry.flush())
+        let exported = Set(await network.bodies(for: "traces").flatMap(spans).compactMap { $0["traceId"] as? String })
+        #expect(incident.traces.allSatisfy { exported.contains($0.traceId) })
+    }
+
+    @Test func newlyQueuedReportWakesDeliveryWithoutWaitingForThePeriodicTick() async throws {
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, _) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        let first = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(first))
+        #expect(await network.reportBodies.isEmpty) // SDK submit flushes telemetry, not reports
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
+        #expect(await network.reportBodies.count == 1)
+        await model.setActive(false)
+        let next = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(next))
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: true)
+        #expect(await network.reportBodies.count == 1)
+        #expect(model.status?.queued == 1)
+        await model.setActive(true)
+        await model.tick()
+        #expect(await network.reportBodies.count == 2)
+    }
+
+    @Test func deliveryAttemptsAreImmediateAfterCommitRespectBackgroundAndKeepBackoffWithoutDuplicates() async throws {
+        let clock = TelemetryFixtureClock()
+        let network = TelemetryMockTransport(now: { clock.now })
+        let (_, model, bridge, _) = try compose(network, now: { clock.now })
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        let first = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(first))
+        let committedAt = clock.now
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
+        #expect(await network.reportAttemptTimes == [committedAt])
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
+        #expect(await network.reportAttemptTimes.count == 1)
+        await model.setActive(false)
+        let second = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(second))
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: true)
+        clock.advance(270)
+        #expect(await network.reportAttemptTimes.count == 1)
+        await model.setActive(true)
+        await model.tick()
+        #expect(await network.reportAttemptTimes == [committedAt, clock.now])
+        await model.tick()
+        #expect(await network.reportAttemptTimes.count == 2)
+
+        await network.setReportStatus(503)
+        let third = try ReviewedFeedback(configuration: config, notes: "fixture")
+        #expect(await model.submit(third))
+        let failedAt = clock.now
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
+        #expect(await network.reportAttemptTimes.last == failedAt)
+        #expect(await network.reportAttemptTimes.count == 3)
+        clock.advance(59)
+        await model.tick()
+        #expect(await network.reportAttemptTimes.count == 3)
+        await network.setReportStatus(200)
+        clock.advance(1)
+        await model.tick()
+        #expect(await network.reportAttemptTimes == [committedAt, committedAt.addingTimeInterval(270), failedAt, failedAt.addingTimeInterval(60)])
+        await model.tick()
+        let ids = await network.reportBodies.compactMap { $0["id"] as? String }
+        #expect(ids == [first.id, second.id, third.id, third.id].map { $0.uuidString.lowercased() })
+        #expect(model.status?.queued == 0)
+    }
+
+    @Test func outgoingReportCarriesBuildSessionAndOnlyExportableIncidentReferences() async throws {
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, source) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        let span = source.begin(.connection)
+        let host = UUID(), connection = UUID(), attempt = UUID()
+        span.identifier(.peerInstanceID, host); span.identifier(.connectionID, connection); span.identifier(.connectionAttemptID, attempt)
+        span.fail(.timeout); span.end()
+        let incident = try #require(CompanionFeedback.snapshotIncident(telemetry: source))
+        let reviewed = try ReviewedFeedback(configuration: config, notes: "fixture", incident: incident)
+        #expect(await model.submit(reviewed))
+        await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
+        let body = try #require(await network.reportBodies.last)
+        #expect(body["gameId"] as? String == "phone-ui-fixture")
+        #expect(body["buildSha"] as? String == "6c32b12")
+        #expect(body["sessionId"] as? String == source.instanceID.uuidString.lowercased())
+        #expect(body["diagnostics"] == nil)
+        let sentIncident = try #require(body["incident"] as? [String: Any])
+        #expect(sentIncident["phoneInstanceId"] as? String == source.instanceID.uuidString.lowercased())
+        #expect(sentIncident["hostInstanceIds"] as? [String] == [host.uuidString.lowercased()])
+        #expect(sentIncident["connectionIds"] as? [String] == [connection.uuidString.lowercased()])
+        #expect(sentIncident["windowEnd"] as? String == incident.capturedAt)
+        #expect(await bridge.telemetry.flush())
+        let exported = try #require(await network.bodies(for: "traces").flatMap(spans).first)
+        #expect(exported["traceId"] as? String == incident.traces.first?.traceId)
+        #expect(attributes(exported)["annex.connection.attempt.id"] as? String == attempt.uuidString.lowercased())
+    }
+
+    @Test func hostingViewRecreationDoesNotConstructAnotherRuntimeDependency() async throws {
+        var made = 0
+        func make() -> Int { made += 1; return made }
+        let host = UIHostingController(rootView: TelemetryLifetimeProbe(make: make))
+        host.view.frame = CGRect(x: 0, y: 0, width: 320, height: 600)
+        host.view.setNeedsLayout(); host.view.layoutIfNeeded()
+        await Task.yield()
+        #expect(made == 1)
+        for _ in 0..<3 {
+            host.rootView = TelemetryLifetimeProbe(make: make)
+            host.view.setNeedsLayout(); host.view.layoutIfNeeded()
+            await Task.yield()
+        }
+        #expect(made == 1)
     }
 
     @Test func settingsDiscloseTelemetryNextToEnrollment() {
@@ -139,6 +423,15 @@ nonisolated private final class TelemetryMemoryQueue: FeedbackStore, @unchecked 
 /// Answers the access, report and OTLP routes the way the service does; records what was sent.
 private actor TelemetryMockTransport: HTTPTransport {
     private(set) var requests: [URLRequest] = []
+    private let now: @Sendable () -> Date
+    private(set) var reportAttemptTimes: [Date] = []
+    private var reportStatus = 200
+    init(now: @escaping @Sendable () -> Date = { Date() }) { self.now = now }
+    func setReportStatus(_ status: Int) { reportStatus = status }
+    private let refreshEnd = Date().addingTimeInterval(86400).ISO8601Format()
+    var reportBodies: [[String: Any]] {
+        requests.filter { $0.url!.path.hasSuffix("/reports") }.compactMap { $0.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } }
+    }
     var telemetryPaths: [String] { requests.map { $0.url!.path }.filter { $0.contains("/v1/otlp/") } }
     func bodies(for signal: String) -> [[String: Any]] {
         requests.filter { $0.url!.path.hasSuffix("/v1/otlp/v1/\(signal)") }
@@ -148,11 +441,13 @@ private actor TelemetryMockTransport: HTTPTransport {
         requests.append(request)
         let path = request.url!.path
         let object: [String: Any]
-        if path.hasSuffix("access/redeem") {
+        if path.hasSuffix("access/redeem") || path.hasSuffix("access/refresh") {
             object = ["v": 1, "scopeVersion": 2, "gameId": "phone-ui-fixture", "token": String(repeating: "b", count: 43),
                       "refreshToken": String(repeating: "r", count: 43), "expiresAt": Date().addingTimeInterval(3600).ISO8601Format(),
-                      "refreshExpiresAt": Date().addingTimeInterval(86400).ISO8601Format()]
+                      "refreshExpiresAt": refreshEnd, "feedbackCorrelationVersion": 1]
         } else if path.hasSuffix("/reports") {
+            reportAttemptTimes.append(now())
+            if reportStatus != 200 { return HTTPResponse(status: reportStatus, headers: ["retry-after": "60"], body: Data()) }
             let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
             object = ["id": body["id"]!, "status": "ready", "gameId": "phone-ui-fixture"]
         } else if path.hasSuffix("access/disconnect") {
@@ -162,4 +457,24 @@ private actor TelemetryMockTransport: HTTPTransport {
         } else { throw FramebriarError.network }
         return HTTPResponse(status: 200, headers: ["content-type": "application/json"], body: try JSONSerialization.data(withJSONObject: object))
     }
+}
+
+nonisolated private final class TelemetryRecordCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var total = 0
+    func increment() { lock.withLock { total += 1 } }
+    var count: Int { lock.withLock { total } }
+}
+
+nonisolated private final class TelemetryFixtureClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = Date()
+    var now: Date { lock.withLock { value } }
+    func advance(_ seconds: TimeInterval) { lock.withLock { value = value.addingTimeInterval(seconds) } }
+}
+
+@MainActor private struct TelemetryLifetimeProbe: View {
+    @State private var lifetime: CompanionStateLifetime<Int>
+    init(make: @escaping () -> Int) { _lifetime = State(initialValue: CompanionStateLifetime(make)) }
+    var body: some View { Text("Runtime \(lifetime.value)") }
 }

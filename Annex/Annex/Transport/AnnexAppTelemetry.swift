@@ -76,6 +76,15 @@ nonisolated public enum AnnexAppTelemetry {
         }
     }
 
+    /// Incident references must name spans that this mapper actually exports. Lifecycle and
+    /// navigation records become unparented logs, so their local-only span IDs cannot be joined.
+    public static func exportsSpan(for operation: AnnexDiagnosticOperation) -> Bool {
+        switch operation {
+        case .appLaunch, .foreground, .background, .navigation, .settings: false
+        default: true
+        }
+    }
+
     public static func signals(for record: AnnexDiagnosticRecord) -> [Signal] {
         switch record.operation {
         case .appLaunch:
