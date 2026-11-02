@@ -152,6 +152,21 @@ class ReliableUITestCase: XCTestCase {
         XCTAssertEqual(fold.value as? String, "Expanded", "\(fold) must open", file: file, line: line)
     }
 
+    /// The plain timeline exposes off-screen frames. Choose direction from geometry instead of assuming it opens
+    /// at a particular edge, and keep gestures between the header and composer.
+    func bringTranscriptRowIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
+        let height = app.windows.firstMatch.frame.height
+        for _ in 0..<maxGestures {
+            checkTimeLeft("bringing transcript content into view")
+            if row.exists && row.frame.minY > height * 0.23 && row.frame.maxY < height * 0.72 && row.isHittable { return true }
+            let above = row.exists && row.frame.minY < height * 0.23
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.35 : 0.65))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.65 : 0.35))
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
+        return row.exists && row.isHittable
+    }
+
     /// Routine traffic now starts compact. Expand enclosing activity rows without changing inner routed folds.
     func revealActivityContent(_ target: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 20) {
         let end = Date().addingTimeInterval(timeout)
@@ -159,7 +174,7 @@ class ReliableUITestCase: XCTestCase {
             if target.exists { return }
             let groups = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-activity-' AND value == 'Collapsed'"))
             if let group = groups.allElementsBoundByIndex.first {
-                XCTAssertTrue(scrollTo(group, in: app, up: false, maxSwipes: 15))
+                XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
                 tapToExpand(group)
             } else { _ = target.waitForExistence(timeout: 1) }
         } while Date() < end

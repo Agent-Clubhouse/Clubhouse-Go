@@ -10,6 +10,7 @@ struct CompanionScrollMetrics: Equatable, Sendable {
     var normalizedOffset: Double { offset + topInset }
     var maximumOffset: Double { max(0, contentHeight + topInset + bottomInset - containerHeight) }
     var isAtLatest: Bool { normalizedOffset >= maximumOffset - 16 }
+    var isAtTrueBottom: Bool { normalizedOffset >= maximumOffset - 1 }
 }
 
 /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive
@@ -21,7 +22,7 @@ struct CompanionReadingPosition: Equatable, Sendable {
     var offset: Double = 0
     var shownEntries = CompanionTimelineWindow.pageSize
 
-    func showsLatestButton(_ metrics: CompanionScrollMetrics) -> Bool { !followsLatest && !metrics.isAtLatest }
+    func showsLatestButton(_ metrics: CompanionScrollMetrics) -> Bool { !followsLatest && !metrics.isAtTrueBottom }
 
     mutating func capture(offset: Double, frames: [String: ClosedRange<Double>]) {
         self.offset = offset
@@ -50,7 +51,7 @@ enum CompanionAssistantNavigation {
             case .row(.item(.message(let value))), .slice(let value, _): message = value
             default: return nil
             }
-            guard message.role == .assistant, case .you = message.display,
+            guard message.isUserFacingAssistant, case .you = message.display,
                   !CompanionMessageRouting.stripTaskMarker(message.text).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   seen.insert(message.id).inserted else { return nil }
             return entry.id

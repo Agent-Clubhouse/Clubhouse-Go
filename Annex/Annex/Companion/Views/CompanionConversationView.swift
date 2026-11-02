@@ -232,7 +232,7 @@ struct CompanionConversationView: View {
 
     private var timeline: some View {
         let rows = CompanionTimelineFolding.rows(for: conversation.items)
-        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries)
+        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
         return ScrollViewReader { proxy in
@@ -290,11 +290,10 @@ struct CompanionConversationView: View {
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { _, phase, context in
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
-                if phase == .interacting { followLatest = false }
                 if phase == .idle && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
-                    atLatest = metrics.isAtLatest
-                    followLatest = metrics.isAtLatest
+                    atLatest = metrics.isAtTrueBottom
+                    if metrics.isAtTrueBottom { followLatest = true }
                     saveReadingPosition(metrics)
                 }
             }
@@ -302,7 +301,8 @@ struct CompanionConversationView: View {
                 guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                 let metrics = Self.metrics(new)
                 readingViewport.metrics = metrics
-                atLatest = metrics.isAtLatest
+                atLatest = metrics.isAtTrueBottom
+                if readingViewport.isInteracting && metrics.normalizedOffset < Self.metrics(old).normalizedOffset - 1 { followLatest = false }
                 if readingViewport.isRestoring {
                     let desired = min(readingViewport.restoreOffset ?? readingBookmark.position.offset, metrics.maximumOffset)
                     guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
@@ -310,11 +310,11 @@ struct CompanionConversationView: View {
                     saveReadingPosition(metrics)
                 }
                 if !readingViewport.isInteracting {
-                    if metrics.isAtLatest { followLatest = true }
+                    if metrics.isAtTrueBottom { followLatest = true }
                     else if followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
                 }
                 // On a layout change, the frame callback restores the existing entry, before capturing a new one.
-                if old.contentSize == new.contentSize { saveReadingPosition(metrics) }
+                if old.contentSize == new.contentSize || readingViewport.isInteracting { saveReadingPosition(metrics) }
             }
             .onPreferenceChange(CompanionReadingFrames.self) { rects in
                 let frames = rects.mapValues { Double($0.minY)...Double($0.maxY) }
@@ -417,12 +417,12 @@ struct CompanionConversationView: View {
         proxy.scrollTo(id, anchor: .top)
     }
 
-    /// The offset moved up to the very top while the content, the screen and the insets stayed the same: the status bar's
-    /// scroll to the top, which following the latest never does. Rows loading and streaming change the content's size;
-    /// the keyboard and the composer change the screen or the insets.
+    /// A status-bar jump can race a streaming content-size update, so it must not require unchanged content.
     private static func scrolledToTop(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
-        old.contentSize == new.contentSize && old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
-            && new.contentOffset.y < old.contentOffset.y && new.contentOffset.y <= -new.contentInsets.top + 1
+        old.containerSize == new.containerSize && old.contentInsets == new.contentInsets
+            && old.contentSize.height > old.containerSize.height
+            && abs(new.contentSize.height - old.contentSize.height) < new.containerSize.height
+            && new.contentOffset.y < old.contentOffset.y - 1 && new.contentOffset.y <= -new.contentInsets.top + 1
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {

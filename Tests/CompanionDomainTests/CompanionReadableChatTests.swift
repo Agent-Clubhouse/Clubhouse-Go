@@ -57,6 +57,32 @@ import Testing
         guard case .activity(let parts) = rows[0] else { Issue.record("Missing run"); return }
         #expect(CompanionActivityPart.summary(parts) == "2 messages · 1 attachment")
     }
+    @Test func finishedEmptyAssistantIsCarriedOnlyBetweenCountableItems() {
+        let empty = CompanionTimelineItem.message(.init(id: "empty", role: .assistant, text: ""))
+        let rows = CompanionTimelineFolding.rows(for: [tool("a"), empty, tool("b")])
+        guard case .activity(let parts) = rows[0] else { Issue.record("Missing activity"); return }
+        #expect(parts.map(\.id) == ["tool:a", "message:empty", "tool:b"])
+        #expect(CompanionActivityPart.summary(parts) == "2 tool calls")
+        #expect(CompanionTimelineFolding.rows(for: [tool("a"), empty]).map(\.id) == ["activity:tool:a", "message:empty"])
+        let live = CompanionTimelineItem.message(.init(id: "live", role: .assistant, text: "", isStreaming: true))
+        #expect(CompanionTimelineFolding.rows(for: [tool("a"), live, tool("b")]).count == 3)
+    }
+    @Test func changingSubagentIdentityBreaksToolGroups() {
+        let tools = [nil, "a", "a", "b", nil].enumerated().map { index, subagentID in
+            CompanionTimelineItem.tool(.init(id: "\(index)", name: "Read", summary: "", state: .completed, subagentID: subagentID))
+        }
+        let rows = CompanionTimelineFolding.rows(for: tools)
+        #expect(rows.map(\.id) == ["activity:tool:0", "activity:tool:1", "activity:tool:3", "activity:tool:4"])
+    }
+    @Test func failureOutputPolicyKeepsStatusVisibleAndBoundsLongOutput() {
+        let short = CompanionTool(id: "short", name: "Run", summary: "", output: "one\ntwo", state: .failed)
+        let long = CompanionTool(id: "long", name: "Run", summary: "", output: "1\n2\n3\n4\n5\n6\nFailure", state: .failed)
+        #expect(short.requiresAttention && short.outputOpenByDefault)
+        #expect(long.requiresAttention && !long.outputOpenByDefault)
+        #expect(long.outputPreview == "Failure")
+        #expect(CompanionTimelineFolding.rows(for: [.tool(long)]) == [.item(.tool(long))])
+        #expect(CompanionTool(id: "permission", name: "Run", summary: "", output: long.output, state: .running, awaitsApproval: true).outputOpenByDefault)
+    }
     @Test func expansionAndBookmarkSurviveSnapshotRefresh() {
         let store = CompanionStore(service: CompanionPreviewService())
         let target = CompanionPreviewService.target

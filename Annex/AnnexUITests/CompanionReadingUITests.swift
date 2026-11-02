@@ -15,11 +15,11 @@ import XCTest
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"], allowance: 360)
         openRiver(app)
         let latest = app.buttons["Latest"]
-        XCTAssertFalse(latest.exists, "Opening at the latest hides the indicator")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
+        XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Opening at the latest hides the indicator")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01)).tap()
         let earlier = app.buttons["companion-show-earlier"]
         XCTAssertTrue(earlier.waitForExistence(timeout: 10))
-        XCTAssertTrue(scrollTo(earlier, in: app, up: false, maxSwipes: 5))
+        XCTAssertTrue(bringTranscriptRowIntoView(earlier, in: app))
         let visibleMarkers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).allElementsBoundByIndex
         guard let anchor = visibleMarkers.first(where: { $0.frame.minY > 150 && $0.frame.maxY < 500 }) else {
             XCTFail("A reading entry must intersect the viewport"); return
@@ -55,11 +55,30 @@ import XCTest
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Reading controls above the composer"; shot.lifetime = .keepAlways; add(shot)
     }
 
+    func testFailedOutputFoldsButErrorStatusStaysVisible() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
+        openRiver(app)
+        let status = element(app, "companion-tool-status-reading-failure")
+        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        XCTAssertEqual(status.label, "Failed (exit 2)")
+        XCTAssertTrue(element(app, "companion-subagent-reading-helper").label.contains("Helper activity"), "Streamed helper text has its own identity")
+        let output = element(app, "companion-tool-output-reading-failure")
+        XCTAssertFalse(output.exists, "A huge failed output starts folded")
+        XCTAssertTrue(element(app, "companion-tool-preview-reading-failure").label.contains("Preview error: build failed"))
+        let toggle = app.buttons["companion-tool-toggle-reading-failure"]
+        XCTAssertTrue(bringTranscriptRowIntoView(toggle, in: app))
+        toggle.tap()
+        XCTAssertTrue(output.exists)
+        toggle.tap()
+        XCTAssertFalse(output.exists)
+        XCTAssertTrue(status.exists && status.label.contains("Failed"), "The failure remains outside the output fold")
+    }
+
     func testCompactActivityBuildsNoHiddenDetailAndNavigationSkipsIt() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         openRiver(app)
         let group = app.buttons["companion-activity-routed:relay-1:0"]
-        XCTAssertTrue(scrollTo(group, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
         XCTAssertEqual(group.value as? String, "Collapsed")
         let part = element(app, "companion-routed-relay-1-0")
         XCTAssertFalse(part.exists, "Closed activity constructs no routed content")
