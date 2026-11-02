@@ -1,0 +1,364 @@
+commit 1b0471aa0558786f8c5cd80739851e52c6b72e20
+Author:     Mason Allen <me@mason-allen.com>
+AuthorDate: Sun Nov 1 22:45:23 2026 -0800
+Commit:     Mason Allen <me@mason-allen.com>
+CommitDate: Sun Nov 1 22:45:23 2026 -0800
+
+    docs: keep lasting store design and move PR reports to evidence
+
+diff --git a/docs/icon-store.md b/docs/icon-store.md
+index aacf863..b9b2b38 100644
+--- a/docs/icon-store.md
++++ b/docs/icon-store.md
+@@ -40,76 +40,3 @@ store independently rechecks bytes, MIME and decode. Two requests run at once (h
+ maximum three), with a 256-entry pending queue. Failed requests, including 404, back off
+ from 30 seconds to one hour; the 1,024-entry negative cache is bounded. Retries require
+ fresh visible demand; no timer continuously retries a failing icon.
+-
+-## Pending desktop contract
+-
+-The negotiated protocol adapter is intentionally not enabled until the authoritative
+-contract and fixtures arrive. No capability or snapshot fields have been invented.
+-Existing desktop inline snapshots continue to work. Required inputs:
+-
+-- Capability name, version and client opt-in/handshake mechanism.
+-- Token field, format and scope; reference maps and explicit removal semantics.
+-- Whether icons are immutable at that token, plus how races between snapshot and GET work.
+-- Whether ETag/If-None-Match/304 exist, and the behavior of an icon disappearing.
+-- Encoded byte, decoded pixel and snapshot/catalog budgets; raster fallback for SVG.
+-- Authoritative fixtures, including missing, changed, removed and oversized icons.
+-
+-The existing 16 MiB transport cap is unchanged. `maximumResponseBytes` still applies to
+-both REST responses and WebSocket messages; this work does not assume desktop phase 1
+-already has a metadata-only snapshot overflow fallback.
+-
+-## Provisional contract review (not enabled)
+-
+-The desktop's v0 proposal supplies strong ETags on 200/304, actual served dimensions and
+-byte counts, complete appearance broadcasts, and a 32 MiB total cache budget. Those
+-constraints are compatible: the eventual negotiated policy can lower admission to
+-72 KiB, 256² source pixels and PNG/JPEG/GIF/WebP, while retaining two concurrent fetches
+-below the server's four-request ceiling. The current legacy inline store keeps its
+-original 64 MiB/1 MiB policy until authoritative fixtures establish the negotiated path.
+-Expected MIME, dimensions and bytes must be checked against actual decoded source
+-properties and response data. No metadata fields, capability or socket query are wired
+-by this draft. REST refreshes preserve reference maps; new identities remain initials
+-until an authoritative appearance broadcast. Omission-retrieval routes are also pending.
+-
+-## WIP icon refs v1 review (adapter off)
+-
+-Reviewed the proposed `iconRefs` v1 shape after rebasing on main `9d23c7f`.
+-This is not an approved wire contract. The reference/returned-version seams fit, but
+-no provisional capability, query, route, or metadata fields are enabled.
+-
+-The negotiated adapter will need to set the opt-in on every newly constructed socket
+-request: the actual reconnect loop rereads capabilities and creates a fresh `/ws` URL.
+-`telemetry:hello` is gated by telemetry enablement and control availability, so it cannot
+-identify every mobile connection. An explicit `client=mobile` metrics parameter, if agreed,
+-should be independent of telemetry and authorization.
+-
+-Negotiated icon associations need three states. A present complete reference map can
+-remove entries, while an omitted whole reference object is unknown and preserves the
+-last associations; REST catalog refreshes also preserve them. Legacy empty icon maps
+-must not clear negotiated associations when refs are omitted by overflow. This differs
+-from the legacy inline adapter's complete-snapshot clearing rule. Final fixtures must
+-cover `snapshotTruncated.omitted`, legacy empty maps, null/unmarked absence, and missing
+-individual kind maps. Dispatcher having no refs is an intentional change from v0 to
+-confirm; quick avatars keep their bolt.
+-
+-Admission must verify the exact canonical four-format type, SHA-256 of served bytes
+-against strong ETag, actual byte count and actual ImageIO dimensions (both sides at most
+-256), under the 72 KiB budget. Unknown types, SVG, mismatched metadata or undecodable
+-bytes fail only the icon and fall back to initials. The negotiated cache should use a
+-32 MiB bound (a global bound is stricter than a per-desktop allowance); final wording
+-should settle accounting. Two concurrent fetches remain under the proposed ceiling of
+-four, and decoded memory is already bounded at 16 MiB.
+-
+-404 and stale-version outcomes need association-lifetime fences until the snapshot
+-version changes. Generic store failures currently use bounded timed backoff; that is not
+-yet the proposed version-long 404 rule, and bounded negative-entry eviction must not
+-silently re-enable it. A returned mismatched ETag is already cached under its returned
+-version only. A later matching snapshot can use it; it never fulfills the old version.
+-"Keep what's drawn" means only an association still valid for the current snapshot,
+-not an old token after explicit replacement/removal. A same-filename external change
+-cannot appear before a new snapshot publishes the new byte-derived version.
+-
+-Still needed before enabling: final approval and committed authoritative fixtures;
+-exact type literals and SHA casing; complete/partial/null/omitted map semantics;
+-strong ETag/304/404/stale-response fixtures; byte/type/hash/dimension mismatch and
+-boundary fixtures; final cache accounting and optional metrics-query wording.
+diff --git a/docs/testing/build147-overflow-options.md b/docs/testing/build147-overflow-options.md
+deleted file mode 100644
+index e1adfe6..0000000
+--- a/docs/testing/build147-overflow-options.md
++++ /dev/null
+@@ -1,77 +0,0 @@
+-# Go 147 overflow behavior and image decoder audits
+-
+-Frozen source: `6c32b12`. The package audit exercises actual `AnnexTransport` receiving
+-bytes, envelope decoding/replay validation, `CompanionLiveService`, and observable
+-`CompanionStore` state. HTTP identity/capabilities/catalog/history/commands are scripted;
+-close 1013 is sent by a real private loopback WebSocket peer. No physical device, desktop
+-app or build-147 install was used. Most state cases use `AnnexManualClock`; a separate real-time test measures D
+-cadence because the retry-reset logic also uses `ContinuousClock`. Healthy pings continue. Before reconnect, the warm cases load normal/Dispatcher chat and two helper
+-approvals. The desktop has not yet shipped the proposed metadata-only overflow fallback.
+-
+-| Option | Catalog and chat | Helper approvals | Connection/retries | Commands |
+-|---|---|---|---|---|
+-| A: empty projects/agents, marker; Dispatcher/helper fields omitted | Observable empty Home frame, then successful REST catch-up restores normal project/agent. Both chats retained because 147 keeps omitted Dispatcher state. | Previous two retained | No retry loop | Warm service commands work |
+-| A: also `dispatcher:null`, `helperRequests:[]` | Empty Home frame, then REST restores normal project/agent. Dispatcher disappears; `CompanionStore.apply(.hosts)` clears its chat. Normal chat retained. | Both removed and not restored by REST | No retry loop | Warm service commands work; missing snapshot-only state remains lost |
+-| B: `snapshot_too_large`, socket open | Cached catalog/chats retained | Cached requests retained | Still Connecting after 120 clock seconds, no reconnect, healthy pings | Connection-gated UI blocked. Warm service commands work; cold service commands fail, although raw transport commands work |
+-| C: peer closes 1013 | Cached catalog/chats retained | Cached requests retained | Generic connection loss; immediate jittered exponential retry, no snapshot grace. Repeated closes keep retrying | Fail between capability handshakes; connection-gated UI blocked during reconnect |
+-| D: `snapshot_failed`, socket open | Cached catalog/chats retained | Cached requests retained | Connecting for 30 s, then timeout and initial 0.25–0.5 s jitter. Each real grace resets the attempt counter. Successful retry REST catch-up can mark Connected while still awaiting snapshot | Warm service commands work during grace. Cold service commands fail until refresh, although raw transport commands work |
+-
+-Repeated D refusals each get another 30 seconds and reset to initial 0.25–0.5 second
+-jitter: a real-time run reconnected at **30.309 s** and **60.679 s**, with backoffs
+-**0.30256 s** and **0.36550 s**. Its retry reset uses real `ContinuousClock`, so a manual
+-Annex clock alone misleadingly produces increasing D backoffs. The real-time check is
+-included in the frozen audit and takes about 61 seconds.
+-
+-C does use increasing jitter: observed 0.269, 0.766, 1.998, 2.242 and 5.024 seconds,
+-without D's extra grace. Its ranges are 0.25–0.5, 0.5–1, 1–2, 2–4, 4–8, 8–16,
+-then 15–30 seconds. Exact samples vary by jitter.
+-`CompanionStore` keeps `requiresResync` on conversations after reconnect until history is
+-reloaded. The conversation view normally reloads on a usable connection; these tests
+-report store state and service command results separately, rather than treating a
+-successful transport command as proof that the UI is enabled.
+-
+-On both macOS and the private iPhone 17 Pro / iOS 26.0 (23A343) simulator, a peer's actual
+-`88 02 03 f5` close frame (1013) surfaced as URLSession close code **1005**, with a
+-receive error `NSPOSIXErrorDomain/57`. An identical 1000-close control surfaced **1000**.
+-Go's socket abstraction forwards the receive error and does not expose close codes,
+-so it cannot honor a 1013 cooldown or reason. The simulator audit passed with both peers.
+-
+-All 33 omission/icon-map cases from [the shape audit](build147-snapshot-compatibility.md)
+-also passed through this real transport. A missing snapshot sequence was deliberately
+-rejected as `malformedResponse`: preserve nonnegative envelope `lastSeq` or payload
+-`lastSeq`, and a matching capability epoch if the envelope includes `epoch`. Preserving
+-only projects/agents/quickAgents/Dispatcher/protocolVersion is insufficient.
+-
+-## SVG and GIF
+-
+-Real base64 data URLs were decoded using the unchanged build-147 data-URL helper and
+-`UIImage(data:)` call on the private simulator. SVG returned nil. ImageIO produced a
+-nonnil source with no type and zero images; it had no usable thumbnail. The store rejects
+-SVG before rendering, including zero-image sources. An exploratory thumbnail call on
+-an empty ImageIO source crashed only the disposable simulator test app; the final audit
+-and store guard image count before thumbnail creation.
+-
+-A generated real animated GIF has two frames (red then blue). `UIImage(data:)` returns a
+-non-nil 8×8 image. Pixel checks confirm that both UIKit and the store render the red
+-first frame. The store downsamples only index zero and never constructs an animation.
+-
+-## Reproduction
+-
+-Run from the worktree root, using a new disposable `build/build147` directory:
+-
+-```sh
+-mkdir -p build/build147
+-git archive 6c32b12 | tar -x -C build/build147
+-cp Tests/Compatibility/Build147*Tests.swift build/build147/Tests/CompanionDomainTests/
+-python3 Tests/Compatibility/websocket_close_peer.py --code 1013 --out build &
+-# Wait for build/close1013-port, then:
+-swift test --package-path build/build147 --filter Build147TransportAuditTests
+-# Stop only the fixture above, using its owned stop file:
+-touch build/close1013-stop
+-```
+-
+-The optional simulator audit additionally needs the same peer with `--code 1000`. Set
+-`TEST_RUNNER_ICON_AUDIT_WS_PORT` and `TEST_RUNNER_ICON_AUDIT_WS_CONTROL_PORT` from their
+-port files when running `CompanionIconDecoderTests`. Without these explicit fixture
+-variables the close-code test skips. SVG/GIF audits need no network. Use only a new,
+-private simulator, then delete it. No live E2E script or host desktop launch is involved.
+diff --git a/docs/testing/build147-permission-previews.md b/docs/testing/build147-permission-previews.md
+deleted file mode 100644
+index 8084dc0..0000000
+--- a/docs/testing/build147-permission-previews.md
++++ /dev/null
+@@ -1,38 +0,0 @@
+-# Go 147 bounded permission preview audit
+-
+-Frozen source: `6c32b12`. The compatibility test uses real AnnexTransport byte/envelope
+-and command-receipt decoding, CompanionLiveService, and observable CompanionStore.
+-HTTP and WebSocket bytes are scripted locally. No archived app installation is needed.
+-Card text visibility below is verified against the frozen CompanionApprovalCard body;
+-this is a model and source audit, not a screenshot claim.
+-
+-Fifteen cases passed: five payload shapes each through `/chat` pendingPermissions,
+-live `chat:event`, and replayed `chat:event` (`replayed:true`), with inner event type
+-`permission_request`. The literal outer `permission:request` event and a catalog snapshot's top-level
+-`pendingPermissions` field are ignored by 147.
+-The desktop must preserve its existing rich-chat translation.
+-
+-| Input or action | Observable result on 147 |
+-|---|---|
+-| Write with title `Write large.txt`, description `Write file`, `rawInput.file_path` and head/tail `rawInput.content` | Heading and summary are those strings. Collapsed Review details shows basename plus first 400 Swift Characters of content. It does not display the full path. |
+-| Unknown `truncated:true`, `totalBytes:20000000`, including inside rawInput | Ignored. No automatic incomplete indicator or approval restriction. |
+-| `toolInput` alone | No detail. The card does not read this field directly. |
+-| `content:[{type:text,text:...}]` | Supplied text appears in collapsed Review details, taking precedence over rawInput. No 400-character shortening on this route. |
+-| Explicit warning at start of description | Immediately visible summary outside the disclosure; use this to warn legacy users. |
+-| Incomplete marker after 450 characters of rawInput.content | Marker is lost. Head/tail and warning must fit the visible preview; do not rely on tail metadata. |
+-| Allow once: HTTP 409 valid command receipt, status rejected, error code incomplete_representation, message sentence | Card remains pending, actions re-enabled, no resync or automatic retry. Error banner displays the exact desktop sentence. A second user tap sends a new command and can be refused again. |
+-| Deny after refusal, completed receipt | Card becomes Denied, error banner clears. |
+-
+-The sentence tested is: “This input is incomplete. Review the full request on desktop
+-before approving.” This must be a valid versioned command receipt with the matching
+-commandId and epoch, not a bare HTTP error JSON. A failed receipt means uncertain
+-outcome instead; use rejected for a refusal before execution.
+-
+-The 147 preview limits Characters, not UTF-8 bytes. The server must bound true UTF-8
+-bytes independently, and enforce rejection of approving an incomplete representation.
+-An explicit description warning survives the default collapsed details state. Unknown
+-metadata by itself cannot protect users of this legacy client.
+-
+-Run `swift test --package-path build/build147 --filter
+-Build147TransportAuditTests.permissionPreviewSnapshotLiveReplayAndRefusedApproval`
+-after the frozen-source setup in [the overflow audit](build147-overflow-options.md).
+diff --git a/docs/testing/build147-snapshot-compatibility.md b/docs/testing/build147-snapshot-compatibility.md
+deleted file mode 100644
+index ddfd4c6..0000000
+--- a/docs/testing/build147-snapshot-compatibility.md
++++ /dev/null
+@@ -1,52 +0,0 @@
+-# Build 147 snapshot omissions
+-
+-Validated exact Go commit `6c32b12`, not the current implementation. An archived tree
+-under `build/build147` ran the audit test with SwiftPM; no app was installed or launched.
+-The test encoded JSON, decoded `AnnexEnvelope`, delivered it through the scripted
+-transport to the real `CompanionLiveService.receive`, and waited for `applyCatalog` to
+-apply a distinct project name. Every case retained one project and agent and stayed
+-connected. No listed shape caused a decoding error or `malformedResponse`.
+-
+-| Field | Absent | `{}` | `null` | `[]` | Required by Go 147? |
+-|---|---|---|---|---|---|
+-| `canvasState` | Accepted | Accepted | Accepted | Accepted | No; ignored |
+-| `appCanvasState` | Accepted | Accepted | Accepted | Accepted | No; ignored |
+-| `bulletinDigests` | Accepted | Accepted | Accepted | Accepted | No; ignored |
+-| `plugins[].contributes` | Accepted | Accepted | Accepted | Accepted | No; ignored |
+-| `snapshotTruncated` | Accepted | Accepted | Accepted | Accepted | No; ignored |
+-
+-An unknown outer `snapshotTruncated` was included too. All proposed omissions together,
+-with a payload `snapshotTruncated` object (`version`, `reason`, `omitted`, `bytes`), passed
+-in four shape variants. This does not imply core project/agent fields may be omitted.
+-
+-The icon tests first seeded both maps so retained and cleared identities are distinct.
+-
+-| `projectIcons` | `agentIcons` | Decode/catalog/connection | Project icon | Agent icon |
+-|---|---|---|---|---|
+-| Absent | Absent | Accepted | Retained | Retained |
+-| Absent | `{}` | Accepted | Cleared | Cleared |
+-| Absent | `null` | Accepted | Cleared | Cleared |
+-| `{}` | Absent | Accepted | Cleared | Cleared |
+-| `{}` | `{}` | Accepted | Cleared | Cleared |
+-| `{}` | `null` | Accepted | Cleared | Cleared |
+-| `null` | Absent | Accepted | Cleared | Cleared |
+-| `null` | `{}` | Accepted | Cleared | Cleared |
+-| `null` | `null` | Accepted | Cleared | Cleared |
+-
+-Build 147 replaces both cached maps when either field is present, substituting an empty
+-map for an absent companion. If both are absent it keeps both previous maps. The desktop
+-legacy overflow fallback should explicitly send both empty maps to clear prior images.
+-No claim is made that the proposed metadata-only overflow fallback has shipped.
+-
+-Reproduction (run from the worktree root; 33 cases in two tests):
+-
+-```sh
+-mkdir -p build/build147
+-# Only extract into a new/disposable directory.
+-git archive 6c32b12 | tar -x -C build/build147
+-cp Tests/Compatibility/Build147SnapshotShapeTests.swift build/build147/Tests/CompanionDomainTests/
+-swift test --package-path build/build147 --filter Build147SnapshotShapeTests
+-```
+-
+-The compatibility test is deliberately outside current package targets because it
+-asserts legacy behavior at the archived commit, including its icon-retention bug.
+diff --git a/docs/testing/icon-store.md b/docs/testing/icon-store.md
+deleted file mode 100644
+index b0e75f6..0000000
+--- a/docs/testing/icon-store.md
++++ /dev/null
+@@ -1,84 +0,0 @@
+-# Icon store test plan
+-
+-The contract-independent seam is `CompanionIconReference` (host, kind, id, opaque version)
+-and a cancellable fetch closure returning status, content type, and bounded bytes. No new
+-snapshot fields or capability names are assumed. Inline versions hash the decoded bytes.
+-
+-Deterministic domain tests use a temporary directory, generated PNGs, fake time and fetches:
+-
+-- Exact/over byte budgets, corrupt/truncated/non-image input, pixel limits and 3× thumbnails.
+-- Disk reuse across store instances, offline hits, atomic files and backup exclusion.
+-- Per-host hashed directories, token invalidation, complete snapshot removal.
+-- LRU eviction and total-byte bound, including pre-existing files.
+-- Visible-demand fetches, two concurrent requests, shared requests, waiter cancellation,
+-  host removal fencing late writes, negative caching and exponential backoff (including 404).
+-- Lightweight inline catalogs and identities: no base64/data retained after a large snapshot.
+-- All icons failing leaves chat/history/connection usable and avatars resolve to initials.
+-
+-Validation: package tests with coverage; coverage ratchet; Debug build-for-testing; Release
+-simulator build; app, preview, Dispatcher and long-reply suites on a new private simulator.
+-Never run live E2E, contact a physical phone, or control the host desktop app.
+-
+-## Validated on main 9441c43 with avatar parity
+-
+-- `swift test --enable-code-coverage`: 922 tests passed.
+-- `scripts/coverage.sh --skip-tests --check`: Transport 96.50%, Domain 94.31%, gates passed.
+-- Debug build-for-testing and Release simulator build passed.
+-- All 23 requested preview, Dispatcher and long-reply UI tests passed on a private
+-  iPhone 17 Pro / iOS 26.0 simulator. Eleven app tests passed in that same run.
+-- The full simulator result was **34 passed, 2 failed**: the avatar rendering and GIF
+-  tests were interrupted by the existing main-branch queue crash [#218](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/218#issuecomment-6569053862)
+-  during root-view startup. A separate targeted rerun passed both tests without another
+-  failure. This is a retry, not a clean all-at-once simulator pass.
+-- The frozen build-147 transport audit passed five tests, including the real-time grace
+-  check, omission shapes, core overflow options and fifteen permission-preview cases.
+-  Extra outer-event/snapshot negative controls passed in a targeted follow-up.
+-
+-Only the owned simulator and private loopback peers were used; both peers stopped and
+-that simulator was deleted after validation. The negotiated wire adapter remains off.
+-
+-## Rebased review on main 9d23c7f
+-
+-Package coverage tests and the coverage ratchet were rerun after integrating #216.
+-The previous simulator/build results above remain evidence for the prior base; they
+-were not rerun for this focused rebase request. No new wire adapter is enabled.
+-
+-Reviewed `git diff origin/main...HEAD` file by file, using merge base
+-`9d23c7f61cbe4d67cab00fd3e4e357cf44fc418c`. No existing file or test case is deleted.
+-All removed lines are intentional replacement of retained image bytes with references,
+-replacement of synchronous UIKit caching with async bounded loading, or corresponding
+-fixture/assertion updates. Main's catalog completeness, capability retention, Dispatcher
+-unknown state, loading navigation, chat deletion rules and foreground/identity tests
+-remain intact. An earlier two-tree comparison was against an origin/main that advanced
+-during validation; the final three-dot review is against the requested #216 base.
+-
+-File review:
+-
+-- `CompanionLiveService.swift`: icon catalog/store lifecycle and reference parameters only;
+-  #216 catalog/Dispatcher/capability state is preserved.
+-- `CompanionAgentFace.swift`, `CompanionMessageRouting.swift`, `CompanionModels.swift`:
+-  image presence/reference equality replaces byte equality; avatar precedence retained.
+-- `CompanionIconCatalog.swift`, `CompanionIconStore.swift`: new contract-independent
+-  inline adapter and bounded disk/decode/fetch implementation.
+-- `CompanionDesign.swift`: visible avatar tasks replace body decoding and old UIImage cache.
+-- `CompanionTimelineCards.swift`: routed face passes reference; main's long-output UI retained.
+-- `AnnexAppTelemetry.swift`, `AnnexTelemetry.swift`, `docs/opentelemetry.md`: additive
+-  closed-vocabulary icon measurements, keeping main's performance measurements.
+-- `CompanionAvatarRenderingTests.swift`, `CompanionIconDecoderTests.swift`: actual bounded
+-  image path and SVG/GIF smoke coverage; existing avatar test retained as async.
+-- `AppTelemetryTests.swift`: additive icon test; main's performance test preserved.
+-- `AnnexContractDispatcherTests.swift`, `AnnexContractDomainRobustnessTests.swift`,
+-  `AnnexContractDomainTests.swift`, `AnnexContractSenderIdentityTests.swift`: reference
+-  expectations; truncated fixture image headers rejected and valid raster supplied
+-  in memory for precedence tests. No server fixtures changed.
+-- `CompanionAgentFaceTests.swift`, `CompanionHomeLayoutTests.swift`,
+-  `CompanionLiveServiceSyncTests.swift`, `CompanionMessageRoutingTests.swift`: preserve
+-  cases and change icon arguments/assertions to references.
+-- `CompanionIconStoreTests.swift`: new bounds, disk, lifecycle, fallback and retention cases.
+-- `ScriptedAnnexTransport.swift`: optional injected temp icon store only; main's paused
+-  reads and refresh/failure helpers retained.
+-- `Build147SnapshotShapeTests.swift`, `Build147TransportAuditTests.swift`,
+-  `websocket_close_peer.py`: isolated archived-client compatibility harness additions.
+-- `docs/icon-store.md`, `docs/testing/icon-store.md`, `build147-overflow-options.md`,
+-  `build147-permission-previews.md`, `build147-snapshot-compatibility.md`: design,
+-  contract hold, measured compatibility results and validation limits.
