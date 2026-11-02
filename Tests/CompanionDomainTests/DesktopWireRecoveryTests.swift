@@ -11,6 +11,11 @@ private actor RecoverySocket: AnnexWebSocket {
     private(set) var closed = false
     var gap = false
     var replay: [AnnexEnvelope] = []
+    private var attachAck: AnnexEnvelope?
+    private(set) var attachRequests = 0
+    func configureAttach(bytes: Int) {
+        attachAck = .init(type: "pty:attach:ack", payload: .object(["agentId": .string("agent"), "buffer": .string(String(repeating: "x", count: bytes)), "cols": .integer(120), "rows": .integer(40)]))
+    }
     func setReplay(_ frames: [AnnexEnvelope], gap: Bool = false) { replay = frames; self.gap = gap }
     func receive() async throws -> Data {
         if closed { throw AnnexTransportError.disconnected }
@@ -27,6 +32,11 @@ private actor RecoverySocket: AnnexWebSocket {
     }
     func send(_ bytes: Data) throws {
         let frame = try JSONDecoder().decode(AnnexJSON.self, from: bytes)
+        if frame["type"]?.string == "pty:attach" {
+            attachRequests += 1
+            if let attachAck { try push([attachAck]) }
+            return
+        }
         guard frame["type"]?.string == "mobile:replay" else { return }
         if gap { try push([.init(type: "replay:gap", epoch: "epoch")]); return }
         let since = frame["since"]?.integer ?? 0
@@ -44,6 +54,25 @@ private actor RecoveryIO: AnnexIO {
     let rest: ScriptedAnnexTransport
     init(rest: ScriptedAnnexTransport) { self.rest = rest }
     private(set) var sockets: [RecoverySocket] = []
+    private var oversizeUntil: Date?
+    private var recoverAfterWindow = false
+    private var terminalAckBytes: Int?
+    func configureTerminal(bytes: Int) { terminalAckBytes = bytes }
+    private var recoveryTask: Task<Void, Never>?
+    func simulateOversizeWindow(seconds: TimeInterval) {
+        oversizeUntil = Date().addingTimeInterval(seconds)
+        recoverAfterWindow = true
+        recoveryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            await self?.finishOversizeWindow()
+        }
+    }
+    private func finishOversizeWindow() async {
+        oversizeUntil = nil
+        for socket in sockets where await !socket.closed {
+            try? await socket.push([recoverySnapshot(105)])
+        }
+    }
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
         let path = request.url?.path ?? ""
         let body: AnnexJSON
@@ -58,8 +87,18 @@ private actor RecoveryIO: AnnexIO {
         } else { body = .object([:]) }
         return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
     }
-    func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket {
-        let socket = RecoverySocket(); sockets.append(socket); return socket
+    func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket {
+        let socket = RecoverySocket(); sockets.append(socket)
+        if let terminalAckBytes {
+            await socket.configureAttach(bytes: terminalAckBytes)
+            try await socket.push([recoverySnapshot(0)])
+        }
+        if let oversizeUntil, Date() < oversizeUntil {
+            try await socket.push([.init(type: "error", payload: .object(["message": .string("snapshot_failed")]))])
+        } else if recoverAfterWindow {
+            try await socket.push([recoverySnapshot(105)])
+        }
+        return socket
     }
 }
 private func recoveryEvent(_ type: String, _ seq: Int64, _ data: [String: AnnexJSON]) -> AnnexJSON {
@@ -108,8 +147,13 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
     let clock: AnnexManualClock
     let monitor: AsyncThrowingStream<AnnexTransportEvent, Error>
     var host: CompanionHost? { store.hosts.first }
-    static func start() async throws -> Self {
+    static func start(liveClock: Bool = false, oversizeWindow: TimeInterval? = nil, terminalAckBytes: Int? = nil) async throws -> Self {
         let io = RecoveryIO(rest: ScriptedAnnexTransport()), clock = AnnexManualClock()
+        if let oversizeWindow { await io.simulateOversizeWindow(seconds: oversizeWindow) }
+        if let terminalAckBytes {
+            await io.configureTerminal(bytes: terminalAckBytes)
+            await io.rest.setCapability("terminal", .object(["version": .integer(1), "agentAttach": .bool(true), "projectShell": .bool(true), "agentShell": .bool(true)]))
+        }
         await io.rest.setRead("chat", recoveryHistory(final: false))
         await io.rest.setRead("chatHistory", recoveryHistory(final: false))
         let id = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
@@ -117,7 +161,7 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
             verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
         let credentials = MemoryAnnexCredentialStore()
         await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: id)
-        let transport = AnnexTransport(host: host, credentials: credentials, io: io, eventCapacity: 2048, telemetry: AnnexTelemetry(), clock: clock.clock)
+        let transport = AnnexTransport(host: host, credentials: credentials, io: io, eventCapacity: 2048, telemetry: AnnexTelemetry(), clock: liveClock ? .live : clock.clock)
         let monitor = await transport.events()
         let service = CompanionLiveService(), store = CompanionStore(service: service)
         store.start()
@@ -208,6 +252,176 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
         let stream = h.store.conversation(for: h.target).items.compactMap { if case .message(let m) = $0, m.id == "stream" { m.text } else { nil } }.first
         #expect(stream == "xxx")
         print("Head2ed9286 refresh: stale100 dropped at cursor105; follow-up105 accepted; three streaming refreshes make progress, no reconnect, final state intact")
+        await h.stop()
+    }
+}
+
+// Opt-in wall-clock experiment: run uses ContinuousClock to reset attempts, so a
+// test clock alone cannot establish its long-period cadence. This scripts the
+// audited server's wire promises; it does NOT execute or approve that server.
+@Suite @MainActor struct DesktopOversizeCooldownCadenceTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ANNEX_REAL_CADENCE_TESTS"] == "1"), .timeLimit(.minutes(7)))
+    func fiveMinuteWindowOn147RecoversThroughResync() async throws {
+        let started = ContinuousClock.now
+        let h = try await RecoveryHarness.start(liveClock: true, oversizeWindow: 300)
+        await h.makeHistoryFresh()
+        var attempts: [Int] = [], delays: [Double] = [], elapsed: [Duration] = []
+        var failures = 0, reconnectResyncs = 0
+        for try await event in h.monitor {
+            if case .message(let frame) = event {
+                if frame.type == "error", frame.payload?["message"]?.string == "snapshot_failed" { failures += 1 }
+                if frame.type == "snapshot" { break }
+            }
+            if case .resyncRequired(.reconnected) = event { reconnectResyncs += 1 }
+            if case .connection(.reconnecting(let attempt, let delay)) = event {
+                attempts.append(attempt); delays.append(delay); elapsed.append(ContinuousClock.now - started)
+                print("147 cooldown reconnect \(attempts.count): attempt=\(attempt) delay=\(delay) elapsed=\(elapsed.last!)")
+            }
+            if case .connection(.retrying) = event { Issue.record("Withheld oversize must not be labeled responseTooLarge") }
+        }
+        #expect(ContinuousClock.now - started >= .seconds(300))
+        #expect((9...10).contains(attempts.count))
+        #expect(attempts.allSatisfy { $0 == 1 })
+        #expect(delays.allSatisfy { (0.25...0.5).contains($0) })
+        #expect(failures == attempts.count + 1)
+        #expect(reconnectResyncs == attempts.count)
+        try await h.wait { h.host?.connection == .connected && h.store.conversation(for: h.target).requiresResync }
+        await h.store.load(h.target, force: true)
+        h.assertFinal()
+        print("69c626b7e scripted wire, live 147 clock: failures=\(failures), attempts=\(attempts), delays=\(delays), elapsed=\(elapsed), resyncs=\(reconnectResyncs); first good snapshot restores final state with full history load")
+        await h.stop()
+    }
+}
+
+// Opt-in wall-clock experiment: run uses ContinuousClock to reset attempts, so a
+// test clock alone cannot establish its long-period cadence. This scripts the
+// audited server's wire promises; it does NOT execute or approve that server.
+@Suite @MainActor struct DesktopFailureCooldownCadenceTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["ANNEX_REAL_CADENCE_TESTS"] == "1"), .timeLimit(.minutes(7)))
+    func failedBuildBackoffOn147RecoversThroughResync() async throws {
+        let started = ContinuousClock.now
+        let h = try await RecoveryHarness.start(liveClock: true, oversizeWindow: 160)
+        await h.makeHistoryFresh()
+        var attempts: [Int] = [], delays: [Double] = [], elapsed: [Duration] = []
+        var failures = 0, reconnectResyncs = 0
+        for try await event in h.monitor {
+            if case .message(let frame) = event {
+                if frame.type == "error", frame.payload?["message"]?.string == "snapshot_failed" { failures += 1 }
+                if frame.type == "snapshot" { break }
+            }
+            if case .resyncRequired(.reconnected) = event { reconnectResyncs += 1 }
+            if case .connection(.reconnecting(let attempt, let delay)) = event {
+                attempts.append(attempt); delays.append(delay); elapsed.append(ContinuousClock.now - started)
+                print("147 cooldown reconnect \(attempts.count): attempt=\(attempt) delay=\(delay) elapsed=\(elapsed.last!)")
+            }
+            if case .connection(.retrying) = event { Issue.record("Withheld oversize must not be labeled responseTooLarge") }
+        }
+        #expect(ContinuousClock.now - started >= .seconds(160))
+        #expect((4...5).contains(attempts.count))
+        #expect(attempts.allSatisfy { $0 == 1 })
+        #expect(delays.allSatisfy { (0.25...0.5).contains($0) })
+        #expect((attempts.count...(attempts.count + 1)).contains(failures))
+        #expect(reconnectResyncs == attempts.count)
+        try await h.wait { h.host?.connection == .connected && h.store.conversation(for: h.target).requiresResync }
+        await h.store.load(h.target, force: true)
+        h.assertFinal()
+        print("5cdd0c62 failed-build scripted wire, live 147 clock: failures=\(failures), attempts=\(attempts), delays=\(delays), elapsed=\(elapsed), resyncs=\(reconnectResyncs); first good snapshot restores final state with full history load")
+        await h.stop()
+    }
+}
+
+@Suite @MainActor struct DesktopFanoutRefreshTests {
+    @Test(arguments: [104, 105, 106])
+    func connectedPhoneAcceptsEqualReplaysAheadAndDropsOlderSnapshot(checkpoint: Int64) async throws {
+        let h = try await RecoveryHarness.start()
+        let socket = try #require(await h.io.sockets.first)
+        try await socket.push([recoverySnapshot(100, fresh: false)])
+        try await h.wait { h.host?.connection == .connected }
+        await h.makeHistoryFresh()
+        try await socket.push(recoveryFrames())
+        try await h.wait { h.store.conversation(for: h.target).lastSequence == 12 }
+        try await socket.push([recoverySnapshot(105)])
+        try await h.wait { h.host?.helperRequests.isEmpty == true && h.host?.projects.first?.agents.contains { $0.id.agentID == "q5" } == true }
+        // Connected sockets receive the ordinary refresh checkpoint, not their
+        // original connect seq. Only first-snapshot waiters use held.cursor.
+        let extra = AnnexEnvelope(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": recoveryFinalEvents.last!]), seq: 106, epoch: "epoch")
+        await socket.setReplay(checkpoint > 105 ? [extra] : [])
+        try await socket.push([recoverySnapshot(checkpoint, fresh: checkpoint >= 105), .init(type: "fixture:fanout")])
+        var gap = false, snapshotSeen = false, replayRecovered = false
+        for try await frame in h.monitor {
+            if frame == .resyncRequired(.sequenceGap) { gap = true }
+            if case .message(let e) = frame, e.type == "snapshot", e.snapshotSequence == checkpoint { snapshotSeen = true }
+            if case .message(let e) = frame, e.seq == 106, e.replayed == true { replayRecovered = true }
+            if checkpoint > 105 {
+                if replayRecovered { break }
+            } else if case .message(let e) = frame, e.type == "fixture:fanout" { break }
+        }
+        #expect(gap == (checkpoint > 105))
+        #expect(snapshotSeen == (checkpoint >= 105))
+        #expect(replayRecovered == (checkpoint > 105))
+        try await h.wait { h.host?.helperRequests.isEmpty == true }
+        h.assertFinal()
+        #expect(await socket.closed == false)
+        #expect(await h.io.sockets.count == 1)
+        print("5cdd0c62 connected cursor105 vs fanout\(checkpoint): gap=\(gap), deliveredSnapshot=\(snapshotSeen), no close; final chat/tool/queue/approval/catalog/helpers intact")
+        await h.stop()
+    }
+}
+
+@Suite @MainActor struct FirstSnapshotStateRecoveryTests {
+    @Test func droppedBusyFramesRecoverOnceThroughReplayAndProduceFinalState() async throws {
+        let h = try await RecoveryHarness.start()
+        let socket = try #require(await h.io.sockets.first)
+        await h.makeHistoryFresh()
+        await socket.setReplay(recoveryFrames())
+        try await socket.push(recoveryFrames() + [recoverySnapshot(100), recoveryFrames().last!])
+        try await h.wait { h.store.conversation(for: h.target).lastSequence == 12 && h.host?.helperRequests.isEmpty == true }
+        h.assertFinal()
+        try await socket.push([.init(type: "fixture:recovered")])
+        var delivered: [Int64] = [], reasons: [AnnexResyncReason] = []
+        for try await frame in h.monitor {
+            if case .resyncRequired(let reason) = frame { reasons.append(reason) }
+            if case .message(let e) = frame {
+                if let seq = e.seq { delivered.append(seq) }
+                if e.type == "fixture:recovered" { break }
+            }
+        }
+        #expect(delivered == [101, 102, 103, 104, 105])
+        #expect(reasons.isEmpty)
+        #expect(await h.io.sockets.count == 1)
+        await h.stop()
+    }
+}
+
+@Suite(.serialized) @MainActor struct TerminalBudgetEndToEndTests {
+    @Test(.timeLimit(.minutes(2)), arguments: [1_247_805, 26 * 1024 * 1024, 66 * 1024 * 1024])
+    func attachedTerminalReopensAndRepeatsOversizedAck(bytes: Int) async throws {
+        let h = try await RecoveryHarness.start(terminalAckBytes: bytes)
+        try await h.wait { h.host?.connection == .connected }
+        let channel = CompanionLiveTerminalChannel(transport: h.transport, scope: .agentPTY(h.target))
+        let session = CompanionTerminalSession(scope: .agentPTY(h.target), title: "PTY", channel: channel)
+        session.start()
+        if bytes < 16 * 1024 * 1024 {
+            try await h.wait { session.state == .running }
+            #expect(!session.screen.plainText().isEmpty)
+            #expect(await h.io.sockets.count == 1)
+        } else {
+            var waits: [Double] = []
+            for try await frame in h.monitor {
+                if case .connection(.retrying(_, let delay, .responseTooLarge)) = frame {
+                    waits.append(delay)
+                    #expect((30...45).contains(delay))
+                    try await h.wait { session.state == .reconnecting }
+                    if waits.count == 2 { break }
+                    await h.clock.waitForSleepers(1)
+                    h.clock.advance(by: .seconds(delay))
+                }
+            }
+            #expect(await h.io.sockets.count == 2)
+            for socket in await h.io.sockets { #expect(await socket.attachRequests == 1) }
+            print("Real transport+terminal session buffer\(bytes): auto-reattach twice -> oversized ack twice, waits=\(waits), terminal reconnecting")
+        }
+        session.close()
         await h.stop()
     }
 }

@@ -399,3 +399,54 @@ private actor FakeTerminalTransport: AnnexTransporting {
     let received = await collect(events, count: 3)
     #expect(received == [.opened(cwd: nil, snapshot: nil, cols: nil, rows: nil), .connectionLost, .connectionRestored])
 }
+
+@MainActor @Test(.enabled(if: ProcessInfo.processInfo.environment["ANNEX_REAL_CADENCE_TESTS"] == "1"), .timeLimit(.minutes(2)))
+func heldAttachReplyHasNoDeadlineAndReconnectAutomaticallyAttachesAgain() async throws {
+    let transport = FakeTerminalTransport()
+    let target = CompanionTarget(hostID: "h", projectID: "p", agentID: "agent")
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: .agentPTY(target))
+    let session = CompanionTerminalSession(scope: .agentPTY(target), title: "PTY", channel: channel)
+    session.start()
+    for _ in 0..<1000 where await transport.sent.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(await transport.sent == [.attach(agentID: "agent")])
+    let started = ContinuousClock.now
+    try await Task.sleep(for: .seconds(35))
+    #expect(session.state == .connecting)
+    #expect(await transport.sent.count == 1)
+    print("Held PTY ack: send completed, session still connecting after \(ContinuousClock.now - started); no ack timeout/outcome-unknown")
+    await transport.connection(.reconnecting(attempt: 1, delaySeconds: 1))
+    await transport.connection(.connected)
+    for _ in 0..<1000 where await transport.sent.count < 2 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(await transport.sent == [.attach(agentID: "agent"), .attach(agentID: "agent")])
+    let plain = String(repeating: String(repeating: "x", count: 120) + "\r\n", count: 10_229)
+    let renderStarted = ContinuousClock.now
+    await transport.push("pty:attach:ack", .object(["agentId": .string("agent"), "buffer": .string(plain), "cols": .integer(120), "rows": .integer(40)]))
+    for _ in 0..<1000 where session.state != .running { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(session.state == .running)
+    #expect(!session.screen.plainText().isEmpty)
+    print("Plain attach \(plain.utf8.count) bytes applied to real session/screen in \(ContinuousClock.now - renderStarted)")
+    session.close()
+}
+
+@MainActor @Test func terminalFailureNeedsExplicitRestartButConnectionLossReattaches() async throws {
+    let transport = FakeTerminalTransport()
+    let target = CompanionTarget(hostID: "h", projectID: "p", agentID: "agent")
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: .agentPTY(target))
+    let session = CompanionTerminalSession(scope: .agentPTY(target), title: "PTY", channel: channel)
+    session.start()
+    for _ in 0..<1000 where await transport.sent.isEmpty { try await Task.sleep(for: .milliseconds(5)) }
+    await transport.push("error", .object(["op": .string("pty:attach"), "agentId": .string("agent"), "message": .string("agent_not_running")]))
+    for _ in 0..<1000 {
+        if case .failed = session.state { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    guard case .failed = session.state else { Issue.record("Expected explicit terminal failure"); return }
+    await transport.connection(.reconnecting(attempt: 1, delaySeconds: 1))
+    await transport.connection(.connected)
+    await settle()
+    #expect(await transport.sent.count == 1)
+    session.restart()
+    for _ in 0..<1000 where await transport.sent.count < 2 { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(await transport.sent.count == 2)
+    session.close()
+}

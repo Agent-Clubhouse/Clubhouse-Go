@@ -38,6 +38,7 @@ function frame(opcode, payload) {
 
 const closes = [];
 const server = https.createServer({ cert, key, requestCert: true, rejectUnauthorized: false }, (req, res) => {
+  if (req.url === '/hold-command') { req.resume(); return; }
   if (req.url === '/trace') {
     const parent = req.headers.traceparent;
     const headers = { 'Content-Type': 'application/json' };
