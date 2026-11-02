@@ -157,18 +157,23 @@ Framebriar v0.5.0's Swift `Telemetry` (vendored from tag `v0.5.0`, commit
   a 403 stops it until the next enrollment. Memory only: nothing is written to disk. Settings states
   next to Developer feedback that enrolling also sends usage and diagnostic telemetry to the developer.
 - **Capture:** `AnnexTelemetry` captures while enrolled (`setEnrolledCapture`), independent of the
-  Connection diagnostics mode. Each completed record is forwarded as it ends (`setRecordSink`) through
+  Connection diagnostics mode. Each completed record is forwarded as it ends (`observeRecords`) through
   `AnnexAppTelemetry`, which maps it onto Framebriar's `app.*` conventions (`docs/app-telemetry-v1.md`
   in framebriar). Spans keep their trace/span/parent IDs and their events with event times, so
-  feedback incident references point at exported spans.
+  feedback incident references select completed operations that export spans. Lifecycle/navigation
+  operations exported only as unparented logs are excluded from incident references. Runtime creation
+  is lazy within the retained SwiftUI State lifetime; observer tokens and owner-specific enrollment
+  capture leases prevent a discarded or older bridge from replacing or clearing another observer.
+  DEBUG connection tracing uses an independent observer.
 - **One session ID:** the diagnostics `service.instance.id` is adopted as `FramebriarSession.id`, so the
   feedback report `sessionId`, the telemetry resource `session.id` and the incident `phoneInstanceId`
   are the same random UUID per process.
 - **Resource:** `service.name=clubhouse-annex` (gateway-stamped), `service.version=<version>+<build>`,
-  `session.id`. Every log and span carries `app.telemetry.schema_version=1` and `app.platform=ios`.
+  `session.id`. Every log and span carries `app.telemetry.schema_version=1` and `app.platform=ios`,
+  plus `app.build.sha` when the build supplies a commit.
 - **Flush:** every 60 s or 200 items while running, and on entering the background (the SDK's lifecycle
   observer, up to four batches in a background task). The ping summary is handed over at most once a
-  minute and when the scene leaves the foreground.
+  minute and when the scene enters the background.
 
 | Local record | Telemetry |
 |---|---|
@@ -183,7 +188,7 @@ Framebriar v0.5.0's Swift `Telemetry` (vendored from tag `v0.5.0`, commit
 | Connection, reconnect, first text delta | `app.connect.duration` and `app.first_token.duration` histograms (ms), `app.reconnects` counter |
 | Launch / enrollment | `app.session.start` log |
 | MetricKit (next launch) | `app.error` logs with `app.error.class` `crash`, `hang`, `cpu_exception`, `disk_write_exception`: numbers only, no call stacks |
-| Submitted feedback | `feedback.submitted` log with `feedback.report.id` and the incident's first trace; with the composer's "Include recent app diagnostics" on, the last five minutes of spans and logs are re-sent tagged `feedback.excerpt=true` |
+| Submitted feedback | `feedback.submitted` log with `feedback.report.id` and the incident's first trace; with the composer's "Include recent app diagnostics" on, eligible local/queued spans and logs from the last five minutes are tagged `feedback.excerpt=true`; already-sent records retain their original session/trace joins |
 
 The same privacy rules apply: only enum raw values, numbers and random UUIDs. No prompts, agent output,
 project/agent/session names, paths, hosts, URLs or error messages. Metric labels come only from small
@@ -228,3 +233,37 @@ probe while an open conversation is active records excess main-actor scheduling 
 100 ms or more count as over threshold. This can reveal a stall but is not a frame-rate/hitch metric
 and must not be interpreted as a measured display frame. Counts and sizes distinguish a long
 history, large rows, repeated body passes, and reconnect fan-out without exporting agent/session IDs.
+
+## Report delivery and local diagnostics preparation
+
+A successful submission commits the reviewed report to the SDK's durable local queue. Go wakes its
+foreground delivery pump when that queue grows, in addition to the periodic 15-second tick. Transient
+inactive scenes keep the feedback client resumed; true background pauses it. A report committed just
+before actual suspension can wait for foreground. The telemetry marker has its own immediate flush,
+so its timestamp does not prove report delivery. SDK report and access backoffs remain independent.
+
+`AnnexFeedbackDiagnostics` prepares a synchronous, immutable, memory-only diagnostics-v1 value from
+`AnnexTelemetry.snapshot()`, independently of OTLP export. **It is not connected to report submission.**
+It retains the newest 200 completed operations in a five-minute completion-time window and caps the
+entire encoded value at 64 KiB, trimming oldest entries. The provider reports ring/trim losses in
+`dropped` and omitted fields in `droppedAttrs`. `lines` counts entries; `bytes` is the UTF-8 size of
+compact JSON for the entries array. An opt-out value derives from the same frozen snapshot without
+recapture. Disabled/empty/missing/invalid providers have explicit state and closed reason values;
+disconnection alone does not discard failure or backoff entries.
+
+Entries use fixed namespace/operation/level values, mapped closed failure classes, non-negative
+allowlisted numbers, valid HTTP status codes, and validated lowercase connection/attempt/trace/span
+IDs. Available numeric fields are duration, attempt, backoff, byte counts, connect/TLS/first-byte
+milliseconds and HTTP status. Unknown fields are omitted and counted. Failure mapping preserves
+`overflow`, `busy` and `storage`; trust/identity/authentication/forbidden collapse to `auth`,
+invalid-input/malformed/unsupported/conflict/rejected collapse to `protocol`, and uncertain outcomes
+become `unknown`. Go currently combines cannot-connect and disconnected into `connection`, mapped to
+`closed`; it cannot reliably distinguish `refused`. Host/phone process identity stays in incident and
+resource metadata. No prompts, content, names, paths, addresses, URLs or error descriptions are added.
+SDK blocked/delivery status cannot be inferred from this local ring and is not fabricated.
+
+The report diagnostics release gate remains off, with a fake outgoing-request test proving the
+`diagnostics` field is absent. Enable only after confirmed API deployment, a compatible tagged SDK,
+and a separately validated Go adoption. The current 16-KiB endpoint can strip unknown fields or
+permanently reject larger reports; do not bypass the pinned SDK to send this prepared value.
+See [TestFlight release gates](testflight.md#report-diagnostics-release-gate).

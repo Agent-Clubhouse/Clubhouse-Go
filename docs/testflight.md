@@ -78,3 +78,24 @@ App Store Connect's privacy labels have no "opt-in" field. To say that collectio
 
 Internal TestFlight testers don't need review. External testers go through Beta App Review, which uses
 the note above.
+
+
+## Report diagnostics release gate
+
+The local `AnnexFeedbackDiagnostics` provider is preparation only. Report diagnostics sending is off
+(`CompanionFeedback.reportDiagnosticsSendingEnabled == false`), and the pinned SDK does not put a
+`diagnostics` field in outgoing reports. Keep it off until all three steps are complete:
+
+1. Framebriar confirms the deployed report API supports diagnostics v1 and the 256-KiB request limit.
+2. Framebriar tags a compatible SDK with synchronous frozen capture, durable retry persistence,
+   bounded validation, availability/delivery status and the combined diagnostics off switch.
+3. Go adopts and verifies that SDK, tests the actual outgoing payload against an authorized test
+   destination, and explicitly enables the feature in a separate change.
+
+The deployed 16-KiB endpoint strips unknown small fields and permanently rejects oversized reports,
+which can block the local outbox. Do not add the proposed field manually. Local provider tests do not
+prove server support. On adoption, review the included-content summary and enrollment disclosure
+against App Privacy declarations; the off switch must remove entries, incident and flat trace/span
+references while preserving the user's notes and reviewed image. A server `storage-failed` result
+means the report was accepted but its diagnostics blob failed, so it must not be shown as a rejected
+report. No new report data is transmitted by the preparatory provider.
