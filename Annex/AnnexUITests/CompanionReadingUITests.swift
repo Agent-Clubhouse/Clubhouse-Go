@@ -10,6 +10,10 @@ import XCTest
         waitAndTap(river, until: element(app, "companion-composer"))
     }
     private func marker(_ app: XCUIApplication, _ number: Int) -> XCUIElement { app.staticTexts["Reading marker \(number)."] }
+    private func screenshot(_ app: XCUIApplication, _ name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
+    }
+
 
     func testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"], allowance: 360)
@@ -17,7 +21,7 @@ import XCTest
         let latest = app.buttons["Latest"]
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Opening at the latest hides the indicator")
         XCTAssertLessThan(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).count, 40, "The reading fixture uses a small window")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.01)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.04)).tap()
         let earlier = app.buttons["companion-show-earlier"]
         XCTAssertTrue(earlier.waitForExistence(timeout: 10))
         XCTAssertTrue(bringTranscriptRowIntoView(earlier, in: app))
@@ -92,6 +96,7 @@ import XCTest
         toggle.tap()
         XCTAssertFalse(output.exists)
         XCTAssertTrue(status.exists && status.label.contains("Failed"), "The failure remains outside the output fold")
+        screenshot(app, "Failed tool status remains visible with folded output")
     }
 
     func testCompactActivityBuildsNoHiddenDetailAndNavigationSkipsIt() {
@@ -103,8 +108,12 @@ import XCTest
         let part = element(app, "companion-routed-relay-1-0")
         XCTAssertFalse(part.exists, "Closed activity constructs no routed content")
         XCTAssertTrue(group.label.contains("2 messages") && group.label.contains("Dispatcher"))
+        screenshot(app, "Routine helper traffic collapsed")
         tapToExpand(group)
         XCTAssertEqual(part.label, "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.")
+        XCTAssertTrue(bringTranscriptRowIntoView(part, in: app))
+        screenshot(app, "Routine helper traffic expanded with sender boundaries")
+        XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
         group.tap()
         XCTAssertFalse(part.exists)
         let previous = app.buttons["companion-previous-message"]

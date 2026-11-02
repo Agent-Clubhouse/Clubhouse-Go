@@ -173,7 +173,8 @@ class ReliableUITestCase: XCTestCase {
         repeat {
             if target.exists { return }
             let groups = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-activity-' AND value == 'Collapsed'"))
-            if let group = groups.allElementsBoundByIndex.last {
+            if let candidate = groups.allElementsBoundByIndex.last {
+                let group = app.buttons[candidate.identifier]
                 XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
                 tapToExpand(group)
             } else { _ = target.waitForExistence(timeout: 1) }
