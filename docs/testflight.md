@@ -121,6 +121,11 @@ let bound reports deliver and explicitly release or clear held reports. Follow t
 [rollback guidance](https://github.com/masra91/framebriar/blob/f57b75fe5d38d7e2c3d221d246c9e01445da41dc/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
 changing only the dependency pin is not a supported rollback.” This draft is not a release announcement.
 
+Migration limit: older queued reports have no enrollment ref. On first load the SDK binds them to
+an enrollment present then, which may differ from the one used when they were captured. If no
+enrollment is present, they become unbound/held instead. The new guarantee cannot reconstruct
+missing legacy attribution; include this limit in candidate/release review.
+
 ### Draft App Privacy update — NOT EFFECTIVE
 
 This is a release-review draft for future tagged-SDK adoption, not a change to

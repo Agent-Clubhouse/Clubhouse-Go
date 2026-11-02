@@ -321,6 +321,11 @@ are fenced as blocked, but an older Swift writer re-encodes away the ref/held ma
 they can only be cleared, not released. Before a planned downgrade, let bound reports deliver and
 explicitly release or clear held reports; do not silently clear the queue or merely revert the pin.
 
+Legacy queue entries have no enrollment ref. The tagged migration binds them to whichever enrollment
+exists at first load, even if they were originally captured under another one; that attribution limit
+cannot be recovered from the old bytes. If first loaded unenrolled they are persisted as unbound and
+stay held after re-enrollment. Do not imply all pre-adoption reports have a proven original binding.
+
 ### Adoption checks
 
 - [x] Obtain exact tag/commit/API from the orchestrator; refresh the complete SDK with the verified
