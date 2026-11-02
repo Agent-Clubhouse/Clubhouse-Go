@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import ImageIO
+import UniformTypeIdentifiers
 @testable import ClubhouseGo
 
 final class CompanionIconDecoderTests: XCTestCase {
@@ -31,4 +32,44 @@ final class CompanionIconDecoderTests: XCTestCase {
         let result = await store.ingest(dataURL: dataURL, host: "fixture", kind: .agent, id: "svg")
         XCTAssertNil(result, "SVG always uses initials or a server raster; never render arbitrary vectors")
     }
+    @MainActor func testAnimatedGIFDataURLUsesItsFirstRasterFrame() async throws {
+        let context = try XCTUnwrap(CGContext(data: nil, width: 8, height: 8, bitsPerComponent: 8,
+                                              bytesPerRow: 32, space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        let bytes = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(bytes, UTType.gif.identifier as CFString, 2, nil))
+        CGImageDestinationSetProperties(destination, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+        for color in [CGColor(red: 1, green: 0, blue: 0, alpha: 1), CGColor(red: 0, green: 0, blue: 1, alpha: 1)] {
+            context.setFillColor(color); context.fill(CGRect(x: 0, y: 0, width: 8, height: 8))
+            CGImageDestinationAddImage(destination, try XCTUnwrap(context.makeImage()), [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 0.1]] as CFDictionary)
+        }
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        let data = bytes as Data
+        let dataURL = "data:image/gif;base64," + data.base64EncodedString()
+        let decoded = try XCTUnwrap(CompanionIdentityColor.data(fromDataURL: dataURL))
+        XCTAssertEqual(decoded, data)
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        XCTAssertEqual(CGImageSourceGetCount(source), 2)
+        let image = try XCTUnwrap(UIImage(data: decoded))
+        XCTAssertGreaterThan(image.size.width, 0); XCTAssertGreaterThan(image.size.height, 0)
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("icon-gif-audit-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        let ingested = await store.ingest(dataURL: dataURL, host: "fixture", kind: .agent, id: "gif")
+        let key = try XCTUnwrap(ingested)
+        let loaded = await store.image(for: key, points: 32)
+        let thumbnail = try XCTUnwrap(loaded)
+        XCTAssertGreaterThan(thumbnail.cgImage.width, 0); XCTAssertGreaterThan(thumbnail.cgImage.height, 0)
+        func firstPixelIsRed(_ image: CGImage) throws -> Bool {
+            let canvas = try XCTUnwrap(CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            canvas.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            let pixel = try XCTUnwrap(canvas.data).assumingMemoryBound(to: UInt8.self)
+            return pixel[0] > 200 && pixel[2] < 50
+        }
+        XCTAssertTrue(try firstPixelIsRed(XCTUnwrap(image.cgImage)))
+        XCTAssertTrue(try firstPixelIsRed(thumbnail.cgImage))
+        print("ICON_GIF_AUDIT frames=2 uiImage=true uiWidth=\(image.size.width) uiHeight=\(image.size.height) store=true storeWidth=\(thumbnail.cgImage.width) storeHeight=\(thumbnail.cgImage.height) firstFrameRed=true")
+    }
+
 }

@@ -43,6 +43,11 @@ actor CompanionIconStore {
         let status: Int
         let contentType: String
         let data: Data
+        /// Normalized identity of the returned bytes, supplied by the adapter (e.g. a strong ETag).
+        let version: String?
+        init(status: Int, contentType: String, data: Data, version: String? = nil) {
+            self.status = status; self.contentType = contentType; self.data = data; self.version = version
+        }
     }
     typealias Fetcher = @Sendable (CompanionIconReference, Int) async throws -> Response
     struct Statistics: Sendable {
@@ -182,14 +187,21 @@ actor CompanionIconStore {
         let span = AnnexTelemetry.shared.begin(.iconFetch)
         span.number(.durationMs, Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15)
         var success = false
+        var superseded = false
         if !cancelled, case .success(let response) = result {
             span.number(.responseBytes, Double(response.data.count))
-            success = response.status == 200 && response.contentType.lowercased().hasPrefix("image/") && insert(response.data, for: key)
+            if response.status == 200, response.contentType.lowercased().hasPrefix("image/"),
+               let version = response.version, !version.isEmpty {
+                let returned = CompanionIconReference(host: key.host, kind: key.kind, id: key.id, version: version)
+                let admitted = insert(response.data, for: returned)
+                success = admitted && returned == key
+                superseded = returned != key
+            }
         }
         if !success, !cancelled {
             let attempts = min(8, (failures[key]?.attempts ?? 0) + 1)
             if failures.count >= 1024, let oldest = failures.min(by: { $0.value.retry < $1.value.retry })?.key { failures.removeValue(forKey: oldest) }
-            failures[key] = .init(attempts: attempts, retry: now().addingTimeInterval(min(3600, 30 * pow(2, Double(attempts - 1)))))
+            failures[key] = .init(attempts: attempts, retry: superseded ? .distantFuture : now().addingTimeInterval(min(3600, 30 * pow(2, Double(attempts - 1)))))
             recordFailure()
         }
         span.fail(success ? .none : cancelled ? .cancelled : .malformed); span.end()
