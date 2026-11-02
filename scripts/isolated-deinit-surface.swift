@@ -116,7 +116,14 @@ final class Surface: SyntaxVisitor {
     }
     override func visitPost(_ node: ClassDeclSyntax) { path.removeLast() }
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-        path.append(node.name.text); values[path.joined(separator: ".")] = properties(node.memberBlock.members)
+        path.append(node.name.text)
+        var ancestor = Syntax(node).parent
+        var isLocal = false
+        while let current = ancestor {
+            if current.is(CodeBlockSyntax.self) || current.is(ClosureExprSyntax.self) { isLocal = true; break }
+            ancestor = current.parent
+        }
+        if !isLocal { values[path.joined(separator: ".")] = properties(node.memberBlock.members) }
         return .visitChildren
     }
     override func visitPost(_ node: StructDeclSyntax) { path.removeLast() }

@@ -77,3 +77,8 @@ class OwnershipSurfaceTests(unittest.TestCase):
         a, b = self.surfaces(source, source.replace('Data', 'UIView'))
         self.assertEqual(a['classes']['Owner']['properties']['item'], 'Data || String')
         self.assertNotEqual(a['classes'], b['classes'])
+
+    def test_method_local_value_types_are_not_owned_class_storage(self):
+        source = 'class Owner { var count = 0; func unrelated() { struct Temporary { var value: Int } } }'
+        a, b = self.surfaces(source, source.replace('value: Int', 'value: UIView'))
+        self.assertEqual(a['classes'], b['classes'])
