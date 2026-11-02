@@ -19,6 +19,7 @@ import ClubhouseTransport
     var restoreError: String?
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
+    private(set) var restoredHostIDs: Set<String>?
     private var started = false
     private var rediscovering: Set<String> = []
     private var nextRediscovery: [String: Date] = [:]
@@ -53,7 +54,9 @@ import ClubhouseTransport
         service.prepareResume = { [weak self] in await self?.switchToAnsweringRoutes() ?? [] }
         defer { isRestoring = false }
         do {
-            for registration in try await registry.restoreSaved() { await service.register(await answeringRoute(for: registration)) }
+            let restored = try await registry.restoreSaved()
+            restoredHostIDs = Set(restored.map { $0.host.hostID })
+            for registration in restored { await service.register(await answeringRoute(for: registration)) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
     }
     /// The desktop at the first of its saved routes that answers with its pinned certificate, so opening
@@ -86,6 +89,7 @@ import ClubhouseTransport
         preferences.saveDeviceName()
         if remember { sessionHosts.remove(host.hostID) }
         else { sessionHosts.insert(host.hostID) }
+        restoredHostIDs?.insert(host.hostID)
         await service.register(registration)
     }
     /// Pairs from a scanned or opened QR invitation. Tries each advertised address in order and only pairs
@@ -139,12 +143,14 @@ import ClubhouseTransport
     func forget(hostID: String) async throws {
         try await registry.remove(hostID: hostID)
         sessionHosts.remove(hostID)
+        restoredHostIDs?.remove(hostID)
         service.remove(hostID: hostID)
         if store.selection?.hostID == hostID { store.selection = nil }
     }
     func endSession(hostID: String) async throws {
         try await registry.revokeSessionAndRemove(hostID: hostID)
         sessionHosts.remove(hostID)
+        restoredHostIDs?.remove(hostID)
         service.remove(hostID: hostID)
         if store.selection?.hostID == hostID { store.selection = nil }
     }
@@ -181,7 +187,7 @@ struct CompanionAppRoot: View {
     }
     var body: some View {
         ZStack {
-            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true })
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true }, pairedHostIDs: runtime.restoredHostIDs)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -352,6 +358,9 @@ struct CompanionSettingsSheet: View {
                          + (shared.isEmpty ? "" : " \(shared.formatted(.list(type: .and))) \(shared.count == 1 ? "shares its" : "share their") pins and idle projects, and \(shared.count == 1 ? "uses its" : "use their") own setting."))
                 }
                 Section {
+                    CompanionStartScreenPicker(preferences: runtime.preferences)
+                } footer: { Text("Applies the next time you open Clubhouse Go. If the Dispatcher is off, opens Home.") }
+                Section {
                     CompanionDeviceNameField(preferences: runtime.preferences)
                 } header: { Text("This phone") } footer: {
                     Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
@@ -399,3 +408,15 @@ struct CompanionSettingsSheet: View {
     }
 }
 
+
+/// Shared with the preview so launch-preference UI tests exercise the production control.
+struct CompanionStartScreenPicker: View {
+    @Bindable var preferences: CompanionPreferences
+    var body: some View {
+        Picker("Start screen", selection: $preferences.startScreen) {
+            ForEach(CompanionStartScreen.allCases, id: \.self) { screen in Text(screen.label).tag(screen) }
+        }
+        .pickerStyle(.navigationLink)
+        .accessibilityIdentifier("companion-start-screen")
+    }
+}

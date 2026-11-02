@@ -5,6 +5,7 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
+    var isVisible = true
     @State private var followLatest = true
     @State private var confirmCancel = false
     @State private var showArchive = false
@@ -111,14 +112,20 @@ struct CompanionConversationView: View {
             }
         }
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
+        .safeAreaBar(edge: .top, spacing: 0) { if isVisible { otherAgentBanner } }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
+            if isVisible {
+                if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
+            }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
-        .task(id: target) { await store.load(target, force: conversation.requiresResync) }
+        .task(id: isVisible) {
+            guard isVisible else { return }
+            await store.load(target, force: conversation.requiresResync)
+        }
+        .onChange(of: isVisible) { _, visible in if !visible { composerFocused = false } }
         .onChange(of: connection) { _, current in
-            if current.canOperate && conversation.requiresResync && !conversation.isLoading {
+            if isVisible && current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
             }
         }
