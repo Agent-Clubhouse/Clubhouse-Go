@@ -95,8 +95,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         _ = paste.waitForExistence(timeout: 1)
         waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
         paste.tap()
-        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", raw), timeout: 5),
-                      "Copy from one part keeps the entire raw delivery")
+        // Focused UITextView AX values can lag the visibly pasted text on iOS 26.5. Reopening also proves
+        // the complete raw delivery reached the draft binding, rather than only the UIKit editor.
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(river.waitForExistence(timeout: 10))
+        XCTAssertTrue(scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
+        let restored = app.textFields["companion-composer"]
+        XCTAssertTrue(waitFor(restored, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "Copy from one part preserves the entire raw delivery in the draft after navigation")
     }
 
     /// SwiftUI can report a caption below the scroll viewport as hittable. Keep taps inside the transcript,
