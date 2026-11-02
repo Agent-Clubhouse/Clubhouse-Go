@@ -489,7 +489,7 @@ import Observation
     }
 
     static func validAnswers(_ answers: [String: CompanionAnswer], for question: CompanionQuestion) -> Bool {
-        guard Set(answers.keys) == Set(question.prompts.map(\.id)) else { return false }
+        guard question.canAnswerOnPhone, Set(answers.keys) == Set(question.prompts.map(\.id)) else { return false }
         return question.prompts.allSatisfy { prompt in
             guard let answer = answers[prompt.id] else { return false }
             switch answer {

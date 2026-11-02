@@ -80,11 +80,16 @@ nonisolated enum AnnexHTTPValidation {
         case 401: return .unauthorized
         case 403: return .forbidden
         default:
-            // Only known machine codes are retained, never server-provided content.
-            let code = (try? JSONDecoder().decode(AnnexJSON.self, from: response.data))?["error"]?.string
+            // Keep a machine code for classification and plain desktop text for the user.
+            // Diagnostics classify this error without recording either string.
+            let body = try? JSONDecoder().decode(AnnexJSON.self, from: response.data)
+            let code = body?["error"]?.string
             let safe = code.flatMap { $0.count <= 80 && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }) ? $0 : nil }
             if response.status == 429 { return .rateLimited(code: safe, retryAfterSeconds: response.retryAfter) }
-            return .rejected(status: response.status, code: safe)
+            let message = body?["message"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return .rejected(status: response.status, code: safe, message: message.flatMap {
+                $0.isEmpty || $0 == code ? nil : String($0.prefix(500))
+            })
         }
     }
 }

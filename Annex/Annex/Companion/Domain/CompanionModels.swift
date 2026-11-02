@@ -552,6 +552,13 @@ struct CompanionQuestion: Identifiable, Sendable, Equatable {
     enum Resolution: Sendable, Equatable { case pending, submitting, answered, cancelled, uncertain }
     var id: String
     var prompts: [Prompt]
+    /// The desktop supplied a prompt this client could not read. Never answer a partial list.
+    var hasUnreadablePrompts = false
+    var canAnswerOnPhone: Bool {
+        !hasUnreadablePrompts && !prompts.isEmpty && Set(prompts.map(\.id)).count == prompts.count
+            && prompts.allSatisfy { !$0.id.isEmpty && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+    var desktopAnswerMessage: String? { canAnswerOnPhone ? nil : "Answer this question on the desktop. This phone can't show all of its prompts." }
     var resolution: Resolution = .pending
 }
 

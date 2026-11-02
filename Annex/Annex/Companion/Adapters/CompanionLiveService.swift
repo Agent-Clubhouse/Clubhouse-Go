@@ -163,8 +163,9 @@ import ClubhouseTransport
     /// The desktop answers 404 agent_not_found for a removed agent and 500 chat_sessions_failed when it can't read its store.
     static func sessionsReadError(_ error: Error) -> String {
         switch error as? AnnexTransportError {
-        case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
-        case .rejected(500, _): "The desktop couldn't read this agent's past conversations. Try again later."
+        case .rejected(_, _, let message?): message
+        case .rejected(404, let code?, _): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
+        case .rejected(500, _, _): "The desktop couldn't read this agent's past conversations. Try again later."
         default: readableError(error)
         }
     }
@@ -216,13 +217,13 @@ import ClubhouseTransport
     /// An upload whose reply was lost is harmless (the next try gets a new id), so every failure here can be retried.
     static func uploadError(_ error: Error) -> Error {
         switch error as? AnnexTransportError {
-        case .rejected(409, "not_chat"): return CompanionServiceError.rejected(notChatMessage)
-        case .rejected(409, "images_not_supported"): return CompanionAttachmentError.imagesNotSupported
-        case .rejected(413, _): return CompanionServiceError.rejected("This image is too large for the desktop.")
-        case .rejected(415, _): return CompanionServiceError.rejected("The desktop can't read this image.")
-        case .rejected(404, "agent_not_found"): return CompanionServiceError.rejected("This agent is no longer on your desktop.")
+        case .rejected(409, "not_chat", _): return CompanionServiceError.rejected(notChatMessage)
+        case .rejected(409, "images_not_supported", _): return CompanionAttachmentError.imagesNotSupported
+        case .rejected(413, _, _): return CompanionServiceError.rejected("This image is too large for the desktop.")
+        case .rejected(415, _, _): return CompanionServiceError.rejected("The desktop can't read this image.")
+        case .rejected(404, "agent_not_found", _): return CompanionServiceError.rejected("This agent is no longer on your desktop.")
         // `empty_body` / `upload_failed`: the request didn't arrive whole.
-        case .rejected(400, _): return CompanionServiceError.rejected("The image couldn't be uploaded. Check the connection and try again.")
+        case .rejected(400, _, _): return CompanionServiceError.rejected("The image couldn't be uploaded. Check the connection and try again.")
         case .rateLimited(_, let seconds): return CompanionAttachmentError.rateLimited(retryAfter: seconds)
         case .some(let error): return CompanionServiceError.rejected(readableError(error))
         case nil:
@@ -276,9 +277,10 @@ import ClubhouseTransport
     /// The desktop answers every refused preview with the same code, so name the likely reason for this reference.
     static func contentErrorMessage(_ error: Error, reference: CompanionContentReference, hostName: String) -> String {
         switch error as? AnnexTransportError {
-        case .rejected(404, "agent_not_found"): return "This agent is no longer on \(hostName)."
+        case .rejected(_, _, let message?): return message
+        case .rejected(404, "agent_not_found", _): return "This agent is no longer on \(hostName)."
         // The desktop answers an invalid reference like a missing one (404 content_unavailable), so the phone does too.
-        case .rejected(404, _), .invalidEndpoint:
+        case .rejected(404, _, _), .invalidEndpoint:
             if case .file = reference {} else { return "This image is no longer available on \(hostName)." }
             return "\(hostName) couldn't share this file. It may have moved, or be outside the agent's folders."
         case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
@@ -452,9 +454,10 @@ import ClubhouseTransport
     }
     static func changesReadError(_ error: Error) -> String {
         switch error as? AnnexTransportError {
+        case .rejected(_, _, let message?): message
         case .responseTooLarge: "This file is too large to show on your phone."
-        case .rejected(404, _): "The desktop no longer has this project."
-        case .rejected(500, _): "The desktop couldn't read this project's changes."
+        case .rejected(404, _, _): "The desktop no longer has this project."
+        case .rejected(500, _, _): "The desktop couldn't read this project's changes."
         default: readableError(error)
         }
     }
@@ -500,7 +503,8 @@ import ClubhouseTransport
     /// `subject` names what was read, as the screen calls it: "settings", or "new agent options".
     static func agentReadError(_ error: Error, subject: String = "settings") -> String {
         switch error as? AnnexTransportError {
-        case .rejected(404, let code?): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
+        case .rejected(_, _, let message?): message
+        case .rejected(404, let code?, _): CompanionAgentCommandError.message(code: code, message: nil) ?? readableError(error)
         case .malformedResponse: "The desktop sent \(subject) this phone can't read. Updating the desktop may help."
         default: readableError(error)
         }
@@ -693,7 +697,7 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .failed(Self.readableError(error))
             case .retrying(_, _, let error):
                 cancelRefresh(hostID: hostID)
-                hosts[hostID]?.connection = .failed(Self.readableError(error))
+                hosts[hostID]?.connection = .failed(Self.readableError(error) + (error == .responseTooLarge ? " We'll try again shortly." : ""))
             }
             emitHosts()
             switch state {
@@ -1265,15 +1269,17 @@ import ClubhouseTransport
         case .unauthorized, .credentialMissing: return "Pair this desktop again to restore access."
         case .forbidden: return "This desktop has not granted mobile control. Pair again using the secure invitation."
         case .disconnected: return "The desktop is offline. Reconnect to continue."
-        case .responseTooLarge: return "The desktop sent more data than your phone can accept. We'll try again shortly."
+        case .responseTooLarge: return "The desktop sent more data than your phone can accept."
         case .unsupportedCapability: return "This action is not supported by the connected desktop."
         case .commandOutcomeUnknown: return "Delivery is unknown. Refresh the conversation to check the result."
         case .pairingRevocationOutcomeUnknown: return "The desktop may have ended this pairing, but its reply was lost. Access is kept here so you can check desktop settings before forgetting this device."
         case .commandInFlight: return "Another command is being sent to this desktop. Try again when it finishes."
         case .invalidEndpoint: return "Enter a valid desktop address and port."
         case .rateLimited: return "The desktop is busy. Try again in a moment."
-        case .rejected(_, let code) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
-        case .rejected(let status, let code): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
+        case .rejected(_, let code, _) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
+        case .rejected(_, _, let message?): return message
+        case .rejected(_, "pending_overflow", _): return "There are too many pending requests to show on your phone. Review them on the desktop, then refresh this conversation."
+        case .rejected(let status, let code, _): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
         default: return "The desktop connection could not complete. Reconnect and try again."
         }
     }
