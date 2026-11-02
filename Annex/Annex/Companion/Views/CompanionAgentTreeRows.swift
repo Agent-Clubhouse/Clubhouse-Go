@@ -10,8 +10,9 @@ struct CompanionAgentTreeRows: View {
 
     var body: some View {
         let collapsed = preferences.collapsedAgents(in: rows)
+        let hasDisclosureColumn = rows.contains { $0.rollup.count > 0 }
         ForEach(tree.visible(rows, collapsed: collapsed)) { row in
-            CompanionAgentTreeNavigationRow(row: row, collapsed: collapsed.contains(row.id), parentLine: parentLines[row.id],
+            CompanionAgentTreeNavigationRow(row: row, collapsed: collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn,
                                             toggle: { preferences.toggleAgentCollapsed(row.id) })
                 .equatable()
                 .listRowBackground(CompanionCardBackground())
@@ -23,11 +24,12 @@ private struct CompanionAgentTreeNavigationRow: View, Equatable {
     let row: CompanionAgentTreeRow
     let collapsed: Bool
     let parentLine: String?
+    let hasDisclosureColumn: Bool
     let toggle: () -> Void
     @Environment(\.companionPalette) private var palette
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.row == rhs.row && lhs.collapsed == rhs.collapsed && lhs.parentLine == rhs.parentLine
+        lhs.row == rhs.row && lhs.collapsed == rhs.collapsed && lhs.parentLine == rhs.parentLine && lhs.hasDisclosureColumn == rhs.hasDisclosureColumn
     }
 
     var body: some View {
@@ -44,6 +46,8 @@ private struct CompanionAgentTreeNavigationRow: View, Equatable {
                 .accessibilityValue(collapsed ? "Collapsed" : "Expanded")
                 .accessibilityHint(collapsed ? "Shows helpers" : "Hides helpers")
                 .accessibilityIdentifier("helpers-toggle-\(row.id.hostID)-\(row.id.agentID)")
+            } else if hasDisclosureColumn {
+                Color.clear.frame(width: 44, height: 1).accessibilityHidden(true)
             }
             NavigationLink(value: row.id) {
                 CompanionAgentListRow(agent: row.agent, parentLine: parentLine, helperRollup: collapsed ? row.rollup : nil)

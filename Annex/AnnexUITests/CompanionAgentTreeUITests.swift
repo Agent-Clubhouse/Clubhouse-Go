@@ -18,7 +18,8 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Expanded")
         XCTAssertTrue(child.exists && nested.exists, "An awake helper keeps sleeping Cedar out of the sleeping fold")
-        XCTAssertGreaterThan(nested.frame.minX, parent.frame.minX)
+        XCTAssertTrue(scrollTo(nested, in: app))
+        XCTAssertGreaterThan(app.staticTexts["Juniper"].firstMatch.frame.minX, app.staticTexts["Cedar"].firstMatch.frame.minX)
         shot(app, "Home nested helpers expanded")
         parent.tap()
         XCTAssertTrue(child.waitForNonExistence(timeout: 5))
@@ -44,13 +45,12 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(quick, in: app))
 
         // Needs you is a flat destination and still opens River while Cedar is folded.
-        app.tabBars.buttons["Needs you"].tap()
         let river = element(app, "agent-preview-studio-river")
         let composer = element(app, "companion-composer")
+        XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: composer)
         XCTAssertTrue(app.navigationBars["River"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.tabBars.buttons["Home"].tap()
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Collapsed", "Direct navigation preserves disclosure")
     }
