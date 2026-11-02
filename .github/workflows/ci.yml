@@ -217,11 +217,6 @@ jobs:
         timeout-minutes: 5
         run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
-      # Runs the unfixed compiler-generated path too: no OS guard or test-framework task locals.
-      - name: Observe installed runtime isolated-deinit control
-        if: matrix.unit
-        run: scripts/probe-isolated-deinit-runtime.sh "$SIMULATOR_UDID"
-
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
@@ -255,7 +250,24 @@ jobs:
           path: |
             TestResults
             xcodebuild-*.log
+          retention-days: 7
+
+      # Observation cannot prevent tests/results from running. No OS guard or test-framework task locals.
+      - name: Observe installed runtime isolated-deinit control
+        if: ${{ matrix.unit && !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 6
+        run: scripts/probe-isolated-deinit-runtime.sh "$SIMULATOR_UDID"
+
+      - name: Upload runtime observation
+        if: ${{ always() && matrix.unit }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-deinit-runtime
+          path: |
             build/isolated-deinit-runtime/*.log
+            build/isolated-deinit-runtime/summary.json
           retention-days: 7
 
   # One check that is green when every lane this change needs passed (skipped lanes are fine).

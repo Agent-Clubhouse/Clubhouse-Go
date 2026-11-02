@@ -34,13 +34,18 @@ func probe(_ mode: String) {
 }
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
+    func finish(_ mode: String) -> Never {
+        print("PROBE exit requested mode=\(mode)"); fflush(stdout)
+        exit(0)
+    }
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         let args = ProcessInfo.processInfo.arguments
         let mode = args.dropFirst().first ?? "outside"
+        print("PROBE launch mode=\(mode)"); fflush(stdout)
         let w = UIWindow(frame: UIScreen.main.bounds); w.rootViewController = UIViewController(); w.makeKeyAndVisible(); window = w
         if mode == "async" {
-            Task { @MainActor in Locals.$value.withValue(1) { releaseDefault() }; print("PROBE passed mode=async task=\(withUnsafeCurrentTask { $0 != nil })"); fflush(stdout); exit(0) }
-        } else { probe(mode); exit(0) }
+            Task { @MainActor in Locals.$value.withValue(1) { releaseDefault() }; print("PROBE passed mode=async task=\(withUnsafeCurrentTask { $0 != nil })"); fflush(stdout); finish(mode) }
+        } else { probe(mode); finish(mode) }
         return true
     }
 }
