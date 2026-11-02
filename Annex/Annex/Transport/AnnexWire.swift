@@ -79,6 +79,9 @@ nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
 nonisolated public enum AnnexConnectionState: Sendable, Equatable {
     case disconnected, connecting, connected, suspended
     case reconnecting(attempt: Int, delaySeconds: Double)
+    /// The host is reachable but its response needs to change. Do not rediscover it
+    /// and bypass this wait; an explicit reconnect can still try immediately.
+    case retrying(attempt: Int, delaySeconds: Double, error: AnnexTransportError)
     case failed(AnnexTransportError)
 }
 nonisolated public enum AnnexResyncReason: String, Sendable { case replayGap, serverRestart, consumerTooSlow, sequenceGap, reconnected }

@@ -673,6 +673,9 @@ import ClubhouseTransport
             case .failed(let error):
                 cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .failed(Self.readableError(error))
+            case .retrying(_, _, let error):
+                cancelRefresh(hostID: hostID)
+                hosts[hostID]?.connection = .failed(Self.readableError(error))
             }
             emitHosts()
             switch state {
@@ -1189,6 +1192,7 @@ import ClubhouseTransport
         case .unauthorized, .credentialMissing: return "Pair this desktop again to restore access."
         case .forbidden: return "This desktop has not granted mobile control. Pair again using the secure invitation."
         case .disconnected: return "The desktop is offline. Reconnect to continue."
+        case .responseTooLarge: return "The desktop sent more data than your phone can accept. We'll try again shortly."
         case .unsupportedCapability: return "This action is not supported by the connected desktop."
         case .commandOutcomeUnknown: return "Delivery is unknown. Refresh the conversation to check the result."
         case .pairingRevocationOutcomeUnknown: return "The desktop may have ended this pairing, but its reply was lost. Access is kept here so you can check desktop settings before forgetting this device."

@@ -42,6 +42,56 @@ private struct WSFixture {
 private let socketIdentity = Result { try AnnexClientIdentity.ephemeral() }
 private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self) }
 
+@Test(.timeLimit(.minutes(1))) func urlSessionOversizeErrorAndPeerCloseCodeOnLoopback() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+    defer { session.invalidateAndCancel() }
+    for kind in ["text", "binary"] {
+        for size in [1023, 1024, 1025] {
+            let task = session.webSocketTask(with: try fixture.webSocketRequest())
+            task.maximumMessageSize = 1024
+            task.resume()
+            _ = try await task.receive() // greeting
+            let started = ContinuousClock.now
+            try await task.send(.string("size:\(kind):\(size)"))
+            do {
+                let message = try await task.receive()
+                let count: Int
+                switch message {
+                case .data(let bytes): count = bytes.count
+                case .string(let value): count = value.utf8.count
+                @unknown default: count = -1
+                }
+                #expect(size <= 1024)
+                #expect(count == size)
+                print("Loopback \(kind) \(size)/1024 bytes: received in \(ContinuousClock.now - started)")
+            } catch {
+                let failure = error as NSError
+                print("Loopback \(kind) \(size)/1024 bytes: \(failure.domain) code \(failure.code) in \(ContinuousClock.now - started); classified \(AnnexDiagnosticFailure.classify(error))")
+                #expect(size == 1025)
+                #expect(failure.domain == NSPOSIXErrorDomain)
+                #expect(failure.code == Int(EMSGSIZE))
+            }
+            task.cancel(with: .goingAway, reason: nil)
+        }
+    }
+    let url = try #require(URL(string: "http://127.0.0.1:\(fixture.info.httpPort)/closes"))
+    var closes: AnnexJSON = .null
+    for _ in 0..<100 {
+        let (data, _) = try await URLSession.shared.data(from: url)
+        closes = try JSONDecoder().decode(AnnexJSON.self, from: data)
+        if case .array(let rows) = closes, rows.filter({ $0["size"]?.integer == 1025 }).count == 2 { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    guard case .array(let rows) = closes else { Issue.record("Missing close observations"); return }
+    let oversize = rows.filter { $0["size"]?.integer == 1025 }
+    print("Loopback server close observations: \(closes)")
+    #expect(oversize.count == 2)
+    #expect(oversize.allSatisfy { $0["code"]?.integer == 1009 })
+}
+
 @Test(.timeLimit(.minutes(1))) func pinnedWebSocketCarriesTextBinaryAndPings() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }
@@ -71,6 +121,26 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(telemetry.drainSummaries().first { $0.operation == .ping }.map { [$0.count, $0.failed] } == [2, 0])
     #expect(telemetry.snapshot().records.contains { $0.operation == .websocket })
     await socket.close()
+}
+
+@Test(.timeLimit(.minutes(1))) func pinnedWebSocketMapsOversizeToResponseTooLarge() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    for kind in ["text", "binary"] {
+        let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+        let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), maximumResponseBytes: 1024, telemetry: telemetry)
+        let socket = try await io.openWebSocket(fixture.webSocketRequest())
+        _ = try await socket.receive()
+        try await socket.send(Data("size:\(kind):1023".utf8))
+        #expect(try await socket.receive().count == 1023)
+        try await socket.send(Data("size:\(kind):1024".utf8))
+        #expect(try await socket.receive().count == 1024)
+        try await socket.send(Data("size:\(kind):1025".utf8))
+        await #expect(throws: AnnexTransportError.responseTooLarge) { _ = try await socket.receive() }
+        let failure = try #require(telemetry.snapshot().records.first { $0.failure == .tooLarge })
+        #expect(failure.measurements == ["webSocketMessageLimitBytes": 1024])
+        await socket.close()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func cancelledPingResolvesWithoutAPongAndClosesTheSocket() async throws {

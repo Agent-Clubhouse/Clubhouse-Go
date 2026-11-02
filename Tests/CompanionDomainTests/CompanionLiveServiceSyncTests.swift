@@ -59,6 +59,22 @@ import Testing
         #expect(await harness.transport.subscriptionCount == 2)
     }
 
+    @Test func oversizedResponseExplainsTheHostIssueWithoutRediscoveryAndAllowsRetry() async throws {
+        let calls = Calls()
+        let harness = try await Harness.start(prepare: { service in
+            service.onUnreachable = { calls.hosts.append($0) }
+        })
+        defer { harness.stop() }
+        await harness.transport.emit(.connection(.retrying(attempt: 1, delaySeconds: 30, error: .responseTooLarge)))
+        let message = "The desktop sent more data than your phone can accept. We'll try again shortly."
+        try await harness.waitUntil { harness.host?.connection == .failed(message) }
+        #expect(harness.host?.connection.detail == message, "The existing host row shows this detail beside Retry")
+        #expect(calls.hosts.isEmpty, "Rediscovery must not bypass the size retry delay for a reachable host")
+        await harness.service.reconnect(hostID: Harness.hostID)
+        try await harness.waitUntil { harness.host?.connection == .connected }
+        #expect(await harness.transport.connectCount == 2)
+    }
+
     @Test func aFailedCatalogReadMarksTheHostFailed() async throws {
         let harness = try await Harness.start()
         defer { harness.stop() }
