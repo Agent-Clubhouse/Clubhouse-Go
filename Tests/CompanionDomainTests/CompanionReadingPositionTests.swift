@@ -55,11 +55,46 @@ struct CompanionReadingPositionTests {
     @Test func nativeScrollToTopRecognizesTheFinalSubpixelAnimationStep() {
         let old = CompanionScrollMetrics(offset: -99.2, contentHeight: 5_000, containerHeight: 500, topInset: 100)
         let top = CompanionScrollMetrics(offset: -100, contentHeight: 5_000, containerHeight: 500, topInset: 100)
-        #expect(top.didReachTop(from: old))
+        #expect(top.didScrollUp(from: old))
         var keyboard = top; keyboard.containerHeight = 300
-        #expect(!keyboard.didReachTop(from: old))
+        #expect(!keyboard.didScrollUp(from: old))
         var initialLayout = old; initialLayout.contentHeight = 0
-        #expect(!top.didReachTop(from: initialLayout))
+        #expect(!top.didScrollUp(from: initialLayout))
+    }
+    @Test func nativeUpwardScrollPausesBeforeReachingTopIncludingDuringGrowth() {
+        let bottom = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_000, containerHeight: 500)
+        for height in [5_000.0, 5_100, 8_000] {
+            let underway = CompanionScrollMetrics(offset: 4_400, contentHeight: height, containerHeight: 500)
+            #expect(underway.didScrollUp(from: bottom))
+            #expect(underway.normalizedOffset > 1, "Do not wait for the end of the native animation")
+        }
+    }
+    @Test func streamedLayoutRollbackDoesNotPauseButANativeJumpStillDoes() {
+        // Recorded iPad stream-on startup: publish the new bottom, briefly
+        // restore the preceding offset, then settle at the new bottom again.
+        let before = CompanionScrollMetrics(offset: 812.5, contentHeight: 1_680.5, containerHeight: 868)
+        let bottom = CompanionScrollMetrics(offset: 831.5, contentHeight: 1_699.5, containerHeight: 868)
+        var rollback = bottom; rollback.offset = before.offset
+        #expect(!rollback.didScrollUp(from: bottom, beforeLast: before))
+        var underway = bottom; underway.offset = 730
+        #expect(underway.didScrollUp(from: bottom, beforeLast: before))
+        var largeGrowth = bottom; largeGrowth.contentHeight = 5_000; largeGrowth.offset = 4_132
+        var largeJump = largeGrowth; largeJump.offset -= 400
+        #expect(largeJump.didScrollUp(from: largeGrowth, beforeLast: before), "Growth must not hide a genuine first native step")
+    }
+    @Test func layoutChangesAndFollowingAStreamAreNotUpwardScrolling() {
+        let bottom = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_000, containerHeight: 500)
+        let up = CompanionScrollMetrics(offset: 4_400, contentHeight: 5_000, containerHeight: 500)
+        var keyboard = up; keyboard.containerHeight = 300
+        var topInset = up; topInset.topInset = 20
+        var bottomInset = up; bottomInset.bottomInset = 200
+        var shrink = up; shrink.contentHeight = 4_900
+        let unchanged = bottom
+        let waitingForLayout = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_100, containerHeight: 500)
+        let following = CompanionScrollMetrics(offset: 4_600, contentHeight: 5_100, containerHeight: 500)
+        for metrics in [keyboard, topInset, bottomInset, shrink, unchanged, waitingForLayout, following] {
+            #expect(!metrics.didScrollUp(from: bottom))
+        }
     }
     @Test func latestIndicatorStaysHiddenWhenDragOrKeyboardLeavesUsAtBottom() {
         // A drag pauses following before geometry changes. The indicator must use actual geometry too.

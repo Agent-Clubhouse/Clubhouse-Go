@@ -351,6 +351,7 @@ struct CompanionConversationView: View {
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                 let metrics = Self.metrics(new)
+                let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics)
                 readingViewport.previousMetrics = Self.metrics(old)
                 readingViewport.metrics = metrics
                 atLatest = metrics.isAtTrueBottom
@@ -365,9 +366,10 @@ struct CompanionConversationView: View {
                     saveReadingPosition(metrics)
                 }
                 if metrics.isAtTrueBottom { followLatest = true }
-                else if !readingViewport.isInteracting && followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
-                // On a layout change, the frame callback restores the existing entry, before capturing a new one.
-                if readingViewport.isInteracting || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
+                else if !readingViewport.isInteracting && followLatest && scrolledUp { followLatest = false }
+                // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
+                // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
+                if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
                     saveReadingPosition(metrics)
                 }
             }
@@ -496,9 +498,10 @@ struct CompanionConversationView: View {
         proxy.scrollTo(id, anchor: .top)
     }
 
-    /// A status-bar jump can race a streaming content-size update, so it must not require unchanged content.
-    private static func scrolledToTop(from old: ScrollGeometry, to new: ScrollGeometry) -> Bool {
-        old.containerSize == new.containerSize && metrics(new).didReachTop(from: metrics(old))
+    /// Pause on the first native upward sample, before another chunk can cancel
+    /// the jump. Width/inset/keyboard changes and shrinking content are excluded.
+    private static func scrolledUp(from old: ScrollGeometry, to new: ScrollGeometry, beforeLast: CompanionScrollMetrics?) -> Bool {
+        old.containerSize == new.containerSize && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast)
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
