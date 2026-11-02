@@ -88,6 +88,14 @@
         "version": 1
       },
       "helperRouting": {
+        "autoOffReasons": [
+          "not_enabled",
+          "project_off",
+          "persona_off",
+          "orchestration_off",
+          "mcp_off",
+          "dispatcher_locked"
+        ],
         "cellStates": [
           "valid",
           "unverified",
@@ -105,23 +113,60 @@
         "fallbacks": [
           "none",
           "builtin_preset",
+          "candidate_skipped",
           "model_unverified"
         ],
         "modes": [
           "explicit",
-          "preset"
+          "preset",
+          "auto"
         ],
         "path": "/api/v1/mobile/helper-routing",
-        "quota": false,
+        "quota": true,
+        "quotaSources": [
+          "cli_query",
+          "session_event",
+          "none"
+        ],
+        "quotaStates": [
+          "known",
+          "low",
+          "near_limit",
+          "exhausted",
+          "unknown"
+        ],
         "reasons": [
           "explicit_request",
           "persona_pinned",
-          "preset_on_cli"
+          "preset_on_cli",
+          "only_candidate",
+          "lower_load",
+          "better_quota_tier",
+          "sticky",
+          "default_order"
         ],
         "scopes": [
-          "app"
+          "app",
+          "project",
+          "agent"
+        ],
+        "skipped": [
+          "cli_disabled",
+          "cli_unavailable",
+          "auto_not_supported",
+          "no_valid_mapping",
+          "cooling_down",
+          "quota_near_limit",
+          "quota_exhausted"
         ],
         "snapshotField": "helperRoutingRevision",
+        "unknownReasons": [
+          "not_read",
+          "stale",
+          "not_applicable",
+          "read_failed",
+          "not_supported"
+        ],
         "version": 1
       },
       "idempotency": {

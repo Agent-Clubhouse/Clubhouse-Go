@@ -276,7 +276,8 @@ import Testing
         return .init(orchestrate: field("orchestrate") { if case .bool(let v) = $0 { v } else { nil } }, access: field("access") { $0.string },
                      control: field("control") { $0.string }, maxHelpers: field("maxHelpers") { $0.int },
                      crossProjectHelpers: field("crossProjectHelpers") { if case .bool(let v) = $0 { v } else { nil } },
-                     connectToDispatcher: field("connectToDispatcher") { if case .bool(let v) = $0 { v } else { nil } })
+                     connectToDispatcher: field("connectToDispatcher") { if case .bool(let v) = $0 { v } else { nil } },
+                     autoHelpers: field("autoHelpers") { if case .bool(let v) = $0 { v } else { nil } })
     }
 
     /// One of every command with every optional field the phone can send.

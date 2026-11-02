@@ -86,6 +86,8 @@ nonisolated struct CompanionHelperRequestConsumed: Error, LocalizedError {
     private(set) var error: String?
     private(set) var saving = false
     private var loading = false
+    // SwiftUI may discard eager State candidates away from the main actor. This model owns no cleanup resources.
+    nonisolated deinit {}
     func load(_ read: () async throws -> CompanionHelperRouting) async {
         guard !saving, !loading else { return }
         loading = true

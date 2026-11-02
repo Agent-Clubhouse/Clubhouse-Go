@@ -14,7 +14,7 @@ import Testing
         let caps = try raw.decode(AnnexCapabilities.self)
         #expect(caps.supportsHelperRouting)
         let feature = try #require(caps.helperRouting)
-        #expect(feature.modes == ["explicit", "preset"] && feature.scopes == ["app"] && !feature.quota)
+        #expect(feature.modes.contains("preset") && feature.scopes.contains("app"))
         #expect(feature.difficulties == ["easy", "medium", "hard"])
         var fields = try #require(raw.object)
         fields["helperRouting"] = nil

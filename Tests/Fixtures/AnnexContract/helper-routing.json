@@ -9,8 +9,52 @@
         "agent": {
           "usable": true
         },
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "agent": {
+              "editable": true,
+              "value": null
+            },
+            "app": {
+              "editable": true,
+              "value": false
+            },
+            "persona": {
+              "editable": false,
+              "value": null
+            },
+            "project": {
+              "choices": [
+                "off",
+                null
+              ],
+              "editable": true,
+              "value": null
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -58,6 +102,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -139,6 +188,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -219,15 +284,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -252,8 +340,36 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -301,6 +417,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -382,6 +503,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -462,15 +599,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -487,8 +647,40 @@
           "reason": "dispatcher_locked",
           "usable": false
         },
+        "auto": {
+          "effective": false,
+          "reason": "dispatcher_locked",
+          "scopes": {
+            "agent": {
+              "editable": false,
+              "value": null
+            },
+            "app": {
+              "editable": false,
+              "value": false
+            }
+          },
+          "source": "dispatcher_locked"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -536,6 +728,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -617,6 +814,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -697,15 +910,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -722,8 +958,52 @@
           "reason": "mcp_off",
           "usable": false
         },
+        "auto": {
+          "effective": false,
+          "reason": "mcp_off",
+          "scopes": {
+            "agent": {
+              "editable": true,
+              "value": null
+            },
+            "app": {
+              "editable": true,
+              "value": false
+            },
+            "persona": {
+              "editable": false,
+              "value": null
+            },
+            "project": {
+              "choices": [
+                "off",
+                null
+              ],
+              "editable": true,
+              "value": null
+            }
+          },
+          "source": "mcp_off"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -771,6 +1051,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -852,6 +1137,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -932,15 +1233,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -957,8 +1281,52 @@
           "reason": "orchestration_off",
           "usable": false
         },
+        "auto": {
+          "effective": false,
+          "reason": "orchestration_off",
+          "scopes": {
+            "agent": {
+              "editable": true,
+              "value": null
+            },
+            "app": {
+              "editable": true,
+              "value": false
+            },
+            "persona": {
+              "editable": false,
+              "value": null
+            },
+            "project": {
+              "choices": [
+                "off",
+                null
+              ],
+              "editable": true,
+              "value": null
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -1006,6 +1374,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -1087,6 +1460,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -1167,15 +1556,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -1188,8 +1600,44 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            },
+            "project": {
+              "choices": [
+                "off",
+                null
+              ],
+              "editable": true,
+              "value": null
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -1237,6 +1685,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -1318,6 +1771,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -1398,15 +1867,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.0",
+        "revision": "r1.0",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -1431,8 +1923,36 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -1480,6 +2000,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -1561,6 +2086,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -1646,15 +2187,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.1",
+        "revision": "r1.1",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -1667,8 +2231,36 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -1716,6 +2308,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -1797,6 +2394,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -1866,15 +2479,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.1",
+        "revision": "r1.1",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -1887,8 +2523,36 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -1936,6 +2600,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -2017,6 +2686,22 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -2102,15 +2787,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.1",
+        "revision": "r1.1",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200
@@ -2123,8 +2831,36 @@
     },
     "response": {
       "body": {
+        "auto": {
+          "effective": false,
+          "reason": "not_enabled",
+          "scopes": {
+            "app": {
+              "editable": true,
+              "value": false
+            }
+          },
+          "source": "default"
+        },
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
+          "autoOff": {
+            "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "not_enabled": "It isn’t turned on",
+            "orchestration_off": "This agent doesn’t orchestrate",
+            "persona_off": "This agent’s persona turned it off",
+            "project_off": "This project turned it off"
+          },
+          "autoSource": {
+            "agent": "Set on this agent",
+            "app": "Set for the whole app",
+            "default": "Off unless turned on",
+            "dispatcher_locked": "Not for the Dispatcher",
+            "mcp_off": "Clubhouse MCP is off for this agent",
+            "persona": "Set by this agent’s persona",
+            "project": "Set for this project"
+          },
           "cell": {
             "stale": "No longer offered",
             "unverified": "Couldn’t be checked",
@@ -2172,6 +2908,11 @@
             "not_supported": "This provider doesn’t report it",
             "read_failed": "Couldn’t check",
             "stale": "Last checked too long ago"
+          },
+          "window": {
+            "fiveHour": "5-hour limit",
+            "other": "Plan limit",
+            "weekly": "Weekly limit"
           }
         },
         "providers": {
@@ -2237,6 +2978,22 @@
                 }
               ],
               "source": "fallback"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "codex-cli": {
@@ -2317,15 +3074,38 @@
                 }
               ],
               "source": "live"
+            },
+            "quota": {
+              "asOf": "2027-01-15T08:00:00.000Z",
+              "fiveHour": {
+                "resetsAt": "2027-01-15T10:24:00.000Z",
+                "usedPercent": 12
+              },
+              "limitingWindow": "weekly",
+              "refreshAfterSeconds": 300,
+              "resetsAt": "2027-01-18T08:00:00.000Z",
+              "source": "cli_query",
+              "state": "known",
+              "weekly": {
+                "resetsAt": "2027-01-18T08:00:00.000Z",
+                "usedPercent": 41
+              }
             }
           },
           "copilot-cli": {
             "autoEligible": false,
             "cells": null,
+            "quota": {
+              "asOf": null,
+              "source": "none",
+              "state": "unknown",
+              "unknownReason": "not_supported"
+            },
             "reason": "auto_not_supported"
           }
         },
-        "revision": "r0.2",
+        "revision": "r1.2",
+        "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
       "status": 200

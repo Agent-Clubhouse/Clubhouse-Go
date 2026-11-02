@@ -135,7 +135,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearFinishedQuick(let project): v["projectId"] = .string(project)
         case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
         case .updateHelperRouting(let update):
-            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil else { throw AnnexTransportError.malformedResponse }
+            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil else { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -158,10 +158,12 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     public var crossProjectHelpers: Field<Bool>?
     /// "Connect to Dispatcher": the Dispatcher may message the agent. Refused (`dispatcher_off`) while the Dispatcher is off.
     public var connectToDispatcher: Field<Bool>?
+    public var autoHelpers: Field<Bool>?
     /// Sends `"orchestration": null` on `agent.update`, clearing every field the agent sets. The fields above are ignored.
     public var clearsAll = false
     public init(orchestrate: Field<Bool>? = nil, access: Field<String>? = nil, control: Field<String>? = nil, maxHelpers: Field<Int>? = nil,
-                crossProjectHelpers: Field<Bool>? = nil, connectToDispatcher: Field<Bool>? = nil) {
+                crossProjectHelpers: Field<Bool>? = nil, connectToDispatcher: Field<Bool>? = nil, autoHelpers: Field<Bool>? = nil) {
+        self.autoHelpers = autoHelpers
         self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
         self.crossProjectHelpers = crossProjectHelpers; self.connectToDispatcher = connectToDispatcher
     }
@@ -178,6 +180,7 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
         if let maxHelpers { v["maxHelpers"] = value(maxHelpers) { .integer(Int64($0)) } }
         if let crossProjectHelpers { v["crossProjectHelpers"] = value(crossProjectHelpers, AnnexJSON.bool) }
         if let connectToDispatcher { v["connectToDispatcher"] = value(connectToDispatcher, AnnexJSON.bool) }
+        if let autoHelpers { v["autoHelpers"] = value(autoHelpers, AnnexJSON.bool) }
         return .object(v)
     }
     /// The set fields only, for `agent.create`, which refuses `null`.
