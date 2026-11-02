@@ -772,7 +772,8 @@ import Observation
                 guard let host = hosts.first(where: { $0.id == target.hostID }) else { return true }
                 if host.agent(for: target) != nil { return false }
                 if host.isDispatcher(target) {
-                    return host.dispatcher?.enabled == false || host.dispatcher?.flagOn == false
+                    return host.dispatcher?.enabled == false || host.dispatcher?.flagOn == false ||
+                        host.dispatcher?.liveAgent.map { $0.id != target } == true
                 }
                 return host.hasLoadedCatalog
             }

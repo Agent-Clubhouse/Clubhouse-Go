@@ -187,6 +187,34 @@ import Testing
         #expect(!h.store.conversation(for: dispatcher).isLoaded)
     }
 
+    @Test func replacementDispatcherIdentityDiscardsOnlyTheOldChat() async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
+        await h.store.load(dispatcher)
+        let replacement: AnnexJSON = .object(["enabled": .bool(true), "flagOn": .bool(true), "agent": .object(["id": .string("replacement"), "name": .string("Dispatcher")])])
+        await h.transport.emit(h.snapshotEvent(["dispatcher": replacement]))
+        let next = CompanionTarget(hostID: dispatcher.hostID, projectID: dispatcher.projectID, agentID: "replacement")
+        try await h.waitUntil { h.store.agent(for: next) != nil }
+        #expect(!h.store.conversation(for: dispatcher).isLoaded)
+        #expect(h.store.agent(for: dispatcher) == nil)
+    }
+
+    @Test func explicitNullAndCapabilityFlagOffDiscardChat() async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
+        await h.store.load(dispatcher)
+        await h.transport.emit(h.snapshotEvent(["dispatcher": .null]))
+        try await h.waitUntil { h.host?.dispatcher?.enabled == false }
+        #expect(!h.store.conversation(for: dispatcher).isLoaded)
+        await h.transport.emit(h.snapshotEvent(["dispatcher": entry]))
+        try await h.waitUntil { h.store.agent(for: dispatcher) != nil }
+        await h.store.load(dispatcher)
+        await h.transport.setFeature("dispatcher", .object(["version": .integer(1), "enabled": .bool(true), "flagOn": .bool(false)]))
+        try await h.refreshCatalog()
+        #expect(h.store.agent(for: dispatcher) == nil)
+        #expect(!h.store.conversation(for: dispatcher).isLoaded)
+    }
+
     @Test func forgottenHostClearsChatAndIdentity() async throws {
         let h = try await start(); defer { h.stop() }
         await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
