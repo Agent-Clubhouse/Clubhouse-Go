@@ -109,6 +109,7 @@ struct CompanionChatProjector {
                     }
                 }
             }
+            releaseCompletedQueueContent()
         case "queue_removed":
             // Legacy event remains useful for history. New queue_state/snapshot
             // watermarks prevent an older event from overriding newer membership.
@@ -325,8 +326,14 @@ struct CompanionChatProjector {
         queueRemovalSupported = snapshot["queueRemovalSupported"].boolValue
         if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
         applyQueueMembership()
+        releaseCompletedQueueContent()
     }
 
+    private mutating func releaseCompletedQueueContent() {
+        for id in Array(queuedContentParts.keys) where message(id: id).map({ !Self.isPending($0) }) ?? true {
+            queuedContentParts[id] = nil
+        }
+    }
     private mutating func applyQueueMembership() {
         for index in items.indices {
             if case .message(var message) = items[index] {
@@ -336,7 +343,6 @@ struct CompanionChatProjector {
                     message.queueState = nil
                 }
                 items[index] = .message(message)
-                if !Self.isPending(message) { queuedContentParts[message.id] = nil }
             }
         }
     }

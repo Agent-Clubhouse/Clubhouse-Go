@@ -27,4 +27,22 @@ import ClubhouseTransport
         projector.apply(.object(["sessionId": .string("new"), "seq": .integer(1), "type": .string("session_started"), "data": .object([:])]))
         #expect(projector.commandIDsByMessage.isEmpty)
     }
+    @Test func dispatchingKeepsSubmissionBoundariesForALateJoin() {
+        var projector = CompanionChatProjector()
+        for i in 1...2 {
+            var data: [String: AnnexJSON] = ["messageId": .string(i == 1 ? "q" : "join-2"), "delivery": .string("queued"),
+                "content": .array([.object(["type": .string("text"), "text": .string("Part \(i)")])])]
+            if i > 1 { data["queuedWith"] = .string("q") }
+            projector.apply(CompanionLongChatPerformanceTests.event("user_message", i, data))
+        }
+        projector.apply(CompanionLongChatPerformanceTests.event("queue_state", 3,
+            ["queuedMessageIds": .array([]), "transition": .object(["messageIds": .array([.string("q")]), "status": .string("dispatching")])]))
+        #expect(count("queuedContentParts", in: projector) == 1)
+        projector.apply(CompanionLongChatPerformanceTests.event("user_message", 4,
+            ["messageId": .string("join-3"), "queuedWith": .string("q"), "delivery": .string("queued"),
+             "content": .array([.object(["type": .string("text"), "text": .string("Part 3")])])]))
+        guard case .message(let message) = projector.items.first else { Issue.record("Missing queued row"); return }
+        #expect(message.text == "3 updates, oldest first:\n\n--- 1 of 3 ---\nPart 1\n\n--- 2 of 3 ---\nPart 2\n\n--- 3 of 3 ---\nPart 3")
+    }
+
 }

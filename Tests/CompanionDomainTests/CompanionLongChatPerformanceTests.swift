@@ -11,7 +11,7 @@ import ClubhouseTransport
     }
     private func heap() -> (blocks: UInt, bytes: UInt) {
         var stats = malloc_statistics_t()
-        malloc_zone_statistics(nil, &stats)
+        malloc_zone_statistics(malloc_default_zone(), &stats)
         return (UInt(stats.blocks_in_use), UInt(stats.size_in_use))
     }
     @Test func profileLongDispatcher() {
