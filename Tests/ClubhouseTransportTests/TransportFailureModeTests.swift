@@ -789,3 +789,27 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
     #expect(backoff.delayAfterOversizedResponse(randomUnit: 2) == 45)
     #expect(backoff.delayAfterOversizedResponse(randomUnit: .nan) == 37.5)
 }
+
+// Uses the live clock deliberately: run's 30-second attempt reset uses ContinuousClock,
+// so advancing AnnexManualClock alone cannot prove the production cadence.
+@Test(.timeLimit(.minutes(2))) func persistentSnapshotFailureGraceResetsTheAttemptCounterOn147() async throws {
+    let io = FailureSessionIO(sessionInitials: [[snapshotFailure], [snapshotFailure]])
+    let transport = try await liveTransport(io, backoff: AnnexBackoff())
+    let stream = await transport.events()
+    let started = ContinuousClock.now
+    try await transport.connect()
+    var attempts: [Int] = []
+    var elapsed: [Duration] = []
+    var delays: [Double] = []
+    for try await frame in stream {
+        if case .connection(.reconnecting(let attempt, let delay)) = frame {
+            attempts.append(attempt); delays.append(delay); elapsed.append(ContinuousClock.now - started)
+            if attempts.count == 2 { break }
+        }
+    }
+    #expect(attempts == [1, 1], "Each 30-second snapshot_failed grace exceeds run's reset threshold")
+    #expect(delays.allSatisfy { (0.25...0.5).contains($0) })
+    #expect(elapsed.last! >= .seconds(60))
+    print("Persistent snapshot_failed real-clock retries: attempts=\(attempts), delays=\(delays), elapsed=\(elapsed)")
+    await transport.disconnect()
+}

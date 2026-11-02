@@ -16,7 +16,7 @@ private struct SnapshotRaceSession: Sendable {
 private actor SnapshotRaceSocket: AnnexWebSocket {
     private var queue: [Data]
     private var pending: CheckedContinuation<Data, Error>?
-    private var closed = false
+    private(set) var closed = false
     private let session: SnapshotRaceSession
     private(set) var replaySince: [Int64] = []
     init(_ session: SnapshotRaceSession) throws {
@@ -44,6 +44,14 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
             response.append(AnnexEnvelope(type: "fixture:end"))
             frames = response
         }
+        for frame in frames {
+            let bytes = try JSONEncoder().encode(frame)
+            if let pending { self.pending = nil; pending.resume(returning: bytes) }
+            else { queue.append(bytes) }
+        }
+    }
+    func push(_ frames: [AnnexEnvelope]) throws {
+        guard !closed else { throw AnnexTransportError.disconnected }
         for frame in frames {
             let bytes = try JSONEncoder().encode(frame)
             if let pending { self.pending = nil; pending.resume(returning: bytes) }
@@ -94,13 +102,16 @@ private func snapshot(_ sequence: Int64) -> AnnexEnvelope { AnnexEnvelope(type: 
 private func event(_ sequence: Int64, replayed: Bool = false) -> AnnexEnvelope {
     AnnexEnvelope(type: "chat:event", payload: .object(["agentId": .string("busy")]), seq: sequence, replayed: replayed, epoch: "race")
 }
-private func observe(_ io: SnapshotRaceIO, intentionallyCloseFirst: Bool = false) async throws -> SnapshotRaceObservation {
+private func raceTransport(_ io: SnapshotRaceIO) async throws -> AnnexTransport {
     let id = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: id,
                                   verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: id)
-    let transport = AnnexTransport(host: host, credentials: credentials, io: io, telemetry: AnnexTelemetry(), clock: io.clock.clock)
+    return AnnexTransport(host: host, credentials: credentials, io: io, telemetry: AnnexTelemetry(), clock: io.clock.clock)
+}
+private func observe(_ io: SnapshotRaceIO, intentionallyCloseFirst: Bool = false) async throws -> SnapshotRaceObservation {
+    let transport = try await raceTransport(io)
     let stream = await transport.events()
     try await transport.connect()
     var result = SnapshotRaceObservation()
@@ -224,4 +235,79 @@ func firstSnapshotMustNotRewindAndRedeliverBusyFrames(replayBeforeNextLive: Bool
     #expect((0.5...1).contains(result.delays[1]))
     #expect((1...2).contains(result.delays[2]))
     #expect(await io.sockets.count == 4)
+}
+
+private func raceCollect(_ stream: AsyncThrowingStream<AnnexTransportEvent, Error>, until stop: (AnnexTransportEvent) -> Bool) async throws -> [AnnexTransportEvent] {
+    var frames: [AnnexTransportEvent] = []
+    for try await frame in stream { frames.append(frame); if stop(frame) { break } }
+    return frames
+}
+private func isRaceMessage(_ frame: AnnexTransportEvent, _ type: String) -> Bool {
+    if case .message(let envelope) = frame { envelope.type == type } else { false }
+}
+
+@Test(.timeLimit(.minutes(1)), arguments: [2, 8])
+func heldEventsAfterSnapshotFailureRecoverOnTheProposedRetrySchedule(recoveredAt: Int) async throws {
+    let failure = AnnexEnvelope(type: "error", payload: .object(["message": .string("snapshot_failed")]))
+    let clock = AnnexManualClock()
+    let io = SnapshotRaceIO([.init(initial: [failure], replay: [event(101, replayed: true)])], clock: clock)
+    let transport = try await raceTransport(io)
+    let stream = await transport.events()
+    try await transport.connect()
+    _ = try await raceCollect(stream) { isRaceMessage($0, "error") }
+    let socket = try #require(await io.sockets.first)
+    await clock.waitForSleepers(2) // existing ping + #207's 30-second explicit-failure grace
+    clock.advance(by: .seconds(2))
+    #expect(await socket.closed == false)
+    try await socket.push([AnnexEnvelope(type: "fixture:command-reply")])
+    _ = try await raceCollect(stream) { isRaceMessage($0, "fixture:command-reply") }
+    if recoveredAt == 8 { clock.advance(by: .seconds(6)) }
+    // The server holds every sequenced event until a successful snapshot, then releases them in order.
+    try await socket.push([snapshot(100), event(101)])
+    let frames = try await raceCollect(stream) { isRaceMessage($0, "fixture:end") }
+    #expect(frames.contains(.connection(.connected)))
+    let delivered: [Int64] = frames.compactMap { if case .message(let e) = $0 { e.seq } else { nil } }
+    #expect(delivered == [101])
+    #expect(!frames.contains { if case .connection(.reconnecting) = $0 { true } else { false } })
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(31))
+    try await socket.push([AnnexEnvelope(type: "fixture:after-grace")])
+    _ = try await raceCollect(stream) { isRaceMessage($0, "fixture:after-grace") }
+    #expect(await io.sockets.count == 1)
+    #expect(await socket.closed == false)
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func failedRetriesAtTwoAndEightSecondsThen1013RecoverThroughNormalBackoff() async throws {
+    let failure = AnnexEnvelope(type: "error", payload: .object(["message": .string("snapshot_failed")]))
+    let clock = AnnexManualClock()
+    let io = SnapshotRaceIO([.init(initial: [failure]), .init(initial: [snapshot(102)])], clock: clock)
+    let transport = try await raceTransport(io)
+    let stream = await transport.events()
+    try await transport.connect()
+    let first = try await raceCollect(stream) { isRaceMessage($0, "error") }
+    #expect(first.filter { isRaceMessage($0, "error") }.count == 1)
+    let socket = try #require(await io.sockets.first)
+    await clock.waitForSleepers(2)
+    clock.advance(by: .seconds(2))
+    #expect(await socket.closed == false, "A failed server retry sends no second error and keeps holding events")
+    clock.advance(by: .seconds(6))
+    await socket.close() // The separately measured real 1013 is ENOTCONN; both use the normal retry path.
+    let waiting = try await raceCollect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
+    guard case .connection(.reconnecting(let attempt, let delay)) = waiting.last else { Issue.record("Missing backoff"); return }
+    #expect(attempt == 1)
+    #expect((0.25...0.5).contains(delay))
+    #expect(await io.sockets.count == 1)
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(delay))
+    let recovered = try await raceCollect(stream) { isRaceMessage($0, "fixture:end") }
+    #expect(recovered.contains(.resyncRequired(.reconnected)))
+    #expect(await io.sockets.count == 2)
+    let current = try #require(await io.sockets.last)
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(31))
+    try await current.push([AnnexEnvelope(type: "fixture:after-grace")])
+    _ = try await raceCollect(stream) { isRaceMessage($0, "fixture:after-grace") }
+    #expect(await current.closed == false, "The old grace timer cannot close the replacement connection")
+    await transport.disconnect()
 }
