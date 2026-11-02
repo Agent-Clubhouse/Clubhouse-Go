@@ -208,17 +208,20 @@ private actor FailureSocket: AnnexWebSocket {
     private var pending: CheckedContinuation<Data, Error>?
     private(set) var closed = false
     private let sendFailure: Error?
+    private let receiveFailure: Error?
     private let ack: Ack
     private(set) var sent: [AnnexJSON] = []
-    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil) {
+    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil, receiveFailure: Error? = nil) {
         messages = (initial ?? [#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#]).map { Data($0.utf8) } + extra.map { Data($0.utf8) }
         self.sendFailure = sendFailure; self.ack = ack
+        self.receiveFailure = receiveFailure
     }
     private(set) var receiveCalls = 0
     func receive() async throws -> Data {
         receiveCalls += 1
         if closed { throw AnnexTransportError.disconnected }
         if !messages.isEmpty { return messages.removeFirst() }
+        if let receiveFailure { throw receiveFailure }
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
     func push(_ json: String) {
@@ -259,13 +262,17 @@ private actor FailureSessionIO: AnnexIO {
     private let firstInitial: [String]?
     private let firstSendFailure: Error?
     private let ack: FailureSocket.Ack
+    private let sessionInitials: [[String]]
+    private let sessionReceiveFailures: [AnnexTransportError]
     private(set) var sockets: [FailureSocket] = []
     private(set) var openAttempts = 0
     private(set) var paths: [String] = []
     init(capabilities: String = failureCapabilities, openFailures: [Error] = [], firstExtra: [String] = [],
-         firstSendFailure: Error? = nil, ack: FailureSocket.Ack = .none, firstInitial: [String]? = nil) {
+         firstSendFailure: Error? = nil, ack: FailureSocket.Ack = .none, firstInitial: [String]? = nil,
+         sessionInitials: [[String]] = [], sessionReceiveFailures: [AnnexTransportError] = []) {
         self.capabilities = capabilities; self.openFailures = openFailures; self.firstExtra = firstExtra
         self.firstSendFailure = firstSendFailure; self.ack = ack; self.firstInitial = firstInitial
+        self.sessionInitials = sessionInitials; self.sessionReceiveFailures = sessionReceiveFailures
     }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         let path = request.url?.path ?? ""
@@ -286,18 +293,23 @@ private actor FailureSessionIO: AnnexIO {
         openAttempts += 1
         if !openFailures.isEmpty { throw openFailures.removeFirst() }
         let first = sockets.isEmpty
-        let socket = FailureSocket(extra: first ? firstExtra : [], sendFailure: first ? firstSendFailure : nil, ack: ack, initial: first ? firstInitial : nil)
+        let index = sockets.count
+        let initial = sessionInitials.indices.contains(index) ? sessionInitials[index] : (first ? firstInitial : nil)
+        let failure = sessionReceiveFailures.indices.contains(index) ? sessionReceiveFailures[index] : nil
+        let socket = FailureSocket(extra: first ? firstExtra : [], sendFailure: first ? firstSendFailure : nil,
+                                   ack: ack, initial: initial, receiveFailure: failure)
         sockets.append(socket)
         return socket
     }
 }
 
-private func liveTransport(_ io: FailureSessionIO, telemetry: AnnexTelemetry = AnnexTelemetry(), clock: AnnexClock = .live) async throws -> AnnexTransport {
+private func liveTransport(_ io: FailureSessionIO, telemetry: AnnexTelemetry = AnnexTelemetry(), clock: AnnexClock = .live,
+                           backoff: AnnexBackoff = AnnexBackoff(initialSeconds: 0.01, maximumSeconds: 0.01)) async throws -> AnnexTransport {
     let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
     let host = try failureHost(hostID)
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: hostID)
-    return AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 0.01, maximumSeconds: 0.01), telemetry: telemetry, clock: clock)
+    return AnnexTransport(host: host, credentials: credentials, io: io, backoff: backoff, telemetry: telemetry, clock: clock)
 }
 
 /// Collects events until `stop` matches; the time limit only guards against a hang.
@@ -648,4 +660,108 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     #expect(await io.openAttempts == 1)
     #expect(await io.sockets.first?.closed == false)
     await transport.disconnect()
+}
+
+// Oversized desktop snapshots are recoverable, but must not cause fast downloads or rediscovery.
+@Test(.timeLimit(.minutes(1))) func oversizedResponsesWaitAtLeastTheBackoffCeilingThenRecover() async throws {
+    let clock = AnnexManualClock()
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let io = FailureSessionIO(sessionInitials: [[], []], sessionReceiveFailures: [.responseTooLarge, .responseTooLarge])
+    let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock, backoff: AnnexBackoff())
+    let stream = await transport.events()
+    try await transport.connect()
+    for expected in 1...2 {
+        let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { isFailed($0) } }
+        let last = try #require(events.last)
+        guard case .connection(.retrying(let attempt, let delay, let error)) = last else {
+            Issue.record("Oversized responses must schedule recovery, not fail permanently"); await transport.disconnect(); return
+        }
+        #expect(attempt == expected)
+        #expect(error == .responseTooLarge)
+        #expect((30...45).contains(delay))
+        await clock.waitForSleepers(1)
+        clock.advance(by: .seconds(delay - 0.001))
+        for _ in 0..<100 { await Task.yield() }
+        #expect(await io.openAttempts == expected)
+        clock.advance(by: .milliseconds(2))
+    }
+    _ = try await collect(stream) { $0 == .connection(.connected) }
+    #expect(await io.openAttempts == 3)
+    #expect(telemetry.snapshot().records.filter { $0.operation == .backoff }.allSatisfy { $0.failure == .tooLarge })
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func explicitReconnectCancelsAnOversizeWaitAndTriesImmediatelyOnce() async throws {
+    let clock = AnnexManualClock()
+    let io = FailureSessionIO(sessionInitials: [[], []], sessionReceiveFailures: [.responseTooLarge, .responseTooLarge])
+    let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+    let stream = await transport.events()
+    try await transport.connect()
+    _ = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
+    await clock.waitForSleepers(1)
+    await transport.disconnect()
+    try await transport.connect()
+    let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
+    #expect(await io.openAttempts == 2, "An explicit reconnect bypasses the old wait without advancing the clock")
+    #expect(events.contains { if case .connection(.retrying(attempt: 1, delaySeconds: let delay, error: .responseTooLarge)) = $0 { delay >= 30 } else { false } })
+    await clock.waitForSleepers(1)
+    #expect(await io.openAttempts == 2, "The new run also waits after its immediate attempt fails")
+    await transport.disconnect()
+    try await settle { clock.sleeperCount == 0 }
+    clock.advance(by: .seconds(100))
+    #expect(await io.openAttempts == 2)
+}
+
+@Test(.timeLimit(.minutes(1))) func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary() async throws {
+    let limit = 16 * 1024 * 1024
+    let prefix = #"{"type":"snapshot","payload":{"lastSeq":0,"padding":""#
+    let suffix = #""}}"#
+    let atLimit = prefix + String(repeating: "x", count: limit - prefix.utf8.count - suffix.utf8.count) + suffix
+    #expect(atLimit.utf8.count == limit)
+    let io = FailureSessionIO(firstInitial: [atLimit, atLimit + " "])
+    let clock = AnnexManualClock()
+    let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+    let stream = await transport.events()
+    try await transport.connect()
+    let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { isFailed($0) } }
+    #expect(events.contains(.connection(.connected)), "Valid JSON exactly at the byte limit still works")
+    #expect(events.contains { if case .connection(.retrying(_, _, .responseTooLarge)) = $0 { true } else { false } })
+    #expect(await io.openAttempts == 1)
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func shortLivedSocketsIncreaseBackoffInsteadOfResettingIt() async throws {
+    let clock = AnnexManualClock()
+    let io = FailureSessionIO(sessionInitials: Array(repeating: [], count: 7))
+    let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+    let stream = await transport.events()
+    try await transport.connect()
+    var measured: [Double] = []
+    for expected in 1...7 {
+        await clock.waitForSleepers(1) // this connection's ping interval, after open
+        #expect(await io.sockets.count == expected)
+        let socket = try #require(await io.sockets.last)
+        clock.advance(by: .milliseconds(170))
+        await socket.close()
+        let events = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
+        guard case .connection(.reconnecting(let attempt, let delay)) = events.last else { Issue.record("Missing retry"); break }
+        #expect(attempt == expected)
+        let ceiling = min(30.0, 0.5 * pow(2, Double(expected - 1)))
+        #expect((ceiling / 2...ceiling).contains(delay))
+        measured.append(delay + 0.17)
+        await clock.waitForSleepers(1)
+        if expected < 7 { clock.advance(by: .seconds(delay)) }
+    }
+    print("170ms socket lifetimes; accept-to-accept intervals (seconds, injected clock): \(measured)")
+    #expect(await io.openAttempts == 7)
+    await transport.disconnect()
+}
+
+@Test func oversizedResponseBackoffStartsAtTheCeilingAndKeepsJitterBounded() {
+    let backoff = AnnexBackoff()
+    #expect(backoff.delayAfterOversizedResponse(randomUnit: 0) == 30)
+    #expect(backoff.delayAfterOversizedResponse(randomUnit: 1) == 45)
+    #expect(backoff.delayAfterOversizedResponse(randomUnit: -1) == 30)
+    #expect(backoff.delayAfterOversizedResponse(randomUnit: 2) == 45)
+    #expect(backoff.delayAfterOversizedResponse(randomUnit: .nan) == 37.5)
 }

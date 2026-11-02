@@ -13,6 +13,12 @@ nonisolated public struct AnnexBackoff: Sendable {
         let random = randomUnit.isFinite ? min(1, max(0, randomUnit)) : 0.5
         return ceiling * (0.5 + random * 0.5)
     }
+    /// A desktop can reduce its snapshot while we wait. Avoid repeatedly downloading
+    /// the same oversized message; jitter starts at the ordinary backoff ceiling.
+    public func delayAfterOversizedResponse(randomUnit: Double = Double.random(in: 0...1)) -> Double {
+        let random = randomUnit.isFinite ? min(1, max(0, randomUnit)) : 0.5
+        return maximumSeconds * (1 + random * 0.5)
+    }
 }
 
 /// Cursor belongs to one host connection, never shared among hosts. Snapshot

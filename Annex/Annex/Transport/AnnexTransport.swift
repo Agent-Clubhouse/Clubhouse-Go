@@ -370,11 +370,13 @@ public actor AnnexTransport: AnnexTransporting {
                 }
                 if ContinuousClock.now - started > .seconds(30) { attempt = 0 }
                 attempt += 1
-                let delay = backoff.delay(attempt: attempt)
+                let oversized = error as? AnnexTransportError == .responseTooLarge
+                let delay = oversized ? backoff.delayAfterOversizedResponse() : backoff.delay(attempt: attempt)
                 let diagnostic = telemetry.begin(.backoff)
                 diagnostic.fail(error); diagnostic.number(.attempt, Double(attempt)); diagnostic.number(.backoffMs, delay * 1000)
                 diagnostic.end()
-                transition(.reconnecting(attempt: attempt, delaySeconds: delay))
+                transition(oversized ? .retrying(attempt: attempt, delaySeconds: delay, error: .responseTooLarge)
+                           : .reconnecting(attempt: attempt, delaySeconds: delay))
                 do { try await clock.sleep(.seconds(delay)) } catch { return }
             }
         }
@@ -429,7 +431,7 @@ public actor AnnexTransport: AnnexTransporting {
     private func terminalError(_ error: Error) -> AnnexTransportError? {
         if let error = error as? AnnexTransportError {
             switch error {
-            case .identityMismatch, .trustRequired, .unauthorized, .forbidden, .credentialMissing, .malformedResponse, .responseTooLarge: return error
+            case .identityMismatch, .trustRequired, .unauthorized, .forbidden, .credentialMissing, .malformedResponse: return error
             default: return nil
             }
         }
@@ -487,7 +489,8 @@ public actor AnnexTransport: AnnexTransporting {
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
                          snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation) async throws {
         guard current == generation else { throw CancellationError() }
-        guard data.count <= 16 * 1024 * 1024, var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
+        guard data.count <= 16 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
+        guard var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
         if envelope.type == "telemetry:hello:ack" {

@@ -179,10 +179,20 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
         self.task = task; self.delegate = delegate; self.telemetry = telemetry; self.clock = clock
     }
     func receive() async throws -> Data {
-        switch try await task.receive() {
-        case .data(let bytes): return bytes
-        case .string(let text): return Data(text.utf8)
-        @unknown default: throw AnnexTransportError.malformedResponse
+        do {
+            switch try await task.receive() {
+            case .data(let bytes): return bytes
+            case .string(let text): return Data(text.utf8)
+            @unknown default: throw AnnexTransportError.malformedResponse
+            }
+        } catch {
+            // URLSession enforces maximumMessageSize before returning a message and
+            // sends close 1009. On Darwin its receive error is POSIX EMSGSIZE.
+            let failure = error as NSError
+            if failure.domain == NSPOSIXErrorDomain, failure.code == Int(EMSGSIZE) {
+                throw AnnexTransportError.responseTooLarge
+            }
+            throw error
         }
     }
     func send(_ data: Data) async throws {

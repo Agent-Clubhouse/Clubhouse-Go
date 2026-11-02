@@ -310,6 +310,9 @@ struct CompanionSettingsSheet: View {
                             Label(host.name, systemImage: "desktopcomputer").font(.headline)
                             Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
                             Text(host.connection.label).font(.caption)
+                            if case .failed(let message) = host.connection {
+                                Text(message).font(.subheadline).foregroundStyle(.secondary)
+                            }
                             Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
                             DisclosureGroup("Connection details") {
                                 VStack(alignment: .leading, spacing: 10) {
