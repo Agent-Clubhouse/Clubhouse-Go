@@ -423,7 +423,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
                 seen.insert(code)
                 let error = try #require(CompanionLiveService.receiptError(receipt))
                 let text = try #require((error as? LocalizedError)?.errorDescription)
-                #expect(!text.isEmpty && !text.contains(code) && text.first?.isUppercase == true, "\(file) \(code): \(text)")
+                if file == "commands/helperRouting.update.json", let message = receipt.error?.message, message != code {
+                    #expect(text == message, "Preset refusals preserve the desktop's words, including provider ids")
+                } else {
+                    #expect(!text.isEmpty && !text.contains(code) && text.first?.isUppercase == true, "\(file) \(code): \(text)")
+                }
                 if receipt.status == .failed { #expect(error is CompanionServiceError, "\(code)") }
             }
         }

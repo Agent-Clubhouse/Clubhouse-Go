@@ -9,6 +9,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     /// How the next executed command ends.
     enum Outcome: Sendable {
         case completed(AnnexJSON? = nil)
+        case receipt(AnnexCommandReceipt)
         case rejected(code: String, message: String)
         case failed(message: String?)
         case thrown(AnnexTransportError)
@@ -94,6 +95,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
         case .chatHistory: "chatHistory"
         case .createOptions: "createOptions"
         case .agentSettings: "agentSettings"
+        case .helperRouting: "helperRouting"
         case .gitStatus: "gitStatus"
         case .gitDiff: "gitDiff"
         default: "other"
@@ -139,6 +141,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
         let outcome = outcomes.isEmpty ? .completed(nil) : outcomes.removeFirst()
         let status: String, error: AnnexJSON, result: AnnexJSON
         switch outcome {
+        case .receipt(let receipt): return receipt
         case .completed(let value): status = "completed"; error = .null; result = value ?? .null
         case .rejected(let code, let message):
             status = "rejected"; error = .object(["code": .string(code), "message": .string(message)]); result = .null
@@ -158,11 +161,14 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     var mediaRef: String?
     var filePath: String?
     var sessionID: String?
+    var projectID: String?
+    var agentID: String?
     init(_ route: AnnexReadRoute) {
         name = ScriptedAnnexTransport.key(route)
         switch route {
         case .chatContent(_, let ref, let path): mediaRef = ref; filePath = path
         case .chatHistory(_, let session, _, _): sessionID = session
+        case .helperRouting(let project, let agent): projectID = project; agentID = agent
         default: break
         }
     }

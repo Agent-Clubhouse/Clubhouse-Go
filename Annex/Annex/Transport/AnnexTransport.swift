@@ -181,6 +181,10 @@ public actor AnnexTransport: AnnexTransporting {
                 query = [URLQueryItem(name: "offset", value: String(max(0, offset))), URLQueryItem(name: "limit", value: String(min(500, max(1, limit))))]
             case .createOptions(let project): path = ["api", "v1", "mobile", "projects", project, "create-options"]
             case .agentSettings(let agent): path = ["api", "v1", "mobile", "agents", agent, "settings"]
+            case .helperRouting(let project, let agent):
+                path = ["api", "v1", "mobile", "helper-routing"]
+                if let project { query.append(.init(name: "projectId", value: project)) }
+                if let agent { query.append(.init(name: "agentId", value: agent)) }
             case .gitStatus(let project): path = ["api", "v1", "projects", project, "git", "info"]
             case .gitDiff(let project, let file, let staged):
                 path = ["api", "v1", "projects", project, "git", "diff"]

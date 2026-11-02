@@ -19,6 +19,8 @@ import Observation
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     /// Helper requests being answered, and why an answer failed, by `CompanionHelperRequest.slot`.
     private(set) var helperRequestsInFlight: Set<String> = []
+    var helperRequestNotice: String?
+    private var consumedHelperRequests: Set<String> = []
     private(set) var helperRequestErrors: [String: String] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
@@ -456,7 +458,7 @@ import Observation
     func canAnswer(_ request: CompanionHelperRequest) -> Bool {
         guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
         return host.connection.canOperate && host.canAnswerHelperRequests && !helperRequestsInFlight.contains(request.slot)
-            && host.helperRequests.contains { $0.id == request.id }
+            && !consumedHelperRequests.contains(request.slot) && host.helperRequests.contains { $0.id == request.id }
     }
 
     /// Approve or decline a helper request, as the desktop's Needs you does. Approving a dispose with work at risk is
@@ -473,6 +475,10 @@ import Observation
             if let index = hosts.firstIndex(where: { $0.id == request.hostID }) {
                 hosts[index].helperRequests.removeAll { $0.id == request.id }
             }
+        } catch let error as CompanionHelperRequestConsumed {
+            consumedHelperRequests.insert(request.slot)
+            helperRequestNotice = error.message
+            if let index = hosts.firstIndex(where: { $0.id == request.hostID }) { hosts[index].helperRequests.removeAll { $0.id == request.id } }
         } catch {
             helperRequestErrors[request.slot] = error.localizedDescription
         }
@@ -602,6 +608,16 @@ import Observation
     /// Settings are offered for durable agents on desktops that support them.
     func canEditSettings(_ target: CompanionTarget) -> Bool {
         host(for: target)?.canEditSettings == true && agent(for: target).map { !$0.isQuick } == true
+    }
+    func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
+        guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Connect to the desktop to read helper presets.") }
+        return try await service.helperRouting(hostID: hostID, projectID: projectID, agentID: agentID)
+    }
+    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String) async throws -> CompanionHelperRouting {
+        guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canEditHelperPresets else {
+            throw CompanionServiceError.unavailable("Connect to a desktop that offers helper preset changes.")
+        }
+        return try await service.updateHelperRouting(update, hostID: hostID, clientCommandID: UUID().uuidString)
     }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard canEditSettings(target) else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }

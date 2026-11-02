@@ -431,7 +431,7 @@ nonisolated extension AnnexReadRoute {
         case .chatSessions, .sessions, .transcript: .archive
         case .chatContent: .media
         case .createOptions: .agentOptions
-        case .agentSettings: .agentSettings
+        case .agentSettings, .helperRouting: .agentSettings
         case .gitStatus, .gitDiff: .changes
         }
     }
@@ -448,7 +448,7 @@ nonisolated extension AnnexCommand {
         case .spawn: .spawn
         case .create: .createAgent
         case .update: .updateAgent
-        case .setModel, .setLevel, .setDispatcherEnabled: .command
+        case .setModel, .setLevel, .setDispatcherEnabled, .updateHelperRouting: .command
         case .helperApprove, .helperDecline: .helperRequest
         case .setProjectPinned, .setProjectInactive: .updateProject
         case .dismissFinishedQuick, .clearFinishedQuick: .finishedQuick

@@ -29,6 +29,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case setLevel(agentID: String, sessionID: String, level: String)
         /// Turns the desktop's app-wide Dispatcher on or off (`dispatcher` v1). Turning it on needs the experimental flag.
         case setDispatcherEnabled(Bool)
+        case updateHelperRouting(AnnexHelperRoutingUpdate)
     }
     /// A reasoning effort to switch to, or the provider's default (sent as `null`; needs `effortDefault`).
     public enum Effort: Sendable, Equatable {
@@ -67,6 +68,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .dismissFinishedQuick: "quick.dismiss"
         case .clearFinishedQuick: "quick.clear"
         case .setDispatcherEnabled: "dispatcher.setEnabled"
+        case .updateHelperRouting: "helperRouting.update"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -132,6 +134,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             v["projectId"] = .string(project); v["agentId"] = .string(agent)
         case .clearFinishedQuick(let project): v["projectId"] = .string(project)
         case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
+        case .updateHelperRouting(let update):
+            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil else { throw AnnexTransportError.malformedResponse }
+            v.merge(update.fields) { _, new in new }
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(AnnexJSON.object(v))
@@ -297,6 +302,9 @@ nonisolated public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public let epoch: String
     public let status: Status
     public let result: AnnexJSON?
+    /// A stale helper preset write returns the fresh page alongside its refusal.
+    public let revision: String?
+    public let settings: AnnexJSON?
     public let error: Failure?
     /// 'completed' means dispatch completed, not that the agent's turn ended.
     public var isDispatchAcknowledged: Bool { status == .completed }
@@ -375,6 +383,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
     public let orchestration: Feature?
     public let contextWindow: Feature?
+    public let helperRouting: HelperRouting?
+    public var supportsHelperRouting: Bool { helperRouting?.version == 1 }
+    public var supportsHelperRoutingUpdate: Bool { supportsHelperRouting && helperRouting?.canEditPresets == true && commands.contains("helperRouting.update") }
     public var supportsContextWindow: Bool { commands.contains("agent.update") && contextWindow?.version == 1 }
     public var supportsOrchestration: Bool { commands.contains("agent.update") && (orchestration?.version ?? 0) >= 1 }
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }
@@ -473,6 +484,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
         contextWindow = optional(.contextWindow)
+        helperRouting = optional(.helperRouting)
         helperRequests = optional(.helperRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
@@ -480,7 +492,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher
+        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }
 

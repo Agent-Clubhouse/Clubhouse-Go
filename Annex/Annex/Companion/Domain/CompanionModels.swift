@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// Identity includes the host and project: desktop-local IDs are not globally unique.
 struct CompanionTarget: Hashable, Codable, Sendable, Identifiable {
@@ -75,6 +78,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// The desktop takes Free Agent Mode from a phone (`permissions.freeAgentMode`).
     var canSetFreeAgentMode = false
     var canSetContextWindow = false
+    var helperRouting: AnnexCapabilities.HelperRouting?
+    var canEditHelperPresets = false
+    var helperRoutingRevision: String?
+    var helperRoutingLabels: CompanionHelperRouting.Labels = [:]
     /// The desktop shows and takes agents' orchestration policy (`orchestration` v1).
     var canOrchestrate = false
     /// The desktop's active theme colors, from its snapshot and `theme:changed`.
@@ -190,6 +197,7 @@ struct CompanionHelperRequest: Identifiable, Sendable, Equatable {
     var summary: String
     /// For a start: what the helper is asked to do.
     var task: String?
+    var requestedRouting: CompanionRequestedRouting?
     var dispose: Dispose?
 
     /// The agent whose Needs you row shows it: the helper for a dispose, the orchestrator for a start.
@@ -256,6 +264,7 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var orchestration: CompanionOrchestration?
     /// Durable helper identity; quick-agent parent metadata belongs to a different payload.
     var parentAgentID: String?
+    var routing: CompanionHelperRoutingDecision?
     /// What the desktop says the agent is doing (`detailedStatus`), for Needs you's wording and order.
     var detail: CompanionAgentDetail?
     /// The desktop has a previous session to resume (`hasSession`). Nil when the desktop doesn't say.
@@ -707,6 +716,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func reconnect(hostID: String) async
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt
+    func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting
+    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings
     /// `chat.setModel`. A nil effort leaves it to the desktop: a chosen effort the new model offers is kept.
@@ -731,6 +742,12 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
+        throw CompanionServiceError.unavailable("This desktop does not offer helper presets.")
+    }
+    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting {
+        throw CompanionServiceError.unavailable("This desktop does not offer helper preset changes.")
+    }
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to turn the Dispatcher on from your phone.")
     }
