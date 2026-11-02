@@ -201,4 +201,39 @@ import Testing
         #expect(await h.transport.executed.isEmpty)
     }
 
+    @Test func newerRevisionReadAndHumanSaveSupersedeAnOlderQuotaRead() async throws {
+        let original = try CompanionHelperRouting(json: #require(ContractFixtures.json("helper-routing.json")["bare"]?["response"]?["body"]))
+        var fresh = original; fresh.revision = "newer-policy"
+        for saveWins in [false, true] {
+            let screen = CompanionHelperPresetsScreen()
+            await screen.load { original }
+            let started = AsyncStream<Void>.makeStream()
+            var finishOldRead: CheckedContinuation<CompanionHelperRouting, Never>?
+            let older = Task {
+                await screen.load {
+                    await withCheckedContinuation { continuation in
+                        finishOldRead = continuation
+                        started.continuation.yield(())
+                    }
+                }
+            }
+            for await _ in started.stream { break }
+            if saveWins {
+                var writes = 0
+                await screen.save { revision in
+                    #expect(revision == original.revision)
+                    writes += 1
+                    return fresh
+                }
+                #expect(writes == 1, "A periodic quota read must not swallow a human save")
+            } else {
+                await screen.load { fresh }
+            }
+            finishOldRead?.resume(returning: original)
+            await older.value
+            #expect(screen.settings?.revision == fresh.revision, "An older response cannot undo a new policy or a save")
+            #expect(screen.error == nil)
+        }
+    }
+
 }

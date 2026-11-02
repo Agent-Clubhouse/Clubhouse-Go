@@ -40,7 +40,7 @@ struct CompanionHelperPresetsView: View {
         if let projectID, let project = host?.projects.first(where: { $0.id == projectID }) { return project.name + " helpers" }
         return "Helper presets"
     }
-    private var refreshKey: String { "\(host?.helperRoutingRevision ?? "")|\(host?.connection.canOperate == true)" }
+    private var refreshKey: String { "\(host?.helperRoutingRevision ?? "")|\(host?.connection.canOperate == true)|\(screen.saving)" }
     private var canEdit: Bool { projectID == nil && agentID == nil && host?.canEditHelperPresets == true && host?.helperRouting?.canEditPresets == true && host?.connection.canOperate == true && !screen.saving }
 
     var body: some View {
@@ -98,7 +98,7 @@ struct CompanionHelperPresetsView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: refreshKey) {
-            if screen.settings == nil || screen.settings?.revision != host?.helperRoutingRevision { await load() }
+            if !screen.saving && (screen.settings == nil || screen.settings?.revision != host?.helperRoutingRevision) { await load() }
         }
         .task(id: "\(screen.refreshID)|\(scenePhase == .active)|\(host?.connection.canOperate == true)|\(host?.helperRouting?.quota == true)") {
             guard scenePhase == .active, host?.connection.canOperate == true, host?.helperRouting?.quota == true,
