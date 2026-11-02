@@ -50,6 +50,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
+        revealActivityContent(element(app, "companion-routed-relay-1-0"), in: app)
+        revealActivityContent(element(app, "companion-routed-relay-1-3"), in: app)
         let expected = [
             "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.",
             "Reviewer: The reconnect tests pass. The PR is ready for review.",
@@ -129,6 +131,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
         let short = element(app, "companion-routed-sender-preview-2")
+        revealActivityContent(short, in: app)
         bringCaptionIntoView(short, in: app)
         XCTAssertEqual(short.label, "Maple: Short helper update.")
         let shortValue = short.value as? String ?? ""
@@ -186,6 +189,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let header = element(app, "companion-chat-header")
         waitAndTap(river, until: header, timeout: 10)
         let body = element(app, "companion-routed-relay-1-0")
+        revealActivityContent(body, in: app)
         XCTAssertTrue(scrollUntilExists(body, in: app, up: false, maxSwipes: 8), "The relayed task shows in River's chat")
         XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")

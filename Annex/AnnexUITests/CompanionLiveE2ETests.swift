@@ -695,6 +695,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
         let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
+        revealActivityContent(delivered, in: app, timeout: 30)
         XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message must render as a structured routed part")
         XCTAssertTrue(delivered.label.hasPrefix("Dispatcher"), "The routed caption uses the real sender: \(delivered.label)")
         XCTAssertTrue(delivered.label.hasSuffix(": \(deliveryText)"), "The exact body keeps inline tags and excludes CLI reply instructions: \(delivered.label)")
@@ -730,6 +731,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let longID = try XCTUnwrap(longEvent["messageId"] as? String)
         XCTAssertEqual((longEvent["routed"] as? [[String: Any]])?.first?["text"] as? String, longText)
         let long = app.buttons["companion-routed-\(longID)-0"]
+        revealActivityContent(long, in: app, timeout: 30)
         XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message folds behind its sender caption")
         bringRoutedCaptionIntoView(long, in: app)
         let longBodyID = long.identifier.replacingOccurrences(of: "companion-routed-", with: "companion-routed-body-")

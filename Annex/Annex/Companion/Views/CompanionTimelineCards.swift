@@ -178,7 +178,7 @@ private struct CompanionSentPartsView: View {
 }
 
 /// The caption is a native button for long parts. Its body is constructed only while open.
-private struct CompanionSentPartView: View {
+struct CompanionSentPartView: View {
     let part: CompanionRoutedMessagePart
     let message: CompanionMessage
     let index: Int
@@ -192,7 +192,7 @@ private struct CompanionSentPartView: View {
     private var longCaption: String { (["\(name) sent a long message"] + message.metaLabels).joined(separator: " · ") }
 
     var body: some View {
-        let collapsible = CompanionMessageRouting.isLongMessage(part.text)
+        let collapsible = CompanionTimelineFolding.canCollapse(part) && CompanionMessageRouting.isLongMessage(part.text)
         let open = expansion.isOpen(for: part.text)
         HStack(alignment: .top, spacing: 8) {
             if let identity {
@@ -395,27 +395,19 @@ struct CompanionCodeBlock: View {
 
 struct CompanionToolCard: View {
     let tool: CompanionTool
-    @State private var expanded = false
+    var expansion: CompanionPartExpansion = CompanionPartExpansion()
     @Environment(\.companionPalette) private var palette
+    private var expanded: Bool { tool.requiresAttention || expansion.open == true }
     var body: some View {
-        DisclosureGroup(isExpanded: $expanded) {
-            VStack(alignment: .leading, spacing: 10) {
-                if !tool.summary.isEmpty { Text(tool.summary).font(.callout.monospaced()).textSelection(.enabled) }
-                if let output = tool.output, !output.isEmpty {
-                    Divider()
-                    Text(output).font(.callout.monospaced()).textSelection(.enabled)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 10)
-        } label: {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: symbol).foregroundStyle(color).padding(.top, 2)
-                VStack(alignment: .leading, spacing: 4) {
-                    CompanionToolTitle(tool: tool)
-                    Text(tool.awaitsApproval ? "Waiting for approval" : tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
-                        .font(.caption).foregroundStyle(.secondary)
-                    if !tool.summary.isEmpty { Text(tool.summary).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2) }
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            if tool.requiresAttention { header; detail }
+            else {
+                Button { expansion.open = !expanded } label: {
+                    HStack { header; Spacer(); Image(systemName: expanded ? "chevron.up" : "chevron.down") }
+                }.buttonStyle(.plain)
+                .accessibilityValue(expanded ? "Expanded" : "Collapsed")
+                .accessibilityHint(expanded ? "Hide tool details" : "Show tool details")
+                if expanded { detail }
             }
         }
         .tint(.secondary)
@@ -423,8 +415,28 @@ struct CompanionToolCard: View {
         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(0.07)))
     }
+    private var detail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if !tool.summary.isEmpty { Text(tool.summary).font(.callout.monospaced()).textSelection(.enabled) }
+            if let output = tool.output, !output.isEmpty {
+                Divider()
+                Text(output).font(.callout.monospaced()).textSelection(.enabled)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var header: some View {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: symbol).foregroundStyle(color).padding(.top, 2)
+                VStack(alignment: .leading, spacing: 4) {
+                    CompanionToolTitle(tool: tool)
+                    Text(tool.awaitsApproval ? "Waiting for approval" : (tool.exitCode.map { $0 != 0 } ?? false) ? "Failed (exit \(tool.exitCode ?? 0))" : tool.state == .running ? "Running" : tool.state == .completed ? "Completed" : "Failed")
+                        .font(.caption).foregroundStyle(.secondary)
+                    if !tool.summary.isEmpty { Text(tool.summary).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(2) }
+                }
+            }
+    }
     private var symbol: String { tool.state == .running ? "terminal" : tool.state == .completed ? "checkmark.circle" : "exclamationmark.circle" }
-    private var color: Color { tool.state == .failed ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
+    private var color: Color { tool.requiresAttention && !tool.awaitsApproval ? Color(palette.error) : tool.state == .completed ? Color(palette.success) : Color(palette.tint) }
 }
 
 /// A tool's verb and what it acts on ("Read Sources/App.swift"), as the desktop labels tool rows.
@@ -440,6 +452,78 @@ struct CompanionToolTitle: View {
             .accessibilityElement(children: .combine)
         } else {
             Text(tool.name).font(.subheadline.weight(.semibold))
+        }
+    }
+}
+
+/// No child view, content link scan or Markdown parse exists until this row opens.
+struct CompanionActivityCard: View {
+    let parts: [CompanionActivityPart]
+    let expansion: CompanionTranscriptExpansion
+    @Environment(\.companionSenderResolver) private var resolver
+    @Environment(\.companionPalette) private var palette
+    private var state: CompanionPartExpansion { expansion.state(key: "activity:\(parts.first?.id ?? "")") }
+    var body: some View {
+        let open = state.open == true
+        VStack(alignment: .leading, spacing: 12) {
+            Button { state.open = !open } label: {
+                HStack(spacing: 8) {
+                    if parts.contains(where: \.isRunning) { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "ellipsis.bubble") }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(CompanionActivityPart.summary(parts)).font(.subheadline)
+                        Text(senders).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption)
+                }.contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
+            .accessibilityHint(open ? "Hide activity" : "Show activity messages and tool calls")
+            .accessibilityIdentifier("companion-activity-\(parts.first?.id ?? "")")
+            if open {
+                ForEach(parts) { part in
+                    switch part {
+                    case .tool(let tool):
+                        CompanionToolCard(tool: tool, expansion: expansion.state(key: "tool:\(tool.id)"))
+                        CompanionContentLinks(references: CompanionContentReference.references(in: .tool(tool)))
+                    case .routed(let message, let index):
+                        CompanionRoutedFragmentView(message: message, index: index, expansion: expansion)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 16))
+    }
+    private var senders: String {
+        var names: [String] = []
+        for part in parts {
+            let name: String
+            if case .routed(let message, let index) = part, case .others(let routed) = message.display {
+                name = resolver.resolve(routed[index].sender)?.name ?? part.sender
+            } else { name = part.sender }
+            if !names.contains(name) { names.append(name) }
+        }
+        return names.joined(separator: ", ")
+    }
+}
+
+struct CompanionRoutedFragmentView: View {
+    let message: CompanionMessage
+    let index: Int
+    let expansion: CompanionTranscriptExpansion
+    @Environment(\.companionSenderResolver) private var resolver
+    var body: some View {
+        if case .others(let parts) = message.display, parts.indices.contains(index) {
+            CompanionSentPartView(part: parts[index], message: message, index: index,
+                                  identity: resolver.avatarIdentity(for: parts[index].sender),
+                                  expansion: expansion.part(messageID: message.id, index: index))
+            if index == 0 && !message.images.isEmpty { CompanionMessageImages(images: message.images) }
+            if index == parts.count - 1 && message.queueState == .delivered {
+                Text("Delivered to the agent").font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 }

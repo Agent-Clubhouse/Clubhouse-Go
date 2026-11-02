@@ -135,6 +135,10 @@ private struct CompanionArchivedSessionView: View {
         switch entry {
         case .row(.item(let item)): archiveItem(item)
         case .row(.tools): EmptyView()
+        case .row(.activity(let parts)):
+            CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
+        case .row(.routed(let message, let index)):
+            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
         case .slice(let message, let slice):
             CompanionMessageView(message: message, canRetry: false, retry: {}, slice: slice, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
             if slice.isLast && message.role == .assistant {
@@ -149,7 +153,7 @@ private struct CompanionArchivedSessionView: View {
             CompanionMessageView(message: archived(message), canRetry: false, retry: {}, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .tool(let tool):
-            CompanionToolCard(tool: tool)
+            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target, sessionID: session.id).state(key: "tool:\(tool.id)"))
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             VStack(alignment: .leading, spacing: 8) {

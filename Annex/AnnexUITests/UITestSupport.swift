@@ -152,6 +152,20 @@ class ReliableUITestCase: XCTestCase {
         XCTAssertEqual(fold.value as? String, "Expanded", "\(fold) must open", file: file, line: line)
     }
 
+    /// Routine traffic now starts compact. Expand enclosing activity rows without changing inner routed folds.
+    func revealActivityContent(_ target: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 20) {
+        let end = Date().addingTimeInterval(timeout)
+        repeat {
+            if target.exists { return }
+            let groups = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-activity-' AND value == 'Collapsed'"))
+            if let group = groups.allElementsBoundByIndex.first {
+                XCTAssertTrue(scrollTo(group, in: app, up: false, maxSwipes: 15))
+                tapToExpand(group)
+            } else { _ = target.waitForExistence(timeout: 1) }
+        } while Date() < end
+        XCTAssertTrue(target.exists, "Activity must expose its content")
+    }
+
     /// Waits for `predicate` to hold for `element`, for at most `timeout` seconds.
     func waitFor(_ element: XCUIElement, _ predicate: NSPredicate, timeout: TimeInterval) -> Bool {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
