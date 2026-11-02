@@ -36,7 +36,7 @@ actor CompanionIconStore {
     struct Limits: Sendable {
         var totalBytes = 64 * 1024 * 1024
         var imageBytes = 1024 * 1024
-        var inputPixels = 40_000_000
+        var inputPixels = 2048 * 2048
         var concurrentFetches = 2
     }
     struct Response: Sendable {

@@ -139,7 +139,7 @@ private actor AuditIO: AnnexIO {
     var target: CompanionTarget { .init(hostID: hostID, projectID: "project", agentID: "agent") }
     var dispatcher: CompanionTarget { .init(hostID: hostID, projectID: "__dispatcher__", agentID: "dispatcher") }
     var host: CompanionHost? { store.hosts.first }
-    static func start(mode: OverflowMode = .healthy) async throws -> Self {
+    static func start(mode: OverflowMode = .healthy, realTime: Bool = false) async throws -> Self {
         let portFile = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("close1013-port")
         let io = AuditIO(port: Int(try String(contentsOf: portFile, encoding: .utf8))!, script: ScriptedAnnexTransport())
         await io.configure(); await io.setMode(mode)
@@ -147,7 +147,9 @@ private actor AuditIO: AnnexIO {
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 8443), verifiedHostID: hostID, verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "01", count: 32)))
         let credentials = MemoryAnnexCredentialStore(); await credentials.save(try AnnexCredential(bearerToken: "fixture-only"), for: hostID)
         let manual = AnnexManualClock(origin: Date().addingTimeInterval(-1000)); let sleeps = SleepLog()
-        let clock = AnnexClock(now: manual.clock.now, sleep: { duration in sleeps.add(duration); try await manual.clock.sleep(duration) })
+        let clock = realTime
+            ? AnnexClock(now: { Date() }, sleep: { duration in sleeps.add(duration); try await Task.sleep(for: duration) })
+            : AnnexClock(now: manual.clock.now, sleep: { duration in sleeps.add(duration); try await manual.clock.sleep(duration) })
         let transport = AnnexTransport(host: host, credentials: credentials, io: io, clock: clock)
         let service = CompanionLiveService(); let store = CompanionStore(service: service, clock: clock); store.start()
         let tape = HostTape(); let events = service.events()
@@ -162,8 +164,8 @@ private actor AuditIO: AnnexIO {
         return harness
     }
     func stop() async { observer.cancel(); store.stop(); service.remove(hostID: hostID); await transport.disconnect() }
-    func wait(_ condition: () async -> Bool) async throws {
-        for _ in 0..<2000 { if await condition() { return }; try await Task.sleep(for: .milliseconds(2)) }
+    func wait(tries: Int = 2000, _ condition: () async -> Bool) async throws {
+        for _ in 0..<tries { if await condition() { return }; try await Task.sleep(for: .milliseconds(2)) }
         Issue.record("Full audit condition timed out"); throw URLError(.timedOut)
     }
     func command() async -> Bool {
@@ -219,6 +221,22 @@ private actor AuditIO: AnnexIO {
             try await h.wait { h.host?.connection == .failed(CompanionLiveService.readableError(AnnexTransportError.malformedResponse)) }
             print("BUILD147_RAW missingSequence=malformedResponse")
         } catch { await h.stop(); throw error }
+        await h.stop()
+    }
+
+    @Test(.timeLimit(.minutes(2))) func repeatedSnapshotFailedRealTimeCadence() async throws {
+        let h = try await FullAuditHarness.start(realTime: true)
+        let started = ContinuousClock.now
+        await h.io.setMode(.failed)
+        await h.service.reconnect(hostID: h.hostID)
+        try await h.wait(tries: 20_000) { await h.io.opened >= 3 }
+        let first = started.duration(to: .now)
+        try await h.wait(tries: 20_000) { await h.io.opened >= 4 }
+        let total = started.duration(to: .now)
+        let backoffs = Array(h.sleeps.backoffs.prefix(2))
+        #expect(backoffs.count == 2)
+        #expect(backoffs.allSatisfy { (0.25...0.5).contains($0) })
+        print("BUILD147_REAL_D firstRetry=\(first) secondRetry=\(total) backoffs=\(backoffs) cachedProjects=\(h.host?.projects.count ?? -1) helpers=\(h.host?.helperRequests.count ?? -1)")
         await h.stop()
     }
 

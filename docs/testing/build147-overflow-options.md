@@ -4,8 +4,8 @@ Frozen source: `6c32b12`. The package audit exercises actual `AnnexTransport` re
 bytes, envelope decoding/replay validation, `CompanionLiveService`, and observable
 `CompanionStore` state. HTTP identity/capabilities/catalog/history/commands are scripted;
 close 1013 is sent by a real private loopback WebSocket peer. No physical device, desktop
-app or build-147 install was used. Grace/backoff use `AnnexManualClock`; healthy pings
-continue. Before reconnect, the warm cases load normal/Dispatcher chat and two helper
+app or build-147 install was used. Most state cases use `AnnexManualClock`; a separate real-time test measures D
+cadence because the retry-reset logic also uses `ContinuousClock`. Healthy pings continue. Before reconnect, the warm cases load normal/Dispatcher chat and two helper
 approvals. The desktop has not yet shipped the proposed metadata-only overflow fallback.
 
 | Option | Catalog and chat | Helper approvals | Connection/retries | Commands |
@@ -14,12 +14,17 @@ approvals. The desktop has not yet shipped the proposed metadata-only overflow f
 | A: also `dispatcher:null`, `helperRequests:[]` | Empty Home frame, then REST restores normal project/agent. Dispatcher disappears; `CompanionStore.apply(.hosts)` clears its chat. Normal chat retained. | Both removed and not restored by REST | No retry loop | Warm service commands work; missing snapshot-only state remains lost |
 | B: `snapshot_too_large`, socket open | Cached catalog/chats retained | Cached requests retained | Still Connecting after 120 clock seconds, no reconnect, healthy pings | Connection-gated UI blocked. Warm service commands work; cold service commands fail, although raw transport commands work |
 | C: peer closes 1013 | Cached catalog/chats retained | Cached requests retained | Generic connection loss; immediate jittered exponential retry, no snapshot grace. Repeated closes keep retrying | Fail between capability handshakes; connection-gated UI blocked during reconnect |
-| D: `snapshot_failed`, socket open | Cached catalog/chats retained | Cached requests retained | Connecting for 30 s, then timeout and jittered exponential retry. Successful retry REST catch-up can mark Connected while still awaiting snapshot | Warm service commands work during grace. Cold service commands fail until refresh, although raw transport commands work |
+| D: `snapshot_failed`, socket open | Cached catalog/chats retained | Cached requests retained | Connecting for 30 s, then timeout and initial 0.25–0.5 s jitter. Each real grace resets the attempt counter. Successful retry REST catch-up can mark Connected while still awaiting snapshot | Warm service commands work during grace. Cold service commands fail until refresh, although raw transport commands work |
 
-Repeated D refusals each get another 30 seconds plus backoff. Observed waits were
-0.459, 0.634 and 1.546 seconds; legal initial ranges are 0.25–0.5, 0.5–1, 1–2,
-2–4, 4–8, 8–16, then 15–30 seconds. C had waits 0.269, 0.766, 1.998,
-2.242 and 5.024 seconds without the extra 30-second grace. Exact samples vary by jitter.
+Repeated D refusals each get another 30 seconds and reset to initial 0.25–0.5 second
+jitter: a real-time run reconnected at **30.309 s** and **60.679 s**, with backoffs
+**0.30256 s** and **0.36550 s**. Its retry reset uses real `ContinuousClock`, so a manual
+Annex clock alone misleadingly produces increasing D backoffs. The real-time check is
+included in the frozen audit and takes about 61 seconds.
+
+C does use increasing jitter: observed 0.269, 0.766, 1.998, 2.242 and 5.024 seconds,
+without D's extra grace. Its ranges are 0.25–0.5, 0.5–1, 1–2, 2–4, 4–8, 8–16,
+then 15–30 seconds. Exact samples vary by jitter.
 `CompanionStore` keeps `requiresResync` on conversations after reconnect until history is
 reloaded. The conversation view normally reloads on a usable connection; these tests
 report store state and service command results separately, rather than treating a

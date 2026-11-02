@@ -22,7 +22,7 @@ version on disk needs no network, including offline. A different version cannot 
 bytes. Removed appearances cannot reappear from a REST refresh or stale view result.
 
 ImageIO accepts a fixed raster format set (PNG, JPEG, GIF, TIFF, BMP, HEIC/HEIF, WebP),
-checks complete input and source dimensions (40 million pixels, 16,384 per edge), and
+checks complete input and source dimensions (4,194,304 pixels, 16,384 per edge), and
 creates orientation-correct thumbnails at 3× display points (maximum 384 pixels per edge).
 SVG and anything that cannot decode use avatar fallback; no WebKit or vector renderer is
 used. Decoded thumbnails use a 16 MiB/256-entry NSCache. Inline tokens hash bytes.

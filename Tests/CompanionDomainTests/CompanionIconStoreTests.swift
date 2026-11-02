@@ -104,7 +104,7 @@ import Testing
         #expect(CompanionIconStore.Limits().inputPixels == 2048 * 2048)
         let boundary = try Self.png(width: 2048, height: 2048)
         let over = try Self.png(width: 2049, height: 2049)
-        #expect(over.count < 72 * 1024, "A small encoded image can still have unsafe source dimensions")
+        #expect(over.count < CompanionIconStore.Limits().imageBytes, "A small encoded image can still have unsafe source dimensions")
         #expect(await store.insert(boundary, for: key("boundary-pixels")))
         #expect(await store.insert(over, for: key("oversized-pixels")) == false)
         let thumbnail = try #require(await store.image(for: key("boundary-pixels"), points: 32))
