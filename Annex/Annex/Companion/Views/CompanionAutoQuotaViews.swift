@@ -140,6 +140,7 @@ struct CompanionHelperWarningView: View {
 struct CompanionHelperDecisionDetails: View {
     let routing: CompanionHelperRoutingDecision
     let labels: CompanionHelperRouting.Labels
+    let showsQuota: Bool
     var body: some View {
         if let decidedAt = routing.decidedAt { Text("Decided \(decidedAt.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
         if let warning = routing.warning {
@@ -153,9 +154,11 @@ struct CompanionHelperDecisionDetails: View {
         ForEach(routing.load.keys.sorted(), id: \.self) { provider in
             LabeledContent(provider + " helpers at decision", value: String(routing.load[provider] ?? 0)).font(.subheadline)
         }
-        ForEach(routing.quota.keys.sorted(), id: \.self) { provider in
-            if let quota = routing.quota[provider] {
-                DisclosureGroup(provider + " limit at decision") { CompanionQuotaView(quota: quota, labels: labels) }
+        if showsQuota {
+            ForEach(routing.quota.keys.sorted(), id: \.self) { provider in
+                if let quota = routing.quota[provider] {
+                    DisclosureGroup(provider + " limit at decision") { CompanionQuotaView(quota: quota, labels: labels) }
+                }
             }
         }
     }

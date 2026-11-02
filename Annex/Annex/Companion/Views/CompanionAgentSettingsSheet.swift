@@ -222,7 +222,7 @@ struct CompanionAgentSettingsForm: View {
                 Text(routing.reasonText(labels: store.host(for: target)?.helperRoutingLabels ?? [:]))
                     .accessibilityIdentifier("helper-routing-reason")
                 if let fallback = routing.displayFallback { Text(fallback).font(.subheadline).foregroundStyle(.secondary) }
-                CompanionHelperDecisionDetails(routing: routing, labels: store.host(for: target)?.helperRoutingLabels ?? [:])
+                CompanionHelperDecisionDetails(routing: routing, labels: store.host(for: target)?.helperRoutingLabels ?? [:], showsQuota: store.host(for: target)?.helperRouting?.quota == true)
             }
         }
 

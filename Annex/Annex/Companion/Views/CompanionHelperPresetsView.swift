@@ -5,7 +5,10 @@ import ClubhouseTransport
 struct CompanionHelperPresetLinks: View {
     @Bindable var store: CompanionStore
     var body: some View {
-        let hosts = store.hosts.filter { $0.helperRouting?.version == 1 }
+        let hosts = store.hosts.filter {
+            guard let feature = $0.helperRouting, feature.version == 1 else { return false }
+            return feature.supportsPresets || feature.modes.contains("auto") || feature.quota
+        }
         if !hosts.isEmpty {
             Section("Helpers") {
                 ForEach(hosts) { host in
@@ -145,7 +148,7 @@ struct CompanionHelperPresetsView: View {
                             .accessibilityIdentifier("helper-auto-agent-\(agent.id.agentID)")
                     }
                 }
-            } else if host?.helperRouting?.scopes.contains("project") == true {
+            } else if projectID == nil && host?.helperRouting?.scopes.contains("project") == true {
                 Section("Projects") {
                     ForEach(host?.projects ?? []) { project in
                         NavigationLink(project.name) { CompanionHelperPresetsView(store: store, hostID: hostID, projectID: project.id) }
