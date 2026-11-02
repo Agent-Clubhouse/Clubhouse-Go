@@ -649,6 +649,7 @@ import ClubhouseTransport
     /// Refusals branch on the code. The desktop's message is a sentence only for some codes; otherwise it is the code itself.
     nonisolated static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
         guard let failure else { return "The desktop rejected this command." }
+        if failure.code == "too_large" { return "The desktop rejected this command because it is too large." }
         return CompanionAgentCommandError.message(code: failure.code, message: failure.message)
             ?? (failure.message.isEmpty || failure.message == failure.code ? "The desktop rejected this command (\(failure.code))." : failure.message)
     }
@@ -1274,6 +1275,7 @@ import ClubhouseTransport
         case .forbidden: return "This desktop has not granted mobile control. Pair again using the secure invitation."
         case .disconnected: return "The desktop is offline. Reconnect to continue."
         case .responseTooLarge: return "The desktop sent more data than your phone can accept."
+        case .commandTooLarge: return "This command is too large to send. Nothing was sent."
         case .unsupportedCapability: return "This action is not supported by the connected desktop."
         case .commandOutcomeUnknown: return "Delivery is unknown. Refresh the conversation to check the result."
         case .pairingRevocationOutcomeUnknown: return "The desktop may have ended this pairing, but its reply was lost. Access is kept here so you can check desktop settings before forgetting this device."

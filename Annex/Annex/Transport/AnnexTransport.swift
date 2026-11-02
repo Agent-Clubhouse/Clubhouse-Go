@@ -220,6 +220,9 @@ public actor AnnexTransport: AnnexTransporting {
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         return try await telemetry.measure(command.diagnosticOperation) {
             let data = try command.encoded()
+            // The desktop caps the whole JSON body at 1 MiB of UTF-8, including keys and escaping.
+            // Check the exact bytes that will be sent, before reserving a command or doing any IO.
+            guard data.count <= 1_048_576 else { throw AnnexTransportError.commandTooLarge }
             let now = clock.now()
             let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
             guard now.timeIntervalSince(command.createdAt) < ttl else {
@@ -254,9 +257,15 @@ public actor AnnexTransport: AnnexTransporting {
                 let response = try await io.perform(request)
                 // A valid receipt wins even if cancellation races after dispatch.
                 guard let receipt = try? JSONDecoder().decode(AnnexCommandReceipt.self, from: response.data),
-                      receipt.version == 1,
-                      (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
-                      (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
+                      receipt.version == 1 else {
+                    throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+                }
+                // AnnexIO is the pinned mTLS exchange. This refusal happens before parsing the body,
+                // so it cannot echo a command ID or the request's epoch. No other shape gets this exception.
+                let unparsedSizeRefusal = response.status == 413 && receipt.status == .rejected
+                    && receipt.error?.code == "too_large" && receipt.commandId == nil
+                guard (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
+                      (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch") || unparsedSizeRefusal),
                       // `failed` comes as 500 command_failed, or 409 for a refused helper start, a failed dispose or a
                       // cancelled start: all definitive answers that may have had partial effects.
                       ((receipt.status == .completed && (200...299).contains(response.status))
@@ -265,7 +274,7 @@ public actor AnnexTransport: AnnexTransporting {
                     throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
                 }
                 if receipt.status != .completed { AnnexTelemetry.current?.fail(receipt.status == .failed ? .server : .rejected) }
-            commands[key]?.receipt = receipt
+                commands[key]?.receipt = receipt
                 return receipt
             } catch {
                 // Cancellation after dispatch cannot prove the server did not execute.
