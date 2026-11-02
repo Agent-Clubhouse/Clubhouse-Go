@@ -52,11 +52,39 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         let river = element(app, "agent-preview-studio-river")
         let composer = element(app, "companion-composer")
         XCTAssertTrue(scrollTo(river, in: app, up: false))
-        waitAndTap(river, until: composer)
+        tapVisibleRow(river, in: app, until: composer)
         XCTAssertTrue(app.navigationBars["River"].exists)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Collapsed", "Direct navigation preserves disclosure")
+    }
+    /// Hittability alone can include a row clipped by the navigation bar. Move the
+    /// whole row into the content area, then tap its checked center explicitly.
+    private func tapVisibleRow(_ row: XCUIElement, in app: XCUIApplication, until expected: XCUIElement) {
+        for _ in 0..<3 {
+            if expected.exists { return }
+            for _ in 0..<6 {
+                checkTimeLeft("moving the agent row clear of the navigation bar")
+                let top = app.navigationBars.firstMatch.frame.maxY + 12
+                let bottom = app.tabBars.firstMatch.frame.minY - 12
+                if row.exists && row.isHittable && row.frame.minY >= top && row.frame.maxY <= bottom { break }
+                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                let dy: CGFloat = row.frame.minY < top ? 120 : -120
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+            }
+            XCTAssertTrue(row.exists && row.isHittable)
+            let frame = row.frame
+            let point = CGPoint(x: frame.midX, y: frame.midY)
+            XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
+            XCTAssertLessThanOrEqual(frame.maxY, app.tabBars.firstMatch.frame.minY - 12)
+            XCTAssertTrue(frame.contains(point))
+            XCTAssertFalse(app.navigationBars.firstMatch.frame.contains(point))
+            XCTContext.runActivity(named: "Tap visible agent row at \(point), row \(frame), navigation bar \(app.navigationBars.firstMatch.frame)") { _ in
+                row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+            if expected.waitForExistence(timeout: 10) { return }
+        }
+        XCTAssertTrue(expected.waitForExistence(timeout: 2), "The visible agent row must open its conversation")
     }
     func testProjectUsesSameTreeAndCrossProjectCaption() {
         let app = launchApp(arguments)
