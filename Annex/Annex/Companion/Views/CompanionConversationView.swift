@@ -6,6 +6,7 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
+    /// Hidden tabs retain local editor state without observing or building the transcript.
     var isVisible = true
     @State private var followLatest = true
     @State private var atLatest = true
@@ -83,6 +84,16 @@ struct CompanionConversationView: View {
         #if DEBUG
         let _ = CompanionConversationBuildProbe.record?(.body, target)
         #endif
+        Group {
+            if isVisible { content }
+            else { Color.clear }
+        }
+        .onChange(of: isVisible) { _, visible in
+            if !visible { composerFocused = false }
+        }
+    }
+
+    private var content: some View {
         AnnexTelemetry.shared.measurePerformance(.conversationBody, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
@@ -134,11 +145,9 @@ struct CompanionConversationView: View {
             }
         }
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) { if isVisible { otherAgentBanner } }
+        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if isVisible {
-                if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
-            }
+            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else { composer }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
@@ -156,7 +165,7 @@ struct CompanionConversationView: View {
             }
         }
         .onChange(of: connection) { _, current in
-            if isVisible && current.canOperate && conversation.requiresResync && !conversation.isLoading {
+            if current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
             }
         }
@@ -249,6 +258,9 @@ struct CompanionConversationView: View {
     }
 
     private var timeline: some View {
+        #if DEBUG
+        let _ = CompanionConversationBuildProbe.record?(.timeline, target)
+        #endif
         let rows = store.timelineRows(for: target)
         let viewport = readingViewport
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
@@ -256,9 +268,6 @@ struct CompanionConversationView: View {
         let stops = CompanionAssistantNavigation.targets(in: entries)
         return ScrollViewReader { proxy in
             ScrollView {
-                #if DEBUG
-                let _ = CompanionConversationBuildProbe.record?(.timeline, target)
-                #endif
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
                 // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
                 // is a row per slice, so no row is far taller than the screen.
