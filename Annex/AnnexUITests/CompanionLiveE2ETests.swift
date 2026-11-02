@@ -997,8 +997,13 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         // Sample the center of the avatar, excluding its status dot and clipping shape.
         func sample(_ element: XCUIElement, project: Bool = false, half: Int = 0) throws -> [String: Int] {
             let frame = element.frame
-            // Navigation rows include 16pt content padding before the 32pt avatar.
-            let center = CGPoint(x: project ? frame.minX - 17 : frame.minX + 32, y: frame.midY)
+            // A tree parent’s link sits directly beside its disclosure. Standalone links have a 16pt inset.
+            var avatarX = frame.minX + 32
+            if element.identifier.hasPrefix("agent-") {
+                let disclosure = self.element(app, "helpers-toggle-\(element.identifier.dropFirst("agent-".count))")
+                if disclosure.exists { avatarX = disclosure.frame.maxX + 16 }
+            }
+            let center = CGPoint(x: project ? frame.minX - 17 : avatarX, y: frame.midY)
             var rect = CGRect(x: center.x - 8, y: center.y - 8, width: 16, height: 16)
             if half != 0 { rect.size.height = 8; if half > 0 { rect.origin.y += 8 } }
             let shot = try XCTUnwrap(app.screenshot().image.cgImage), window = app.windows.firstMatch.frame
@@ -1026,6 +1031,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                 if counts[color, default: 0] > (color == "ink" ? 10 : 400) { return }
                 sleep(1); counts = try sample(target, project: project, half: half)
             }
+            screenshot(app, "Unexpected \(color) avatar pixels")
             XCTFail("Avatar should draw \(color), saw \(counts)")
         }
         try painted(dispatcherRow(app), "red")
