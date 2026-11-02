@@ -758,6 +758,9 @@ import Observation
     func dismissError(for target: CompanionTarget) { operationErrors[target] = nil }
 
     func apply(_ event: CompanionEvent) {
+        AnnexTelemetry.shared.measurePerformance(.storeApply) { applyEvent(event) }
+    }
+    private func applyEvent(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts):
             // A Dispatcher that was turned off takes its chat with it; turned back on, it loads afresh.
@@ -870,6 +873,14 @@ import Observation
     }
 
     private func upsert(_ incoming: CompanionTimelineItem, target: CompanionTarget) {
+        // Assistant text cannot reconcile optimistic user sends or carry phone-local images. Mutate in place,
+        // avoiding a full-array copy and scans of unrelated history for every chunk.
+        if case .message(let message) = incoming, message.role == .assistant {
+            if let index = conversations[target]?.items.lastIndex(where: { $0.id == incoming.id }) {
+                conversations[target]?.items[index] = incoming
+            } else { conversations[target, default: .init()].items.append(incoming) }
+            return
+        }
         var items = conversation(for: target).items
         let item = Self.carryingLocalImages([incoming], from: items)[0]
         if case .message(let incoming) = item, incoming.role == .user, incoming.clientCommandID == nil {

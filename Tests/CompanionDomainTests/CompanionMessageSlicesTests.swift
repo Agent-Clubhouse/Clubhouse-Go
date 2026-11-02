@@ -222,3 +222,28 @@ import Testing
         #expect(window.hiddenCount == 1)
     }
 }
+
+@Suite struct CompanionTimelinePreparationTests {
+    @Test func hiddenHistoryIsNotExpandedIntoEntries() {
+        let rows = (1...5_000).map { CompanionTimelineRow.item(.message(.init(id: "m\($0)", role: .assistant, text: "Reply \($0)"))) }
+        let window = CompanionTimelineWindow(rows: rows, limit: 150)
+        #expect(window.preparedRowCount == 150)
+        #expect(window.entries.count == 150)
+        #expect(window.hiddenCount == 4_850)
+        #expect(window.entries.first?.id == "message:m4851")
+        let earlier = CompanionTimelineWindow(rows: rows, limit: 300)
+        #expect(earlier.preparedRowCount == 300)
+        #expect(Array(earlier.entries.suffix(150)) == window.entries, "Loading older messages keeps existing IDs and order")
+    }
+    @Test func recentPreparationMatchesWholeHistoryWindowIncludingWholeReplies() {
+        let rows: [CompanionTimelineRow] = [.item(.notice(id: "old", text: "Old")),
+            .item(.message(.init(id: "long", role: .assistant, text: String(repeating: "Paragraph with **formatting**.\n\n", count: 300)))),
+            .item(.notice(id: "new", text: "New"))]
+        for limit in [0, 1, 2, 5, 150] {
+            let before = CompanionTimelineWindow(CompanionTimelineEntry.entries(for: rows), limit: limit)
+            let after = CompanionTimelineWindow(rows: rows, limit: limit)
+            #expect(before.entries == after.entries)
+            #expect((before.hiddenCount > 0) == (after.hiddenCount > 0))
+        }
+    }
+}

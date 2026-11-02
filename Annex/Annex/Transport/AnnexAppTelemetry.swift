@@ -161,6 +161,7 @@ nonisolated public enum AnnexAppTelemetry {
         let kind = summary.operation.rawValue
         var signals: [Signal] = [.log(event: "app.performance.summary", severity: .info, attributes: [
             "app.performance.kind": .string(kind), "count": .int(summary.count), "mean_ms": .double(summary.meanMs),
+            "durationMs": .double(summary.totalMs), "messageCount": .int(summary.messageCount), "textBytes": .int(summary.textBytes),
             "max_ms": .double(summary.maxMs), "over_threshold": .int(summary.slow), "annex.failed": .int(summary.failed)
         ], traceID: nil, spanID: nil)]
         if summary.operation == .ping {

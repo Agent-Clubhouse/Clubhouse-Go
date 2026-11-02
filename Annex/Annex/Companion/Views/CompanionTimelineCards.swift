@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 private struct CompanionSenderResolverKey: EnvironmentKey {
     static let defaultValue = CompanionSenderResolver(agents: [])
@@ -10,7 +11,12 @@ extension EnvironmentValues {
     }
 }
 
-struct CompanionMessageView: View {
+struct CompanionMessageView: View, Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.message == rhs.message && lhs.slice == rhs.slice && lhs.canRetry == rhs.canRetry
+            && lhs.canRemoveQueued == rhs.canRemoveQueued && (lhs.removeQueued == nil) == (rhs.removeQueued == nil)
+            && lhs.expansion === rhs.expansion
+    }
     let message: CompanionMessage
     var canRetry: Bool
     var retry: () -> Void
@@ -23,6 +29,7 @@ struct CompanionMessageView: View {
 
     /// Like the desktop: agent replies have no author label; your messages sit on the right with their source.
     var body: some View {
+        AnnexTelemetry.shared.measurePerformance(.messageBody, messageCount: 1, textBytes: message.text.utf8.count) {
         Group {
             switch message.role {
             case .user:
@@ -47,6 +54,7 @@ struct CompanionMessageView: View {
         .accessibilityElement(children: .contain)
         .contextMenu {
             Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }
+        }
         }
     }
 

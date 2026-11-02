@@ -8,7 +8,8 @@ import ClubhouseTransport
 struct CompanionChatProjector {
     var sessionID: String?
     var lastSequence = 0
-    var items: [CompanionTimelineItem] = []
+    private(set) var items: [CompanionTimelineItem] = []
+    private var itemIndices: [String: Int] = [:]
     var status: CompanionAgentStatus = .idle
     var capabilities: CompanionCapabilities = []
     var model: String?
@@ -54,7 +55,8 @@ struct CompanionChatProjector {
         guard let session = event["sessionId"]?.string,
               let sequence = event["seq"]?.integer, let type = event["type"]?.string else { return }
         if sessionID != session {
-            sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
+            if sessionID != nil { commandIDsByMessage = [:] }
+            sessionID = session; lastSequence = 0; items = []; itemIndices = [:]; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
             self.session = .init()
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
             queuedContentParts = [:]
@@ -99,13 +101,15 @@ struct CompanionChatProjector {
                let state = CompanionMessage.QueueState(rawValue: name) {
                 let ids = Set(transition["messageIds"].arrayValue.compactMap(\.string))
                 if state == .removed { removeQueuedRows(ids); return }
-                for index in items.indices {
-                    if case .message(var message) = items[index], ids.contains(message.id) {
+                for id in ids {
+                    if let index = itemIndices["message:\(id)"], case .message(var message) = items[index] {
                         message.queueState = queuedMessageIDs.contains(message.id) ? .queued : state == .queued ? .submitted : state
                         items[index] = .message(message)
+                        if !Self.isPending(message) { queuedContentParts[id] = nil }
                     }
                 }
             }
+            releaseCompletedQueueContent()
         case "queue_removed":
             // Legacy event remains useful for history. New queue_state/snapshot
             // watermarks prevent an older event from overriding newer membership.
@@ -175,7 +179,7 @@ struct CompanionChatProjector {
             status = .approval
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,
-                  let index = items.firstIndex(where: { $0.id == "approval:\(requestID)" }), case .approval(var approval) = items[index] else { return }
+                  let index = itemIndices["approval:\(requestID)"], case .approval(var approval) = items[index] else { return }
             switch data["decision"]?.string { case "allow": approval.resolution = .allowed; case "cancelled": approval.resolution = .cancelled; default: approval.resolution = .denied }
             items[index] = .approval(approval)
         case "question":
@@ -191,7 +195,7 @@ struct CompanionChatProjector {
             upsert(.question(.init(id: requestID, prompts: prompts))); status = .waiting
         case "question_resolved":
             guard let requestID = data["requestId"]?.string,
-                  let index = items.firstIndex(where: { $0.id == "question:\(requestID)" }), case .question(var question) = items[index] else { return }
+                  let index = itemIndices["question:\(requestID)"], case .question(var question) = items[index] else { return }
             question.resolution = data["cancelled"].boolValue ? .cancelled : .answered; items[index] = .question(question)
         case "plan":
             let plan = data["entries"].arrayValue.map { entry in
@@ -322,8 +326,14 @@ struct CompanionChatProjector {
         queueRemovalSupported = snapshot["queueRemovalSupported"].boolValue
         if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
         applyQueueMembership()
+        releaseCompletedQueueContent()
     }
 
+    private mutating func releaseCompletedQueueContent() {
+        for id in Array(queuedContentParts.keys) where message(id: id).map({ !Self.isPending($0) }) ?? true {
+            queuedContentParts[id] = nil
+        }
+    }
     private mutating func applyQueueMembership() {
         for index in items.indices {
             if case .message(var message) = items[index] {
@@ -338,6 +348,7 @@ struct CompanionChatProjector {
     }
     private mutating func removeQueuedRows(_ ids: Set<String>) {
         items.removeAll { if case .message(let message) = $0 { return ids.contains(message.id) }; return false }
+        itemIndices = Dictionary(items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, last in last })
         for id in ids { queuedContentParts[id] = nil }
     }
 
@@ -363,15 +374,23 @@ struct CompanionChatProjector {
         upsert(item); return item
     }
     mutating func upsert(_ item: CompanionTimelineItem) {
-        if let index = items.firstIndex(where: { $0.id == item.id }) { items[index] = item }
-        else { items.append(item) }
+        if let index = itemIndices[item.id] { items[index] = item }
+        else { itemIndices[item.id] = items.count; items.append(item) }
+    }
+    /// Text chunks/finals change one row. Queue, interaction and session transitions still publish a full reconciliation.
+    func liveUpdate(for event: AnnexJSON, target: CompanionTarget, previousSessionID: String?) -> CompanionEvent {
+        if sessionID == previousSessionID, ["agent_message_chunk", "agent_message"].contains(event["type"]?.string),
+           let id = event["data"]?["messageId"]?.string, let index = itemIndices["message:\(id)"] {
+            return .upsert(target, items[index], sequence: lastSequence)
+        }
+        return .timeline(target, items: items, sequence: lastSequence, reset: previousSessionID != sessionID, sessionID: sessionID)
     }
     private func message(id: String) -> CompanionMessage? {
-        guard let item = items.first(where: { $0.id == "message:\(id)" }), case .message(let message) = item else { return nil }
+        guard let index = itemIndices["message:\(id)"], case .message(let message) = items[index] else { return nil }
         return message
     }
     private func tool(id: String) -> CompanionTool? {
-        guard let item = items.first(where: { $0.id == "tool:\(id)" }), case .tool(let tool) = item else { return nil }
+        guard let index = itemIndices["tool:\(id)"], case .tool(let tool) = items[index] else { return nil }
         return tool
     }
     /// Whether the session is live as far as this projection knows: not ended, asleep or failed.
