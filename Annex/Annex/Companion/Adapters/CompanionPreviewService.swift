@@ -181,7 +181,8 @@ import Foundation
         timestamp: Date().addingTimeInterval(-360), source: "mission", isSteered: true, routed: [
             .init(sender: .init(agentID: "cedar", name: "Old Cedar"), text: longSenderText),
             .init(sender: .init(name: "Maple"), text: String(repeating: "Another long update from the Website project. ", count: 20)),
-            .init(sender: .init(name: "Maple"), text: "Short helper update.")
+            .init(sender: .init(name: "Maple"), text: "Short helper update."),
+            .init(sender: .init(agentID: "quick-willow", name: "Old willow"), text: "Quick helper update.")
         ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
