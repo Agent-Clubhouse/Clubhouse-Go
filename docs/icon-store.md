@@ -3,7 +3,9 @@
 Icons are best-effort presentation data. A `CompanionIconReference` carries the host,
 agent/project kind, id and opaque version. Models and sender resolvers compare these
 small values rather than image bytes. A complete inline snapshot consumes its data URLs
-into the store and retains only references. Missing snapshot icons clear references;
+into the store and retains only references. Quick agents keep the bolt; agent emoji precedes images; the shared circular agent face
+and sender resolver retain avatar parity from #210. Project faces remain square.
+Missing snapshot icons clear references;
 REST catalog refreshes reuse the last complete snapshot's reference map.
 
 `CompanionIconStore` is an actor. It performs filesystem access and ImageIO decoding

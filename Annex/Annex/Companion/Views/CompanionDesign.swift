@@ -160,7 +160,7 @@ struct CompanionIdentityFace: View {
             let key = requestedIcon
             loadedImage = nil; loadedIcon = nil
             guard let key else { return }
-            let result = await CompanionIconStore.shared.image(for: key, points: Int(size.rounded(.up)))
+            let result = await CompanionIconStore.shared.image(for: key, points: Double(size))
             guard !Task.isCancelled else { return }
             loadedImage = result.map { UIImage(cgImage: $0.cgImage) }; loadedIcon = key
         }
@@ -213,7 +213,7 @@ private struct CompanionProjectIdentityFace: View {
             let key = icon
             loadedImage = nil; loadedIcon = nil
             guard let key else { return }
-            let result = await CompanionIconStore.shared.image(for: key, points: Int(size.rounded(.up)))
+            let result = await CompanionIconStore.shared.image(for: key, points: Double(size))
             guard !Task.isCancelled else { return }
             loadedImage = result.map { UIImage(cgImage: $0.cgImage) }; loadedIcon = key
         }

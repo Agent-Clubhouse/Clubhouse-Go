@@ -4,7 +4,8 @@ import Testing
 @testable import CompanionDomain
 
 /// Desktop-generated sender cases through snapshot decoding, chat projection and identity resolution.
-/// The fixture's image bytes are a transport stub; CompanionAvatarRenderingTests uses a valid PNG.
+/// The fixture's image bytes are a transport stub. Substitute a valid raster in memory
+/// so image precedence still exercises the store, without changing the desktop fixture.
 @MainActor struct AnnexContractSenderIdentityTests {
     @Test func initialsAndPaletteMatchTheDesktopFixture() throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
@@ -64,6 +65,9 @@ import Testing
         var count = 1 // The Dispatcher is outside the per-project maps.
         for case .array(let rows) in durable.values { count += rows.count }
         for case .array(let rows) in quick.values { count += rows.count }
+        if case .object(let icons)? = catalog["agentIcons"] {
+            catalog["agentIcons"] = .object(icons.mapValues { _ in .string(Self.validIconURL) })
+        }
         await harness.transport.emit(harness.snapshotEvent(catalog))
         try await harness.waitUntil { harness.host?.allAgents.count == count }
         let agents = try #require(harness.host?.allAgents)
@@ -121,6 +125,8 @@ import Testing
         }
     }
 
+    private static let validIconURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+
     private func assertPart(_ part: CompanionRoutedMessagePart, expected: AnnexJSON, message: CompanionMessage,
                             resolver: CompanionSenderResolver) throws {
         let current = resolver.resolve(part.sender)
@@ -139,7 +145,7 @@ import Testing
             #expect(identity.face == .quick, "\(message.id)")
         case "image":
             #expect(identity.face == .icon, "\(message.id)")
-            #expect(identity.iconData == CompanionIdentityColor.data(fromDataURL: spec["image"]?.string), "\(message.id)")
+            #expect(identity.icon?.version == CompanionIdentityColor.data(fromDataURL: Self.validIconURL).map(CompanionIconReference.digest), "\(message.id)")
         case "emoji":
             #expect(identity.face == .emoji(try #require(spec["emoji"]?.string)), "\(message.id)")
             #expect(CompanionIdentityColor.agentRGB(identity.color).hex + "20" == spec["background"]?.string, "\(message.id)")

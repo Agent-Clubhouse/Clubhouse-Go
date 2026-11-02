@@ -150,12 +150,12 @@ import Testing
         #expect(before != after)
         #expect(after.avatarIdentity(for: sender)?.face == .initials("U"))
         #expect(after.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
-        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+        #expect(harness.host?.allAgents.first?.icon == nil && harness.host?.allAgents.first?.emoji == nil)
         try await harness.refreshCatalog()
         let refreshed = CompanionSenderResolver(agents: harness.host!.allAgents)
         #expect(refreshed.avatarIdentity(for: sender)?.face == .initials("A"))
         #expect(refreshed.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
-        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+        #expect(harness.host?.allAgents.first?.icon == nil && harness.host?.allAgents.first?.emoji == nil)
     }
 
     @Test func iconsFromTheSnapshotSurviveCatalogRefreshes() async throws {
