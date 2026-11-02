@@ -206,7 +206,17 @@ struct CompanionAgentListRow: View {
                 }
                 HStack(spacing: 4) {
                     CompanionStatusText(status: agent.status)
-                    if let detail = detail ?? (agent.subtitle.isEmpty ? nil : agent.subtitle) {
+                    if let helperRollup {
+                        Spacer(minLength: 4)
+                        HStack(spacing: 4) {
+                            if let dot = helperRollup.dot {
+                                Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
+                            }
+                            Text(helperRollup.label).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(helperRollup.accessibilitySummary)
+                    } else if let detail = detail ?? (agent.subtitle.isEmpty ? nil : agent.subtitle) {
                         Text("· \(detail)").foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
                     }
                 }
@@ -214,17 +224,6 @@ struct CompanionAgentListRow: View {
                 if let parentLine {
                     Text(parentLine).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
                 }
-            }
-            if let helperRollup {
-                Spacer(minLength: 4)
-                HStack(spacing: 4) {
-                    if let dot = helperRollup.dot {
-                        Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
-                    }
-                    Text(helperRollup.label).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(helperRollup.accessibilitySummary)
             }
         }
         .padding(.vertical, 2)

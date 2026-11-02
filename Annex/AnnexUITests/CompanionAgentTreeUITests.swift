@@ -29,6 +29,7 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertFalse(nested.exists)
         XCTAssertEqual(parent.value as? String, "Collapsed")
         let row = element(app, "agent-preview-studio-cedar")
+        XCTAssertTrue(app.staticTexts["Cedar"].firstMatch.exists, "The rollup leaves the agent name readable")
         XCTAssertTrue(row.label.contains("2 helpers") && row.label.localizedCaseInsensitiveContains("needs you"), row.label)
         shot(app, "Home collapsed parent with helper rollup")
 
