@@ -102,7 +102,8 @@ struct CompanionNavigation {
         }
         for key in paths.keys {
             paths[key] = paths[key]?.filter { route in
-                !removed.contains(route.hostID) && !dispatcherDesktops.contains(where: { $0.target == route.agent })
+                !removed.contains(route.hostID)
+                    && !(isDispatcher(route.agent, hosts: hosts) && dispatcherDesktops.contains { $0.id == route.hostID })
             }
         }
     }

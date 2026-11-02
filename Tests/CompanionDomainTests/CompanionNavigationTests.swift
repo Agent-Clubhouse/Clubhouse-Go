@@ -126,6 +126,18 @@ import Testing
         #expect(navigation.tab == .home && !navigation.tabs.contains(.dispatcher))
     }
 
+    @Test func aLoadingDispatcherDoesNotRemoveProjectPagesFromOtherStacks() {
+        var loading = host()
+        loading.dispatcher?.agent = nil
+        var navigation = CompanionNavigation(startScreen: .home)
+        navigation.update(hosts: [loading])
+        let project = CompanionRoute.project(.init(hostID: loading.id, projectID: "project"))
+        navigation.setPath([project], for: .home, hosts: [loading])
+        navigation.update(hosts: [loading])
+        #expect(navigation.paths[.home] == [project] && navigation.visibleAgent == nil)
+        #expect(navigation.tabs.first == .dispatcher)
+    }
+
     @Test func notificationBeforeFirstSnapshotRoutesOnceAndCanBeCancelled() throws {
         let target = try #require(host().dispatcher?.agent?.id)
         var navigation = CompanionNavigation(startScreen: .home)
