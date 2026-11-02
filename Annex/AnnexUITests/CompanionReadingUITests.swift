@@ -20,8 +20,10 @@ import XCTest
         let earlier = app.buttons["companion-show-earlier"]
         XCTAssertTrue(earlier.waitForExistence(timeout: 10))
         XCTAssertTrue(scrollTo(earlier, in: app, up: false, maxSwipes: 5))
-        let visibleMarkers = (1...180).map { marker(app, $0) }.filter { $0.exists && $0.frame.minY > 150 && $0.frame.maxY < 500 }
-        let anchor = try! XCTUnwrap(visibleMarkers.first, "A reading entry must intersect the viewport")
+        let visibleMarkers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).allElementsBoundByIndex
+        guard let anchor = visibleMarkers.first(where: { $0.frame.minY > 150 && $0.frame.maxY < 500 }) else {
+            XCTFail("A reading entry must intersect the viewport"); return
+        }
         let before = anchor.frame.minY
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
