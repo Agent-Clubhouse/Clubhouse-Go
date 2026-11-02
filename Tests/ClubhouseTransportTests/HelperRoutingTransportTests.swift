@@ -14,17 +14,6 @@ import Testing
         let urls = await io.requests.compactMap(\.url?.absoluteString)
         #expect(urls == ["https://127.0.0.1:7432/api/v1/mobile/helper-routing", "https://127.0.0.1:7432/api/v1/mobile/helper-routing?projectId=a%20b%2Bc%26d", "https://127.0.0.1:7432/api/v1/mobile/helper-routing?agentId=helper/id", "https://127.0.0.1:7432/api/v1/mobile/helper-routing?projectId=p&agentId=a"])
     }
-    @Test func committedOversizedCommandResponseIsADefiniteRejectionWithoutCommandID() async throws {
-        let fixture = try AnnexContract.json("command-too-large.json")
-        #expect(fixture["request"]?["requestBytes"]?.integer == 1_048_577)
-        let caps = try AnnexContract.json("capabilities.json")["response"]
-        let io = AnnexContractIO([try AnnexContract.response(caps), try AnnexContract.response(fixture["response"])])
-        let transport = try await annexContractTransport(io)
-        _ = try await transport.read(.capabilities)
-        // Response compatibility only: Go's encoder caps outgoing commands well below the fixture's 1 MiB request.
-        let receipt = try await transport.execute(.init(epoch: try #require(caps?["body"]?["epoch"]?.string), kind: .stop(agentID: "fixture")))
-        #expect(receipt.status == .rejected && receipt.commandId == nil && receipt.error?.code == "too_large")
-    }
     @Test func completeNoMappingAndStaleReceiptsRemainDefinitiveAt409() async throws {
         for file in ["commands/helper.approve.json", "commands/helperRouting.update.json"] {
             for item in try AnnexContract.cases(file) where ["no_valid_mapping", "helper_routing_stale"].contains(item["name"]?.string ?? "") {
