@@ -80,6 +80,9 @@ struct CompanionConversationView: View {
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
 
     var body: some View {
+        #if DEBUG
+        let _ = CompanionConversationBuildProbe.record?(.body, target)
+        #endif
         AnnexTelemetry.shared.measurePerformance(.conversationBody, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
@@ -253,6 +256,9 @@ struct CompanionConversationView: View {
         let stops = CompanionAssistantNavigation.targets(in: entries)
         return ScrollViewReader { proxy in
             ScrollView {
+                #if DEBUG
+                let _ = CompanionConversationBuildProbe.record?(.timeline, target)
+                #endif
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
                 // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
                 // is a row per slice, so no row is far taller than the screen.
