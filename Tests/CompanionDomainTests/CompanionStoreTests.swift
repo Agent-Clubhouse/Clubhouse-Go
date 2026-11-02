@@ -95,6 +95,8 @@ import Testing
         store.apply(.hosts([stale])) // The read started before the create/spawn receipt.
         #expect(store.conversation(for: new).isLoaded)
         #expect(store.conversation(for: new).items.count == 1)
+        store.apply(.hosts([]))
+        #expect(!store.conversation(for: new).isLoaded, "Forgetting a host clears even a never-listed chat")
     }
 
     @Test(arguments: [false, true]) func staleCatalogKeepsNewAgentChatAndInFlightCommand(isQuick: Bool) async {
@@ -125,6 +127,17 @@ import Testing
         service.sendGate?.resume(returning: .init(clientCommandID: service.sent[0].clientCommandID))
         await send.value
         #expect(store.conversation(for: new).isLoaded)
+    }
+
+    @Test func confirmedListedDurableRemovalStillClearsChat() async {
+        let service = TestCompanionService()
+        let store = CompanionStore(service: service)
+        var listed = host(id: "host-a"); listed.hasLoadedCatalog = true
+        store.apply(.hosts([listed]))
+        await store.load(target)
+        listed.projects[0].agents = []
+        store.apply(.hosts([listed]))
+        #expect(!store.conversation(for: target).isLoaded)
     }
 
     @Test func quickAgentCatalogExpiryKeepsItsLoadedChat() async {

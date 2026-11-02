@@ -767,17 +767,7 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts):
-            // Only confirmed removal or shutdown discards chat; refresh and reconnect retain identity.
-            let gone = Set(conversations.keys).union(self.hosts.flatMap(\.allAgents).map(\.id)).filter { target in
-                guard let host = hosts.first(where: { $0.id == target.hostID }) else { return true }
-                if host.agent(for: target) != nil { return false }
-                if host.isDispatcher(target) {
-                    return host.dispatcher?.enabled == false || host.dispatcher?.flagOn == false ||
-                        host.dispatcher?.liveAgent.map { $0.id != target } == true
-                }
-                return host.hasLoadedCatalog
-            }
-            for target in gone { conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target) }
+            clearRemovedChats(in: hosts)
             self.hosts = hosts
             var runs = finishedRuns
             if runs.observe(hosts, now: Date()) { finishedRuns = runs }
@@ -834,6 +824,37 @@ import Observation
                 items[index] = .message(message)
                 conversations[target, default: .init()].items = items
             }
+        }
+    }
+
+    /// Compare listed identities once per host. Status broadcasts never scan every cached conversation,
+    /// and a conversation opened before its agent is listed cannot be mistaken for a deletion.
+    private func clearRemovedChats(in incoming: [CompanionHost]) {
+        let byID = Dictionary(uniqueKeysWithValues: incoming.map { ($0.id, $0) })
+        let removedHosts = Set(hosts.map(\.id)).subtracting(byID.keys)
+        var gone: Set<CompanionTarget> = []
+        if !removedHosts.isEmpty {
+            gone.formUnion(conversations.keys.filter { removedHosts.contains($0.hostID) })
+            gone.formUnion(pendingCommands.filter { removedHosts.contains($0.hostID) })
+        }
+        for previous in hosts {
+            guard let current = byID[previous.id] else { continue }
+            let listed = Set(current.allAgents.map(\.id))
+            for agent in previous.allAgents where !listed.contains(agent.id) {
+                if previous.isDispatcher(agent.id) {
+                    if current.dispatcher?.enabled == false || current.dispatcher?.flagOn == false ||
+                        current.dispatcher?.liveAgent != nil || (current.dispatcher == nil && current.hasLoadedCatalog) {
+                        gone.insert(agent.id)
+                    }
+                } else if current.hasLoadedCatalog && !agent.isQuick && !pendingCommands.contains(agent.id) {
+                    // Quick catalogs expire after exit; retaining their cached chat matches existing behaviour.
+                    // An in-flight command can also outlive a catalog read started before the agent existed.
+                    gone.insert(agent.id)
+                }
+            }
+        }
+        for target in gone {
+            conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
         }
     }
 

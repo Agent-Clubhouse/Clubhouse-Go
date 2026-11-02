@@ -776,17 +776,12 @@ import ClubhouseTransport
             let newCapabilities = rawCaps == nil ? capabilities[hostID]
                 : (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
             let rawProjects = try await transport.read(.projects)
-            guard case .array(let projects) = rawProjects["projects"] ?? rawProjects,
-                  projects.allSatisfy({ $0["id"]?.string?.isEmpty == false }) else { throw AnnexTransportError.malformedResponse }
+            let projects = rawProjects["projects"] ?? rawProjects
             var agents: [String: AnnexJSON] = [:]
-            for project in projects {
-                guard let projectID = project["id"]?.string else { continue }
+            for project in Optional(projects).arrayValue {
+                guard let projectID = project["id"]?.string, !projectID.isEmpty else { continue }
                 let result = try await transport.read(.agents(projectID: projectID))
-                let values = result["agents"] ?? result
-                guard case .array(let entries) = values, entries.allSatisfy({ $0["id"]?.string?.isEmpty == false }) else {
-                    throw AnnexTransportError.malformedResponse
-                }
-                agents[projectID] = values
+                agents[projectID] = result["agents"] ?? result
             }
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             if rawCaps != nil {
@@ -814,7 +809,7 @@ import ClubhouseTransport
                 }
                 if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             }
-            applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
+            applyCatalog(.object(["projects": projects, "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             if needsCatchUp.contains(hostID) {
                 // A failed catch-up keeps the catalog's statuses and runs again on the next refresh.
                 let caughtUp = (try? await catchUp(hostID: hostID, transport: transport, bulk: newCapabilities?.supportsAgentState == true)) != nil
@@ -957,6 +952,7 @@ import ClubhouseTransport
     private func applyCatalog(_ payload: AnnexJSON, hostID: String) {
         guard var host = hosts[hostID] else { return }
         var projects: [CompanionProject] = []
+        let previousProjects = Dictionary(host.projects.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         let projectIcons = payload["projectIcons"] ?? iconCatalog[hostID]?.projects
         let agentIcons = payload["agentIcons"] ?? iconCatalog[hostID]?.agents
         // Only a complete, well-formed catalog can establish absence. Snapshots may arrive before
@@ -969,20 +965,29 @@ import ClubhouseTransport
                 return agents.allSatisfy { $0["id"]?.string?.isEmpty == false }
             }
         } else { complete = false }
-        for project in complete ? payload["projects"].arrayValue : [] {
-            guard let projectID = project["id"]?.string else { continue }
+        for project in payload["projects"].arrayValue {
+            guard let projectID = project["id"]?.string, !projectID.isEmpty else { continue }
             let durableValues: [AnnexJSON] = (payload["agents"]?[projectID]).arrayValue
             let quickValues: [AnnexJSON] = (payload["quickAgents"]?[projectID] ?? quickCatalog[hostID]?[projectID]).arrayValue
             var agents: [CompanionAgent] = []
             for (index, value) in (durableValues + quickValues).enumerated() {
-                guard let id = value["id"]?.string else { continue }
+                guard let id = value["id"]?.string, !id.isEmpty else { continue }
                 let isQuick = value["kind"]?.string.map { $0 == "quick" } ?? (index >= durableValues.count)
                 agents.append(catalogAgent(value, target: .init(hostID: hostID, projectID: projectID, agentID: id), isQuick: isQuick,
                                            meta: payload["agentsMeta"]?[id], icon: agentIcons?[id]))
             }
+            if !complete {
+                let incoming = Set(agents.map(\.id))
+                agents += previousProjects[projectID]?.agents.filter { !incoming.contains($0.id) } ?? []
+            }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
         }
-        if complete { host.projects = projects; host.hasLoadedCatalog = true }
+        if !complete {
+            let incoming = Set(projects.map(\.id))
+            projects += host.projects.filter { !incoming.contains($0.id) }
+        }
+        host.projects = projects
+        if complete { host.hasLoadedCatalog = true }
         host.dispatcher = dispatcherState(hostID: hostID, icons: agentIcons, meta: payload["agentsMeta"])
         if case .object(let orchestrators)? = payload["orchestrators"] {
             host.providers = orchestrators.map { id, value in
