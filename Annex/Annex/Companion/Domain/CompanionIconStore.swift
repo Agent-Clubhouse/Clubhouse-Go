@@ -97,7 +97,8 @@ actor CompanionIconStore {
               let data = Data(base64Encoded: String(dataURL[dataURL.index(after: comma)...])),
               data.count <= limits.imageBytes else { recordFailure(); return nil }
         let key = CompanionIconReference.inline(host: host, kind: kind, id: id, data: data)
-        return insert(data, for: key) ? key : nil
+        guard insert(data, for: key) else { recordFailure(); return nil }
+        return key
     }
 
     @discardableResult func insert(_ data: Data, for key: CompanionIconReference) -> Bool {
@@ -238,10 +239,11 @@ actor CompanionIconStore {
             var root = directory
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             var values = URLResourceValues(); values.isExcludedFromBackup = true; try root.setResourceValues(values)
-            let urls = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey], options: [.skipsHiddenFiles])
+            let urls = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey], options: [])
             while let url = urls?.nextObject() as? URL {
                 guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey]), values.isRegularFile == true else { continue }
-                guard url.lastPathComponent.count == 64, let bytes = values.fileSize, bytes > 0, bytes <= limits.imageBytes else { try? FileManager.default.removeItem(at: url); continue }
+                let isDigest: (String) -> Bool = { $0.count == 64 && $0.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }
+                guard isDigest(url.lastPathComponent), isDigest(url.deletingLastPathComponent().lastPathComponent), let bytes = values.fileSize, bytes > 0, bytes <= limits.imageBytes else { try? FileManager.default.removeItem(at: url); continue }
                 let access = values.contentModificationDate?.timeIntervalSince1970 ?? 0
                 files[url] = .init(bytes: bytes, access: access); stats.totalBytes += bytes; lastAccess = max(lastAccess, access)
             }
