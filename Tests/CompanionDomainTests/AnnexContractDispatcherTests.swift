@@ -66,7 +66,7 @@ import Testing
             await harness.transport.emit(harness.snapshotEvent(["dispatcher": value, "agentIcons": icons]))
             try await harness.waitUntil {
                 guard let agent = harness.store.agent(for: target) else { return false }
-                return agent.color == "rose" && agent.emoji == emoji && agent.iconData == CompanionIdentityColor.data(fromDataURL: icon)
+                return agent.color == "rose" && agent.emoji == emoji && agent.icon == CompanionIdentityColor.data(fromDataURL: icon).map { CompanionIconReference.inline(host: target.hostID, kind: .agent, id: target.agentID, data: $0) }
             }
             let row = try #require(harness.host?.dispatcher?.liveAgent)
             let resolver = CompanionSenderResolver(agents: harness.host!.allAgents)

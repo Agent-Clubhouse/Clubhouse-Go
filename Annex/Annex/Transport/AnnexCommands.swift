@@ -382,6 +382,8 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         }
         private enum CodingKeys: String, CodingKey { case version, persistentApprovals, freeAgentMode }
     }
+    public struct IconRefs: Decodable, Sendable { public let version: Int }
+    public let iconRefs: IconRefs?
     public let permissions: Permissions?
     /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
     public let orchestration: Feature?
@@ -484,6 +486,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
         slashCommands = optional(.slashCommands)
+        iconRefs = optional(.iconRefs)
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
         contextWindow = optional(.contextWindow)
@@ -495,7 +498,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
-        case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
+        case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }
 

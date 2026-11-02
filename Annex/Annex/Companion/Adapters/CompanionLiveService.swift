@@ -30,10 +30,13 @@ import ClubhouseTransport
     private var dispatcherFlags: [String: (enabled: Bool, flagOn: Bool)] = [:]
     /// Hosts whose snapshot says `ptyHost.platform == "win32"`, for matching content roots.
     private var windowsHosts: Set<String> = []
-    /// The snapshot's `projectIcons` and `agentIcons` per host, kept for catalog refreshes that don't carry them.
-    private var iconCatalog: [String: (projects: AnnexJSON, agents: AnnexJSON)] = [:]
+    /// Lightweight references from the last complete snapshot; REST catalog refreshes reuse these.
+    private var iconCatalog: [String: CompanionIconCatalog] = [:]
+    private let iconStore: CompanionIconStore
     private var helperLabelsCache: [String: (revision: String, labels: CompanionHelperRouting.Labels)] = [:]
     private var consumedHelperRequests: Set<String> = []
+
+    init(iconStore: CompanionIconStore = .shared) { self.iconStore = iconStore }
     private var savedCommands: [String: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
@@ -57,6 +60,13 @@ import ClubhouseTransport
 
     func register(_ registration: AnnexTransportRegistry.Registration) async {
         let id = registration.host.hostID
+        await iconStore.activate(host: id)
+        let transport = registration.transport
+        await iconStore.setFetcher(for: id) { key, _ in
+            let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
+            return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
+                         version: CompanionIconMetadata.version(etag: response.etag))
+        }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         let endpoint = registration.host.endpoint
@@ -607,6 +617,7 @@ import ClubhouseTransport
         helperLabelsCache.removeValue(forKey: hostID)
         windowsHosts.remove(hostID)
         iconCatalog.removeValue(forKey: hostID)
+        Task { await iconStore.remove(host: hostID) }
         dispatcherCatalog.removeValue(forKey: hostID)
         dispatcherFlags.removeValue(forKey: hostID)
         projections = projections.filter { $0.key.hostID != hostID }
@@ -787,9 +798,20 @@ import ClubhouseTransport
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
-                // A snapshot is complete. Catalog refreshes may reuse these maps, so missing icons
-                // must clear the cache too; otherwise a removed image can come back after refresh.
-                iconCatalog[hostID] = (payload["projectIcons"] ?? .object([:]), payload["agentIcons"] ?? .object([:]))
+                let generation = eventGenerations[hostID]
+                let usesRefs = envelope.iconReferencesEnabled ?? ((capabilities[hostID]?.iconRefs?.version ?? 0) >= 1 || payload["iconRefs"] != nil)
+                let icons: CompanionIconCatalog
+                if usesRefs {
+                    var current = iconCatalog[hostID] ?? .init()
+                    current.applyReferences(payload["iconRefs"], host: hostID)
+                    await iconStore.setReferences(current.references, for: hostID)
+                    icons = current
+                } else {
+                    await iconStore.setReferences([], for: hostID)
+                    icons = await CompanionIconCatalog.inline(projects: payload["projectIcons"], agents: payload["agentIcons"], host: hostID, store: iconStore)
+                }
+                guard eventGenerations[hostID] == generation, hosts[hostID] != nil else { return }
+                iconCatalog[hostID] = icons
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID).filter { !consumedHelperRequests.contains($0.slot) } }
@@ -1047,8 +1069,8 @@ import ClubhouseTransport
         guard var host = hosts[hostID] else { return }
         var projects: [CompanionProject] = []
         let previousProjects = Dictionary(host.projects.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
-        let projectIcons = payload["projectIcons"] ?? iconCatalog[hostID]?.projects
-        let agentIcons = payload["agentIcons"] ?? iconCatalog[hostID]?.agents
+        let projectIcons = iconCatalog[hostID]?.projects
+        let agentIcons = iconCatalog[hostID]?.agents
         // Only a complete, well-formed catalog can establish absence. Snapshots may arrive before
         // all fields do; a missing map or project entry is unknown, whereas an explicit [] is empty.
         let complete: Bool
@@ -1091,7 +1113,7 @@ import ClubhouseTransport
         hosts[hostID] = host
     }
     /// One catalog entry as an agent, with what its chat projection knows on top.
-    private func catalogAgent(_ value: AnnexJSON, target: CompanionTarget, isQuick: Bool, meta: AnnexJSON?, icon: AnnexJSON?) -> CompanionAgent {
+    private func catalogAgent(_ value: AnnexJSON, target: CompanionTarget, isQuick: Bool, meta: AnnexJSON?, icon: CompanionIconReference?) -> CompanionAgent {
         let id = target.agentID
         // A durable agent that slept while the phone was away: the desktop drops chat events from its
         // replay when the agent exits, and a reconnect resumes from the snapshot's seq anyway, so the
@@ -1134,16 +1156,16 @@ import ClubhouseTransport
         .init(paths: snapshot["contentRoots"].arrayValue.prefix(16).compactMap { $0.string.flatMap { $0.isEmpty ? nil : $0 } }, windows: windows)
     }
     /// A project's name and identity. The desktop's `displayName` overrides its `name`.
-    nonisolated static func project(_ value: AnnexJSON, id: String, agents: [CompanionAgent], icon: AnnexJSON?) -> CompanionProject {
+    nonisolated static func project(_ value: AnnexJSON, id: String, agents: [CompanionAgent], icon: CompanionIconReference?) -> CompanionProject {
         CompanionProject(id: id, name: value["displayName"]?.string ?? value["name"]?.string ?? id, agents: agents,
                          color: value["color"]?.string, emoji: value["emoji"]?.string,
-                         iconData: CompanionIdentityColor.data(fromDataURL: icon?.string))
+                         icon: icon)
     }
     /// An agent's identity, Free Agent Mode and orchestration policy from its catalog entry.
-    nonisolated static func applyIdentity(_ value: AnnexJSON, icon: AnnexJSON?, to agent: inout CompanionAgent) {
+    nonisolated static func applyIdentity(_ value: AnnexJSON, icon: CompanionIconReference?, to agent: inout CompanionAgent) {
         agent.color = value["color"]?.string
         agent.emoji = value["emoji"]?.string
-        agent.iconData = CompanionIdentityColor.data(fromDataURL: icon?.string)
+        agent.icon = icon
         agent.freeAgentMode = value["freeAgentMode"].boolValue == true
         agent.orchestration = CompanionOrchestration(json: value["orchestration"])
     }
@@ -1219,7 +1241,7 @@ import ClubhouseTransport
     }
     /// The Dispatcher as the desktop last described it: its flags from capabilities and `dispatcher:changed`, its agent
     /// from the snapshot. Nil on desktops without `dispatcher` v1, which leaves everything as before.
-    private func dispatcherState(hostID: String, icons: AnnexJSON?, meta: AnnexJSON?) -> CompanionDispatcher? {
+    private func dispatcherState(hostID: String, icons: [String: CompanionIconReference]?, meta: AnnexJSON?) -> CompanionDispatcher? {
         let caps = capabilities[hostID]
         if knownCapabilities.contains(hostID), caps?.supportsDispatcher != true { return nil }
         let base = caps?.dispatcher

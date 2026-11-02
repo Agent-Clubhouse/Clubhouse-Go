@@ -204,7 +204,7 @@ struct CompanionSentPartView: View {
         HStack(alignment: .top, spacing: 8) {
             if let identity {
                 CompanionIdentityFace(name: identity.name, color: identity.color, emoji: identity.emoji,
-                                      iconData: identity.iconData, size: 24, isQuick: identity.isQuick)
+                                      icon: identity.icon, size: 24, isQuick: identity.isQuick)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(name) avatar")
                     .accessibilityHidden(false)
@@ -493,7 +493,7 @@ struct CompanionActivityCard: View, Equatable {
                     HStack(spacing: 3) {
                         ForEach(avatars.prefix(3)) { avatar in
                             CompanionIdentityFace(name: avatar.identity.name, color: avatar.identity.color,
-                                emoji: avatar.identity.emoji, iconData: avatar.identity.iconData, size: 24, isQuick: avatar.identity.isQuick)
+                                emoji: avatar.identity.emoji, icon: avatar.identity.icon, size: 24, isQuick: avatar.identity.isQuick)
                                 .accessibilityElement(children: .ignore)
                                 .accessibilityLabel("\(avatar.identity.name) avatar")
                                 .accessibilityHidden(false)

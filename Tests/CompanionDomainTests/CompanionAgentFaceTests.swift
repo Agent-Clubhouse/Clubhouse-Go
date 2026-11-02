@@ -31,10 +31,9 @@ struct CompanionAgentFaceTests {
     }
 
     @Test func quickThenEmojiThenImageThenInitials() {
-        let icon = Data([1, 2])
-        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", iconData: icon, isQuick: true) == .quick)
-        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", iconData: icon) == .emoji("🌿"))
-        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "", iconData: icon) == .icon)
+        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", hasIcon: true, isQuick: true) == .quick)
+        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", hasIcon: true) == .emoji("🌿"))
+        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "", hasIcon: true) == .icon)
         #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "") == .initials("BG"))
     }
 

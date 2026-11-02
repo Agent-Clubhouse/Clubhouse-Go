@@ -4,7 +4,8 @@ import Testing
 @testable import CompanionDomain
 
 /// Desktop-generated sender cases through snapshot decoding, chat projection and identity resolution.
-/// The fixture's image bytes are a transport stub; CompanionAvatarRenderingTests uses a valid PNG.
+/// The fixture's image bytes are a transport stub. Substitute a valid raster in memory
+/// so image precedence still exercises the store, without changing the desktop fixture.
 @MainActor struct AnnexContractSenderIdentityTests {
     @Test func initialsAndPaletteMatchTheDesktopFixture() throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
@@ -35,8 +36,11 @@ import Testing
         let raw = try #require(fixture["catalog"]?["agents"]?["proj_app"].arrayValue.first { $0["id"]?.string == id })
         var agent = CompanionAgent(id: .init(hostID: "fixture", projectID: "proj_app", agentID: id),
                                    name: try #require(raw["name"]?.string), subtitle: "", status: .idle)
-        CompanionLiveService.applyIdentity(raw, icon: fixture["catalog"]?["agentIcons"]?[id], to: &agent)
-        #expect(agent.emoji == "🦊" && agent.iconData != nil, "The fox wins even with the fixture's image present")
+        #expect(fixture["catalog"]?["agentIcons"]?[id]?.string != nil)
+        let bytes = try #require(CompanionIdentityColor.data(fromDataURL: Self.validIconURL))
+        let icon = CompanionIconReference.inline(host: "fixture", kind: .agent, id: id, data: bytes)
+        CompanionLiveService.applyIdentity(raw, icon: icon, to: &agent)
+        #expect(agent.emoji == "🦊" && agent.icon == icon, "The fox wins even with an image present")
         let frame = try #require(fixture["frames"].arrayValue.first { $0["payload"]?["event"]?["data"]?["messageId"]?.string == expected["messageId"]?.string })
         var projector = CompanionChatProjector()
         projector.apply(try #require(frame["payload"]?["event"]))
@@ -64,6 +68,9 @@ import Testing
         var count = 1 // The Dispatcher is outside the per-project maps.
         for case .array(let rows) in durable.values { count += rows.count }
         for case .array(let rows) in quick.values { count += rows.count }
+        if case .object(let icons)? = catalog["agentIcons"] {
+            catalog["agentIcons"] = .object(icons.mapValues { _ in .string(Self.validIconURL) })
+        }
         await harness.transport.emit(harness.snapshotEvent(catalog))
         try await harness.waitUntil { harness.host?.allAgents.count == count }
         let agents = try #require(harness.host?.allAgents)
@@ -121,6 +128,8 @@ import Testing
         }
     }
 
+    private static let validIconURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+
     private func assertPart(_ part: CompanionRoutedMessagePart, expected: AnnexJSON, message: CompanionMessage,
                             resolver: CompanionSenderResolver) throws {
         let current = resolver.resolve(part.sender)
@@ -139,7 +148,7 @@ import Testing
             #expect(identity.face == .quick, "\(message.id)")
         case "image":
             #expect(identity.face == .icon, "\(message.id)")
-            #expect(identity.iconData == CompanionIdentityColor.data(fromDataURL: spec["image"]?.string), "\(message.id)")
+            #expect(identity.icon?.version == CompanionIdentityColor.data(fromDataURL: Self.validIconURL).map(CompanionIconReference.digest), "\(message.id)")
         case "emoji":
             #expect(identity.face == .emoji(try #require(spec["emoji"]?.string)), "\(message.id)")
             #expect(CompanionIdentityColor.agentRGB(identity.color).hex + "20" == spec["background"]?.string, "\(message.id)")

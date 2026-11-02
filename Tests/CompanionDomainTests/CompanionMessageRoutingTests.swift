@@ -124,7 +124,7 @@ import ClubhouseTransport
 
 @Suite struct CompanionSenderTreatmentTests {
     private func agent(_ id: String, name: String, project: String = "p") -> CompanionAgent {
-        .init(id: .init(hostID: "h", projectID: project, agentID: id), name: name, subtitle: "", status: .idle, color: "rose", emoji: "🌿", iconData: Data([1, 2]))
+        .init(id: .init(hostID: "h", projectID: project, agentID: id), name: name, subtitle: "", status: .idle, color: "rose", emoji: "🌿", icon: .init(host: "h", kind: .agent, id: id, version: "v1"))
     }
 
     @Test func resolvesByIDThenUniqueExactNameWithoutGuessing() {
@@ -138,7 +138,7 @@ import ClubhouseTransport
         #expect(resolver.resolve(.init(agentID: "gone", name: "Unique")) == nil, "A gone ID must not fall back to another agent's name")
         #expect(resolver.resolve(nil) == nil)
         let gone = resolver.avatarIdentity(for: .init(agentID: "gone", name: "old-helper"))
-        #expect(gone?.name == "old-helper" && gone?.color == nil && gone?.emoji == nil && gone?.iconData == nil)
+        #expect(gone?.name == "old-helper" && gone?.color == nil && gone?.emoji == nil && gone?.icon == nil)
         #expect(resolver.avatarIdentity(for: nil) == nil, "Clubhouse and unnamed parts have no avatar")
     }
 
@@ -161,7 +161,7 @@ import ClubhouseTransport
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
         changed = original; changed.emoji = "✨"
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
-        changed = original; changed.iconData = Data([3])
+        changed = original; changed.icon = .init(host: "h", kind: .agent, id: "a", version: "v2")
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
         changed = original; changed.isQuick = true
         #expect(resolver != CompanionSenderResolver(agents: [changed]))
@@ -176,7 +176,7 @@ import ClubhouseTransport
         var sender = host.projects[0].agents[0]
         let oldName = sender.name
         let sent = CompanionRoutedMessagePart.Sender(agentID: sender.id.agentID, name: oldName)
-        sender.name = "Renamed"; sender.color = "emerald"; sender.emoji = "✨"; sender.iconData = Data([3])
+        sender.name = "Renamed"; sender.color = "emerald"; sender.emoji = "✨"; sender.icon = .init(host: "h", kind: .agent, id: "a", version: "v2")
         host.projects[0].agents[0] = sender
         let resolver = CompanionSenderResolver(agents: host.allAgents)
         #expect(resolver.resolve(sent) == CompanionSenderIdentity(agent: sender))

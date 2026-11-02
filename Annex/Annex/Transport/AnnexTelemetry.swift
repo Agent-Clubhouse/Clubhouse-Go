@@ -9,6 +9,7 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake, upload
     case createAgent, agentOptions, agentSettings, updateAgent, helperRequest, changes, updateProject, finishedQuick
+    case iconCache, iconFetch
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
     case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
 }
@@ -18,6 +19,7 @@ nonisolated public enum AnnexPerformanceOperation: String, CaseIterable, Sendabl
     var diagnostic: AnnexDiagnosticOperation { AnnexDiagnosticOperation(rawValue: rawValue)! }
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
+    case iconHit, iconMiss, iconFailure, iconEviction
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
 }
@@ -27,6 +29,7 @@ nonisolated public enum AnnexDiagnosticIdentifier: String, CaseIterable, Sendabl
     case connectionID = "annex.connection.id"
 }
 nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
+    case cacheBytes, durationMs
     case statusCode, requestBytes, responseBytes, firstTokenMs, interChunkMs, maxInterChunkMs
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
@@ -194,7 +197,7 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     func shutdown(explicitTimeout: TimeInterval?) async { _ = configure(enabled: false) }
 }
 nonisolated private extension AnnexDiagnosticNumber {
-    static let allKeys: [Self] = [.statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
+    static let allKeys: [Self] = [.cacheBytes, .durationMs, .statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
         .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
         .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
 }

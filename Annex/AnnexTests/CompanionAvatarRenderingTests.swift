@@ -6,19 +6,22 @@ import UIKit
 /// Exercise the actual pinned Dispatcher row and routed sender view, including a decodable image.
 /// Domain tests assert the chosen content and snapshot invalidation; this smoke catches rendering failures.
 @MainActor final class CompanionAvatarRenderingTests: XCTestCase {
-    func testDispatcherCustomColourEmojiAndImageRenderInRowAndSender() throws {
+    func testDispatcherCustomColourEmojiAndImageRenderInRowAndSender() async throws {
         let store = CompanionStore(service: CompanionPreviewService())
         var host = CompanionPreviewService.hosts(now: Date(), dispatcher: true)[0]
         let icon = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 16)).pngData { context in
             UIColor.systemPink.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
         }
-        XCTAssertNotNil(CompanionIconCache.image(for: icon), "The image case must actually decode")
+        let iconRef = await CompanionIconStore.shared.ingest(dataURL: "data:image/png;base64," + icon.base64EncodedString(), host: host.id, kind: .agent, id: host.dispatcher!.liveAgent!.id.agentID)
+        let reference = try XCTUnwrap(iconRef)
+        let decoded = await CompanionIconStore.shared.image(for: reference, points: 32)
+        XCTAssertNotNil(decoded, "The image case must actually decode through the bounded store")
         for appearance in ["Colour", "Emoji", "Image"] {
             var agent = try XCTUnwrap(host.dispatcher?.liveAgent)
             agent.color = "rose"
             agent.emoji = appearance == "Emoji" ? "🧭" : nil
-            agent.iconData = appearance == "Colour" ? nil : icon
+            agent.icon = appearance == "Colour" ? nil : reference
             host.dispatcher?.agent = agent
             let message = CompanionMessage(id: "dispatcher-appearance", role: .user, text: "Update from the Dispatcher.", source: "mcp",
                                            routed: [.init(sender: .init(agentID: agent.id.agentID, name: "Dispatcher"), text: "Update from the Dispatcher.")])
@@ -36,6 +39,8 @@ import UIKit
             window.rootViewController = hosting
             window.makeKeyAndVisible()
             window.layoutIfNeeded()
+            hosting.view.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(100)) // Let the avatar task receive its cached image.
             hosting.view.layoutIfNeeded()
             let image = UIGraphicsImageRenderer(bounds: hosting.view.bounds).image { context in
                 hosting.view.layer.render(in: context.cgContext)

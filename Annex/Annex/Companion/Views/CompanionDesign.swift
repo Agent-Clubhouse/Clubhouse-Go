@@ -91,7 +91,7 @@ struct CompanionAgentAvatar: View {
     @Environment(\.companionPalette) private var palette
     var body: some View {
         let color = agent.status.color(in: palette)
-        CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, size: size, isQuick: agent.isQuick)
+        CompanionIdentityFace(name: agent.name, color: agent.color, emoji: agent.emoji, icon: agent.icon, size: size, isQuick: agent.isQuick)
             .overlay(alignment: .bottomTrailing) {
                 let hollow = agent.status.dot.isHollow
                 Circle()
@@ -110,7 +110,7 @@ struct CompanionProjectBadge: View {
     let project: CompanionProject
     var size: CGFloat = 22
     var body: some View {
-        CompanionProjectIdentityFace(name: project.name, color: project.color, emoji: project.emoji, iconData: project.iconData, size: size)
+        CompanionProjectIdentityFace(name: project.name, color: project.color, emoji: project.emoji, icon: project.icon, size: size)
             .accessibilityHidden(true)
     }
 }
@@ -120,15 +120,20 @@ struct CompanionIdentityFace: View {
     let name: String
     var color: String?
     var emoji: String?
-    var iconData: Data?
+    var icon: CompanionIconReference?
     var size: CGFloat
     var isQuick = false
+    @State private var loadedImage: UIImage?
+    @State private var loadedIcon: CompanionIconReference?
     @Environment(\.companionPalette) private var palette
+    private var face: CompanionAgentFace { .content(name: name, emoji: emoji, hasIcon: icon != nil, isQuick: isQuick) }
+    private var requestedIcon: CompanionIconReference? { face == .icon ? icon : nil }
+    private struct LoadID: Hashable { var icon: CompanionIconReference?; var points: Int }
 
     var body: some View {
         let identity = CompanionIdentityColor.agentRGB(color)
         Group {
-            switch CompanionAgentFace.content(name: name, emoji: emoji, iconData: iconData, isQuick: isQuick) {
+            switch face {
             case .quick:
                 Image(systemName: "bolt")
                     .font(.system(size: size * 0.5, weight: .semibold))
@@ -140,7 +145,7 @@ struct CompanionIdentityFace: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(identity).opacity(CompanionAgentFace.emojiWashOpacity))
             case .icon:
-                if let image = iconData.flatMap(CompanionIconCache.image(for:)) {
+                if loadedIcon == icon, let image = loadedImage {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
                     initials(CompanionAgentFace.initials(name), color: identity)
@@ -151,6 +156,14 @@ struct CompanionIdentityFace: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        .task(id: LoadID(icon: requestedIcon, points: Int(size.rounded(.up)))) {
+            let key = requestedIcon
+            loadedImage = nil; loadedIcon = nil
+            guard let key else { return }
+            let result = await CompanionIconStore.shared.image(for: key, points: Double(size))
+            guard !Task.isCancelled else { return }
+            loadedImage = result.map { UIImage(cgImage: $0.cgImage) }; loadedIcon = key
+        }
     }
 
     private func initials(_ text: String, color: CompanionRGB) -> some View {
@@ -166,14 +179,17 @@ private struct CompanionProjectIdentityFace: View {
     let name: String
     var color: String?
     var emoji: String?
-    var iconData: Data?
+    var icon: CompanionIconReference?
     var size: CGFloat
+    @State private var loadedImage: UIImage?
+    @State private var loadedIcon: CompanionIconReference?
+    private struct LoadID: Hashable { var icon: CompanionIconReference?; var points: Int }
     @Environment(\.companionPalette) private var palette
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: size * 0.31, style: .continuous)
         let identity = CompanionIdentityColor.rgb(color)
         Group {
-            if let image = iconData.flatMap(CompanionIconCache.image(for:)) {
+            if loadedIcon == icon, let image = loadedImage {
                 Image(uiImage: image).resizable().scaledToFill()
             } else if let emoji, !emoji.isEmpty {
                 Text(emoji).font(.system(size: size * 0.6))
@@ -193,19 +209,16 @@ private struct CompanionProjectIdentityFace: View {
         }
         .frame(width: size, height: size)
         .clipShape(shape)
+        .task(id: LoadID(icon: icon, points: Int(size.rounded(.up)))) {
+            let key = icon
+            loadedImage = nil; loadedIcon = nil
+            guard let key else { return }
+            let result = await CompanionIconStore.shared.image(for: key, points: Double(size))
+            guard !Task.isCancelled else { return }
+            loadedImage = result.map { UIImage(cgImage: $0.cgImage) }; loadedIcon = key
+        }
     }
     private var initials: String { String(name.filter(\.isLetter).prefix(2)).uppercased() }
-}
-
-/// Decoded icon images, so list rows don't decode the same bytes on every render.
-@MainActor enum CompanionIconCache {
-    private static let cache = NSCache<NSData, UIImage>()
-    static func image(for data: Data) -> UIImage? {
-        if let image = cache.object(forKey: data as NSData) { return image }
-        guard let image = UIImage(data: data) else { return nil }
-        cache.setObject(image, forKey: data as NSData)
-        return image
-    }
 }
 
 /// Free Agent Mode skips every permission prompt. Shown in red wherever the agent is, as on the desktop.

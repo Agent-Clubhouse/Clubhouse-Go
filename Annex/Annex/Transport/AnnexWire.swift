@@ -63,6 +63,8 @@ nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
     public let tc: AnnexJSON?
     /// Local authenticated socket binding only. Never decoded from or encoded to wire data.
     public internal(set) var diagnosticBinding: AnnexTelemetryHandshake? = nil
+    /// Local socket negotiation, never supplied by wire JSON.
+    public var iconReferencesEnabled: Bool? = nil
     private enum CodingKeys: String, CodingKey {
         case type, payload, seq, replayed, oldestAvailable, lastSeq, fromSeq, toSeq, count, epoch, tc
     }
@@ -119,6 +121,7 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func connect() async throws
     func disconnect() async
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON
+    func icon(kind: String, id: String, version: String, ifNoneMatch: String?) async throws -> AnnexHTTPResponse
     func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt
     func revokeSessionPairing() async throws
     /// Uploads one image's raw bytes for a later `chat.send`. Not idempotent: each call returns a new id.
@@ -130,6 +133,7 @@ nonisolated public protocol AnnexTransporting: Sendable {
 }
 
 nonisolated public extension AnnexTransporting {
+    func icon(kind: String, id: String, version: String, ifNoneMatch: String? = nil) async throws -> AnnexHTTPResponse { throw AnnexTransportError.unsupportedCapability("iconRefs") }
     func revokeSessionPairing() async throws { throw AnnexTransportError.unsupportedCapability("session-revocation") }
     func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload {
         throw AnnexTransportError.unsupportedCapability("attachments")

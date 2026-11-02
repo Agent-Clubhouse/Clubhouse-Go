@@ -140,7 +140,7 @@ import Testing
         for agent in (payload["agents"]?["proj_app"]).arrayValue {
             for value in Self.damaged(agent, depth: 2) {
                 var model = CompanionAgent(id: .init(hostID: "h", projectID: "p", agentID: "a"), name: "a", subtitle: "", status: .idle, model: nil)
-                CompanionLiveService.applyIdentity(value, icon: value["icon"], to: &model)
+                CompanionLiveService.applyIdentity(value, icon: nil, to: &model)
                 _ = CompanionLiveService.detail(from: value["detailedStatus"])
                 _ = value["lastActivityAt"].flatMap(CompanionLiveService.date(from:))
             }

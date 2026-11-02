@@ -150,29 +150,32 @@ import Testing
         #expect(before != after)
         #expect(after.avatarIdentity(for: sender)?.face == .initials("U"))
         #expect(after.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
-        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+        #expect(harness.host?.allAgents.first?.icon == nil && harness.host?.allAgents.first?.emoji == nil)
         try await harness.refreshCatalog()
         let refreshed = CompanionSenderResolver(agents: harness.host!.allAgents)
         #expect(refreshed.avatarIdentity(for: sender)?.face == .initials("A"))
         #expect(refreshed.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
-        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+        #expect(harness.host?.allAgents.first?.icon == nil && harness.host?.allAgents.first?.emoji == nil)
     }
 
     @Test func iconsFromTheSnapshotSurviveCatalogRefreshes() async throws {
         let harness = try await Harness.start()
         defer { harness.stop() }
+        let png = try CompanionIconStoreTests.png()
+        let projectIcon = CompanionIconReference.inline(host: Harness.hostID, kind: .project, id: "project", data: png)
+        let agentIcon = CompanionIconReference.inline(host: Harness.hostID, kind: .agent, id: "agent", data: png)
         await harness.transport.emit(harness.snapshotEvent([
-            "projectIcons": .object(["project": .string("data:image/png;base64,AAAA")]),
-            "agentIcons": .object(["agent": .string("data:image/png;base64,AQID")]),
+            "projectIcons": .object(["project": .string("data:image/png;base64," + png.base64EncodedString())]),
+            "agentIcons": .object(["agent": .string("data:image/png;base64," + png.base64EncodedString())]),
         ]))
-        try await harness.waitUntil { harness.host?.projects.first?.iconData != nil }
-        #expect(harness.host?.projects.first?.iconData == Data([0, 0, 0]))
-        #expect(harness.host?.projects.first?.agents.first?.iconData == Data([1, 2, 3]))
+        try await harness.waitUntil { harness.host?.projects.first?.icon != nil }
+        #expect(harness.host?.projects.first?.icon == projectIcon)
+        #expect(harness.host?.projects.first?.agents.first?.icon == agentIcon)
 
         // The REST catalog has no icons; the snapshot's are kept.
         try await harness.refreshCatalog()
-        #expect(harness.host?.projects.first?.iconData == Data([0, 0, 0]))
-        #expect(harness.host?.projects.first?.agents.first?.iconData == Data([1, 2, 3]))
+        #expect(harness.host?.projects.first?.icon == projectIcon)
+        #expect(harness.host?.projects.first?.agents.first?.icon == agentIcon)
     }
 
     @Test func providersComeFromTheSnapshotsOrchestrators() async throws {

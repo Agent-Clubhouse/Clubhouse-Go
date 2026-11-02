@@ -185,12 +185,13 @@ struct CompanionIdentityTests {
     }
 
     @MainActor @Test func catalogDecodesProjectAndAgentIdentity() {
+        let reference = CompanionIconReference(host: "h", kind: .project, id: "p", version: "v1")
         let project = CompanionLiveService.project(.object(["name": .string("repo"), "displayName": .string("Website"), "color": .string("teal"), "emoji": .string("🌐")]),
-                                                   id: "p", agents: [], icon: .string("data:image/png;base64,aGk="))
-        #expect(project.name == "Website" && project.color == "teal" && project.emoji == "🌐" && project.iconData == Data("hi".utf8))
+                                                   id: "p", agents: [], icon: reference)
+        #expect(project.name == "Website" && project.color == "teal" && project.emoji == "🌐" && project.icon == reference)
         var durable = agent("d")
-        CompanionLiveService.applyIdentity(.object(["color": .string("rose"), "freeAgentMode": .bool(true)]), icon: .string("data:image/png;base64,aGk="), to: &durable)
-        #expect(durable.color == "rose" && durable.freeAgentMode && durable.iconData == Data("hi".utf8))
+        CompanionLiveService.applyIdentity(.object(["color": .string("rose"), "freeAgentMode": .bool(true)]), icon: reference, to: &durable)
+        #expect(durable.color == "rose" && durable.freeAgentMode && durable.icon == reference)
         var quick = agent("q")
         CompanionLiveService.applyIdentity(.object(["freeAgentMode": .bool(false)]), icon: nil, to: &quick)
         #expect(!quick.freeAgentMode && quick.color == nil)
