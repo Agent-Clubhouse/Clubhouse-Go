@@ -25,7 +25,7 @@ DESKTOP_DIR="${DESKTOP_DIR:-$ROOT/.desktop}"
 SIMULATOR="${E2E_SIMULATOR:-iPhone 17 Pro}"
 OUT="${E2E_OUT_DIR:-$ROOT/build/e2e-live}"
 DERIVED="${E2E_DERIVED_DATA:-$ROOT/build/e2e-live-dd}"
-ONLY="ClubhouseGoUITests/CompanionLiveE2ETests"
+ONLY=()
 BUILD_DESKTOP=1
 BUILD_IOS=1
 KEEP_SIMULATOR=0
@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --desktop-ref) DESKTOP_REF="$2"; shift 2 ;;
     --simulator) SIMULATOR="$2"; shift 2 ;;
-    --only) ONLY="ClubhouseGoUITests/${2#ClubhouseGoUITests/}"; shift 2 ;;
+    --only) ONLY+=("-only-testing:ClubhouseGoUITests/${2#ClubhouseGoUITests/}"); shift 2 ;;
     --skip-desktop-build) BUILD_DESKTOP=0; shift ;;
     --skip-ios-build) BUILD_IOS=0; shift ;;
     --keep-simulator) KEEP_SIMULATOR=1; shift ;;
@@ -44,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
+[[ ${#ONLY[@]} -gt 0 ]] || ONLY=("-only-testing:ClubhouseGoUITests/CompanionLiveE2ETests")
 
 # An agent launched by the installed desktop inherits its bridge identity. Never forward any Clubhouse variable to
 # builds, npm, the fixture or its children. Remember only the port as a forbidden destination (never the nonce).
@@ -239,14 +240,14 @@ run_tests() {
   TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR="$FIXTURE_DIR" \
   xcodebuild test-without-building \
     -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
-    -derivedDataPath "$DERIVED" -only-testing:"$ONLY" \
+    -derivedDataPath "$DERIVED" "${ONLY[@]}" \
     -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
     -retry-tests-on-failure -test-iterations 2 \
     CODE_SIGNING_ALLOWED=NO -resultBundlePath "$OUT/LiveE2E.xcresult" \
     2>&1 | sed -E 's/("?CLUBHOUSE_COMPANION_TEST_INVITATION"? = ).*/\1"<redacted>";/' > "$1" || true
 }
 
-log "Running $ONLY (log: $OUT/xcodebuild-test.log)"
+log "Running ${ONLY[*]} (log: $OUT/xcodebuild-test.log)"
 run_tests "$OUT/xcodebuild-test.log"
 # A simulator crash ("server died", a failed launch) aborts the whole xcodebuild run, which per-test retries can't
 # recover. Reboot the simulator and run the suite once more; the tests cope with what the first attempt left.

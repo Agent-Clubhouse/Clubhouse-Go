@@ -23,6 +23,8 @@ public actor AnnexTransport: AnnexTransporting {
     private var state: AnnexConnectionState = .disconnected
     private var capabilities: AnnexCapabilities?
     private var cursor = AnnexReplayCursor()
+    private var awaitingFirstSnapshot = false
+    private var snapshotFailureDeadline: Task<Void, Never>?
     private var commandBusy = false
     private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
     private struct CommandKey: Hashable { let epoch: String; let id: String }
@@ -130,6 +132,8 @@ public actor AnnexTransport: AnnexTransporting {
         loop?.cancel(); loop = nil
         let oldSocket = socket; socket = nil
         capabilities = nil
+        awaitingFirstSnapshot = false
+        snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
         transition(.disconnected)
         await oldSocket?.close()
     }
@@ -349,6 +353,7 @@ public actor AnnexTransport: AnnexTransporting {
                 socket = newSocket
                 try await sendTelemetryHello(on: newSocket, attemptID: attemptID, generation: current)
                 cursor.beginConnection()
+                awaitingFirstSnapshot = true
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
@@ -440,8 +445,14 @@ public actor AnnexTransport: AnnexTransporting {
     }
 
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID) async throws {
-        // Structured lifetime: ping and receive are both cancelled on disconnect.
+        let (failureTimeout, timeout) = AsyncThrowingStream<Void, Error>.makeStream()
+        defer {
+            if current == generation { snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil }
+            timeout.finish()
+        }
+        // Structured lifetime: ping, receive and the explicit-failure signal stop together.
         try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { for try await _ in failureTimeout {} }
             group.addTask { [clock] in
                 do {
                     while !Task.isCancelled { try await clock.sleep(.seconds(20)); try await socket.ping() }
@@ -452,16 +463,29 @@ public actor AnnexTransport: AnnexTransporting {
                     while !Task.isCancelled {
                         let data = try await socket.receive()
                         guard let self else { return }
-                        try await self.receive(data, socket: socket, generation: current)
+                        try await self.receive(data, socket: socket, generation: current, snapshotFailure: timeout)
                     }
                 } catch { await socket.close(); throw error }
             }
             defer { group.cancelAll() }
-            try await group.next()
+            do {
+                while try await group.next() != nil {}
+            } catch {
+                group.cancelAll()
+                // Unblock a pending receive before the structured group waits for its children.
+                // Keep the original failure, rather than the cancellation produced by closing the socket.
+                await socket.close()
+                throw error
+            }
         }
     }
 
-    private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID) async throws {
+    private func isAwaitingFirstSnapshot(generation current: UUID) -> Bool {
+        current == generation && awaitingFirstSnapshot
+    }
+
+    private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
+                         snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation) async throws {
         guard current == generation else { throw CancellationError() }
         guard data.count <= 16 * 1024 * 1024, var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
@@ -469,6 +493,16 @@ public actor AnnexTransport: AnnexTransporting {
         if envelope.type == "telemetry:hello:ack" {
             acceptTelemetryAck(envelope.payload)
             return
+        }
+        // The socket is authenticated and REST commands still work. Give a later broadcast time to
+        // supply the missing snapshot before reconnecting; repeated errors do not extend the grace.
+        if awaitingFirstSnapshot, envelope.type == "error", !Self.isTerminalFrame(envelope),
+           envelope.payload?["message"]?.string == "snapshot_failed", snapshotFailureDeadline == nil {
+            snapshotFailureDeadline = Task { [weak self, clock] in
+                do { try await clock.sleep(.seconds(30)) } catch { return }
+                guard await self?.isAwaitingFirstSnapshot(generation: current) == true else { return }
+                snapshotFailure.finish(throwing: URLError(.timedOut))
+            }
         }
         if envelope.type == "snapshot" {
             guard let seq = envelope.snapshotSequence, seq >= 0,
@@ -487,6 +521,8 @@ public actor AnnexTransport: AnnexTransporting {
         case .deliver: break
         }
         if envelope.type == "snapshot" {
+            awaitingFirstSnapshot = false
+            snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
             transition(.connected)
         }
