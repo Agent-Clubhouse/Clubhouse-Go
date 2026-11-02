@@ -489,7 +489,13 @@ public actor AnnexTransport: AnnexTransporting {
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
                          snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation) async throws {
         guard current == generation else { throw CancellationError() }
-        guard data.count <= 16 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
+        guard data.count <= 16 * 1024 * 1024 else {
+            let diagnostic = telemetry.begin(.websocket)
+            diagnostic.number(.transportFrameLimitBytes, Double(16 * 1024 * 1024))
+            diagnostic.number(.responseBytes, Double(data.count))
+            diagnostic.fail(.tooLarge); diagnostic.end()
+            throw AnnexTransportError.responseTooLarge
+        }
         guard var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
@@ -508,6 +514,8 @@ public actor AnnexTransport: AnnexTransporting {
             }
         }
         if envelope.type == "snapshot" {
+            let diagnostic = telemetry.begin(.websocket)
+            diagnostic.event(.snapshot); diagnostic.number(.snapshotBytes, Double(data.count)); diagnostic.end()
             guard let seq = envelope.snapshotSequence, seq >= 0,
                   envelope.epoch == nil || envelope.epoch == capabilities?.epoch else {
                 throw AnnexTransportError.malformedResponse

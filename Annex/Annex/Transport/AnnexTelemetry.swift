@@ -23,6 +23,7 @@ nonisolated public enum AnnexDiagnosticIdentifier: String, CaseIterable, Sendabl
 nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case statusCode, requestBytes, responseBytes, firstTokenMs, interChunkMs, maxInterChunkMs
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
+    case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
 }
 nonisolated public enum AnnexDiagnosticFailure: String, Codable, Sendable {
     case none, cancelled, timeout, offline, dns, connection, tls, trust, identity, authentication
@@ -181,7 +182,8 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
 }
 nonisolated private extension AnnexDiagnosticNumber {
     static let allKeys: [Self] = [.statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
-        .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs]
+        .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
+        .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
 }
 /// Avoid SimpleSpanProcessor's unbounded asynchronous queue: this exporter only copies bounded data.
 nonisolated private struct AnnexLocalSpanProcessor: SpanProcessor {

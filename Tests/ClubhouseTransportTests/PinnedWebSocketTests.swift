@@ -127,7 +127,8 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let fixture = try WSFixture.start()
     defer { fixture.stop() }
     for kind in ["text", "binary"] {
-        let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), maximumResponseBytes: 1024, telemetry: AnnexTelemetry())
+        let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+        let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), maximumResponseBytes: 1024, telemetry: telemetry)
         let socket = try await io.openWebSocket(fixture.webSocketRequest())
         _ = try await socket.receive()
         try await socket.send(Data("size:\(kind):1023".utf8))
@@ -136,6 +137,8 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
         #expect(try await socket.receive().count == 1024)
         try await socket.send(Data("size:\(kind):1025".utf8))
         await #expect(throws: AnnexTransportError.responseTooLarge) { _ = try await socket.receive() }
+        let failure = try #require(telemetry.snapshot().records.first { $0.failure == .tooLarge })
+        #expect(failure.measurements == ["webSocketMessageLimitBytes": 1024])
         await socket.close()
     }
 }

@@ -190,6 +190,9 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
             // sends close 1009. On Darwin its receive error is POSIX EMSGSIZE.
             let failure = error as NSError
             if failure.domain == NSPOSIXErrorDomain, failure.code == Int(EMSGSIZE) {
+                let diagnostic = telemetry.begin(.websocket)
+                diagnostic.number(.webSocketMessageLimitBytes, Double(task.maximumMessageSize))
+                diagnostic.fail(.tooLarge); diagnostic.end()
                 throw AnnexTransportError.responseTooLarge
             }
             throw error

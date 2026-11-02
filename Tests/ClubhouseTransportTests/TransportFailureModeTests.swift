@@ -693,7 +693,8 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 
 @Test(.timeLimit(.minutes(1))) func explicitReconnectCancelsAnOversizeWaitAndTriesImmediatelyOnce() async throws {
     let clock = AnnexManualClock()
-    let io = FailureSessionIO(sessionInitials: [[], []], sessionReceiveFailures: [.responseTooLarge, .responseTooLarge])
+    let oversized = metadataSnapshot(bytes: 16 * 1024 * 1024 + 1)
+    let io = FailureSessionIO(sessionInitials: [[oversized], [oversized]])
     let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
     let stream = await transport.events()
     try await transport.connect()
@@ -712,21 +713,44 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     #expect(await io.openAttempts == 2)
 }
 
-@Test(.timeLimit(.minutes(1))) func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary() async throws {
-    let limit = 16 * 1024 * 1024
+private func metadataSnapshot(bytes: Int) -> String {
     let prefix = #"{"type":"snapshot","payload":{"lastSeq":0,"padding":""#
     let suffix = #""}}"#
-    let atLimit = prefix + String(repeating: "x", count: limit - prefix.utf8.count - suffix.utf8.count) + suffix
-    #expect(atLimit.utf8.count == limit)
-    let io = FailureSessionIO(firstInitial: [atLimit, atLimit + " "])
+    return prefix + String(repeating: "x", count: bytes - prefix.utf8.count - suffix.utf8.count) + suffix
+}
+
+@Test(.timeLimit(.minutes(1)), arguments: [false, true], [false, true])
+func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: Bool, oversized: Bool) async throws {
+    let limit = 16 * 1024 * 1024
+    let frame = metadataSnapshot(bytes: limit + (oversized ? 1 : 0))
+    #expect(frame.utf8.count == limit + (oversized ? 1 : 0))
+    let io = FailureSessionIO(firstInitial: (refresh ? [initialSnapshot] : []) + [frame])
     let clock = AnnexManualClock()
-    let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock, backoff: AnnexBackoff())
     let stream = await transport.events()
     try await transport.connect()
-    let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { isFailed($0) } }
-    #expect(events.contains(.connection(.connected)), "Valid JSON exactly at the byte limit still works")
-    #expect(events.contains { if case .connection(.retrying(_, _, .responseTooLarge)) = $0 { true } else { false } })
+    let events = try await collect(stream) {
+        if case .connection(.retrying) = $0 { return true }
+        if case .message(let envelope) = $0 { return envelope.payload?["padding"] != nil }
+        return isFailed($0)
+    }
+    let connections = events.filter { $0 == .connection(.connected) }.count
+    #expect(connections == (refresh ? 1 : 0) + (oversized ? 0 : 1))
+    let records = telemetry.snapshot().records
+    if oversized {
+        #expect(events.contains { if case .connection(.retrying(_, let delay, .responseTooLarge)) = $0 { delay >= 30 } else { false } })
+        let failure = try #require(records.first { $0.measurements["transportFrameLimitBytes"] != nil })
+        #expect(failure.failure == .tooLarge)
+        #expect(failure.measurements == ["transportFrameLimitBytes": Double(limit), "responseBytes": Double(limit + 1)])
+    } else {
+        #expect(!events.contains { if case .connection(.retrying) = $0 { true } else { false } })
+        #expect(records.contains { $0.measurements == ["snapshotBytes": Double(limit)] && $0.events == ["snapshot"] })
+    }
     #expect(await io.openAttempts == 1)
+    // Neither metadata strings nor icon/base64 content can appear in these records.
+    let exported = String(decoding: try JSONEncoder().encode(telemetry.snapshot()), as: UTF8.self)
+    #expect(!exported.contains("padding"))
     await transport.disconnect()
 }
 

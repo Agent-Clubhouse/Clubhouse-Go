@@ -102,3 +102,30 @@ roughly width * height * 4 bytes regardless of compressed size. Rebuilding and
 broadcasting a large snapshot repeats allocation, parsing and base64/image work;
 wire size alone cannot establish a safe memory ceiling. Desktop thumbnails and a
 total serialized-message budget address that separately.
+
+## Safe metrics and final validation
+
+Numeric-only fields on `websocket` spans:
+
+- `snapshotBytes`: received complete snapshot JSON size in bytes, for initial and
+  refresh snapshots that reach envelope decoding (including duplicate snapshots).
+- `webSocketMessageLimitBytes`: URLSession's configured message cap when its
+  EMSGSIZE error fires. The rejected message's actual size/type is unavailable;
+  this field makes no claim that an undelivered message was a snapshot.
+- `transportFrameLimitBytes`: the independent transport guard's cap when hit,
+  alongside existing `responseBytes` for the actual received byte count.
+
+Limit-hit spans use existing `failure=tooLarge`. No new string-valued input,
+content, icon data, metadata strings, endpoint or payload is recorded.
+
+The transport boundary test matrix covers initial/refresh snapshots at exactly
+16 MiB and one byte over, including the already-connected refresh failure. The
+explicit reconnect test uses repeated genuinely oversized metadata-only snapshots,
+so no icon reduction is necessary to exercise slow recovery. The service test
+starts from a connected host, then verifies the readable retry message, no
+rediscovery, and recovery via Retry.
+
+Validation passed: all 868 Swift package tests with code coverage, the coverage
+ratchet (transport 96.48%, domain 94.53% before the additional metrics), `swift build`,
+`git diff --check`, and syntax parsing of the edited SwiftUI view. Native UI and
+phone behavior were not exercised. The final coverage ratchet is recorded in the PR.
