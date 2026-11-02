@@ -146,7 +146,6 @@ struct CompanionAgentSettingsForm: View {
     @State private var settings: CompanionAgentSettings?
     @State private var loadError: String?
     @State private var saveError: String?
-    @State private var contextResetNotice: String?
     @State private var saving = false
     @State private var nameDraft = ""
     @State private var emojiDraft = ""
@@ -210,7 +209,7 @@ struct CompanionAgentSettingsForm: View {
                 Label(saveError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-error")
             }
-            if let contextResetNotice {
+            if let contextResetNotice = settings.contextWindowReset?.message {
                 Label(contextResetNotice, systemImage: "info.circle").font(.subheadline)
                     .accessibilityIdentifier("agent-settings-context-reset-notice")
             }
@@ -537,7 +536,6 @@ struct CompanionAgentSettingsForm: View {
 
     private func apply(_ loaded: CompanionAgentSettings) {
         settings = loaded
-        if let reset = loaded.contextWindowReset { contextResetNotice = reset.message }
         nameDraft = loaded.name.value
         emojiDraft = loaded.emoji.value ?? ""
     }
