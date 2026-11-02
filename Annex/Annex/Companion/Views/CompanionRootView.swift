@@ -91,8 +91,10 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
-        .simultaneousGesture(TapGesture().onEnded { navigation.interact() })
-        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in navigation.interact() })
+        .simultaneousGesture(TapGesture().onEnded { if !navigation.resolvedInitialReport { navigation.interact() } })
+        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in
+            if !navigation.resolvedInitialReport { navigation.interact() }
+        })
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
         .onChange(of: store.selection) { _, target in
@@ -147,7 +149,7 @@ struct CompanionRootView: View {
                     && (navigation.paths[.dispatcher] ?? []).isEmpty
                 Group {
                     if let target = desktop.target, let agent = store.agent(for: target) {
-                        conversation(agent, visible: visible)
+                        conversation(agent, visible: visible).id(target)
                     } else {
                         ProgressView("Loading the Dispatcher…")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)

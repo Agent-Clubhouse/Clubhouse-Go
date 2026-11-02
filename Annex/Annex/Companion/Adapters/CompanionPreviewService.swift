@@ -21,14 +21,16 @@ import Foundation
     private let showsLongReply: Bool
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
+    private let showsMultipleDispatchers: Bool
     private let mcpEnabled: Bool
     private let showsHelperIdentity: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, showsMultipleDispatchers: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false) {
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
+        self.showsMultipleDispatchers = showsMultipleDispatchers
         self.streamsUpdates = streamsUpdates
         self.showsHelperRequests = showsHelperRequests
         self.showsTerminalAgent = showsTerminalAgent
@@ -38,8 +40,14 @@ import Foundation
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
-            continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
-                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher)))
+            var hosts = Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
+                                   terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher)
+            if self.showsMultipleDispatchers {
+                hosts[1].connection = .connected
+                hosts[1].dispatcher = Self.dispatcher(now: Date())
+                hosts[1].dispatcher?.agent?.id.hostID = hosts[1].id
+            }
+            continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -184,7 +192,11 @@ import Foundation
             .init(sender: .init(name: "Maple"), text: "Short helper update.")
         ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
-        if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
+        if target.projectID == CompanionDispatcher.defaultProjectID {
+            return .init(items: Self.dispatcherHistory + (showsLongReply ? [
+                .message(.init(id: "dispatcher-long-reply", role: .assistant, text: Self.longReply))
+            ] : []))
+        }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),
             .message(.init(id: "user-1", role: .user, text: "Make it easy to continue a desktop agent from my phone. Focus on the conversation and the moments that need me.", timestamp: Date().addingTimeInterval(-180), source: "mission")),

@@ -33,6 +33,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let invitation = ["CLUBHOUSE_COMPANION_TEST_INVITATION": env["CLUBHOUSE_COMPANION_TEST_INVITATION"] ?? "",
                           "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
         let launched = launchApp(extra, environment: invitation, allowance: 300, file: file, line: line)
+        // Home coverage is explicit: an enabled Dispatcher is now the default launch screen.
+        let home = launched.tabBars.buttons["Home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 30), file: file, line: line)
+        home.tap()
         // An inactive project folds into the idle section.
         let listed = any(launched).matching(NSPredicate(format: "(identifier BEGINSWITH 'open-project-' AND label == %@) OR identifier == 'idle-projects-fold'",
                                                         "Open \(projectName)")).firstMatch
@@ -142,6 +146,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     private func backToHome(_ app: XCUIApplication) {
+        let home = app.tabBars.buttons["Home"]
+        if home.exists && home.isHittable { home.tap() }
         let newAgent = app.navigationBars.buttons["New agent"]
         for _ in 0..<4 where !newAgent.exists {
             let back = app.navigationBars.buttons.element(boundBy: 0)
