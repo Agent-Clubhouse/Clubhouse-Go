@@ -135,7 +135,9 @@ struct CompanionSenderResolver: Sendable, Equatable {
 @MainActor final class CompanionTranscriptExpansion {
     private var parts: [String: CompanionPartExpansion] = [:]
     func part(messageID: String, index: Int) -> CompanionPartExpansion {
-        let key = "\(messageID):sent:\(index)"
+        state(key: "\(messageID):sent:\(index)")
+    }
+    func state(key: String) -> CompanionPartExpansion {
         if let part = parts[key] { return part }
         let part = CompanionPartExpansion(); parts[key] = part; return part
     }

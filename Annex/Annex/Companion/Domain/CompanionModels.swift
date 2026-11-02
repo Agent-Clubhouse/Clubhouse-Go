@@ -491,6 +491,9 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
     /// Waiting for your approval, not yet running.
     var awaitsApproval = false
 
+    /// Only structured terminal content supplies this value; output prose never does.
+    var exitCode: Int?
+
     /// "Read", "Run"…, or nil when the desktop didn't say what kind of tool this is.
     var verb: String? { kind?.verb }
     /// What follows the verb: the file it touches, else its title (`toolTarget`).

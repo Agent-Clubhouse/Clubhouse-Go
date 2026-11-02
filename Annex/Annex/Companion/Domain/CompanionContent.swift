@@ -54,6 +54,8 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         switch row {
         case .item(let item): references(in: item)
         case .tools(let tools): unique(tools.flatMap { references(in: .tool($0)) })
+        case .activity: [] // Hidden detail is not scanned for links or Markdown.
+        case .routed: []
         }
     }
     /// Without the desktop's Rich chat content setting every fetch fails, so no link is offered.

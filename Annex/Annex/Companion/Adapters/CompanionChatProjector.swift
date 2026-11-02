@@ -151,9 +151,10 @@ struct CompanionChatProjector {
             let location: String? = data["locations"].arrayValue.first?["path"]?.string ?? old?.location
             let awaitsApproval: Bool = rawStatus.map { $0 == "pending" } ?? old?.awaitsApproval ?? false
             let name: String = data["title"]?.string ?? data["toolName"]?.string ?? old?.name ?? "Tool activity"
+            let exitCode = blocks.reversed().first { $0["type"]?.string == "terminal" && $0["exitCode"]?.integer != nil }?["exitCode"]?.integer.map(Int.init) ?? old?.exitCode
             let combined: String? = data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output
             upsert(.tool(.init(id: toolID, name: name, summary: input ?? old?.summary ?? "", output: combined, state: state, images: images,
-                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval)))
+                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval, exitCode: exitCode)))
         case "permission_request":
             guard let requestID = data["requestId"]?.string else { return }
             let options = data["options"].arrayValue.compactMap { value -> CompanionApprovalOption? in
