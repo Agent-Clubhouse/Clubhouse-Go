@@ -85,6 +85,13 @@ import Testing
         #expect(CompanionLiveService.contentErrorMessage(error, reference: .file("a.txt"), hostName: "Studio") == message)
     }
 
+    @Test func repeatedCodeUsesReadableFallbackAndPairingGuidanceWinsOverDesktopMessage() {
+        let repeated = AnnexHTTPValidation.error(.init(status: 503, data: Data(#"{"error":"pending_overflow","message":"pending_overflow"}"#.utf8)))
+        #expect(CompanionLiveService.readableError(repeated) == "There are too many pending requests to show on your phone. Review them on the desktop, then refresh this conversation.")
+        let pairing = AnnexHTTPValidation.error(.init(status: 409, data: Data(#"{"error":"persistent_pairing_requires_desktop","message":"Use desktop settings."}"#.utf8)))
+        #expect(CompanionLiveService.readableError(pairing) == "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device.")
+    }
+
     @Test func questionPreviewShowsDesktopOnlyCardsAndRefusesCommands() async throws {
         let service = CompanionPreviewService(showsQuestions: true)
         let history = try await service.history(for: CompanionPreviewService.target)

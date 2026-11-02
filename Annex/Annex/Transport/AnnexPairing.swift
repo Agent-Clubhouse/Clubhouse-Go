@@ -87,7 +87,9 @@ nonisolated enum AnnexHTTPValidation {
             let safe = code.flatMap { $0.count <= 80 && $0.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_") }) ? $0 : nil }
             if response.status == 429 { return .rateLimited(code: safe, retryAfterSeconds: response.retryAfter) }
             let message = body?["message"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return .rejected(status: response.status, code: safe, message: message.flatMap { $0.isEmpty ? nil : $0 })
+            return .rejected(status: response.status, code: safe, message: message.flatMap {
+                $0.isEmpty || $0 == code ? nil : String($0.prefix(500))
+            })
         }
     }
 }

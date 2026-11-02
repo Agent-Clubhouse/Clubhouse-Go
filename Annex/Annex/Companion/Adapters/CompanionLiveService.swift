@@ -1210,9 +1210,9 @@ import ClubhouseTransport
         case .commandInFlight: return "Another command is being sent to this desktop. Try again when it finishes."
         case .invalidEndpoint: return "Enter a valid desktop address and port."
         case .rateLimited: return "The desktop is busy. Try again in a moment."
+        case .rejected(_, let code, _) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
         case .rejected(_, _, let message?): return message
         case .rejected(_, "pending_overflow", _): return "There are too many pending requests to show on your phone. Review them on the desktop, then refresh this conversation."
-        case .rejected(_, let code, _) where code == "persistent_pairing_requires_desktop": return "Remove this remembered pairing in the desktop's Annex settings. You can also forget its local access on this device."
         case .rejected(let status, let code, _): return "Desktop request failed (\(status))\(code.map { ": \($0)" } ?? "")."
         default: return "The desktop connection could not complete. Reconnect and try again."
         }
