@@ -260,7 +260,14 @@ invalid-input/malformed/unsupported/conflict/rejected collapse to `protocol`, an
 become `unknown`. Go currently combines cannot-connect and disconnected into `connection`, mapped to
 `closed`; it cannot reliably distinguish `refused`. Host/phone process identity stays in incident and
 resource metadata. No prompts, content, names, paths, addresses, URLs or error descriptions are added.
-SDK blocked/delivery status cannot be inferred from this local ring and is not fabricated.
+SDK blocked/delivery status cannot be inferred from this local ring and is not fabricated. The
+optional `peerRef`/`agentRef`, `exitCode`, `link`, state/reason/provider/driver fields are not emitted by
+this adapter. Future adoption must use per-run keyed 16-lowercase-hex refs, integer exit codes 0–255,
+`link` values `mtls`/`bearer`/`unknown` and closed client enum tokens matching
+`^[a-z0-9][a-z0-9_.-]{0,31}$` (custom names become `custom`), never raw names.
+`operation` remains the attempted verb; reached states belong in `fromState`/`toState`. Timestamps are
+ISO 8601 UTC with `Z`. If the SDK supplies `delivery`, `queued` is an integer report count captured at
+open, and `lastResult` is `ok`, `none` (no attempt this process), or a closed failure value.
 
 The report diagnostics release gate remains off, with a fake outgoing-request test proving the
 `diagnostics` field is absent. Enable only after confirmed API deployment, a compatible tagged SDK,

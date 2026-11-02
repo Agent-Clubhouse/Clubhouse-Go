@@ -140,7 +140,7 @@ nonisolated public struct AnnexFeedbackDiagnostics: Codable, Sendable, Equatable
                     dropped: dropped, droppedAttrs: droppedAttrs, entries: entries)
     }
     private static func encoder() -> JSONEncoder { let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]; return encoder }
-    private static func timestamp(_ date: Date) -> String { date.ISO8601Format(.iso8601(timeZone: .gmt, includingFractionalSeconds: true)) }
+    private static func timestamp(_ date: Date) -> String { date.ISO8601Format(.iso8601(timeZone: .gmt, includingFractionalSeconds: true).timeZone(separator: .omitted)) }
     private static func validHex(_ text: String, length: Int) -> Bool {
         text.count == length && text.allSatisfy { "0123456789abcdef".contains($0) } && text.contains { $0 != "0" }
     }

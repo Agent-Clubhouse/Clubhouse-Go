@@ -35,6 +35,24 @@ struct FeedbackDiagnosticsTests {
         #expect(frozen.lines == 2) // toggling back can use the original, never recapture
     }
 
+    @Test func utcTimestampsAttemptedOperationsAndOptionalFieldOmissionMatchFinalV1() throws {
+        let source = AnnexTelemetry(); source.setEnrolledCapture(true)
+        let attempt = source.begin(.reconnect)
+        attempt.fail(.offline); attempt.end()
+        let frozen = AnnexFeedbackDiagnostics.capture(from: source)
+        let entry = try #require(frozen.entries.first)
+        let utc = ISO8601DateFormatter(); utc.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        for at in [frozen.windowStart, frozen.windowEnd, entry.at] {
+            #expect(at.hasSuffix("Z"))
+            #expect(utc.date(from: at) != nil)
+        }
+        #expect(entry.event == "reconnect" && entry.attrs["operation"] == .string("reconnect"))
+        let optional = Set(["peerRef", "agentRef", "exitCode", "link", "fromState", "toState", "reason", "provider", "driver"])
+        #expect(Set(entry.attrs.keys).isDisjoint(with: optional))
+        let object = try #require(JSONSerialization.jsonObject(with: frozen.encoded()) as? [String: Any])
+        #expect(object["delivery"] == nil) // no invented queued count or result without SDK stats
+    }
+
     @Test func everyFailureHasAnExplicitMapping() {
         let expected: [AnnexDiagnosticFailure: AnnexFeedbackDiagnostics.Failure] = [
             .cancelled: .cancelled, .abandoned: .cancelled, .timeout: .timeout, .offline: .offline, .dns: .dns,
