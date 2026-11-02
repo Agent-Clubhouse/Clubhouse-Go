@@ -41,7 +41,26 @@ SHARDS = [
         ],
     },
     {
-        # Remaining preview smoke tests (~400), Framebriar shake (~185) and anything new.
+        # Split from "other" after run 41487601605 took 50 minutes of test time.
+        # These classes contributed 1,473 s of test bodies; the remainder 1,310 s
+        # (including one 48 s failed attempt). Each gets its own launch budget.
+        "name": "UI tests (chat)",
+        "tests": [
+            "CompanionDispatcherUITests",  # 341
+            "CompanionAutoQuotaUITests",  # 211
+            "CompanionReadingUITests",  # 194, before the native-top regressions
+            "CompanionMarkdownBlockUITests",  # 144
+            "CompanionSlashCommandUITests",  # 139
+            "CompanionHelperPresetsUITests",  # 105
+            "CompanionContextWindowUITests",  # 104
+            "CompanionLongReplyUITests",  # 86
+            "CompanionComposerPasteUITests",  # 73
+            "CompanionQueuedBurstUITests",  # 46
+            "CompanionQuestionUITests",  # 29
+        ],
+    },
+    {
+        # Remaining preview, agent tree and diagnostics tests, plus every new UI class.
         "name": "UI tests (other)",
         "tests": None,
     },

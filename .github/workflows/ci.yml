@@ -188,7 +188,8 @@ jobs:
     name: ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
-    # Clean "other" shards reached 39.6 minutes; retain the per-test hang deadlines below.
+    # Chat and remaining UI tests run separately after "other" reached 50 minutes.
+    # Keep the job budget and per-test hang deadlines unchanged.
     timeout-minutes: 55
     strategy:
       fail-fast: false
