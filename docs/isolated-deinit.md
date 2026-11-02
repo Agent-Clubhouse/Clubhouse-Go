@@ -31,6 +31,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
 | `CompanionDecisionQueue` | arc_only | Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted. |
+| `CompanionHelperPresetsScreen` | arc_only | Sendable routing snapshot, String/Bool and Observation state; read/write closures are not retained. No UI fields or cleanup resources. |
 | `CompanionImageBytes` | arc_only | Immutable Data bytes, Sendable; no decoded UIImage is stored. |
 | `CompanionLifecycle` | main_actor | Owns injected main-actor transition closure; arbitrary captures not proved UI-free. |
 | `CompanionLiveService` | arc_only | Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. |
@@ -62,7 +63,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 
 ## Enforcement and validation
 
-scripts/check-isolated-deinits.py checks the Debug binary's demangled isolated-deinit symbols against scripts/isolated-deinit-policy.json. A new synthesized isolated deinit requires classification. ARC-only entries must lose the thunk; main-actor/generated entries must retain it. There are 22 ARC-only protections and 13 retained isolated paths in the table; the latter remain unprotected on an affected runtime if the triggering scope/release combination occurs.
+scripts/check-isolated-deinits.py checks the Debug binary's demangled isolated-deinit symbols against scripts/isolated-deinit-policy.json. A new synthesized isolated deinit requires classification. ARC-only entries must lose the thunk; main-actor/generated entries must retain it. There are 23 ARC-only protections and 13 retained isolated paths in the table; the latter remain unprotected on an affected runtime if the triggering scope/release combination occurs.
 
 Ownership review records contain readable SwiftParser-derived surfaces, not whole-file hashes. For ARC-only classes they cover instance stored-property names/types, weak/unowned storage, storage wrappers/macros, inherited types, and nested value storage. Computed properties, property-observer bodies, methods, static caches and literal defaults are excluded. Comments and formatting are trivia and are ignored. The 13 retained-isolation classes have no field fingerprint. The parser ships with Xcode; it requires no downloaded package.
 

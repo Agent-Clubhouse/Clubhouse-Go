@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -15,6 +15,7 @@
         "properties": {
           "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",
           "clock": "AnnexClock",
+          "consumedHelperRequests": "Set < String >",
           "contentRoots": "[ CompanionTarget : CompanionContentRoots ]",
           "conversations": "[ CompanionTarget : CompanionConversation ]",
           "createError": "String ?",
@@ -27,6 +28,7 @@
           "finishedPersistence": "( any CompanionFinishedPersistence ) ?",
           "finishedRuns": "CompanionFinishedRuns",
           "helperRequestErrors": "[ String : String ]",
+          "helperRequestNotice": "String ?",
           "helperRequestsInFlight": "Set < String >",
           "historyGenerations": "[ CompanionTarget : UUID ]",
           "hosts": "[ CompanionHost ]",
@@ -146,7 +148,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review.",
+      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -162,10 +164,12 @@
         "properties": {
           "buffers": "[ CompanionTarget : [ AnnexJSON ] ]",
           "capabilities": "[ String : AnnexCapabilities ]",
+          "consumedHelperRequests": "Set < String >",
           "dispatcherCatalog": "[ String : AnnexJSON ]",
           "dispatcherFlags": "[ String : ( enabled : Bool , flagOn : Bool ) ]",
           "eventGenerations": "[ String : UUID ]",
           "eventTasks": "[ String : Task < Void , Never > ]",
+          "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",
           "historyGenerations": "[ CompanionTarget : UUID ]",
           "hosts": "[ String : CompanionHost ]",
           "iconCatalog": "[ String : ( projects : AnnexJSON , agents : AnnexJSON ) ]",
@@ -372,6 +376,7 @@
           "showsContextWindow": "Bool",
           "showsDispatcher": "Bool",
           "showsHelperIdentity": "Bool",
+          "showsHelperPresets": "Bool",
           "showsHelperRequests": "Bool",
           "showsHelperTree": "Bool",
           "showsLongBlocks": "Bool",
@@ -553,6 +558,24 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionHelperPresetsScreen": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionHelperRouting.swift",
+      "reason": "Optional routing snapshot contains only Sendable structs, arrays and String dictionaries; String/Bool/Observation state owns no UI, retained callback or cleanup resource. Read/write closures are used during calls and are not stored.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "error": "String ?",
+          "loading": "Bool",
+          "saving": "Bool",
+          "settings": "CompanionHelperRouting ?"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     }
   },
   "captureSites": {
@@ -632,7 +655,7 @@
     "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": {
       "constructor:CompanionStore": [
         {
-          "expression": "CompanionStore ( service : CompanionPreviewService ( streamsUpdates : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-stream \" ) , showsHelperRequests : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-requests \" ) , showsTerminalAgent : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-terminal-agent \" ) , showsLongBlocks : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-blocks \" ) , showsLongReply : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-reply \" ) , showsDispatcher : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-dispatcher \" ) , mcpEnabled : ! ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-mcp-off \" ) , showsHelperIdentity : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-identity \" ) , showsHelperTree : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-tree \" ) , showsQuestions : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-questions \" ) , showsContextWindow : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-context-window \" ) , showsReadingScenario : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-reading \" ) ) )",
+          "expression": "CompanionStore ( service : CompanionPreviewService ( streamsUpdates : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-stream \" ) , showsHelperRequests : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-requests \" ) , showsTerminalAgent : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-terminal-agent \" ) , showsLongBlocks : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-blocks \" ) , showsLongReply : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-long-reply \" ) , showsDispatcher : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-dispatcher \" ) , mcpEnabled : ! ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-mcp-off \" ) , showsHelperIdentity : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-identity \" ) , showsHelperTree : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-tree \" ) , showsQuestions : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-questions \" ) , showsContextWindow : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-context-window \" ) , showsReadingScenario : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-reading \" ) , showsHelperPresets : ProcessInfo . processInfo . arguments . contains ( \" --companion-preview-helper-presets \" ) ) )",
           "producers": {}
         }
       ]
