@@ -39,6 +39,7 @@
                 Transport/AnnexStreamDiagnostic.swift,
                 Transport/AnnexTerminal.swift,
                 Transport/AnnexAppTelemetry.swift,
+                Transport/AnnexFeedbackDiagnostics.swift,
             );
             target = ACF46E212F4A5C73007272FE /* ClubhouseGo */;
         };
