@@ -388,7 +388,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let contextWindow: Feature?
     public let helperRouting: HelperRouting?
     public var supportsHelperRouting: Bool { helperRouting?.version == 1 }
-    public var supportsHelperRoutingUpdate: Bool { supportsHelperRouting && helperRouting?.canEditPresets == true && commands.contains("helperRouting.update") }
+    public var supportsHelperRoutingUpdate: Bool { supportsHelperRouting && helperRouting?.canUpdate == true && commands.contains("helperRouting.update") }
     public var supportsContextWindow: Bool { commands.contains("agent.update") && contextWindow?.version == 1 }
     public var supportsOrchestration: Bool { commands.contains("agent.update") && (orchestration?.version ?? 0) >= 1 }
     public var supportsPersistentApprovals: Bool { commands.contains("chat.permission") && (permissions?.version ?? 0) >= 1 && permissions?.persistentApprovals == true }

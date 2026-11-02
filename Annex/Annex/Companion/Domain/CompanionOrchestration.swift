@@ -25,6 +25,8 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var connectToDispatcher = false
     /// Clubhouse MCP is required for orchestration; older desktops omit this and keep today's behavior.
     var mcpEnabled = true
+    var autoHelpers: Bool?
+    var autoHelpersEffective: Bool?
     var controls = CompanionOrchestration.defaultControls
     var accessLevels = CompanionOrchestration.defaultAccessLevels
     var sources: [String: Source] = [:]
@@ -89,6 +91,7 @@ nonisolated struct CompanionOrchestrationChange: Sendable, Equatable {
     var maxHelpers: Field<Int>?
     var crossProjectHelpers: Field<Bool>?
     var connectToDispatcher: Field<Bool>?
+    var autoHelpers: Field<Bool>?
     var isEmpty: Bool { self == .init() }
 
     /// The policy after this change, for showing it before the desktop answers. A cleared field keeps its value.
@@ -100,6 +103,9 @@ nonisolated struct CompanionOrchestrationChange: Sendable, Equatable {
         if case .set(let value)? = maxHelpers { next.maxHelpers = value; next.sources["maxHelpers"] = .agent }
         if case .set(let value)? = crossProjectHelpers { next.crossProjectHelpers = value; next.sources["crossProjectHelpers"] = .agent }
         if case .set(let value)? = connectToDispatcher { next.connectToDispatcher = value; next.sources["connectToDispatcher"] = .agent }
+        // Keep the desktop's effective result until a fresh read; changing the own switch does not compute precedence.
+        if case .set(let value)? = autoHelpers { next.autoHelpers = value; next.sources["autoHelpers"] = .agent }
+        if case .clear? = autoHelpers { next.autoHelpers = nil }
         return next
     }
 }

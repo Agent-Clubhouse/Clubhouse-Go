@@ -33,12 +33,14 @@ import ClubhouseTransport
     private let showsQuestions: Bool
     private let showsContextWindow: Bool
     private let showsHelperPresets: Bool
+    private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
          showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
-         showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false, showsHelperPresets: Bool = false) {
+         showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false, showsHelperPresets: Bool = false, showsAutoQuota: Bool = false) {
         self.showsQuestions = showsQuestions
-        self.showsHelperPresets = showsHelperPresets
+        self.showsAutoQuota = showsAutoQuota
+        self.showsHelperPresets = showsHelperPresets || showsAutoQuota
         self.showsContextWindow = showsContextWindow
         self.showsHelperTree = showsHelperTree
         self.showsReadingScenario = showsReadingScenario
@@ -56,7 +58,7 @@ import ClubhouseTransport
             self.continuation = continuation
             continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
                                                  terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher, helperTree: self.showsHelperTree,
-                                                 contextWindow: self.showsContextWindow, helperPresets: self.showsHelperPresets)))
+                                                 contextWindow: self.showsContextWindow, helperPresets: self.showsHelperPresets, autoQuota: self.showsAutoQuota)))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -97,7 +99,7 @@ import ClubhouseTransport
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
     static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false, helperTree: Bool = false,
-                      contextWindow: Bool = false, helperPresets: Bool = false) -> [CompanionHost] {
+                      contextWindow: Bool = false, helperPresets: Bool = false, autoQuota: Bool = false) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
@@ -168,6 +170,18 @@ import ClubhouseTransport
             hosts[0].projects[1].agents[1].routing = .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli")
             hosts[0].helperRequests = Self.helperRequests
             hosts[0].helperRequests[0].requestedRouting = .init(provider: "codex-cli", model: nil, effort: nil, difficulty: "hard")
+        }
+        if autoQuota {
+            hosts[0].helperRouting = Self.autoQuotaCapability
+            hosts[0].helperRoutingLabels = Self.autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true).labels
+            hosts[0].helperRequests[0].requestedRouting = .init(provider: "auto", difficulty: "hard")
+            hosts[0].helperRequests[0].startWarning = Self.previewStartWarning
+            for p in hosts[0].projects.indices {
+                for a in hosts[0].projects[p].agents.indices {
+                    hosts[0].projects[p].agents[a].orchestration?.autoHelpers = nil
+                    hosts[0].projects[p].agents[a].orchestration?.autoHelpersEffective = true
+                }
+            }
         }
         if helperTree {
             for p in hosts[0].projects.indices {
@@ -457,7 +471,7 @@ import ClubhouseTransport
     }
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         guard showsHelperPresets else { throw previewError }
-        return Self.helperPresets
+        return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID, mcpEnabled: mcpEnabled) : Self.helperPresets
     }
     func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting { throw previewError }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
@@ -477,7 +491,7 @@ import ClubhouseTransport
         var policy = sleeping ? Self.juniperOrchestration : CompanionOrchestration(sources: ["crossProjectHelpers": .default, "connectToDispatcher": .default])
         policy.mcpEnabled = mcpEnabled
         if !mcpEnabled { policy.orchestrate = false; policy.crossProjectHelpers = false; policy.connectToDispatcher = false }
-        return .init(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
+        var result = CompanionAgentSettings(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
                      name: .init(value: name, editable: .sleeping), color: .init(value: sleeping ? "violet" : "indigo", editable: .sleeping),
                      emoji: .init(value: nil, editable: .sleeping),
                      orchestrator: .init(value: nil, editable: .sleeping), resolvedOrchestrator: routed ? "codex-cli" : "claude-code", changeStartsNewSession: sleeping,
@@ -492,6 +506,12 @@ import ClubhouseTransport
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
                      orchestration: policy, parentAgentID: (showsHelperIdentity || showsHelperPresets) && sleeping ? Self.target.agentID : nil,
                      routing: showsHelperPresets && sleeping ? .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli", summary: "gpt-6.1-sol, high effort. From the helper settings for this difficulty.", displayReason: "From the helper settings for this difficulty") : nil)
+        if showsAutoQuota {
+            result.routing = sleeping ? Self.autoQuotaSavedDecision : nil
+            result.orchestration?.autoHelpers = sleeping ? true : nil
+            result.orchestration?.autoHelpersEffective = !sleeping && mcpEnabled
+        }
+        return result
     }
     /// What the desktop lets you change on the Dispatcher: its CLI, model, runtime, Free Agent Mode and auto-sleep.
     static let dispatcherSettings = CompanionAgentSettings(

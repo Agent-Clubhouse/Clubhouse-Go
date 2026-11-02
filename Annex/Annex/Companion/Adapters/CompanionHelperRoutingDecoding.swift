@@ -31,8 +31,10 @@ extension CompanionHelperRouting {
             }
             return Provider(autoEligible: raw["autoEligible"].boolValue, reason: raw["reason"]?.string,
                             choicesSource: raw["choices"]?["source"]?.string, choicesAsOf: raw["choices"]?["asOf"]?.string,
-                            models: models ?? [], cells: cells)
+                            models: models ?? [], cells: cells, quota: CompanionHelperQuota(json: raw["quota"]))
         }
+        auto = CompanionHelperAuto(json: json["auto"])
+        serverTime = json["serverTime"].flatMap(CompanionLiveService.date(from:))
         if let usable = json["agent"]?["usable"]?.boolOrNil { agent = .init(usable: usable, reason: json["agent"]?["reason"]?.string) }
     }
 }
@@ -55,6 +57,11 @@ extension CompanionHelperRoutingDecision {
               let selection = CompanionRequestedRouting(json: json["resolved"] ?? json) else { return nil }
         self.init(mode: mode, selection: selection, reason: reason, fallback: json["fallback"]?.string,
                   summary: json["display"]?["summary"]?.string, displayReason: json["display"]?["reason"]?.string,
-                  displayFallback: json["display"]?["fallback"]?.string)
+                  displayFallback: json["display"]?["fallback"]?.string,
+                  decidedAt: json["decidedAt"].flatMap(CompanionLiveService.date(from:)), balanced: json["balanced"].boolValue,
+                  warning: CompanionHelperStartWarning(json: json["warning"]), displayWarning: json["display"]?["warning"]?.string)
+        if case .object(let load)? = json["load"] { self.load = load.compactMapValues(\.int) }
+        if case .object(let quota)? = json["quota"] { self.quota = quota.compactMapValues { CompanionHelperQuota(json: $0) } }
+        if case .object(let skipped)? = json["skipped"] { self.skipped = skipped.compactMapValues(\.string) }
     }
 }

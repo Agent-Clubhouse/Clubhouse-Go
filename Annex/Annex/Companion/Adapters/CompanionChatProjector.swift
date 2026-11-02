@@ -509,8 +509,8 @@ struct CompanionChatProjector {
 }
 
 extension Optional where Wrapped == AnnexJSON {
-    var arrayValue: [AnnexJSON] { if case .array(let values) = self { values } else { [] } }
-    var boolValue: Bool { if case .bool(let value) = self { value } else { false } }
+    nonisolated var arrayValue: [AnnexJSON] { if case .array(let values) = self { values } else { [] } }
+    nonisolated var boolValue: Bool { if case .bool(let value) = self { value } else { false } }
 }
 extension AnnexJSON {
     var displayText: String {
