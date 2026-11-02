@@ -58,21 +58,28 @@ import ClubhouseTransport
         let window = UIWindow(windowScene: scene)
         window.frame = scene.screen.bounds
         let controller = UIHostingController(rootView: ResyncNavigationView(store: store, agent: agent, navigation: navigation))
-        LongChatMeasurementLifetime.retain([service, store, controller, navigation])
         window.rootViewController = controller
         window.isHidden = false
         let telemetry = AnnexTelemetry.shared; telemetry.setEnabled(true)
         defer { window.isHidden = true; window.rootViewController = nil; telemetry.setEnabled(false) }
-        func settle() async throws { try await Task.sleep(for: .milliseconds(400)) }
+        func settle() async throws {
+            try await Task.sleep(for: .milliseconds(400))
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while store.conversation(for: target).isLoading && ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertFalse(store.conversation(for: target).isLoading, "Synthetic history read must finish")
+        }
         func report(_ phase: String, before: Int) {
             let summaries = telemetry.drainSummaries()
             let body = summaries.first { $0.operation == .conversationBody }
             let rows = summaries.first { $0.operation == .messageBody }
-            print("LONG_CHAT_VIEW_RESYNC phase=\(phase) requests=\(service.reads - before) conversationBodies=\(body?.count ?? 0) messageBodies=\(rows?.count ?? 0) bodyMs=\(body?.totalMs ?? 0) retained=\(store.conversation(for: target).items.count)")
+            print("LONG_CHAT_VIEW_RESYNC phase=\(phase) requests=\(service.reads - before) conversationBodies=\(body?.count ?? 0) messageBodies=\(rows?.count ?? 0) bodyMs=\(body?.totalMs ?? 0) retained=\(store.conversation(for: target).items.count) loading=\(store.conversation(for: target).isLoading) resync=\(store.conversation(for: target).requiresResync) error=\(store.conversation(for: target).error ?? "none")")
         }
         var before = service.reads
         navigation.open = true; try await settle()
         report("navigation-loaded", before: before)
+        XCTAssertEqual(service.reads - before, 0)
         before = service.reads
         navigation.phase = .background
         hosts[0].connection = .offline
@@ -81,6 +88,8 @@ import ClubhouseTransport
         hosts[0].connection = .synchronizing; store.apply(.hosts(hosts)); await Task.yield()
         hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle()
         report("foreground-open", before: before)
+        XCTAssertEqual(service.reads - before, 1)
+        XCTAssertFalse(store.conversation(for: target).requiresResync, store.conversation(for: target).error ?? "No loading error")
         before = service.reads
         navigation.open = false; try await settle()
         store.apply(.resyncRequired(hostID: target.hostID))
@@ -88,7 +97,8 @@ import ClubhouseTransport
         navigation.open = true
         hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle()
         report("navigation-and-reconnect", before: before)
+        XCTAssertEqual(service.reads - before, 1)
         XCTAssertEqual(store.conversation(for: target).items.count, 5_000)
-        XCTAssertFalse(store.conversation(for: target).requiresResync)
+        XCTAssertFalse(store.conversation(for: target).requiresResync, store.conversation(for: target).error ?? "No loading error")
     }
 }
