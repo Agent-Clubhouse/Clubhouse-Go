@@ -201,8 +201,24 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// Toggle once and wait for the authoritative setting, without retrying the gesture.
-    private func setSwitch(_ control: XCUIElement, on: Bool, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertTrue(control.waitForExistence(timeout: 15), file: file, line: line)
+    private func setSwitch(_ control: XCUIElement, on: Bool, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8, file: file, line: line), file: file, line: line)
+        // A Form can expose an offscreen switch as hittable. Coordinate taps do not scroll it into view.
+        let window = app.windows.firstMatch
+        let top = app.navigationBars.firstMatch.frame.maxY + 12
+        let bottom = window.frame.maxY - 60
+        for _ in 0..<10 {
+            checkTimeLeft("bringing the settings switch inside the sheet", file: file, line: line)
+            let frame = control.frame
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            let above = frame.minY < top
+            let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : 0.7))
+            let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.7 : 0.4))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTAssertGreaterThanOrEqual(control.frame.minY, top, file: file, line: line)
+        XCTAssertLessThanOrEqual(control.frame.maxY, bottom, file: file, line: line)
+        XCTAssertTrue(control.isHittable, file: file, line: line)
         XCTAssertTrue(control.wait(for: \.isEnabled, toEqual: true, timeout: 20), file: file, line: line)
         if (control.value as? String == "1") != on {
             control.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -565,14 +581,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let toggle = dispatcherSwitch(app)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
         XCTAssertTrue(toggle.isEnabled, "The fixture must seed both the experimental flag and New layout")
-        setSwitch(toggle, on: true)
+        setSwitch(toggle, on: true, in: app)
         let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
         waitAndTap(app.buttons["Done"], untilGone: toggle)
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The phone toggle's snapshot must add the pinned row")
         XCTAssertLessThan(row.frame.minY, projectHeader(app).frame.minY)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
-        setSwitch(toggle, on: false)
+        setSwitch(toggle, on: false, in: app)
         XCTAssertEqual((try dispatcherFixture("state") as? [String: Any])?["enabled"] as? Bool, false)
         waitAndTap(app.buttons["Done"], untilGone: toggle)
         XCTAssertFalse(row.exists)
@@ -685,14 +701,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
         XCTAssertTrue(scrollUntilExists(orchestrate, in: app, maxSwipes: 6))
         scrollTo(orchestrate, in: app)
-        setSwitch(orchestrate, on: true)
+        setSwitch(orchestrate, on: true, in: app)
         let connect = app.switches["agent-settings-orchestrate-dispatcher"]
         XCTAssertTrue(scrollUntilExists(connect, in: app, maxSwipes: 5))
         scrollTo(connect, in: app)
-        setSwitch(connect, on: false)
+        setSwitch(connect, on: false, in: app)
         var policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
         XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, false)
-        setSwitch(connect, on: true)
+        setSwitch(connect, on: true, in: app)
         policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
         XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, true)
         XCTAssertTrue((policy["bindings"] as? [[String: Any]])?.contains { $0["agentId"] as? String == id && $0["targetId"] as? String == echoID } == true)
@@ -772,9 +788,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         longPressUntilMenu(asleep, shows: settingsAction)
         waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
         scrollTo(orchestrate, in: app)
-        setSwitch(orchestrate, on: false)
+        setSwitch(orchestrate, on: false, in: app)
         XCTAssertEqual(((try dispatcherFixture("policy") as? [String: Any])?["policy"] as? [String: Any])?["orchestrate"] as? Bool, false)
-        setSwitch(orchestrate, on: true)
+        setSwitch(orchestrate, on: true, in: app)
         waitAndTap(app.buttons["Done"], untilGone: orchestrate)
         // MCP-off is authoritative on the settings route and on screen, even though the overrides stay stored.
         try dispatcherFixture("mcpEnabled", ["enabled": false])
@@ -839,7 +855,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         pick("auto-sleep", "After 15 min idle")
         let free = app.switches["agent-settings-free-agent-mode"]
         scrollTo(free, in: app)
-        setSwitch(free, on: false)
+        setSwitch(free, on: false, in: app)
         let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         let config = try XCTUnwrap(saved["config"] as? [String: Any])
         XCTAssertTrue((config["model"] as? String)?.contains("haiku") == true, "The phone model choice persists on desktop")
