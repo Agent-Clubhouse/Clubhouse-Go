@@ -2,6 +2,7 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 import Testing
+@testable import ClubhouseTransport
 @testable import CompanionDomain
 
 @Suite struct CompanionIconStoreTests {
@@ -142,6 +143,56 @@ import Testing
         await fetcher.release()
         #expect(await second.value == nil)
         #expect(await store.statistics.totalBytes == 0)
+    }
+
+    @MainActor @Test func snapshotRemovalOfflineFallbackAndFailedIconsDoNotBlockChat() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let icons = CompanionIconStore(directory: root)
+        let harness = try await LiveServiceHarness.start(iconStore: icons)
+        defer { harness.stop() }
+        let png = try Self.png()
+        await harness.transport.emit(harness.snapshotEvent([
+            "projectIcons": .object(["project": .string("data:image/png;base64," + png.base64EncodedString())]),
+            "agentIcons": .object(["agent": .string("data:image/png;base64," + png.base64EncodedString())])
+        ]))
+        try await harness.waitUntil { harness.host?.projects.first?.agents.first?.icon != nil }
+        let reference = try #require(harness.host?.projects.first?.agents.first?.icon)
+        await harness.transport.emit(.connection(.suspended))
+        try await harness.waitUntil { harness.host?.connection == .offline }
+        #expect(await icons.image(for: reference, points: 32) != nil)
+        // A complete snapshot with no icons removes the appearance, even after a REST refresh.
+        await harness.transport.emit(harness.snapshotEvent([:]))
+        try await harness.waitUntil { harness.host?.projects.first?.agents.first?.icon == nil }
+        try await harness.refreshCatalog()
+        #expect(harness.host?.projects.first?.icon == nil)
+        #expect(harness.host?.projects.first?.agents.first?.icon == nil)
+        await harness.transport.emit(harness.snapshotEvent([
+            "agentIcons": .object(["agent": .string("data:image/png;base64,AQID")]),
+            "projectIcons": .object(["project": .string("data:image/png;base64,AQID")])
+        ]))
+        try await harness.loadSession()
+        let history = try await harness.service.history(for: harness.target)
+        #expect(!history.messages.isEmpty)
+        #expect(harness.host?.connection == .connected)
+        #expect(harness.host?.projects.first?.agents.first?.icon == nil)
+    }
+
+    @Test func aLargeInlineSnapshotRetainsOnlySmallReferences() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        let png = try Self.png() + Data(repeating: 0, count: 256 * 1024)
+        let url = "data:image/png;base64," + png.base64EncodedString()
+        let maps = Dictionary(uniqueKeysWithValues: (0..<40).map { ("agent-\($0)", AnnexJSON.string(url)) })
+        #expect(url.utf8.count * maps.count > 10 * 1024 * 1024)
+        let catalog = await CompanionIconCatalog.inline(projects: nil, agents: .object(maps), host: "desktop", store: store)
+        #expect(catalog.agents.count == 40)
+        let retained = String(reflecting: catalog)
+        #expect(retained.utf8.count < 32 * 1024)
+        #expect(!retained.contains("base64") && !retained.contains(url))
+        let again = await CompanionIconCatalog.inline(projects: nil, agents: .object(maps), host: "desktop", store: store)
+        #expect(catalog == again)
+        let removed = await CompanionIconCatalog.inline(projects: nil, agents: nil, host: "desktop", store: store)
+        #expect(removed.agents.isEmpty)
     }
 
     private func wait(_ condition: () async -> Bool) async throws {

@@ -177,3 +177,16 @@ private func strings(_ signals: [AnnexAppTelemetry.Signal]) -> [String] {
         #expect(AnnexAppTelemetry.exportsSpan(for: operation) == !mapped.isEmpty)
     }
 }
+
+@Test func iconMeasurementsUseOnlyFixedNamesAndNumericValues() throws {
+    let signals = AnnexAppTelemetry.signals(for: try record(.iconCache, numbers: [.cacheBytes: 4096],
+                                                           events: [.iconHit, .iconMiss, .iconFailure, .iconEviction]))
+    for outcome in ["iconHit", "iconMiss", "iconFailure", "iconEviction"] {
+        #expect(signals.contains(.counter(name: "app.icons", unit: "{icon}", value: 1, attributes: ["app.outcome": .string(outcome)])))
+    }
+    #expect(signals.contains(.histogram(name: "app.icons.cache.bytes", unit: "By", value: 4096, attributes: [:])))
+    let fetch = AnnexAppTelemetry.signals(for: try record(.iconFetch, numbers: [.responseBytes: 123, .durationMs: 80]))
+    #expect(fetch.contains(.histogram(name: "app.icons.fetch.duration", unit: "ms", value: 80, attributes: ["app.outcome": .string("ok")])))
+
+
+}
