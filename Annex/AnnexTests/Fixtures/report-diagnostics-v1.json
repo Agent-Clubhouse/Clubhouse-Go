@@ -1,0 +1,2075 @@
+{
+ "contract": {
+  "v": 1,
+  "limits": {
+   "totalBytes": 65536,
+   "entries": 500,
+   "stringBytes": 4096,
+   "attrsPerEntry": 32
+  },
+  "tokenPattern": "^[A-Za-z0-9_.:+-]{1,64}$",
+  "states": [
+   "attached",
+   "none",
+   "left_out",
+   "unavailable"
+  ],
+  "levels": [
+   "debug",
+   "info",
+   "warn",
+   "error"
+  ],
+  "deliveryResults": [
+   "ok",
+   "none",
+   "timeout",
+   "tls",
+   "dns",
+   "refused",
+   "closed",
+   "oversize",
+   "overflow",
+   "busy",
+   "storage",
+   "auth",
+   "protocol",
+   "cancelled",
+   "server",
+   "offline",
+   "unknown"
+  ],
+  "reasons": {
+   "none": [
+    "empty",
+    "no-provider"
+   ],
+   "unavailable": [
+    "provider-failed",
+    "invalid"
+   ]
+  },
+  "serverReasons": {
+   "unavailable": [
+    "storage-failed"
+   ]
+  },
+  "attrs": {
+   "numbers": [
+    "attempt",
+    "backoffMs",
+    "snapshotBytes",
+    "webSocketMessageLimitBytes",
+    "transportFrameLimitBytes",
+    "durationMs",
+    "count",
+    "bytes",
+    "responseBytes",
+    "requestBytes",
+    "connectMs",
+    "tlsMs",
+    "firstByteMs"
+   ],
+   "integerRanges": {
+    "statusCode": [
+     100,
+     599
+    ],
+    "closeCode": [
+     1000,
+     4999
+    ],
+    "exitCode": [
+     0,
+     255
+    ]
+   },
+   "enums": {
+    "failure": [
+     "timeout",
+     "tls",
+     "dns",
+     "refused",
+     "closed",
+     "oversize",
+     "overflow",
+     "busy",
+     "storage",
+     "auth",
+     "protocol",
+     "cancelled",
+     "server",
+     "offline",
+     "unknown"
+    ],
+    "link": [
+     "mtls",
+     "bearer",
+     "unknown"
+    ]
+   },
+   "tokens": [
+    "operation"
+   ],
+   "shortTokens": [
+    "fromState",
+    "toState",
+    "reason",
+    "provider",
+    "driver"
+   ],
+   "shortTokenPattern": "^[a-z0-9][a-z0-9_.-]{0,31}$",
+   "ids": {
+    "connectionId": "uuid",
+    "attemptId": "uuid",
+    "traceId": "trace",
+    "spanId": "span"
+   },
+   "refs": [
+    "peerRef",
+    "agentRef"
+   ],
+   "refPattern": "^[0-9a-f]{16}$"
+  }
+ },
+ "cases": [
+  {
+   "name": "attached with every allowlisted attribute",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "dropped": 2,
+    "droppedAttrs": 1,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "attempt": 3,
+       "backoffMs": 1500,
+       "snapshotBytes": 1024,
+       "webSocketMessageLimitBytes": 65536,
+       "transportFrameLimitBytes": 16384,
+       "statusCode": 503,
+       "closeCode": 1006,
+       "durationMs": 12.5,
+       "count": 4,
+       "bytes": 9,
+       "responseBytes": 10,
+       "requestBytes": 11,
+       "connectMs": 12,
+       "tlsMs": 13,
+       "firstByteMs": 14,
+       "failure": "overflow",
+       "operation": "snapshot.send",
+       "connectionId": "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
+       "attemptId": "11111111-2222-4333-8444-555555555555",
+       "traceId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+       "spanId": "BBBBBBBBBBBBBBBB",
+       "exitCode": 137,
+       "link": "mtls",
+       "fromState": "connecting",
+       "toState": "closed",
+       "reason": "peer.gone",
+       "provider": "bonjour",
+       "driver": "nw_1",
+       "peerRef": "0123456789abcdef",
+       "agentRef": "fedcba9876543210"
+      }
+     }
+    ],
+    "delivery": {
+     "queued": 2,
+     "lastResult": "timeout"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 790,
+    "dropped": 2,
+    "droppedAttrs": 1,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "attempt": 3,
+       "backoffMs": 1500,
+       "snapshotBytes": 1024,
+       "webSocketMessageLimitBytes": 65536,
+       "transportFrameLimitBytes": 16384,
+       "statusCode": 503,
+       "closeCode": 1006,
+       "durationMs": 12.5,
+       "count": 4,
+       "bytes": 9,
+       "responseBytes": 10,
+       "requestBytes": 11,
+       "connectMs": 12,
+       "tlsMs": 13,
+       "firstByteMs": 14,
+       "failure": "overflow",
+       "operation": "snapshot.send",
+       "connectionId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+       "attemptId": "11111111-2222-4333-8444-555555555555",
+       "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "spanId": "bbbbbbbbbbbbbbbb",
+       "exitCode": 137,
+       "link": "mtls",
+       "fromState": "connecting",
+       "toState": "closed",
+       "reason": "peer.gone",
+       "provider": "bonjour",
+       "driver": "nw_1",
+       "peerRef": "0123456789abcdef",
+       "agentRef": "fedcba9876543210"
+      }
+     }
+    ],
+    "delivery": {
+     "queued": 2,
+     "lastResult": "timeout"
+    }
+   }
+  },
+  {
+   "name": "server recomputes lines and bytes",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 99,
+    "bytes": 99,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "entries sort oldest first",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:50:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 2,
+    "bytes": 185,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:50:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "none empty",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": []
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "none no-provider",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "no-provider",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z"
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "no-provider",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "none with an unknown reason becomes empty",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "mystery",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z"
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "none never keeps entries",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "left_out drops entries and delivery",
+   "input": {
+    "v": 1,
+    "state": "left_out",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "dropped": 7,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 1,
+     "lastResult": "ok"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "left_out",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "unavailable provider-failed",
+   "input": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "provider-failed",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z"
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "provider-failed",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "unavailable with an unknown reason becomes provider-failed",
+   "input": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "storage-failed",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z"
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "provider-failed",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "wrong version is invalid",
+   "input": {
+    "v": 2,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "unknown state is invalid",
+   "input": {
+    "v": 1,
+    "state": "partial",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z"
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "attached without a window is invalid",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "reversed window is invalid",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T12:00:00.000Z",
+    "windowEnd": "2026-11-01T11:30:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "attached without entries is invalid",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": []
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "entries that are not an array are invalid",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": "nope"
+   },
+   "expected": {
+    "v": 1,
+    "state": "unavailable",
+    "reason": "invalid",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "bad entries are dropped and counted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "yesterday",
+      "level": "info",
+      "ns": "a",
+      "event": "b"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "fatal",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "has space",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "message": "free text is not a field"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 2,
+    "bytes": 185,
+    "dropped": 3,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknown attribute keys are dropped and counted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "attempt": 1,
+       "message": "hello",
+       "url": "x",
+       "__proto__x": 1
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 115,
+    "dropped": 0,
+    "droppedAttrs": 3,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "attempt": 1
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "failure enum normalizes to unknown",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "kaboom"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": 7
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "busy"
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "storage"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 4,
+    "bytes": 486,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "unknown"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "unknown"
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "busy"
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "failure": "storage"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "numeric attributes must be finite and not negative",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "attempt": -1,
+       "count": "3",
+       "bytes": 0,
+       "tlsMs": 0.5
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 125,
+    "dropped": 0,
+    "droppedAttrs": 2,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "bytes": 0,
+       "tlsMs": 0.5
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "statusCode stays HTTP 100-599",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "statusCode": 99
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "statusCode": 600
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "statusCode": 200.5
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "statusCode": 599
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 4,
+    "bytes": 396,
+    "dropped": 0,
+    "droppedAttrs": 3,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "statusCode": 599
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "closeCode is integer 1000-4999",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": 999
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": 5000
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": 1006.5
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": "1006"
+      }
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": 1009
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 5,
+    "bytes": 488,
+    "dropped": 0,
+    "droppedAttrs": 4,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "closeCode": 1009
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "bad identifiers are dropped and counted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "connectionId": "abc",
+       "attemptId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "traceId": "xyz",
+       "spanId": "aaaaaaaaaaaaaaa"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "traceId": "11111111-2222-4333-8444-555555555555"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 2,
+    "bytes": 244,
+    "dropped": 0,
+    "droppedAttrs": 4,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "traceId": "11111111-2222-4333-8444-555555555555"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "a malformed operation token is dropped and counted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "operation": "has space"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 1,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "secret-looking tokens are redacted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "ghp_abcdef",
+      "event": "sk-abcdef",
+      "attrs": {
+       "operation": "token:abc123"
+      }
+     }
+    ],
+    "delivery": {
+     "queued": 0,
+     "lastResult": "password:hunter2"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 118,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "redacted",
+      "event": "redacted",
+      "attrs": {
+       "operation": "redacted"
+      }
+     }
+    ],
+    "delivery": {
+     "queued": 0,
+     "lastResult": "unknown"
+    }
+   }
+  },
+  {
+   "name": "bad delivery is omitted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": -1,
+     "lastResult": "ok"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "bad counters read as zero",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "dropped": -4,
+    "droppedAttrs": "x",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "exitCode is integer 0-255",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": -1
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 256
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 1.5
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": "1"
+      }
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 0
+      }
+     },
+     {
+      "at": "2026-11-01T11:45:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 255
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 6,
+    "bytes": 601,
+    "dropped": 0,
+    "droppedAttrs": 4,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 0
+      }
+     },
+     {
+      "at": "2026-11-01T11:45:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "exitCode": 255
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "link enum normalizes to unknown",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "bearer"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "mtls"
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "wifi"
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": 7
+      }
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "unknown"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 5,
+    "bytes": 592,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "bearer"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "mtls"
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "unknown"
+      }
+     },
+     {
+      "at": "2026-11-01T11:43:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "unknown"
+      }
+     },
+     {
+      "at": "2026-11-01T11:44:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "link": "unknown"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "short tokens enforce shape; failures are dropped and counted",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "fromState": "Connecting",
+       "toState": "has space",
+       "reason": "a/b",
+       "provider": "me@x",
+       "driver": "a:b"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "fromState": "-leading",
+       "toState": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "reason": 7,
+       "provider": "",
+       "driver": null
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "fromState": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "toState": "0.ok_a-b",
+       "reason": "x",
+       "provider": "p1",
+       "driver": "d1"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 3,
+    "bytes": 398,
+    "dropped": 0,
+    "droppedAttrs": 10,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "fromState": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+       "toState": "0.ok_a-b",
+       "reason": "x",
+       "provider": "p1",
+       "driver": "d1"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "short tokens still pass redact",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "provider": "sk-abcdef",
+       "driver": "www.example.com",
+       "reason": "gho_abcdef"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 165,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "provider": "redacted",
+       "driver": "redacted",
+       "reason": "redacted"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "pseudonymous refs are exact lowercase hex",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "peerRef": "0123456789ABCDEF",
+       "agentRef": "0123456789abcde"
+      }
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "peerRef": "0123456789abcdef0",
+       "agentRef": "g123456789abcdef"
+      }
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "peerRef": "0123456789abcdef",
+       "agentRef": "fedcba9876543210"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 3,
+    "bytes": 346,
+    "dropped": 0,
+    "droppedAttrs": 4,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:42:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed",
+      "attrs": {
+       "peerRef": "0123456789abcdef",
+       "agentRef": "fedcba9876543210"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "name": "non-integer delivery.queued drops delivery only",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": true,
+     "lastResult": "ok"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "fractional delivery.queued drops delivery only",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "delivery": {
+     "queued": 1.5,
+     "lastResult": "none"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": []
+   }
+  },
+  {
+   "name": "offset timestamps are not valid",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000+01:00",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     },
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 1,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:41:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ]
+   }
+  },
+  {
+   "name": "delivery.lastResult accepts ok",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 0,
+     "lastResult": "ok"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 0,
+     "lastResult": "ok"
+    }
+   }
+  },
+  {
+   "name": "delivery.lastResult accepts none",
+   "input": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "delivery": {
+     "queued": 0,
+     "lastResult": "none"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "none",
+    "reason": "empty",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 0,
+    "bytes": 0,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [],
+    "delivery": {
+     "queued": 0,
+     "lastResult": "none"
+    }
+   }
+  },
+  {
+   "name": "delivery.lastResult accepts a failure value",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 3,
+     "lastResult": "overflow"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 3,
+     "lastResult": "overflow"
+    }
+   }
+  },
+  {
+   "name": "delivery.lastResult outside the closed set is unknown",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 1,
+     "lastResult": "free.form.channel"
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 1,
+     "lastResult": "unknown"
+    }
+   }
+  },
+  {
+   "name": "missing delivery.lastResult is unknown",
+   "input": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 1
+    }
+   },
+   "expected": {
+    "v": 1,
+    "state": "attached",
+    "windowStart": "2026-11-01T11:30:00.000Z",
+    "windowEnd": "2026-11-01T12:00:00.000Z",
+    "lines": 1,
+    "bytes": 93,
+    "dropped": 0,
+    "droppedAttrs": 0,
+    "entries": [
+     {
+      "at": "2026-11-01T11:40:00.000Z",
+      "level": "warn",
+      "ns": "net.socket",
+      "event": "connect.failed"
+     }
+    ],
+    "delivery": {
+     "queued": 1,
+     "lastResult": "unknown"
+    }
+   }
+  }
+ ],
+ "leftOutReport": {
+  "v": 1,
+  "id": "0f8fad5b-d9cb-469f-a165-70867728950e",
+  "gameId": "clubhouse",
+  "buildSha": null,
+  "scene": "settings",
+  "sessionId": "11111111-2222-4333-8444-555555555555",
+  "seed": null,
+  "platform": "ios",
+  "input": "touch",
+  "capturedAt": "2026-11-01T12:00:00.000Z",
+  "notes": "left out, no incident",
+  "breadcrumbs": [],
+  "media": null,
+  "diagnostics": {
+   "v": 1,
+   "state": "left_out",
+   "windowStart": "2026-11-01T11:30:00.000Z",
+   "windowEnd": "2026-11-01T12:00:00.000Z",
+   "lines": 0,
+   "bytes": 0,
+   "dropped": 0,
+   "droppedAttrs": 0,
+   "entries": []
+  }
+ }
+}
