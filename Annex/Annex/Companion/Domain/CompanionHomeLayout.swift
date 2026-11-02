@@ -143,6 +143,12 @@ enum CompanionIdentityColor {
         return CompanionRGB(hex: palette[value] ?? value)
     }
 
+    /// Agents use getAgentColorHex: only palette ids are accepted, with indigo for nil or unknown.
+    /// Keep rgb's optional/hex behavior for project faces.
+    static func agentRGB(_ value: String?) -> CompanionRGB {
+        CompanionRGB(hex: palette[value ?? ""] ?? "#6366f1")!
+    }
+
     /// The bytes of a base64 `data:` URL, as the snapshot's `projectIcons` and `agentIcons` send them.
     static func data(fromDataURL value: String?) -> Data? {
         guard let value, value.hasPrefix("data:"), let comma = value.firstIndex(of: ","),
