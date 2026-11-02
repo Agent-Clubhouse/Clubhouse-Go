@@ -786,10 +786,24 @@ import Observation
             case .textDelta(let target, let id, _, _), .streamFinished(let target, let id, _): (target, id)
             default: nil
             }
-            let previousRevision = assistant.flatMap { conversations[$0.0]?.itemsRevision }
+            let tool: (CompanionTarget, String)? = switch event {
+            case .upsert(let target, .tool(let tool), _): (target, tool.id)
+            default: nil
+            }
+            let previousRevision = (assistant ?? tool).flatMap { conversations[$0.0]?.itemsRevision }
             applyEvent(event)
             if let (target, id) = assistant {
                 timelineProjections[target]?.updateAssistant(id, previousRevision: previousRevision, conversation: conversation(for: target))
+            }
+            if let (target, id) = tool {
+                timelineProjections[target]?.updateTool(id, previousRevision: previousRevision, conversation: conversation(for: target))
+            }
+            switch event {
+            case .timeline(let target, _, _, _, _), .upsert(let target, _, _), .textDelta(let target, _, _, _), .streamFinished(let target, _, _):
+                timelineProjections[target]?.discardIfStale(revision: conversation(for: target).itemsRevision)
+            case .hosts:
+                timelineProjections = timelineProjections.filter { conversations[$0.key] != nil }
+            case .resyncRequired: break
             }
         }
     }
