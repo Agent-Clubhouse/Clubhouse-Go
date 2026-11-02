@@ -2,7 +2,7 @@
 
 ## Regression and test plan
 
-Use `CompanionIdentityRefreshTests` with the live-service harness to reproduce transient identity loss before changing the service. Observe every host publication, not only the final result. Load a 2,001-message Dispatcher conversation, suspend, then resume through `prepareResume` re-registration (the route relocation path). Assert identity and chat survive and returning does not reread history.
+Use `CompanionIdentityRefreshTests` with the live-service harness to reproduce transient identity loss before changing the service. Observe every host publication, not only the final result. Load a 2,001-message Dispatcher conversation, suspend, then resume through `prepareResume` re-registration (the route relocation path). Assert identity and chat survive, a default cached lookup does not reread history, and the UI's explicitly forced resync still does.
 
 Exercise failed capabilities and catalog reads; snapshots missing projects, agents, individual project agent lists, quick agents or Dispatcher; malformed REST catalogs; snapshots before capabilities arrive; explicit empty authoritative catalogs; Dispatcher off and flag off; replacement Dispatcher identities, and forgotten hosts. Navigation tests distinguish initial loading, synchronization and offline connection states from confirmed absence. Complete snapshots and completed REST catalogs must still remove missing agents and projects.
 
@@ -26,9 +26,12 @@ These are deterministic fake-I/O counts, not device latency measurements. No rea
 
 | Scenario | Before | After |
 | --- | --- | --- |
-| Return to loaded 2,001-message Dispatcher chat after resume/relocation | 1 extra full history read; loaded chat discarded | 0 extra full history reads; all 2,001 rows retained |
+| Default cached lookup of 2,001-message Dispatcher chat after resume/relocation | 1 full history read; loaded chat discarded | 0 reads; all 2,001 rows retained |
+| Actual conversation-view navigation after reconnect | Forced history resync | Still one forced history resync; cached rows stay visible |
 | Reconnect resync plus first-snapshot connected | 2 complete catalog passes | 1 complete catalog pass |
 | 13-project desktop, duplicate reconnect signals (inferred from pass count) | 26 per-project agent reads | 13 per-project agent reads |
+
+The actual conversation view uses `load(force: conversation.requiresResync)` on navigation and forces resync when the connection becomes operable. Consequently, **there is no demonstrated reduction in actual UI foreground history reads**: the required full history synchronization remains. The default-load count isolates eviction's effect; it must not be interpreted as eliminating the UI's required reconnect read. This fix preserves the rendered transcript and identity while that read runs.
 
 A foreground with 13 projects opens **one new socket**, closes **one old socket**, and does not close the new socket. This holds for both ordinary resume and `prepareResume` with a replacement transport. It makes 17 HTTP reads: one identity verification, two capability reads (transport negotiation and service catalog), one project list and thirteen agent lists. The harness did not reproduce three socket accept/close pairs in one foreground. A socket close method can be invoked more than once during cancellation; the fake counts unique socket closures, matching an idempotent WebSocket close.
 

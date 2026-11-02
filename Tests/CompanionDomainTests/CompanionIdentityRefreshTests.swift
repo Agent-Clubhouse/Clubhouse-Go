@@ -50,10 +50,17 @@ import Testing
         await h.store.load(dispatcher)
         let returnDuration = clock.now - started
         let afterReads = await h.transport.readRoutes.filter { $0.name == "chat" }.count
-        print("Dispatcher resume: rows=\(original.items.count), extraFullHistoryReads=\(afterReads - reads), returnDuration=\(returnDuration)")
+        print("Dispatcher cached lookup: rows=\(original.items.count), extraFullHistoryReads=\(afterReads - reads), returnDuration=\(returnDuration)")
         #expect(afterReads == reads, "Returning to a cached chat must not reread its full history")
         observer.cancel()
         #expect(await observer.value == 0, "No host publication may claim the known Dispatcher disappeared")
+        // ConversationView explicitly forces this resync on navigation/connection changes. Retaining
+        // the cache avoids blanking, but does not eliminate that required full history read.
+        #expect(h.store.conversation(for: dispatcher).requiresResync)
+        await h.store.load(dispatcher, force: h.store.conversation(for: dispatcher).requiresResync)
+        let uiReads = await h.transport.readRoutes.filter { $0.name == "chat" }.count - afterReads
+        #expect(uiReads == 1)
+        print("Dispatcher UI-required resync: fullHistoryReads=\(uiReads), retainedRows=\(h.store.conversation(for: dispatcher).items.count)")
     }
 
     @Test func failedCapabilitiesReadKeepsDispatcherAndChat() async throws {
