@@ -159,6 +159,17 @@ import Testing
         #expect(count == 1, "Reconnect's resync + first snapshot connected are one synchronization")
     }
 
+    @Test func completedReconnectCatalogIsNotRepeatedForItsFirstSnapshot() async throws {
+        let h = try await start(); defer { h.stop() }
+        let before = await h.transport.readRoutes.filter { $0.name == "capabilities" }.count
+        try await h.refreshCatalog() // Resync's REST read can finish before the socket snapshot arrives.
+        await h.transport.emit(.connection(.connected))
+        try await Task.sleep(for: .milliseconds(50))
+        let count = await h.transport.readRoutes.filter { $0.name == "capabilities" }.count - before
+        #expect(count == 1)
+        #expect(h.host?.connection == .connected)
+    }
+
     @Test func authoritativeDeletionStillRemovesAgent() async throws {
         let h = try await start(); defer { h.stop() }
         await h.transport.setAgents(.array([]))

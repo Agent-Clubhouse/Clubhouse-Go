@@ -667,12 +667,14 @@ import ClubhouseTransport
             if state != .connected { streamDiagnostics.disconnect(hostID: hostID) }
             switch state {
             case .connected:
-                // An automatic reconnect emits resyncRequired before the first snapshot's connected.
-                // Both describe one handshake; do not enqueue a second full catalog behind its active read.
-                let alreadyRefreshing = hosts[hostID]?.connection == .synchronizing && refreshTasks[hostID] != nil
+                // Every socket snapshot emits connected, including broadcasts on the same socket.
+                // A reconnect's preceding resync may already be reading (or have read) the catalog.
+                // Neither needs another full pass; catalog-change events still enqueue follow-ups.
+                if hosts[hostID]?.connection == .connected ||
+                    (hosts[hostID]?.connection == .synchronizing && refreshTasks[hostID] != nil) { break }
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
                 needsCatchUp.insert(hostID)
-                if !alreadyRefreshing { scheduleRefresh(hostID: hostID) }
+                scheduleRefresh(hostID: hostID)
             case .connecting:
                 cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .connecting
