@@ -83,6 +83,17 @@ import Testing
         #expect(await harness.transport.executed.count == 8)
     }
 
+    @Test func oversizeReceiptIsADefiniteRefusalWithClearCopy() async throws {
+        let harness = try await Harness.start()
+        defer { harness.stop() }
+        try await harness.loadSession()
+        await harness.transport.enqueue(.rejected(code: "too_large", message: "too_large"))
+        #expect(await serviceErrorText {
+            try await harness.service.answer("q", answers: ["name": .text("Otter")], target: harness.target, clientCommandID: "oversize")
+        } == "The desktop rejected this command because it is too large.")
+        #expect(await harness.transport.executed.count == 1)
+    }
+
     @Test func aRetryAfterTheDesktopRestartedIsNotResent() async throws {
         let harness = try await Harness.start()
         defer { harness.stop() }

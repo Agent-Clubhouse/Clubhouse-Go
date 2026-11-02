@@ -649,6 +649,7 @@ import ClubhouseTransport
     /// Refusals branch on the code. The desktop's message is a sentence only for some codes; otherwise it is the code itself.
     nonisolated static func rejectionMessage(_ failure: AnnexCommandReceipt.Failure?) -> String {
         guard let failure else { return "The desktop rejected this command." }
+        if failure.code == "too_large" { return "The desktop rejected this command because it is too large." }
         return CompanionAgentCommandError.message(code: failure.code, message: failure.message)
             ?? (failure.message.isEmpty || failure.message == failure.code ? "The desktop rejected this command (\(failure.code))." : failure.message)
     }

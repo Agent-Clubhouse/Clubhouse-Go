@@ -257,9 +257,15 @@ public actor AnnexTransport: AnnexTransporting {
                 let response = try await io.perform(request)
                 // A valid receipt wins even if cancellation races after dispatch.
                 guard let receipt = try? JSONDecoder().decode(AnnexCommandReceipt.self, from: response.data),
-                      receipt.version == 1,
-                      (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
-                      (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch")),
+                      receipt.version == 1 else {
+                    throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+                }
+                // AnnexIO is the pinned mTLS exchange. This refusal happens before parsing the body,
+                // so it cannot echo a command ID or the request's epoch. No other shape gets this exception.
+                let unparsedSizeRefusal = response.status == 413 && receipt.status == .rejected
+                    && receipt.error?.code == "too_large" && receipt.commandId == nil
+                guard (receipt.commandId == command.commandID || (receipt.commandId == nil && receipt.status == .rejected)),
+                      (receipt.epoch == command.epoch || (receipt.status == .rejected && receipt.error?.code == "epoch_mismatch") || unparsedSizeRefusal),
                       // `failed` comes as 500 command_failed, or 409 for a refused helper start, a failed dispose or a
                       // cancelled start: all definitive answers that may have had partial effects.
                       ((receipt.status == .completed && (200...299).contains(response.status))
@@ -268,7 +274,7 @@ public actor AnnexTransport: AnnexTransporting {
                     throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
                 }
                 if receipt.status != .completed { AnnexTelemetry.current?.fail(receipt.status == .failed ? .server : .rejected) }
-            commands[key]?.receipt = receipt
+                commands[key]?.receipt = receipt
                 return receipt
             } catch {
                 // Cancellation after dispatch cannot prove the server did not execute.
