@@ -2,14 +2,14 @@ import Foundation
 import Testing
 @testable import CompanionDomain
 
-/// Agent parity plan: desktop initials (including UTF-16 edge cases), face precedence,
+/// Agent parity plan: desktop initials (preserving whole emoji), face precedence,
 /// default colour, quick identity, and snapshot updates. Project identity stays unchanged.
 struct CompanionAgentFaceTests {
     @Test(arguments: [
         ("Dispatcher", "D"), ("bold-gazelle", "BG"), ("one-two-three", "OT"),
         ("Phone Fixture", "P"), ("", ""), ("bold--gazelle", "BG"),
-        ("-bold-", "B"), ("--", ""), ("☀️-fox", "☀F"),
-        ("🦊-fox", "�F"), ("lowercase", "L"), ("1-bold", "1B"),
+        ("-bold-", "B"), ("--", ""), ("☀️-fox", "☀️F"),
+        ("🦊-fox", "🦊F"), ("👩🏽‍💻-fox", "👩🏽‍💻F"), ("lowercase", "L"), ("1-bold", "1B"),
         (" hello", " "), ("ß-fox", "SS")
     ])
     func desktopInitials(name: String, expected: String) {
