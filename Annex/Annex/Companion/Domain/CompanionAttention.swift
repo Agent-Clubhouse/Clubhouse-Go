@@ -145,6 +145,20 @@ enum CompanionActivityPart: Identifiable, Sendable, Equatable {
         case .routed(let message, let index): index == 0 ? message.images.count : 0
         }
     }
+    struct Avatar: Identifiable, Equatable {
+        let id: String
+        let identity: CompanionSenderIdentity
+    }
+    /// Summary identity only: never prepares routed text, Markdown or content links.
+    static func avatars(_ parts: [Self], resolver: CompanionSenderResolver) -> [Avatar] {
+        var seen: Set<String> = []
+        return parts.compactMap { part in
+            guard case .routed(let message, let index) = part, case .others(let routed) = message.display,
+                  routed.indices.contains(index), let identity = resolver.avatarIdentity(for: routed[index].sender),
+                  seen.insert(identity.id).inserted else { return nil }
+            return Avatar(id: "companion-sender-avatar-\(message.id)-\(index)", identity: identity)
+        }
+    }
     static func summary(_ parts: [Self]) -> String {
         let tools = parts.filter { if case .tool = $0 { true } else { false } }.count
         let messages = parts.filter { if case .routed = $0 { true } else { false } }.count

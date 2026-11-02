@@ -486,23 +486,42 @@ struct CompanionActivityCard: View, Equatable {
     private var state: CompanionPartExpansion { expansion.state(key: "activity:\(parts.first?.id ?? "")") }
     var body: some View {
         let open = state.open == true
+        let avatars = open ? [] : CompanionActivityPart.avatars(parts, resolver: resolver)
         VStack(alignment: .leading, spacing: 12) {
-            Button { state.open = !open } label: {
-                HStack(spacing: 8) {
-                    if parts.contains(where: \.isRunning) { ProgressView().controlSize(.small) }
-                    else { Image(systemName: "ellipsis.bubble") }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(CompanionActivityPart.summary(parts)).font(.subheadline)
-                        Text(senders).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            HStack(spacing: 8) {
+                if !avatars.isEmpty {
+                    HStack(spacing: 3) {
+                        ForEach(avatars.prefix(3)) { avatar in
+                            CompanionIdentityFace(name: avatar.identity.name, color: avatar.identity.color,
+                                emoji: avatar.identity.emoji, iconData: avatar.identity.iconData, size: 24, isQuick: avatar.identity.isQuick)
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(avatar.identity.name) avatar")
+                                .accessibilityHidden(false)
+                                .accessibilityIdentifier(avatar.id)
+                        }
+                        if avatars.count > 3 {
+                            Text("+\(avatars.count - 3)").font(.caption)
+                                .accessibilityLabel(avatars.dropFirst(3).map { "\($0.identity.name) avatar" }.joined(separator: ", "))
+                        }
                     }
-                    Spacer()
-                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption)
-                }.contentShape(Rectangle())
+                }
+                Button { state.open = !open } label: {
+                    HStack(spacing: 8) {
+                        if parts.contains(where: \.isRunning) { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "ellipsis.bubble") }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(CompanionActivityPart.summary(parts)).font(.subheadline)
+                            Text(senders).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                        Spacer()
+                        Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption)
+                    }.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(open ? "Expanded" : "Collapsed")
+                .accessibilityHint(open ? "Hide activity" : "Show activity messages and tool calls")
+                .accessibilityIdentifier("companion-activity-\(parts.first?.id ?? "")")
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(open ? "Expanded" : "Collapsed")
-            .accessibilityHint(open ? "Hide activity" : "Show activity messages and tool calls")
-            .accessibilityIdentifier("companion-activity-\(parts.first?.id ?? "")")
             if open {
                 ForEach(parts) { part in
                     switch part {

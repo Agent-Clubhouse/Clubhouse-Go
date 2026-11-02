@@ -95,6 +95,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let any = app.descendants(matching: .any)
         for (id, label) in [
             ("companion-sender-avatar-sender-preview-3", "willow avatar"),
+            ("companion-sender-avatar-sender-preview-0", "Cedar avatar"),
+            ("companion-sender-avatar-sender-preview-1", "Maple avatar"),
             ("companion-sender-avatar-relay-1-0", "Dispatcher avatar"),
             ("companion-sender-avatar-relay-1-1", "Reviewer avatar")
         ] {
@@ -102,6 +104,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(scrollUntilExists(avatar, in: app, up: false, maxSwipes: 8), id)
             XCTAssertEqual(avatar.label, label)
         }
+        XCTAssertFalse(any.matching(identifier: "companion-routed-sender-preview-0").firstMatch.exists, "Avatars remain accessible while routed detail stays collapsed")
+        XCTAssertEqual(app.buttons["companion-activity-routed:relay-1:0"].value as? String, "Collapsed")
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Known and gone sender faces"
         attachment.lifetime = .keepAlways

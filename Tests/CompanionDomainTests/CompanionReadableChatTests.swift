@@ -11,6 +11,18 @@ import Testing
     private func tool(_ id: String, state: CompanionTool.State = .completed, approval: Bool = false) -> CompanionTimelineItem {
         .tool(.init(id: id, name: "Run", summary: "command", state: state, kind: .execute, awaitsApproval: approval))
     }
+    @Test func collapsedSummaryRetainsKnownGoneAndQuickSenderIdentityWithoutDuplicateFaces() throws {
+        let message = CompanionPreviewService.senderPreview
+        guard case .message(let senderMessage) = message else { Issue.record("Missing sender fixture"); return }
+        let resolver = CompanionSenderResolver(agents: CompanionPreviewService.hosts(now: .now, dispatcher: true).flatMap(\.allAgents))
+        let parts = (0..<4).map { CompanionActivityPart.routed(senderMessage, $0) }
+        let avatars = CompanionActivityPart.avatars(parts, resolver: resolver)
+        #expect(avatars.map(\.identity.name) == ["Cedar", "Maple", "willow"])
+        #expect(avatars.map(\.id) == ["companion-sender-avatar-sender-preview-0", "companion-sender-avatar-sender-preview-1", "companion-sender-avatar-sender-preview-3"])
+        #expect(avatars.last?.identity.isQuick == true)
+        let gone = CompanionMessage(id: "gone", role: .user, text: "", source: "mcp", routed: [.init(sender: .init(agentID: "removed", name: "Reviewer"), text: "Done")])
+        #expect(CompanionActivityPart.avatars([.routed(gone, 0)], resolver: resolver).first?.identity.name == "Reviewer")
+    }
     @Test func adjacentToolsAndShortRoutedPartsFormOneOrderedRow() {
         let rows = CompanionTimelineFolding.rows(for: [tool("a"), routed("b", [short, short]), tool("c", state: .running)])
         guard case .activity(let parts) = rows.first else { Issue.record("Missing activity"); return }
