@@ -25,14 +25,19 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         let transcript = app.scrollViews.containing(.any, identifier: "companion-tool-preview-reading-failure").firstMatch
         XCTAssertTrue(transcript.waitForExistence(timeout: 5))
         let header = any.matching(identifier: "companion-chat-header").firstMatch
-        let menu = any.matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
+        let controls = app.buttons["companion-level-menu"]
         let frame = transcript.frame.intersection(app.windows.firstMatch.frame)
-        let top = max(frame.minY, header.frame.maxY)
-        let bottom = min(frame.maxY, menu.frame.minY)
+        let top = max(frame.minY, header.frame.maxY) + 12
+        // Controls and their inset sit above the slash menu; AX can report text
+        // behind that inset as hittable. Keep the touch clear of the entire band.
+        let bottom = min(frame.maxY, menu.frame.minY, controls.frame.minY) - 16
         let visible = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
-        // A fresh history row avoids the streaming footer and unrelated approval controls.
-        let target = transcript.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Reading marker "))
-            .allElementsBoundByIndex.first { visible.contains($0.frame) && $0.isHittable }
+        // A paragraph can have a clear visible portion when its neighboring
+        // heading is clipped. Require a readable band before choosing its center.
+        let target = transcript.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@",
+            "Reading marker ", "A stable preview paragraph for testing history"))
+            .allElementsBoundByIndex.first { $0.frame.intersection(visible).height >= 16 && $0.isHittable }
         if target == nil {
             let hierarchy = XCTAttachment(string: app.debugDescription)
             hierarchy.name = "Slash dismissal target hierarchy"
@@ -44,8 +49,10 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         let hit = target.frame.intersection(visible)
         let point = CGPoint(x: hit.midX, y: hit.midY)
         XCTAssertGreaterThan(frame.height, 44, "The transcript must not be the keyboard's 44pt top strip")
+        XCTAssertGreaterThanOrEqual(hit.height, 16, "The tap must land in readable transcript text")
         XCTAssertTrue(frame.contains(point) && target.frame.contains(point))
-        XCTAssertFalse(header.frame.contains(point) || app.keyboards.firstMatch.frame.contains(point) || menu.frame.contains(point))
+        XCTAssertFalse(header.frame.contains(point) || app.keyboards.firstMatch.frame.contains(point) || menu.frame.contains(point) || controls.frame.contains(point))
+        XCTAssertTrue(menu.exists, "The menu must still be open immediately before the outside tap")
         XCTContext.runActivity(named: "Tap real transcript content at \(point), content frame \(target.frame), visible band \(visible)") { _ in
             app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         }
@@ -55,7 +62,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
         XCTAssertEqual(composer.placeholderValue, "Message River… / for commands")
-        let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
         XCTAssertFalse(menu.exists, "No menu before typing")
 
         composer.tap()
@@ -85,13 +92,13 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
 
         // A tap outside the composer closes it.
         tapTranscript(app)
-        XCTAssertTrue(waitFor(menu, NSPredicate(format: "exists == false"), timeout: 5), "A tap outside dismisses the menu")
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5), "A tap outside dismisses the menu")
     }
 
     func testKeyboardMovesAndPicksAndADismissedWordStaysClosed() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
-        let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
         composer.tap()
         composer.typeText("/c")
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
@@ -100,14 +107,14 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         composer.typeKey(.downArrow, modifierFlags: [])
         XCTAssertTrue(item("commit", app).isSelected, "The arrows move the highlight")
         composer.typeKey(.tab, modifierFlags: [])
-        XCTAssertTrue(waitFor(menu, NSPredicate(format: "exists == false"), timeout: 5))
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5))
         XCTAssertEqual(value(composer), "/commit ")
 
         // Return picks once a name is started. (A synthesized hardware Return never reaches the field, so type it.)
         composer.typeText("then /fr")
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         composer.typeText("\n")
-        XCTAssertTrue(waitFor(menu, NSPredicate(format: "exists == false"), timeout: 5), "Return picks the highlighted command")
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5), "Return picks the highlighted command")
         XCTAssertEqual(value(composer), "/commit then /frontend-design ")
         // With no name started, Return is a new line.
         composer.typeText("/")
@@ -120,7 +127,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         composer.typeText("/")
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         tapTranscript(app)
-        XCTAssertTrue(waitFor(menu, NSPredicate(format: "exists == false"), timeout: 5), "A tap outside dismisses the menu")
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5), "A tap outside dismisses the menu")
         composer.typeText("r")
         XCTAssertFalse(menu.waitForExistence(timeout: 1), "It stays closed for the dismissed word")
         composer.typeText(" /")
