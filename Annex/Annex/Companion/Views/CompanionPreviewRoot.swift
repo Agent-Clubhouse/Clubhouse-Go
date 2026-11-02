@@ -10,11 +10,15 @@ struct CompanionPreviewRoot: View {
                                                                                    showsLongReply: ProcessInfo.processInfo.arguments.contains("--companion-preview-long-reply"),
                                                                                    showsDispatcher: ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher"),
                                                                                    mcpEnabled: !ProcessInfo.processInfo.arguments.contains("--companion-preview-mcp-off"),
-                                                                                   showsHelperIdentity: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-identity")))
+                                                                                   showsHelperIdentity: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-identity"),
+                                                                                   showsHelperTree: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
-        UserDefaults.standard.removePersistentDomain(forName: "companion-preview")
-        return CompanionPreferences(defaults: UserDefaults(suiteName: "companion-preview") ?? .standard)
+        let suite = ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree") ? "companion-preview-tree" : "companion-preview"
+        if !ProcessInfo.processInfo.arguments.contains("--companion-preview-keep-preferences") {
+            UserDefaults.standard.removePersistentDomain(forName: suite)
+        }
+        return CompanionPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
     }()
     /// `--companion-preview-feedback`: an enrolled in-memory feedback client, for the Send feedback menu items.
     @State private var feedback: CompanionFeedbackPresenter? = ProcessInfo.processInfo.arguments.contains("--companion-preview-feedback")

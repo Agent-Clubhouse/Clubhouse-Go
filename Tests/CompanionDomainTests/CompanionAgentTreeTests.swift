@@ -84,6 +84,19 @@ struct CompanionAgentTreeTests {
         #expect(CompanionAgentTree.parentLines(hosts: [.init(id: "host", name: "Mac", endpoint: "", connection: .connected,
                       projects: [.init(id: "p", name: "App", agents: [treeAgent("Ada"), helper])])]).isEmpty)
     }
+    @MainActor @Test func homeHoldAndIdleConsiderHiddenHelpersAndPreviewFixture() throws {
+        let hosts = CompanionPreviewService.hosts(now: Date(), helperTree: true)
+        let entries = hosts[0].projects.map { CompanionProjectEntry(host: hosts[0], project: $0) }
+        let layout = CompanionHomeLayout.build(entries, sort: .custom, customOrder: [], rule: .init(inactive: Set(entries.map(\.orderKey))),
+                                               projectActivity: { _ in nil }, agentActivity: \.lastActivity)
+        let clubhouse = try #require(layout.projects.first { $0.entry.project.id == "clubhouse" })
+        #expect(!clubhouse.isIdle, "Awake River keeps sleeping Cedar's project out of idle")
+        #expect(clubhouse.tree.active.first?.agent.name == "Cedar")
+        #expect(clubhouse.tree.active.prefix(3).map(\.depth) == [0, 1, 2])
+        #expect(clubhouse.sleeping.map(\.name) == ["Elm", "Moss"])
+        #expect(layout.hold.agents[clubhouse.id]?.contains(CompanionPreviewService.target) == true)
+        #expect(CompanionAgentTree.parentLines(hosts: hosts).values.contains("Helper of Cedar in Clubhouse"))
+    }
     @MainActor @Test func collapseAndFoldsPersistPerHostAndPruneOnlyKnownConnectedCatalogs() throws {
         let suite = "agent-tree-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
