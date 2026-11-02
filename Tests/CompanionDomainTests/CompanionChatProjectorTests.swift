@@ -100,8 +100,7 @@ import ClubhouseTransport
         #expect(projection.queuedMessageIDs.isEmpty)
         projection.apply(event("queue_removed", seq: 42, data: ["messageIds": .array([.string("m")])]))
         projection.applyQueueSnapshot(.object(["queuedMessageIds": .array([.string("m")]), "queueStateSeq": .integer(41), "queueRemovalSupported": .bool(true)]))
-        guard case .message(let removed) = projection.items[0] else { Issue.record("Expected message"); return }
-        #expect(removed.queueState == .removed)
+        #expect(projection.items.isEmpty, "Queue removal drops the item from the transcript")
         #expect(projection.queuedMessageIDs.isEmpty)
     }
 
