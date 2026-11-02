@@ -1,9 +1,7 @@
 import SwiftUI
 import ClubhouseTransport
 
-enum CompanionTab: Hashable { case home, needsYou, agents, search }
-
-/// Tab bar on iPhone (Home, Needs you, Agents and the search tab), a sidebar on iPad.
+/// Tab bar on iPhone (Dispatcher, Home, Needs you, Agents and Search), a sidebar on iPad.
 /// Each tab keeps its own navigation stack; `store.selection` mirrors the agent on screen.
 struct CompanionRootView: View {
     @Bindable var store: CompanionStore
@@ -11,8 +9,7 @@ struct CompanionRootView: View {
     var onPair: () -> Void
     var onSettings: () -> Void
     var isPreview = false
-    @State private var tab: CompanionTab = .home
-    @State private var paths: [CompanionTab: [CompanionRoute]] = [:]
+    @State private var navigation: CompanionNavigation
     @State private var spawnProject: CompanionProjectTarget?
     @State private var settingsTarget: CompanionTarget?
     @State private var detailsTarget: CompanionTarget?
@@ -26,16 +23,27 @@ struct CompanionRootView: View {
         self.onPair = onPair
         self.onSettings = onSettings
         self.isPreview = isPreview
+        var navigation = CompanionNavigation(startScreen: preferences.startScreen, cached: preferences.dispatcherDesktops,
+                                             lastHostID: preferences.lastHostID)
+        navigation.update(hosts: store.hosts)
+        if let target = store.selection { navigation.open(target, hosts: store.hosts) }
+        _navigation = State(initialValue: navigation)
         _decisions = State(initialValue: CompanionDecisionQueue { [store] decision in
             await store.respond(decision.approval, option: decision.option, target: decision.target)
         })
     }
 
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: Binding(get: { navigation.tab }, set: { navigation.select($0); mirrorSelection() })) {
+            if navigation.tabs.contains(.dispatcher) {
+                Tab("Dispatcher", systemImage: "point.3.connected.trianglepath.dotted", value: CompanionTab.dispatcher) {
+                    stack(.dispatcher) { dispatcherRoot }
+                }
+                .badge(store.dispatcherNeedsYouCount)
+            }
             Tab("Home", systemImage: "house", value: CompanionTab.home) {
                 stack(.home) {
-                    CompanionHomeView(store: store, preferences: preferences, onPair: onPair, onSettings: onSettings,
+                    CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); onSettings() },
                                       onNewAgent: { spawnProject = $0 }, isPreview: isPreview)
                 }
             }
@@ -83,24 +91,30 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
-        .task { store.start() }
-        .onChange(of: tab) { _, current in store.selection = paths[current]?.last?.agent }
+        .simultaneousGesture(TapGesture().onEnded { navigation.interact() })
+        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in navigation.interact() })
+        .task { store.start(); mirrorSelection() }
+        .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
         .onChange(of: store.selection) { _, target in
             AnnexTelemetry.shared.record(.navigation)
             // A selection made elsewhere (a newly started agent) opens in the current tab.
-            guard let target, paths[tab]?.last != .agent(target) else { return }
+            guard let target, navigation.visibleAgent != target else { return }
             open(target)
         }
-        .onChange(of: store.hosts.map(\.id)) { _, ids in
-            for key in paths.keys { paths[key]?.removeAll { !ids.contains($0.hostID) } }
+        .onChange(of: store.hosts) { _, hosts in
+            navigation.update(hosts: hosts)
+            if hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
+                preferences.dispatcherDesktops = navigation.dispatcherDesktops
+            }
+            mirrorSelection()
         }
     }
 
     private func stack<Content: View>(_ which: CompanionTab, @ViewBuilder _ content: () -> Content) -> some View {
-        NavigationStack(path: Binding(get: { paths[which] ?? [] }, set: { path in
-            paths[which] = path
-            guard which == tab else { return }
-            store.selection = path.last?.agent
+        NavigationStack(path: Binding(get: { navigation.paths[which] ?? [] }, set: { path in
+            navigation.setPath(path, for: which, hosts: store.hosts)
+            guard which == navigation.tab || navigation.tab == .dispatcher else { return }
+            mirrorSelection()
             if let hostID = path.last?.hostID { preferences.lastHostID = hostID }
         })) {
             content().navigationDestination(for: CompanionRoute.self) { route in
@@ -115,18 +129,75 @@ struct CompanionRootView: View {
     }
 
     private func open(_ target: CompanionTarget) {
-        paths[tab] = [.agent(target)]
-        store.selection = target
+        navigation.open(target, hosts: store.hosts)
+        mirrorSelection()
         preferences.lastHostID = target.hostID
+    }
+
+    private func mirrorSelection() {
+        if store.selection != navigation.visibleAgent { store.selection = navigation.visibleAgent }
+    }
+
+    /// Keep one conversation subtree per desktop mounted, preserving its scroll window, anchor and composer.
+    /// Only the selected desktop in the visible tab can load, focus or contribute toolbar actions.
+    private var dispatcherRoot: some View {
+        ZStack {
+            ForEach(navigation.dispatcherDesktops) { desktop in
+                let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
+                    && (navigation.paths[.dispatcher] ?? []).isEmpty
+                Group {
+                    if let target = desktop.target, let agent = store.agent(for: target) {
+                        conversation(agent, visible: visible)
+                    } else {
+                        ProgressView("Loading the Dispatcher…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .opacity(navigation.dispatcherHostID == desktop.id ? 1 : 0)
+                .allowsHitTesting(visible)
+                .accessibilityHidden(!visible)
+            }
+        }
+        .navigationTitle("Dispatcher")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                if navigation.dispatcherDesktops.count > 1 {
+                    Menu {
+                        ForEach(navigation.dispatcherDesktops) { desktop in
+                            Button {
+                                navigation.chooseDispatcher(hostID: desktop.id)
+                                preferences.lastHostID = desktop.id
+                                mirrorSelection()
+                            } label: {
+                                if desktop.id == navigation.dispatcherHostID { Label(desktop.name, systemImage: "checkmark") }
+                                else { Text(desktop.name) }
+                            }
+                        }
+                    } label: {
+                        Label(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.name ?? "Desktop",
+                              systemImage: "chevron.up.chevron.down")
+                            .font(.subheadline).lineLimit(1)
+                    }
+                    .accessibilityIdentifier("dispatcher-desktop-switcher")
+                } else {
+                    Button("Settings", systemImage: "gearshape") { navigation.interact(); onSettings() }
+                }
+            }
+        }
+    }
+
+    private func conversation(_ agent: CompanionAgent, visible: Bool = true) -> some View {
+        VStack(spacing: 0) {
+            if isPreview { CompanionPreviewLabel().padding(6).frame(maxWidth: .infinity) }
+            CompanionConversationView(store: store, agent: agent, showsActions: visible, isVisible: visible)
+        }
+        .companionTheme(preferences.theme(forHost: agent.id.hostID, hosts: store.hosts))
     }
 
     @ViewBuilder private func destination(_ target: CompanionTarget) -> some View {
         if let agent = store.agent(for: target) {
-            VStack(spacing: 0) {
-                if isPreview { CompanionPreviewLabel().padding(6).frame(maxWidth: .infinity) }
-                CompanionConversationView(store: store, agent: agent)
-            }
-            .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
+            conversation(agent)
             // The composer owns the bottom edge in a chat, as in Messages.
             .toolbar(.hidden, for: .tabBar)
             .id(target)
@@ -145,16 +216,6 @@ struct CompanionPreviewLabel: View {
         Text(dynamicTypeSize.isAccessibilitySize ? "Preview" : "UI PREVIEW · NO DESKTOP CONNECTED")
             .font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             .accessibilityLabel("UI preview. No desktop connected. Actions are disabled.")
-    }
-}
-
-/// What a tab's stack holds: agents' chats, and project pages (#158).
-enum CompanionRoute: Hashable {
-    case agent(CompanionTarget)
-    case project(CompanionProjectTarget)
-    var agent: CompanionTarget? { if case .agent(let target) = self { target } else { nil } }
-    var hostID: String {
-        switch self { case .agent(let target): target.hostID; case .project(let project): project.hostID }
     }
 }
 
@@ -577,13 +638,15 @@ struct CompanionDispatcherRow: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var hostTag: String?
+    @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
         if let agent = host.dispatcher?.liveAgent {
-            NavigationLink(value: agent.id) {
+            Button { openAgent(agent.id) } label: {
                 CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: activity(agent))
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("dispatcher-row-\(host.id)")
         } else {
             HStack(spacing: 12) {

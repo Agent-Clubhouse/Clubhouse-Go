@@ -141,7 +141,7 @@ struct CompanionDispatcher: Sendable, Equatable {
     /// Its agent, from the snapshot. Nil while the desktop is still starting it, or when it's off.
     var agent: CompanionAgent?
     /// Its agent while it's on.
-    var liveAgent: CompanionAgent? { enabled ? agent : nil }
+    var liveAgent: CompanionAgent? { enabled && flagOn ? agent : nil }
     /// On, but its agent hasn't arrived yet.
     var isLoading: Bool { enabled && agent == nil }
     /// Why it can't be turned on from here, or nil when it can.

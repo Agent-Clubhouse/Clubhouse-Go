@@ -352,6 +352,9 @@ struct CompanionSettingsSheet: View {
                          + (shared.isEmpty ? "" : " \(shared.formatted(.list(type: .and))) \(shared.count == 1 ? "shares its" : "share their") pins and idle projects, and \(shared.count == 1 ? "uses its" : "use their") own setting."))
                 }
                 Section {
+                    CompanionStartScreenPicker(preferences: runtime.preferences)
+                } footer: { Text("Applies the next time you open Clubhouse Go. If the Dispatcher is off, opens Home.") }
+                Section {
                     CompanionDeviceNameField(preferences: runtime.preferences)
                 } header: { Text("This phone") } footer: {
                     Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
@@ -399,3 +402,14 @@ struct CompanionSettingsSheet: View {
     }
 }
 
+
+/// Shared with the preview so launch-preference UI tests exercise the production control.
+struct CompanionStartScreenPicker: View {
+    @Bindable var preferences: CompanionPreferences
+    var body: some View {
+        Picker("Start screen", selection: $preferences.startScreen) {
+            ForEach(CompanionStartScreen.allCases, id: \.self) { screen in Text(screen.label).tag(screen) }
+        }
+        .accessibilityIdentifier("companion-start-screen")
+    }
+}

@@ -759,7 +759,14 @@ import Observation
 
     func apply(_ event: CompanionEvent) {
         switch event {
-        case .hosts(let hosts):
+        case .hosts(let incoming):
+            let hosts = incoming.map { host in
+                var host = host
+                if host.dispatcher == nil, !host.connection.canOperate {
+                    host.dispatcher = self.hosts.first { $0.id == host.id }?.dispatcher
+                }
+                return host
+            }
             // A Dispatcher that was turned off takes its chat with it; turned back on, it loads afresh.
             let gone = Set(self.hosts.compactMap(\.dispatcher?.liveAgent?.id)).subtracting(hosts.compactMap(\.dispatcher?.liveAgent?.id))
             for target in gone { conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target) }
