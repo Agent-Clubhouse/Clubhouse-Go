@@ -84,9 +84,11 @@ import XCTest
         XCTAssertTrue(scrollUntilExists(saved, in: app) && scrollTo(saved, in: app))
         XCTAssertTrue(saved.label.contains("Warning saved with this start") && saved.label.contains("Known at"))
         capture(app, "Saved start warning (preview)")
-        app.buttons["Done"].tap()
-        app.tabBars.buttons["Needs you"].tap()
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
+        let tab = app.tabBars.buttons["Needs you"]
+        if !tab.exists { waitAndTap(app.tabBars.buttons["Home"], until: tab) }
         let request = app.staticTexts.matching(identifier: "helper-request-routing").matching(NSPredicate(format: "label == %@", "auto · hard")).firstMatch
+        waitAndTap(tab, until: request)
         XCTAssertTrue(scrollUntilExists(request, in: app) && scrollTo(request, in: app))
         XCTAssertEqual(request.label, "auto · hard")
         let warning = element(app, "helper-request-warning")

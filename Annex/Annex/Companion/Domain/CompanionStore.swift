@@ -824,7 +824,7 @@ import Observation
                 let hostIDs = Set(hosts.map(\.id))
                 timelineProjections = timelineProjections.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
                 readingBookmarks = readingBookmarks.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
-            case .resyncRequired: break
+            case .resyncRequired, .helperStartWarning: break
             }
         }
     }
