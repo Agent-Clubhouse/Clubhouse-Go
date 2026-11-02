@@ -5,6 +5,8 @@ import ClubhouseTransport
 import Observation
 
 @MainActor @Observable final class CompanionStore {
+    // Concrete service/persistence ownership is reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     var hosts: [CompanionHost] = []
     var selection: CompanionTarget?
     var drafts: [CompanionTarget: String] = [:] {

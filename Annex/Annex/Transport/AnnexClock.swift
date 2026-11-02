@@ -14,6 +14,8 @@ public struct AnnexClock: Sendable {
 /// A clock that only moves when `advance(by:)` is called. Sleepers wake in deadline order once time
 /// passes their deadline; a cancelled sleeper throws `CancellationError` like `Task.sleep`.
 public final class AnnexManualClock: @unchecked Sendable {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private struct Sleeper { let deadline: Duration; let continuation: CheckedContinuation<Void, Error> }
     private let lock = NSLock()
     private let origin: Date

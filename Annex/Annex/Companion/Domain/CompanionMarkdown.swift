@@ -194,6 +194,8 @@ enum CompanionMarkdown {
     }
 
     private final class Box: NSObject {
+        // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+        nonisolated deinit {}
         let document: CompanionMarkdownDocument
         init(_ document: CompanionMarkdownDocument) { self.document = document }
     }

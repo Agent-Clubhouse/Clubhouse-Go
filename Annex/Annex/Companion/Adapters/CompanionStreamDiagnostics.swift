@@ -6,6 +6,8 @@ import ClubhouseTransport
 /// Identifiers are transient dictionary keys only, never span attributes. Historical
 /// reads do not enter this observer. Cursors survive reconnect to suppress replays.
 @MainActor final class CompanionStreamDiagnostics {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private struct Cursor { var session: String; var sequence: Int64; var turn: AnnexStreamDiagnostic? }
     private var cursors: [CompanionTarget: Cursor] = [:]
     private let telemetry: AnnexTelemetry

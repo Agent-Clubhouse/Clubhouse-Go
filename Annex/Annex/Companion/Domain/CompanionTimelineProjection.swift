@@ -3,6 +3,8 @@ import Foundation
 /// Owns derived rows, never the source item array. Streaming a hard-boundary assistant reply changes one row;
 /// routine runs retain their values and expansion identities. Snapshots and structural/local edits rebuild lazily.
 @MainActor final class CompanionTimelineProjection {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private var revision: UUID?
     private var rows: [CompanionTimelineRow] = []
     private var assistantIndices: [String: (row: Int, item: Int)] = [:]

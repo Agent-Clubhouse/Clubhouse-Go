@@ -7,6 +7,8 @@ import UIKit
 /// Per-device choices: project order, pins and idle projects, the last desktop opened, and this phone's name.
 /// Only the name leaves the phone, as the alias a desktop shows for it.
 @MainActor @Observable final class CompanionPreferences {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private enum Key {
         static let projectSort = "companion.projectSort"
         static let projectOrder = "companion.projectOrder"

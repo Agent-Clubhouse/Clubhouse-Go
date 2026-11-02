@@ -4,6 +4,8 @@ import Observation
 /// Holds a swiped approval decision for a short undo window before sending it.
 /// Taps on Allow or Deny send straight away; only swipes go through here.
 @MainActor @Observable final class CompanionDecisionQueue {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     struct Pending: Identifiable, Sendable, Equatable {
         var approval: CompanionApproval
         var option: CompanionApprovalOption

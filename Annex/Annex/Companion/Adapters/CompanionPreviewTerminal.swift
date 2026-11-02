@@ -3,6 +3,8 @@ import Foundation
 /// The preview desktop's terminals: a fake shell that echoes what's typed and answers a few commands, and a
 /// terminal-mode agent's screen. Nothing reaches a desktop.
 @MainActor final class CompanionPreviewTerminalChannel: CompanionTerminalChannel {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     let scope: CompanionTerminalScope
     private var continuation: AsyncStream<CompanionTerminalChannelEvent>.Continuation?
     private var line = ""

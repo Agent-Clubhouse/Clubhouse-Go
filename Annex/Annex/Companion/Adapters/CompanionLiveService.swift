@@ -4,6 +4,8 @@ import ClubhouseTransport
 #endif
 
 @MainActor final class CompanionLiveService: CompanionService {
+    // Production callbacks capture Runtime weakly; ownership review is enforced by the deinit lint.
+    nonisolated deinit {}
     private var transports: [String: any AnnexTransporting] = [:]
     private var hosts: [String: CompanionHost] = [:]
     private var capabilities: [String: AnnexCapabilities] = [:]

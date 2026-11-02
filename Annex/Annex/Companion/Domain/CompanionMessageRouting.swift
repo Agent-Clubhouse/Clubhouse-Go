@@ -138,6 +138,8 @@ struct CompanionSenderResolver: Sendable, Equatable {
 
 /// Owned above the transcript and outside snapshots. Only the part being toggled observes its open value.
 @MainActor final class CompanionTranscriptExpansion {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private var parts: [String: CompanionPartExpansion] = [:]
     func part(messageID: String, index: Int) -> CompanionPartExpansion {
         state(key: "\(messageID):sent:\(index)")
@@ -149,6 +151,8 @@ struct CompanionSenderResolver: Sendable, Equatable {
 }
 
 @MainActor @Observable final class CompanionPartExpansion {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     var open: Bool?
     func isOpen(for text: String) -> Bool { open ?? !CompanionMessageRouting.isLongMessage(text) }
 }

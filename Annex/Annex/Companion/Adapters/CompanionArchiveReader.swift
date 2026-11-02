@@ -5,6 +5,8 @@ import ClubhouseTransport
 
 /// Archive reads never replace the live projection or its command session.
 @MainActor final class CompanionArchiveReader: CompanionArchiveReading {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private let transport: any AnnexTransporting
     private let target: CompanionTarget
     private let sessionID: String

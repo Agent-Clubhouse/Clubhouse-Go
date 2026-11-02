@@ -137,6 +137,11 @@ jobs:
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
+      - name: Check reviewed deinit field-affinity policy
+        run: |
+          python3 -m unittest discover -s scripts/deinit/tests
+          python3 scripts/check-isolated-deinits.py DerivedData/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
+
       # tar keeps the bundles' symlinks and executable bits, which an artifact zip drops.
       - name: Package test products
         run: tar -C DerivedData/Build -cf - Products | zstd -T0 -3 -q -o test-products.tar.zst
@@ -245,6 +250,24 @@ jobs:
           path: |
             TestResults
             xcodebuild-*.log
+          retention-days: 7
+
+      # Observation cannot prevent tests/results from running. No OS guard or test-framework task locals.
+      - name: Observe installed runtime isolated-deinit control
+        if: ${{ matrix.unit && !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 6
+        run: scripts/probe-isolated-deinit-runtime.sh "$SIMULATOR_UDID"
+
+      - name: Upload runtime observation
+        if: ${{ always() && matrix.unit }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-deinit-runtime
+          path: |
+            build/isolated-deinit-runtime/*.log
+            build/isolated-deinit-runtime/summary.json
           retention-days: 7
 
   # One check that is green when every lane this change needs passed (skipped lanes are fine).

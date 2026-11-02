@@ -6,6 +6,8 @@ import ClubhouseTransport
 /// Sample desktop for the welcome screen's "Look around first" demo (and App Review), and the DEBUG preview launch.
 /// Never selected by pairing; every command fails with "Preview only".
 @MainActor final class CompanionPreviewService: CompanionService {
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     private var continuation: AsyncStream<CompanionEvent>.Continuation?
     /// UI tests stream tool updates into River's conversation (`--companion-preview-stream`).
     private let streamsUpdates: Bool
