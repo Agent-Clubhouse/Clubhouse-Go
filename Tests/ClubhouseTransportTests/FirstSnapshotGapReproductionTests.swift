@@ -10,6 +10,7 @@ private struct SnapshotRaceSession: Sendable {
     var replay: [AnnexEnvelope] = []
     var afterReplay: [AnnexEnvelope] = []
     var replayGap = false
+    var receiveFailure: NSError?
 }
 
 private actor SnapshotRaceSocket: AnnexWebSocket {
@@ -17,6 +18,7 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
     private var pending: CheckedContinuation<Data, Error>?
     private var closed = false
     private let session: SnapshotRaceSession
+    private(set) var replaySince: [Int64] = []
     init(_ session: SnapshotRaceSession) throws {
         self.session = session
         queue = try session.initial.map { try JSONEncoder().encode($0) }
@@ -24,11 +26,13 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
     func receive() async throws -> Data {
         if closed { throw AnnexTransportError.disconnected }
         if !queue.isEmpty { return queue.removeFirst() }
+        if let failure = session.receiveFailure { throw failure }
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
     func send(_ data: Data) throws {
         let request = try JSONDecoder().decode(AnnexJSON.self, from: data)
         guard request["type"]?.string == "mobile:replay" else { return }
+        replaySince.append(request["since"]?.integer ?? -1)
         let frames: [AnnexEnvelope]
         if session.replayGap { frames = [AnnexEnvelope(type: "replay:gap", epoch: "race")] }
         else {
@@ -128,12 +132,15 @@ private func report(_ label: String, _ result: SnapshotRaceObservation, io: Snap
     print("accept intervals=\(cadence), delivered seq=\(delivered), resyncs=\(result.resyncs)")
 }
 
-@Test(.timeLimit(.minutes(1))) func reconnectBusyFramesBeforeTheFirstSnapshotMustNotCauseRepeatedGaps() async throws {
+@Test(.timeLimit(.minutes(1)), arguments: [false, true])
+func reconnectBusyFramesBeforeTheFirstSnapshotMustNotCauseRepeatedGaps(snapshotFailedFirst: Bool) async throws {
     let busy = (105...108).map { event(Int64($0)) }
     let replay = (105...108).map { event(Int64($0), replayed: true) }
-    let io = SnapshotRaceIO([.init(initial: [snapshot(100)]), .init(initial: busy + [snapshot(104)], replay: replay)], clock: AnnexManualClock())
+    let failure = AnnexEnvelope(type: "error", payload: .object(["message": .string("snapshot_failed")]))
+    let prefix = snapshotFailedFirst ? [failure] : []
+    let io = SnapshotRaceIO([.init(initial: [snapshot(100)]), .init(initial: prefix + busy + [snapshot(104)], replay: replay)], clock: AnnexManualClock())
     let result = try await observe(io, intentionallyCloseFirst: true)
-    await report("A reconnect", result, io: io)
+    await report("A reconnect snapshot_failed first=\(snapshotFailedFirst)", result, io: io)
     #expect(result.attempts == [1], "Only the intentional first disconnect should reconnect")
     #expect(result.messages.filter { $0.type == "snapshot" }.compactMap(\.snapshotSequence) == [100, 104])
     #expect(result.messages.compactMap(\.seq) == [105, 106, 107, 108])
@@ -169,4 +176,52 @@ func firstSnapshotMustNotRewindAndRedeliverBusyFrames(replayBeforeNextLive: Bool
     let repeated = try await observe(racing)
     await report("Interior hole repeated in each new snapshot/replay window", repeated, io: racing)
     #expect(repeated.attempts == [1, 2, 3, 4])
+}
+
+// Desktop #2665: initial checkpoint at connect, then held live frames before replay replies.
+@Test(.timeLimit(.minutes(1))) func snapshotFirstServerDeduplicatesHeldLiveAndReplayFrames() async throws {
+    let held = [event(101), event(102)]
+    let replay = [event(101, replayed: true), event(102, replayed: true)]
+    let io = SnapshotRaceIO([.init(initial: [snapshot(100)] + held, replay: replay, afterReplay: [event(103)])], clock: AnnexManualClock())
+    let result = try await observe(io)
+    await report("Desktop2665 snapshot-first held/replay duplicate", result, io: io)
+    #expect(result.attempts.isEmpty)
+    #expect(result.resyncs.isEmpty)
+    #expect(result.messages.compactMap(\.seq) == [101, 102, 103])
+}
+
+@Test(.timeLimit(.minutes(1))) func anAheadRefreshRetainsTheAppliedCursorAndReplaysMissingEvents() async throws {
+    // The refresh advertises 103 while only 101 was applied. Its catalog cannot stand in for deltas 102/103.
+    let io = SnapshotRaceIO([.init(initial: [snapshot(100), event(101), snapshot(103)],
+        replay: [event(101, replayed: true), event(102, replayed: true), event(103, replayed: true)],
+        afterReplay: [event(104)])], clock: AnnexManualClock())
+    let result = try await observe(io)
+    await report("Desktop2665 ahead refresh", result, io: io)
+    #expect(result.attempts.isEmpty, "An ahead snapshot itself does not close the socket")
+    #expect(result.resyncs == [.sequenceGap])
+    #expect(result.messages.compactMap(\.seq) == [101, 102, 103, 104])
+    let socket = try #require(await io.sockets.first)
+    #expect(await socket.replaySince == [100, 101], "Refresh replay uses the applied cursor, not snapshot.lastSeq")
+}
+
+@Test(.timeLimit(.minutes(1))) func aRefreshMatchingHeldEventsDoesNotRewindOrDoubleApplyReplay() async throws {
+    let io = SnapshotRaceIO([.init(initial: [snapshot(100), event(101), event(102), snapshot(102), event(103)],
+        replay: [event(101, replayed: true), event(102, replayed: true), event(103, replayed: true)], afterReplay: [event(104)])], clock: AnnexManualClock())
+    let result = try await observe(io)
+    await report("Desktop2665 caught-up refresh", result, io: io)
+    #expect(result.attempts.isEmpty)
+    #expect(result.resyncs.isEmpty)
+    #expect(result.messages.compactMap(\.seq) == [101, 102, 103, 104])
+}
+
+@Test(.timeLimit(.minutes(1))) func serverOverrun1013ErrorBacksOffNormallyAndRecovers() async throws {
+    let overrun = SnapshotRaceSession(initial: [], receiveFailure: NSError(domain: NSPOSIXErrorDomain, code: Int(ENOTCONN)))
+    let io = SnapshotRaceIO([overrun, overrun, overrun, .init(initial: [snapshot(100)])], clock: AnnexManualClock())
+    let result = try await observe(io)
+    await report("Desktop2665 close1013/ENOTCONN", result, io: io)
+    #expect(result.attempts == [1, 2, 3])
+    #expect((0.25...0.5).contains(result.delays[0]))
+    #expect((0.5...1).contains(result.delays[1]))
+    #expect((1...2).contains(result.delays[2]))
+    #expect(await io.sockets.count == 4)
 }

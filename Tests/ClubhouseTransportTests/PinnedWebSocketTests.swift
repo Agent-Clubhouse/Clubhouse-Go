@@ -92,6 +92,26 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(oversize.allSatisfy { $0["code"]?.integer == 1009 })
 }
 
+@Test(.timeLimit(.minutes(1))) func serverOverrunClose1013UsesRecoverableURLSessionFailure() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let socket = try await io.openWebSocket(fixture.webSocketRequest())
+    _ = try await socket.receive()
+    try await socket.send(Data("close:1013".utf8))
+    do {
+        _ = try await socket.receive()
+        Issue.record("The server closed with 1013")
+    } catch {
+        let failure = error as NSError
+        print("Server close 1013: \(failure.domain) code \(failure.code); classification \(AnnexDiagnosticFailure.classify(error))")
+        #expect(failure.domain == NSPOSIXErrorDomain)
+        #expect(failure.code == Int(ENOTCONN))
+        #expect(AnnexDiagnosticFailure.classify(error) == .unknown)
+    }
+    await socket.close()
+}
+
 @Test(.timeLimit(.minutes(1))) func pinnedWebSocketCarriesTextBinaryAndPings() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }
