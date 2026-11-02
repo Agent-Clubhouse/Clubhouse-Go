@@ -59,11 +59,20 @@ import XCTest
 
     func testStreamingKeepsFollowingWhenNobodyScrolls() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"])
+        // Streaming begins before navigation. Cross the first four-second tool
+        // run deliberately: history replacement can discard live-0 on a slow launch.
+        RunLoop.current.run(until: Date().addingTimeInterval(4.2))
         openRiver(app)
         let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply.")).firstMatch
-        let activity = app.buttons["companion-activity-tool:live-0"]
         XCTAssertTrue(live.waitForExistence(timeout: 5))
-        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        let activities = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-activity-tool:live-"))
+        XCTAssertTrue(activities.firstMatch.waitForExistence(timeout: 5))
+        guard let lastActivity = activities.allElementsBoundByIndex.last else {
+            XCTFail("The stream must supply a final activity row"); return
+        }
+        // Keep this identity while its count changes; a bound-by-index query
+        // could switch rows when another tool run is appended.
+        let activity = app.buttons[lastActivity.identifier]
         let initialHeight = live.frame.height, initialActivity = activity.label
         // The reply must gain height while routine tools update their collapsed
         // summary. No gesture or Latest tap may keep the final row in view.
