@@ -350,6 +350,8 @@ struct CompanionAgentSettingsForm: View {
     private func contextWindow(_ context: CompanionContextWindow, sleeping: Bool) -> some View {
         let canEdit = context.canEdit(sleeping: sleeping) && store.canEditSettings(target)
             && store.host(for: target)?.canSetContextWindow == true && !saving
+        let canReset = context.canReset(sleeping: sleeping, isDispatcher: isDispatcher) && store.canEditSettings(target)
+            && store.host(for: target)?.canSetContextWindow == true && !saving
         return VStack(alignment: .leading, spacing: 6) {
             Picker(context.displayLabel, selection: Binding<String?>(get: { context.value }, set: {
                 if let change = context.change(to: $0) { save(change) }
@@ -386,7 +388,7 @@ struct CompanionAgentSettingsForm: View {
             if let notice = context.notice { Text(notice).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
             if context.value != nil {
                 Button("Reset to Default") { if let change = context.change(to: nil) { save(change) } }
-                    .disabled(!canEdit)
+                    .disabled(!canReset)
                     .accessibilityIdentifier("agent-settings-context-window-reset")
             }
         }

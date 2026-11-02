@@ -90,6 +90,8 @@ nonisolated struct CompanionContextWindow: Sendable, Equatable {
     func isLocked(sleeping: Bool) -> Bool {
         configurable && state == nil && CompanionSetting(value: value, editable: editable).isLocked(sleeping: sleeping)
     }
+    /// Clearing needs no catalog confirmation, but ordinary agents must still be asleep.
+    func canReset(sleeping: Bool, isDispatcher: Bool) -> Bool { value != nil && (sleeping || isDispatcher) }
     /// Only server choices and reset can be submitted; a saved unavailable value is display-only.
     func change(to selection: String?) -> CompanionSettingsChange? {
         guard selection != value else { return nil }

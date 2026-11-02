@@ -249,6 +249,7 @@ import Testing
             default: nil
             }
             return .update(.init(agentID: a, name: s("name"), color: s("color"), emoji: clearable("emoji"), orchestrator: s("orchestrator"), model: s("model"),
+                                 contextWindow: clearable("contextWindow"),
                                  runtime: s("runtime").flatMap(AnnexAgentUpdate.Runtime.init(rawValue:)), persona: clearable("persona"),
                                  clubhouseMode: b("clubhouseMode"), freeAgentMode: b("freeAgentMode"), idleSleep: idle,
                                  orchestration: orchestration(r["orchestration"])))
@@ -290,7 +291,7 @@ import Testing
             .spawn(projectID: "p", prompt: "p", model: "m", orchestrator: "o"),
             .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", persona: "p", freeAgentMode: true, useWorktree: true,
                           mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f", orchestration: .init(orchestrate: .set(true)))),
-            .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", runtime: .chat, persona: .set("p"),
+            .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", contextWindow: .clear, runtime: .chat, persona: .set("p"),
                           clubhouseMode: true, freeAgentMode: true, idleSleep: .minutes(30), orchestration: .init(maxHelpers: .clear))),
             .setProjectPinned(projectID: "p", pinned: true),
             .setProjectInactive(projectID: "p", inactive: true),
