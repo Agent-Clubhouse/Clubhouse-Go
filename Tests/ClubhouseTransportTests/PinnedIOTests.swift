@@ -52,6 +52,17 @@ import Foundation
     await #expect(throws: Error.self) { try await wrongPin.perform(request) }
     let afterFailure = try await io.perform(request)
     #expect(try JSONDecoder().decode(AnnexJSON.self, from: afterFailure.data)["received"]?.integer == 5)
+    // Both ways of framing an HTTP body enforce the same cap, without a retry.
+    for chunked in [false, true] {
+        func sized(_ count: Int) throws -> URLRequest {
+            var query = [URLQueryItem(name: "bytes", value: String(count))]
+            if chunked { query.append(.init(name: "chunked", value: "1")) }
+            return URLRequest(url: try endpoint.url(path: ["sized"], query: query))
+        }
+        let boundary = try await io.perform(sized(1024))
+        #expect(boundary.data.count == 1024)
+        await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.perform(sized(1025)) }
+    }
     telemetry.setEnabled(false)
     request.setValue("injected-secret", forHTTPHeaderField: "baggage")
     request.setValue(propagated, forHTTPHeaderField: "traceparent")

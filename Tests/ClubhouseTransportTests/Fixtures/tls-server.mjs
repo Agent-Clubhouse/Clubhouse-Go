@@ -19,6 +19,12 @@ const server = https.createServer({ cert, key: readFileSync(keyPath), requestCer
   received += 1;
   if (req.url === '/redirect') { res.writeHead(302, { Location: '/secret-destination' }); res.end(); return; }
   if (req.url === '/large') { res.writeHead(200); res.end('x'.repeat(4096)); return; }
+  const sized = new URL(req.url, 'https://fixture.invalid');
+  if (sized.pathname === '/sized') {
+    const body = 'x'.repeat(Number(sized.searchParams.get('bytes')));
+    res.writeHead(200, sized.searchParams.has('chunked') ? { 'Transfer-Encoding': 'chunked' } : { 'Content-Length': Buffer.byteLength(body) });
+    res.end(body); return;
+  }
   const peer = req.socket.getPeerCertificate();
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({ clientCN: peer.subject?.CN ?? null, certificateFingerprint: peer.fingerprint256 ?? null, traceparent: req.headers.traceparent ?? null, tracestate: req.headers.tracestate ?? null, baggage: req.headers.baggage ?? null, authorized: req.headers.authorization === 'Bearer fake-only', received }));

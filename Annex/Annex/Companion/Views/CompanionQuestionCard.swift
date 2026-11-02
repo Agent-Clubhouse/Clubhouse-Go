@@ -11,7 +11,11 @@ struct CompanionQuestionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label(title, systemImage: "questionmark.bubble.fill").font(.headline).foregroundStyle(Color(palette.warning))
-            ForEach(question.prompts) { prompt in
+            if let message = question.desktopAnswerMessage {
+                Text(message).font(.subheadline).foregroundStyle(.secondary)
+                    .accessibilityIdentifier("desktop-answer-\(question.id)")
+            }
+            ForEach(question.canAnswerOnPhone ? question.prompts : []) { prompt in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(prompt.text).font(.subheadline.weight(.semibold))
                     ForEach(prompt.options) { option in
@@ -47,6 +51,7 @@ struct CompanionQuestionCard: View {
                 Button("Send answers", systemImage: "arrow.up") { respond(answers) }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!canRespond || !CompanionStore.validAnswers(answers, for: question))
+                    .accessibilityIdentifier("send-answers-\(question.id)")
             } else if question.resolution == .submitting { ProgressView("Sending answers…") }
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
@@ -54,7 +59,8 @@ struct CompanionQuestionCard: View {
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
     }
     private var answers: [String: CompanionAnswer] {
-        Dictionary(uniqueKeysWithValues: question.prompts.map { prompt in
+        guard question.canAnswerOnPhone else { return [:] }
+        return Dictionary(uniqueKeysWithValues: question.prompts.map { prompt in
             let freeText = text[prompt.id] ?? ""
             if !freeText.isEmpty { return (prompt.id, .text(freeText)) }
             let choices = prompt.options.filter { selections[prompt.id]?.contains($0.id) == true }.map(\.id)

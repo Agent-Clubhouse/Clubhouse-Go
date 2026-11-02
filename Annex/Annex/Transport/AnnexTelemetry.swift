@@ -53,7 +53,7 @@ nonisolated public enum AnnexDiagnosticFailure: String, Codable, Sendable {
             case .commandInFlight: return .busy
             case .duplicateCommandConflict: return .conflict
             case .persistenceFailed: return .storage
-            case .rejected(let status, _): return status >= 500 ? .server : .rejected
+            case .rejected(let status, _, _): return status >= 500 ? .server : .rejected
             case .rateLimited: return .busy
             }
         }

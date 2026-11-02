@@ -27,9 +27,11 @@ import ClubhouseTransport
     private let mcpEnabled: Bool
     private let showsHelperIdentity: Bool
     private let showsHelperTree: Bool
+    private let showsQuestions: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false, showsQuestions: Bool = false) {
+        self.showsQuestions = showsQuestions
         self.showsHelperTree = showsHelperTree
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
@@ -224,6 +226,14 @@ import ClubhouseTransport
         ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         if target == Self.dispatcherTarget { return .init(items: Self.dispatcherHistory) }
+        if showsQuestions {
+            let prompt = CompanionQuestion.Prompt(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")], allowsMultiple: false, allowsFreeText: false)
+            return .init(items: [
+                .question(.init(id: "empty", prompts: [])),
+                .question(.init(id: "partial", prompts: [prompt], hasUnreadablePrompts: true)),
+                .question(.init(id: "complete", prompts: [prompt])),
+            ], capabilities: [.chat, .answer])
+        }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),
             .message(.init(id: "user-1", role: .user, text: "Make it easy to continue a desktop agent from my phone. Focus on the conversation and the moments that need me.", timestamp: Date().addingTimeInterval(-180), source: "mission")),
@@ -358,6 +368,7 @@ import ClubhouseTransport
     func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw previewError }
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {

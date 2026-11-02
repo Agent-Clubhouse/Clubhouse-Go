@@ -345,7 +345,7 @@ public actor AnnexTransport: AnnexTransporting {
                       try AnnexPairingIdentity.fingerprint(publicKeyBase64: publicKey) == host.hostID,
                       identity["fingerprint"]?.string?.lowercased() == host.hostID else { throw AnnexTransportError.identityMismatch }
                 do { _ = try await read(.capabilities) }
-                catch AnnexTransportError.rejected(status: 404, code: _) { capabilities = nil }
+                catch AnnexTransportError.rejected(status: 404, code: _, message: _) { capabilities = nil }
                 let request = try await authorizedRequest(path: ["ws"], webSocket: true)
                 guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)

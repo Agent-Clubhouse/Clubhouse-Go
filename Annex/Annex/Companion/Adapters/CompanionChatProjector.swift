@@ -184,15 +184,17 @@ struct CompanionChatProjector {
             items[index] = .approval(approval)
         case "question":
             guard let requestID = data["requestId"]?.string else { return }
-            let prompts = data["questions"].arrayValue.compactMap { value -> CompanionQuestion.Prompt? in
-                guard let id = value["id"]?.string, let prompt = value["prompt"]?.string else { return nil }
+            let suppliedPrompts = data["questions"].arrayValue
+            let prompts = suppliedPrompts.compactMap { value -> CompanionQuestion.Prompt? in
+                guard let id = value["id"]?.string, !id.isEmpty, let prompt = value["prompt"]?.string,
+                      !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
                 let options = value["options"].arrayValue.compactMap { option -> CompanionQuestion.Prompt.Option? in
                     guard let id = option["id"]?.string, let label = option["label"]?.string else { return nil }
                     return .init(id: id, label: label, detail: option["description"]?.string)
                 }
                 return .init(id: id, text: prompt, options: options, allowsMultiple: value["multiSelect"].boolValue, allowsFreeText: value["allowFreeText"].boolValue)
             }
-            upsert(.question(.init(id: requestID, prompts: prompts))); status = .waiting
+            upsert(.question(.init(id: requestID, prompts: prompts, hasUnreadablePrompts: prompts.count != suppliedPrompts.count))); status = .waiting
         case "question_resolved":
             guard let requestID = data["requestId"]?.string,
                   let index = itemIndices["question:\(requestID)"], case .question(var question) = items[index] else { return }

@@ -11,7 +11,8 @@ struct CompanionPreviewRoot: View {
                                                                                    showsDispatcher: ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher"),
                                                                                    mcpEnabled: !ProcessInfo.processInfo.arguments.contains("--companion-preview-mcp-off"),
                                                                                    showsHelperIdentity: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-identity"),
-                                                                                   showsHelperTree: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree")))
+                                                                                   showsHelperTree: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree"),
+                                                                                   showsQuestions: ProcessInfo.processInfo.arguments.contains("--companion-preview-questions")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.
     @State private var preferences: CompanionPreferences = {
         let suite = ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-tree") ? "companion-preview-tree" : "companion-preview"
