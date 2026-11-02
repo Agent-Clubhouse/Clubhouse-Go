@@ -47,16 +47,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     private func any(_ app: XCUIApplication) -> XCUIElementQuery { app.descendants(matching: .any) }
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement { any(app).matching(identifier: identifier).firstMatch }
-    private func element(_ app: XCUIApplication, idSuffix suffix: String) -> XCUIElement {
-        any(app).matching(NSPredicate(format: "identifier ENDSWITH %@", suffix)).firstMatch
-    }
     private func projectHeader(_ app: XCUIApplication) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'open-project-' AND label == %@", "Open \(projectName)")).firstMatch
     }
     private func projectMenu(_ app: XCUIApplication) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'project-menu-' AND label == %@", "\(projectName) options")).firstMatch
     }
-    private func agentRow(_ app: XCUIApplication, _ agentID: String) -> XCUIElement { element(app, idSuffix: "-\(agentID)") }
+    private func agentRow(_ app: XCUIApplication, _ agentID: String) -> XCUIElement {
+        any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-' AND identifier ENDSWITH %@", "-\(agentID)")).firstMatch
+    }
     private func text(_ app: XCUIApplication, beginsWith prefix: String) -> XCUIElement {
         app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
     }
@@ -94,9 +93,17 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(projectHeader(app).waitForExistence(timeout: 10), "The project must be on Home", file: file, line: line)
     }
 
-    /// Shows an agent's row on Home, opening the project's sleeping fold when it's in there.
-    private func revealAgent(_ app: XCUIApplication, _ agentID: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+    /// Shows an agent's row on Home, opening its parent's helper disclosure or the sleeping fold.
+    private func revealAgent(_ app: XCUIApplication, _ agentID: String, parentID: String? = nil,
+                             file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         revealProject(app, file: file, line: line)
+        if let parentID {
+            _ = revealAgent(app, parentID, file: file, line: line)
+            let disclosure = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'helpers-toggle-' AND identifier ENDSWITH %@", "-\(parentID)")).firstMatch
+            XCTAssertTrue(disclosure.waitForExistence(timeout: 15), "A parent with a real helper has a disclosure", file: file, line: line)
+            XCTAssertTrue(scrollTo(disclosure, in: app, file: file, line: line), file: file, line: line)
+            tapToExpand(disclosure, file: file, line: line)
+        }
         let row = agentRow(app, agentID)
         if row.waitForExistence(timeout: 3) { scrollTo(row, in: app, file: file, line: line); return row }
         let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-sleeping-'")).firstMatch
@@ -194,8 +201,24 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// Toggle once and wait for the authoritative setting, without retrying the gesture.
-    private func setSwitch(_ control: XCUIElement, on: Bool, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertTrue(control.waitForExistence(timeout: 15), file: file, line: line)
+    private func setSwitch(_ control: XCUIElement, on: Bool, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8, file: file, line: line), file: file, line: line)
+        // A Form can expose an offscreen switch as hittable. Coordinate taps do not scroll it into view.
+        let window = app.windows.firstMatch
+        let top = app.navigationBars.firstMatch.frame.maxY + 12
+        let bottom = window.frame.maxY - 60
+        for _ in 0..<10 {
+            checkTimeLeft("bringing the settings switch inside the sheet", file: file, line: line)
+            let frame = control.frame
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            let above = frame.minY < top
+            let start = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : 0.7))
+            let end = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.7 : 0.4))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTAssertGreaterThanOrEqual(control.frame.minY, top, file: file, line: line)
+        XCTAssertLessThanOrEqual(control.frame.maxY, bottom, file: file, line: line)
+        XCTAssertTrue(control.isHittable, file: file, line: line)
         XCTAssertTrue(control.wait(for: \.isEnabled, toEqual: true, timeout: 20), file: file, line: line)
         if (control.value as? String == "1") != on {
             control.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
@@ -558,14 +581,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let toggle = dispatcherSwitch(app)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
         XCTAssertTrue(toggle.isEnabled, "The fixture must seed both the experimental flag and New layout")
-        setSwitch(toggle, on: true)
+        setSwitch(toggle, on: true, in: app)
         let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
         waitAndTap(app.buttons["Done"], untilGone: toggle)
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The phone toggle's snapshot must add the pinned row")
         XCTAssertLessThan(row.frame.minY, projectHeader(app).frame.minY)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
-        setSwitch(toggle, on: false)
+        setSwitch(toggle, on: false, in: app)
         XCTAssertEqual((try dispatcherFixture("state") as? [String: Any])?["enabled"] as? Bool, false)
         waitAndTap(app.buttons["Done"], untilGone: toggle)
         XCTAssertFalse(row.exists)
@@ -678,14 +701,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
         XCTAssertTrue(scrollUntilExists(orchestrate, in: app, maxSwipes: 6))
         scrollTo(orchestrate, in: app)
-        setSwitch(orchestrate, on: true)
+        setSwitch(orchestrate, on: true, in: app)
         let connect = app.switches["agent-settings-orchestrate-dispatcher"]
         XCTAssertTrue(scrollUntilExists(connect, in: app, maxSwipes: 5))
         scrollTo(connect, in: app)
-        setSwitch(connect, on: false)
+        setSwitch(connect, on: false, in: app)
         var policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
         XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, false)
-        setSwitch(connect, on: true)
+        setSwitch(connect, on: true, in: app)
         policy = try XCTUnwrap(try dispatcherFixture("policy") as? [String: Any])
         XCTAssertEqual((policy["policy"] as? [String: Any])?["connectToDispatcher"] as? Bool, true)
         XCTAssertTrue((policy["bindings"] as? [[String: Any]])?.contains { $0["agentId"] as? String == id && $0["targetId"] as? String == echoID } == true)
@@ -701,8 +724,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
         let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
+        // #217 adds an outer activity fold, independent of the routed part's own long-message fold.
         revealActivityContent(delivered, in: app, timeout: 30)
         XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message must render as a structured routed part")
+        bringRoutedCaptionIntoView(delivered, in: app)
         XCTAssertTrue(delivered.label.hasPrefix("Dispatcher"), "The routed caption uses the real sender: \(delivered.label)")
         XCTAssertTrue(delivered.label.hasSuffix(": \(deliveryText)"), "The exact body keeps inline tags and excludes CLI reply instructions: \(delivered.label)")
         let avatarID = delivered.identifier.replacingOccurrences(of: "companion-routed-", with: "companion-sender-avatar-")
@@ -737,6 +762,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let longID = try XCTUnwrap(longEvent["messageId"] as? String)
         XCTAssertEqual((longEvent["routed"] as? [[String: Any]])?.first?["text"] as? String, longText)
         let long = app.buttons["companion-routed-\(longID)-0"]
+        // Open only the enclosing activity; the long part must still start Collapsed below.
         revealActivityContent(long, in: app, timeout: 30)
         XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message folds behind its sender caption")
         bringRoutedCaptionIntoView(long, in: app)
@@ -762,9 +788,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         longPressUntilMenu(asleep, shows: settingsAction)
         waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
         scrollTo(orchestrate, in: app)
-        setSwitch(orchestrate, on: false)
+        setSwitch(orchestrate, on: false, in: app)
         XCTAssertEqual(((try dispatcherFixture("policy") as? [String: Any])?["policy"] as? [String: Any])?["orchestrate"] as? Bool, false)
-        setSwitch(orchestrate, on: true)
+        setSwitch(orchestrate, on: true, in: app)
         waitAndTap(app.buttons["Done"], untilGone: orchestrate)
         // MCP-off is authoritative on the settings route and on screen, even though the overrides stay stored.
         try dispatcherFixture("mcpEnabled", ["enabled": false])
@@ -829,7 +855,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         pick("auto-sleep", "After 15 min idle")
         let free = app.switches["agent-settings-free-agent-mode"]
         scrollTo(free, in: app)
-        setSwitch(free, on: false)
+        setSwitch(free, on: false, in: app)
         let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         let config = try XCTUnwrap(saved["config"] as? [String: Any])
         XCTAssertTrue((config["model"] as? String)?.contains("haiku") == true, "The phone model choice persists on desktop")
@@ -885,7 +911,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             "orchestration": ["orchestrate": true]]]) as? [String: Any])
         XCTAssertEqual(configured["status"] as? Int, 200)
         backToHome(app)
-        let helper = revealAgent(app, helperID)
+        _ = revealAgent(app, echoID)
+        let parentDisclosure = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'helpers-toggle-' AND identifier ENDSWITH %@", "-\(echoID)")).firstMatch
+        XCTAssertTrue(parentDisclosure.waitForExistence(timeout: 15))
+        XCTAssertTrue(scrollTo(parentDisclosure, in: app))
+        if parentDisclosure.value as? String == "Expanded" { parentDisclosure.tap() }
+        XCTAssertEqual(parentDisclosure.value as? String, "Collapsed")
+        XCTAssertFalse(agentRow(app, helperID).exists, "#208 nests the real helper beneath its collapsed parent")
+        let helper = revealAgent(app, helperID, parentID: echoID)
+        XCTAssertEqual(helper.value as? String, "Helper of Echo")
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(helper, shows: settings)
         waitAndTap(settings, until: element(app, "agent-settings-name"), timeout: 15)
