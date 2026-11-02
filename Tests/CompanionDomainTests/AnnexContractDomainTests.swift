@@ -176,6 +176,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(helper.parentAgentID == "durable_chat")
         #expect(planner.parentAgentID == nil)
         #expect(try await service.settings(for: helper.id).parentAgentID == "durable_chat")
+        let tree = CompanionAgentTree.build(app.agents, sort: .custom, lastActivity: \.lastActivity)
+        let helperRow = try #require(tree.all.first { $0.id == helper.id })
+        #expect(helperRow.depth == 1 && helperRow.parentName == planner.name)
+        #expect(tree.all.first { $0.id == planner.id }?.rollup.count == 1)
+        #expect(tree.visible(tree.active, collapsed: [planner.id]).allSatisfy { $0.id != helper.id })
         #expect(app.agents.first { $0.id.agentID == "durable_term" }?.runsInTerminal == true)
 
         // Capability-gated features, from the desktop's capabilities.
