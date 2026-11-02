@@ -242,13 +242,14 @@ private func host(terminal: CompanionTerminalSupport?, connection: CompanionConn
     var sent: [String] = []
     var resizes: [String] = []
     var closed = false
+    var sendError: AnnexTransportError?
     func events() -> AsyncStream<CompanionTerminalChannelEvent> {
         let (stream, continuation) = AsyncStream<CompanionTerminalChannelEvent>.makeStream()
         self.continuation = continuation
         return stream
     }
     func open(cols: Int, rows: Int) async { opens += 1 }
-    func send(_ input: String) async throws { sent.append(input) }
+    func send(_ input: String) async throws { if let sendError { throw sendError }; sent.append(input) }
     func resize(cols: Int, rows: Int) async { resizes.append("\(cols)x\(rows)") }
     func close() async { closed = true }
 }
@@ -379,8 +380,7 @@ private actor FakeTerminalTransport: AnnexTransporting {
     let received = await collect(events, count: 4)
     #expect(received.first == .opened(cwd: "/wt", snapshot: nil, cols: nil, rows: nil))
     #expect(received[1] == .output("$ "))
-    guard case .output(let notice) = received[2] else { Issue.record("A refused paste leaves the shell running"); return }
-    #expect(notice.contains("too long"))
+    #expect(received[2] == .inputRejected(CompanionTerminalSession.inputRefusedMessage))
     #expect(received[3] == .failed("Too many terminals are open from this phone. Close one and try again."))
     await channel.resize(cols: 50, rows: 12)
     try? await channel.send("ls\r")
@@ -449,4 +449,92 @@ func heldAttachReplyHasNoDeadlineAndReconnectAutomaticallyAttachesAgain() async 
     for _ in 0..<1000 where await transport.sent.count < 2 { try await Task.sleep(for: .milliseconds(5)) }
     #expect(await transport.sent.count == 2)
     session.close()
+}
+
+@MainActor @Test func attachSnapshotRestoresBracketedPasteOnlyWhenModeIsPresent() async {
+    let channel = FakeChannel()
+    let target = CompanionTarget(hostID: "h", projectID: "p", agentID: "a")
+    let session = CompanionTerminalSession(scope: .agentPTY(target), title: "A", channel: channel)
+    session.start()
+    session.apply(.opened(cwd: nil, snapshot: "\u{1B}[?2004hready", cols: 80, rows: 24))
+    #expect(session.screen.bracketedPaste)
+    session.paste("a\nb\r\nc")
+    await settle()
+    #expect(channel.sent.last == "\u{1B}[200~a\rb\rc\u{1B}[201~")
+    // A screen-only or shortened replay cannot communicate a mode that isn't in its bytes.
+    session.apply(.opened(cwd: nil, snapshot: "ready", cols: 80, rows: 24))
+    #expect(!session.screen.bracketedPaste)
+    session.paste("a\nb")
+    await settle()
+    #expect(channel.sent.last == "a\rb")
+    session.close()
+}
+
+@MainActor @Test func refusedInputClearsQueuedKeysWithoutReopeningTerminal() async {
+    let channel = FakeChannel()
+    let session = CompanionTerminalSession(scope: .project(.init(hostID: "h", projectID: "p")), title: "P", channel: channel)
+    session.start()
+    session.apply(.opened(cwd: nil, snapshot: "$ ", cols: nil, rows: nil))
+    session.paste("pending paste")
+    session.type("pending key")
+    session.apply(.inputRejected(CompanionTerminalSession.inputRefusedMessage))
+    await settle()
+    #expect(channel.sent.isEmpty, "A rejection clears input that hasn't been sent yet")
+    #expect(session.state == .running)
+    #expect(session.inputError == CompanionTerminalSession.inputRefusedMessage)
+    #expect(session.screen.plainText() == "$")
+    session.clearInputError()
+    session.type("fresh")
+    await settle()
+    #expect(session.inputError == nil)
+    #expect(channel.sent == ["fresh"])
+    session.close()
+}
+
+@MainActor @Test(arguments: ["terminal_input_rejected", "terminal_input_too_large"])
+func locallyStoppedInputShowsRefusalWithoutReconnect(code: String) async {
+    let channel = FakeChannel()
+    channel.sendError = .rejected(status: 400, code: code)
+    let session = CompanionTerminalSession(scope: .project(.init(hostID: "h", projectID: "p")), title: "P", channel: channel)
+    session.apply(.opened(cwd: nil, snapshot: nil, cols: nil, rows: nil))
+    session.paste("text")
+    await settle()
+    #expect(session.state == .running)
+    #expect(session.inputError == CompanionTerminalSession.inputRefusedMessage)
+    #expect(channel.sent.isEmpty)
+    session.close()
+}
+
+@MainActor @Test func attachChannelCannotRecoverModeOmittedFromTheSnapshot() async throws {
+    let transport = FakeTerminalTransport()
+    let scope = CompanionTerminalScope.agentPTY(.init(hostID: "h", projectID: "p", agentID: "a"))
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: scope)
+    let session = CompanionTerminalSession(scope: scope, title: "A", channel: channel)
+    session.start()
+    for _ in 0..<1000 where await transport.sent.isEmpty { await Task.yield() }
+    // An early output mode is covered by outputSeq but absent from a shortened screen-only buffer.
+    await transport.push("pty:data", .object(["agentId": .string("a"), "data": .string("\u{1B}[?2004h"), "outputSeq": .integer(8)]))
+    await transport.push("pty:attach:ack", .object(["agentId": .string("a"), "buffer": .string("ready"), "outputSeq": .integer(13)]))
+    for _ in 0..<1000 where session.state != .running { await Task.yield() }
+    #expect(!session.screen.bracketedPaste, "Missing mode cannot be inferred from a rendered screen")
+    await transport.push("pty:data", .object(["agentId": .string("a"), "data": .string("\u{1B}[?2004h"), "outputSeq": .integer(21)]))
+    for _ in 0..<1000 where !session.screen.bracketedPaste { await Task.yield() }
+    #expect(session.screen.bracketedPaste, "A subsequent mode change still works")
+    session.paste("x\ny")
+    for _ in 0..<1000 {
+        if await transport.sent.contains(.input(id: "a", data: "\u{1B}[200~x\ry\u{1B}[201~")) { break }
+        await Task.yield()
+    }
+    #expect(await transport.sent.last == .input(id: "a", data: "\u{1B}[200~x\ry\u{1B}[201~"))
+    session.close()
+}
+
+@MainActor @Test func aMissingTerminalDuringInputStillOffersRecovery() async {
+    let transport = FakeTerminalTransport()
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: .project(.init(hostID: "h", projectID: "p")), sessionID: "s1")
+    let events = channel.events()
+    await channel.open(cols: 80, rows: 24)
+    await transport.push("error", .object(["op": .string("pty:input"), "agentId": .string("s1"), "message": .string("session_not_found")]))
+    #expect(await collect(events, count: 1) == [.failed("The desktop lost track of this terminal. Open it again.")])
+    await channel.close()
 }

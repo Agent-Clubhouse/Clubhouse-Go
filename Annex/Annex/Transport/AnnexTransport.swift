@@ -29,6 +29,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var droppedBeforeSnapshot = false
     private var awaitingInitialReplay = false
     private var initialReplayDeadline: Task<Void, Never>?
+    private var terminalInputBatches: [String: UUID] = [:]
     private var commandBusy = false
     private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
     private struct CommandKey: Hashable { let epoch: String; let id: String }
@@ -104,13 +105,26 @@ public actor AnnexTransport: AnnexTransporting {
             throw AnnexTransportError.unsupportedCapability("terminal")
         }
         guard state == .connected, let socket else { throw AnnexTransportError.disconnected }
-        let frames: [AnnexTerminalFrame]
         if case .input(let id, let data) = frame {
-            frames = AnnexTerminalInput.chunks(data, maxLength: terminal.maxInputLength).map { .input(id: id, data: $0) }
+            // Include the id, envelope, quotes and JSON escaping in the 64 KiB wire budget.
+            let overhead = try AnnexTerminalFrame.input(id: id, data: "").encoded().count - 2
+            guard overhead + 8 <= 65_536 else {
+                throw AnnexTransportError.rejected(status: 413, code: "terminal_input_too_large")
+            }
+            let batch = UUID(), connection = generation
+            terminalInputBatches[id] = batch
+            defer { if terminalInputBatches[id] == batch { terminalInputBatches.removeValue(forKey: id) } }
+            for chunk in AnnexTerminalInput.chunks(data, maxLength: terminal.maxInputLength, maxEncodedBytes: 65_536 - overhead) {
+                try Task.checkCancellation()
+                guard generation == connection, state == .connected else { throw AnnexTransportError.disconnected }
+                guard terminalInputBatches[id] == batch else {
+                    throw AnnexTransportError.rejected(status: 400, code: "terminal_input_rejected")
+                }
+                try await socket.send(AnnexTerminalFrame.input(id: id, data: chunk).encoded())
+            }
         } else {
-            frames = [frame]
+            try await socket.send(frame.encoded())
         }
-        for frame in frames { try await socket.send(frame.encoded()) }
     }
 
     public func connect() async throws {
@@ -599,7 +613,14 @@ public actor AnnexTransport: AnnexTransporting {
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
             transition(.connected)
         }
-        if Self.isTerminalFrame(envelope) { emitTerminal(.frame(envelope)); return }
+        if Self.isTerminalFrame(envelope) {
+            if envelope.type == "error", envelope.payload?["op"]?.string == "pty:input",
+               let id = AnnexTerminalFrame.id(of: envelope) {
+                // There is no positive input ack: cancel only the chunks not yet sent when refusal arrives.
+                terminalInputBatches.removeValue(forKey: id)
+            }
+            emitTerminal(.frame(envelope)); return
+        }
         if envelope.type == "snapshot" { envelope.iconReferencesEnabled = socketUsesIconRefs }
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))

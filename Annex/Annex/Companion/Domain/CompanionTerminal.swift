@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// Where a terminal opens, matching the desktop's Terminal scope: a project's root, an agent's worktree (or a quick
 /// agent's working folder), or a terminal-mode agent's own PTY.
@@ -215,6 +218,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     case output(String)
     case exited(code: Int?)
     case failed(String)
+    case inputRejected(String)
     /// The desktop connection dropped. The desktop kills the phone's shells when it does.
     case connectionLost
     /// It's back: the session opens again (a new shell, or a fresh snapshot).
@@ -242,6 +246,8 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         var isLive: Bool { self == .running }
     }
 
+    static let inputRefusedMessage = "Paste stopped because the desktop refused terminal input. Some text may already have been sent."
+
     let scope: CompanionTerminalScope
     let title: String
     private(set) var state: State = .connecting
@@ -250,6 +256,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     private(set) var revision = 0
     /// The shell's working directory from the desktop.
     private(set) var cwd: String?
+    private(set) var inputError: String?
     /// The next typed character is sent with Ctrl, from the accessory bar's Ctrl key.
     var controlArmed = false
     @ObservationIgnored private let channel: any CompanionTerminalChannel
@@ -313,6 +320,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
                 // The desktop killed the old shell when the connection dropped.
                 notice("Reconnected. This is a new shell.")
             }
+            inputError = nil
             hasOpened = true
             state = .running
             changed()
@@ -330,6 +338,9 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
             notice(code.map { "Process exited with code \($0)." } ?? "Process exited.")
         case .failed(let message):
             state = .failed(message)
+        case .inputRejected(let message):
+            outbox = []
+            inputError = message
         case .connectionLost:
             if state == .running || state == .connecting { state = .reconnecting }
         case .connectionRestored:
@@ -363,6 +374,8 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         enqueue(key.sequence(applicationCursorKeys: screen.applicationCursorKeys))
     }
 
+    func clearInputError() { inputError = nil }
+
     func paste(_ text: String) {
         guard !text.isEmpty else { return }
         enqueue(CompanionTerminalInput.paste(text, bracketed: screen.bracketedPaste))
@@ -379,7 +392,14 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
             while !outbox.isEmpty, state.isLive {
                 let next = outbox.removeFirst()
                 do { try await channel.send(next) }
-                catch { outbox = []; if state.isLive { state = .reconnecting }; break }
+                catch {
+                    outbox = []
+                    if case AnnexTransportError.rejected(_, let code, _) = error,
+                       code == "terminal_input_rejected" || code == "terminal_input_too_large" {
+                        inputError = Self.inputRefusedMessage
+                    } else if state.isLive { state = .reconnecting }
+                    break
+                }
             }
             outbox = []
             flushing = false

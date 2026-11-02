@@ -153,9 +153,9 @@ import ClubhouseTransport
             let code = payload["message"]?.string ?? ""
             switch payload["op"]?.string {
             case "pty:resize": return
-            // A refused paste leaves the terminal running.
+            // A refused input clears queued keys/paste without reopening or replacing the terminal.
             case "pty:input" where code.hasPrefix("pty:input"):
-                yield(.output("\r\n\u{1B}[2m[\(Self.message(for: code))]\u{1B}[0m\r\n"))
+                yield(.inputRejected(CompanionTerminalSession.inputRefusedMessage))
             default:
                 awaitingSnapshot = false
                 isOpen = false

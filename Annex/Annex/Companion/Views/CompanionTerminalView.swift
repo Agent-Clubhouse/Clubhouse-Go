@@ -155,7 +155,11 @@ struct CompanionTerminalPane: View {
 
     @ViewBuilder private var statusBanner: some View {
         switch session.state {
-        case .running, .closed: EmptyView()
+        case .running:
+            if let message = session.inputError {
+                banner(message, systemImage: "exclamationmark.triangle", action: ("Dismiss", session.clearInputError))
+            }
+        case .closed: EmptyView()
         case .connecting: banner("Connecting…", systemImage: nil, progress: true)
         case .reconnecting: banner("Reconnecting to your desktop…", systemImage: nil, progress: true)
         case .exited(let code):
@@ -219,7 +223,7 @@ struct CompanionTerminalKeyBar: View {
             PasteButton(payloadType: String.self) { strings in
                 Task { @MainActor in session.paste(strings.joined(separator: "\n")) }
             }
-            .labelStyle(.iconOnly).buttonBorderShape(.capsule).controlSize(.small)
+            .labelStyle(.titleAndIcon).buttonBorderShape(.capsule).controlSize(.small)
             .accessibilityIdentifier("terminal-paste")
             Button { focus.toggle() } label: {
                 Image(systemName: focus.isEditing ? "keyboard.chevron.compact.down" : "keyboard")
@@ -423,6 +427,20 @@ final class CompanionTerminalUIView: UIView, UITextViewDelegate {
         if textView.selectedRange.length == 0 { setNeedsRender() }
     }
 
+    // UITextView already owns an edit-menu interaction for selection and Copy. Expose the
+    // standard Paste action in its responder chain, sending input instead of editing output.
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(paste(_:)) { return session.state.isLive && UIPasteboard.general.hasStrings }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    override func paste(_ sender: Any?) {
+        guard session.state.isLive else { return }
+        textView.selectedRange = NSRange(location: 0, length: 0)
+        keyInput.paste(sender)
+        setNeedsRender()
+    }
+
     // MARK: Keyboard
 
     /// Typing goes to a small view of its own, so the output stays an accessible, selectable text view.
@@ -489,7 +507,7 @@ final class CompanionTerminalKeyInput: UIView, UIKeyInput {
 
     override func paste(_ sender: Any?) { session.paste(UIPasteboard.general.string ?? "") }
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        action == #selector(paste(_:)) ? UIPasteboard.general.hasStrings : super.canPerformAction(action, withSender: sender)
+        action == #selector(paste(_:)) ? session.state.isLive && UIPasteboard.general.hasStrings : super.canPerformAction(action, withSender: sender)
     }
 
     /// A hardware keyboard's arrows, Escape and Ctrl-letters.
