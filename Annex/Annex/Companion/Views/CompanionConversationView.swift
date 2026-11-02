@@ -279,10 +279,12 @@ struct CompanionConversationView: View {
                             }
                         }
                     }
-                    Color.clear.frame(height: 1).padding(.top, 22).id("latest")
+                    // Include the transcript's bottom breathing room in the target. Otherwise scrollTo("latest")
+                    // stops 24pt before the physical bottom, leaving the near-bottom state permanently ambiguous.
+                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, 24).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
-                .padding(.vertical, 24)
+                .padding(.top, 24)
                 .coordinateSpace(name: "companion-transcript-content")
                 .background {
                     GeometryReader { geometry in
@@ -303,10 +305,17 @@ struct CompanionConversationView: View {
             // disappear: under a reply taller than the screen the lazy stack kept realising and dropping the marker as it
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
-            .onScrollPhaseChange { _, phase, context in
+            .onScrollPhaseChange { old, phase, context in
+                if phase == .tracking {
+                    readingViewport.gesture.begin(at: Self.metrics(context.geometry).normalizedOffset)
+                } else if phase == .interacting && old != .tracking {
+                    readingViewport.gesture.begin(at: Self.metrics(context.geometry), last: readingViewport.metrics, beforeLast: readingViewport.previousMetrics)
+                }
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
                 if phase == .idle && readingViewport.hasInitialized && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
+                    if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
+                    readingViewport.gesture.end()
                     atLatest = metrics.isAtTrueBottom
                     if metrics.isAtTrueBottom { followLatest = true }
                     saveReadingPosition(metrics)
@@ -315,10 +324,11 @@ struct CompanionConversationView: View {
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                 let metrics = Self.metrics(new)
+                readingViewport.previousMetrics = Self.metrics(old)
                 readingViewport.metrics = metrics
                 atLatest = metrics.isAtTrueBottom
                 guard readingViewport.hasInitialized else { return }
-                if readingViewport.isInteracting && metrics.normalizedOffset < Self.metrics(old).normalizedOffset - 1 { followLatest = false }
+                if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
                 if readingViewport.isRestoring {
                     guard let restoreOffset = readingViewport.restoreOffset,
                           abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
@@ -327,10 +337,8 @@ struct CompanionConversationView: View {
                     readingViewport.isRestoring = false
                     saveReadingPosition(metrics)
                 }
-                if !readingViewport.isInteracting {
-                    if metrics.isAtTrueBottom { followLatest = true }
-                    else if followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
-                }
+                if metrics.isAtTrueBottom { followLatest = true }
+                else if !readingViewport.isInteracting && followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
                 // On a layout change, the frame callback restores the existing entry, before capturing a new one.
                 if readingViewport.isInteracting || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
                     saveReadingPosition(metrics)
@@ -438,7 +446,7 @@ struct CompanionConversationView: View {
 
     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
         .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
-              containerHeight: geometry.containerSize.height, topInset: geometry.contentInsets.top,
+              availableHeight: geometry.containerSize.height, topInset: geometry.contentInsets.top,
               bottomInset: geometry.contentInsets.bottom)
     }
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
@@ -795,8 +803,10 @@ struct CompanionContextRing: View {
 
 /// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.
 private final class CompanionReadingViewport {
+    var gesture = CompanionReadingGesture()
     var frames: [String: ClosedRange<Double>] = [:]
     var metrics: CompanionScrollMetrics?
+    var previousMetrics: CompanionScrollMetrics?
     var frameContentHeight: Double?
     var isInteracting = false
     var isRestoring = false
