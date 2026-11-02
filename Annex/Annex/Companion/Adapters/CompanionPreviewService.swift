@@ -129,7 +129,7 @@ import ClubhouseTransport
                     // Completed rather than failed, so it folds on Home instead of joining Needs you; its exit code still shows.
                     agent("clubhouse", "quick-aspen", "aspen", "Run the release checklist", .completed, minutesAgo: 180, quick: true, exitCode: 1),
                     agent("clubhouse", target.agentID, "River", "Build the mobile companion", .approval, model: "Opus", minutesAgo: 1, color: "indigo", extra: .images,
-                          contextUsage: .init(used: 84_000, size: 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
+                          contextUsage: .init(used: 84_000, size: contextWindow ? 300_000 : 200_000), executionMode: "chat", branch: "river/companion", orchestrator: "claude-code",
                           session: riverSession, chatControls: contextWindow ? contextPreviewControls : chatControls, slashCommands: slashCommands)
                 ], color: "indigo"),
                 .init(id: "prototype", name: "Old prototype", agents: [

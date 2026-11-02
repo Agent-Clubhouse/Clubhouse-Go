@@ -387,6 +387,7 @@ struct CompanionAgentSettingsForm: View {
             if let notice = context.notice { Text(notice).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
             if context.value != nil {
                 Button("Reset to Default") { if let change = context.change(to: nil) { save(change) } }
+                    .buttonStyle(.borderless)
                     .disabled(!canReset)
                     .accessibilityIdentifier("agent-settings-context-window-reset")
             }
