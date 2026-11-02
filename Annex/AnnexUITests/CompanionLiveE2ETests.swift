@@ -47,16 +47,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     private func any(_ app: XCUIApplication) -> XCUIElementQuery { app.descendants(matching: .any) }
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement { any(app).matching(identifier: identifier).firstMatch }
-    private func element(_ app: XCUIApplication, idSuffix suffix: String) -> XCUIElement {
-        any(app).matching(NSPredicate(format: "identifier ENDSWITH %@", suffix)).firstMatch
-    }
     private func projectHeader(_ app: XCUIApplication) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'open-project-' AND label == %@", "Open \(projectName)")).firstMatch
     }
     private func projectMenu(_ app: XCUIApplication) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'project-menu-' AND label == %@", "\(projectName) options")).firstMatch
     }
-    private func agentRow(_ app: XCUIApplication, _ agentID: String) -> XCUIElement { element(app, idSuffix: "-\(agentID)") }
+    private func agentRow(_ app: XCUIApplication, _ agentID: String) -> XCUIElement {
+        any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-' AND identifier ENDSWITH %@", "-\(agentID)")).firstMatch
+    }
     private func text(_ app: XCUIApplication, beginsWith prefix: String) -> XCUIElement {
         app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
     }
