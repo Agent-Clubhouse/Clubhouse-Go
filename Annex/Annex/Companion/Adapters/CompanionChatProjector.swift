@@ -387,6 +387,7 @@ struct CompanionChatProjector {
             if sending { timeline.append(.message(message)) } else { waiting.append(.message(message)) }
         }
         items = timeline + waiting
+        itemIndices = Dictionary(items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, last in last })
     }
     mutating func reconcile(messageID: String, commandID: String) -> CompanionTimelineItem? {
         commandIDsByMessage[messageID] = commandID
