@@ -87,6 +87,14 @@ import Testing
         let rows = CompanionTimelineFolding.rows(for: tools)
         #expect(rows.map(\.id) == ["activity:tool:0", "activity:tool:1", "activity:tool:3", "activity:tool:4"])
     }
+    @Test func sameSubagentCanContinueARunAfterAnEmbeddedNotice() {
+        let message = CompanionMessage(id: "relay", role: .user, text: "raw", source: "mcp", routed: [short, .init(fromClubhouse: true, text: "Helper started"), short], subagentID: "helper")
+        let tool = CompanionTool(id: "tool", name: "Read", summary: "", state: .completed, subagentID: "helper")
+        let rows = CompanionTimelineFolding.rows(for: [.message(message), .tool(tool)])
+        #expect(rows.map(\.id) == ["activity:routed:relay:0", "routed:relay:1", "activity:routed:relay:2"])
+        guard case .activity(let parts) = rows.last else { Issue.record("Missing resumed run"); return }
+        #expect(parts.map(\.id) == ["routed:relay:2", "tool:tool"])
+    }
     @Test func failureOutputPolicyKeepsStatusVisibleAndBoundsLongOutput() {
         let short = CompanionTool(id: "short", name: "Run", summary: "", output: "one\ntwo", state: .failed)
         let long = CompanionTool(id: "long", name: "Run", summary: "", output: "1\n2\n3\n4\n5\n6\nFailure", state: .failed)
