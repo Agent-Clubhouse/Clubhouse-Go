@@ -100,12 +100,14 @@ import Testing
             try await h.waitUntil { h.host?.helperRequests.first?.id == requestID }
             let request = try #require(h.host?.helperRequests.first)
             if snapshotFirst {
+                await h.transport.enqueue(.heldReceipt(receipt))
+                let answer = Task { await h.store.answer(request, approve: true) }
+                try await h.waitUntil { await h.transport.executed.count == 1 }
                 await h.transport.emit(h.snapshotEvent(["helperRequests": .array([])]))
                 try await h.waitUntil { h.host?.helperRequests.isEmpty == true }
-                // A tap was authorized before the snapshot arrived. Exercise the service's complete receipt.
-                await h.transport.enqueue(.receipt(receipt))
-                do { try await h.service.answerHelperRequest(request, approve: true, force: false, clientCommandID: "original") }
-                catch let error as CompanionHelperRequestConsumed { #expect(error.message == receipt.error?.message) }
+                await h.transport.releaseCommand()
+                await answer.value
+                #expect(h.store.helperRequestNotice == receipt.error?.message, "The sentence survives a snapshot that removed its card")
             } else {
                 await h.transport.enqueue(.receipt(receipt))
                 await h.store.answer(request, approve: true)

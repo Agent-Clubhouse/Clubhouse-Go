@@ -10,6 +10,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     enum Outcome: Sendable {
         case completed(AnnexJSON? = nil)
         case receipt(AnnexCommandReceipt)
+        case heldReceipt(AnnexCommandReceipt)
         case rejected(code: String, message: String)
         case failed(message: String?)
         case thrown(AnnexTransportError)
@@ -44,6 +45,12 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // Commands.
     private var outcomes: [Outcome] = []
+    private var heldCommand: CheckedContinuation<AnnexCommandReceipt, Never>?
+    private var heldReceipt: AnnexCommandReceipt?
+    func releaseCommand() {
+        if let heldReceipt { heldCommand?.resume(returning: heldReceipt) }
+        heldCommand = nil; heldReceipt = nil
+    }
     private(set) var executed: [AnnexCommand] = []
 
     func setEpoch(_ value: String) { epoch = value }
@@ -136,12 +143,15 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // MARK: Commands
 
-    func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt {
+    func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         executed.append(command)
         let outcome = outcomes.isEmpty ? .completed(nil) : outcomes.removeFirst()
         let status: String, error: AnnexJSON, result: AnnexJSON
         switch outcome {
         case .receipt(let receipt): return receipt
+        case .heldReceipt(let receipt):
+            heldReceipt = receipt
+            return await withCheckedContinuation { heldCommand = $0 }
         case .completed(let value): status = "completed"; error = .null; result = value ?? .null
         case .rejected(let code, let message):
             status = "rejected"; error = .object(["code": .string(code), "message": .string(message)]); result = .null
