@@ -1,0 +1,33 @@
+Test Suite 'Selected tests' started at 2026-11-02 09:26:17.960.
+Test Suite 'ClubhouseTransportPackageTests.xctest' started at 2026-11-02 09:26:17.961.
+Test Suite 'ClubhouseTransportPackageTests.xctest' passed at 2026-11-02 09:26:17.961.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-02 09:26:17.961.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite FrameOverLimitAuditTests started.
+◇ Test criticalOversizeReconnectAndGapAdoptFreshCheckpoint(heldOldCheckpoint:) started.
+◇ Test case passing 1 argument heldOldCheckpoint → false to criticalOversizeReconnectAndGapAdoptFreshCheckpoint(heldOldCheckpoint:) started.
+2732 CRITICAL held=false sockets=2 replay=[[8], [9, 9, 9]] gaps=0 reads=["/api/v1/projects/project/agents": 5, "/api/v1/mobile/capabilities": 7, "/api/v1/mobile/agents/agent/chat": 4, "/api/v1/identity": 2, "/api/v1/projects": 5] pending/queue=kept refreshed=true
+◇ Test case passing 1 argument heldOldCheckpoint → true to criticalOversizeReconnectAndGapAdoptFreshCheckpoint(heldOldCheckpoint:) started.
+2732 CRITICAL held=true sockets=3 replay=[[8], [8], [9, 9, 9]] gaps=1 reads=["/api/v1/projects/project/agents": 5, "/api/v1/mobile/agents/agent/chat": 4, "/api/v1/mobile/capabilities": 9, "/api/v1/projects": 5, "/api/v1/identity": 3] pending/queue=kept refreshed=true
+✔ Test criticalOversizeReconnectAndGapAdoptFreshCheckpoint(heldOldCheckpoint:) with 2 test cases passed after 0.109 seconds.
+◇ Test olderCursorBeforeCheckpointGapNeedsOneFreshSnapshot() started.
+2732 OLD CURSOR gap.lastSeq=9 ignored; closes once; fresh snapshot9 -> replay9 clean; sockets=2 gaps=1 reads=["/api/v1/projects/project/agents": 3, "/api/v1/mobile/agents/agent/chat": 2, "/api/v1/mobile/capabilities": 6, "/api/v1/projects": 4, "/api/v1/identity": 2]
+✔ Test olderCursorBeforeCheckpointGapNeedsOneFreshSnapshot() passed after 0.033 seconds.
+◇ Test repeatedStaleSnapshotsRepeatGapsUntilCheckpointAdvances() started.
+2732 NEGATIVE CONTROL three stale snapshot8s -> three gaps9; fresh snapshot9 stops it; gap.lastSeq is NOT adopted
+✔ Test repeatedStaleSnapshotsRepeatGapsUntilCheckpointAdvances() passed after 0.047 seconds.
+◇ Test omittedTextFitsFinalOrEndsPrefixThenHistoryReplacesOnce(stub:) started.
+◇ Test case passing 1 argument stub → false to omittedTextFitsFinalOrEndsPrefixThenHistoryReplacesOnce(stub:) started.
+2732 TEXT finalFits=full3MiBonce omittedFinal=Visible prefix/nonStreaming/idle historyStub=false replacedOnce sockets=1
+◇ Test case passing 1 argument stub → true to omittedTextFitsFinalOrEndsPrefixThenHistoryReplacesOnce(stub:) started.
+2732 TEXT finalFits=full3MiBonce omittedFinal=Visible prefix/nonStreaming/idle historyStub=true replacedOnce sockets=1
+✔ Test omittedTextFitsFinalOrEndsPrefixThenHistoryReplacesOnce(stub:) with 2 test cases passed after 0.115 seconds.
+◇ Test canvasMarkersAreIgnoredWithoutTouchingState() started.
+2732 CANVAS project/global markers ignored; pending/queue/chat/cursor kept; sockets=1
+✔ Test canvasMarkersAreIgnoredWithoutTouchingState() passed after 0.025 seconds.
+✔ Suite FrameOverLimitAuditTests passed after 0.331 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.331 seconds.

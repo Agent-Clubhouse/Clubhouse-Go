@@ -1,0 +1,7 @@
+ RUN  v4.1.12 /Users/masonallen/source/Clubhouse-Annex/.clubhouse/agents/go-icon-cache/build/ch2732
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed | 359 skipped (363)
+   Start at  09:26:56
+   Duration  1.55s (transform 515ms, setup 0ms, import 640ms, tests 833ms, environment 0ms)

@@ -1,0 +1,52 @@
+--- a/src/main/services/annex-server.test.ts
++++ b/src/main/services/annex-server.test.ts
+@@ -4690 +4690 @@
+-      const chat = (type: string, seq: number, data: object) => ({ v: 2, type, agentId: 'a', sessionId: 's', seq, ts: 0, data });
++      const chat = (type: string, seq: number, data: object) => ({ v: 2, type, agentId: 'agent', sessionId: 's1', seq, ts: 0, data });
+@@ -4789,0 +4790,46 @@
++      });
++
++      it('Go2732 capture exact production frames', async () => {
++        vi.mocked(projectStore.list).mockReturnValue([{id:'project',name:'Project',path:'/fixture'}] as never);
++        vi.mocked(agentConfigModule.listDurable).mockReturnValue([{id:'agent',name:'Agent',kind:'durable'}] as never);
++        const ws = await liveSocket();
++        const out = path.resolve('go2732-capture'); fs.mkdirSync(out, { recursive: true });
++        const save = (name: string, value: unknown) => fs.writeFileSync(path.join(out, name + '.json'), JSON.stringify(value));
++        const frames = () => sent(ws);
++        const clear = () => ws.send.mockClear();
++        save('epoch', annexServer._testing.mobileEpoch());
++        publishChatEvent(chat('agent_message_chunk', 8, { messageId: 'answer', text: 'x'.repeat(9*MIB) }) as never);
++        publishChatEvent(chat('agent_message', 9, { messageId: 'answer', text: 'FULL '.repeat(3*MIB/5) }) as never);
++        publishChatEvent(chat('turn_ended', 10, { stopReason: 'end_turn' }) as never);
++        save('fitting', frames()); clear();
++        publishChatEvent(chat('turn_started', 11, {}) as never);
++        publishChatEvent(chat('agent_message_chunk', 12, { messageId: 'omittedAnswer', text: 'Visible prefix' }) as never);
++        publishChatEvent(chat('agent_message_chunk', 13, { messageId: 'omittedAnswer', text: 'x'.repeat(9*MIB) }) as never);
++        publishChatEvent(chat('agent_message', 14, { messageId: 'omittedAnswer', text: 'z'.repeat(9*MIB) }) as never);
++        publishChatEvent(chat('turn_ended', 15, { stopReason: 'end_turn' }) as never);
++        save('omitted-final', frames()); clear();
++        annexServer.broadcastCanvasStateToClients('project', { canvasId: 'c', views: 'x'.repeat(9*MIB) });
++        annexServer.broadcastAppCanvasStateToClients({ canvasId: 'c', views: 'x'.repeat(9*MIB) });
++        save('canvas', frames()); clear();
++        const before = _eventReplay.getLastSeq();
++        publishChatEvent(chat('question', 16, { requestId: 'huge', questions: [{ id: 'exact-question', prompt: 'x'.repeat(17*MIB), header: 'H', options: [] }] }) as never);
++        save('critical-live', frames()); clear();
++        const seq = _eventReplay.getLastSeq();
++        ws.emit('message', JSON.stringify({ type: 'mobile:replay', since: before, epoch: annexServer._testing.mobileEpoch() }));
++        save('critical-gap', frames()); clear();
++        ws.emit('message', JSON.stringify({ type: 'mobile:replay', since: seq, epoch: annexServer._testing.mobileEpoch() }));
++        save('critical-clean', frames()); clear();
++        const next = Object.assign(new EventEmitter(), { readyState: 1, send: vi.fn(), ping: () => {}, close: vi.fn() });
++        annexServer._testing.wsAuthTypes.set(next as never, 'mtls');
++        annexServer._testing.wss!.clients.add(next as never); annexServer._testing.wss!.emit('connection', next);
++        await vi.waitFor(() => expect(next.send.mock.calls.some(([d]) => JSON.parse(d).type === 'snapshot')).toBe(true));
++        save('critical-reconnect', sent(next));
++        publishChatEvent(chat('notice', 17, { level:'info', code:'after', message:'After critical clean' }) as never);
++        save('critical-next', frames()); clear();
++        const { buildChatPage } = await import('./annex-chat-pages');
++        const history = buildChatPage({ metadata: { sessionId: 's1', state: 'idle', queuedMessageIds: [], capabilities: { chat:true } }, eligible: [chat('agent_message',14,{messageId:'omittedAnswer',text:'z'.repeat(9*MIB)}),chat('turn_ended',15,{stopReason:'end_turn'})] as never, limit: 100, pendingPermissions:[], pendingQuestions:[] });
++        save('history-preview', history);
++        const stub = buildChatPage({ metadata:{sessionId:'s1',state:'idle'}, eligible:[chat('agent_message',14,{messageId:'omittedAnswer',text:'z'.repeat(9*MIB),extra:Array(10).fill('x'.repeat(MIB))}),chat('turn_ended',15,{stopReason:'end_turn'})] as never, limit:100,pendingPermissions:[],pendingQuestions:[] });
++        save('history-stub', stub);
++        save('meta', {sha:'ba560869b10bddee3f1feab309e13ce088de4d40', before, seq});
++        expect(frames()).toEqual([]);

@@ -1,0 +1,55 @@
+{
+  "desktop": "ba560869b10bddee3f1feab309e13ce088de4d40",
+  "go147": "6c32b12",
+  "goMain": "be3272103f4232a4bb8e59e480946b54a0ec68d7",
+  "captures": {
+    "canvas.json": {
+      "bytes": 265,
+      "sha256": "7db7818e8cc47d8a7a7f376d192d1c83e9fd580c211c312aaa2514184390cd5c"
+    },
+    "critical-clean.json": {
+      "bytes": 173,
+      "sha256": "7f601beb76638feae17115226e2a3467a948004091b4fe0658acf0618575cdad"
+    },
+    "critical-gap.json": {
+      "bytes": 102,
+      "sha256": "203ed76344688da7756a49c630566283326770470695e2b09fac7ba322a2de42"
+    },
+    "critical-live.json": {
+      "bytes": 17826042,
+      "sha256": "e6039990a4d426fc405bd11db181b0b80fbbc5e440790edac4c82f63dc4db237"
+    },
+    "critical-next.json": {
+      "bytes": 217,
+      "sha256": "e032cd7491d9c2dbf8fe161a0fcf410931cc054d450cffc4c8828b2c7547534b"
+    },
+    "critical-reconnect.json": {
+      "bytes": 1829,
+      "sha256": "6df6318727511c38abd60f6e21473ea4ee45e954a83416227f7e097b25c5e210"
+    },
+    "epoch.json": {
+      "bytes": 38,
+      "sha256": "452b8cff7765b3055c6eb3dd5c2d53c7003c2d02de2e8dc58ae86c0f9e2edccc"
+    },
+    "fitting.json": {
+      "bytes": 3146278,
+      "sha256": "c743892d56ade77f54e9bef3b86a38edf9787da09053d863bf44d85a7012ef2c"
+    },
+    "history-preview.json": {
+      "bytes": 249673,
+      "sha256": "aeef44c8c7cc06dad0a5c2178657ee72579152648a4a7c8d65be3c1dff5afbae"
+    },
+    "history-stub.json": {
+      "bytes": 644,
+      "sha256": "52ab3bc9db8e9e8ee836543a32af853d3809ede7687af50c4c72be4a1ed8074e"
+    },
+    "meta.json": {
+      "bytes": 69,
+      "sha256": "bfe09df5a777056b23163fceba8f163f8d87a57a0b664d0c00dad22f511626f8"
+    },
+    "omitted-final.json": {
+      "bytes": 919,
+      "sha256": "5434381677e8ec60d40a29ac2bfaa1555607ca6def9c5b7bfe750b0d1f88d36b"
+    }
+  }
+}
