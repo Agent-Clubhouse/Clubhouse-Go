@@ -19,7 +19,18 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
     private func value(_ composer: XCUIElement) -> String { composer.value as? String ?? "" }
     /// Near the top of the transcript, clear of the approval's buttons.
     private func tapTranscript(_ app: XCUIApplication) {
-        app.scrollViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        // The keyboard also exposes a ScrollView. Identify the transcript by its own notice, not query order.
+        let transcript = app.scrollViews.containing(.staticText, identifier: "Preview conversation · no desktop commands are sent").firstMatch
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        let frame = transcript.frame.intersection(app.windows.firstMatch.frame)
+        let point = CGPoint(x: frame.midX, y: frame.minY + 12)
+        XCTAssertGreaterThan(frame.height, 44, "The transcript must not be the keyboard's 44pt top strip")
+        XCTAssertTrue(frame.contains(point))
+        XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch.frame.contains(point))
+        XCTContext.runActivity(named: "Tap actual transcript at \(point), viewport \(frame)") { _ in
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        }
     }
 
     func testTypingSlashSuggestsCommandsAndTappingOneInsertsIt() {

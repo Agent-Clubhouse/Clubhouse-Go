@@ -87,7 +87,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollUntilExists(river, in: app)
         XCTAssertTrue(river.waitForExistence(timeout: 15))
         let actions = app.buttons["Conversation actions"]
-        waitAndTap(river, until: actions, timeout: 10)
+        tapVisibleRow(river, in: app, until: actions)
         let settings = app.buttons["Agent settings"]
         waitAndTap(actions, until: settings, timeout: 5, "The chat header offers the agent's settings")
 
@@ -199,7 +199,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollUntilExists(river, in: app)
         XCTAssertTrue(river.waitForExistence(timeout: 15))
         let actions = app.buttons["Conversation actions"]
-        waitAndTap(river, until: actions, timeout: 10)
+        tapVisibleRow(river, in: app, until: actions)
         let settings = app.buttons["Agent settings"]
         waitAndTap(actions, until: settings, timeout: 5)
         waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 10)
