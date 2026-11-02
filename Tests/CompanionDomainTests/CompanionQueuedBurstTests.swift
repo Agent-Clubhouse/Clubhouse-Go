@@ -47,17 +47,18 @@ import ClubhouseTransport
         #expect(messages(p).first?.text == row.text)
     }
 
-    @MainActor @Test func severalJoinsAppendPartsWithoutShiftingFoldStateAndKeepRawCopy() throws {
+    @MainActor @Test(arguments: ["TASK_RESULT:t:", "TASK_ACK:t:"])
+    func severalJoinsAppendPartsWithoutShiftingFoldStateAndKeepRawCopy(marker: String) throws {
         var p = CompanionChatProjector()
         p.apply(user("item", 1, "raw one", routed: routed("Docs", "First")))
         let expansion = CompanionTranscriptExpansion()
         let first = expansion.part(messageID: "item", index: 0); first.open = true
         p.apply(user("join-1", 2, "[FROM:Reviewer] Second", joined: "item"))
-        p.apply(user("join-2", 3, "raw three", joined: "item", routed: routed("Helper", "TASK_RESULT:t: Third")))
+        p.apply(user("join-2", 3, "raw three", joined: "item", routed: routed("Helper", marker + " Third")))
         let row = try #require(messages(p).first)
         #expect(messages(p).count == 1)
         #expect(row.text == combined(["raw one", "[FROM:Reviewer] Second", "raw three"]))
-        #expect(row.routed.map(\.text) == ["First", "Second", "TASK_RESULT:t: Third"])
+        #expect(row.routed.map(\.text) == ["First", "Second", marker + " Third"])
         #expect(row.display == .others([.init(sender: .init(name: "Docs"), text: "First"), .init(sender: .init(name: "Reviewer"), text: "Second"), .init(sender: .init(name: "Helper"), text: "Third")]))
         #expect(expansion.part(messageID: row.id, index: 0) === first && first.open == true)
         #expect(expansion.part(messageID: row.id, index: 2) !== first)
@@ -85,7 +86,7 @@ import ClubhouseTransport
         #expect(messages(p).first?.queueState == nil)
     }
 
-    @Test func deliveredUserMessageSupersedesByIDBeforeText() {
+    @Test func deliveredUserMessageSupersedesOnlyByID() {
         var p = CompanionChatProjector()
         p.apply(user("same-text", 1, "combined"))
         p.apply(user("item", 2, "First")); p.apply(user("join", 3, "Second", joined: "item"))
@@ -93,8 +94,8 @@ import ClubhouseTransport
         #expect(messages(p).map(\.id) == ["same-text", "item"])
         #expect(messages(p).last?.display == .others([.init(sender: .init(name: "Final"), text: "Delivered")]))
         p.apply(user("new-id", 5, "combined", delivery: "steer"))
-        #expect(messages(p).map(\.id) == ["new-id", "item"])
-        #expect(messages(p).first?.queueState == nil)
+        #expect(messages(p).map(\.id) == ["same-text", "item", "new-id"])
+        #expect(messages(p).first?.queueState == .submitted, "Matching text must not consume a different queued item")
     }
 
     @Test func bothRemovalEventsApplyToTheWholeMergedRow() {
@@ -102,8 +103,7 @@ import ClubhouseTransport
             var p = CompanionChatProjector()
             p.apply(user("item", 1, "First")); p.apply(queue(2, "queued", ids: ["item"]))
             p.apply(user("join", 3, "Second", joined: "item")); p.apply(removal)
-            #expect(messages(p).map(\.id) == ["item"] && messages(p).first?.queueState == .removed)
-            #expect(messages(p).first?.routed.map(\.text) == ["First", "Second"])
+            #expect(messages(p).isEmpty, "Removal drops every part of the merged item")
             #expect(p.queuedMessageIDs.isEmpty)
         }
     }
@@ -135,12 +135,12 @@ import ClubhouseTransport
         var expected = CompanionChatProjector(); events.forEach { expected.apply($0) }
         #expect(messages(expected).count == 1)
         let harness = try await LiveServiceHarness.start(); defer { harness.stop() }
-        try await harness.loadSession()
+        try await harness.loadSession(LiveServiceHarness.chatSnapshot(fields: ["events": .array([])]))
         for event in events {
             await harness.transport.emit(.message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": event]))))
         }
         try await harness.waitUntil { harness.store.conversation(for: harness.target).items == expected.items }
-        await harness.transport.setRead("chat", LiveServiceHarness.chatSnapshot(events: events))
+        await harness.transport.setRead("chat", LiveServiceHarness.chatSnapshot(fields: ["events": .array(events)]))
         #expect(try await harness.service.history(for: harness.target).items == expected.items)
         let reader = CompanionArchiveReader(transport: harness.transport, target: harness.target, sessionID: "s1")
         await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array(Array(events.suffix(3))), "nextBeforeSeq": .integer(12)]))
@@ -149,4 +149,100 @@ import ClubhouseTransport
         await harness.transport.setRead("chatHistory", .object(["sessionId": .string("s1"), "events": .array(Array(events.prefix(3)))]))
         #expect(try await reader.load(before: 12).items == expected.items)
     }
+    @Test func dispatchingBeforeOrAfterTurnStartedKeepsExactlyOneMergedRow() {
+        for dispatchFirst in [false, true] {
+            var p = CompanionChatProjector()
+            p.apply(event("session_started", 1, ["capabilities": .object(["queue": .string("client")])]))
+            p.apply(user("item", 2, "First")); p.apply(user("join", 3, "Second", joined: "item"))
+            if dispatchFirst { p.apply(queue(4, "dispatching")); p.apply(event("turn_started", 5, [:])) }
+            else { p.apply(event("turn_started", 4, [:])); p.apply(queue(5, "dispatching")) }
+            #expect(messages(p).count == 1 && messages(p).first?.queueState == .dispatching)
+            #expect(messages(p).first?.text == combined(["First", "Second"]))
+        }
+    }
+
+    @Test func failedDispatchIsNeverConsumedOrRetriedByTheNextTurn() {
+        var p = CompanionChatProjector()
+        p.apply(user("item", 1, "First")); p.apply(user("join", 2, "Second", joined: "item"))
+        p.apply(queue(3, "dispatching")); p.apply(queue(4, "failed")); p.apply(event("turn_started", 5, [:]))
+        #expect(messages(p).count == 1 && messages(p).first?.queueState == .failed)
+        #expect(p.queuedMessageIDs.isEmpty)
+        #expect(messages(p).first?.text == combined(["First", "Second"]))
+    }
+
+    @Test func fullMembershipListRecoversMissedDispatchWithoutClaimingDelivery() {
+        var p = CompanionChatProjector()
+        p.apply(user("item", 1, "First")); p.apply(queue(2, "queued", ids: ["item"]))
+        p.apply(user("join", 3, "Second", joined: "item"))
+        // The item's dispatching/delivered transitions were missed; this event concerns another item.
+        p.apply(event("queue_state", 6, ["queuedMessageIds": .array([.string("other")]),
+            "transition": .object(["messageIds": .array([.string("other")]), "status": .string("queued")])]))
+        #expect(messages(p).count == 1 && messages(p).first?.queueState == nil)
+        #expect(messages(p).first?.text == combined(["First", "Second"]))
+        p.apply(event("turn_started", 7, [:]))
+        #expect(messages(p).first?.queueState == nil)
+    }
+
+    @Test func nativeAndLegacyTurnFallbackConsumesOnlyTheOldestNeverMentionedRow() {
+        for native in [false, true] {
+            var p = CompanionChatProjector()
+            if native { p.apply(event("session_started", 1, ["capabilities": .object(["queue": .string("native")])])) }
+            p.apply(user("first", 2, "First")); p.apply(user("second", 3, "Second"))
+            p.apply(event("turn_started", 4, [:]))
+            #expect(messages(p).first?.queueState == nil)
+            #expect(messages(p).last?.queueState == .submitted)
+        }
+    }
+
+    @Test func runtimeOwnedRowsNeverUseTurnFallbackEvenBeforeTheirFirstQueueState() {
+        var p = CompanionChatProjector()
+        p.apply(event("session_started", 1, ["capabilities": .object(["queue": .string("client")])]))
+        p.apply(user("item", 2, "First")); p.apply(event("turn_started", 3, [:]))
+        #expect(messages(p).first?.queueState == .submitted)
+        p.apply(queue(4, "queued", ids: ["item"]))
+        p.updateCapabilities(.object(["queue": .string("native")]))
+        p.apply(event("turn_started", 5, [:]))
+        #expect(messages(p).first?.queueState == .queued)
+    }
+
+    @Test func snapshotOwnershipPreventsTurnFallbackAndReconcilesMissedTransitions() {
+        var p = CompanionChatProjector()
+        p.apply(user("item", 1, "First"))
+        p.applyQueueSnapshot(.object(["queueStateSeq": .integer(2), "queuedMessageIds": .array([.string("item")])]))
+        p.apply(event("turn_started", 3, [:]))
+        #expect(messages(p).first?.queueState == .queued)
+        p.applyQueueSnapshot(.object(["queueStateSeq": .integer(4), "queuedMessageIds": .array([])]))
+        #expect(messages(p).first?.queueState == nil)
+    }
+
+    @MainActor @Test func latestHostQueueCapabilityAndSnapshotKindGateNativeFallback() async throws {
+        let harness = try await LiveServiceHarness.start { transport in
+            await transport.setCapability("events", .object(["queueState": .string("queue_state")]))
+        }
+        defer { harness.stop() }
+        let queued = user("native", 2, "Native submission")
+        let turn = event("turn_started", 3, [:])
+        for kind in ["native", "client", "unknown"] {
+            await harness.transport.setRead("chat", LiveServiceHarness.chatSnapshot(fields: ["events": .array([queued, turn]),
+                "capabilities": .object(kind == "unknown" ? [:] : ["queue": .string(kind)])]))
+            let history = try await harness.service.history(for: harness.target)
+            guard case .message(let row) = history.items.first else { Issue.record("Expected queued message"); return }
+            #expect(row.queueState == (kind == "native" ? nil : .submitted))
+        }
+    }
+
+    @MainActor @Test func removingFromThePhoneAddressesTheItemAndDropsEveryJoinedPart() async throws {
+        let harness = try await LiveServiceHarness.start(); defer { harness.stop() }
+        let events = [user("item", 1, "First"), queue(2, "queued", ids: ["item"]), user("join", 3, "Second", joined: "item")]
+        await harness.transport.setRead("chat", LiveServiceHarness.chatSnapshot(fields: ["events": .array(events),
+            "capabilities": .object(["queue": .string("client")]), "queueStateSeq": .integer(2),
+            "queuedMessageIds": .array([.string("item")]), "queueRemovalSupported": .bool(true)]))
+        await harness.store.load(harness.target, force: true)
+        await harness.transport.enqueue(.completed(.object(["removed": .array([.string("item")])])))
+        await harness.store.removeQueuedMessage("item", target: harness.target)
+        #expect(await harness.transport.executed.map(\.kind) == [.removeQueued(agentID: "agent", sessionID: "s1", messageIDs: ["item"])])
+        await harness.transport.emit(.message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": queue(4, "removed")]))))
+        try await harness.waitUntil { harness.store.conversation(for: harness.target).items.isEmpty }
+    }
+
 }

@@ -307,6 +307,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let controlAuth: String
     public let controlAvailable: Bool?
     public let commands: [String]
+    public struct Events: Decodable, Sendable { public let queueState: String? }
+    public let events: Events?
+    public var supportsQueueState: Bool { events?.queueState == "queue_state" }
     public struct Idempotency: Decodable, Sendable {
         public let scope: String
         public let maxEntries: Int
@@ -454,6 +457,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         idempotency = try c.decode(Idempotency.self, forKey: .idempotency)
         func optional<T: Decodable>(_ key: CodingKeys) -> T? { (try? c.decodeIfPresent(T.self, forKey: key)) ?? nil }
         controlAvailable = optional(.controlAvailable)
+        events = optional(.events)
         pairing = optional(.pairing)
         routes = optional(.routes)
         createOptions = optional(.createOptions)
@@ -471,7 +475,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, pairing, idempotency, routes, createOptions, agentSettings, agentState
+        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
         case projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, dispatcher
     }
 }
