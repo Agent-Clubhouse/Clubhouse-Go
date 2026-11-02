@@ -182,7 +182,8 @@ jobs:
     name: ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
-    timeout-minutes: 40
+    # Clean "other" shards reached 39.6 minutes; retain the per-test hang deadlines below.
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.ui-shards) }}
