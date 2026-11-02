@@ -72,7 +72,7 @@ Desktop operators join exact trace/parent IDs where W3C context was propagated, 
 
 ## Privacy and validation
 
-Enrollment already enables closed-enum telemetry independently of Connection diagnostics Off. This PR does not capture before enrollment, enable a separate collector, add content, or expand sent report data; no App Privacy/enrollment disclosure contradiction was found. SDK adoption must keep availability and the combined off switch honest in the composer summary. No UI claims the disabled report blob is attached.
+Enrollment already enables closed-enum telemetry independently of Connection diagnostics Off. This PR does not add automatic capture before enrollment, enable a separate collector, add content, or expand sent report data; no App Privacy/enrollment disclosure contradiction was found. SDK adoption must keep availability and the combined off switch honest in the composer summary. No UI claims the disabled report blob is attached.
 
 Validation results are recorded in the draft PR. Run Swift package tests with coverage and ratchet, vendor package tests and hash verification, Debug/Release builds, all app tests and the preview/feedback UI suites on a newly created private simulator; delete that simulator afterward. No live E2E, production feedback, physical phone, shared simulator, publication, merge, host app restart/update or contact with Framebriar was performed.
 

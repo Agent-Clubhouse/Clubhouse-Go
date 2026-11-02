@@ -287,7 +287,7 @@ import SwiftUI
         defer { bridge.stop() }
         await model.setActive(true)
         await model.connect(String(repeating: "i", count: 43))
-        let first = try ReviewedFeedback(configuration: config, notes: "fixture")
+        let first = try ReviewedFeedback(configuration: config, notes: "fixture", capturedAt: clock.now)
         #expect(await model.submit(first))
         let committedAt = clock.now
         await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
@@ -295,7 +295,7 @@ import SwiftUI
         await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
         #expect(await network.reportAttemptTimes.count == 1)
         await model.setActive(false)
-        let second = try ReviewedFeedback(configuration: config, notes: "fixture")
+        let second = try ReviewedFeedback(configuration: config, notes: "fixture", capturedAt: clock.now)
         #expect(await model.submit(second))
         await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: true)
         clock.advance(270)
@@ -307,7 +307,7 @@ import SwiftUI
         #expect(await network.reportAttemptTimes.count == 2)
 
         await network.setReportStatus(503)
-        let third = try ReviewedFeedback(configuration: config, notes: "fixture")
+        let third = try ReviewedFeedback(configuration: config, notes: "fixture", capturedAt: clock.now)
         #expect(await model.submit(third))
         let failedAt = clock.now
         await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)

@@ -75,6 +75,10 @@ nonisolated public struct AnnexFeedbackDiagnostics: Codable, Sendable, Equatable
 
     public static func make(snapshot: AnnexDiagnosticSnapshot, now: Date = Date()) -> Self {
         guard now.timeIntervalSince1970.isFinite else { return unavailable() }
+        guard snapshot.schemaVersion == 1, snapshot.records.allSatisfy({
+            $0.startedAt.timeIntervalSince1970.isFinite && $0.durationMs.isFinite && (0...600_000).contains($0.durationMs)
+                && validHex($0.traceID, length: 32) && validHex($0.id, length: 16)
+        }) else { return unavailable(now: now) }
         guard snapshot.enabled else { return empty(state: .none, reason: .collection_off, now: now) }
         let start = now.addingTimeInterval(-300)
         // A long operation that finishes now is recent even if it began before this window.
@@ -84,8 +88,6 @@ nonisolated public struct AnnexFeedbackDiagnostics: Codable, Sendable, Equatable
         }.sorted { $0.startedAt.addingTimeInterval($0.durationMs / 1000) < $1.startedAt.addingTimeInterval($1.durationMs / 1000) }
         var entries: [Entry] = [], droppedAttrs = 0
         for record in records {
-            guard record.startedAt.timeIntervalSince1970.isFinite, record.durationMs.isFinite, record.durationMs >= 0,
-                  validHex(record.traceID, length: 32), validHex(record.id, length: 16) else { return unavailable(now: now) }
             var attrs: [String: Value] = ["operation": .string(record.operation.rawValue), "durationMs": .number(record.durationMs),
                                            "traceId": .string(record.traceID), "spanId": .string(record.id)]
             if let failure = Failure(record.failure) { attrs["failure"] = .string(failure.rawValue) }

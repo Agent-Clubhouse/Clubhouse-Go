@@ -74,6 +74,22 @@ struct FeedbackDiagnosticsTests {
         #expect(AnnexFeedbackDiagnostics.capture(from: source).dropped >= snapshot.dropped)
     }
 
+    @Test func arbitrarySnapshotStringsAndInvalidClosedFieldsNeverEnterTheExcerpt() throws {
+        let source = AnnexTelemetry(); source.setEnabled(true); source.record(.http)
+        let valid = try #require(source.snapshot().records.first)
+        let raw = AnnexDiagnosticRecord(serviceName: "private/path", serviceInstanceID: "person@example.test",
+            identifiers: ["annex.connection.id": "person@example.test", "peer.service.instance.id": UUID().uuidString.lowercased(), "name": "secret prompt"],
+            traceID: valid.traceID, id: valid.id, parentID: nil, operation: .http, startedAt: valid.startedAt,
+            durationMs: valid.durationMs, spanKind: 3, failure: .malformed,
+            measurements: ["statusCode": 999, "attempt": -1, "bytes": .nan], events: ["secret prompt"], eventOffsetsMs: [])
+        let snapshot = AnnexDiagnosticSnapshot(schemaVersion: 1, enabled: true, remoteExportEnabled: false, dropped: 0, records: [raw])
+        let result = AnnexFeedbackDiagnostics.make(snapshot: snapshot, now: Date().addingTimeInterval(1))
+        #expect(result.state == .attached && result.droppedAttrs == 6)
+        #expect(result.entries.first?.attrs["failure"] == .string("protocol"))
+        let encoded = String(decoding: try result.encoded(), as: UTF8.self)
+        #expect(!encoded.contains("private/path") && !encoded.contains("person@example.test") && !encoded.contains("secret prompt"))
+    }
+
     @Test func offEmptyNoProviderInvalidAndExpiredAreExplicit() throws {
         let source = AnnexTelemetry()
         #expect(AnnexFeedbackDiagnostics.capture(from: source).reason == .collection_off)
