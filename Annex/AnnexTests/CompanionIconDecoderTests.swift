@@ -72,4 +72,27 @@ final class CompanionIconDecoderTests: XCTestCase {
         print("ICON_GIF_AUDIT frames=2 uiImage=true uiWidth=\(image.size.width) uiHeight=\(image.size.height) store=true storeWidth=\(thumbnail.cgImage.width) storeHeight=\(thumbnail.cgImage.height) firstFrameRed=true")
     }
 
+    @MainActor func testLoopbackClose1013Audit() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let value = environment["ICON_AUDIT_WS_PORT"], let port = UInt16(value), port > 0,
+              let controlValue = environment["ICON_AUDIT_WS_CONTROL_PORT"], let controlPort = UInt16(controlValue), controlPort > 0 else {
+            throw XCTSkip("Requires this audit's two private loopback WebSocket fixtures")
+        }
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        // On the audited iOS 26 runtime, Foundation maps the peer's 1013 to no-status/1005.
+        // A normal-close control proves that the fixture's upgrade/close framing is valid.
+        for (sent, fixturePort, expected) in [(1013, port, 1005), (1000, controlPort, 1000)] {
+            let task = session.webSocketTask(with: URL(string: "ws://127.0.0.1:\(fixturePort)/")!)
+            task.resume()
+            do { _ = try await task.receive(); XCTFail("Fixture must close instead of sending a message") }
+            catch {
+                try await Task.sleep(for: .milliseconds(100))
+                let error = error as NSError
+                print("CLOSE_SIMULATOR sent=\(sent) surfaced=\(task.closeCode.rawValue) errorDomain=\(error.domain) errorCode=\(error.code)")
+                XCTAssertEqual(task.closeCode.rawValue, expected)
+            }
+        }
+    }
+
 }
