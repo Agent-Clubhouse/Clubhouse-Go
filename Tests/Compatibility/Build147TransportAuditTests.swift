@@ -250,6 +250,13 @@ private actor AuditIO: AnnexIO {
             await h.io.push(try JSONEncoder().encode(AnnexJSON.object(["type": .string("permission:request"), "epoch": .string("epoch"), "seq": .integer(wireSequence), "payload": .object(["requestId": .string("literal-event"), "toolName": .string("Write"), "toolInput": .string(preview)])])))
             try await Task.sleep(for: .milliseconds(30))
             #expect(h.store.conversation(for: h.target).items.count == before)
+            // A top-level catalog snapshot pendingPermissions is also not the /chat history fold.
+            var outer = try AuditIO.fullPayload(name: "permission-outer-snapshot")
+            outer["lastSeq"] = .integer(wireSequence)
+            outer["pendingPermissions"] = .array([LiveServiceHarness.chatEvent("s1", sequence: sequence, type: "permission_request", data: ["requestId": .string("outer-snapshot-only"), "toolName": .string("Write"), "rawInput": .object(["content": .string(preview)])])])
+            await h.io.push(try JSONEncoder().encode(AnnexJSON.object(["type": .string("snapshot"), "epoch": .string("epoch"), "payload": .object(outer)])))
+            try await h.wait { h.host?.projects.first?.name == "permission-outer-snapshot" }
+            #expect(h.store.conversation(for: h.target).items.count == before)
             await h.stop()
         } catch { await h.stop(); throw error }
     }

@@ -8,7 +8,8 @@ this is a model and source audit, not a screenshot claim.
 
 Fifteen cases passed: five payload shapes each through `/chat` pendingPermissions,
 live `chat:event`, and replayed `chat:event` (`replayed:true`), with inner event type
-`permission_request`. The literal outer `permission:request` event is ignored by 147.
+`permission_request`. The literal outer `permission:request` event and a catalog snapshot's top-level
+`pendingPermissions` field are ignored by 147.
 The desktop must preserve its existing rich-chat translation.
 
 | Input or action | Observable result on 147 |
