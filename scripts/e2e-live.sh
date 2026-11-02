@@ -16,6 +16,7 @@
 # Results land in build/e2e-live/ (override with E2E_OUT_DIR): LiveE2E.xcresult, xcodebuild and desktop logs.
 # Environment: DESKTOP_REF, DESKTOP_REPO, DESKTOP_DIR, E2E_SIMULATOR, E2E_OUT_DIR, E2E_SKIP_DESKTOP_CHECKOUT=1 (build
 # DESKTOP_DIR as it is checked out). See docs/testing.md.
+# Real icons: E2E_ICON_FIXTURE=1 with --only CompanionLiveE2ETests/test9fRealIconsAndDiskReuse.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -233,6 +234,9 @@ fixture() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.
 # still, xcodebuild prints the launch environment when a launch fails, so the log is scrubbed.
 run_tests() {
   rm -rf "$OUT/LiveE2E.xcresult"
+  # The icon proof mutates source files in stages. Retry the script with a fresh profile/device, not mid-proof.
+  local retry=("-retry-tests-on-failure" "-test-iterations" "2")
+  if [[ "${E2E_ICON_FIXTURE:-0}" == 1 ]]; then retry=(); fi
   TEST_RUNNER_CLUBHOUSE_RUN_LIVE_E2E=1 \
   TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION="$(cat "$FIXTURE_DIR/invitation.json")" \
   TEST_RUNNER_CLUBHOUSE_E2E_PROJECT="$(fixture project)" \
@@ -244,7 +248,7 @@ run_tests() {
     -project "$ROOT/Annex/Annex.xcodeproj" -scheme ClubhouseGo -destination "$DEST" \
     -derivedDataPath "$DERIVED" "${ONLY[@]}" \
     -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
-    -retry-tests-on-failure -test-iterations 2 \
+    ${retry[@]+"${retry[@]}"} \
     CODE_SIGNING_ALLOWED=NO -resultBundlePath "$OUT/LiveE2E.xcresult" \
     2>&1 | sed -E 's/("?CLUBHOUSE_COMPANION_TEST_INVITATION"? = ).*/\1"<redacted>";/' > "$1" || true
 }
@@ -253,7 +257,8 @@ log "Running ${ONLY[*]} (log: $OUT/xcodebuild-test.log)"
 run_tests "$OUT/xcodebuild-test.log"
 # A simulator crash ("server died", a failed launch) aborts the whole xcodebuild run, which per-test retries can't
 # recover. Reboot the simulator and run the suite once more; the tests cope with what the first attempt left.
-if grep -qE "server died|Failed to launch app|Test runner exited|Lost connection to the test manager" "$OUT/xcodebuild-test.log"; then
+# The staged icon proof instead fails so the next script invocation gets a fresh desktop profile and simulator.
+if [[ "${E2E_ICON_FIXTURE:-0}" != 1 ]] && grep -qE "server died|Failed to launch app|Test runner exited|Lost connection to the test manager" "$OUT/xcodebuild-test.log"; then
   log "The simulator crashed; rebooting it and running again (log: $OUT/xcodebuild-test-retry.log)"
   xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
   xcrun simctl boot "$UDID"
