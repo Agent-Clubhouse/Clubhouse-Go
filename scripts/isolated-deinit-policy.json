@@ -1,0 +1,224 @@
+{
+  "classes": {
+    "CompanionStore": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review."
+    },
+    "AnnexManualClock": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Transport/AnnexClock.swift",
+      "reason": "Lock-protected value state and Sendable task continuations; no UIKit ownership."
+    },
+    "CompanionRuntime": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
+      "reason": "Owns feedback presenter with UIKit windows/controllers; retain main-actor field destruction."
+    },
+    "CompanionMarkdown.Box": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionMarkdown.swift",
+      "reason": "Immutable markdown document value; NSObject cache wrapper has no UI fields."
+    },
+    "PassthroughWindow": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
+      "reason": "UIWindow subclass owns UIKit/controller/layer state."
+    },
+    "CompanionLifecycle": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Domain/CompanionLifecycle.swift",
+      "reason": "Owns injected main-actor transition closure; arbitrary captures not proved UI-free."
+    },
+    "CompanionTelemetry": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionTelemetry.swift",
+      "reason": "Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here."
+    },
+    "CompanionImageBytes": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionModels.swift",
+      "reason": "Immutable Data bytes, Sendable; no decoded UIImage is stored."
+    },
+    "ResourceBundleClass": {
+      "policy": "generated",
+      "source": null,
+      "reason": "Xcode-generated bundle-accessor class; no source patch. Runtime path remains unprotected."
+    },
+    "CompanionCodeScanner.Coordinator": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionQRPairing.swift",
+      "reason": "DataScanner delegate owns an injected callback; possible UI captures."
+    },
+    "CompanionLiveService": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
+      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review."
+    },
+    "CompanionLocalDrafts": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift",
+      "reason": "UserDefaults (thread-safe Foundation) plus fixed String; deinit performs no write."
+    },
+    "CompanionPreferences": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionPreferences.swift",
+      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained."
+    },
+    "CompanionArchiveReader": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift",
+      "reason": "Sendable transport reference and value target/session/event dictionary; no UI fields."
+    },
+    "CompanionDecisionQueue": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionDecisionQueue.swift",
+      "reason": "Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted."
+    },
+    "CompanionLocalFinished": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift",
+      "reason": "UserDefaults plus fixed String; no UI fields or deinit I/O."
+    },
+    "CompanionMessageSlices.Box": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift",
+      "reason": "Immutable array of message-slice values; NSObject cache wrapper has no UI fields."
+    },
+    "CompanionPartExpansion": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift",
+      "reason": "Optional Bool and Observation registrar only."
+    },
+    "CompanionStateLifetime": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift",
+      "reason": "Restricted reviewed production constructors: Queue or Int; factory captures only actor-owned model references, never raw UI. Any new constructor site requires review. Runtime use from #213 requires re-review when merged."
+    },
+    "CompanionTerminalFocus": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",
+      "reason": "Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view."
+    },
+    "CompanionPreviewService": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
+      "reason": "Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields."
+    },
+    "CompanionTerminalUIView": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",
+      "reason": "UIView subclass strongly owns key-input view, layers and UI state; preserve isolation."
+    },
+    "EnrollmentShakeReceiver.Receiver": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedback.swift",
+      "reason": "UIViewController subclass and main-only presentation/callback context."
+    },
+    "CompanionTerminalSession": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Domain/CompanionTerminal.swift",
+      "reason": "Injected terminal-channel protocol can own main-only objects; preserve isolation."
+    },
+    "CompanionTerminalKeyInput": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",
+      "reason": "UIView/UIKeyInput subclass, session and UIKit superclass state; preserve isolation."
+    },
+    "CompanionArchiveTranscript": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Domain/CompanionArchive.swift",
+      "reason": "Injected reader protocol is not constrained to UI-free implementations."
+    },
+    "CompanionComposerPasteHook.HookView": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
+      "reason": "UIView superclass owns main-only UIKit state, even though explicit references are weak."
+    },
+    "CompanionComposerPasteHook.Coordinator": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
+      "reason": "Owns UITextPasteItem array and injected main-actor callback; preserve isolation."
+    },
+    "CompanionStreamDiagnostics": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionStreamDiagnostics.swift",
+      "reason": "Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields."
+    },
+    "CompanionLiveTerminalChannel": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift",
+      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned."
+    },
+    "CompanionTranscriptExpansion": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift",
+      "reason": "Dictionary owns only ARC-safe CompanionPartExpansion values."
+    },
+    "CompanionPreviewTerminalChannel": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Adapters/CompanionPreviewTerminal.swift",
+      "reason": "Value scope/text/size and Sendable stream continuation; no UI fields."
+    }
+  },
+  "reviewedSources": {
+    "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift": "1d8dddfcdee35ae429e63ed3ad39f2368fcf7f03262baa9e7e232384cee1d03f",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "2115aa4f4b04c52f441e24981248cb3721f66fa133d701b6956fd81388de4914",
+    "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift": "a15a474464e096a03265d539254d1f5ace5eb1a97cf127d9764d7fb824f26dcb",
+    "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift": "f1ed5c16fa4be0d5e34eb12817a671d691b8814b6ce17c7b832dc10f743d7ea0",
+    "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift": "cfe559f2a4d58b3a5ab3ea7a5a68ba1d482a470c347babbc4426e90733ed840d",
+    "Annex/Annex/Companion/Adapters/CompanionPreferences.swift": "0713614b41cae1bdda1556cf7be3f2a5c18ddec86da757e78c34040e158c6dc2",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "0a9a8b2f8d7b9a14b8f97d9ad72a03900f09ab859e1baf3be4695b290d7d5240",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewTerminal.swift": "ee5484910ed7f02b8d3ff3d2a74608ecac9f19e3c3016fd3a81848614ea078ee",
+    "Annex/Annex/Companion/Adapters/CompanionStreamDiagnostics.swift": "b22aec540b25ea83bc01fc3f6b43d78c9d5c38ec86c0fea7e505c25a5bfb761d",
+    "Annex/Annex/Companion/Domain/CompanionArchive.swift": "ddc4c3c4f3bd69ff62b202ddf9e705f83a946d3f5a6a397401905f431ef31234",
+    "Annex/Annex/Companion/Domain/CompanionDecisionQueue.swift": "de4f58d5f56a7593f540f0dad5a7ac86ddb283686cc30ca288222102a5700eca",
+    "Annex/Annex/Companion/Domain/CompanionLifecycle.swift": "52caa3ecdcba6ba0b1833797ba3242e082b8de0e6a1d12e915e8e26dc9f14284",
+    "Annex/Annex/Companion/Domain/CompanionMarkdown.swift": "83dee5602ce75d8cfac80dd16c2df9b50c78f246f468c7c33b007d818d5682bb",
+    "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift": "8dbf9536ba2041c0c50089db45db54c9abed4c6a828975076a04303c45e04d94",
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "b58e4b2618da6b96b34042d9779b870152dbc32ca12c8b6bad434850a295b181",
+    "Annex/Annex/Companion/Domain/CompanionModels.swift": "6bc8fe8b6113899683d2cd8cafcf74a697111343fd82ed6d78e74e0f870c949e",
+    "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift": "6caccc162ea3a3de8ad9be13a25c0cb96cb5913fccf59c262b6176e64586c6cc",
+    "Annex/Annex/Companion/Domain/CompanionStore.swift": "dccd21033cf072c0b81e0c9e29d070f8663184c41251ce8825a7325aa818fa94",
+    "Annex/Annex/Companion/Domain/CompanionTerminal.swift": "d5ece39d22f0e2f6766dbc40a0db956fecf13f94fa3f3e0fb2193374e7a2327d",
+    "Annex/Annex/Companion/Views/CompanionAppRoot.swift": "83720114a48e9545daf92686436c8a58f8bc58fc3297afc5e466f3325479c860",
+    "Annex/Annex/Companion/Views/CompanionComposerPaste.swift": "ee5fee74fdd7cff0c74206e5cb3e42b588e0bfede2295b70a67483d45bf923ce",
+    "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift": "078553d0e0544a0989596dfde8e567240c62c127a7f931b213d08c14feec6af6",
+    "Annex/Annex/Companion/Views/CompanionFeedback.swift": "053722d6e95b70ca08ae0b5510abbe4e737dd62f74decb8a5109796c1443f3f8",
+    "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift": "4d1dab3165c72409c4a325c4cffc0d32e334366028bb2b5e51ff87faac138b09",
+    "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": "2c544c05e5b01d16c76d52a1c269914d06ab79b5e45c263a18ed59907702e9ee",
+    "Annex/Annex/Companion/Views/CompanionQRPairing.swift": "c5792548bf9d7bcd496c543e27f60603130ecec83abcca9dd3d4e49e0f1d3168",
+    "Annex/Annex/Companion/Views/CompanionRootView.swift": "4019abbc0d631335f2cb1d375e68bb57474b3e0852e0b3465cfdd9245f9bed01",
+    "Annex/Annex/Companion/Views/CompanionTelemetry.swift": "f93fff721a15baa395b925b4a3c727f2979044bc57ac927a0a075e1b6457c34c",
+    "Annex/Annex/Companion/Views/CompanionTerminalView.swift": "c99b93596c6d6a09b745ef93f5973736ec9cf9ed06f111a3926a2eb8c65f1f33",
+    "Annex/Annex/Companion/Views/CompanionWelcome.swift": "02a823a23de87d4dc9ea0965a8ff4ce055c26ce4e6efdff15b3150482a8116bc",
+    "Annex/Annex/Transport/AnnexClock.swift": "99e568c5b6c7a3a6596bc3179cacfdffb1b91cf81bda237652654c9789dd192f"
+  },
+  "reviewedConstructorFiles": {
+    "CompanionStateLifetime": [
+      "Annex/Annex/Companion/Views/CompanionRootView.swift",
+      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
+    ],
+    "CompanionDecisionQueue": [
+      "Annex/Annex/Companion/Views/CompanionRootView.swift",
+      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
+    ],
+    "CompanionStore": [
+      "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
+      "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift",
+      "Annex/Annex/Companion/Views/CompanionWelcome.swift",
+      "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift"
+    ]
+  },
+  "reviewedCallbackFiles": {
+    "onUnreachable": [
+      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
+    ],
+    "onRoutes": [
+      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
+    ],
+    "prepareResume": [
+      "Annex/Annex/Companion/Views/CompanionAppRoot.swift"
+    ]
+  }
+}

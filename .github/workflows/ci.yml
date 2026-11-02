@@ -137,6 +137,9 @@ jobs:
             ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
             -quiet
 
+      - name: Check reviewed deinit field-affinity policy
+        run: python3 scripts/check-isolated-deinits.py DerivedData/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
+
       # tar keeps the bundles' symlinks and executable bits, which an artifact zip drops.
       - name: Package test products
         run: tar -C DerivedData/Build -cf - Products | zstd -T0 -3 -q -o test-products.tar.zst
@@ -212,6 +215,11 @@ jobs:
         timeout-minutes: 5
         run: xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 
+      # Runs the unfixed compiler-generated path too: no OS guard or test-framework task locals.
+      - name: Observe installed runtime isolated-deinit control
+        if: matrix.unit
+        run: scripts/probe-isolated-deinit-runtime.sh "$SIMULATOR_UDID"
+
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.
@@ -245,6 +253,7 @@ jobs:
           path: |
             TestResults
             xcodebuild-*.log
+            build/isolated-deinit-runtime/*.log
           retention-days: 7
 
   # One check that is green when every lane this change needs passed (skipped lanes are fine).
