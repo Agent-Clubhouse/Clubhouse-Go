@@ -44,6 +44,19 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: path.path))
     }
 
+    @Test func svgAndOversizedFetchesUseBoundedRasterFallback() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let svg = Data(##"<svg xmlns="http://www.w3.org/2000/svg" width="1000000" height="1000000"><rect width="1000000" height="1000000" fill="#6366f1"/></svg>"##.utf8)
+        let store = CompanionIconStore(directory: root)
+        #expect(await store.ingest(dataURL: "data:image/svg+xml;base64," + svg.base64EncodedString(), host: "desktop", kind: .agent, id: "svg") == nil)
+        #expect(await store.insert(svg, for: key("direct-svg")) == false)
+        await store.setFetcher(for: "desktop") { _, limit in
+            .init(status: 200, contentType: "image/png", data: Data(repeating: 0, count: limit + 1))
+        }
+        #expect(await store.image(for: key("oversize"), points: 32) == nil)
+        #expect(await store.statistics.totalBytes == 0)
+    }
+
     @Test func downsamplingAndPixelBound() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let store = CompanionIconStore(directory: root, limits: .init(inputPixels: 100_000))
@@ -172,7 +185,7 @@ import Testing
         ]))
         try await harness.loadSession()
         let history = try await harness.service.history(for: harness.target)
-        #expect(!history.messages.isEmpty)
+        #expect(!history.items.isEmpty)
         #expect(harness.host?.connection == .connected)
         #expect(harness.host?.projects.first?.agents.first?.icon == nil)
     }

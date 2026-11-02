@@ -9,10 +9,10 @@ enum CompanionAgentFace: Equatable, Sendable {
 
     static let emojiWashOpacity = Double(0x20) / 255
 
-    static func content(name: String, emoji: String? = nil, iconData: Data? = nil, isQuick: Bool = false) -> Self {
+    static func content(name: String, emoji: String? = nil, hasIcon: Bool = false, isQuick: Bool = false) -> Self {
         if isQuick { return .quick }
         if let emoji, !emoji.isEmpty { return .emoji(emoji) }
-        if iconData != nil { return .icon }
+        if hasIcon { return .icon }
         return .initials(initials(name))
     }
 

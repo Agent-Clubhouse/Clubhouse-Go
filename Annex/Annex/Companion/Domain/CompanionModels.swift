@@ -229,7 +229,7 @@ struct CompanionProject: Identifiable, Sendable, Equatable {
     /// The desktop's identity for the project: an `AGENT_COLORS` id, an emoji, and its icon image.
     var color: String? = nil
     var emoji: String? = nil
-    var iconData: Data? = nil
+    var icon: CompanionIconReference? = nil
 }
 
 struct CompanionAgent: Identifiable, Sendable, Equatable {
@@ -256,7 +256,7 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     /// The desktop's identity for the agent: an `AGENT_COLORS` id, an emoji, and its icon image.
     var color: String? = nil
     var emoji: String? = nil
-    var iconData: Data? = nil
+    var icon: CompanionIconReference? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
     /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.

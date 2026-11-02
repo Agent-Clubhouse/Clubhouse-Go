@@ -66,6 +66,7 @@ actor CompanionIconStore {
     private var lastAccess: TimeInterval = 0
     private var failures: [CompanionIconReference: Failure] = [:]
     private var fetchers: [String: Fetcher] = [:]
+    private var removedHosts: Set<String> = []
     private var jobs: [CompanionIconReference: Job] = [:]
     private var queue: [CompanionIconReference] = []
     private var running = 0
@@ -82,6 +83,7 @@ actor CompanionIconStore {
     }
 
     var statistics: Statistics { prepare(); return stats }
+    func activate(host: String) { removedHosts.remove(host) }
     func setFetcher(for host: String, _ fetcher: Fetcher?) { fetchers[host] = fetcher }
     func fileURL(for key: CompanionIconReference) -> URL {
         directory.appendingPathComponent(key.hostDigest, isDirectory: true).appendingPathComponent(key.digest)
@@ -100,7 +102,7 @@ actor CompanionIconStore {
 
     @discardableResult func insert(_ data: Data, for key: CompanionIconReference) -> Bool {
         prepare()
-        guard data.count <= limits.imageBytes, data.count <= limits.totalBytes,
+        guard !removedHosts.contains(key.host), data.count <= limits.imageBytes, data.count <= limits.totalBytes,
               thumbnail(data, pixels: 96) != nil else { return false }
         let url = fileURL(for: key)
         if files[url] != nil, read(key, pixels: 96) != nil { return true }
@@ -115,7 +117,7 @@ actor CompanionIconStore {
             stats.totalBytes += data.count
             touch(url)
             failures.removeValue(forKey: key)
-            evict()
+            evict(); metric()
             return true
         } catch { return false }
     }
@@ -128,7 +130,7 @@ actor CompanionIconStore {
         stats.misses += 1; metric(.iconMiss)
         guard fetchers[key.host] != nil, failures[key].map({ $0.retry <= now() }) ?? true else { return nil }
         let consumer = UUID()
-        return await withTaskCancellationHandler {
+        let result: CompanionIconImage? = await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 guard !Task.isCancelled else { continuation.resume(returning: nil); return }
                 if jobs[key] == nil {
@@ -139,11 +141,13 @@ actor CompanionIconStore {
                 pump()
             }
         } onCancel: { Task { await self.cancel(key, consumer: consumer) } }
+        return Task.isCancelled ? nil : result
     }
 
     /// Forgetting a desktop cancels pending work and fences late responses before deleting its entire scope.
     func remove(host: String) {
         prepare()
+        removedHosts.insert(host)
         fetchers.removeValue(forKey: host)
         for key in Array(jobs.keys) where key.host == host { discard(key) }
         failures = failures.filter { $0.key.host != host }
@@ -151,7 +155,7 @@ actor CompanionIconStore {
         for url in Array(files.keys) where url.deletingLastPathComponent().lastPathComponent == digest { delete(url, eviction: false) }
         try? FileManager.default.removeItem(at: directory.appendingPathComponent(digest))
         decoded.removeAllObjects()
-        pump()
+        metric(); pump()
     }
 
     private func pump() {
@@ -216,7 +220,8 @@ actor CompanionIconStore {
     private func thumbnail(_ data: Data, pixels: Int) -> CompanionIconImage? {
         guard !data.isEmpty, let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
               CGImageSourceGetCount(source) > 0, CGImageSourceGetStatus(source) == .statusComplete,
-              let type = CGImageSourceGetType(source) as String?, UTType(type)?.conforms(to: .image) == true,
+              let identifier = CGImageSourceGetType(source) as String?, let type = UTType(identifier),
+              [UTType.png, .jpeg, .gif, .tiff, .bmp, .heic, .heif, .webP].contains(where: { type.conforms(to: $0) }),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,
               let height = properties[kCGImagePropertyPixelHeight] as? Int,
@@ -258,8 +263,8 @@ actor CompanionIconStore {
         if eviction { stats.evictions += 1; metric(.iconEviction) }
     }
     private func recordFailure() { stats.failures += 1; metric(.iconFailure) }
-    private func metric(_ event: AnnexDiagnosticEvent) {
+    private func metric(_ event: AnnexDiagnosticEvent? = nil) {
         let span = AnnexTelemetry.shared.begin(.iconCache)
-        span.event(event); span.number(.cacheBytes, Double(stats.totalBytes)); span.end()
+        if let event { span.event(event) }; span.number(.cacheBytes, Double(stats.totalBytes)); span.end()
     }
 }

@@ -359,3 +359,14 @@ Do not promise safe downgrade of the new durable queue format.
   changes. Report the candidate commit/build and gaps to the orchestrator. The user chooses any install
   and submits their own labeled phone test report; Framebriar reads its body from Azure. Until that
   happens, real device, Azure readback and URLSession delivery remain unproven. No automatic live send.
+
+## Icon cache
+
+`iconCache` uses only the fixed events `iconHit`, `iconMiss`, `iconFailure` and
+`iconEviction`, with numeric `cacheBytes`. The enrolled telemetry bridge emits the
+`app.icons` counter by these closed outcomes and `app.icons.cache.bytes` observations.
+`iconFetch` records bounded `responseBytes` and `durationMs`, mapped to
+`app.icons.fetch.duration`. No host, kind/id key, token, filename, URL, MIME string or
+exception text is recorded. Existing capture and enrollment gates apply unchanged.
+
+

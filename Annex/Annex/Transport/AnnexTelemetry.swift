@@ -197,7 +197,7 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     func shutdown(explicitTimeout: TimeInterval?) async { _ = configure(enabled: false) }
 }
 nonisolated private extension AnnexDiagnosticNumber {
-    static let allKeys: [Self] = [.statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
+    static let allKeys: [Self] = [.cacheBytes, .durationMs, .statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
         .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
         .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
 }

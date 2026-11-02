@@ -102,17 +102,17 @@ struct CompanionSenderIdentity: Sendable, Equatable {
     var name: String
     var color: String? = nil
     var emoji: String? = nil
-    var iconData: Data? = nil
+    var icon: CompanionIconReference? = nil
     var isQuick = false
 
     var face: CompanionAgentFace {
-        .content(name: name, emoji: emoji, iconData: iconData, isQuick: isQuick)
+        .content(name: name, emoji: emoji, hasIcon: icon != nil, isQuick: isQuick)
     }
 }
 
 extension CompanionSenderIdentity {
     init(agent: CompanionAgent) {
-        self.init(id: agent.id.agentID, name: agent.name, color: agent.color, emoji: agent.emoji, iconData: agent.iconData, isQuick: agent.isQuick)
+        self.init(id: agent.id.agentID, name: agent.name, color: agent.color, emoji: agent.emoji, icon: agent.icon, isQuick: agent.isQuick)
     }
 }
 

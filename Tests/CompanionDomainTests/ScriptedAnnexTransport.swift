@@ -194,12 +194,14 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     let store: CompanionStore
 
     /// `configure` runs before the host is registered, so the first catalog refresh already sees it.
-    static func start(alias: String = "Fixture", waitForConnection: Bool = true,
+    static func start(alias: String = "Fixture", waitForConnection: Bool = true, iconStore: CompanionIconStore? = nil,
                       configure: (ScriptedAnnexTransport) async -> Void = { _ in },
                       prepare: (CompanionLiveService) -> Void = { _ in }) async throws -> LiveServiceHarness {
         let transport = ScriptedAnnexTransport()
         await configure(transport)
-        let service = CompanionLiveService()
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/harness-icons/\(UUID().uuidString)")
+        let service = CompanionLiveService(iconStore: iconStore ?? CompanionIconStore(directory: root))
         prepare(service)
         let store = CompanionStore(service: service)
         store.start()

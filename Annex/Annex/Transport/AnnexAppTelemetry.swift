@@ -115,9 +115,10 @@ nonisolated public enum AnnexAppTelemetry {
         // Metric labels come only from small closed sets, never identifiers.
         switch record.operation {
         case .iconCache:
-            for event in record.events where [.iconHit, .iconMiss, .iconFailure, .iconEviction].contains(event.name) {
+            for name in record.events {
+                guard let event = AnnexDiagnosticEvent(rawValue: name), [.iconHit, .iconMiss, .iconFailure, .iconEviction].contains(event) else { continue }
                 signals.append(.counter(name: "app.icons", unit: "{icon}", value: 1,
-                                        attributes: ["app.outcome": .string(event.name.rawValue)]))
+                                        attributes: ["app.outcome": .string(event.rawValue)]))
             }
             if let bytes = record.measurements[AnnexDiagnosticNumber.cacheBytes.rawValue] {
                 signals.append(.histogram(name: "app.icons.cache.bytes", unit: "By", value: bytes, attributes: [:]))
