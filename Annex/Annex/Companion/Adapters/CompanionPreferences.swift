@@ -17,6 +17,8 @@ import UIKit
         static let projectActivity = "companion.projectActivity"
         static let idleDays = "companion.idleDays"
         static let idleExpanded = "companion.idleExpanded"
+        static let collapsedAgents = "companion.collapsedAgents"
+        static let expandedFolds = "companion.expandedFolds"
     }
     @ObservationIgnored private let defaults: UserDefaults
     /// The system's name for this phone (overridable in tests). Without the user-assigned-device-name entitlement iOS reports only "iPhone".
@@ -41,6 +43,33 @@ import UIKit
     /// Whether the "N idle projects" section is open.
     var idleExpanded: Bool { didSet { defaults.set(idleExpanded, forKey: Key.idleExpanded) } }
 
+    /// Host and agent identity, independent of the project an agent currently belongs to.
+    var collapsedAgentKeys: Set<String> { didSet { defaults.set(Array(collapsedAgentKeys), forKey: Key.collapsedAgents) } }
+    var expandedFolds: Set<String> { didSet { defaults.set(Array(expandedFolds), forKey: Key.expandedFolds) } }
+
+    private static func agentKey(_ target: CompanionTarget) -> String { "\(target.hostID)\u{1F}\(target.agentID)" }
+    func isAgentCollapsed(_ target: CompanionTarget) -> Bool { collapsedAgentKeys.contains(Self.agentKey(target)) }
+    func toggleAgentCollapsed(_ target: CompanionTarget) {
+        let key = Self.agentKey(target)
+        if !collapsedAgentKeys.insert(key).inserted { collapsedAgentKeys.remove(key) }
+    }
+    func collapsedAgents(in rows: [CompanionAgentTreeRow]) -> Set<CompanionTarget> {
+        Set(rows.lazy.filter { self.isAgentCollapsed($0.id) }.map(\.id))
+    }
+    func toggleFold(_ key: String) {
+        if !expandedFolds.insert(key).inserted { expandedFolds.remove(key) }
+    }
+    /// Offline/reconnecting catalogs are not evidence of disposal. Other hosts' preferences survive.
+    func pruneAgentCollapse(hosts: [CompanionHost]) {
+        var next = collapsedAgentKeys
+        for host in hosts where host.connection == .connected {
+            let prefix = "\(host.id)\u{1F}"
+            let live = Set(host.projects.flatMap(\.agents).map { Self.agentKey($0.id) })
+            next = next.filter { !$0.hasPrefix(prefix) || live.contains($0) }
+        }
+        if next != collapsedAgentKeys { collapsedAgentKeys = next }
+    }
+
     init(defaults: UserDefaults = .standard, systemDeviceName: String? = nil) {
         self.defaults = defaults
         self.systemDeviceName = systemDeviceName ?? Self.currentDeviceName()
@@ -53,6 +82,8 @@ import UIKit
         projectActivity = ((defaults.dictionary(forKey: Key.projectActivity) as? [String: Double]) ?? [:]).mapValues(Date.init(timeIntervalSince1970:))
         idleDays = (defaults.object(forKey: Key.idleDays) as? Int) ?? CompanionIdleRule.defaultDays
         idleExpanded = defaults.bool(forKey: Key.idleExpanded)
+        collapsedAgentKeys = Set(defaults.stringArray(forKey: Key.collapsedAgents) ?? [])
+        expandedFolds = Set(defaults.stringArray(forKey: Key.expandedFolds) ?? [])
     }
 
     /// The name sent as `alias` when pairing: trimmed, never empty, and within the desktop's 128-character limit.

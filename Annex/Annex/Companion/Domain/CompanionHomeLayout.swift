@@ -66,11 +66,12 @@ struct CompanionProjectGroup: Identifiable, Sendable, Equatable {
     var isPinned: Bool
     var isIdle: Bool
     /// Awake agents and anything else that isn't folded, in the Home sort.
-    var agents: [CompanionAgent]
+    var tree: CompanionAgentTree
+    var agents: [CompanionAgent] { tree.active.map(\.agent) }
     /// Durable agents that are asleep: "N sleeping".
-    var sleeping: [CompanionAgent]
+    var sleeping: [CompanionAgent] { tree.sleeping.map(\.agent) }
     /// Quick agents that have finished their task: "N finished quick agents".
-    var finishedQuick: [CompanionAgent]
+    var finishedQuick: [CompanionAgent] { tree.finishedQuick.map(\.agent) }
     var id: CompanionProjectTarget { entry.id }
     var isEmpty: Bool { agents.isEmpty && sleeping.isEmpty && finishedQuick.isEmpty }
 }
@@ -109,17 +110,15 @@ struct CompanionHomeLayout: Sendable, Equatable {
         if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
         var pinned: [CompanionProjectGroup] = [], active: [CompanionProjectGroup] = [], idle: [CompanionProjectGroup] = []
         for entry in ordered {
-            var agents = CompanionAgentOrdering.ordered(entry.project.agents, sort: sort, lastActivity: agentActivity)
-            if let held = hold?.agents[entry.id] { agents = CompanionListHold.apply(agents, order: held, id: \.id) }
-            let running = agents.contains(where: isAwake)
+            let tree = CompanionAgentTree.build(entry.project.agents, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
+            let running = entry.project.agents.contains(where: isAwake)
             let state = shared(entry)
             let isPinned = state?.pinned ?? rule.pinned.contains(entry.orderKey)
             // The desktop's flag already leaves running projects out; checking again covers a change still on its way.
             let isIdle = state.map { $0.idle && !running }
                 ?? rule.isIdle(entry.orderKey, running: running, lastActivity: projectActivity(entry.id), now: now)
             let group = CompanionProjectGroup(entry: entry, isPinned: isPinned, isIdle: isIdle,
-                                              agents: agents.filter { !isSleeping($0) && !isFinishedQuick($0) },
-                                              sleeping: agents.filter(isSleeping), finishedQuick: agents.filter(isFinishedQuick))
+                                              tree: tree)
             if isPinned { pinned.append(group) } else if isIdle { idle.append(group) } else { active.append(group) }
         }
         return .init(projects: pinned + active, idle: idle)
