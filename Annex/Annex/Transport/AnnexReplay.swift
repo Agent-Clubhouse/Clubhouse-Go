@@ -31,7 +31,7 @@ nonisolated public struct AnnexReplayCursor: Sendable {
     private var needsSnapshot = true
     public init() {}
     public mutating func beginConnection() { needsSnapshot = true }
-    public enum Decision: Equatable, Sendable { case deliver, duplicate, resync(AnnexResyncReason) }
+    public enum Decision: Equatable, Sendable { case deliver, duplicate, awaitSnapshot, resync(AnnexResyncReason) }
     public mutating func accept(_ envelope: AnnexEnvelope) -> Decision {
         if envelope.type == "snapshot" {
             guard let sequence = envelope.snapshotSequence, sequence >= 0 else { return .resync(.sequenceGap) }
@@ -51,6 +51,10 @@ nonisolated public struct AnnexReplayCursor: Sendable {
             return restarted ? .resync(.serverRestart) : .deliver
         }
         if envelope.type == "replay:gap" { return .resync(.replayGap) }
+        // A connection has no event baseline until its first snapshot. Keep the
+        // previous connection's checkpoint intact; mobile:replay will recover
+        // sequenced events beyond the authoritative new snapshot.
+        if needsSnapshot, envelope.seq != nil { return .awaitSnapshot }
         if let nextEpoch = envelope.epoch, let epoch, nextEpoch != epoch { return .resync(.serverRestart) }
         guard let seq = envelope.seq else { return .deliver }
         guard seq >= 0 else { return .resync(.sequenceGap) }

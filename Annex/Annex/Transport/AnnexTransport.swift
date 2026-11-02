@@ -25,6 +25,9 @@ public actor AnnexTransport: AnnexTransporting {
     private var cursor = AnnexReplayCursor()
     private var awaitingFirstSnapshot = false
     private var snapshotFailureDeadline: Task<Void, Never>?
+    private var droppedBeforeSnapshot = false
+    private var awaitingInitialReplay = false
+    private var initialReplayDeadline: Task<Void, Never>?
     private var commandBusy = false
     private struct CommandRecord { let digest: String; let expiresAt: Date; var receipt: AnnexCommandReceipt? }
     private struct CommandKey: Hashable { let epoch: String; let id: String }
@@ -134,6 +137,8 @@ public actor AnnexTransport: AnnexTransporting {
         capabilities = nil
         awaitingFirstSnapshot = false
         snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
+        initialReplayDeadline?.cancel(); initialReplayDeadline = nil
+        droppedBeforeSnapshot = false; awaitingInitialReplay = false
         transition(.disconnected)
         await oldSocket?.close()
     }
@@ -354,6 +359,7 @@ public actor AnnexTransport: AnnexTransporting {
                 try await sendTelemetryHello(on: newSocket, attemptID: attemptID, generation: current)
                 cursor.beginConnection()
                 awaitingFirstSnapshot = true
+                droppedBeforeSnapshot = false; awaitingInitialReplay = false
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
                 try await consume(newSocket, generation: current)
@@ -449,7 +455,10 @@ public actor AnnexTransport: AnnexTransporting {
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID) async throws {
         let (failureTimeout, timeout) = AsyncThrowingStream<Void, Error>.makeStream()
         defer {
-            if current == generation { snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil }
+            if current == generation {
+                snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
+                initialReplayDeadline?.cancel(); initialReplayDeadline = nil
+            }
             timeout.finish()
         }
         // Structured lifetime: ping, receive and the explicit-failure signal stop together.
@@ -484,6 +493,10 @@ public actor AnnexTransport: AnnexTransporting {
 
     private func isAwaitingFirstSnapshot(generation current: UUID) -> Bool {
         current == generation && awaitingFirstSnapshot
+    }
+
+    private func isAwaitingInitialReplay(generation current: UUID) -> Bool {
+        current == generation && awaitingInitialReplay
     }
 
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
@@ -521,7 +534,19 @@ public actor AnnexTransport: AnnexTransporting {
                 throw AnnexTransportError.malformedResponse
             }
         }
+        // A live suffix may already be queued ahead of the replay reply. If we
+        // dropped pre-snapshot frames, only the ordered replay can fill that
+        // interval. Unsequenced replies and terminal output keep flowing.
+        if awaitingInitialReplay {
+            if envelope.type == "replay:start" {
+                awaitingInitialReplay = false
+                initialReplayDeadline?.cancel(); initialReplayDeadline = nil
+            } else if envelope.seq != nil { return }
+        }
         switch cursor.accept(envelope) {
+        case .awaitSnapshot:
+            droppedBeforeSnapshot = true
+            return
         case .duplicate:
             telemetry.record(.replay, event: .duplicate)
             return
@@ -532,6 +557,17 @@ public actor AnnexTransport: AnnexTransporting {
         case .deliver: break
         }
         if envelope.type == "snapshot" {
+            if awaitingFirstSnapshot && droppedBeforeSnapshot {
+                awaitingInitialReplay = true
+                // Bound only replay startup after a valid snapshot. A slow first
+                // snapshot retains #207's explicit-failure grace, and replay:end
+                // is never required to release live events.
+                initialReplayDeadline = Task { [weak self, clock] in
+                    do { try await clock.sleep(.seconds(30)) } catch { return }
+                    guard await self?.isAwaitingInitialReplay(generation: current) == true else { return }
+                    snapshotFailure.finish(throwing: URLError(.timedOut))
+                }
+            }
             awaitingFirstSnapshot = false
             snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
             connectionDiagnostic?.event(.connected); connectionDiagnostic?.end(); connectionDiagnostic = nil
@@ -541,8 +577,8 @@ public actor AnnexTransport: AnnexTransporting {
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {
-            var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
-            if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
+            var replay: [String: AnnexJSON] = ["type": .string("mobile:replay"), "since": .integer(seq)]
+            if let epoch = capabilities?.epoch ?? cursor.epoch { replay["epoch"] = .string(epoch) }
             telemetry.record(.replay, event: .replayRequested)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }

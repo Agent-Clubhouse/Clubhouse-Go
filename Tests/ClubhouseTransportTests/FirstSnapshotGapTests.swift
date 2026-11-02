@@ -2,8 +2,7 @@ import Foundation
 import Testing
 @testable import ClubhouseTransport
 
-// Reproduction-only regression tests for the secondary sequencing hypothesis.
-// These intentionally fail on the current client and belong on their own branch.
+// Regression tests for the independently reproduced first-snapshot sequencing races.
 // No real desktop, phone, simulator or native UI is involved.
 private struct SnapshotRaceSession: Sendable {
     var initial: [AnnexEnvelope]
@@ -11,6 +10,8 @@ private struct SnapshotRaceSession: Sendable {
     var afterReplay: [AnnexEnvelope] = []
     var replayGap = false
     var receiveFailure: NSError?
+    var omitReplayStart = false
+    var omitReplayEnd = false
 }
 
 private actor SnapshotRaceSocket: AnnexWebSocket {
@@ -37,9 +38,9 @@ private actor SnapshotRaceSocket: AnnexWebSocket {
         if session.replayGap { frames = [AnnexEnvelope(type: "replay:gap", epoch: "race")] }
         else {
             let since = request["since"]?.integer ?? 0
-            var response = [AnnexEnvelope(type: "replay:start", epoch: "race")]
+            var response = session.omitReplayStart ? [] : [AnnexEnvelope(type: "replay:start", epoch: "race")]
             response.append(contentsOf: session.replay.filter { ($0.seq ?? 0) > since })
-            response.append(AnnexEnvelope(type: "replay:end", epoch: "race"))
+            if !session.omitReplayEnd { response.append(AnnexEnvelope(type: "replay:end", epoch: "race")) }
             response.append(contentsOf: session.afterReplay)
             response.append(AnnexEnvelope(type: "fixture:end"))
             frames = response
@@ -266,7 +267,7 @@ func heldEventsAfterSnapshotFailureRecoverOnTheProposedRetrySchedule(recoveredAt
     try await socket.push([snapshot(100), event(101)])
     let frames = try await raceCollect(stream) { isRaceMessage($0, "fixture:end") }
     #expect(frames.contains(.connection(.connected)))
-    let delivered: [Int64] = frames.compactMap { if case .message(let e) = $0 { e.seq } else { nil } }
+    let delivered: [Int64] = frames.compactMap { frame -> Int64? in if case .message(let e) = frame { e.seq } else { nil } }
     #expect(delivered == [101])
     #expect(!frames.contains { if case .connection(.reconnecting) = $0 { true } else { false } })
     await clock.waitForSleepers(1)
@@ -309,5 +310,75 @@ func heldEventsAfterSnapshotFailureRecoverOnTheProposedRetrySchedule(recoveredAt
     try await current.push([AnnexEnvelope(type: "fixture:after-grace")])
     _ = try await raceCollect(stream) { isRaceMessage($0, "fixture:after-grace") }
     #expect(await current.closed == false, "The old grace timer cannot close the replacement connection")
+    await transport.disconnect()
+}
+
+@Test func sequencedFramesCannotChangeTheCursorBeforeAnAuthoritativeSnapshot() {
+    var cursor = AnnexReplayCursor()
+    #expect(cursor.accept(event(999)) == .awaitSnapshot)
+    #expect(cursor.lastSequence == nil)
+    #expect(cursor.accept(snapshot(100)) == .deliver)
+    cursor.beginConnection()
+    #expect(cursor.accept(AnnexEnvelope(type: "chat:event", seq: -1, epoch: "different")) == .awaitSnapshot)
+    #expect(cursor.accept(event(105)) == .awaitSnapshot)
+    #expect(cursor.lastSequence == 100)
+    #expect(cursor.epoch == "race")
+    #expect(cursor.accept(AnnexEnvelope(type: "pty:data")) == .deliver)
+    #expect(cursor.accept(snapshot(104)) == .deliver)
+    #expect(cursor.accept(event(105)) == .deliver)
+    #expect(cursor.accept(event(107)) == .resync(.sequenceGap))
+}
+
+@Test(.timeLimit(.minutes(1))) func sequencedTerminalFramesReplayOnceAndUnsequencedRepliesStayImmediate() async throws {
+    let terminal = ["pty:data", "pty:exit", "pty:spawned"].enumerated().map {
+        AnnexEnvelope(type: $0.element, payload: .object(["data": .string("terminal")]), seq: 101 + Int64($0.offset), epoch: "race")
+    }
+    let unsequenced = AnnexEnvelope(type: "pty:data", payload: .object(["data": .string("immediate")]))
+    let terminalError = AnnexEnvelope(type: "error", payload: .object(["op": .string("pty:spawn"), "message": .string("session_not_found")]))
+    let initial = [unsequenced, terminalError] + terminal + [snapshot(100), event(104)]
+    let io = SnapshotRaceIO([.init(initial: initial, replay: terminal + [event(104)])], clock: AnnexManualClock())
+    let transport = try await raceTransport(io)
+    let events = await transport.events(), terminals = await transport.terminalEvents()
+    try await transport.connect()
+    let frames = try await raceCollect(events) { isRaceMessage($0, "fixture:end") }
+    #expect(frames.compactMap { frame -> Int64? in if case .message(let e) = frame { e.seq } else { nil } } == [104])
+    #expect(!frames.contains { if case .resyncRequired = $0 { true } else { false } })
+    await transport.disconnect()
+    var received: [AnnexEnvelope] = []
+    for await frame in terminals {
+        if case .frame(let e) = frame { received.append(e) }
+        if received.count == 5 { break }
+    }
+    #expect(received.map(\.type) == ["pty:data", "error", "pty:data", "pty:exit", "pty:spawned"])
+    #expect(received.compactMap(\.seq) == [101, 102, 103])
+}
+
+@Test(.timeLimit(.minutes(1))) func missingReplayStartIsBoundedAfterTheFirstSnapshot() async throws {
+    let clock = AnnexManualClock()
+    let io = SnapshotRaceIO([.init(initial: [event(105), snapshot(100)], omitReplayStart: true)], clock: clock)
+    let transport = try await raceTransport(io), events = await transport.events()
+    try await transport.connect()
+    _ = try await raceCollect(events) { isRaceMessage($0, "fixture:end") }
+    await clock.waitForSleepers(2) // ping and bounded replay-start wait
+    clock.advance(by: .seconds(30))
+    let frames = try await raceCollect(events) { if case .connection(.reconnecting) = $0 { true } else { false } }
+    #expect(frames.contains { if case .connection(.reconnecting(let attempt, _)) = $0 { attempt == 1 } else { false } })
+    #expect(await io.sockets.first?.closed == true)
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func missingReplayEndNeverStallsLiveFramesOrLeavesADeadline() async throws {
+    let clock = AnnexManualClock()
+    let io = SnapshotRaceIO([.init(initial: [event(101), snapshot(100), event(103)], replay: [event(101), event(102)], afterReplay: [event(103)], omitReplayEnd: true)], clock: clock)
+    let transport = try await raceTransport(io), events = await transport.events()
+    try await transport.connect()
+    let frames = try await raceCollect(events) { isRaceMessage($0, "fixture:end") }
+    #expect(frames.compactMap { frame -> Int64? in if case .message(let e) = frame { e.seq } else { nil } } == [101, 102, 103])
+    await clock.waitForSleepers(1)
+    clock.advance(by: .seconds(31))
+    try await io.sockets.first?.push([event(104), .init(type: "fixture:after-replay")])
+    let live = try await raceCollect(events) { isRaceMessage($0, "fixture:after-replay") }
+    #expect(!live.contains { if case .connection(.reconnecting) = $0 { true } else { false } })
+    #expect(live.compactMap { frame -> Int64? in if case .message(let e) = frame { e.seq } else { nil } } == [104])
     await transport.disconnect()
 }
