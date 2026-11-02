@@ -583,7 +583,9 @@ enum CompanionTimelineItem: Identifiable, Sendable, Equatable {
 }
 
 struct CompanionConversation: Equatable, Sendable {
-    var items: [CompanionTimelineItem] = []
+    /// Revision metadata is deliberately excluded from semantic equality. No old item array is retained.
+    var itemsRevision = UUID()
+    var items: [CompanionTimelineItem] = [] { didSet { itemsRevision = UUID() } }
     var isLoading = false
     var isLoaded = false
     var error: String?
@@ -591,6 +593,12 @@ struct CompanionConversation: Equatable, Sendable {
     var lastSequence: Int?
     var requiresResync = false
     var sessionID: String?
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.items == rhs.items && lhs.isLoading == rhs.isLoading && lhs.isLoaded == rhs.isLoaded
+            && lhs.error == rhs.error && lhs.hasEarlierMessages == rhs.hasEarlierMessages
+            && lhs.lastSequence == rhs.lastSequence && lhs.requiresResync == rhs.requiresResync && lhs.sessionID == rhs.sessionID
+    }
+
 }
 
 struct CompanionHistory: Sendable {

@@ -96,6 +96,15 @@ import Observation
     func agent(for target: CompanionTarget) -> CompanionAgent? { host(for: target)?.agent(for: target) }
     /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
     func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
+    @ObservationIgnored private var timelineProjections: [CompanionTarget: CompanionTimelineProjection] = [:]
+    func timelineProjection(for target: CompanionTarget) -> CompanionTimelineProjection {
+        if let projection = timelineProjections[target] { return projection }
+        let projection = CompanionTimelineProjection(); timelineProjections[target] = projection; return projection
+    }
+    func timelineRows(for target: CompanionTarget) -> [CompanionTimelineRow] {
+        timelineProjection(for: target).rows(for: conversation(for: target))
+    }
+
     @ObservationIgnored private var readingBookmarks: [CompanionTarget: CompanionReadingBookmark] = [:]
     func readingBookmark(for target: CompanionTarget) -> CompanionReadingBookmark {
         if let bookmark = readingBookmarks[target] { return bookmark }
@@ -764,7 +773,18 @@ import Observation
     func dismissError(for target: CompanionTarget) { operationErrors[target] = nil }
 
     func apply(_ event: CompanionEvent) {
-        AnnexTelemetry.shared.measurePerformance(.storeApply) { applyEvent(event) }
+        AnnexTelemetry.shared.measurePerformance(.storeApply) {
+            let assistant: (CompanionTarget, String)? = switch event {
+            case .upsert(let target, .message(let message), _) where message.role == .assistant: (target, message.id)
+            case .textDelta(let target, let id, _, _), .streamFinished(let target, let id, _): (target, id)
+            default: nil
+            }
+            let previousRevision = assistant.flatMap { conversations[$0.0]?.itemsRevision }
+            applyEvent(event)
+            if let (target, id) = assistant {
+                timelineProjections[target]?.updateAssistant(id, previousRevision: previousRevision, conversation: conversation(for: target))
+            }
+        }
     }
     private func applyEvent(_ event: CompanionEvent) {
         switch event {

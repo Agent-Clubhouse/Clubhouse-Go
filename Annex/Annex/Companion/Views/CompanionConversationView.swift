@@ -14,7 +14,14 @@ struct CompanionConversationView: View {
     @State private var showArchive = false
     @State private var showRefreshing = false
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
-    @State private var shownEntries = CompanionTimelineWindow.pageSize
+    @State private var shownEntries = Self.initialEntryLimit
+    private static var initialEntryLimit: Int {
+        #if DEBUG
+        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
+        #endif
+        return CompanionTimelineWindow.pageSize
+    }
     @FocusState private var composerFocused: Bool
     /// The composer's caret, for the `/` menu.
     @State private var composerSelection: TextSelection?
@@ -231,7 +238,7 @@ struct CompanionConversationView: View {
     }
 
     private var timeline: some View {
-        let rows = CompanionTimelineFolding.rows(for: conversation.items)
+        let rows = store.timelineRows(for: target)
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
@@ -247,6 +254,8 @@ struct CompanionConversationView: View {
                         if window.hiddenCount > 0 {
                             Button("Show earlier messages", systemImage: "arrow.up.circle") {
                                 followLatest = false
+                                readingViewport.isRestoring = true
+                                readingViewport.restoreOffset = nil
                                 shownEntries += CompanionTimelineWindow.pageSize
                             }
                                 .font(.caption).frame(maxWidth: .infinity)
@@ -275,6 +284,12 @@ struct CompanionConversationView: View {
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.vertical, 24)
                 .coordinateSpace(name: "companion-transcript-content")
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: CompanionReadingFrames.self,
+                            value: ["__content": CGRect(origin: .zero, size: geometry.size)])
+                    }
+                }
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
@@ -290,7 +305,7 @@ struct CompanionConversationView: View {
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { _, phase, context in
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
-                if phase == .idle && !readingViewport.isRestoring {
+                if phase == .idle && readingViewport.hasInitialized && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
                     atLatest = metrics.isAtTrueBottom
                     if metrics.isAtTrueBottom { followLatest = true }
@@ -302,9 +317,12 @@ struct CompanionConversationView: View {
                 let metrics = Self.metrics(new)
                 readingViewport.metrics = metrics
                 atLatest = metrics.isAtTrueBottom
+                guard readingViewport.hasInitialized else { return }
                 if readingViewport.isInteracting && metrics.normalizedOffset < Self.metrics(old).normalizedOffset - 1 { followLatest = false }
                 if readingViewport.isRestoring {
-                    let desired = min(readingViewport.restoreOffset ?? readingBookmark.position.offset, metrics.maximumOffset)
+                    guard let restoreOffset = readingViewport.restoreOffset,
+                          abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
+                    let desired = min(restoreOffset, metrics.maximumOffset)
                     guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
                     readingViewport.isRestoring = false
                     saveReadingPosition(metrics)
@@ -314,15 +332,24 @@ struct CompanionConversationView: View {
                     else if followLatest && Self.scrolledToTop(from: old, to: new) { followLatest = false }
                 }
                 // On a layout change, the frame callback restores the existing entry, before capturing a new one.
-                if old.contentSize == new.contentSize || readingViewport.isInteracting { saveReadingPosition(metrics) }
+                if readingViewport.isInteracting || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
+                    saveReadingPosition(metrics)
+                }
             }
             .onPreferenceChange(CompanionReadingFrames.self) { rects in
-                let frames = rects.mapValues { Double($0.minY)...Double($0.maxY) }
+                let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                 readingViewport.frames = frames
+                readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
                 guard !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
                 let saved = readingBookmark.position
+                if let entryID = saved.entryID, frames[entryID] == nil { return }
                 let offset = saved.restoredOffset(frames: frames)
-                if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
+                if let metrics = readingViewport.metrics,
+                   abs(metrics.contentHeight - (readingViewport.frameContentHeight ?? -1)) < 1,
+                   abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 {
+                    readingViewport.isRestoring = false
+                    saveReadingPosition(metrics)
+                } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
                     readingViewport.isRestoring = true
                     readingViewport.restoreOffset = offset
                     readingScrollPosition.scrollTo(y: offset)
@@ -358,15 +385,27 @@ struct CompanionConversationView: View {
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
             // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
             .task(id: conversation.isLoaded) {
+                if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
+                else {
+                    readingBookmark.hasMounted = true
+                    readingBookmark.position.shownEntries = shownEntries
+                }
+                if let entryID = readingBookmark.position.entryID, !rows.contains(where: { $0.contains(entryID: entryID) }) {
+                    readingBookmark.position.entryID = nil
+                }
                 let saved = readingBookmark.position
-                shownEntries = max(shownEntries, saved.shownEntries)
                 followLatest = saved.followsLatest
                 readingViewport.isRestoring = !saved.followsLatest
-                readingViewport.restoreOffset = saved.offset
+                readingViewport.restoreOffset = nil
+                readingViewport.hasInitialized = true
                 guard conversation.isLoaded else { return }
                 await Task.yield()
                 if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
-                else { readingScrollPosition.scrollTo(y: saved.offset) }
+                else if saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil {
+                    let offset = saved.restoredOffset(frames: readingViewport.frames)
+                    readingViewport.restoreOffset = offset
+                    readingScrollPosition.scrollTo(y: offset)
+                }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
@@ -448,7 +487,7 @@ struct CompanionConversationView: View {
         switch row {
         case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID, items: items)
         case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
-        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target))
+        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
         case .routed(let message, let index):
             CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
         }
@@ -761,8 +800,10 @@ struct CompanionContextRing: View {
 private final class CompanionReadingViewport {
     var frames: [String: ClosedRange<Double>] = [:]
     var metrics: CompanionScrollMetrics?
+    var frameContentHeight: Double?
     var isInteracting = false
     var isRestoring = false
+    var hasInitialized = false
     var restoreOffset: Double?
 }
 private struct CompanionReadingFrames: PreferenceKey {
