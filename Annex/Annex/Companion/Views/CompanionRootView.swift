@@ -143,7 +143,9 @@ struct CompanionRootView: View {
     }
 
     private func mirrorSelection() {
-        if store.selection != navigation.visibleAgent { store.selection = navigation.visibleAgent }
+        let target = navigation.visibleAgent
+        if store.selection != target { store.selection = target }
+        if let hostID = target?.hostID, preferences.lastHostID != hostID { preferences.lastHostID = hostID }
     }
 
     /// Keep one conversation subtree per desktop mounted, preserving its scroll window, anchor and composer.

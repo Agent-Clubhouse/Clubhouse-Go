@@ -87,6 +87,8 @@ import Testing
         #expect(navigation.visibleAgent?.hostID == "a")
         navigation.update(hosts: [host("a", enabled: false), host("b")])
         #expect(navigation.tab == .home && navigation.dispatcherHostID == "b")
+        navigation.select(.dispatcher)
+        #expect(navigation.visibleAgent?.hostID == "b", "Opening the surviving tab views B, which becomes the last-used desktop")
         navigation.update(hosts: [])
         #expect(navigation.tab == .home, "Removing paired desktops removes their tabs")
     }
