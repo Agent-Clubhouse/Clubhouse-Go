@@ -98,7 +98,7 @@ nonisolated struct CompanionHelperRequestConsumed: Error, LocalizedError {
     private(set) var saving = false
     private var readID = UUID()
     private(set) var refreshID = UUID()
-    private(set) var receivedAt = ContinuousClock.now
+    private(set) var receivedAt: ContinuousClock.Instant = .now
     // SwiftUI may discard eager State candidates away from the main actor. This model owns no cleanup resources.
     nonisolated deinit {}
     func load(_ read: () async throws -> CompanionHelperRouting) async {
