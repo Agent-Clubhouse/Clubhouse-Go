@@ -1,6 +1,6 @@
 # Readable chat evidence
 
-Preview-only screenshots from code commit `d3e5465bd48b33c68d3c3c666542e7522908ba70` on branch `go-chat-reading/readable-chat` (draft PR #217). No desktop is connected in these fixtures. Captured on the dedicated `Go Chat Reading` iPhone 17 Pro simulator, iOS 26.0 (23A343), Xcode 26.0.1 (17A400), on 2026-11-01. The final rebase onto moving #215 is held pending the orchestrator’s ready signal.
+Preview-only screenshots from code commit `d3e5465bd48b33c68d3c3c666542e7522908ba70` on branch `go-chat-reading/readable-chat` (draft PR #217). No desktop is connected in these fixtures. Captured on the dedicated `Go Chat Reading` iPhone 17 Pro simulator, iOS 26.0 (23A343), Xcode 26.0.1 (17A400), on 2026-11-01. The code branch was later rebased directly onto main after #215 merged as `59b75b0`; the captures retain the source provenance above.
 
 | Screenshot | What it verifies |
 | --- | --- |
@@ -37,3 +37,22 @@ The app-hosted Debug rendering measurement is additional observation, not a comp
 ## Live follow-up
 
 The orchestrator must run `test9cAgentDispatcherSwitchesAndRealMCPDelivery`: expand the outer activity before checking the short delivery and the long part’s independent inner fold. Exact short labels and `companion-routed-<id>-<index>` remain unchanged. This helper did not run live E2E, touch a phone/shared simulator, publish, merge or restart the host Clubhouse app.
+
+## Post-rebase validation and ownership experiment
+
+Additional local validation at `35f22dd9d69fbb37230e7836602345435de6dfc0`, based directly on main `59b75b0914c6f844ee66e26bb340f419f8d300b8`:
+
+- 949 package tests and the coverage ratchet pass (Transport 96.43%, Domain 94.10%). Debug build-for-testing and Release build pass.
+- The viewport is now owned once by the per-target reading bookmark; transient geometry clears on unmount. Removed-host bookmarks, viewports and timeline projections are released. Tests cover reuse, geometry reset and pruning.
+- The exact navigation/background/resync/foreground/reopen diagnostic passes four times on iOS 26.0 with bookmark ownership, preserving one viewport identity and request deltas 0/1/1. Restoring only the original `@State` ownership on the same source reproduces the viewport deinit abort. The diagnostic bypassed the 26.0 skip only locally and was removed after the experiment.
+- All five selected reading and LongReply UI tests pass after the ownership change. The combined app/UI batch is not green: a separate `CompanionPartExpansion` teardown abort also reproduces on archived main with unchanged production types. Both stacks and steps are recorded in [#218](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/218#issuecomment-6570281162); no general runtime workaround was added.
+- CI run [41394968971](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/41394968971), on the earlier `944a6e9d587f6d71e517e210e62668e9cc9718a1` with original State ownership, has successful build, Release and package lanes. Its 26.5 resync result is pending; these local commits are intentionally held unpushed until that run finishes.
+
+`rebased-release-profile-samples.json` records three alternating samples per mode at `35f22dd9d69fbb37230e7836602345435de6dfc0`, in the same Release/PROFILE_OPTIMIZED configuration and two-job setup as the earlier comparison. Median timeline work per 200 chunks:
+
+| History | Baseline | Incremental | Prepared rows |
+| --- | ---: | ---: | ---: |
+| 1,000 | 411.385ms | 358.739ms | 147 → 2 |
+| 5,000 | 209.108ms | 4.292ms | 147 → 2 |
+
+The first scenario includes cold Markdown setup; the second uses warmed shared caches. These are folding/window-preparation measurements, not GPU frame times.
