@@ -11,30 +11,48 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         scrollTo(agent, in: app)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         waitAndTap(agent, until: composer, timeout: 15, "Opening River shows the composer")
+        // Leave real history text on screen before the keyboard reduces the transcript viewport.
+        XCTAssertTrue(bringTranscriptRowIntoView(app.staticTexts["Reading marker 170."], in: app))
         return composer
     }
     private func item(_ name: String, _ app: XCUIApplication) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: "companion-slash-\(name)").firstMatch
     }
     private func value(_ composer: XCUIElement) -> String { composer.value as? String ?? "" }
-    /// Near the top of the transcript, clear of the approval's buttons.
+    /// Tap actual transcript content; the keyboard has its own ScrollView and bottom bars cover part of the AX frame.
     private func tapTranscript(_ app: XCUIApplication) {
-        // The keyboard also exposes a ScrollView. Identify the transcript by its own notice, not query order.
-        let transcript = app.scrollViews.containing(.staticText, identifier: "Preview conversation · no desktop commands are sent").firstMatch
+        let any = app.descendants(matching: .any)
+        let transcript = app.scrollViews.containing(.any, identifier: "companion-tool-preview-reading-failure").firstMatch
         XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        let header = any.matching(identifier: "companion-chat-header").firstMatch
+        let menu = any.matching(identifier: "companion-slash-menu").firstMatch
         let frame = transcript.frame.intersection(app.windows.firstMatch.frame)
-        let point = CGPoint(x: frame.midX, y: frame.minY + 12)
+        let top = max(frame.minY, header.frame.maxY)
+        let bottom = min(frame.maxY, menu.frame.minY)
+        let visible = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
+        // A fresh history row avoids the streaming footer and unrelated approval controls.
+        let target = transcript.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Reading marker "))
+            .allElementsBoundByIndex.first { visible.contains($0.frame) && $0.isHittable }
+        if target == nil {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Slash dismissal target hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        XCTAssertNotNil(target, "Transcript content must be visible above the menu")
+        guard let target else { return }
+        let hit = target.frame.intersection(visible)
+        let point = CGPoint(x: hit.midX, y: hit.midY)
         XCTAssertGreaterThan(frame.height, 44, "The transcript must not be the keyboard's 44pt top strip")
-        XCTAssertTrue(frame.contains(point))
-        XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
-        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch.frame.contains(point))
-        XCTContext.runActivity(named: "Tap actual transcript at \(point), viewport \(frame)") { _ in
+        XCTAssertTrue(frame.contains(point) && target.frame.contains(point))
+        XCTAssertFalse(header.frame.contains(point) || app.keyboards.firstMatch.frame.contains(point) || menu.frame.contains(point))
+        XCTContext.runActivity(named: "Tap real transcript content at \(point), content frame \(target.frame), visible band \(visible)") { _ in
             app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         }
     }
 
     func testTypingSlashSuggestsCommandsAndTappingOneInsertsIt() {
-        let app = launchApp(["--companion-preview"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
         XCTAssertEqual(composer.placeholderValue, "Message River… / for commands")
         let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
@@ -71,7 +89,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
     }
 
     func testKeyboardMovesAndPicksAndADismissedWordStaysClosed() {
-        let app = launchApp(["--companion-preview"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
         let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
         composer.tap()
