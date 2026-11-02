@@ -23,9 +23,11 @@ import Foundation
     private let showsDispatcher: Bool
     private let mcpEnabled: Bool
     private let showsHelperIdentity: Bool
+    private let showsHelperTree: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false) {
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false) {
+        self.showsHelperTree = showsHelperTree
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
@@ -39,7 +41,7 @@ import Foundation
         AsyncStream { continuation in
             self.continuation = continuation
             continuation.yield(.hosts(Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
-                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher)))
+                                                 terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher, helperTree: self.showsHelperTree)))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
     }
@@ -75,7 +77,7 @@ import Foundation
         }
     }
     /// Clubhouse has awake, sleeping and finished quick agents; Website is quieter; Old prototype has been idle for weeks.
-    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false) -> [CompanionHost] {
+    static func hosts(now: Date, helperRequests: [CompanionHelperRequest] = [], terminalAgent: Bool = false, dispatcher: Bool = false, helperTree: Bool = false) -> [CompanionHost] {
         let host = target.hostID
         func agent(_ project: String, _ id: String, _ name: String, _ subtitle: String, _ status: CompanionAgentStatus, model: String? = nil,
                    minutesAgo: Double, color: String? = nil, quick: Bool = false, freeAgent: Bool = false, extra: CompanionCapabilities = [],
@@ -100,7 +102,7 @@ import Foundation
             agent.hasExited = quick && (status == .completed || status == .failed); agent.exitCode = exitCode
             return agent
         }
-        return [
+        var hosts: [CompanionHost] = [
             .init(id: host, name: "Studio Mac", endpoint: "studio.local · Local network", connection: .connected, projects: [
                 .init(id: "website", name: "Website", agents: [
                     agent("website", "maple", "Maple", "Refresh the pricing page", .idle, minutesAgo: 90, color: "teal")
@@ -134,6 +136,25 @@ import Foundation
                 ])
             ])
         ]
+        if helperTree {
+            for p in hosts[0].projects.indices {
+                for i in hosts[0].projects[p].agents.indices {
+                    switch hosts[0].projects[p].agents[i].id.agentID {
+                    case "cedar": hosts[0].projects[p].agents[i].status = .sleeping
+                    case "river": hosts[0].projects[p].agents[i].parentAgentID = "cedar"
+                    case "juniper": hosts[0].projects[p].agents[i].parentAgentID = "river"
+                    case "maple": hosts[0].projects[p].agents[i].parentAgentID = "cedar"
+                    default: break
+                    }
+                }
+            }
+            var elm = agent("clubhouse", "elm", "Elm", "Release prep", .sleeping, minutesAgo: 120)
+            elm.parentAgentID = nil
+            var moss = agent("clubhouse", "moss", "Moss", "Check release notes", .sleeping, minutesAgo: 121)
+            moss.parentAgentID = "elm"
+            hosts[0].projects[1].agents += [elm, moss]
+        }
+        return hosts
     }
     /// The Dispatcher, idle after handing River a task.
     static func dispatcher(now: Date) -> CompanionDispatcher {
