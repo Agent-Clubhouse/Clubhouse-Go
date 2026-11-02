@@ -53,9 +53,10 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         let top = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Preview conversation'")).firstMatch
         let end = app.staticTexts["End of the long reply."]
         let start = app.staticTexts["Start of the long reply."]
+        let lastApproval = app.staticTexts["Edit Docs/Companion.md"]
         let latest = app.buttons["Latest"]
         XCTAssertTrue(end.waitForExistence(timeout: 15), "The conversation opens at its newest items, just after the long reply")
-        XCTAssertTrue(end.isHittable, "The end must be in the actual viewport, not merely mounted offscreen")
+        XCTAssertTrue(lastApproval.isHittable, "The final approval after the reply must be in the actual viewport")
         XCTAssertFalse(latest.exists, "The latest indicator starts hidden at the bottom")
 
         // Tapping the status bar scrolls to the top with no dragging and no scroll phase, and must still stop following:
@@ -65,6 +66,7 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         XCTAssertTrue(top.isHittable, "Native scroll-to-top must reach the actual first row")
         waitAndTap(latest, untilGone: latest, timeout: 10, "Latest must return from the top to the newest items")
         XCTAssertTrue(end.waitForExistence(timeout: 10), "Latest must show the end of the reply")
+        XCTAssertTrue(lastApproval.isHittable, "Latest must return to the actual last row")
 
         for round in 1...3 {
             let began = Date()
