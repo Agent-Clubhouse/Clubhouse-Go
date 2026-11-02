@@ -176,7 +176,8 @@ struct CompanionChatProjector {
             upsert(.approval(.init(id: requestID, toolName: data["toolName"]?.string ?? "Approval request",
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
                                    title: data["title"]?.string.flatMap { $0.isEmpty ? nil : $0 },
-                                   detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options)))
+                                   detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options,
+                                   toolCallID: data["toolCallId"]?.string)))
             status = .approval
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,

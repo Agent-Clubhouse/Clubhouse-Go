@@ -169,6 +169,11 @@ extension CompanionTool {
 enum CompanionTimelineFolding {
     /// Mobile keeps all routine traffic compact. Actionable entries are hard boundaries.
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
+        let waitingToolIDs = Set(items.compactMap { item -> String? in
+            guard case .approval(let approval) = item,
+                  [.pending, .submitting, .uncertain].contains(approval.resolution) else { return nil }
+            return approval.toolCallID
+        })
         var rows: [CompanionTimelineRow] = []
         var run: [CompanionActivityPart] = []
         var carried: [CompanionMessage] = []
@@ -192,6 +197,10 @@ enum CompanionTimelineFolding {
         }
         for item in items {
             switch item {
+            case .tool(var tool) where waitingToolIDs.contains(tool.id):
+                flush()
+                tool.awaitsApproval = true
+                rows.append(.item(.tool(tool)))
             case .tool(let tool) where !tool.requiresAttention && tool.images.isEmpty:
                 begin(subagentID: tool.subagentID)
                 append(.tool(tool))

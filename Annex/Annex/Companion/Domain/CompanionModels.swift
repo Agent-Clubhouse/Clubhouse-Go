@@ -519,6 +519,8 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
     var deadline: Date?
     var resolution: Resolution = .pending
     var options: [CompanionApprovalOption] = []
+    /// The pending permission can arrive separately from an in-progress tool update.
+    var toolCallID: String? = nil
     func isExpired(at date: Date) -> Bool { deadline.map { $0 <= date } ?? false }
 }
 
