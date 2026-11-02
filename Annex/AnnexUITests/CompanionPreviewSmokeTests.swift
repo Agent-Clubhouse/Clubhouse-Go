@@ -16,6 +16,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
 
     private func openAgentSettings(_ app: XCUIApplication, sleeping: Bool = false) {
+        let home = app.tabBars.buttons["Home"]
+        if home.waitForExistence(timeout: 5), !home.isSelected { home.tap() }
         let any = app.descendants(matching: .any)
         let row = any.matching(identifier: sleeping ? "agent-preview-studio-juniper" : "agent-preview-studio-river").firstMatch
         if sleeping { expandFold(any.matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch, revealing: row, in: app) }

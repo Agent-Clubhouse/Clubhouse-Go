@@ -96,8 +96,10 @@ struct CompanionRootView: View {
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
         .modifier(CompanionHelperStartAlerts(store: store))
-        .simultaneousGesture(TapGesture().onEnded { navigation.interact() })
-        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in navigation.interact() })
+        .simultaneousGesture(TapGesture().onEnded { if !navigation.resolvedInitialReport { navigation.interact() } })
+        .simultaneousGesture(DragGesture(minimumDistance: 1).onChanged { _ in
+            if !navigation.resolvedInitialReport { navigation.interact() }
+        })
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
 >>>>>>> a7ec9d2 (feat: add a state-preserving Dispatcher start tab)        .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
@@ -154,7 +156,7 @@ struct CompanionRootView: View {
                     && (navigation.paths[.dispatcher] ?? []).isEmpty
                 Group {
                     if let target = desktop.target, let agent = store.agent(for: target) {
-                        conversation(agent, visible: visible)
+                        conversation(agent, visible: visible).id(target)
                     } else {
                         ProgressView("Loading the Dispatcher…")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
