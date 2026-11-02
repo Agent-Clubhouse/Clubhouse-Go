@@ -21,6 +21,171 @@
 3. In App Store Connect, add the processed build to the internal testing group. Export compliance is
    already answered by `ITSAppUsesNonExemptEncryption = NO` in `Info.plist`.
 
+## Next beta — release notes draft
+
+Draft for the next candidate; this does not select a build or authorize an upload, installation,
+privacy declaration change or feedback send. Fill in the chosen version/build and desktop version
+before copying these notes to TestFlight.
+
+### What's new
+
+- Chat is easier to read: routine activity folds away while keeping sender faces visible. Previous
+  and next reply controls, Latest, and remembered reading positions help you move through long chats.
+- Dispatcher has its own first tab. Choose your preferred Start screen in Settings.
+- Helper presets, Auto provider choices, plan limits and context-window controls appear when your
+  desktop supports them. Agent and project icons load through a bounded cache.
+- Feedback has a simpler Send screen, clearer Included details, more reliable shake and screenshot
+  entry points, and recovery for reports saved under an earlier feedback enrollment.
+- Startup and view-lifetime fixes protect 24 reviewed classes from an iOS 26.0 runtime abort.
+
+### Known limits
+
+- **Do not roll back to an older feedback SDK.** Older versions can lose enrollment binding and held
+  state, or send a report under a later enrollment. Follow the [rollback guidance](#unsafe-older-sdk-rollback)
+  before any planned downgrade.
+- **12 class teardown paths retain actor isolation** to preserve UI safety and remain exposed if the
+  affected runtime/release conditions occur. iOS 26.1–26.4 are untested. Simulator controls reproduce
+  the abort on 26.0 and pass on the observed 26.5 compiler/runtime pair; that does not establish a
+  fixed-version boundary or prove phone safety. See [runtime evidence](isolated-deinit.md).
+- Terminal history is bounded; older scrollback may be missing. A disconnected project/worktree
+  shell is replaced on reconnect, rather than resumed. Do not use it for work that must survive a
+  connection loss.
+- Auto provider and quota displays need a matching desktop that advertises those features. Unknown
+  or stale quota is not a promise of remaining capacity. Context controls and presets also depend
+  on the desktop's advertised support.
+- The new icon-reference fetch path needs a desktop that offers icon references. Older desktops
+  use legacy inline icons; unavailable or invalid images fall back to initials or other default faces.
+- General report diagnostics stay off. Only a deliberately prepared **Diagnostics test report** can
+  attach recent transport records. Notes and images may contain private information; review them.
+  Reports queued just before the app is suspended can wait until foreground; queued does not mean sent.
+- Real-phone shake, screenshot Full-Screen Previews, feedback URLSession delivery and Azure read-back
+  still need the user's chosen candidate and deliberate test below. The SDK iPad timeout was explained
+  by its harness limit, not a confirmed hang; one passing rerun does not exclude an intermittent stall.
+  The separate secure-keyboard flake is unexplained.
+
+Regenerate the class counts from `scripts/isolated-deinit-policy.json` at the chosen candidate head:
+
+```sh
+python3 - <<'PY'
+import collections, json
+with open('scripts/isolated-deinit-policy.json') as f:
+    counts = collections.Counter(c['policy'] for c in json.load(f)['classes'].values())
+print(f"{counts['arc_only']} protected; {counts['main_actor'] + counts['generated']} retained")
+PY
+```
+
+### Phone hand test — highest risk first
+
+For the user, after choosing a candidate to install. Record its version/build, phone/iOS, desktop
+version, and the time of any failure. Use a disposable conversation and harmless requests; stop if
+typing loses text, the app stalls, or an action affects the wrong agent. Mark unsupported features
+or absent test data as **not exercised**, rather than passed. Leave enrollment unchanged during the
+main pass. This checklist is not an instruction for an agent to operate a phone.
+
+1. **Reconnect and foreground.** Briefly disconnect and reconnect, then background and return a few
+   times, including while opening a chat. Look for recovery without a freeze, duplicate content or
+   a stuck connecting state. Record any unusual delay.
+2. **Long chat, typing and scrolling.** During a long streamed reply, type a distinctive sentence,
+   pause, scroll, show/hide the keyboard and continue typing. Every character must remain in order;
+   the keyboard must keep focus and the view must remain responsive.
+3. **Latest and reply jumps.** Read above the bottom while new text arrives: it must not pull you down.
+   Tap Latest: reach the actual bottom and resume following. Try previous/next reply repeatedly;
+   land on assistant replies or questions, without stopping at routine tool traffic.
+4. **Folded activity and faces.** Expand/collapse a run with several senders; check their faces and
+   order, and that expansion survives leaving/returning. Failures, approvals and questions must stay
+   visible. Known icons should load or fall back cleanly, without disturbing chat.
+5. **Tabs and reading position.** Check Dispatcher is first, then change Settings → Start screen and
+   check the next normal launch. Restore your preference. Switch tabs and conversations while reading
+   mid-history; return to the same text and offset. A process restart need not preserve the bookmark.
+6. **Queued messages.** With an agent busy, queue a harmless message. Check queued/pending/delivered
+   states across reconnect and foreground; there must be no silent loss, duplicate send or false success.
+7. **Approvals and questions.** Use a harmless pending approval and a structured question; answer once
+   and check both phone and desktop agree. Long-press the **center of an agent row**, then its **label**
+   separately; note which opens the menu, whether the finger target is obscured, and whether it belongs
+   to the right agent. Check agent navigation and Needs you lead to the pending item.
+8. **Terminal.** Open a disposable shell, type a harmless command, scroll and copy output, then close.
+   Reopen/reconnect and check clear state and working input; older scrollback may be absent and a shell
+   may be new. Do not judge reconnect as continuity of the old shell.
+9. **Presets, Auto and quota.** On a matching desktop, check saved/effective choices, an intentional
+   preset change and reset, Auto scope/inheritance, and quota source/age/unknown states. Confirm on the
+   desktop and restore choices. Unsupported controls must not pretend a change succeeded.
+10. **Context window.** Compare usage with the desktop. Where offered, inspect the setting's choices,
+    default and when it takes effect; only change it on a disposable agent. Distinguish saved from
+    applied state and restore the default. Missing desktop support should be explained.
+11. **Feedback entry points — cancel.** Check the button, a shake after dismissing the keyboard, and
+    a screenshot with their settings on. Accept the screenshot prompt; each route should open only one
+    composer. Inspect/remove the image and cancel without Send. With iOS Full-Screen Previews on, return
+    from its editor and look for the prompt then. Shake should not interrupt typing; secure fields must
+    suppress capture. Record settings and timing if absent.
+12. **Held feedback — inspect first.** If reports are held from an earlier enrollment, check count,
+    **Send with this enrollment…**, its destination/count confirmation, and Cancel. Check **Clear held
+    reports** and **Clear queued feedback** are reachable, without confirming deletion merely to test.
+    Release or clear only reports you intend to send/delete. Release queues delivery; partial results
+    and held counts must be honest, never called Sent. No held reports means this path is not exercised.
+13. **One labeled diagnostics report — last, only when requested.** If safe, repeat a brief
+    disconnect/reconnect within five minutes of opening this report and note its time. While enrolled,
+    open Settings → Feedback diagnostics test → Prepare one diagnostics test report… → Prepare test
+    report. Check the pinned **Diagnostics test report** label; start the note with **Diagnostics test**
+    and include candidate/build and test time. Review Included's event count/availability, What this
+    means, and the screenshot before choosing Send once; individual entries are checked in read-back.
+    If capture was off, records are missing, or enrollment changes, record that state;
+    cancel and ask before another attempt. This permission does not carry to ordinary reports. Keep the
+    app foreground until delivery status settles; save the report ID and status. Do not send a second
+    copy to work around a delay.
+
+### Framebriar read-back for that one report
+
+Framebriar must inspect the accepted report body **and its stored diagnostics blob in Azure**, not
+just the feedback marker or a portal summary, and return:
+
+- The report ID, **Diagnostics test** note prefix, app identity (`gameId`), `buildSha`, `sessionId`, capture time,
+  receive time and delivery/storage outcome. Match the chosen version/build via the candidate record
+  and correlated telemetry resource (`service.version`); the report does not have dedicated app-version
+  and build-number fields. A `storage-failed` outcome means the report was accepted but its blob failed.
+- `diagnostics.v`, `state`, `reason`, `windowStart`, `windowEnd`, `lines`, `bytes`, `dropped`,
+  `droppedAttrs`, and optional `delivery.queued` (integer count) / `lastResult`. Go keeps at most 200
+  newest entries within 64 KiB. `bytes` is the UTF-8 JSON size of `entries`, not the entire report.
+- The frozen entries (`at`, `level`, `ns`, `event`, allowlisted `attrs`), including any captured
+  connection failure, retry attempt and backoff around the noted interruption. If none were captured,
+  explain the explicit none/unavailable/left_out state or missing window; do not infer that delivery
+  succeeded merely because a marker exists. Records created after opening must not appear in this capture.
+- Incident ID, phone instance, host/connection IDs and trace/span refs when included; entry attempt/
+  connection/trace/span IDs where available. Correlate the times and IDs with the desktop's records,
+  and list missing matches. References do not guarantee the desktop exported the corresponding spans.
+- Only the `feedback.submitted` marker as report-specific telemetry, with no second attached excerpt
+  copied through that path. Ordinary consented telemetry is separate. Check diagnostic fields contain
+  only approved tokens/numbers/IDs, with no prompts, agent content, names, paths, addresses or URLs;
+  user-written notes and the reviewed image are separate content.
+
+Until that read-back succeeds, real-device capture, Azure storage and the feedback URLSession path
+remain unproven. Privacy-store changes in the draft below still require the user's separate approval.
+
+### Device compilation and signing check — 2026-11-02
+
+Current-main source `a8c1964dea8d513940efdba9b4c94a8ff8769be3` builds successfully as **Release,
+iphoneos arm64**, with Xcode 26.0.1 (17A400) / iOS SDK 26.0. The resulting app is **2.0.0 (175)**,
+minimum iOS **26.0**, with that exact `FramebriarBuildSHA`. Build 175 is the source commit count,
+using the same override convention as the release script; the project default alone would produce 1.
+
+```sh
+xcodebuild build -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
+  -configuration Release -destination 'generic/platform=iOS' -sdk iphoneos \
+  -derivedDataPath build/beta-candidate/Device \
+  -clonedSourcePackagesDirPath build/framebriar-070/source-packages \
+  CURRENT_PROJECT_VERSION=175 \
+  FRAMEBRIAR_BUILD_SHA=a8c1964dea8d513940efdba9b4c94a8ff8769be3 \
+  CODE_SIGN_IDENTITY='Apple Development' \
+  ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES
+codesign --verify --deep --strict \
+  build/beta-candidate/Device/Build/Products/Release-iphoneos/ClubhouseGo.app
+```
+
+Signature verification passes with an Apple Development identity and the app's team provisioning
+profile; signed entitlements and profile both have `get-task-allow=true`. This proves development
+compilation/signing, not a distribution archive or TestFlight eligibility. The ignored local log is
+`build/beta-candidate/device-release.log`. No device was accessed, no app was installed, and no
+archive/export/upload or feedback send was performed. A later candidate needs its own SHA/build count.
+
 ## Declarations
 
 ### Export compliance
@@ -118,6 +283,8 @@ The legacy 16-KiB endpoint stripped unknown small fields and permanently rejecte
 Do not bypass the SDK to add the field. A diagnostics `storage-failed` result means the report was
 accepted but its blob failed; do not show that as report rejection. The combined off switch must
 remove entries, incident and flat trace/span references while preserving the user's notes/image.
+
+### Unsafe older-SDK rollback
 
 Release-note draft: “Saved feedback is bound to its enrollment. Reports held after a connection
 change need an explicit decision before delivery. **Going back to an older Framebriar SDK is
