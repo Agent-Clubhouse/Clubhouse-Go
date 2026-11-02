@@ -192,6 +192,8 @@ struct CompanionAgentListRow: View {
     let agent: CompanionAgent
     var hostTag: String?
     var detail: String?
+    var parentLine: String?
+    var helperRollup: CompanionHelperRollup?
     @Environment(\.companionPalette) private var palette
     var body: some View {
         HStack(spacing: 12) {
@@ -209,6 +211,19 @@ struct CompanionAgentListRow: View {
                     }
                 }
                 .font(.subheadline)
+                if let parentLine {
+                    Text(parentLine).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
+                }
+            }
+            if let helperRollup {
+                Spacer(minLength: 4)
+                HStack(spacing: 4) {
+                    if let dot = helperRollup.dot {
+                        Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
+                            .accessibilityLabel(dot.label)
+                    }
+                    Text("\(helperRollup.count) helpers").font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                }
             }
         }
         .padding(.vertical, 2)

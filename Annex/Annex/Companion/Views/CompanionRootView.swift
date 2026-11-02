@@ -84,6 +84,7 @@ struct CompanionRootView: View {
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
         .task { store.start() }
+        .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
         .onChange(of: tab) { _, current in store.selection = paths[current]?.last?.agent }
         .onChange(of: store.selection) { _, target in
             AnnexTelemetry.shared.record(.navigation)
@@ -107,7 +108,7 @@ struct CompanionRootView: View {
                 switch route {
                 case .agent(let target): destination(target)
                 case .project(let project):
-                    CompanionProjectPage(store: store, project: project, onNewAgent: { spawnProject = $0 })
+                    CompanionProjectPage(store: store, preferences: preferences, project: project, onNewAgent: { spawnProject = $0 })
                         .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
                 }
             }
@@ -179,8 +180,6 @@ struct CompanionHomeView: View {
     @State private var arranging = false
     /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
     @State private var hold: CompanionListHold?
-    /// Open "N sleeping" and "N finished quick agents" folds, by project.
-    @State private var openFolds: Set<String> = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionSendFeedback) private var sendFeedback
@@ -346,6 +345,7 @@ struct CompanionHomeView: View {
 
     @ViewBuilder private var projects: some View {
         let layout = layout
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
         Section {
         } header: {
             HStack {
@@ -366,7 +366,7 @@ struct CompanionHomeView: View {
             }
             .textCase(nil)
         }
-        ForEach(layout.projects) { group in projectSection(group) }
+        ForEach(layout.projects) { group in projectSection(group, parentLines: parentLines) }
         if !layout.idle.isEmpty {
             Section {
                 Button {
@@ -381,21 +381,24 @@ struct CompanionHomeView: View {
                     Text(idleFooter(layout.idle))
                 }
             }
-            if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group) } }
+            if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group, parentLines: parentLines) } }
         }
     }
 
-    private func projectSection(_ group: CompanionProjectGroup) -> some View {
+    private func projectSection(_ group: CompanionProjectGroup, parentLines: [CompanionTarget: String]) -> some View {
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
-            ForEach(group.agents) { agentRow($0) }
+            CompanionAgentTreeRows(tree: group.tree, rows: group.tree.active, preferences: preferences,
+                                   parentLines: parentLines)
             if !group.sleeping.isEmpty {
-                fold("sleeping", projectID: projectID, text: "\(group.sleeping.count) sleeping", agents: group.sleeping)
+                CompanionAgentTreeFold(kind: "sleeping", projectID: projectID, text: "\(group.sleeping.count) sleeping",
+                                       tree: group.tree, rows: group.tree.sleeping, preferences: preferences,
+                                       parentLines: parentLines)
             }
             if !group.finishedQuick.isEmpty {
-                fold("finished", projectID: projectID,
-                     text: "\(group.finishedQuick.count) finished quick agent\(group.finishedQuick.count == 1 ? "" : "s")", agents: group.finishedQuick)
+                CompanionAgentTreeFold(kind: "finished", projectID: projectID,
+                     text: "\(group.finishedQuick.count) finished quick agent\(group.finishedQuick.count == 1 ? "" : "s")", tree: group.tree, rows: group.tree.finishedQuick, preferences: preferences)
             }
             if group.isEmpty {
                 Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
@@ -466,29 +469,10 @@ struct CompanionHomeView: View {
         .accessibilityLabel("\(group.entry.project.name) options")
         .accessibilityIdentifier("project-menu-\(group.entry.host.id)-\(group.entry.project.id)")
     }
-
-    private func agentRow(_ agent: CompanionAgent) -> some View {
-        NavigationLink(value: agent.id) { CompanionAgentListRow(agent: agent) }
-            .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
-            .listRowBackground(CompanionCardBackground())
-    }
-
-    @ViewBuilder private func fold(_ kind: String, projectID: String, text: String, agents: [CompanionAgent]) -> some View {
-        let key = "\(kind):\(projectID)"
-        let isOpen = openFolds.contains(key)
-        Button {
-            withAnimation(reduceMotion ? nil : .snappy) { if isOpen { openFolds.remove(key) } else { openFolds.insert(key) } }
-        } label: {
-            CompanionFoldLabel(text: text, isOpen: isOpen)
-        }
-        .accessibilityIdentifier("fold-\(kind)-\(projectID)")
-        .listRowBackground(CompanionCardBackground())
-        if isOpen { ForEach(agents) { agentRow($0) } }
-    }
 }
 
 /// A row that opens and closes a fold, with a turning chevron.
-private struct CompanionFoldLabel: View {
+struct CompanionFoldLabel: View {
     let text: String
     let isOpen: Bool
     @Environment(\.companionPalette) private var palette
@@ -880,6 +864,7 @@ struct CompanionAgentsView: View {
 
     var body: some View {
         let agents = store.agentsNeedsYouFirst().filter { filter.matches($0.status) }
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
         let names = Dictionary(store.hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         List {
             Section {
@@ -891,7 +876,8 @@ struct CompanionAgentsView: View {
                 ForEach(agents) { agent in
                     NavigationLink(value: agent.id) {
                         CompanionAgentListRow(agent: agent, hostTag: store.hosts.count > 1 ? names[agent.id.hostID] : nil,
-                                              detail: store.host(for: agent.id)?.placeName(for: agent.id))
+                                              detail: store.host(for: agent.id)?.placeName(for: agent.id),
+                                              parentLine: parentLines[agent.id])
                     }
                     .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
                     .listRowBackground(CompanionCardBackground())
@@ -927,6 +913,7 @@ struct CompanionSearchView: View {
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let agents = trimmed.isEmpty ? [] : store.allAgents.filter { "\($0.name) \($0.subtitle)".localizedCaseInsensitiveContains(trimmed) }
         let projects = trimmed.isEmpty ? [] : store.projectEntries.filter { $0.project.name.localizedCaseInsensitiveContains(trimmed) }
@@ -944,7 +931,7 @@ struct CompanionSearchView: View {
                         let host = store.host(for: agent.id)
                         NavigationLink(value: agent.id) {
                             CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
-                                                  detail: host?.placeName(for: agent.id))
+                                                  detail: host?.placeName(for: agent.id), parentLine: parentLines[agent.id])
                         }
                         .opacity(host?.connection.canOperate == false ? 0.5 : 1)
                         .listRowBackground(CompanionCardBackground())

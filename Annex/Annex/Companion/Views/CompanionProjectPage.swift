@@ -5,9 +5,11 @@ import SwiftUI
 /// (Clubhouse `ProjectStartPage.tsx`) with the Changes view beside it (`ProjectChanges.tsx`).
 struct CompanionProjectPage: View {
     @Bindable var store: CompanionStore
+    var preferences: CompanionPreferences
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
     @State private var waking = false
+    @State private var hold: [CompanionTarget]?
     /// The agent and message from Wake with a message, held until the sheet has gone. Opening the chat while the
     /// sheet is still dismissing left its timeline blank on iOS 26.5 until it was scrolled.
     @State private var pendingWake: (target: CompanionTarget, message: String)?
@@ -34,6 +36,10 @@ struct CompanionProjectPage: View {
             }
         }
         .companionListStyle()
+        .onScrollPhaseChange { _, phase in
+            if phase == .idle { hold = nil }
+            else if hold == nil { hold = agentTree?.all.map(\.id) }
+        }
         .navigationTitle(details?.name ?? "Project")
         .toolbar {
             if let host, store.hosts.count > 1 {
@@ -146,21 +152,28 @@ struct CompanionProjectPage: View {
         Task { await store.dismissFinished(run.target) }
     }
 
-    /// Every agent except quick agents that exited: those are in Finished until dismissed.
+    private var agentTree: CompanionAgentTree? {
+        details.map { CompanionAgentTree.build($0.agents, sort: preferences.projectSort, held: hold, lastActivity: store.lastActivity(of:)) }
+    }
+
+    /// The same forest and sleeping fold as Home; finished quick runs have their own section above.
     @ViewBuilder private func agents(_ details: CompanionProject) -> some View {
-        let agents = details.agents.filter { !CompanionFinishedRuns.hasFinished($0) }
-        Section {
-            if agents.isEmpty {
-                Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
-                    .listRowBackground(CompanionCardBackground())
+        if let tree = agentTree {
+            let parentLines = CompanionAgentTree.parentLines(hosts: host.map { [$0] } ?? [])
+            Section {
+                if tree.active.isEmpty && tree.sleeping.isEmpty {
+                    Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
+                        .listRowBackground(CompanionCardBackground())
+                }
+                CompanionAgentTreeRows(tree: tree, rows: tree.active, preferences: preferences, parentLines: parentLines)
+                if !tree.sleeping.isEmpty {
+                    CompanionAgentTreeFold(kind: "sleeping", projectID: "\(project.hostID)-\(project.projectID)",
+                                           text: "\(tree.sleeping.count) sleeping", tree: tree, rows: tree.sleeping,
+                                           preferences: preferences, parentLines: parentLines)
+                }
+            } header: {
+                Text("Agents").font(.headline).foregroundStyle(Color(palette.label)).textCase(nil)
             }
-            ForEach(agents) { agent in
-                NavigationLink(value: agent.id) { CompanionAgentListRow(agent: agent) }
-                    .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
-                    .listRowBackground(CompanionCardBackground())
-            }
-        } header: {
-            Text("Agents").font(.headline).foregroundStyle(Color(palette.label)).textCase(nil)
         }
     }
 
