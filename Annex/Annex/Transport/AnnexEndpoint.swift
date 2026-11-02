@@ -16,6 +16,8 @@ nonisolated public enum AnnexTransportError: Error, Sendable, Equatable {
     case rateLimited(code: String?, retryAfterSeconds: Int?)
     case malformedResponse
     case responseTooLarge
+    /// The encoded mobile command exceeded the local body limit; nothing was sent.
+    case commandTooLarge
     case queueOverflow
     case disconnected
     case commandOutcomeUnknown(commandID: String)

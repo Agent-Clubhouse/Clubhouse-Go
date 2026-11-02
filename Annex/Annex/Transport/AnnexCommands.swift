@@ -134,9 +134,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-        let data = try encoder.encode(AnnexJSON.object(v))
-        guard data.count <= 128 * 1024 else { throw AnnexTransportError.responseTooLarge }
-        return data
+        return try encoder.encode(AnnexJSON.object(v))
     }
 }
 

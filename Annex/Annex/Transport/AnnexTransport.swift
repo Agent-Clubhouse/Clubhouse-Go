@@ -220,6 +220,9 @@ public actor AnnexTransport: AnnexTransporting {
     public func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         return try await telemetry.measure(command.diagnosticOperation) {
             let data = try command.encoded()
+            // The desktop caps the whole JSON body at 1 MiB of UTF-8, including keys and escaping.
+            // Check the exact bytes that will be sent, before reserving a command or doing any IO.
+            guard data.count <= 1_048_576 else { throw AnnexTransportError.commandTooLarge }
             let now = clock.now()
             let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
             guard now.timeIntervalSince(command.createdAt) < ttl else {

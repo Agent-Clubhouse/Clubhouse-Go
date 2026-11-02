@@ -46,7 +46,7 @@ nonisolated public enum AnnexDiagnosticFailure: String, Codable, CaseIterable, S
             case .forbidden: return .forbidden
             case .unsupportedCapability: return .unsupported
             case .malformedResponse: return .malformed
-            case .responseTooLarge: return .tooLarge
+            case .responseTooLarge, .commandTooLarge: return .tooLarge
             case .queueOverflow: return .overflow
             case .disconnected: return .connection
             case .commandOutcomeUnknown, .pairingRevocationOutcomeUnknown: return .outcomeUnknown
