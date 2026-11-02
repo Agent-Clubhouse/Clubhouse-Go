@@ -27,3 +27,26 @@ Reading bookmarks retain the first intersecting entry key plus offset, shown his
 ## Live E2E expectation changes
 
 `test9cAgentDispatcherSwitchesAndRealMCPDelivery`: expand the containing activity row before looking for the short real delivery and before checking the long-part fold. `companion-routed-<id>-<index>` and exact open short-part labels remain unchanged. A long routed part retains its independent inner fold. No live test was run during this work.
+
+## Incremental projection and local measurements
+
+A per-target derived-row cache uses conversation revisions rather than comparing the whole item array on each UI update. It retains no source item array. Assistant chunks replace one hard-boundary row; routine tool chunks replace only their existing run. Attention, image, owner and other structural changes invalidate folding. Snapshots release obsolete cached payloads immediately. Deterministic tests cover 200 assistant chunks and 200 tool chunks against 5,000 prior items, with no history regrouping during those updates.
+
+Release profiling at `3bfbb867ddb8bddb69b15aa86705d24ab92dc636`, `-j 2 -DPROFILE_OPTIMIZED`, three alternating runs of each mode on the same machine/head:
+
+| History items | Prior #215 folding, timeline / 200 chunks | Incremental mobile projection / 200 chunks | Prepared rows, prior → mobile |
+| --- | ---: | ---: | ---: |
+| 1,000 | 401.276 ms | 345.448 ms | 147 → 2 |
+| 5,000 | 201.975 ms | 4.195 ms | 147 → 2 |
+
+These are medians from the existing lag benchmark. Its first 1,000-item scenario includes cold reply Markdown setup; the 5,000-item scenario follows with those shared caches warm. Timings measure folding plus window preparation, with projector/store timings recorded separately. The `baseline` mode is the pre-reading #215 folding algorithm retained only in the profiling test, so configuration, source head and workload are identical. Neither mode constructs hidden SwiftUI detail; the mobile domain/UI regressions additionally verify closed activity has no Markdown slices, content-link scan or routed content view.
+
+Reproduce after compiling once:
+
+```sh
+swift test -c release -j 2 -Xswiftc -DPROFILE_OPTIMIZED --filter CompanionLongChatPerformanceTests
+CLUBHOUSE_PROFILE_LONG_CHAT=1 CLUBHOUSE_PROFILE_FOLD=baseline swift test -c release --skip-build -Xswiftc -DPROFILE_OPTIMIZED --filter CompanionLongChatPerformanceTests
+CLUBHOUSE_PROFILE_LONG_CHAT=1 CLUBHOUSE_PROFILE_FOLD=incremental swift test -c release --skip-build -Xswiftc -DPROFILE_OPTIMIZED --filter CompanionLongChatPerformanceTests
+```
+
+Optional `permission_request.toolCallId` is preserved as `approval.toolCallID`. Pending, submitting and uncertain approvals keep the linked tool visible/open even when its tool status still says in progress; missing IDs cause no guessed association. Structured terminal exit codes and message/tool subagent IDs are the only other small projector extractions in this change. Projector indexing and publication remain owned by #215.
