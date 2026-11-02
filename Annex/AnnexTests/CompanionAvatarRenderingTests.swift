@@ -30,7 +30,18 @@ import UIKit
             .padding().frame(width: 360)
             .companionTheme(.clubhouse)
             .environment(\.colorScheme, .light)
-            let image = try XCTUnwrap(ImageRenderer(content: content).uiImage, "\(appearance) must render both row and sender")
+            // Host the navigation row in UIKit. ImageRenderer cannot reliably rasterize NavigationLink.
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 360, height: 220))
+            let hosting = UIHostingController(rootView: content)
+            window.rootViewController = hosting
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded()
+            hosting.view.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: hosting.view.bounds).image { context in
+                hosting.view.layer.render(in: context.cgContext)
+            }
+            window.isHidden = true
+            XCTAssertGreaterThan(image.size.width, 0, "\(appearance) must render both row and sender")
             let attachment = XCTAttachment(image: image)
             attachment.name = "Dispatcher custom \(appearance.lowercased()): pinned row and sender"
             attachment.lifetime = .keepAlways

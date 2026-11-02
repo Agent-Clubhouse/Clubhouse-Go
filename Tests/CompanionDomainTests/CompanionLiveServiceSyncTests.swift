@@ -108,6 +108,40 @@ import Testing
         #expect(harness.host?.theme == CompanionLiveService.theme(from: colors, terminal: colors["terminalColors"]))
     }
 
+    @Test(arguments: [true, false])
+    func snapshotRemovalClearsIdentityAndQuickCachesAcrossCatalogRefresh(includesEmptyIconMaps: Bool) async throws {
+        let harness = try await Harness.start()
+        defer { harness.stop() }
+        let sender = CompanionRoutedMessagePart.Sender(agentID: "agent", name: "Agent")
+        await harness.transport.emit(harness.snapshotEvent([
+            "agents": .object(["project": .array([.object(["id": .string("agent"), "name": .string("Custom"),
+                "emoji": .string("🧭"), "icon": .string("agent.png")])])]),
+            "quickAgents": .object(["project": .array([.object(["id": .string("q"), "name": .string("flash-fox"), "kind": .string("quick")])])]),
+            "agentIcons": .object(["agent": .string("data:image/png;base64,AQID")])
+        ]))
+        try await harness.waitUntil { harness.host?.allAgents.count == 2 }
+        let before = CompanionSenderResolver(agents: harness.host!.allAgents)
+        #expect(before.avatarIdentity(for: sender)?.face == .emoji("🧭"))
+        #expect(before.avatarIdentity(for: .init(agentID: "q", name: "flash-fox"))?.face == .quick)
+        var removal: [String: AnnexJSON] = [
+            "agents": .object(["project": .array([.object(["id": .string("agent"), "name": .string("Updated"), "emoji": .null, "icon": .null])])]),
+            "quickAgents": .object([:])
+        ]
+        if includesEmptyIconMaps { removal["agentIcons"] = .object([:]) }
+        await harness.transport.emit(harness.snapshotEvent(removal))
+        try await harness.waitUntil { harness.host?.allAgents.first?.name == "Updated" }
+        let after = CompanionSenderResolver(agents: harness.host!.allAgents)
+        #expect(before != after)
+        #expect(after.avatarIdentity(for: sender)?.face == .initials("U"))
+        #expect(after.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
+        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+        try await harness.refreshCatalog()
+        let refreshed = CompanionSenderResolver(agents: harness.host!.allAgents)
+        #expect(refreshed.avatarIdentity(for: sender)?.face == .initials("A"))
+        #expect(refreshed.resolve(.init(agentID: "q", name: "flash-fox")) == nil)
+        #expect(harness.host?.allAgents.first?.iconData == nil && harness.host?.allAgents.first?.emoji == nil)
+    }
+
     @Test func iconsFromTheSnapshotSurviveCatalogRefreshes() async throws {
         let harness = try await Harness.start()
         defer { harness.stop() }
