@@ -6,8 +6,8 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
-    /// Hidden tabs retain local editor state without observing or building the transcript.
-    var isVisible = true
+    /// A parent-managed tab supplies visibility; navigation destinations use their normal appear/disappear lifecycle.
+    var isVisible: Bool? = nil
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -85,11 +85,14 @@ struct CompanionConversationView: View {
         let _ = CompanionConversationBuildProbe.record?(.body, target)
         #endif
         Group {
-            if isVisible { content }
+            if isVisible != false { content }
             else { Color.clear }
         }
         .onChange(of: isVisible) { _, visible in
-            if !visible { composerFocused = false }
+            if visible == false {
+                composerFocused = false
+                readingViewport.clearGeometry()
+            }
         }
     }
 
@@ -441,7 +444,11 @@ struct CompanionConversationView: View {
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
-            .onDisappear { viewport.clearGeometry() }
+            .onDisappear {
+                // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
+                // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
+                if isVisible == nil { viewport.clearGeometry() }
+            }
 
         }
     }

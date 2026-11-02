@@ -204,10 +204,10 @@ struct CompanionRootView: View {
         }
     }
 
-    private func conversation(_ agent: CompanionAgent, visible: Bool = true) -> some View {
+    private func conversation(_ agent: CompanionAgent, visible: Bool? = nil) -> some View {
         VStack(spacing: 0) {
             if isPreview { CompanionPreviewLabel().padding(6).frame(maxWidth: .infinity) }
-            CompanionConversationView(store: store, agent: agent, showsActions: visible, isVisible: visible)
+            CompanionConversationView(store: store, agent: agent, showsActions: visible ?? true, isVisible: visible)
         }
         .companionTheme(preferences.theme(forHost: agent.id.hostID, hosts: store.hosts))
     }
