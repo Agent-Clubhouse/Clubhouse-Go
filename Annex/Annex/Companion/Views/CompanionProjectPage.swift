@@ -153,7 +153,7 @@ struct CompanionProjectPage: View {
     }
 
     private var agentTree: CompanionAgentTree? {
-        details.map { CompanionAgentTree.build($0.agents, sort: preferences.projectSort, held: hold, lastActivity: store.lastActivity(of:)) }
+        details.map { CompanionAgentTree.build($0.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: preferences.projectSort, held: hold, lastActivity: store.lastActivity(of:)) }
     }
 
     /// The same forest and sleeping fold as Home; finished quick runs have their own section above.
