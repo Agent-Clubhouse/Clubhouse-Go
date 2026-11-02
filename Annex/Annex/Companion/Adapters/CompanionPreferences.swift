@@ -10,6 +10,8 @@ import UIKit
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     private enum Key {
+        static let startScreen = "companion.startScreen"
+        static let dispatcherDesktops = "companion.dispatcherDesktops"
         static let projectSort = "companion.projectSort"
         static let projectOrder = "companion.projectOrder"
         static let lastHost = "companion.lastHostID"
@@ -26,6 +28,10 @@ import UIKit
     /// The system's name for this phone (overridable in tests). Without the user-assigned-device-name entitlement iOS reports only "iPhone".
     let systemDeviceName: String
 
+    var startScreen: CompanionStartScreen { didSet { defaults.set(startScreen.rawValue, forKey: Key.startScreen) } }
+    var dispatcherDesktops: [CompanionDispatcherDesktop]? {
+        didSet { defaults.set(try? JSONEncoder().encode(dispatcherDesktops), forKey: Key.dispatcherDesktops) }
+    }
     var projectSort: CompanionProjectSort { didSet { defaults.set(projectSort.rawValue, forKey: Key.projectSort) } }
     var projectOrder: [String] { didSet { defaults.set(projectOrder, forKey: Key.projectOrder) } }
     /// The desktop you last opened an agent on. Screens that span desktops take its theme.
@@ -75,6 +81,8 @@ import UIKit
     init(defaults: UserDefaults = .standard, systemDeviceName: String? = nil) {
         self.defaults = defaults
         self.systemDeviceName = systemDeviceName ?? Self.currentDeviceName()
+        startScreen = defaults.string(forKey: Key.startScreen).flatMap(CompanionStartScreen.init(rawValue:)) ?? .dispatcher
+        dispatcherDesktops = defaults.data(forKey: Key.dispatcherDesktops).flatMap { try? JSONDecoder().decode([CompanionDispatcherDesktop].self, from: $0) }
         deviceName = defaults.string(forKey: Key.deviceName) ?? self.systemDeviceName
         projectSort = defaults.string(forKey: Key.projectSort).flatMap(CompanionProjectSort.init(rawValue:)) ?? .recent
         projectOrder = defaults.stringArray(forKey: Key.projectOrder) ?? []

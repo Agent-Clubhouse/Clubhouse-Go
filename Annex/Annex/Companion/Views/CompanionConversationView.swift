@@ -6,6 +6,7 @@ struct CompanionConversationView: View {
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
     var showsActions = true
+    var isVisible = true
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -150,7 +151,7 @@ struct CompanionConversationView: View {
             }
         }
         .onChange(of: connection) { _, current in
-            if current.canOperate && conversation.requiresResync && !conversation.isLoading {
+            if isVisible && current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
             }
         }

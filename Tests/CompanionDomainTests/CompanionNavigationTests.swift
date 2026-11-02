@@ -86,7 +86,7 @@ import Testing
         navigation.chooseDispatcher(hostID: "a")
         #expect(navigation.visibleAgent?.hostID == "a")
         navigation.update(hosts: [host("a", enabled: false), host("b")])
-        #expect(navigation.tab == .dispatcher && navigation.dispatcherHostID == "b")
+        #expect(navigation.tab == .home && navigation.dispatcherHostID == "b")
         navigation.update(hosts: [])
         #expect(navigation.tab == .home, "Removing paired desktops removes their tabs")
     }
@@ -115,11 +115,40 @@ import Testing
         #expect(navigation.tab == .dispatcher && navigation.paths[.search] == [])
     }
 
+    @MainActor @Test func disconnectRetainsConversationAndDraftButExplicitOffDropsOnlyConversation() throws {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let host = host()
+        let target = try #require(host.dispatcher?.agent?.id)
+        store.apply(.hosts([host]))
+        store.apply(.timeline(target, items: [], sequence: 1, reset: true, sessionID: "session"))
+        store.drafts[target] = "For A only"
+        var disconnected = host
+        disconnected.connection = .offline
+        disconnected.dispatcher = nil
+        store.apply(.hosts([disconnected]))
+        #expect(store.agent(for: target) != nil && store.conversation(for: target).sessionID == "session")
+        #expect(!store.canOperate(target) && store.drafts[target] == "For A only")
+        var off = host
+        off.dispatcher?.enabled = false
+        store.apply(.hosts([off]))
+        #expect(store.conversation(for: target).sessionID == nil && store.drafts[target] == "For A only")
+    }
+
     @MainActor @Test func badgeUsesNeedsYouRuleIncludingConnectionAndHelpers() {
         let store = CompanionStore(service: CompanionPreviewService())
         store.apply(.hosts([host("a", status: .waiting), host("b", status: .approval), host("c", connection: .offline, status: .failed)]))
         #expect(store.dispatcherNeedsYouCount == 2 && store.needsYouCount == 2)
-        store.apply(.hosts([host(status: .working)]))
+        var helping = host(status: .working)
+        helping.canAnswerHelperRequests = true
+        var request = CompanionPreviewService.helperRequests[0]
+        request.hostID = helping.id
+        request.projectID = "__dispatcher__"
+        request.requesterID = "dispatcher"
+        helping.helperRequests = [request]
+        store.apply(.hosts([helping]))
+        #expect(store.dispatcherNeedsYouCount == 1 && store.needsYouCount == 1)
+        helping.helperRequests[0].expiresAt = .distantPast
+        store.apply(.hosts([helping]))
         #expect(store.dispatcherNeedsYouCount == 0)
     }
 
