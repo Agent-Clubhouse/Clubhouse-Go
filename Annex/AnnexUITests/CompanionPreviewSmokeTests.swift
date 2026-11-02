@@ -186,19 +186,44 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let done = app.buttons["companion-preview-done"]
         let title = app.navigationBars["test-log.txt"]
 
-        // Every card is in the hierarchy, and the newest can be under the composer: open the newest one on screen. Cards
-        // keep moving as runs start, so tap again if the first tap missed; opening the preview twice is harmless.
         let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
-        func newestLinkOnScreen() -> XCUIElement {
-            let count = links.count
-            return (max(0, count - 4)..<count).reversed().lazy.map { links.element(boundBy: $0) }.first { $0.isHittable }
-                ?? links.element(boundBy: max(0, count - 1))
+        func openNewestLog(until expected: XCUIElement) {
+            XCTAssertTrue(bringTranscriptRowIntoView(links.element(boundBy: max(0, links.count - 1)), in: app))
+            let deadline = Date().addingTimeInterval(20)
+            var previousFrame = CGRect.null
+            var previousCount = -1
+            var stableSince = Date()
+            while Date() < deadline {
+                checkTimeLeft("opening the streaming card's log")
+                if expected.exists { return }
+                // Re-query each time: an indexed element retained across updates can point at a moving card.
+                let count = links.count
+                let top = app.navigationBars.firstMatch.frame.maxY + 12
+                let bottom = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.frame.minY - 12
+                let candidate = (max(0, count - 4)..<count).reversed().lazy.map { links.element(boundBy: $0) }.first {
+                    $0.isHittable && $0.frame.minY >= top && $0.frame.maxY <= bottom
+                }
+                if let candidate {
+                    let frame = candidate.frame
+                    if count != previousCount || frame != previousFrame { stableSince = Date() }
+                    else if Date().timeIntervalSince(stableSince) >= 0.6 {
+                        XCTContext.runActivity(named: "Tap freshly resolved log after its frame settled at \(frame)") { _ in
+                            candidate.tap()
+                        }
+                        if expected.waitForExistence(timeout: 5) { return }
+                        stableSince = Date()
+                    }
+                    previousFrame = frame; previousCount = count
+                } else { previousFrame = .null; previousCount = -1; stableSince = Date() }
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            }
+            XCTAssertTrue(expected.exists, "The streaming card's log must open")
         }
 
         // Done: wait through several updates, including a fold, before closing.
         revealActivityContent(link, in: app)
         XCTAssertTrue(link.waitForExistence(timeout: 15), "The streaming tool card must offer its log")
-        waitAndTap(newestLinkOnScreen(), until: done, timeout: 5, "Done must show while the preview loads")
+        openNewestLog(until: done)
         XCTAssertTrue(title.waitForExistence(timeout: 10), "The sample file must load")
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         XCTAssertTrue(done.isHittable, "Done must stay reachable while updates stream")
@@ -210,7 +235,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // Swipe down. New runs keep pushing older cards up under the header, so open the newest card's log,
         // which stays next to the composer.
         XCTAssertTrue(link.waitForExistence(timeout: 15))
-        waitAndTap(newestLinkOnScreen(), until: title, timeout: 10, "The newest card's log must open")
+        openNewestLog(until: title)
         RunLoop.current.run(until: Date().addingTimeInterval(5))
         title.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.98)))

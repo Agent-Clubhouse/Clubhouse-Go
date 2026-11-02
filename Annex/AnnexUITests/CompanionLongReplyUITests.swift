@@ -86,6 +86,10 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         composer.tap()
         composer.typeText("Still here")
+        // UIKit/binding can already contain all ten characters before AX publishes its final value (#234).
+        // Wait for the exact string once; a missing character still fails and is never retyped.
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "Still here"), timeout: 10),
+                      "The conversation must respond with the complete text after scrolling")
         XCTAssertEqual(composer.value as? String, "Still here", "The conversation must respond after scrolling")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Long reply, back at the latest"
