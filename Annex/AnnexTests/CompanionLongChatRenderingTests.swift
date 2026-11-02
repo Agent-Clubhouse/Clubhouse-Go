@@ -6,6 +6,8 @@ import ClubhouseTransport
 /// Hosted by XCTest in the owned simulator. Captures body construction, not GPU frame rate.
 @MainActor final class CompanionLongChatRenderingTests: XCTestCase {
     func testLongChatStreamingTypingAndReconnectFanout() async throws {
+        // Let the host app finish its initial scene transition before adding a test-only, non-key window.
+        try await Task.sleep(for: .seconds(2))
         let service = CompanionPreviewService(showsDispatcher: true)
         let store = CompanionStore(service: service)
         let target = CompanionPreviewService.dispatcherTarget
@@ -19,8 +21,10 @@ import ClubhouseTransport
         store.apply(.timeline(target, items: items, sequence: 5_000, reset: true, sessionID: "fixture"))
         let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
         let controller = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = controller; window.makeKeyAndVisible()
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = controller; window.isHidden = false
         defer { window.isHidden = true; window.rootViewController = nil; AnnexTelemetry.shared.setEnabled(false) }
         try await Task.sleep(for: .milliseconds(300))
         let telemetry = AnnexTelemetry.shared; telemetry.setEnabled(true)
