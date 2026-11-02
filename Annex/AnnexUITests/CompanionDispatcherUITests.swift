@@ -46,7 +46,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
@@ -67,7 +67,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertFalse(text(app, containing: "[TASK:").exists)
         XCTAssertFalse(text(app, containing: "updates, oldest first:").exists)
         let part = element(app, "companion-routed-relay-1-1")
-        XCTAssertTrue(scrollTo(part, in: app, up: false, maxSwipes: 8), "Bring the message on screen before copying")
+        XCTAssertTrue(bringTranscriptRowIntoView(part, in: app), "Bring the message inside the transcript before copying")
+        XCTContext.runActivity(named: "Copy target frame: \(part.frame)") { _ in }
         screenshot(app, "Routed burst with four senders")
         longPressUntilMenu(part, shows: app.buttons["Copy message"])
         XCTAssertTrue(app.buttons["Copy message"].exists, "Copy remains available on each routed message")
