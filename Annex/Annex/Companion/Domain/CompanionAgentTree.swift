@@ -6,6 +6,13 @@ struct CompanionHelperRollup: Sendable, Equatable {
     var needs = 0
     var working = 0
     var dot: CompanionStatusDot? { needs > 0 ? .needsYou : working > 0 ? .working : nil }
+    var label: String { "\(count) helper\(count == 1 ? "" : "s")" }
+    var accessibilitySummary: String {
+        var parts = [label]
+        if needs > 0 { parts.append("\(needs) \(needs == 1 ? "needs" : "need") you") }
+        if working > 0 { parts.append("\(working) working") }
+        return parts.joined(separator: ", ")
+    }
 }
 
 /// A preorder row keeps navigation flat while retaining the real depth, even beyond the phone's indent cap.

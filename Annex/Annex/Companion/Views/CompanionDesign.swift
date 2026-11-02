@@ -220,10 +220,11 @@ struct CompanionAgentListRow: View {
                 HStack(spacing: 4) {
                     if let dot = helperRollup.dot {
                         Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
-                            .accessibilityLabel(dot.label)
                     }
-                    Text("\(helperRollup.count) helpers").font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                    Text(helperRollup.label).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(helperRollup.accessibilitySummary)
             }
         }
         .padding(.vertical, 2)

@@ -42,7 +42,7 @@ private struct CompanionAgentTreeNavigationRow: View, Equatable {
                         .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel("Helpers of \(row.agent.name), \(row.rollup.count) helpers")
+                .accessibilityLabel("Helpers of \(row.agent.name), \(row.rollup.label)")
                 .accessibilityValue(collapsed ? "Collapsed" : "Expanded")
                 .accessibilityHint(collapsed ? "Shows helpers" : "Hides helpers")
                 .accessibilityIdentifier("helpers-toggle-\(row.id.hostID)-\(row.id.agentID)")

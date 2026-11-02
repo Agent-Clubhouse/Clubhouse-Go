@@ -46,6 +46,8 @@ struct CompanionAgentTreeTests {
                            treeAgent("h3", parent: "lead", status: .failed)])
         #expect(result.active[0].rollup == .init(count: 4, needs: 2, working: 1))
         #expect(result.active[0].rollup.dot == .needsYou)
+        #expect(result.active[0].rollup.accessibilitySummary == "4 helpers, 2 need you, 1 working")
+        #expect(CompanionHelperRollup(count: 1).accessibilitySummary == "1 helper")
         #expect(result.active[1].rollup.dot == nil)
         #expect(tree([treeAgent("p"), treeAgent("h", parent: "p", status: .working)]).active[0].rollup.dot == .working)
         #expect(result.visible(result.active, collapsed: [treeAgent("lead").id]).map(\.agent.name) == ["lead"])
