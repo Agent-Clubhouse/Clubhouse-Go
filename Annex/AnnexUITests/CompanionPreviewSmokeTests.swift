@@ -6,6 +6,8 @@ import XCTest
 final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Opens River's conversation from Home, tapping again if a slow runner drops the tap.
     private func openRiver(_ app: XCUIApplication, maxSwipes: Int = 4, file: StaticString = #filePath, line: UInt = #line) {
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        if home.exists && !home.isSelected { home.tap() }
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         scrollUntilExists(agent, in: app, maxSwipes: maxSwipes, file: file, line: line)
         XCTAssertTrue(agent.waitForExistence(timeout: 15), "Preview agent must appear", file: file, line: line)

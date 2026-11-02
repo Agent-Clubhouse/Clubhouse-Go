@@ -100,6 +100,9 @@ import UIKit
         before.setContentOffset(CGPoint(x: 0, y: 1200), animated: false)
         try await settle(window)
         let readingOffset = before.contentOffset.y + before.adjustedContentInset.top
+        let bookmark = store.readingBookmark(for: target)
+        let entryID = try #require(bookmark.position.entryID, "The shared reading bookmark captures an entry")
+        #expect(!bookmark.position.followsLatest)
 
         switch hidden { case .tab: navigation.tab = 1; case .desktop: navigation.desktop = 1 }
         try await settle(window)
@@ -112,6 +115,8 @@ import UIKit
         let hiddenBodies = counts.bodies[target, default: 0]
         let hiddenTimelines = counts.timelines[target, default: 0]
         print("HIDDEN_STREAM_MEASUREMENT case=\(hidden.rawValue) visibleEvents=\(visibleEvents) visibleBody=\(visibleBodies) visibleTimeline=\(visibleTimelines) hiddenEvents=\(streamedEvents) hiddenBody=\(hiddenBodies) hiddenTimeline=\(hiddenTimelines)")
+        #expect(bookmark.position.entryID == entryID, "Unmounting retains the shared entry bookmark")
+        #expect(bookmark.viewport.metrics == nil, "Unmounting clears mounted geometry, not the bookmark")
         #expect(hiddenTimelines == 0, "Hidden conversations must do zero timeline builds for 20 streamed events")
         #expect(store.drafts[target] == "Draft for this desktop")
 

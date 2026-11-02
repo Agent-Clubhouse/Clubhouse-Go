@@ -5,6 +5,8 @@ import XCTest
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     private func openRiver(_ app: XCUIApplication) {
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        if home.exists && !home.isSelected { home.tap() }
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-composer"))

@@ -101,8 +101,7 @@ struct CompanionRootView: View {
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
->>>>>>> a7ec9d2 (feat: add a state-preserving Dispatcher start tab)        .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
-
+        .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
         .onChange(of: store.selection) { _, target in
             AnnexTelemetry.shared.record(.navigation)
             // A selection made elsewhere (a newly started agent) opens in the current tab.
@@ -155,8 +154,8 @@ struct CompanionRootView: View {
         if let hostID = target?.hostID, preferences.lastHostID != hostID { preferences.lastHostID = hostID }
     }
 
-    /// Keep one conversation subtree per desktop mounted, preserving its scroll window, anchor and composer.
-    /// Only the selected desktop in the visible tab can load, focus or contribute toolbar actions.
+    /// Retain each desktop’s editor state; hidden conversations unmount their transcript content.
+    /// The store’s per-target reading bookmark restores the visible transcript after tab or desktop switches.
     private var dispatcherRoot: some View {
         ZStack {
             ForEach(navigation.dispatcherDesktops) { desktop in

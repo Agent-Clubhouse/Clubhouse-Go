@@ -12,6 +12,8 @@ import XCTest
     }
 
     private func openSettings(_ app: XCUIApplication, rowID: String, sleeping: Bool = false) {
+        let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+        if home.exists && !home.isSelected { home.tap() }
         let row = element(app, rowID)
         if sleeping {
             expandFold(element(app, "fold-sleeping-preview-studio-clubhouse"), revealing: row, in: app)
