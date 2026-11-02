@@ -84,37 +84,42 @@ the note above.
 
 ## Report diagnostics release gate
 
-The local `AnnexFeedbackDiagnostics` provider is preparation only. Report diagnostics sending is off
-(`CompanionFeedback.reportDiagnosticsSendingEnabled == false`), and the pinned SDK does not put a
-`diagnostics` field in outgoing reports. Framebriar has confirmed API deployment with diagnostics v1
-and the 256-KiB request limit. **The user-approved identity-binding tag is v0.7.0 at
-`f57b75fe5d38d7e2c3d221d246c9e01445da41dc`; adoption is a separate follow-up. Do not adopt 0.6.0 as an interim step.** Keep sending off until these remaining steps are complete:
+The local `AnnexFeedbackDiagnostics` provider is not connected; general emission is required to
+stay off. The SDK is refreshed unchanged from user-approved v0.7.0 at
+`f57b75fe5d38d7e2c3d221d246c9e01445da41dc`, and API diagnostics v1 / the 256-KiB request cap are
+confirmed. **The integration is not releasable yet:** v0.7.0's composer always adds the diagnostics
+field, and including diagnostics also invokes a telemetry excerpt. A Go boolean cannot enforce the
+required wire omission through that composer. Framebriar's proper OFF/per-draft policy is pending a
+tag; no vendor patch or replacement composer is used. Keep this PR draft and do not merge a build
+that emits the field until the tagged fix and actual composer/draft wire tests prove omission and
+marker-only delivery. The one-report scoped test is not implemented yet.
 
-1. The orchestrator supplies the exact identity-binding SDK tag, commit and public API. Re-vendor
-   through `scripts/verify-framebriar-vendor.sh --refresh <exact-tag>` and verify SOURCE.json hashes;
-   no direct vendor patches. Synchronous frozen capture, durable retries, identity binding, status
-   and the combined diagnostics off switch must be included in that tagged contract.
-2. Go adopts it and validates fake outgoing requests and enrollment changes. General emission stays
-   off by default. A separate, explicitly requested, clearly labeled test-report path must be scoped
-   to one draft; that exception is not implemented in this preparation. See the adoption checklist
-   in [opentelemetry.md](opentelemetry.md#feedback-sdk-adoption-checklist).
-3. The release owner reviews the included summary, enrollment disclosure and privacy draft below.
-   Store declaration changes need the user's approval. No production send or phone/host-app installation is authorized
-   by this checklist or by merging a preparatory PR.
+Remaining release gates:
 
-The legacy 16-KiB endpoint stripped unknown small fields and permanently rejected oversized reports,
-which could block the local outbox. Do not bypass the pinned SDK to add the field. Local provider tests do not
-prove server support. On adoption, review the included-content summary and enrollment disclosure
-against App Privacy declarations; the off switch must remove entries, incident and flat trace/span
-references while preserving the user's notes and reviewed image. A server `storage-failed` result
-means the report was accepted but its diagnostics blob failed, so it must not be shown as a rejected
-report. No new report data is transmitted by the preparatory provider.
+1. Obtain the exact OFF-policy tag/API from the orchestrator, refresh the entire SDK via the vendoring
+   script and verify hashes. Ordinary feedback must call no provider and have no diagnostics key.
+2. Validate frozen captures, enrollment changes, holds and retries with fake transports. Add the
+   separately requested, clearly labeled one-report test only with tagged per-draft support; cancel
+   and unsaved enrollment-change recovery invalidate its scope. Do not duplicate attached entries as
+   a report-specific telemetry excerpt. Ordinary consented telemetry remains separate.
+3. Review the actual included summary/enrollment disclosure against the privacy draft below. Store
+   declaration changes need the user's approval. No production send or phone/host-app install is
+   authorized by this checklist or by merging a preparatory PR. Real phone, Azure readback and
+   feedback URLSession delivery remain unproven.
 
-Release-note draft for the separate v0.7.0 adoption: “Saved feedback is bound to its enrollment;
-reports held after a connection change need an explicit decision before delivery. **Going back to
-an older Framebriar SDK is unsafe.** Follow the tagged SDK's rollback guidance; changing only the
-dependency pin is not a supported rollback.” This preparation does not migrate the queue or adopt
-the new SDK, and this draft is not a release announcement.
+The legacy 16-KiB endpoint stripped unknown small fields and permanently rejected oversized reports.
+Do not bypass the SDK to add the field. A diagnostics `storage-failed` result means the report was
+accepted but its blob failed; do not show that as report rejection. The combined off switch must
+remove entries, incident and flat trace/span references while preserving the user's notes/image.
+
+Release-note draft: “Saved feedback is bound to its enrollment. Reports held after a connection
+change need an explicit decision before delivery. **Going back to an older Framebriar SDK is
+unsafe.** A report still bound when downgraded can send under a later enrollment on that old SDK.
+Held reports are fenced, but an older Swift writer drops their refs/held marker on a queue save;
+after upgrading, those reports can only be cleared, not released. Before a planned downgrade,
+let bound reports deliver and explicitly release or clear held reports. Follow the tagged
+[rollback guidance](https://github.com/masra91/framebriar/blob/f57b75fe5d38d7e2c3d221d246c9e01445da41dc/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
+changing only the dependency pin is not a supported rollback.” This draft is not a release announcement.
 
 ### Draft App Privacy update — NOT EFFECTIVE
 
@@ -173,5 +178,6 @@ kill; it is not an app hang fix or a general device/runtime guarantee.
   prove physical shake, Full-Screen Previews or real-device delivery. If a future stall occurs, retain
   timestamps and a process sample/stack before classifying it.
 
-The user has approved the identity-binding v0.7.0 tag for the separate adoption follow-up. No iPad run or SDK adoption is performed by
-this preparatory change; the 0.6.0 evidence is not permission to vendor that version.
+The user approved identity-binding v0.7.0, now vendored unchanged for the integration. Release is
+still blocked on tagged diagnostics-OFF support. No Go iPad run is claimed here; the 0.6.0 evidence
+belongs to Framebriar's harness, and real-device checks remain separate.
