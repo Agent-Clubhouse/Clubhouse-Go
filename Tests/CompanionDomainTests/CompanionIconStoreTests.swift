@@ -44,6 +44,47 @@ import Testing
         #expect(!FileManager.default.fileExists(atPath: path.path))
     }
 
+    @Test func exactDefaultImageBudgetAndTruncatedDiskRecovery() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let original = try Self.png()
+        let limit = CompanionIconStore.Limits().imageBytes
+        #expect(limit == 1024 * 1024)
+        #expect(CompanionIconStore.Limits().totalBytes == 64 * 1024 * 1024)
+        let exact = original + Data(repeating: 0, count: limit - original.count)
+        let store = CompanionIconStore(directory: root)
+        #expect(await store.insert(exact, for: key()))
+        #expect(await store.insert(exact + Data([0]), for: key("one-over")) == false)
+        let path = await store.fileURL(for: key())
+        try original.prefix(25).write(to: path, options: .atomic)
+        let reopened = CompanionIconStore(directory: root)
+        let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: original))
+        await reopened.setFetcher(for: "desktop") { _, _ in await fetcher.fetch() }
+        #expect(await reopened.image(for: key(), points: 32) != nil)
+        #expect(await fetcher.calls == 1)
+        #expect(try Data(contentsOf: path) == original)
+    }
+
+    @Test func thrownOfflineFailuresBackOffAndVersionChangesFetchIndependently() async throws {
+        let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
+        let clock = Clock()
+        let fetcher = Fetcher(response: .init(status: 200, contentType: "image/png", data: try Self.png()))
+        let store = CompanionIconStore(directory: root, now: { clock.now })
+        await store.setFetcher(for: "desktop") { _, _ in
+            _ = await fetcher.fetch()
+            throw URLError(.notConnectedToInternet)
+        }
+        for _ in 0..<10 { #expect(await store.image(for: key(), points: 32) == nil) }
+        #expect(await fetcher.calls == 1)
+        // New tokens have independent failure state; old bytes never stand in for a new token.
+        await store.setFetcher(for: "desktop") { _, _ in await fetcher.fetch() }
+        #expect(await store.image(for: key(token: "v2"), points: 32) != nil)
+        #expect(await store.image(for: key(), points: 32) == nil)
+        #expect(await fetcher.calls == 2)
+        clock.advance(31)
+        #expect(await store.image(for: key(), points: 32) != nil)
+        #expect(await fetcher.calls == 3)
+    }
+
     @Test func svgAndOversizedFetchesUseBoundedRasterFallback() async throws {
         let root = try directory(); defer { try? FileManager.default.removeItem(at: root) }
         let svg = Data(##"<svg xmlns="http://www.w3.org/2000/svg" width="1000000" height="1000000"><rect width="1000000" height="1000000" fill="#6366f1"/></svg>"##.utf8)
