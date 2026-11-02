@@ -41,11 +41,17 @@ import Testing
         try await h.waitUntil { h.host?.name == "Relocated" }
         #expect(h.store.agent(for: dispatcher) != nil)
         #expect(h.store.agent(for: h.target) != nil)
-        #expect(h.store.conversation(for: dispatcher).items == original.items)
+        let keptChat = h.store.conversation(for: dispatcher).items == original.items
+        #expect(keptChat)
         #expect(h.store.conversation(for: dispatcher).isLoaded)
         #expect(!h.store.canOperate(dispatcher))
+        let clock = ContinuousClock()
+        let started = clock.now
         await h.store.load(dispatcher)
-        #expect(await h.transport.readRoutes.filter { $0.name == "chat" }.count == reads, "Returning to a cached chat must not reread its full history")
+        let returnDuration = clock.now - started
+        let afterReads = await h.transport.readRoutes.filter { $0.name == "chat" }.count
+        print("Dispatcher resume: rows=\(original.items.count), extraFullHistoryReads=\(afterReads - reads), returnDuration=\(returnDuration)")
+        #expect(afterReads == reads, "Returning to a cached chat must not reread its full history")
         observer.cancel()
         #expect(await observer.value == 0, "No host publication may claim the known Dispatcher disappeared")
     }
@@ -110,6 +116,49 @@ import Testing
         try await h.waitUntil { h.store.projectEntries.isEmpty }
     }
 
+    @Test func quickCatalogOmissionKeepsIdentityAndExplicitEmptyRemovesIt() async throws {
+        let h = try await start(); defer { h.stop() }
+        let target = CompanionTarget(hostID: LiveServiceHarness.hostID, projectID: "project", agentID: "quick")
+        await h.transport.emit(h.snapshotEvent(["quickAgents": .object(["project": .array([.object(["id": .string("quick"), "kind": .string("quick")])])])]))
+        try await h.waitUntil { h.store.agent(for: target) != nil }
+        await h.transport.emit(h.snapshotEvent([:]))
+        try await h.refreshCatalog()
+        #expect(h.store.agent(for: target) != nil)
+        await h.transport.emit(h.snapshotEvent(["quickAgents": .object([:])]))
+        try await h.waitUntil { h.store.agent(for: target) == nil }
+    }
+
+    @Test(arguments: ["projects", "agents"]) func malformedRESTCatalogIsNotDeletion(route: String) async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.transport.setRead(route, .object([:]))
+        await h.transport.emit(.resyncRequired(.reconnected))
+        try await h.waitUntil { if case .failed = h.host?.connection { true } else { false } }
+        #expect(h.store.agent(for: h.target) != nil)
+        #expect(h.store.agent(for: dispatcher) != nil)
+    }
+
+    @Test func reconnectResyncAndConnectedShareOneCatalogRefresh() async throws {
+        let h = try await start(); defer { h.stop() }
+        let before = await h.transport.readRoutes.filter { $0.name == "capabilities" }.count
+        await h.transport.pauseNextRead("capabilities")
+        await h.transport.emit(.resyncRequired(.reconnected))
+        try await h.waitUntil { await h.transport.isReadPaused("capabilities") }
+        let publications = h.service.events()
+        let connectedHandled = Task { @MainActor in
+            var iterator = publications.makeAsyncIterator()
+            _ = await iterator.next() // Initial synchronizing host.
+            await h.transport.emit(.connection(.connected))
+            _ = await iterator.next() // Connected has been handled while the first refresh is paused.
+        }
+        await connectedHandled.value
+        await h.transport.resumeRead("capabilities")
+        try await h.waitUntil { h.host?.connection == .connected }
+        // Reads are in-memory actor calls; allow any erroneously queued follow-up to finish.
+        try await Task.sleep(for: .milliseconds(50))
+        let count = await h.transport.readRoutes.filter { $0.name == "capabilities" }.count - before
+        #expect(count == 1, "Reconnect's resync + first snapshot connected are one synchronization")
+    }
+
     @Test func authoritativeDeletionStillRemovesAgent() async throws {
         let h = try await start(); defer { h.stop() }
         await h.transport.setAgents(.array([]))
@@ -135,5 +184,25 @@ import Testing
         try await h.waitUntil { h.store.hosts.isEmpty }
         #expect(h.store.agent(for: h.target) == nil)
         #expect(!h.store.conversation(for: h.target).isLoaded)
+    }
+}
+
+@MainActor struct CompanionIdentityNavigationTests {
+    @Test func unknownDestinationLoadsUntilCatalogCompletes() {
+        let h = LiveServiceHarness.hostID
+        let target = CompanionTarget(hostID: h, projectID: "p", agentID: "a")
+        let store = CompanionStore(service: CompanionPreviewService())
+        var host = CompanionHost(id: h, name: "Fixture", endpoint: "", connection: .connecting, projects: [])
+        for state: CompanionConnection in [.connecting, .reconnecting, .synchronizing, .offline, .failed("network")] {
+            host.connection = state; store.apply(.hosts([host]))
+            #expect(store.isAgentLoading(target))
+            #expect(!store.canOperate(target))
+        }
+        host.connection = .connected; store.apply(.hosts([host]))
+        #expect(store.isAgentLoading(target), "Even a connected transport needs its first authoritative catalog")
+        host.hasLoadedCatalog = true; store.apply(.hosts([host]))
+        #expect(!store.isAgentLoading(target), "A completed catalog confirms absence")
+        store.apply(.hosts([]))
+        #expect(!store.isAgentLoading(target), "Forgetting a host is final")
     }
 }

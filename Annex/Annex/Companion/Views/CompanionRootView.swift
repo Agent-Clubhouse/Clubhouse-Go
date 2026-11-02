@@ -131,11 +131,13 @@ struct CompanionRootView: View {
             // The composer owns the bottom edge in a chat, as in Messages.
             .toolbar(.hidden, for: .tabBar)
             .id(target)
+        } else if store.isAgentLoading(target) {
+            ProgressView("Connecting to desktop…")
         } else if store.isDispatcher(target) {
             CompanionDispatcherUnavailableView(store: store, hostID: target.hostID)
         } else {
             ContentUnavailableView("Agent unavailable", systemImage: "sparkle",
-                                   description: Text("This agent is no longer on its desktop, or the desktop is offline."))
+                                   description: Text("This agent is no longer on its desktop."))
         }
     }
 }

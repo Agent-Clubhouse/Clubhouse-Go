@@ -34,6 +34,11 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // Other reads, keyed by route name (see `key(_:)`).
     private var reads: [String: Result<AnnexJSON, AnnexTransportError>] = [:]
+    private var pauseNext: Set<String> = []
+    private var paused: [String: CheckedContinuation<Void, Never>] = [:]
+    func pauseNextRead(_ route: String) { pauseNext.insert(route) }
+    func isReadPaused(_ route: String) -> Bool { paused[route] != nil }
+    func resumeRead(_ route: String) { paused.removeValue(forKey: route)?.resume() }
     private(set) var readRoutes: [AnnexReadRouteRecord] = []
 
     // Commands.
@@ -109,6 +114,8 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         readRoutes.append(.init(route))
+        let name = Self.key(route)
+        if pauseNext.remove(name) != nil { await withCheckedContinuation { paused[name] = $0 } }
         if let result = reads[Self.key(route)] { return try result.get() }
         switch route {
         case .capabilities: return capabilitiesDocument

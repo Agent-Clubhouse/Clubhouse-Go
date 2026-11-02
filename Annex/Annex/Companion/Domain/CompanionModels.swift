@@ -61,6 +61,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var endpoint: String
     var connection: CompanionConnection
     var projects: [CompanionProject]
+    /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
+    var hasLoadedCatalog = false
     var richContentAvailable = false
     var canSpawn = false
     /// The desktop creates durable agents (`agent.create` and create options v1). Older ones offer quick agents only.

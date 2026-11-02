@@ -94,6 +94,13 @@ import Observation
         return CompanionTerminalSession(scope: scope, title: CompanionTerminalSession.title(for: scope, host: host), channel: try service.terminal(scope))
     }
     func agent(for target: CompanionTarget) -> CompanionAgent? { host(for: target)?.agent(for: target) }
+    /// Navigation must not call an unknown target unavailable while its desktop is still synchronizing.
+    func isAgentLoading(_ target: CompanionTarget) -> Bool {
+        guard let host = host(for: target) else { return false }
+        guard agent(for: target) == nil else { return false }
+        if host.isDispatcher(target), host.dispatcher?.enabled == false { return false }
+        return !host.hasLoadedCatalog || !host.connection.canOperate || (host.isDispatcher(target) && host.dispatcher?.isLoading == true)
+    }
     /// The target is its desktop's Dispatcher, by the project id the desktop gives it.
     func isDispatcher(_ target: CompanionTarget) -> Bool { host(for: target)?.isDispatcher(target) == true }
     private struct TranscriptKey: Hashable { var target: CompanionTarget; var sessionID: String? }
@@ -760,8 +767,15 @@ import Observation
     func apply(_ event: CompanionEvent) {
         switch event {
         case .hosts(let hosts):
-            // A Dispatcher that was turned off takes its chat with it; turned back on, it loads afresh.
-            let gone = Set(self.hosts.compactMap(\.dispatcher?.liveAgent?.id)).subtracting(hosts.compactMap(\.dispatcher?.liveAgent?.id))
+            // Only confirmed removal or shutdown discards chat; refresh and reconnect retain identity.
+            let gone = Set(conversations.keys).union(self.hosts.flatMap(\.allAgents).map(\.id)).filter { target in
+                guard let host = hosts.first(where: { $0.id == target.hostID }) else { return true }
+                if host.agent(for: target) != nil { return false }
+                if host.isDispatcher(target) {
+                    return host.dispatcher?.enabled == false || host.dispatcher?.flagOn == false
+                }
+                return host.hasLoadedCatalog
+            }
             for target in gone { conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target) }
             self.hosts = hosts
             var runs = finishedRuns

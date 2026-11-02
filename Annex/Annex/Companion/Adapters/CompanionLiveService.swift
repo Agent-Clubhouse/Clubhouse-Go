@@ -7,6 +7,8 @@ import ClubhouseTransport
     private var transports: [String: any AnnexTransporting] = [:]
     private var hosts: [String: CompanionHost] = [:]
     private var capabilities: [String: AnnexCapabilities] = [:]
+    /// A successful read can confirm an older desktop has no mobile capabilities; a failed read cannot.
+    private var knownCapabilities: Set<String> = []
     private var projections: [CompanionTarget: CompanionChatProjector] = [:]
     private var readOnly: Set<CompanionTarget> = []
     private var eventTasks: [String: Task<Void, Never>] = [:]
@@ -54,9 +56,11 @@ import ClubhouseTransport
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         let endpoint = registration.host.endpoint
-        hosts[id] = .init(id: id, name: registration.alias.isEmpty ? endpoint.host : registration.alias,
-                          endpoint: "\(endpoint.host):\(endpoint.port)", connection: .connecting,
-                          projects: hosts[id]?.projects ?? [])
+        var host = hosts[id] ?? .init(id: id, name: "", endpoint: "", connection: .connecting, projects: [])
+        host.name = registration.alias.isEmpty ? endpoint.host : registration.alias
+        host.endpoint = "\(endpoint.host):\(endpoint.port)"
+        host.connection = .connecting
+        hosts[id] = host
         emitHosts()
         guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
         guard !isSuspended else { hosts[id]?.connection = .offline; emitHosts(); return }
@@ -519,6 +523,12 @@ import ClubhouseTransport
         transports.removeValue(forKey: hostID)
         hosts.removeValue(forKey: hostID)
         capabilities.removeValue(forKey: hostID)
+        knownCapabilities.remove(hostID)
+        quickCatalog.removeValue(forKey: hostID)
+        needsCatchUp.remove(hostID)
+        buffers = buffers.filter { $0.key.hostID != hostID }
+        historyGenerations = historyGenerations.filter { $0.key.hostID != hostID }
+        readOnly = readOnly.filter { $0.hostID != hostID }
         windowsHosts.remove(hostID)
         iconCatalog.removeValue(forKey: hostID)
         dispatcherCatalog.removeValue(forKey: hostID)
@@ -657,9 +667,12 @@ import ClubhouseTransport
             if state != .connected { streamDiagnostics.disconnect(hostID: hostID) }
             switch state {
             case .connected:
+                // An automatic reconnect emits resyncRequired before the first snapshot's connected.
+                // Both describe one handshake; do not enqueue a second full catalog behind its active read.
+                let alreadyRefreshing = hosts[hostID]?.connection == .synchronizing && refreshTasks[hostID] != nil
                 hosts[hostID]?.connection = .synchronizing; emitHosts()
                 needsCatchUp.insert(hostID)
-                scheduleRefresh(hostID: hostID)
+                if !alreadyRefreshing { scheduleRefresh(hostID: hostID) }
             case .connecting:
                 cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .connecting
@@ -758,34 +771,47 @@ import ClubhouseTransport
         guard let transport = transports[hostID], let generation = eventGenerations[hostID], !isSuspended else { return }
         do {
             let rawCaps = try? await transport.read(.capabilities)
-            let newCapabilities = (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
+            let newCapabilities = rawCaps == nil ? capabilities[hostID]
+                : (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
             let rawProjects = try await transport.read(.projects)
-            let projects = rawProjects["projects"].arrayValue.isEmpty ? Optional(rawProjects).arrayValue : rawProjects["projects"].arrayValue
+            guard case .array(let projects) = rawProjects["projects"] ?? rawProjects,
+                  projects.allSatisfy({ $0["id"]?.string?.isEmpty == false }) else { throw AnnexTransportError.malformedResponse }
             var agents: [String: AnnexJSON] = [:]
             for project in projects {
                 guard let projectID = project["id"]?.string else { continue }
                 let result = try await transport.read(.agents(projectID: projectID))
-                agents[projectID] = result["agents"] ?? result
+                let values = result["agents"] ?? result
+                guard case .array(let entries) = values, entries.allSatisfy({ $0["id"]?.string?.isEmpty == false }) else {
+                    throw AnnexTransportError.malformedResponse
+                }
+                agents[projectID] = values
             }
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
-            capabilities[hostID] = newCapabilities
-            hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
-            hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
-            hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
-            hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
-            hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
-            hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
-            hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
-            hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
-            hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
-            hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
-            hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
-            hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
-            hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
-            if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
-                dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
-            } else { dispatcherFlags[hostID] = nil }
-            if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
+            if rawCaps != nil {
+                knownCapabilities.insert(hostID)
+                capabilities[hostID] = newCapabilities
+                hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
+                hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
+                hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
+                hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
+                hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
+                hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
+                hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
+                hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
+                hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
+                hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
+                hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
+                hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
+                hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
+                if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
+                    dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
+                    if !dispatcher.enabled || !dispatcher.flagOn { dropDispatcher(hostID: hostID) }
+                } else {
+                    dispatcherFlags[hostID] = nil
+                    dropDispatcher(hostID: hostID)
+                }
+                if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
+            }
             applyCatalog(.object(["projects": .array(projects), "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             if needsCatchUp.contains(hostID) {
                 // A failed catch-up keeps the catalog's statuses and runs again on the next refresh.
@@ -931,10 +957,20 @@ import ClubhouseTransport
         var projects: [CompanionProject] = []
         let projectIcons = payload["projectIcons"] ?? iconCatalog[hostID]?.projects
         let agentIcons = payload["agentIcons"] ?? iconCatalog[hostID]?.agents
-        for project in payload["projects"].arrayValue {
+        // Only a complete, well-formed catalog can establish absence. Snapshots may arrive before
+        // all fields do; a missing map or project entry is unknown, whereas an explicit [] is empty.
+        let complete: Bool
+        if case .array(let values)? = payload["projects"], case .object? = payload["agents"] {
+            complete = values.allSatisfy { project in
+                guard let id = project["id"]?.string, !id.isEmpty,
+                      case .array(let agents)? = payload["agents"]?[id] else { return false }
+                return agents.allSatisfy { $0["id"]?.string?.isEmpty == false }
+            }
+        } else { complete = false }
+        for project in complete ? payload["projects"].arrayValue : [] {
             guard let projectID = project["id"]?.string else { continue }
             let durableValues: [AnnexJSON] = (payload["agents"]?[projectID]).arrayValue
-            let quickValues: [AnnexJSON] = (payload["quickAgents"]?[projectID]).arrayValue
+            let quickValues: [AnnexJSON] = (payload["quickAgents"]?[projectID] ?? quickCatalog[hostID]?[projectID]).arrayValue
             var agents: [CompanionAgent] = []
             for (index, value) in (durableValues + quickValues).enumerated() {
                 guard let id = value["id"]?.string else { continue }
@@ -944,7 +980,7 @@ import ClubhouseTransport
             }
             projects.append(Self.project(project, id: projectID, agents: agents, icon: projectIcons?[projectID]))
         }
-        host.projects = projects
+        if complete { host.projects = projects; host.hasLoadedCatalog = true }
         host.dispatcher = dispatcherState(hostID: hostID, icons: agentIcons, meta: payload["agentsMeta"])
         if case .object(let orchestrators)? = payload["orchestrators"] {
             host.providers = orchestrators.map { id, value in
@@ -1077,13 +1113,16 @@ import ClubhouseTransport
     /// The Dispatcher as the desktop last described it: its flags from capabilities and `dispatcher:changed`, its agent
     /// from the snapshot. Nil on desktops without `dispatcher` v1, which leaves everything as before.
     private func dispatcherState(hostID: String, icons: AnnexJSON?, meta: AnnexJSON?) -> CompanionDispatcher? {
-        guard let caps = capabilities[hostID], caps.supportsDispatcher, let base = caps.dispatcher else { return nil }
-        let flags = dispatcherFlags[hostID] ?? (base.enabled, base.flagOn)
+        let caps = capabilities[hostID]
+        if knownCapabilities.contains(hostID), caps?.supportsDispatcher != true { return nil }
+        let base = caps?.dispatcher
         let value = dispatcherCatalog[hostID]
-        var state = CompanionDispatcher(enabled: flags.enabled, flagOn: flags.flagOn, newLayout: base.newLayout,
-                                        projectID: value?["projectId"]?.string ?? value?["agent"]?["projectId"]?.string ?? base.projectID,
-                                        canToggle: caps.supportsDispatcherToggle)
-        if flags.enabled, let entry = value?["agent"], let id = entry["id"]?.string, !id.isEmpty {
+        guard base != nil || value != nil else { return hosts[hostID]?.dispatcher }
+        let flags = dispatcherFlags[hostID] ?? (base?.enabled ?? false, base?.flagOn ?? false)
+        var state = CompanionDispatcher(enabled: flags.enabled && flags.flagOn, flagOn: flags.flagOn, newLayout: base?.newLayout ?? true,
+                                        projectID: value?["projectId"]?.string ?? value?["agent"]?["projectId"]?.string ?? base?.projectID ?? CompanionDispatcher.defaultProjectID,
+                                        canToggle: caps?.supportsDispatcherToggle == true)
+        if state.enabled, let entry = value?["agent"], let id = entry["id"]?.string, !id.isEmpty {
             var agent = catalogAgent(entry, target: .init(hostID: hostID, projectID: state.projectID, agentID: id), isQuick: false,
                                      meta: meta?[id], icon: icons?[id])
             agent.isDispatcher = true
@@ -1094,8 +1133,13 @@ import ClubhouseTransport
         }
         return state
     }
-    /// The snapshot's `dispatcher`: `null` while it's off or still starting, else its agent. Its being there means it's on.
+    /// Only an explicit null confirms shutdown. An omitted field never calls this method.
     private func rememberDispatcher(_ value: AnnexJSON, hostID: String) {
+        if value == .null {
+            dispatcherFlags[hostID] = (false, dispatcherFlags[hostID]?.flagOn ?? true)
+            dropDispatcher(hostID: hostID)
+            return
+        }
         dispatcherCatalog[hostID] = value
         guard case .object = value, value["agent"]?["id"]?.string != nil else { return }
         dispatcherFlags[hostID] = (value["enabled"]?.boolOrNil ?? true, value["flagOn"]?.boolOrNil ?? true)
@@ -1111,10 +1155,10 @@ import ClubhouseTransport
     }
     /// `dispatcher:changed` or a `dispatcher.setEnabled` receipt. Turned off, its chat and every cached piece of it go.
     private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, hostID: String) {
-        guard capabilities[hostID]?.supportsDispatcher == true else { return }
+        guard capabilities[hostID]?.supportsDispatcher == true || !knownCapabilities.contains(hostID) else { return }
         dispatcherFlags[hostID] = (enabled, flagOn)
         let cachedID = dispatcherCatalog[hostID]?["agent"]?["id"]?.string
-        if !enabled || (agentID != nil && cachedID != nil && agentID != cachedID) { dropDispatcher(hostID: hostID) }
+        if !enabled || !flagOn || (agentID != nil && cachedID != nil && agentID != cachedID) { dropDispatcher(hostID: hostID) }
         hosts[hostID]?.dispatcher = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
         emitHosts()
     }
