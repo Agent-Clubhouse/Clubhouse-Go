@@ -115,6 +115,17 @@ import Testing
         #expect(navigation.tab == .dispatcher && navigation.paths[.search] == [])
     }
 
+    @Test func aCachedDesktopWithoutARestoredPairingCannotLeaveAPhantomTab() throws {
+        let cache = [try #require(CompanionDispatcherDesktop(host: host("a"))), try #require(CompanionDispatcherDesktop(host: host("b")))]
+        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: cache, lastHostID: "a")
+        navigation.retainPairedDesktops(["b"])
+        #expect(navigation.tab == .home && navigation.dispatcherHostID == "b")
+        #expect(navigation.dispatcherDesktops.map(\.id) == ["b"])
+        navigation.select(.dispatcher)
+        navigation.retainPairedDesktops([])
+        #expect(navigation.tab == .home && !navigation.tabs.contains(.dispatcher))
+    }
+
     @Test func notificationBeforeFirstSnapshotRoutesOnceAndCanBeCancelled() throws {
         let target = try #require(host().dispatcher?.agent?.id)
         var navigation = CompanionNavigation(startScreen: .home)
