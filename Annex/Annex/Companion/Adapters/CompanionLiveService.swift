@@ -78,6 +78,10 @@ import ClubhouseTransport
                 let snapshot = try await transport.read(.chat(agentID: target.agentID))
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 var projection = CompanionChatProjector()
+                projection.queueStateEventsSupported = capabilities[target.hostID]?.supportsQueueState == true
+                projection.sessionID = snapshot["sessionId"]?.string
+                // Queue kind must be known before replaying turn_started from a snapshot tail.
+                if let caps = snapshot["capabilities"], caps != .null { projection.updateCapabilities(caps) }
                 projection.commandIDsByMessage = projections[target]?.commandIDsByMessage ?? [:]
                 for event in snapshot["events"].arrayValue { projection.apply(event) }
                 if projection.sessionID == nil { projection.sessionID = snapshot["sessionId"]?.string }
@@ -1024,6 +1028,7 @@ import ClubhouseTransport
     }
     private func project(_ event: AnnexJSON, target: CompanionTarget) {
         var projection = projections[target] ?? .init()
+        projection.queueStateEventsSupported = capabilities[target.hostID]?.supportsQueueState == true
         let oldSession = projection.sessionID
         projection.apply(event)
         // A live session started after a read-only snapshot, as when history loads before a new agent's chat is up.

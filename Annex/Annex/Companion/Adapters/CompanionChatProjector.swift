@@ -20,6 +20,12 @@ struct CompanionChatProjector {
     var commandIDsByMessage: [String: String] = [:]
     var queueStateSequence: Int64 = 0
     var queuedMessageIDs: Set<String> = []
+    /// Keep submission boundaries so a third join rebuilds the desktop's section labels, not a nested burst.
+    private var queuedContentParts: [String: [[AnnexJSON]]] = [:]
+    /// Host capability; retained across session changes, unlike per-session ownership.
+    var queueStateEventsSupported = false
+    private var sessionQueue: String?
+    private var runtimeOwnedMessageIDs: Set<String> = []
     var queueRemovalSupported = false
     /// The composer's model, effort and level, folded from this session's events. Shown only while the session is live.
     var controls = CompanionChatControls()
@@ -51,6 +57,8 @@ struct CompanionChatProjector {
             sessionID = session; lastSequence = 0; items = []; capabilities = []; model = nil; turnStartedAt = nil; contextUsage = nil
             self.session = .init()
             queueStateSequence = 0; queuedMessageIDs = []; queueRemovalSupported = false
+            queuedContentParts = [:]
+            sessionQueue = nil; runtimeOwnedMessageIDs = []
             controls = .init(); effortsSequence = 0; slashCommands = []
         }
         guard allowOlderPending || sequence > lastSequence else { return }
@@ -67,7 +75,9 @@ struct CompanionChatProjector {
         case "session_state":
             status = Self.status(data["state"]?.string)
             if status != .working && status != .approval && status != .waiting { turnStartedAt = nil }
-        case "turn_started": status = .working; turnStartedAt = time ?? turnStartedAt
+        case "turn_started":
+            status = .working; turnStartedAt = time ?? turnStartedAt
+            consumeNativeQueueHead()
         case "turn_ended":
             turnStartedAt = nil
             // A cancelled turn leaves the session alive between turns, which the desktop shows as Done.
@@ -77,22 +87,18 @@ struct CompanionChatProjector {
             // An idle timeout puts the agent to sleep; it resumes on the next message or a wake.
             switch data["reason"]?.string { case "error": endSession(.failed); case "idle_timeout": endSession(.sleeping); default: endSession(.stopped) }
         case "user_message":
-            guard let messageID = data["messageId"]?.string else { return }
-            let content = data["content"].arrayValue
-            let text = content.filter { $0["type"]?.string != "image" }.map { Self.contentText($0) }.joined(separator: "\n")
-            upsert(.message(.init(id: messageID, role: .user, text: text, timestamp: time,
-                                  clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[messageID],
-                                  queueState: queuedMessageIDs.contains(messageID) ? .queued : data["delivery"]?.string == "queued" ? .submitted : nil,
-                                  source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer",
-                                  routed: Self.routedParts(data["routed"]), images: Self.userImages(content, messageID: messageID))))
+            applyUserMessage(data, time: time)
         case "queue_state":
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence
             queuedMessageIDs = Set(data["queuedMessageIds"].arrayValue.compactMap(\.string))
+            let transitionIDs = Set((data["transition"]?["messageIds"]).arrayValue.compactMap(\.string))
+            runtimeOwnedMessageIDs.formUnion(queuedMessageIDs.union(transitionIDs))
             applyQueueMembership()
             if let transition = data["transition"], let name = transition["status"]?.string,
                let state = CompanionMessage.QueueState(rawValue: name) {
                 let ids = Set(transition["messageIds"].arrayValue.compactMap(\.string))
+                if state == .removed { removeQueuedRows(ids); return }
                 for index in items.indices {
                     if case .message(var message) = items[index], ids.contains(message.id) {
                         message.queueState = queuedMessageIDs.contains(message.id) ? .queued : state == .queued ? .submitted : state
@@ -106,12 +112,9 @@ struct CompanionChatProjector {
             guard sequence > queueStateSequence else { return }
             queueStateSequence = sequence
             let ids = Set(data["messageIds"].arrayValue.compactMap(\.string))
+            runtimeOwnedMessageIDs.formUnion(ids)
             queuedMessageIDs.subtract(ids)
-            for index in items.indices {
-                if case .message(var message) = items[index], ids.contains(message.id) {
-                    message.queueState = .removed; items[index] = .message(message)
-                }
-            }
+            removeQueuedRows(ids)
         case "agent_message_chunk", "agent_message":
             guard let messageID = data["messageId"]?.string, let text = data["text"]?.string else { return }
             let existing = message(id: messageID)
@@ -222,6 +225,61 @@ struct CompanionChatProjector {
         }
     }
 
+    private static func userText(_ content: [AnnexJSON]) -> String {
+        content.filter { $0["type"]?.string != "image" }.map { contentText($0) }.joined(separator: "\n")
+    }
+
+    /// Desktop coalesceUpdateContent: text-only submissions use blank lines; mixed blocks use block boundaries.
+    private static func coalescedContent(_ parts: [[AnnexJSON]]) -> [AnnexJSON] {
+        guard parts.count > 1 else { return parts.first ?? [] }
+        let header = "\(parts.count) updates, oldest first:"
+        func label(_ index: Int) -> String { "--- \(index + 1) of \(parts.count) ---" }
+        func text(_ value: String) -> AnnexJSON { .object(["type": .string("text"), "text": .string(value)]) }
+        if parts.allSatisfy({ $0.allSatisfy { $0["type"]?.string == "text" } }) {
+            return [text(([header] + parts.enumerated().map { "\(label($0.offset))\n\(userText($0.element))" }).joined(separator: "\n\n"))]
+        }
+        return [text(header)] + parts.enumerated().flatMap { [text(label($0.offset))] + $0.element }
+    }
+
+    private static func isPending(_ message: CompanionMessage) -> Bool {
+        message.role == .user && [.submitted, .queued, .dispatching].contains(message.queueState)
+    }
+
+    private mutating func applyUserMessage(_ data: AnnexJSON, time: Date?) {
+        guard let messageID = data["messageId"]?.string else { return }
+        let content = data["content"].arrayValue
+        let text = Self.userText(content)
+        let routed = Self.routedParts(data["routed"])
+        let queued = data["delivery"]?.string == "queued"
+        // queuedWith has meaning only for queued delivery. In particular, Annex steer events stay separate.
+        let itemID = queued ? data["queuedWith"]?.string ?? messageID : messageID
+        if queued, sessionQueue == "client" || data["queuedWith"]?.string != nil { runtimeOwnedMessageIDs.insert(itemID) }
+        if queued, data["queuedWith"]?.string != nil, var target = message(id: itemID), Self.isPending(target) {
+            let parts = (queuedContentParts[itemID] ?? [[.object(["type": .string("text"), "text": .string(target.text)])]]) + [content]
+            queuedContentParts[itemID] = parts
+            // Append sender parts independently of raw section labels, preserving part indices and fold state.
+            target.routed = (target.routed.isEmpty ? CompanionMessageRouting.parseRoutedText(target.text) : target.routed)
+                + (routed.isEmpty ? CompanionMessageRouting.parseRoutedText(text) : routed)
+            target.text = Self.userText(Self.coalescedContent(parts))
+            target.images += Self.userImages(content, messageID: messageID)
+            upsert(.message(target))
+            return
+        }
+        let incoming = CompanionMessage(id: itemID, role: .user, text: text, timestamp: time,
+            clientCommandID: data["clientCommandId"]?.string ?? commandIDsByMessage[itemID],
+            queueState: queued ? (queuedMessageIDs.contains(itemID) ? .queued : .submitted) : nil,
+            source: data["source"]?.string, isSteered: data["delivery"]?.string == "steer",
+            routed: routed, images: Self.userImages(content, messageID: itemID))
+        if queued {
+            // A transcript tail can start with a join. Use the item's id for all subsequent joins and transitions.
+            queuedContentParts[itemID] = [content]
+        } else {
+            // A delivered echo replaces only its own id; equal text can be a distinct user submission.
+            queuedContentParts[itemID] = nil
+        }
+        upsert(.message(incoming))
+    }
+
     /// Fields present replace earlier ones; absent ones keep them (`session_info`).
     mutating func applySessionFacts(_ data: AnnexJSON) {
         if let version = data["cliVersion"]?.string { session.cliVersion = version }
@@ -249,6 +307,7 @@ struct CompanionChatProjector {
         set(.images, "images")
         set(.slashCommands, "slashCommands")
         if let queue = value["queue"]?.string {
+            sessionQueue = queue
             if queue != "none" { capabilities.insert(.queue) } else { capabilities.remove(.queue) }
             queueRemovalSupported = queue == "client"
             if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
@@ -259,6 +318,7 @@ struct CompanionChatProjector {
         guard let sequence = snapshot["queueStateSeq"]?.integer, sequence >= queueStateSequence else { return }
         queueStateSequence = sequence
         queuedMessageIDs = Set(snapshot["queuedMessageIds"].arrayValue.compactMap(\.string))
+        runtimeOwnedMessageIDs.formUnion(queuedMessageIDs)
         queueRemovalSupported = snapshot["queueRemovalSupported"].boolValue
         if queueRemovalSupported { capabilities.insert(.removeQueued) } else { capabilities.remove(.removeQueued) }
         applyQueueMembership()
@@ -268,10 +328,32 @@ struct CompanionChatProjector {
         for index in items.indices {
             if case .message(var message) = items[index] {
                 if queuedMessageIDs.contains(message.id) { message.queueState = .queued }
-                else if message.queueState == .queued { message.queueState = .submitted }
+                else if runtimeOwnedMessageIDs.contains(message.id), [.queued, .submitted].contains(message.queueState) {
+                    // The full list can recover a missed transition, but cannot prove successful delivery.
+                    message.queueState = nil
+                }
                 items[index] = .message(message)
             }
         }
+    }
+    private mutating func removeQueuedRows(_ ids: Set<String>) {
+        items.removeAll { if case .message(let message) = $0 { return ids.contains(message.id) }; return false }
+        for id in ids { queuedContentParts[id] = nil }
+    }
+
+    private mutating func consumeNativeQueueHead() {
+        // Latest runtime queues have explicit dispatch boundaries. A client queue's first state may be in flight.
+        let legacy = sessionQueue == nil && !queueStateEventsSupported && runtimeOwnedMessageIDs.isEmpty
+        guard sessionQueue == "native" || legacy,
+              let index = items.firstIndex(where: {
+                  if case .message(let message) = $0 {
+                      return message.queueState == .submitted && !runtimeOwnedMessageIDs.contains(message.id)
+                  }
+                  return false
+              }), case .message(var message) = items[index] else { return }
+        message.queueState = nil
+        items[index] = .message(message)
+        queuedContentParts[message.id] = nil
     }
     mutating func reconcile(messageID: String, commandID: String) -> CompanionTimelineItem? {
         commandIDsByMessage[messageID] = commandID
