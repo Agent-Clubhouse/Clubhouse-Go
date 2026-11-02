@@ -45,26 +45,49 @@ import Testing
         let resolver = CompanionSenderResolver(agents: agents)
 
         var projector = CompanionChatProjector()
+        var eventsByMessageID: [String: AnnexJSON] = [:]
         let frames = fixture["frames"].arrayValue
         #expect(!frames.isEmpty)
         for frame in frames {
             let envelope = try frame.decode(AnnexEnvelope.self)
-            projector.apply(try #require(envelope.payload?["event"]))
+            let event = try #require(envelope.payload?["event"])
+            let id = try #require(event["data"]?["messageId"]?.string)
+            eventsByMessageID[id] = event
+            projector.apply(event)
         }
         let messages = projector.items.compactMap { item -> CompanionMessage? in
             if case .message(let message) = item { message } else { nil }
         }
         let expected = fixture["expected"].arrayValue
-        #expect(messages.count == expected.count && !expected.isEmpty)
+        #expect(expected.count == frames.count && !expected.isEmpty)
+        // `expected` describes each event's identity contribution, not final transcript rows.
+        // The queued-message contract puts a join under queuedWith and appends its parts in order:
+        // queue_first + queue_joined become one queue_first row, with both sender/avatar specs.
+        var expectedRows: [String: [AnnexJSON]] = [:]
         for row in expected {
-            let id = try #require(row["messageId"]?.string)
+            let eventID = try #require(row["messageId"]?.string)
+            let event = try #require(eventsByMessageID[eventID])
+            let rowID: String
+            if let queuedWith = row["queuedWith"]?.string {
+                #expect(event["data"]?["delivery"]?.string == "queued", "\(eventID)")
+                #expect(event["data"]?["queuedWith"]?.string == queuedWith, "\(eventID)")
+                rowID = queuedWith
+            } else {
+                rowID = eventID
+            }
+            expectedRows[rowID, default: []].append(row)
+        }
+        #expect(messages.count == expectedRows.count)
+        for (id, contributions) in expectedRows {
             let message = try #require(messages.first { $0.id == id })
             switch message.display {
             case .you(let text):
-                #expect(row["from"]?.string == "you" && text == row["text"]?.string, "\(id)")
+                let row = try #require(contributions.first)
+                #expect(contributions.count == 1 && row["from"]?.string == "you" && text == row["text"]?.string, "\(id)")
             case .others(let parts):
-                let expectedParts = row["parts"].arrayValue
-                #expect(row["from"]?.string == "others" && parts.count == expectedParts.count, "\(id)")
+                let expectedParts = contributions.flatMap { $0["parts"].arrayValue }
+                #expect(contributions.allSatisfy { $0["from"]?.string == "others" }, "\(id)")
+                #expect(parts.count == expectedParts.count, "\(id)")
                 for (part, expectedPart) in zip(parts, expectedParts) {
                     try assertPart(part, expected: expectedPart, message: message, resolver: resolver)
                 }
