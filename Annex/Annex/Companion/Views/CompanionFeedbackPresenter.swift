@@ -47,7 +47,7 @@ extension EnvironmentValues {
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
-    func sendFeedback(screenshotPNG: Data? = nil, from sourceWindow: UIWindow? = nil) {
+    func sendFeedback(screenshotPNG: Data? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
         guard let model, presented == nil else { return }
         dismissPrompt()
         statusTask?.cancel()
@@ -55,7 +55,7 @@ extension EnvironmentValues {
             if model.status == nil { await model.update() }
             guard let self, !Task.isCancelled, self.presented == nil else { return }
             if model.status?.canSubmit == true { self.presentComposer(screenshot: screenshotPNG, from: sourceWindow) }
-            else { self.explainEnrollment(fromScreenshot: false) }
+            else { self.explainEnrollment(fromScreenshot: false, fromShake: fromShake) }
         }
     }
 
@@ -142,10 +142,16 @@ extension EnvironmentValues {
 
     private func presentComposer(screenshot: Data?, from sourceWindow: UIWindow? = nil) {
         guard let model else { return }
-        present(UIHostingController(rootView: NavigationStack { CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot) }), from: sourceWindow)
+        guard presented == nil, !model.isComposerOpen else { return }
+        let host = UIHostingController(rootView: NavigationStack {
+            CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, onClose: { [weak self] in
+                self?.presented?.dismiss(animated: true)
+            })
+        })
+        present(host, from: sourceWindow)
     }
 
-    private func explainEnrollment(fromScreenshot: Bool) {
+    private func explainEnrollment(fromScreenshot: Bool, fromShake: Bool = false) {
         guard let model else { return }
         if fromScreenshot { explainedThisSession = true }
         let alert = UIAlertController(title: "Feedback enrollment required",
@@ -160,6 +166,11 @@ extension EnvironmentValues {
         if fromScreenshot {
             alert.addAction(UIAlertAction(title: "Don't offer for screenshots", style: .default) { [weak self] _ in
                 self?.defaults.set(false, forKey: CompanionScreenshotFeedback.preferenceKey)
+            })
+        }
+        if fromShake {
+            alert.addAction(UIAlertAction(title: "Turn off shake", style: .default) { [weak self] _ in
+                self?.defaults.set(false, forKey: CompanionFeedback.shakePreferenceKey)
             })
         }
         alert.addAction(UIAlertAction(title: "Not now", style: .cancel))

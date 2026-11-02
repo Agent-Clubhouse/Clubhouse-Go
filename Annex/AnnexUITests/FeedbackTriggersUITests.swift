@@ -33,6 +33,55 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))
     }
 
+    @MainActor func testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-held-ui-testing"])
+        waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
+        let summary = app.staticTexts["feedback-held-summary"]
+        XCTAssertTrue(scrollTo(summary, in: app, maxSwipes: 5))
+        XCTAssertTrue(summary.label.hasPrefix("2 reports were saved under a previous enrollment"))
+        let release = app.buttons["feedback-release-held"]
+        XCTAssertTrue(scrollTo(release, in: app, maxSwipes: 3))
+        release.tap()
+        let confirmation = app.sheets.firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
+        confirmation.buttons["Cancel"].tap()
+        XCTAssertTrue(summary.exists, "Cancel retains the held reports")
+        release.tap()
+        confirmation.buttons["Send"].tap()
+        let result = app.staticTexts["feedback-queue-status"]
+        XCTAssertTrue(scrollTo(result, in: app, maxSwipes: 3))
+        XCTAssertEqual(result.label, "2 will send with this enrollment. They aren't confirmed sent yet.")
+        XCTAssertFalse(summary.exists)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["fixture-counters"].label.hasPrefix("Queued: 2"), "Offline release queues; it isn't delivery")
+
+        app.terminate()
+        app.launchArguments = ["--framebriar-shake-ui-testing", "--framebriar-held-ui-testing", "--framebriar-shake-unenrolled"]
+        app.launch()
+        waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
+        let clear = app.buttons["feedback-clear-held"]
+        XCTAssertTrue(scrollTo(clear, in: app, maxSwipes: 5))
+        XCTAssertFalse(app.buttons["feedback-release-held"].exists, "No release token while unenrolled")
+        clear.tap()
+        confirmation.buttons["Clear held reports"].tap()
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        XCTAssertEqual(result.label, "2 cleared from this device. They weren't sent.")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))
+    }
+
+    @MainActor func testShakeOpensOverSettingsAndClosesBackToSettings() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing"])
+        waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
+        app.buttons["Simulate shake in Settings"].tap()
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Fixture settings"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))
+    }
+
     @MainActor func testScreenshotPromptOpensComposerWithTheScreenAttached() throws {
         let app = launchApp(["--framebriar-shake-ui-testing"])
         let screenshot = app.buttons["fixture-screenshot"]
@@ -45,7 +94,6 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertEqual(prompt.label, "Send feedback with this screenshot?")
         prompt.tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
-        sleep(2); print("DUMP-BEGIN\n\(app.debugDescription)\nDUMP-END")
         XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5), "The screen is pre-attached for review")
         XCTAssertFalse(app.buttons["Submit reviewed feedback"].exists, "Opening never submits")
         app.buttons["Cancel"].tap()

@@ -34,19 +34,24 @@ struct FramebriarShakePreview: View {
     /// In-memory enrollment and outbox; the transport counts requests and never opens a socket.
     static func fixtureModel(enrolled: Bool) -> (FeedbackModel, PreviewFeedbackTransport) {
         let transport = PreviewFeedbackTransport()
-        let client = try! Client(configuration: Configuration(gameID: "simulator-fixture"), transport: transport,
-                                 enrollmentStore: PreviewEnrollment(enrolled: enrolled), feedbackStore: PreviewQueue())
+        let config = try! Configuration(gameID: "simulator-fixture")
+        let held = ProcessInfo.processInfo.arguments.contains("--framebriar-held-ui-testing")
+            ? (0..<2).map { index in QueuedFeedback(feedback: try! ReviewedFeedback(configuration: config, notes: "Held fixture \(index)"),
+                                                  blocked: true, enrollmentRef: "previous-fixture", heldForEnrollment: true) } : []
+        let client = try! Client(configuration: config, transport: transport,
+                                 enrollmentStore: PreviewEnrollment(enrolled: enrolled), feedbackStore: PreviewQueue(seed: held))
         return (FeedbackModel(client: client), transport)
     }
     var body: some View {
         fixtureRoot
-        .shakeToOpenFeedback(model: model, enabled: enabled, isPresenting: showingSettings || showingOther,
-                             captureScreen: captureScreen)
-        .shakeToExplainFeedbackEnrollment(model: model, enabled: $enabled, isPresenting: showingSettings || showingOther)
+        .companionFeedbackShake(presenter, enabled: enabled, captureScreen: captureScreen)
         .companionFeedbackEntryPoints(presenter)
         .sheet(isPresented: $showingSettings) {
             NavigationStack {
-                Form { CompanionFeedbackSettings(model: model) }
+                Form {
+                    Button("Simulate shake in Settings") { PreviewMotionProbe.shake() }
+                    CompanionFeedbackSettings(model: model)
+                }
                     .navigationTitle("Fixture settings")
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
             }
@@ -120,13 +125,15 @@ private struct FixtureConversation: View {
 private struct PreviewEnrollment: EnrollmentStore {
     let enrolled: Bool
     nonisolated func load(scope: String) throws -> EnrollmentRecord {
-        enrolled ? EnrollmentRecord(enrolled: true, notice: .offline) : EnrollmentRecord()
+        enrolled ? EnrollmentRecord(refreshToken: String(repeating: "r", count: 43), expiresAt: Date().addingTimeInterval(86400),
+                                    enrolled: true, notice: .offline) : EnrollmentRecord()
     }
     nonisolated func save(_ record: EnrollmentRecord, scope: String) throws {}
 }
 private final class PreviewQueue: FeedbackStore, @unchecked Sendable {
     private nonisolated let lock = NSLock()
-    nonisolated(unsafe) private var items: [QueuedFeedback] = []
+    nonisolated(unsafe) private var items: [QueuedFeedback]
+    init(seed: [QueuedFeedback] = []) { items = seed }
     nonisolated func load(scope: String) throws -> [QueuedFeedback] { lock.withLock { items } }
     nonisolated func save(_ items: [QueuedFeedback], scope: String) throws { lock.withLock { self.items = items } }
 }
@@ -146,7 +153,9 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
         responder = nil
         UIApplication.shared.sendAction(#selector(UIResponder.framebriarPreviewCaptureResponder), to: nil, from: nil, for: nil)
         let name = responder.map { String(describing: type(of: $0)) } ?? "none"
-        responder?.motionEnded(.motionShake, with: nil)
+        // A window-level callback receives the event even when no view has first responder.
+        // Start at the responder when present to exercise its chain, otherwise use the key window.
+        (responder ?? CompanionFeedbackPresenter.keyWindow())?.motionEnded(.motionShake, with: nil)
         responder = nil
         return name
     }

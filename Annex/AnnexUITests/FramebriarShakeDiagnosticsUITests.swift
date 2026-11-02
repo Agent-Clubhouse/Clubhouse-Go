@@ -10,15 +10,13 @@ final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
         return app
     }
 
-    /// Root cause: while unenrolled the SDK receiver never takes first responder, so a shake
-    /// reached no responder and nothing happened. The app now explains and offers enrollment.
+    /// The SDK window receiver routes unenrolled motion through Go's common presenter.
     @MainActor func testUnenrolledShakeExplainsEnrollmentInsteadOfDoingNothing() throws {
         let app = launch(["--framebriar-shake-unenrolled"])
         let shake = app.buttons["fixture-shake"]
         let prompt = app.alerts["Feedback enrollment required"]
         shake.tap()
         XCTAssertTrue(prompt.waitForExistence(timeout: 5), "Shake while unenrolled must not be silently dropped")
-        XCTAssertNotEqual(app.staticTexts["fixture-responder"].label, "Responder: none")
         XCTAssertFalse(app.navigationBars["Send feedback"].exists, "Unenrolled users cannot open the composer")
         prompt.buttons["Set up feedback"].tap()
         XCTAssertTrue(app.navigationBars["Feedback enrollment"].waitForExistence(timeout: 5))
@@ -26,7 +24,8 @@ final class FramebriarShakeDiagnosticsUITests: ReliableUITestCase {
         app.buttons["Done"].tap()
         XCTAssertTrue(shake.waitForExistence(timeout: 5))
 
-        // The receiver is reclaimed after the enrollment sheet closes.
+        // The window receiver remains eligible after the enrollment sheet closes.
+        _ = prompt.waitForExistence(timeout: 2.5)
         shake.tap()
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.buttons["Not now"].tap()
