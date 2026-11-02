@@ -2,6 +2,31 @@ import Testing
 @testable import CompanionDomain
 
 @MainActor struct CompanionTimelineProjectionTests {
+    @Test func removingAHostReleasesItsBookmarkViewportAndProjection() {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let hosts = CompanionPreviewService.hosts(now: .now, dispatcher: true)
+        let target = CompanionPreviewService.target
+        guard let other = hosts.first(where: { $0.id != target.hostID })?.allAgents.first?.id else {
+            Issue.record("Fixture requires two hosts"); return
+        }
+        store.apply(.hosts(hosts))
+        for target in [target, other] {
+            store.apply(.timeline(target, items: [.notice(id: "seed", text: "Fixture")], sequence: 1, reset: true))
+            _ = store.timelineRows(for: target)
+        }
+        weak var removedBookmark = store.readingBookmark(for: target)
+        weak var removedViewport = removedBookmark?.viewport
+        weak var removedProjection = store.timelineProjection(for: target)
+        removedBookmark?.position.offset = 123
+        let retained = store.readingBookmark(for: other)
+        store.apply(.hosts(hosts))
+        #expect(removedBookmark != nil && store.readingBookmark(for: other) === retained)
+        store.apply(.hosts(hosts.filter { $0.id != target.hostID }))
+        #expect(removedBookmark == nil && removedViewport == nil && removedProjection == nil)
+        #expect(store.readingBookmark(for: other) === retained)
+        store.apply(.hosts(hosts))
+        #expect(store.readingBookmark(for: target).position.offset == 0)
+    }
     @Test func assistantChunksNeverRegroupUnchangedHistory() {
         let store = CompanionStore(service: CompanionPreviewService())
         let target = CompanionPreviewService.target

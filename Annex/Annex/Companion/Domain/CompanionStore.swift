@@ -801,8 +801,10 @@ import Observation
             switch event {
             case .timeline(let target, _, _, _, _), .upsert(let target, _, _), .textDelta(let target, _, _, _), .streamFinished(let target, _, _):
                 timelineProjections[target]?.discardIfStale(revision: conversation(for: target).itemsRevision)
-            case .hosts:
-                timelineProjections = timelineProjections.filter { conversations[$0.key] != nil }
+            case .hosts(let hosts):
+                let hostIDs = Set(hosts.map(\.id))
+                timelineProjections = timelineProjections.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
+                readingBookmarks = readingBookmarks.filter { hostIDs.contains($0.key.hostID) && conversations[$0.key] != nil }
             case .resyncRequired: break
             }
         }
