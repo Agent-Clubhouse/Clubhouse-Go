@@ -173,8 +173,8 @@ struct CompanionAppRoot: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private func openSettings() {
-        settingsCapture = CompanionFeedbackSettingsCapture(screenshotPNG:
-            CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture))
+        settingsCapture = CompanionFeedbackSettingsCapture(screenshot:
+            CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.freeze))
     }
 
     init() {
@@ -217,8 +217,9 @@ struct CompanionAppRoot: View {
                 showPairing = true
             }
             .sheet(item: $settingsCapture) { capture in
-                CompanionSettingsSheet(runtime: runtime, initialScreenshotPNG: capture.screenshotPNG, pair: { settingsCapture = nil; showPairing = true })
+                CompanionSettingsSheet(runtime: runtime, initialCapture: capture, pair: { settingsCapture = nil; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+                    .onDisappear { capture.screenshot = nil }
             }
             .companionFeedbackShake(runtime.feedbackPresenter, enabled: shakeFeedbackEnabled,
                                     suppressed: showPairing || runtime.restoreError != nil || runtime.isRestoring,
@@ -316,7 +317,7 @@ struct CompanionAppRoot: View {
 
 struct CompanionSettingsSheet: View {
     @Bindable var runtime: CompanionRuntime
-    var initialScreenshotPNG: Data? = nil
+    var initialCapture: CompanionFeedbackSettingsCapture? = nil
     var pair: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var hostToForget: CompanionHost?
@@ -385,7 +386,7 @@ struct CompanionSettingsSheet: View {
                 } header: { Text("This phone") } footer: {
                     Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
                 }
-                CompanionFeedbackSettings(model: runtime.feedback, initialScreenshotPNG: initialScreenshotPNG)
+                CompanionFeedbackSettings(model: runtime.feedback, initialCapture: initialCapture)
                 Section("Advanced") {
                     NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
                     Label("Direct connection", systemImage: "network")
