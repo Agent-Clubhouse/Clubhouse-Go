@@ -48,7 +48,7 @@ import ClubhouseTransport
         let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
-        let controller = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
+        let controller = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) }.environment(\.scenePhase, .active))
         window.frame = scene.screen.bounds; window.rootViewController = controller; window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil; source.setEnabled(false) }
         try await Task.sleep(for: .milliseconds(300))
