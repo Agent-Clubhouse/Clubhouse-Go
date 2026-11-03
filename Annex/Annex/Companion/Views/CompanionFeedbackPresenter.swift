@@ -8,6 +8,13 @@ extension EnvironmentValues {
     @Entry var companionSendFeedback: (@MainActor () -> Void)?
 }
 
+/// Transfer Settings and its pre-sheet image together, rather than racing a Boolean sheet binding
+/// against a separate @State value. A nil image still opens Settings; dismissal releases the item.
+struct CompanionFeedbackSettingsCapture: Identifiable {
+    let id = UUID()
+    let screenshotPNG: Data?
+}
+
 /// Feedback entry points that don't depend on a gesture: the "Send feedback" menu items and the offer
 /// shown after an iOS screenshot. Presents over whatever is on screen (sheets, Review), so a trigger
 /// from any screen reaches the same composer. Captures stay on the phone until the person submits.

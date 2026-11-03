@@ -162,8 +162,7 @@ struct CompanionAppRoot: View {
     @State private var showPairing = false
     /// A pairing invitation opened from the iPhone Camera (`clubhousego://pair?...`).
     @State private var openedLink: CompanionPairingLink?
-    @State private var showSettings = false
-    @State private var settingsScreenshot: Data?
+    @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
@@ -174,8 +173,8 @@ struct CompanionAppRoot: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private func openSettings() {
-        settingsScreenshot = CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture)
-        showSettings = true
+        settingsCapture = CompanionFeedbackSettingsCapture(screenshotPNG:
+            CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture))
     }
 
     init() {
@@ -213,12 +212,12 @@ struct CompanionAppRoot: View {
             }
             .onOpenURL { url in
                 guard let link = CompanionPairingLink(url: url) else { return }
-                showSettings = false
+                settingsCapture = nil
                 openedLink = link
                 showPairing = true
             }
-            .sheet(isPresented: $showSettings, onDismiss: { settingsScreenshot = nil }) {
-                CompanionSettingsSheet(runtime: runtime, initialScreenshotPNG: settingsScreenshot, pair: { showSettings = false; showPairing = true })
+            .sheet(item: $settingsCapture) { capture in
+                CompanionSettingsSheet(runtime: runtime, initialScreenshotPNG: capture.screenshotPNG, pair: { settingsCapture = nil; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
             .companionFeedbackShake(runtime.feedbackPresenter, enabled: shakeFeedbackEnabled,

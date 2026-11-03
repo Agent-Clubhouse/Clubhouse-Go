@@ -25,8 +25,7 @@ struct FramebriarShakePreview: View {
     @State private var password = ""
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
-    @State private var showingSettings = false
-    @State private var settingsScreenshot: Data?
+    @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     @State private var showingOther = false
     @State private var lastResponder = "none"
     @State private var selection: String?
@@ -64,14 +63,14 @@ struct FramebriarShakePreview: View {
         fixtureRoot
         .companionFeedbackShake(presenter, enabled: enabled, captureScreen: captureScreen)
         .companionFeedbackEntryPoints(presenter)
-        .sheet(isPresented: $showingSettings, onDismiss: { settingsScreenshot = nil }) {
+        .sheet(item: $settingsCapture) { capture in
             NavigationStack {
                 Form {
                     Button("Simulate shake in Settings") { PreviewMotionProbe.shake() }
-                    CompanionFeedbackSettings(model: model, initialScreenshotPNG: settingsScreenshot)
+                    CompanionFeedbackSettings(model: model, initialScreenshotPNG: capture.screenshotPNG)
                 }
                     .navigationTitle("Fixture settings")
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { settingsCapture = nil } } }
             }.environment(\.companionFeedbackFixtureControls, isWireFixture ? Self.wireControls : nil)
         }
         .sheet(isPresented: $showingOther) {
@@ -200,8 +199,8 @@ struct FramebriarShakePreview: View {
         Button("Simulate repeated shake") { for _ in 0..<3 { lastResponder = PreviewMotionProbe.shake() } }
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
         Button("Settings") {
-            settingsScreenshot = CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture)
-            showingSettings = true
+            settingsCapture = CompanionFeedbackSettingsCapture(screenshotPNG:
+                CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture))
         }
         Button("Present other screen") { showingOther = true }
         // What iOS posts after the side and volume buttons take a screenshot.
