@@ -51,7 +51,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
 | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
 | `CompanionReadingBookmark` | arc_only | Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |
-| `CompanionReadingViewport` | arc_only | Numeric gesture/scroll metrics, String-to-Double-range geometry, optional numbers and Bools; no SwiftUI scroll handles, UI objects or callbacks. |
+| `CompanionReadingViewport` | arc_only | Numeric gesture/scroll metrics, String-to-Double-range geometry, optional numbers, history UUID and Bools; no SwiftUI scroll handles, UI objects or callbacks. |
 | `CompanionTimelineProjection` | arc_only | UUID, counters/index dictionaries and Sendable timeline rows; reachable image wrappers own immutable Data with reviewed ARC-only teardown. No UI or callbacks. |
 | `CompanionRuntime` | main_actor | Owns feedback presenter with UIKit windows/controllers; retain main-actor field destruction. |
 | `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue or actor-isolated Runtime. Factories capture Store or a Bool; Runtime retains isolated teardown for its UIKit fields. New constructor/capture sites require review. |

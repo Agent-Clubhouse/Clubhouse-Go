@@ -316,7 +316,7 @@ struct CompanionConversationView: View {
                     readingViewport.gesture.begin(at: Self.metrics(context.geometry), last: readingViewport.metrics, beforeLast: readingViewport.previousMetrics)
                 }
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
-                if phase == .idle && readingViewport.hasInitialized && !readingViewport.isRestoring {
+                if phase == .idle && canRecordReadingPosition && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
                     if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     readingViewport.gesture.end()
@@ -336,7 +336,7 @@ struct CompanionConversationView: View {
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
-                    guard readingViewport.hasInitialized else { return }
+                    guard canRecordReadingPosition else { return }
                     if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     if readingViewport.isRestoring {
                         guard let restoreOffset = readingViewport.restoreOffset,
@@ -362,7 +362,7 @@ struct CompanionConversationView: View {
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
-                    guard !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
+                    guard canRecordReadingPosition, !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
                     let saved = readingBookmark.position
                     if let entryID = saved.entryID, frames[entryID] == nil { return }
                     let offset = saved.restoredOffset(frames: frames)
@@ -410,7 +410,13 @@ struct CompanionConversationView: View {
             }
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
             // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
-            .task(id: conversation.isLoaded) {
+            // Full history can also reset the offset with unchanged estimated dimensions. Reject that preceding
+            // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
+            .task(id: conversation.historyRevision) {
+                let revision = conversation.historyRevision
+                readingViewport.hasInitialized = false
+                readingViewport.historyRevision = nil
+                readingViewport.gesture.end()
                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
                 else {
                     readingBookmark.hasMounted = true
@@ -424,15 +430,17 @@ struct CompanionConversationView: View {
                 traceFollow(reason: .mount, previous: followLatest, next: followLatest)
                 readingViewport.isRestoring = !saved.followsLatest
                 readingViewport.restoreOffset = nil
-                readingViewport.hasInitialized = true
                 guard conversation.isLoaded else { return }
                 await Task.yield()
+                guard !Task.isCancelled, conversation.historyRevision == revision else { return }
                 if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
                 else if saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil {
                     let offset = saved.restoredOffset(frames: readingViewport.frames)
                     readingViewport.restoreOffset = offset
                     readingScrollPosition.scrollTo(y: offset)
                 }
+                readingViewport.historyRevision = revision
+                readingViewport.hasInitialized = true
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
@@ -473,7 +481,11 @@ struct CompanionConversationView: View {
               availableHeight: geometry.containerSize.height, topInset: geometry.contentInsets.top,
               bottomInset: geometry.contentInsets.bottom)
     }
+    private var canRecordReadingPosition: Bool {
+        readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
+    }
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
+        guard canRecordReadingPosition else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
     }
@@ -512,7 +524,7 @@ struct CompanionConversationView: View {
         guard arguments.contains("--companion-preview"), arguments.contains("--companion-preview-follow-trace"),
               new.normalizedOffset < old.normalizedOffset else { return }
         let prior = readingViewport.previousMetrics
-        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
+        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) historyReady=\(canRecordReadingPosition ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
         #endif
     }
 

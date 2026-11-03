@@ -134,6 +134,11 @@ enum CompanionAssistantNavigation {
     var isInteracting = false
     var isRestoring = false
     var hasInitialized = false
+    /// Only the mounted history generation may save geometry or infer native scrolling.
+    var historyRevision: UUID?
+    func acceptsGeometry(historyRevision: UUID, isLoaded: Bool) -> Bool {
+        hasInitialized && isLoaded && self.historyRevision == historyRevision
+    }
     var restoreOffset: Double?
 
     /// Geometry belongs to one mounted transcript; the entry-relative bookmark survives unmounting.
@@ -146,6 +151,7 @@ enum CompanionAssistantNavigation {
         isInteracting = false
         isRestoring = false
         hasInitialized = false
+        historyRevision = nil
         restoreOffset = nil
     }
 }

@@ -256,6 +256,7 @@ import Observation
                 current = .init(items: history.items + local, isLoading: false, isLoaded: true,
                                 hasEarlierMessages: history.hasEarlierMessages, lastSequence: history.lastSequence, sessionID: history.sessionID)
             }
+            current.historyRevision = UUID()
             conversations[target] = current
         } catch {
             guard historyGenerations[target] == generation else { return }
@@ -868,6 +869,7 @@ import Observation
                 return item
             }
             conversations[target, default: .init()].items = merged + local
+            conversations[target, default: .init()].historyRevision = UUID()
             conversations[target, default: .init()].lastSequence = sequence
             conversations[target, default: .init()].sessionID = sessionID
         case .resyncRequired(let hostID):
