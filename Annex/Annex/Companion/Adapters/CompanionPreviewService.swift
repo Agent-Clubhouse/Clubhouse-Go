@@ -25,6 +25,8 @@ import ClubhouseTransport
     /// UI tests add a reply of about 10,000 words with large blocks in it (`--companion-preview-long-reply`).
     private let showsLongReply: Bool
     private let showsReadingScenario: Bool
+    private let showsEmptyConversation: Bool
+    private let showsKeyboardInteractions: Bool
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
     private let showsMultipleDispatchers: Bool
@@ -38,13 +40,15 @@ import ClubhouseTransport
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
          showsLongReply: Bool = false, showsDispatcher: Bool = false, showsMultipleDispatchers: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
-         showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false, showsHelperPresets: Bool = false, showsAutoQuota: Bool = false) {
+         showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false, showsEmptyConversation: Bool = false, showsKeyboardInteractions: Bool = false, showsHelperPresets: Bool = false, showsAutoQuota: Bool = false) {
         self.showsQuestions = showsQuestions
         self.showsAutoQuota = showsAutoQuota
         self.showsHelperPresets = showsHelperPresets || showsAutoQuota
         self.showsContextWindow = showsContextWindow
         self.showsHelperTree = showsHelperTree
         self.showsReadingScenario = showsReadingScenario
+        self.showsEmptyConversation = showsEmptyConversation
+        self.showsKeyboardInteractions = showsKeyboardInteractions
         self.showsHelperIdentity = showsHelperIdentity
         self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
@@ -280,6 +284,14 @@ import ClubhouseTransport
             .init(sender: .init(agentID: "quick-willow", name: "Old willow"), text: "Quick helper update.")
         ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        if showsEmptyConversation { return .init(items: []) }
+        if showsKeyboardInteractions {
+            return .init(items: [
+                .message(.init(id: "keyboard-selectable", role: .assistant, text: "Selectable preview message.")),
+                .tool(.init(id: "keyboard-tool", name: "Read file", summary: "Preview file", state: .completed)),
+                .message(.init(id: "keyboard-file", role: .assistant, text: "Open `Sources/Companion/Conversation.swift`."))
+            ])
+        }
         if target.projectID == CompanionDispatcher.defaultProjectID {
             return .init(items: Self.dispatcherHistory + (showsLongReply ? [
                 .message(.init(id: "dispatcher-long-reply", role: .assistant, text: Self.longReply))

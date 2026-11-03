@@ -87,7 +87,10 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
    a stuck connecting state. Record any unusual delay.
 2. **Long chat, typing and scrolling.** During a long streamed reply, type a distinctive sentence,
    pause, scroll, show/hide the keyboard and continue typing. Every character must remain in order;
-   the keyboard must keep focus and the view must remain responsive.
+   the keyboard must keep focus and the view must remain responsive. In both Dispatcher and an ordinary
+   chat, try an empty and a long conversation: tap transcript text and blank space, drag down to dismiss
+   interactively, and use **Dismiss Keyboard** above the keyboard. The draft must remain intact. On iPhone,
+   dismissing must reveal the tabs so Home and back to Dispatcher work. Check this with VoiceOver too.
 3. **Latest and reply jumps.** Read above the bottom while new text arrives: it must not pull you down.
    Tap Latest: reach the actual bottom and resume following. Try previous/next reply repeatedly;
    land on assistant replies or questions, without stopping at routine tool traffic.

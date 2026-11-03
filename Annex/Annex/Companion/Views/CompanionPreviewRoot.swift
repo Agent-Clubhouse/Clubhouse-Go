@@ -16,6 +16,8 @@ struct CompanionPreviewRoot: View {
                                                                                    showsQuestions: ProcessInfo.processInfo.arguments.contains("--companion-preview-questions"),
                                                                                    showsContextWindow: ProcessInfo.processInfo.arguments.contains("--companion-preview-context-window"),
                                                                                    showsReadingScenario: ProcessInfo.processInfo.arguments.contains("--companion-preview-reading"),
+                                                                                   showsEmptyConversation: ProcessInfo.processInfo.arguments.contains("--companion-preview-empty-chat"),
+                                                                                   showsKeyboardInteractions: ProcessInfo.processInfo.arguments.contains("--companion-preview-keyboard-interactions"),
                                                                                    showsHelperPresets: ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-presets"),
                                                                                    showsAutoQuota: ProcessInfo.processInfo.arguments.contains("--companion-preview-auto-quota")))
     /// Fresh each launch, so pins and idle marks from an earlier run don't change what UI tests see.

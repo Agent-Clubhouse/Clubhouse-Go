@@ -122,6 +122,12 @@ struct CompanionConversationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down", action: dismissComposer)
+                        .labelStyle(.titleAndIcon)
+                        .accessibilityIdentifier("companion-dismiss-keyboard")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
@@ -394,8 +400,11 @@ struct CompanionConversationView: View {
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
-            // A tap outside the composer closes its / menu.
-            .simultaneousGesture(TapGesture().onEnded { dismissSlashMenu() }, isEnabled: !slashMatches.isEmpty)
+            .accessibilityIdentifier("companion-transcript")
+            // Simultaneous recognition leaves links, cards and text selection in charge
+            // of their own gestures. Blank transcript space also ends editing.
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: 8) {
                     if !stops.isEmpty {
@@ -673,7 +682,7 @@ struct CompanionConversationView: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
-        .onChange(of: slashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
+        .onChange(of: caretSlashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
         .onChange(of: slashMatches.map(\.name)) { slashHighlight = 0 }
         // Quick refreshes finish before the indicator would appear, so they don't flash.
         .task(id: conversation.isLoading) {
@@ -721,6 +730,14 @@ struct CompanionConversationView: View {
         draft.wrappedValue = picked.text
         composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
         composerFocused = true
+    }
+
+    private func dismissComposer() {
+        dismissSlashMenu()
+        composerFocused = false
+        // End editing on the native responder too: clearing only the binding
+        // did not dismiss a retained Dispatcher editor in the empty-chat repro.
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     /// Closes the menu for the word being typed. Returns whether a menu was open.
