@@ -29,7 +29,8 @@ app = output / 'Annex/Annex'
 view = app / 'Companion/Views/CompanionConversationView.swift'
 source = view.read_text()
 source = source.replace('    var body: some View {', '    var body: some View {\n        let _ = TypingProfile.bodyPass()', 1)
-source = source.replace('        .task(id: target)', '        .task { try? await Task.sleep(for: .seconds(1)); composerFocused = true }\n        .task(id: target)', 1)
+focus = 'focusComposer()' if 'private func focusComposer()' in source else 'composerFocused = true'
+source = source.replace('        .task(id: target)', f'        .task {{ try? await Task.sleep(for: .seconds(1)); {focus} }}\n        .task(id: target)', 1)
 start = source.index('    private var timeline: some View {')
 source = source[:start] + source[start:].replace('    private var timeline: some View {',
     '    private var timeline: some View {\n        let _ = TypingProfile.timelinePass()', 1)
