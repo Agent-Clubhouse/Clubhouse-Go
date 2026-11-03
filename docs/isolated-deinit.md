@@ -29,6 +29,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |
+| `CompanionComposerMemory` | arc_only | Only optional UTF-16 offset bookmark and numeric slash bookmarks. TextSelection and focus State stay in the composer view; the lazy lifetime factory captures nothing. |
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
 | `CompanionFeedbackMenuCapture.Anchor` | main_actor | UIView state, owned gesture recognizer, weak control collection and KVO observations require UIKit teardown affinity. |

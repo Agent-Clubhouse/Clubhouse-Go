@@ -2,9 +2,10 @@ import SwiftUI
 import UIKit
 import ClubhouseTransport
 
-/// Kept across a retained tab's content unmount, without reading these values in the transcript body.
-struct CompanionComposerEditing {
-    var selection: TextSelection?
+/// A retained tab's editing bookmark. Only UTF-16 offsets and numbers; never UIKit or SwiftUI handles.
+@MainActor final class CompanionComposerMemory {
+    nonisolated deinit {}
+    var selection: CompanionComposerSelection?
     var slashHighlight = 0
     var slashDismissedAt: Int?
 }
@@ -13,8 +14,12 @@ struct CompanionComposerEditing {
 struct CompanionConversationComposer: View {
     @Bindable var store: CompanionStore
     let agent: CompanionAgent
-    @FocusState.Binding var composerFocused: Bool
-    @Binding var editing: CompanionComposerEditing
+    let memory: CompanionComposerMemory
+    let focusRequests: Int
+    @FocusState private var composerFocused: Bool
+    @State private var composerSelection: TextSelection?
+    @State private var slashHighlight = 0
+    @State private var slashDismissedAt: Int?
     @Binding var confirmCancel: Bool
     let dismissals: Int
     @State private var showRefreshing = false
@@ -49,13 +54,13 @@ struct CompanionConversationComposer: View {
             #endif
             if composerFocused, let commands = agent.slashCommands,
                let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
-                                                             highlighted: editing.slashHighlight, dismissedAt: editing.slashDismissedAt) {
+                                                             highlighted: slashHighlight, dismissedAt: slashDismissedAt) {
                 // On the next turn: a value changed while the text view reports its own edit doesn't reach it.
                 draft.wrappedValue = text
                 Task {
                     guard draft.wrappedValue == text else { return }
                     draft.wrappedValue = picked.text
-                    editing.selection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
+                    composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
                 }
                 return
             }
@@ -117,7 +122,7 @@ struct CompanionConversationComposer: View {
                     .equatable()
             }
             if !slashMatches.isEmpty {
-                CompanionSlashMenuView(commands: slashMatches, highlighted: min(editing.slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
+                CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
             HStack(alignment: .bottom, spacing: 8) {
                 if agent.status == .working {
@@ -133,7 +138,7 @@ struct CompanionConversationComposer: View {
                     if let limits = attachmentLimits {
                         CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, 8).frame(height: composerRowHeight)
                     }
-                    TextField(composerPlaceholder, text: composerText, selection: $editing.selection, axis: .vertical)
+                    TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
                         .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
                         // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                         // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
@@ -176,15 +181,30 @@ struct CompanionConversationComposer: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            slashHighlight = memory.slashHighlight
+            slashDismissedAt = memory.slashDismissedAt
+            if let selection = memory.selection {
+                composerSelection = TextSelection(range: selection.range(in: draft.wrappedValue))
+            }
+        }
+        .onDisappear {
+            memory.selection = CompanionComposerSelection.capture(selectedRange, in: draft.wrappedValue)
+            memory.slashHighlight = slashHighlight
+            memory.slashDismissedAt = slashDismissedAt
+            composerFocused = false
+        }
+        .onChange(of: focusRequests) { _, _ in composerFocused = true }
         .onChange(of: dismissals) { _, _ in
             // The parent has already cleared focus. Use the caret independently to keep this word closed.
             if let token = caretSlashToken, let commands = agent.slashCommands,
                !CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token).isEmpty {
-                editing.slashDismissedAt = token.start
+                slashDismissedAt = token.start
             }
+            composerFocused = false
         }
-        .onChange(of: caretSlashToken?.start) { _, start in if start != editing.slashDismissedAt { editing.slashDismissedAt = nil } }
-        .onChange(of: slashMatches.map(\.name)) { editing.slashHighlight = 0 }
+        .onChange(of: caretSlashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
+        .onChange(of: slashMatches.map(\.name)) { slashHighlight = 0 }
         // Quick refreshes finish before the indicator would appear, so they don't flash.
         .task(id: conversation.isLoading) {
             guard conversation.isLoading else { showRefreshing = false; return }
@@ -203,6 +223,11 @@ struct CompanionConversationComposer: View {
         return batch.tookItem
     }
 
+    private var selectedRange: Range<String.Index>? {
+        if case .selection(let range)? = composerSelection?.indices { return range }
+        return nil
+    }
+
     /// The `/word` at the caret while the composer is focused and the session has commands.
     private var slashToken: CompanionSlashToken? { composerFocused ? caretSlashToken : nil }
 
@@ -212,15 +237,15 @@ struct CompanionConversationComposer: View {
         guard let commands = agent.slashCommands, !commands.isEmpty else { return nil }
         let text = draft.wrappedValue
         var caret = text.count
-        if case .selection(let range)? = editing.selection?.indices {
+        if case .selection(let range)? = composerSelection?.indices {
             guard range.isEmpty, range.lowerBound <= text.endIndex, let index = String.Index(range.lowerBound, within: text) else { return nil }
             caret = text.distance(from: text.startIndex, to: index)
-        } else if editing.selection != nil { return nil }
+        } else if composerSelection != nil { return nil }
         return CompanionSlashMenu.token(in: text, caret: caret)
     }
 
     private var slashMatches: [CompanionSlashCommand] {
-        guard let token = slashToken, token.start != editing.slashDismissedAt, let commands = agent.slashCommands else { return [] }
+        guard let token = slashToken, token.start != slashDismissedAt, let commands = agent.slashCommands else { return [] }
         return CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token)
     }
 
@@ -229,14 +254,14 @@ struct CompanionConversationComposer: View {
         guard let token = caretSlashToken else { return }
         let picked = CompanionSlashMenu.pick(command, text: draft.wrappedValue, token: token)
         draft.wrappedValue = picked.text
-        editing.selection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
+        composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
         composerFocused = true
     }
 
     /// Closes the menu for the word being typed. Returns whether a menu was open.
     @discardableResult private func dismissSlashMenu() -> Bool {
         guard !slashMatches.isEmpty, let token = slashToken else { return false }
-        editing.slashDismissedAt = token.start
+        slashDismissedAt = token.start
         return true
     }
 
@@ -245,10 +270,10 @@ struct CompanionConversationComposer: View {
     private func slashKey(_ press: KeyPress) -> KeyPress.Result {
         let matches = slashMatches
         guard !matches.isEmpty else { return .ignored }
-        let highlighted = min(editing.slashHighlight, matches.count - 1)
+        let highlighted = min(slashHighlight, matches.count - 1)
         switch press.key {
-        case .downArrow: editing.slashHighlight = (highlighted + 1) % matches.count
-        case .upArrow: editing.slashHighlight = (highlighted - 1 + matches.count) % matches.count
+        case .downArrow: slashHighlight = (highlighted + 1) % matches.count
+        case .upArrow: slashHighlight = (highlighted - 1 + matches.count) % matches.count
         // Picked on the next turn: the text view is still handling the key and would put its own text back.
         case .tab: Task { pickSlashCommand(matches[highlighted]) }
         case .escape: dismissSlashMenu()

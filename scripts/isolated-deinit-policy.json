@@ -633,6 +633,21 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionComposerMemory": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionConversationComposer.swift",
+      "reason": "Only an optional UTF-16 offset value and numeric slash bookmarks; no String indices, TextSelection, UI objects, callbacks or teardown work.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "selection": "CompanionComposerSelection ?",
+          "slashDismissedAt": "Int ?",
+          "slashHighlight": "Int"
+        },
+        "storageMacros": []
+      }
     }
   },
   "captureSites": {
@@ -739,6 +754,14 @@
       "constructor:CompanionStore": [
         {
           "expression": "CompanionStore ( service : CompanionPreviewService ( ) )",
+          "producers": {}
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionComposerMemory ( ) }",
           "producers": {}
         }
       ]

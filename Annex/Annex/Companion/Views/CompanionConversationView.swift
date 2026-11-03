@@ -22,9 +22,9 @@ struct CompanionConversationView: View {
         #endif
         return CompanionTimelineWindow.pageSize
     }
-    @FocusState private var composerFocused: Bool
-    // Store the editing value at the retained conversation's lifetime; only the composer reads it.
-    @State private var composerEditing = CompanionComposerEditing()
+    // A stable, lazily created bookmark survives retained-tab content unmounts. Input State lives below.
+    @State private var composerMemory = CompanionStateLifetime { CompanionComposerMemory() }
+    @State private var composerFocusRequests = 0
     @State private var composerDismissals = 0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -55,7 +55,6 @@ struct CompanionConversationView: View {
         }
         .onChange(of: isVisible) { _, visible in
             if visible == false {
-                composerFocused = false
                 readingViewport.clearGeometry()
             }
         }
@@ -65,7 +64,7 @@ struct CompanionConversationView: View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
-            if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { composerFocused = true } }
+            if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             if !connection.canOperate || conversation.requiresResync { connectionBanner }
             if let error = store.operationErrors[target] {
                 HStack(alignment: .top) {
@@ -122,8 +121,8 @@ struct CompanionConversationView: View {
         .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-                CompanionConversationComposer(store: store, agent: agent, composerFocused: $composerFocused,
-                    editing: $composerEditing, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+                CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
+                    focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
             }
         }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
@@ -547,9 +546,10 @@ struct CompanionConversationView: View {
         }
     }
 
+    private func focusComposer() { composerFocusRequests &+= 1 }
+
     private func dismissComposer() {
         composerDismissals &+= 1
-        composerFocused = false
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
