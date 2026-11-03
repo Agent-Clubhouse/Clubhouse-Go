@@ -418,87 +418,99 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(countdown.label.contains("Times out in"), countdown.label)
     }
 
-    /// Agent details opens from the chat header and the long-press menu, shows the hover card's fields, and links to settings.
-    func testAgentDetailsSheetMatchesTheDesktopHoverCard() {
-        let app = launchApp(["--companion-preview"])
-        let any = app.descendants(matching: .any)
-        func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
-        let sheet = element("agent-details-sheet")
-        func scrollTo(_ target: XCUIElement, up: Bool = true) {
-            let list = sheet.collectionViews.firstMatch
-            XCTAssertTrue(list.waitForExistence(timeout: 5))
-            var reached = false
-            for _ in 0..<12 {
-                checkTimeLeft("scrolling the details list")
-                let frame = list.frame
-                let top = max(frame.minY, sheet.navigationBars.firstMatch.frame.maxY) + 12
-                let visible = CGRect(x: frame.minX + 8, y: top, width: frame.width - 16, height: frame.maxY - top - 12)
-                if target.exists && visible.contains(target.frame) && target.isHittable { reached = true; break }
-                // Whole-app swipes can overshoot a short iPad form sheet.
-                // Keep the drag inside its list and reverse if the row went above it.
-                let down = target.exists ? target.frame.minY < visible.minY : !up
-                let distance = min(180, visible.height * 0.35) * (down ? 1 : -1)
-                let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: visible.midX, dy: visible.midY))
-                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
-                            withVelocity: XCUIGestureVelocity(rawValue: 250), thenHoldForDuration: 0.1)
-            }
-            XCTAssertTrue(reached, "Details row must scroll into view")
+    /// The sheet is already open. Keep every visibility/hit assertion while resolving each row frame once.
+    private func scrollDetailsRow(_ target: XCUIElement, in sheet: XCUIElement, app: XCUIApplication, up: Bool = true) {
+        let list = sheet.collectionViews.firstMatch
+        var reached = false
+        for _ in 0..<12 {
+            checkTimeLeft("scrolling the details list")
+            let frame = list.frame
+            let top = max(frame.minY, sheet.navigationBars.firstMatch.frame.maxY) + 12
+            let visible = CGRect(x: frame.minX + 8, y: top, width: frame.width - 16, height: frame.maxY - top - 12)
+            let targetFrame = target.exists ? target.frame : nil
+            if let targetFrame, visible.contains(targetFrame), target.isHittable { reached = true; break }
+            let down = targetFrame.map { $0.minY < visible.minY } ?? !up
+            let distance = min(180, visible.height * 0.35) * (down ? 1 : -1)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: visible.midX, dy: visible.midY))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                        withVelocity: XCUIGestureVelocity(rawValue: 250), thenHoldForDuration: 0.1)
         }
+        XCTAssertTrue(reached, "Details row must scroll into view")
+    }
 
-        let river = element("agent-preview-studio-river")
+    private func openRiverDetails(_ app: XCUIApplication) -> XCUIElement {
+        let any = app.descendants(matching: .any)
+        let river = any.matching(identifier: "agent-preview-studio-river").firstMatch
         scrollUntilExists(river, in: app)
         XCTAssertTrue(river.waitForExistence(timeout: 15), "Preview agent must appear")
         let actions = app.buttons["Conversation actions"]
         waitAndTap(river, until: actions, timeout: 10)
         let details = app.buttons["Agent details"]
         waitAndTap(actions, until: details, timeout: 5, "The chat header offers the agent's details")
-
-        // The settings route's details fill in the workspace and changes.
-        let branch = element("agent-details-branch")
+        let sheet = any.matching(identifier: "agent-details-sheet").firstMatch
         waitAndTap(details, until: sheet, timeout: 10)
+        XCTAssertTrue(sheet.collectionViews.firstMatch.waitForExistence(timeout: 5))
+        return sheet
+    }
+
+    func testAgentDetailsSheetMatchesTheDesktopHoverCard() {
+        let app = launchApp(["--companion-preview"])
+        let any = app.descendants(matching: .any)
+        func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
+        let sheet = openRiverDetails(app)
         // The iPad form sheet is shorter than the phone sheet. Visit the lazy
         // list in display order rather than reading rows below its viewport.
+        let branch = element("agent-details-branch")
         let cli = element("agent-details-cli")
-        scrollTo(cli, up: false)
+        scrollDetailsRow(cli, in: sheet, app: app, up: false)
         XCTAssertTrue(cli.label.contains("Claude Code 2.1.4"), "Runs on with the session's CLI version")
         let effort = element("agent-details-effort")
-        scrollTo(effort)
+        scrollDetailsRow(effort, in: sheet, app: app)
         XCTAssertTrue(effort.label.contains("High"))
-        scrollTo(branch)
+        scrollDetailsRow(branch, in: sheet, app: app)
         XCTAssertTrue(branch.label.contains("river/companion"), branch.label)
         let workspace = element("agent-details-worktree")
-        scrollTo(workspace)
+        scrollDetailsRow(workspace, in: sheet, app: app)
         XCTAssertTrue(workspace.label.contains(".clubhouse/agents/river"))
         let access = element("agent-details-access")
-        scrollTo(access)
+        scrollDetailsRow(access, in: sheet, app: app)
         XCTAssertTrue(access.label.contains("Auto-accept edits"), "The live permission level")
         let freeAgent = element("agent-details-free-agent-mode")
-        scrollTo(freeAgent)
+        scrollDetailsRow(freeAgent, in: sheet, app: app)
         XCTAssertTrue(freeAgent.label.contains("Off"))
         let autoSleep = element("agent-details-auto-sleep")
-        scrollTo(autoSleep)
+        scrollDetailsRow(autoSleep, in: sheet, app: app)
         XCTAssertTrue(autoSleep.label.contains("Sleeps after 30 min"))
         let mcp = element("agent-details-mcp-summary")
-        scrollTo(mcp)
+        scrollDetailsRow(mcp, in: sheet, app: app)
         XCTAssertEqual(mcp.label, "2 connected · 1 needs sign-in · 1 configured", "The MCP card's summary")
         let changes = element("agent-details-changes")
-        scrollTo(changes)
+        scrollDetailsRow(changes, in: sheet, app: app)
         XCTAssertTrue(changes.label.contains("6 files +94 −51"), changes.label)
         XCTAssertTrue(app.staticTexts["2 commits ahead of main · 1 uncommitted"].exists)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Agent details"
         shot.lifetime = .keepAlways
         add(shot)
+    }
 
+    func testAgentDetailsSheetLinksToAgentSettings() {
+        let app = launchApp(["--companion-preview"])
+        let any = app.descendants(matching: .any)
+        func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
+        let sheet = openRiverDetails(app)
         // Agent settings opens from the sheet, for editing.
         let openSettings = element("agent-details-open-settings")
-        scrollTo(openSettings)
+        scrollDetailsRow(openSettings, in: sheet, app: app)
         waitAndTap(openSettings, until: element("agent-settings-summary"), timeout: 10, "Details links to the agent's settings")
         waitAndTap(sheet.navigationBars.buttons.element(boundBy: 0), until: openSettings, timeout: 5)
         waitAndTap(sheet.buttons["Done"], untilGone: openSettings)
+    }
 
-        // From an agent row's long-press menu: Juniper works in the project folder, with nothing changed.
-        waitAndTap(app.navigationBars.buttons.element(boundBy: 0), until: homeNewAgent(app))
+    func testAgentDetailsSheetForAnAgentWithoutSession() {
+        let app = launchApp(["--companion-preview"])
+        let any = app.descendants(matching: .any)
+        func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
         // Sleeping agents start folded on Home.
         let sleeping = element("fold-sleeping-preview-studio-clubhouse")
         let juniper = element("agent-preview-studio-juniper")
@@ -518,13 +530,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).press(forDuration: 1.2)
         }
         XCTAssertTrue(rowDetails.waitForExistence(timeout: 5), "The long-press menu offers the agent's details")
+        let sheet = element("agent-details-sheet")
         let worktree = element("agent-details-worktree")
         waitAndTap(rowDetails, until: sheet, timeout: 10)
-        scrollTo(worktree)
+        XCTAssertTrue(sheet.collectionViews.firstMatch.waitForExistence(timeout: 5))
+        scrollDetailsRow(worktree, in: sheet, app: app)
         XCTAssertTrue(worktree.label.contains("Works in the project folder"), worktree.label)
         XCTAssertFalse(element("agent-details-effort").exists, "No session, so no effort is guessed")
         let juniperChanges = element("agent-details-changes")
-        scrollTo(juniperChanges)
+        scrollDetailsRow(juniperChanges, in: sheet, app: app)
         XCTAssertTrue(juniperChanges.label.contains("No changes"), juniperChanges.label)
     }
 

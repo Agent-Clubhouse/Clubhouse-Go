@@ -255,7 +255,7 @@ struct CompanionConversationView: View {
                         timelineHeader
                         if window.hiddenCount > 0 {
                             Button("Show earlier messages", systemImage: "arrow.up.circle") {
-                                followLatest = false
+                                setFollowing(false, reason: .earlier)
                                 readingViewport.isRestoring = true
                                 readingViewport.restoreOffset = nil
                                 shownEntries += CompanionTimelineWindow.pageSize
@@ -308,6 +308,7 @@ struct CompanionConversationView: View {
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { old, phase, context in
+                traceScrollPhase(phase, metrics: Self.metrics(context.geometry))
                 CompanionChatPerformance.scroll(target: target, isUserScrolling: phase == .tracking || phase == .interacting || phase == .decelerating)
                 if phase == .tracking {
                     readingViewport.gesture.begin(at: Self.metrics(context.geometry).normalizedOffset)
@@ -317,10 +318,10 @@ struct CompanionConversationView: View {
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
                 if phase == .idle && readingViewport.hasInitialized && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
-                    if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
+                    if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     readingViewport.gesture.end()
                     atLatest = metrics.isAtTrueBottom
-                    if metrics.isAtTrueBottom { followLatest = true }
+                    if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
                     saveReadingPosition(metrics)
                 }
             }
@@ -329,13 +330,14 @@ struct CompanionConversationView: View {
                     guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                     let metrics = Self.metrics(new)
                     let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics)
+                    traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
                     guard readingViewport.hasInitialized else { return }
-                    if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
+                    if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     if readingViewport.isRestoring {
                         guard let restoreOffset = readingViewport.restoreOffset,
                               abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
@@ -344,8 +346,8 @@ struct CompanionConversationView: View {
                         readingViewport.isRestoring = false
                         saveReadingPosition(metrics)
                     }
-                    if metrics.isAtTrueBottom { followLatest = true }
-                    else if !readingViewport.isInteracting && followLatest && scrolledUp { followLatest = false }
+                    if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+                    else if !readingViewport.isInteracting && followLatest && scrolledUp { setFollowing(false, reason: .nativeUpward) }
                     // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
                     // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
                     if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
@@ -395,7 +397,7 @@ struct CompanionConversationView: View {
                     }
                     if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
                         Button {
-                            followLatest = true
+                            setFollowing(true, reason: .latest)
                             readingBookmark.position.followsLatest = true
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
                         } label: { Label("Latest", systemImage: "arrow.down") }
@@ -418,7 +420,8 @@ struct CompanionConversationView: View {
                     readingBookmark.position.entryID = nil
                 }
                 let saved = readingBookmark.position
-                followLatest = saved.followsLatest
+                setFollowing(saved.followsLatest, reason: .restore)
+                traceFollow(reason: .mount, previous: followLatest, next: followLatest)
                 readingViewport.isRestoring = !saved.followsLatest
                 readingViewport.restoreOffset = nil
                 readingViewport.hasInitialized = true
@@ -478,11 +481,56 @@ struct CompanionConversationView: View {
         let offset = readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset
         guard let id = CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
                                                                 viewportTop: offset, forward: forward) else {
-            if !forward { followLatest = false; shownEntries += CompanionTimelineWindow.pageSize }
+            if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
             return
         }
-        followLatest = false
+        setFollowing(false, reason: .messageJump)
         proxy.scrollTo(id, anchor: .top)
+    }
+
+    private enum FollowReason: String { case earlier, gesture, bottom, nativeUpward, latest, restore, messageJump, mount }
+
+    private func setFollowing(_ follows: Bool, reason: FollowReason) {
+        let previous = followLatest
+        followLatest = follows
+        if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
+    }
+
+    /// Opt-in preview diagnostics for CI. Closed reasons and numbers only; never draft or transcript text.
+    private func traceFollow(reason: FollowReason, previous: Bool, next: Bool) {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--companion-preview"), arguments.contains("--companion-preview-follow-trace") else { return }
+        let metrics = readingViewport.metrics
+        NSLog("%@", "CHAT_FOLLOW reason=\(reason.rawValue) from=\(previous ? 1 : 0) to=\(next ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) offset=\(metrics?.normalizedOffset ?? -1) contentHeight=\(metrics?.contentHeight ?? -1) containerHeight=\(metrics?.containerHeight ?? -1) messageCount=\(conversation.items.count)")
+        #endif
+    }
+
+    private func traceUpwardGeometry(from old: CompanionScrollMetrics, to new: CompanionScrollMetrics, recognized: Bool) {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--companion-preview"), arguments.contains("--companion-preview-follow-trace"),
+              new.normalizedOffset < old.normalizedOffset else { return }
+        let prior = readingViewport.previousMetrics
+        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
+        #endif
+    }
+
+    private func traceScrollPhase(_ phase: ScrollPhase, metrics: CompanionScrollMetrics) {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--companion-preview"), arguments.contains("--companion-preview-follow-trace") else { return }
+        let value: Int
+        switch phase {
+        case .idle: value = 0
+        case .tracking: value = 1
+        case .interacting: value = 2
+        case .decelerating: value = 3
+        case .animating: value = 4
+        @unknown default: value = 5
+        }
+        NSLog("%@", "CHAT_PHASE phase=\(value) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) offset=\(metrics.normalizedOffset)")
+        #endif
     }
 
     /// Pause on the first native upward sample, before another chunk can cancel

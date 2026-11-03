@@ -21,7 +21,9 @@ SHARDS = [
     {
         "name": "UI tests (preview)",
         "tests": [
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",  # 170–200
+            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",
+            "CompanionPreviewSmokeTests/testAgentDetailsSheetLinksToAgentSettings",
+            "CompanionPreviewSmokeTests/testAgentDetailsSheetForAnAgentWithoutSession",
             "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 90–100
             "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 75
             "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 45–55

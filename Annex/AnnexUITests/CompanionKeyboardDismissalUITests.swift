@@ -80,7 +80,7 @@ import XCTest
     func testLongDispatcherCanDismissAndReturnHome() { dispatcher(["--companion-preview-long-reply"]) }
 
     func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply", "--companion-preview-follow-trace"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-composer"))
@@ -105,6 +105,8 @@ import XCTest
         // largest actually visible text fragment, retaining the real-text tap.
         let live = replies.allElementsBoundByIndex.filter { $0.isHittable && $0.frame.intersects(viewport) }
             .max { $0.frame.intersection(viewport).height < $1.frame.intersection(viewport).height }
+        XCTContext.runActivity(named: "Streaming viewport \(viewport), keyboard \(app.keyboards.firstMatch.frame), transcript \(transcript)") { _ in }
+        if live == nil { screenshot(app, "Stream viewport missing live text") }
         XCTAssertNotNil(live, "A streamed text fragment must be visible while typing")
         guard let live else { return }
         let band = viewport.intersection(live.frame)
