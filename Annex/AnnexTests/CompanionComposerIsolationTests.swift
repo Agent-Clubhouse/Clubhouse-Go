@@ -50,7 +50,7 @@ import SwiftUI
         XCTAssertTrue(find(window) === input)
         XCTAssertEqual(store.drafts[target]?.utf16.count, 10)
     }
-    func testRemountClampsSelectionAfterDraftChangesWhileUnmounted() async throws {
+    func testRemountDoesNotReuseSelectionAfterDraftChangesWhileUnmounted() async throws {
         let service = CompanionPreviewService(showsDispatcher: true)
         let store = CompanionStore(service: service)
         let target = CompanionPreviewService.dispatcherTarget
@@ -70,16 +70,21 @@ import SwiftUI
         func find(_ view: UIView) -> UITextView? {
             (view as? UITextView) ?? view.subviews.lazy.compactMap(find).first
         }
-        for replacement in ["🙂", ""] {
+        for replacement in ["z", ""] {
             store.drafts[target] = "abcdef"
             memory.selection = .init(lowerUTF16: 4, upperUTF16: 6)
             mount()
             try await Task.sleep(for: .milliseconds(200))
             let original = try XCTUnwrap(find(window))
+            XCTAssertEqual(original.text, "abcdef")
+            XCTAssertTrue(original.becomeFirstResponder())
+            original.selectedRange = NSRange(location: 4, length: 2)
+            try await Task.sleep(for: .milliseconds(50))
             XCTAssertEqual(original.selectedRange, NSRange(location: 4, length: 2))
             controller.rootView = AnyView(EmptyView())
             try await Task.sleep(for: .milliseconds(100))
-            XCTAssertNotNil(memory.selection)
+            XCTAssertEqual(memory.selection, .init(lowerUTF16: 4, upperUTF16: 6))
+            XCTAssertEqual(memory.selectionDraft, "abcdef")
             // A send, restore or external clear can replace the draft while its tab is unmounted.
             store.drafts[target] = replacement
             mount()

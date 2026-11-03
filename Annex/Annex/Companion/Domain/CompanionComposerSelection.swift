@@ -16,6 +16,10 @@ struct CompanionComposerSelection: Equatable, Sendable {
         let lower = min(length, max(0, lowerUTF16))
         let upper = max(lower, min(length, max(0, upperUTF16)))
         // A changed draft can put an old offset inside a surrogate pair. Never hand that to SwiftUI.
-        return Range(NSRange(location: lower, length: upper - lower), in: text) ?? text.endIndex..<text.endIndex
+        let lowerPosition = text.utf16.index(text.utf16.startIndex, offsetBy: lower)
+        let upperPosition = text.utf16.index(text.utf16.startIndex, offsetBy: upper)
+        guard let start = String.Index(lowerPosition, within: text),
+              let end = String.Index(upperPosition, within: text) else { return text.endIndex..<text.endIndex }
+        return start..<end
     }
 }

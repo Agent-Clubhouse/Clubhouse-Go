@@ -2,10 +2,11 @@ import SwiftUI
 import UIKit
 import ClubhouseTransport
 
-/// A retained tab's editing bookmark. Only UTF-16 offsets and numbers; never UIKit or SwiftUI handles.
+/// A retained tab's editing bookmark. Plain values only; never UIKit or SwiftUI handles.
 @MainActor final class CompanionComposerMemory {
     nonisolated deinit {}
     var selection: CompanionComposerSelection?
+    var selectionDraft: String?
     var slashHighlight = 0
     var slashDismissedAt: Int?
 }
@@ -184,12 +185,17 @@ struct CompanionConversationComposer: View {
         .onAppear {
             slashHighlight = memory.slashHighlight
             slashDismissedAt = memory.slashDismissedAt
-            if let selection = memory.selection {
-                composerSelection = TextSelection(range: selection.range(in: draft.wrappedValue))
-            }
+            // A restore/send/external clear can change text while this subtree is unmounted.
+            // Restore a selection only for the exact saved draft; otherwise let the input choose its caret.
+            if memory.selectionDraft == draft.wrappedValue, let selection = memory.selection {
+                let range = selection.range(in: draft.wrappedValue)
+                composerSelection = range.isEmpty ? TextSelection(insertionPoint: range.lowerBound) : TextSelection(range: range)
+            } else { composerSelection = nil }
+            memory.selectionDraft = nil
         }
         .onDisappear {
             memory.selection = CompanionComposerSelection.capture(selectedRange, in: draft.wrappedValue)
+            memory.selectionDraft = memory.selection == nil ? nil : draft.wrappedValue
             memory.slashHighlight = slashHighlight
             memory.slashDismissedAt = slashDismissedAt
             composerFocused = false
