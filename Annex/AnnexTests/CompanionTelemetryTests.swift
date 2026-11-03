@@ -194,6 +194,16 @@ import SwiftUI
         #expect(summaries.count == 1, "Both capture providers must drain the interval only once")
         #expect(attributes(summaries[0])["count"] as? String == "1")
         #expect(attributes(summaries[0])["windowEndUnixMs"] as? Double != nil)
+        // A successful checkpoint flush is ordinary telemetry. Send must not re-tag/re-send it.
+        let markerID = UUID()
+        #expect(await bridge.telemetry.feedbackSubmitted(reportID: markerID, includeDiagnostics: true))
+        let afterMarker = await network.bodies(for: "logs").flatMap(logRecords)
+        let emittedSummaries = afterMarker.filter {
+            ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.performance.summary"
+        }
+        #expect(emittedSummaries.count == 1)
+        #expect(attributes(emittedSummaries[0])["feedback.report.id"] == nil)
+        #expect(afterMarker.contains { attributes($0)["feedback.report.id"] as? String == markerID.uuidString.lowercased() })
         let frozen = try draft.report(configuration: config, notes: "fixture", screenshotPNG: nil, includeDiagnostics: true)
         source.recordPerformance(.scrollGeometry, durationMs: 3, messageCount: 129)
         let reviewed = try draft.report(configuration: config, notes: "fixture", screenshotPNG: nil, includeDiagnostics: true)

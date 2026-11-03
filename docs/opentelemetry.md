@@ -254,7 +254,12 @@ it is not necessarily wholly contained within that window. A drain clears exactl
 checkpoint emits nothing. Resetting capture discards the old interval, including late edit callbacks.
 
 Opening feedback checkpoints before incident capture (and before the optional diagnostics snapshot)
-and requests an ordinary automatic-telemetry flush without awaiting it. The reviewed draft's capture
+and requests an ordinary automatic-telemetry flush without awaiting it. A successful capture flush
+marks these SDK ring entries sent: `feedbackSubmitted` tags only still-local or queued entries, so
+the already-sent summaries are **not** copied into the later report excerpt. They remain ordinary
+service logs correlated by session ID and aggregate window timestamps. If still queued at Send,
+the existing optional excerpt path can tag them; the user's diagnostics choice still applies.
+The reviewed draft's capture
 time, five-minute incident window and contents remain frozen; subsequent summaries stay ordinary
 later telemetry. The report-diagnostics OFF gate is unchanged. Synchronous main-thread notification
 callbacks checkpoint at will-resign-active, did-enter-background and will-terminate, handing over
