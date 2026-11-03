@@ -93,6 +93,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         // A tap outside the composer closes it.
         tapTranscript(app)
         XCTAssertTrue(menu.waitForNonExistence(timeout: 5), "A tap outside dismisses the menu")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "A transcript tap also ends editing")
     }
 
     func testKeyboardMovesAndPicksAndADismissedWordStaysClosed() {
@@ -128,6 +129,11 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
         tapTranscript(app)
         XCTAssertTrue(menu.waitForNonExistence(timeout: 5), "A tap outside dismisses the menu")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "A transcript tap also ends editing")
+        // Refocus at the end of the last line; a center tap can move the caret
+        // into an earlier word in this multiline draft.
+        composer.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.95)).tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         composer.typeText("r")
         XCTAssertFalse(menu.waitForExistence(timeout: 1), "It stays closed for the dismissed word")
         composer.typeText(" /")

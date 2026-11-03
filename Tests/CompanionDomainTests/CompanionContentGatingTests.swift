@@ -147,6 +147,13 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 }
 
 @Suite @MainActor struct CompanionPreviewContentTests {
+    @Test func emptyPreviewLoadsNoHistoryForEitherChatKind() async throws {
+        let service = CompanionPreviewService(showsEmptyConversation: true)
+        for target in [CompanionPreviewService.target, CompanionPreviewService.dispatcherTarget] {
+            #expect(try await service.history(for: target).items.isEmpty)
+        }
+    }
+
     @Test func previewDesktopOffersAndOpensSampleFiles() async throws {
         let service = CompanionPreviewService()
         let store = CompanionStore(service: service)
