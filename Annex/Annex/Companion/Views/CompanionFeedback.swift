@@ -103,7 +103,7 @@ import ClubhouseTransport
 
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
-    var initialScreenshotPNG: Data? = nil
+    var initialCapture: CompanionFeedbackSettingsCapture? = nil
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
@@ -126,7 +126,7 @@ struct CompanionFeedbackSettings: View {
                 if let model {
                     NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }
                     if model.status?.canSubmit == true {
-                        NavigationLink("Send feedback") { CompanionFeedbackComposer(model: model, initialScreenshotPNG: initialScreenshotPNG) }
+                        NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }
                     }
                     Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
                     Text(model.telemetry == nil ? Self.feedbackOnlyDisclosure : Self.telemetryDisclosure)
@@ -157,6 +157,27 @@ struct CompanionFeedbackSettings: View {
                 Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Send. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback in Home's ⋯ menu and a chat's ⋯ menu includes the screen from before the menu opened. In Settings it includes the screen from before Settings opened. Remove or replace the image before Send; a failed or suppressed capture leaves Add screenshot available.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+/// Start encoding only after navigation to feedback, rather than while Settings builds its rows.
+private struct CompanionFeedbackCapturedComposer: View {
+    let model: FeedbackModel
+    let capture: CompanionFeedbackSettingsCapture?
+    @State private var png: Data?
+    @State private var prepared = false
+    var body: some View {
+        Group {
+            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png) }
+            else { ProgressView("Preparing feedback…") }
+        }
+        .navigationTitle("Send feedback")
+        .task {
+            guard !prepared else { return }
+            let encoded = await CompanionFeedbackPresenter.encode(capture?.screenshot)
+            guard !Task.isCancelled else { return }
+            png = encoded; prepared = true
         }
     }
 }

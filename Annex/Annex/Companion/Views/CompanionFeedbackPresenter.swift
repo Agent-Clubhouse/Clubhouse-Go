@@ -10,9 +10,11 @@ extension EnvironmentValues {
 
 /// Transfer Settings and its pre-sheet image together, rather than racing a Boolean sheet binding
 /// against a separate @State value. A nil image still opens Settings; dismissal releases the item.
-struct CompanionFeedbackSettingsCapture: Identifiable {
-    let id = UUID()
-    let screenshotPNG: Data?
+final class CompanionFeedbackSettingsCapture: Identifiable {
+    let id: UUID = UUID()
+    var screenshot: CGImage?
+    init(screenshot: CGImage?) { self.screenshot = screenshot }
+    nonisolated deinit {}
 }
 
 /// Feedback entry points that don't depend on a gesture: the "Send feedback" menu items and the offer
@@ -26,7 +28,8 @@ struct CompanionFeedbackSettingsCapture: Identifiable {
     private var statusTask: Task<Void, Never>?
     private var screenshotLifecycle = CompanionScreenshotPromptLifecycle()
     private var screenshotData: Data?
-    private var menuScreenshot: Data?
+    private var menuScreenshot: CGImage?
+    private weak var menuSource: UIControl?
     private weak var menuWindow: UIWindow?
     private weak var screenshotScene: UIWindowScene?
     private weak var screenshotWindow: UIWindow?
@@ -45,7 +48,9 @@ struct CompanionFeedbackSettingsCapture: Identifiable {
         for name in [UIScene.didActivateNotification, UIScene.willDeactivateNotification, UIScene.didDisconnectNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
                 MainActor.assumeIsolated {
-                    guard let self, let scene = note.object as? UIWindowScene, scene === self.screenshotScene else { return }
+                    guard let self, let scene = note.object as? UIWindowScene else { return }
+                    if scene === self.menuWindow?.windowScene, name != UIScene.didActivateNotification { self.discardMenuFeedback() }
+                    guard scene === self.screenshotScene else { return }
                     if name == UIScene.didDisconnectNotification { self.dismissPrompt() }
                     else if name == UIScene.willDeactivateNotification { self.hidePrompt() }
                     else { self.resumeScreenshotOffer() }
@@ -57,31 +62,48 @@ struct CompanionFeedbackSettingsCapture: Identifiable {
 
     /// Called on the opening press, before UIKit puts the menu over the app. A nil capture
     /// replaces any older one too: a secure field or failure must never reuse another screen.
-    func prepareMenuFeedback(in window: UIWindow) {
+    func prepareMenuFeedback(in window: UIWindow, source: UIControl) {
         guard let model, !model.isComposerOpen, presented == nil else {
-            menuScreenshot = nil; menuWindow = nil
+            discardMenuFeedback()
             return
         }
         menuWindow = window
-        menuScreenshot = menuWindow.flatMap(Self.capture)
+        menuSource = source
+        menuScreenshot = Self.freeze(window)
+        #if DEBUG
+        // Isolated fixture: simulate the source ending its highlight before selection.
+        if ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing"),
+           ProcessInfo.processInfo.arguments.contains("--feedback-early-highlight-end") { discardMenuFeedback(from: source) }
+        #endif
     }
 
     func sendMenuFeedback() {
         let screenshot = menuScreenshot, window = menuWindow
-        menuScreenshot = nil; menuWindow = nil
-        sendFeedback(screenshotPNG: screenshot, from: window)
+        discardMenuFeedback()
+        sendFeedback(frozenImage: screenshot, from: window)
+    }
+
+    /// Ignore a late dismissal from another menu. The selected action consumes its image first.
+    func discardMenuFeedback(from source: UIControl? = nil) {
+        guard source == nil || source === menuSource else { return }
+        menuScreenshot = nil
+        // A premature highlight-end must still allow text-only feedback from its source window.
+        if source == nil { menuWindow = nil; menuSource = nil }
     }
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
-    func sendFeedback(screenshotPNG: Data? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
+    func sendFeedback(screenshotPNG: Data? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
         guard let model, presented == nil else { return }
         dismissPrompt()
         statusTask?.cancel()
         statusTask = Task { [weak self] in
             if model.status == nil { await model.update() }
             guard let self, !Task.isCancelled, self.presented == nil else { return }
-            if model.status?.canSubmit == true { self.presentComposer(screenshot: screenshotPNG, from: sourceWindow) }
-            else { self.explainEnrollment(fromScreenshot: false, fromShake: fromShake) }
+            if model.status?.canSubmit == true {
+                let png = frozenImage == nil ? screenshotPNG : await Self.encode(frozenImage)
+                guard !Task.isCancelled, self.presented == nil else { return }
+                self.presentComposer(screenshot: png, from: sourceWindow)
+            } else { self.explainEnrollment(fromScreenshot: false, fromShake: fromShake) }
         }
     }
 
@@ -222,7 +244,10 @@ struct CompanionFeedbackSettingsCapture: Identifiable {
     }
 
     /// What is on screen now, within the SDK's size caps; nil while a password field is in use.
-    static func capture(_ window: UIWindow) -> Data? {
+    static func capture(_ window: UIWindow) -> Data? { freeze(window).flatMap { ShakeScreenshot.encodePNG($0) } }
+
+    /// UIKit rendering must run on MainActor. Keep these immutable pixels frozen without PNG work.
+    static func freeze(_ window: UIWindow) -> CGImage? {
         #if DEBUG
         // Isolated fake-wire UI test only: exercise the same nil path as a failed renderer.
         if ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing"),
@@ -237,8 +262,32 @@ struct CompanionFeedbackSettingsCapture: Identifiable {
             rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
         }
         guard rendered else { return nil }
-        return image.cgImage.flatMap { ShakeScreenshot.encodePNG($0) }
+        #if DEBUG
+        lastFrozenImage = image.cgImage
+        #endif
+        return image.cgImage
     }
+
+    static func encode(_ image: CGImage?) async -> Data? {
+        guard let image else { return nil }
+        #if DEBUG
+        deferredPNGEncodes += 1
+        #endif
+        return await Task.detached(priority: .userInitiated) { encodePixels(image) }.value
+    }
+
+    nonisolated private static func encodePixels(_ image: CGImage) -> Data? {
+        assert(!Thread.isMainThread)
+        return ShakeScreenshot.encodePNG(image)
+    }
+
+    #if DEBUG
+    private static weak var lastFrozenImage: CGImage?
+    private static var deferredPNGEncodes = 0
+    var fixtureCaptureState: String {
+        "Pending: \(menuScreenshot != nil) · Alive: \(Self.lastFrozenImage != nil) · Encodes: \(Self.deferredPNGEncodes)"
+    }
+    #endif
 
     static func hasSecureFirstResponder(_ view: UIView) -> Bool {
         if view.isFirstResponder,
@@ -323,6 +372,7 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
         private let press = CompanionFeedbackOpeningPress()
         private weak var observedWindow: UIWindow?
         private let controls = NSHashTable<UIControl>.weakObjects()
+        private let highlightObservations = NSMapTable<UIControl, NSKeyValueObservation>.weakToStrongObjects()
         private var lastPress: TimeInterval = -.infinity
         private static let sources: Set<String> = ["home-more-menu", "conversation-actions-menu", "fixture-feedback-menu"]
         override init(frame: CGRect) {
@@ -349,6 +399,14 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
                 if let control = view as? UIControl, Self.isSource(control), !controls.contains(control) {
                     control.addTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered)
                     controls.add(control)
+                    let observation = control.observe(\.isHighlighted, options: [.old, .new]) { [weak self] control, change in
+                        guard change.oldValue == true, change.newValue == false else { return }
+                        Task { @MainActor [weak self, weak control] in
+                            guard let control, !control.isHighlighted else { return }
+                            self?.presenter?.discardMenuFeedback(from: control)
+                        }
+                    }
+                    highlightObservations.setObject(observation, forKey: control)
                 }
                 for child in view.subviews { visit(child) }
             }
@@ -357,14 +415,16 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
         func disconnect() {
             observedWindow?.removeGestureRecognizer(press)
             for control in controls.allObjects { control.removeTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered) }
+            highlightObservations.removeAllObjects()
+            presenter?.discardMenuFeedback()
             controls.removeAllObjects(); observedWindow = nil
         }
         func openingPress(_ touch: UITouch) {
             var candidate = touch.view
             while let view = candidate {
-                if Self.isSource(view), let window = view.window {
+                if Self.isSource(view), let control = view as? UIControl, let window = control.window {
                     lastPress = ProcessInfo.processInfo.systemUptime
-                    presenter?.prepareMenuFeedback(in: window)
+                    presenter?.prepareMenuFeedback(in: window, source: control)
                     return
                 }
                 candidate = view.superview
@@ -373,7 +433,7 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
         @objc private func menuWillOpen(_ sender: UIControl) {
             // A physical press already froze the earlier pixels. Accessibility has no touch.
             guard ProcessInfo.processInfo.systemUptime - lastPress > 1, let window = sender.window else { return }
-            presenter?.prepareMenuFeedback(in: window)
+            presenter?.prepareMenuFeedback(in: window, source: sender)
         }
     }
 }

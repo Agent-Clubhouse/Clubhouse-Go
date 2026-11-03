@@ -603,7 +603,7 @@
     "CompanionFeedbackMenuCapture.Anchor": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
-      "reason": "UIView superclass owns UIKit state; owns a gesture recognizer and weak UIControl collection. Keep UIKit field destruction on MainActor."
+      "reason": "UIView superclass owns UIKit state, a gesture recognizer, weak UIControl collection and KVO observations of those controls. Observation callbacks capture the anchor weakly; keep UIKit and observation teardown on MainActor."
     },
     "CompanionChatPerformance.DisplayTarget": {
       "policy": "arc_only",
@@ -615,6 +615,22 @@
         ],
         "nestedValueProperties": {},
         "properties": {},
+        "storageMacros": []
+      }
+    },
+    "CompanionFeedbackSettingsCapture": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
+      "reason": "Owns only a UUID and immutable CoreGraphics bitmap pixels. No UIKit views, callbacks or teardown work; the image can be ARC-released on any thread. Shared holder lets sheet dismissal clear pixels even if SwiftUI retains destination values.",
+      "surface": {
+        "bases": [
+          "Identifiable"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "id": "UUID",
+          "screenshot": "CGImage ?"
+        },
         "storageMacros": []
       }
     }
