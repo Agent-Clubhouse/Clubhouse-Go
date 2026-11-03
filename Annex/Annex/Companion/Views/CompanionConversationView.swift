@@ -50,6 +50,8 @@ struct CompanionConversationView: View {
     /// The draft as the composer edits it. Return while the `/` menu offers a started name picks it, as on the desktop.
     private var composerText: Binding<String> {
         Binding(get: { draft.wrappedValue }, set: { text in
+            // SwiftUI can invoke the setter twice with the same value for one native edit.
+            if text != draft.wrappedValue { CompanionChatPerformance.edit(target: target, messageCount: conversation.items.count) }
             #if DEBUG
             if CompanionImagePaste.tracesPreviewTyping {
                 print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
@@ -97,7 +99,7 @@ struct CompanionConversationView: View {
     }
 
     private var content: some View {
-        AnnexTelemetry.shared.measurePerformance(.conversationBody, messageCount: conversation.items.count) {
+        CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             contextHeader
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { composerFocused = true } }
@@ -163,6 +165,8 @@ struct CompanionConversationView: View {
         .task(id: scenePhase == .active && showsActions) {
             // A bounded summary while an open conversation is active. This is scheduling delay, not GPU frame time.
             guard scenePhase == .active, showsActions else { return }
+            let performanceLease = CompanionChatPerformance.start(target: target)
+            defer { CompanionChatPerformance.stop(performanceLease) }
             let clock = ContinuousClock()
             while !Task.isCancelled {
                 let start = clock.now
@@ -339,6 +343,7 @@ struct CompanionConversationView: View {
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { old, phase, context in
+                CompanionChatPerformance.scroll(target: target, isUserScrolling: phase == .tracking || phase == .interacting || phase == .decelerating)
                 if phase == .tracking {
                     readingViewport.gesture.begin(at: Self.metrics(context.geometry).normalizedOffset)
                 } else if phase == .interacting && old != .tracking {
@@ -355,47 +360,55 @@ struct CompanionConversationView: View {
                 }
             }
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
-                guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
-                let metrics = Self.metrics(new)
-                let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics)
-                readingViewport.previousMetrics = Self.metrics(old)
-                readingViewport.metrics = metrics
-                atLatest = metrics.isAtTrueBottom
-                guard readingViewport.hasInitialized else { return }
-                if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
-                if readingViewport.isRestoring {
-                    guard let restoreOffset = readingViewport.restoreOffset,
-                          abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
-                    let desired = min(restoreOffset, metrics.maximumOffset)
-                    guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
-                    readingViewport.isRestoring = false
-                    saveReadingPosition(metrics)
-                }
-                if metrics.isAtTrueBottom { followLatest = true }
-                else if !readingViewport.isInteracting && followLatest && scrolledUp { followLatest = false }
-                // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
-                // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
-                if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
-                    saveReadingPosition(metrics)
+                AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
+                    guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
+                    let metrics = Self.metrics(new)
+                    let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics)
+                    readingViewport.previousMetrics = Self.metrics(old)
+                    readingViewport.metrics = metrics
+                    CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
+                        offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
+                    atLatest = metrics.isAtTrueBottom
+                    guard readingViewport.hasInitialized else { return }
+                    if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { followLatest = false }
+                    if readingViewport.isRestoring {
+                        guard let restoreOffset = readingViewport.restoreOffset,
+                              abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
+                        let desired = min(restoreOffset, metrics.maximumOffset)
+                        guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
+                        readingViewport.isRestoring = false
+                        saveReadingPosition(metrics)
+                    }
+                    if metrics.isAtTrueBottom { followLatest = true }
+                    else if !readingViewport.isInteracting && followLatest && scrolledUp { followLatest = false }
+                    // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
+                    // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
+                    if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
+                        saveReadingPosition(metrics)
+                    }
                 }
             }
             .onPreferenceChange(CompanionReadingFrames.self) { rects in
-                let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
-                readingViewport.frames = frames
-                readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
-                guard !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
-                let saved = readingBookmark.position
-                if let entryID = saved.entryID, frames[entryID] == nil { return }
-                let offset = saved.restoredOffset(frames: frames)
-                if let metrics = readingViewport.metrics,
-                   abs(metrics.contentHeight - (readingViewport.frameContentHeight ?? -1)) < 1,
-                   abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 {
-                    readingViewport.isRestoring = false
-                    saveReadingPosition(metrics)
-                } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
-                    readingViewport.isRestoring = true
-                    readingViewport.restoreOffset = offset
-                    readingScrollPosition.scrollTo(y: offset)
+                AnnexTelemetry.shared.measurePerformance(.readingPreference, messageCount: conversation.items.count) {
+                    let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
+                    readingViewport.frames = frames
+                    readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
+                        offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
+                    guard !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
+                    let saved = readingBookmark.position
+                    if let entryID = saved.entryID, frames[entryID] == nil { return }
+                    let offset = saved.restoredOffset(frames: frames)
+                    if let metrics = readingViewport.metrics,
+                       abs(metrics.contentHeight - (readingViewport.frameContentHeight ?? -1)) < 1,
+                       abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 {
+                        readingViewport.isRestoring = false
+                        saveReadingPosition(metrics)
+                    } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
+                        readingViewport.isRestoring = true
+                        readingViewport.restoreOffset = offset
+                        readingScrollPosition.scrollTo(y: offset)
+                    }
                 }
             }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
@@ -856,6 +869,8 @@ struct CompanionContextRing: View {
 private struct CompanionReadingFrames: PreferenceKey {
     static let defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+        AnnexTelemetry.shared.measurePerformance(.readingFrameReduce) {
+            value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+        }
     }
 }
