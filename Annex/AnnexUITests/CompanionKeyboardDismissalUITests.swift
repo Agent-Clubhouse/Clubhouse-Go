@@ -39,7 +39,9 @@ import XCTest
     private func assertDismissed(_ app: XCUIApplication, draft: String) {
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertTrue(waitFor(element(app, "companion-composer"), NSPredicate(format: "value == %@", draft), timeout: 5))
-        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists, "Focus, not just the software keyboard, ends")
+        XCTAssertFalse(element(app, "companion-composer").debugDescription.contains("Keyboard Focused"),
+                       "Focus, not just the software keyboard, ends")
+        XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].isHittable, "The dismissal action stays accessible")
     }
     private func dispatcher(_ flags: [String]) {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"] + flags, allowance: 360)
@@ -78,23 +80,36 @@ import XCTest
     func testLongDispatcherCanDismissAndReturnHome() { dispatcher(["--companion-preview-long-reply"]) }
 
     func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-composer"))
-        let live = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply.")).firstMatch
-        XCTAssertTrue(live.waitForExistence(timeout: 5))
+        let replies = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Streaming preview reply."))
+        XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(replies.count, 1, "The live fixture must exercise more than one text slice")
         let composer = element(app, "companion-composer")
         focus(composer, in: app); composer.typeText("Keep editing while streaming")
-        let before = live.label
-        XCTAssertTrue(waitFor(live, NSPredicate(format: "label != %@", before), timeout: 5))
+        let before = replies.allElementsBoundByIndex.map(\.label)
+        XCTAssertTrue(waitFor(replies.firstMatch, NSPredicate { _, _ in
+            replies.allElementsBoundByIndex.map(\.label) != before
+        }, timeout: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(2))
         XCTAssertTrue(app.keyboards.firstMatch.exists, "Programmatic following must never dismiss the keyboard")
         XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
         // Tap real selectable text, rather than the blank gutter used above.
-        let band = app.scrollViews["companion-transcript"].frame.intersection(live.frame)
-        let top = max(band.minY, element(app, "companion-chat-header").frame.maxY) + 12
-        let bottom = min(band.maxY, composer.frame.minY) - 12
+        let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
+        let viewportTop = max(transcript.minY, element(app, "companion-chat-header").frame.maxY)
+        let viewportBottom = min(transcript.maxY, app.buttons["companion-level-menu"].frame.minY)
+        let viewport = CGRect(x: transcript.minX, y: viewportTop, width: transcript.width, height: max(0, viewportBottom - viewportTop))
+        // The first slice can be offscreen once the reply grows. Choose the
+        // largest actually visible text fragment, retaining the real-text tap.
+        let live = replies.allElementsBoundByIndex.filter { $0.isHittable && $0.frame.intersects(viewport) }
+            .max { $0.frame.intersection(viewport).height < $1.frame.intersection(viewport).height }
+        XCTAssertNotNil(live, "A streamed text fragment must be visible while typing")
+        guard let live else { return }
+        let band = viewport.intersection(live.frame)
+        let top = band.minY + 12
+        let bottom = band.maxY - 12
         XCTAssertGreaterThan(bottom, top)
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: band.midX, dy: (top + bottom) / 2)).tap()
         assertDismissed(app, draft: "Keep editing while streaming")

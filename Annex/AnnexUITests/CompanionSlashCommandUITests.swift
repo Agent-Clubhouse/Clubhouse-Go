@@ -33,6 +33,9 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         // behind that inset as hittable. Keep the touch clear of the entire band.
         let bottom = min(frame.maxY, menu.frame.minY, controls.frame.minY) - 16
         let visible = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, bottom - top))
+        let readableHeight = min(frame.maxY, menu.frame.minY, controls.frame.minY) - max(frame.minY, header.frame.maxY)
+        XCTContext.runActivity(named: "Slash layout: transcript \(frame), controls \(controls.frame), menu \(menu.frame), composer \(any.matching(identifier: "companion-composer").firstMatch.frame), readable height \(readableHeight)") { _ in }
+        XCTAssertGreaterThanOrEqual(readableHeight, 44, "Typing with the slash menu must leave room to read transcript text")
         // A paragraph can have a clear visible portion when its neighboring
         // heading is clipped. Require a readable band before choosing its center.
         let target = transcript.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ OR label BEGINSWITH %@",
