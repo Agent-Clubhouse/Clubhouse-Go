@@ -163,6 +163,7 @@ struct CompanionAppRoot: View {
     /// A pairing invitation opened from the iPhone Camera (`clubhousego://pair?...`).
     @State private var openedLink: CompanionPairingLink?
     @State private var showSettings = false
+    @State private var settingsScreenshot: Data?
     @State private var diagnostics = AnnexDiagnosticSettings.shared
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeFeedbackEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
@@ -171,6 +172,11 @@ struct CompanionAppRoot: View {
     @State private var showDemo = false
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
+
+    private func openSettings() {
+        settingsScreenshot = CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture)
+        showSettings = true
+    }
 
     init() {
         #if DEBUG
@@ -190,7 +196,7 @@ struct CompanionAppRoot: View {
     }
     var body: some View {
         ZStack {
-            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { showSettings = true }, pairedHostIDs: runtime.restoredHostIDs)
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { openSettings() }, pairedHostIDs: runtime.restoredHostIDs)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -211,8 +217,8 @@ struct CompanionAppRoot: View {
                 openedLink = link
                 showPairing = true
             }
-            .sheet(isPresented: $showSettings) {
-                CompanionSettingsSheet(runtime: runtime, pair: { showSettings = false; showPairing = true })
+            .sheet(isPresented: $showSettings, onDismiss: { settingsScreenshot = nil }) {
+                CompanionSettingsSheet(runtime: runtime, initialScreenshotPNG: settingsScreenshot, pair: { showSettings = false; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
             .companionFeedbackShake(runtime.feedbackPresenter, enabled: shakeFeedbackEnabled,
@@ -266,7 +272,7 @@ struct CompanionAppRoot: View {
                 // retry on their own, and Settings shows the state.
                 if let feedback = runtime.feedback, let status = feedback.status,
                    status.canSubmit && [.expired, .accessRequired].contains(status.access) {
-                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { showSettings = true }
+                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { openSettings() }
                         .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }
@@ -311,6 +317,7 @@ struct CompanionAppRoot: View {
 
 struct CompanionSettingsSheet: View {
     @Bindable var runtime: CompanionRuntime
+    var initialScreenshotPNG: Data? = nil
     var pair: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var hostToForget: CompanionHost?
@@ -379,7 +386,7 @@ struct CompanionSettingsSheet: View {
                 } header: { Text("This phone") } footer: {
                     Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
                 }
-                CompanionFeedbackSettings(model: runtime.feedback)
+                CompanionFeedbackSettings(model: runtime.feedback, initialScreenshotPNG: initialScreenshotPNG)
                 Section("Advanced") {
                     NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
                     Label("Direct connection", systemImage: "network")

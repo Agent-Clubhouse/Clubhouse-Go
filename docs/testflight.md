@@ -123,7 +123,11 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
     applied state and restore the default. Missing desktop support should be explained.
 11. **Feedback entry points — cancel.** Check the button, a shake after dismissing the keyboard, and
     a screenshot with their settings on. Accept the screenshot prompt; each route should open only one
-    composer. Inspect/remove the image and cancel without Send. With iOS Full-Screen Previews on, return
+    composer. Home and chat's ⋯ → **Send feedback** should pre-attach the screen from before the menu
+    opened; Settings → **Send feedback** should attach the screen from before Settings opened, even
+    with the shake attachment setting off. Check the picture contains neither menu nor Settings nor
+    feedback UI. Inspect/remove the image, check **Add screenshot** still opens Photos, and cancel
+    without Send. A secure-field or failed capture should open text-only with Photos available. With iOS Full-Screen Previews on, return
     from its editor and look for the prompt then. Shake should not interrupt typing; secure fields must
     suppress capture. Record settings and timing if absent.
 12. **Held feedback — inspect first.** If reports are held from an earlier enrollment, check count,

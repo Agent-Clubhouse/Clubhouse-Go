@@ -594,6 +594,16 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionFeedbackOpeningPress": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
+      "reason": "UIGestureRecognizer superclass owns UIKit tracking state; weak controller does not waive UIKit teardown affinity."
+    },
+    "CompanionFeedbackMenuCapture.Anchor": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
+      "reason": "UIView superclass owns UIKit state; owns a gesture recognizer and weak UIControl collection. Keep UIKit field destruction on MainActor."
     }
   },
   "captureSites": {

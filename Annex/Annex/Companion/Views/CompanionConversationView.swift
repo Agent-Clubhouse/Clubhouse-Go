@@ -149,6 +149,7 @@ struct CompanionConversationView: View {
                         }
                         if let sendFeedback { Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback) }
                     } label: { Label("Conversation actions", systemImage: "ellipsis") }
+                    .accessibilityIdentifier("conversation-actions-menu")
                 }
             }
         }
