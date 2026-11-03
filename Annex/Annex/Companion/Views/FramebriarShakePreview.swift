@@ -30,6 +30,7 @@ struct FramebriarShakePreview: View {
     @State private var lastResponder = "none"
     @State private var selection: String?
     @State private var wireSummary = "{}"
+    @State private var captureState = ""
     private var isWireFixture: Bool { ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing") }
     private let companionLayout = ProcessInfo.processInfo.arguments.contains("--framebriar-shake-companion-layout")
     private let transport: PreviewFeedbackTransport
@@ -67,11 +68,12 @@ struct FramebriarShakePreview: View {
             NavigationStack {
                 Form {
                     Button("Simulate shake in Settings") { PreviewMotionProbe.shake() }
-                    CompanionFeedbackSettings(model: model, initialScreenshotPNG: capture.screenshotPNG)
+                    CompanionFeedbackSettings(model: model, initialCapture: capture)
                 }
                     .navigationTitle("Fixture settings")
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { settingsCapture = nil } } }
             }.environment(\.companionFeedbackFixtureControls, isWireFixture ? Self.wireControls : nil)
+                .onDisappear { capture.screenshot = nil }
         }
         .sheet(isPresented: $showingOther) {
             NavigationStack {
@@ -88,6 +90,8 @@ struct FramebriarShakePreview: View {
                 while !Task.isCancelled {
                     let next = transport.wireSummary
                     if wireSummary != next { wireSummary = next }
+                    let nextCapture = presenter.fixtureCaptureState
+                    if captureState != nextCapture { captureState = nextCapture }
                     do { try await Task.sleep(for: .milliseconds(200)) } catch { return }
                 }
             }
@@ -179,6 +183,7 @@ struct FramebriarShakePreview: View {
     private var fixtureFeedbackMenu: some View {
         Menu {
             Button("Send feedback") { presenter.sendMenuFeedback() }
+            Button("Do nothing") {}
         } label: { Label("Feedback menu", systemImage: "ellipsis") }
             .accessibilityIdentifier("fixture-feedback-menu")
     }
@@ -192,6 +197,7 @@ struct FramebriarShakePreview: View {
                 .accessibilityIdentifier("fixture-activate-feedback-menu")
         }
         if isWireFixture {
+            Text(captureState).accessibilityIdentifier("fixture-capture-state")
             Text(wireSummary).font(.caption2).lineLimit(1).accessibilityIdentifier("fixture-wire-summary")
         }
         Text("Queued: \(model.status?.queued ?? 0) · Network: \(transport.count)").accessibilityIdentifier("fixture-counters")
@@ -199,8 +205,8 @@ struct FramebriarShakePreview: View {
         Button("Simulate repeated shake") { for _ in 0..<3 { lastResponder = PreviewMotionProbe.shake() } }
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
         Button("Settings") {
-            settingsCapture = CompanionFeedbackSettingsCapture(screenshotPNG:
-                CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture))
+            settingsCapture = CompanionFeedbackSettingsCapture(screenshot:
+                CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.freeze))
         }
         Button("Present other screen") { showingOther = true }
         // What iOS posts after the side and volume buttons take a screenshot.

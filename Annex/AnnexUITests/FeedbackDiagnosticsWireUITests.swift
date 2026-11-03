@@ -302,6 +302,62 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertTrue(reports.allSatisfy { $0["diagnostics"] == nil })
     }
 
+    @MainActor func testMenuCancelReleasesFrozenPixelsWithoutEncoding() throws {
+        let app = launch()
+        let state = app.staticTexts["fixture-capture-state"]
+        func expectState(_ text: String) {
+            expectation(for: NSPredicate(format: "label == %@", text), evaluatedWith: state)
+            waitForExpectations(timeout: 5)
+        }
+        expectState("Pending: false · Alive: false · Encodes: 0")
+        for longPress in [false, true] {
+            func openMenu() {
+                let source = app.buttons["fixture-feedback-menu"]
+                if longPress { source.press(forDuration: 1.2) } else { source.tap() }
+                XCTAssertTrue(app.buttons["Send feedback"].waitForExistence(timeout: 5))
+            }
+            openMenu()
+            expectState("Pending: true · Alive: true · Encodes: 0")
+            // Dismiss outside the menu, without selecting an action or taking another screenshot.
+            app.navigationBars["Shake fixture"].coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)).tap()
+            expectState("Pending: false · Alive: false · Encodes: 0")
+            openMenu()
+            app.buttons["Do nothing"].tap()
+            expectState("Pending: false · Alive: false · Encodes: 0")
+        }
+        menu(app)
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        expectState("Pending: false · Alive: false · Encodes: 1")
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testEarlyHighlightEndOpensTextOnlyWithoutReusingPixels() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--feedback-early-highlight-end"])
+        XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
+        menu(app)
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        note("early menu dismissal", in: app)
+        sendAndClose(app)
+        let snapshot = try wire(app)
+        XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testSettingsDoesNotEncodeUntilFeedbackIsChosen() throws {
+        let app = launch()
+        let state = app.staticTexts["fixture-capture-state"]
+        settings(app); closeSettings(app)
+        expectation(for: NSPredicate(format: "label == 'Pending: false · Alive: false · Encodes: 0'"), evaluatedWith: state)
+        waitForExpectations(timeout: 5)
+        settings(app); ordinaryButton(app)
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap(); closeSettings(app)
+        expectation(for: NSPredicate(format: "label == 'Pending: false · Alive: false · Encodes: 1'"), evaluatedWith: state)
+        waitForExpectations(timeout: 5)
+    }
+
     @MainActor func testNativeMenuEventAndLongPressPreAttachWithoutSaving() throws {
         let app = launch()
         let activate = app.buttons["fixture-activate-feedback-menu"]
