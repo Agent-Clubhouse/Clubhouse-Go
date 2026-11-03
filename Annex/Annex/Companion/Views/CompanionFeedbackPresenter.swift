@@ -48,9 +48,13 @@ extension EnvironmentValues {
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
-    /// Called on the opening press, before SwiftUI puts the menu over the app. A nil capture
+    /// Called on the opening press, before UIKit puts the menu over the app. A nil capture
     /// replaces any older one too: a secure field or failure must never reuse another screen.
     func prepareMenuFeedback(in window: UIWindow) {
+        guard let model, !model.isComposerOpen, presented == nil else {
+            menuScreenshot = nil; menuWindow = nil
+            return
+        }
         menuWindow = window
         menuScreenshot = menuWindow.flatMap(Self.capture)
     }
