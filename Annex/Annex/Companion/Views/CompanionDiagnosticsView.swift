@@ -101,7 +101,7 @@ struct CompanionTelemetryDestinationView: View {
     var body: some View {
         Form {
             Section("Separate tracing backend") {
-                Text("Use an existing HTTPS OTLP/HTTP JSON collector that forwards to your App Insights instance. An App Insights connection string is not an OTLP URL. This configuration is independent of Framebriar feedback.")
+                Text("Use an existing HTTPS OTLP/HTTP JSON collector that forwards to your App Insights instance. An App Insights connection string is not an OTLP URL. This configuration is independent of developer feedback.")
                 TextField("https://collector.example/v1/traces", text: $address)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                 Button("Save destination without enabling") {
