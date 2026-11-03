@@ -131,7 +131,9 @@ import XCTest
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "Draft beside a file link"), timeout: 5))
         // A long press still belongs to the message's selection/context menu.
         focus(composer, in: app)
-        let message = app.staticTexts["Selectable preview message."]
+        // Copy the final message, which remains above the composer on a phone
+        // after the keyboard reduces the viewport.
+        let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Open ")).firstMatch
         XCTAssertTrue(message.isHittable)
         message.press(forDuration: 1.2)
         let copy = app.buttons["Copy message"]
