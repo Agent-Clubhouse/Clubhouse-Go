@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// Actual SDK FeedbackView, Go entry points and memory-only fake HTTP/telemetry. No live endpoint.
 final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
@@ -66,9 +67,10 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         app.buttons["Done"].tap()
     }
 
-    @MainActor func testTelemetryEnabledOrdinaryButtonShakeAndScreenshotNeverCaptureOrAttach() throws {
+    @MainActor func testTelemetryEnabledOrdinaryButtonShakeAndScreenshotNeverCaptureOrAttachDiagnostics() throws {
         let app = launch()
         settings(app); ordinaryButton(app)
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
         note("ordinary button", in: app)
         toggle(app); toggle(app) // OFF stays OFF under either switch position.
         sendAndClose(app); closeSettings(app)
@@ -79,6 +81,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         _ = app.navigationBars["Send feedback"].waitForExistence(timeout: 2.5)
         app.buttons["fixture-shake"].tap()
         XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
         note("ordinary shake", in: app); toggle(app)
         sendAndClose(app)
         snapshot = try wire(app)
@@ -96,6 +99,8 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let reports = try XCTUnwrap(snapshot["reports"] as? [[String: Any]])
         XCTAssertEqual(reports.count, 3)
         XCTAssertTrue(reports.allSatisfy { $0["diagnostics"] == nil })
+        XCTAssertTrue(reports.allSatisfy { $0["media"] is [String: Any] }, "All three routes keep the reviewed image")
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 3)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0, "No provider call on any ordinary route")
         XCTAssertNil(reports[1]["incident"], "OFF's user switch still removes incident and flat trace fields")
         XCTAssertNil(reports[1]["traceId"]); XCTAssertNil(reports[1]["spanId"])
@@ -104,6 +109,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor func testOneLabeledDraftCancelDoesNotCarryAndFrozenFailuresDoNotDuplicateExcerpt() throws {
         let app = launch()
         settings(app); testDraft(app)
+        XCTAssertFalse(app.images["framebriar-attachment"].exists, "The scoped diagnostics test must not inherit Settings' screen")
         XCTAssertTrue(app.staticTexts["framebriar-included"].label.contains("recent diagnostics (2 events)"))
         app.buttons["Cancel"].tap()
         ordinaryButton(app); note("ordinary after cancelled test", in: app)
@@ -183,6 +189,175 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         snapshot = try wire(app)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 2)
         XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 1)
+    }
+
+    @MainActor private func menu(_ app: XCUIApplication, captureMenu: ((CGRect, Data) -> Void)? = nil) {
+        let menu = app.buttons["fixture-feedback-menu"]
+        XCTAssertTrue(scrollTo(menu, in: app, up: false, maxSwipes: 6))
+        menu.tap()
+        let send = app.buttons["Send feedback"]
+        XCTAssertTrue(send.waitForExistence(timeout: 5))
+        if let captureMenu { captureMenu(send.frame, app.screenshot().pngRepresentation) }
+        send.tap()
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
+    }
+
+    /// The sampled pixels come from the PNG PUT to the fake endpoint; its SHA/length must match
+    /// the SDK report metadata. The bright app-content marker is underneath the opening menu.
+    @MainActor private func assertUnderlyingPixels(_ snapshot: [String: Any], marker: CGRect, screen: CGRect,
+                                                  file: StaticString = #filePath, line: UInt = #line) throws {
+        let report = try XCTUnwrap((snapshot["reports"] as? [[String: Any]])?.last, file: file, line: line)
+        let metadata = try XCTUnwrap(report["media"] as? [String: Any], file: file, line: line)
+        let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last, file: file, line: line)
+        XCTAssertEqual(metadata["sha256"] as? String, upload["sha256"] as? String, file: file, line: line)
+        XCTAssertEqual(metadata["bytes"] as? Int, upload["bytes"] as? Int, file: file, line: line)
+        let data = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["samplePNG"] as? String)))
+        let image = try XCTUnwrap(UIImage(data: data)?.cgImage)
+        var pixels = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let context = try XCTUnwrap(CGContext(data: &pixels, width: image.width, height: image.height,
+            bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        for fraction in [0.25, 0.5, 0.75] {
+            let x = Int((marker.minX + marker.width * fraction) / screen.width * CGFloat(image.width))
+            let y = Int(marker.midY / screen.height * CGFloat(image.height))
+            let offset = (y * image.width + x) * 4
+            XCTAssertEqual(Double(pixels[offset]) / 255, 0.9, accuracy: 0.04, file: file, line: line)
+            XCTAssertEqual(Double(pixels[offset + 1]) / 255, 0.05, accuracy: 0.04, file: file, line: line)
+            XCTAssertEqual(Double(pixels[offset + 2]) / 255, 0.7, accuracy: 0.04, file: file, line: line)
+        }
+    }
+
+    @MainActor private func assertMenuExcluded(_ snapshot: [String: Any], underlying: Data, covered: Data,
+                                              rect: CGRect, screen: CGRect) throws {
+        let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last)
+        let data = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["samplePNG"] as? String)))
+        let sample = try XCTUnwrap(UIImage(data: data)?.cgImage)
+        func pixels(_ png: Data) throws -> [UInt8] {
+            let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
+            var bytes = [UInt8](repeating: 0, count: sample.width * sample.height * 4)
+            let context = try XCTUnwrap(CGContext(data: &bytes, width: sample.width, height: sample.height,
+                bitsPerComponent: 8, bytesPerRow: sample.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: sample.width, height: sample.height))
+            return bytes
+        }
+        let actual = try pixels(data), before = try pixels(underlying), menu = try pixels(covered)
+        let area = rect.insetBy(dx: 6, dy: 6)
+        let x0 = Int(area.minX / screen.width * CGFloat(sample.width))
+        let x1 = Int(area.maxX / screen.width * CGFloat(sample.width))
+        let y0 = Int(area.minY / screen.height * CGFloat(sample.height))
+        let y1 = Int(area.maxY / screen.height * CGFloat(sample.height))
+        var actualDifference = 0.0, menuDifference = 0.0, count = 0
+        for y in y0..<y1 {
+            for x in x0..<x1 {
+                for channel in 0..<3 {
+                    let i = (y * sample.width + x) * 4 + channel
+                    actualDifference += abs(Double(actual[i]) - Double(before[i])) / 255
+                    menuDifference += abs(Double(menu[i]) - Double(before[i])) / 255
+                    count += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(count, 0)
+        XCTAssertGreaterThan(menuDifference / Double(count), 0.015, "Control image must detect the visible menu")
+        XCTAssertLessThan(actualDifference, menuDifference * 0.4, "Uploaded pixels must match the app before the menu, not its overlay")
+    }
+
+    @MainActor func testMenuPreAttachesUnderlyingScreenAndRemovePreventsImageUpload() throws {
+        let app = launch()
+        let marker = app.otherElements["fixture-screen-marker"].firstMatch
+        let markerFrame = marker.frame, screen = app.frame
+        menu(app)
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Replace screenshot"].exists)
+        app.buttons["Cancel"].tap()
+        var snapshot = try wire(app)
+        XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 0, "Opening/cancelling saves and sends nothing")
+        let underlying = app.screenshot().pngRepresentation
+        var menuFrame: CGRect = .zero, covered = Data()
+        menu(app) { menuFrame = $0; covered = $1 }
+        note("menu underlying screen", in: app)
+        sendAndClose(app)
+        snapshot = try wire(app)
+        try assertUnderlyingPixels(snapshot, marker: markerFrame, screen: screen)
+        try assertMenuExcluded(snapshot, underlying: underlying, covered: covered, rect: menuFrame, screen: screen)
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0, "Ordinary report diagnostics remain OFF")
+
+        menu(app)
+        let remove = app.buttons["Remove"]
+        XCTAssertTrue(scrollTo(remove, in: app, maxSwipes: 4)); remove.tap()
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        let photos = app.buttons["Add screenshot"]
+        XCTAssertTrue(photos.exists); photos.tap()
+        let picker = app.navigationBars["Photos"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["Cancel"].tap()
+        note("menu removed image", in: app)
+        sendAndClose(app)
+        snapshot = try wire(app)
+        let reports = try XCTUnwrap(snapshot["reports"] as? [[String: Any]])
+        XCTAssertTrue(reports.last?["media"] is NSNull)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 1, "Removed image must never upload")
+        XCTAssertTrue(reports.allSatisfy { $0["diagnostics"] == nil })
+    }
+
+    @MainActor func testNativeMenuEventAndLongPressPreAttachWithoutSaving() throws {
+        let app = launch()
+        let activate = app.buttons["fixture-activate-feedback-menu"]
+        XCTAssertTrue(scrollTo(activate, in: app, maxSwipes: 4)); activate.tap()
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        let send = app.buttons["Send feedback"]
+        app.buttons["fixture-feedback-menu"].press(forDuration: 1.2)
+        XCTAssertTrue(send.waitForExistence(timeout: 5)); send.tap()
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testSettingsUsesScreenBeforeSheetAndDoesNotUseShakeAttachmentPreference() throws {
+        let app = launch()
+        let marker = app.otherElements["fixture-screen-marker"].firstMatch.frame, screen = app.frame
+        settings(app)
+        let toggle = app.switches["Attach a screenshot when you shake"]
+        XCTAssertTrue(scrollTo(toggle, in: app, maxSwipes: 6))
+        if toggle.switches.firstMatch.exists { toggle.switches.firstMatch.tap() }
+        else { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        ordinaryButton(app)
+        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        note("settings underlying screen", in: app)
+        sendAndClose(app); closeSettings(app)
+        let snapshot = try wire(app)
+        try assertUnderlyingPixels(snapshot, marker: marker, screen: screen)
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testMenuSecureFieldAndCaptureFailureStayTextOnlyWithPhotos() throws {
+        var app = launch()
+        let password = app.secureTextFields["Fixture password"]
+        XCTAssertTrue(scrollTo(password, in: app, maxSwipes: 4)); password.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        menu(app)
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        note("secure field menu", in: app)
+        sendAndClose(app)
+        var snapshot = try wire(app)
+        XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+        app.terminate()
+        app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--feedback-capture-failure"])
+        XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
+        menu(app)
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        XCTAssertFalse(app.staticTexts["framebriar-error"].exists)
+        note("failed capture menu", in: app)
+        sendAndClose(app)
+        snapshot = try wire(app)
+        XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
     }
 
     private func canonical(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) }
