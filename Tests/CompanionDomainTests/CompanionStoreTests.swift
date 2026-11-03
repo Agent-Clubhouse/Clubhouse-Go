@@ -76,6 +76,45 @@ import Testing
               ])])
     }
 
+    @Test(arguments: [false, true]) func historyReplacementFreezesGeometryWithoutReplacingTheBookmark(followsLatest: Bool) async {
+        let service = TestCompanionService()
+        let loading = CompanionStore(service: service)
+        loading.apply(.hosts([host(id: "host-a")]))
+        for id in 0..<5 {
+            loading.apply(.upsert(target, .message(.init(id: "live-\(id)", role: .assistant, text: "Live update")), sequence: nil))
+        }
+        let partial = loading.conversation(for: target)
+        #expect(partial.items.count == 5)
+        let bookmark = loading.readingBookmark(for: target), viewport = bookmark.viewport
+        let saved = CompanionReadingPosition(followsLatest: followsLatest, entryID: "message:history-100", distanceFromEntry: 8, offset: 400, shownEntries: 300)
+        bookmark.position = saved
+        viewport.hasInitialized = true
+        viewport.historyRevision = partial.historyRevision
+        #expect(!viewport.acceptsGeometry(historyRevision: partial.historyRevision, isLoaded: partial.isLoaded))
+        service.historyValue = .init(items: (0..<182).map { .message(.init(id: "history-\($0)", role: .assistant, text: "History")) })
+        await loading.load(target)
+        let full = loading.conversation(for: target)
+        #expect(full.items.count == 182 && full.isLoaded)
+        #expect(full.historyRevision != partial.historyRevision)
+        // Exact CI sample: unchanged estimated height/insets, offset 1009.333 -> 0.
+        let old = CompanionScrollMetrics(offset: 1009.333, contentHeight: 1678.333, containerHeight: 669)
+        var reset = old; reset.offset = 0
+        #expect(reset.didScrollUp(from: old), "Geometry alone mistakes history's reset for a native tap")
+        #expect(!viewport.acceptsGeometry(historyRevision: full.historyRevision, isLoaded: full.isLoaded))
+        #expect(bookmark.position == saved, "Following and actual reading positions survive the replacement boundary")
+        viewport.historyRevision = full.historyRevision
+        #expect(viewport.acceptsGeometry(historyRevision: full.historyRevision, isLoaded: true))
+        loading.apply(.upsert(target, .message(.init(id: "chunk", role: .assistant, text: "Chunk")), sequence: nil))
+        #expect(loading.conversation(for: target).historyRevision == full.historyRevision, "Streaming must not remount history")
+        await loading.load(target, force: true)
+        let refreshed = loading.conversation(for: target)
+        #expect(refreshed.historyRevision != full.historyRevision)
+        #expect(!viewport.acceptsGeometry(historyRevision: refreshed.historyRevision, isLoaded: true))
+        #expect(bookmark.position == saved)
+        loading.apply(.timeline(target, items: refreshed.items, sequence: 200, reset: true))
+        #expect(loading.conversation(for: target).historyRevision != refreshed.historyRevision, "Full replay snapshots have the same boundary")
+    }
+
     @Test(arguments: [false, true]) func staleCatalogDoesNotClearNewlyOpenedUnlistedChat(isQuick: Bool) async {
         let service = TestCompanionService()
         let store = CompanionStore(service: service)

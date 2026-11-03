@@ -609,6 +609,8 @@ enum CompanionTimelineItem: Identifiable, Sendable, Equatable {
 struct CompanionConversation: Equatable, Sendable {
     /// Revision metadata is deliberately excluded from semantic equality. No old item array is retained.
     var itemsRevision = UUID()
+    /// A full history replacement has its own layout boundary; streamed items do not advance it.
+    var historyRevision = UUID()
     var items: [CompanionTimelineItem] = [] { didSet { itemsRevision = UUID() } }
     var isLoading = false
     var isLoaded = false

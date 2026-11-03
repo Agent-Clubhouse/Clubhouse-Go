@@ -533,6 +533,7 @@
           "frames": "[ String : ClosedRange < Double > ]",
           "gesture": "CompanionReadingGesture",
           "hasInitialized": "Bool",
+          "historyRevision": "UUID ?",
           "isInteracting": "Bool",
           "isRestoring": "Bool",
           "metrics": "CompanionScrollMetrics ?",
