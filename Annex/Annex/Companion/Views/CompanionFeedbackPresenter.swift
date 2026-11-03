@@ -4,8 +4,15 @@ import Framebriar
 import FramebriarUI
 
 extension EnvironmentValues {
-    /// Opens the feedback form, or explains enrollment when this phone isn't enrolled. Nil when the build has no feedback.
+    /// Opens feedback, or explains enrollment. Nil when the build has no feedback.
     @Entry var companionSendFeedback: (@MainActor () -> Void)?
+}
+
+/// Transfer Settings and its pre-sheet image together, rather than racing a Boolean sheet binding
+/// against a separate @State value. A nil image still opens Settings; dismissal releases the item.
+struct CompanionFeedbackSettingsCapture: Identifiable {
+    let id = UUID()
+    let screenshotPNG: Data?
 }
 
 /// Feedback entry points that don't depend on a gesture: the "Send feedback" menu items and the offer
@@ -19,6 +26,8 @@ extension EnvironmentValues {
     private var statusTask: Task<Void, Never>?
     private var screenshotLifecycle = CompanionScreenshotPromptLifecycle()
     private var screenshotData: Data?
+    private var menuScreenshot: Data?
+    private weak var menuWindow: UIWindow?
     private weak var screenshotScene: UIWindowScene?
     private weak var screenshotWindow: UIWindow?
     private var explainedThisSession = false
@@ -45,6 +54,23 @@ extension EnvironmentValues {
         }
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
+
+    /// Called on the opening press, before UIKit puts the menu over the app. A nil capture
+    /// replaces any older one too: a secure field or failure must never reuse another screen.
+    func prepareMenuFeedback(in window: UIWindow) {
+        guard let model, !model.isComposerOpen, presented == nil else {
+            menuScreenshot = nil; menuWindow = nil
+            return
+        }
+        menuWindow = window
+        menuScreenshot = menuWindow.flatMap(Self.capture)
+    }
+
+    func sendMenuFeedback() {
+        let screenshot = menuScreenshot, window = menuWindow
+        menuScreenshot = nil; menuWindow = nil
+        sendFeedback(screenshotPNG: screenshot, from: window)
+    }
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
     func sendFeedback(screenshotPNG: Data? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
@@ -197,13 +223,20 @@ extension EnvironmentValues {
 
     /// What is on screen now, within the SDK's size caps; nil while a password field is in use.
     static func capture(_ window: UIWindow) -> Data? {
+        #if DEBUG
+        // Isolated fake-wire UI test only: exercise the same nil path as a failed renderer.
+        if ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing"),
+           ProcessInfo.processInfo.arguments.contains("--feedback-capture-failure") { return nil }
+        #endif
         guard ShakeScreenshot.shouldCapture(captureScreen: true, secureFieldActive: hasSecureFirstResponder(window)),
               window.bounds.width > 0, window.bounds.height > 0 else { return nil }
         let format = UIGraphicsImageRendererFormat(for: window.traitCollection)
         format.opaque = true
+        var rendered = false
         let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
-            _ = window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+            rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
         }
+        guard rendered else { return nil }
         return image.cgImage.flatMap { ShakeScreenshot.encodePNG($0) }
     }
 
@@ -264,7 +297,90 @@ extension View {
     /// Installs the menu action for this subtree. Screenshots are observed by the presenter itself.
     func companionFeedbackEntryPoints(_ presenter: CompanionFeedbackPresenter?) -> some View {
         var action: (@MainActor () -> Void)?
-        if let presenter, presenter.model != nil { action = { presenter.sendFeedback() } }
+        if let presenter, presenter.model != nil { action = { presenter.sendMenuFeedback() } }
         return environment(\.companionSendFeedback, action)
+            .background {
+                CompanionFeedbackMenuCapture(presenter: presenter).allowsHitTesting(false).accessibilityHidden(true)
+            }
+    }
+}
+
+/// Observe the app window, because native toolbar Menus discard SwiftUI source backgrounds and
+/// gestures. Only the explicitly tagged menu controls trigger capture. The passive recognizer
+/// yields immediately; the native menu event also covers activation without a physical touch.
+private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
+    let presenter: CompanionFeedbackPresenter?
+    func makeUIView(context: Context) -> Anchor { Anchor() }
+    func updateUIView(_ view: Anchor, context: Context) {
+        view.presenter = presenter
+        // Toolbar controls can be installed later in this SwiftUI update.
+        DispatchQueue.main.async { [weak view] in view?.connectControls() }
+    }
+    static func dismantleUIView(_ view: Anchor, coordinator: ()) { view.disconnect() }
+
+    final class Anchor: UIView {
+        weak var presenter: CompanionFeedbackPresenter?
+        private let press = CompanionFeedbackOpeningPress()
+        private weak var observedWindow: UIWindow?
+        private let controls = NSHashTable<UIControl>.weakObjects()
+        private var lastPress: TimeInterval = -.infinity
+        private static let sources: Set<String> = ["home-more-menu", "conversation-actions-menu", "fixture-feedback-menu"]
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            isUserInteractionEnabled = false
+            press.anchor = self
+            press.cancelsTouchesInView = false
+            press.delaysTouchesBegan = false
+            press.delaysTouchesEnded = false
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            disconnect()
+            if let window { observedWindow = window; window.addGestureRecognizer(press); connectControls() }
+        }
+        override func layoutSubviews() { super.layoutSubviews(); connectControls() }
+        private static func isSource(_ view: UIView) -> Bool {
+            view.accessibilityIdentifier.map(sources.contains) == true
+        }
+        func connectControls() {
+            guard let window else { return }
+            func visit(_ view: UIView) {
+                if let control = view as? UIControl, Self.isSource(control), !controls.contains(control) {
+                    control.addTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered)
+                    controls.add(control)
+                }
+                for child in view.subviews { visit(child) }
+            }
+            visit(window)
+        }
+        func disconnect() {
+            observedWindow?.removeGestureRecognizer(press)
+            for control in controls.allObjects { control.removeTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered) }
+            controls.removeAllObjects(); observedWindow = nil
+        }
+        func openingPress(_ touch: UITouch) {
+            var candidate = touch.view
+            while let view = candidate {
+                if Self.isSource(view), let window = view.window {
+                    lastPress = ProcessInfo.processInfo.systemUptime
+                    presenter?.prepareMenuFeedback(in: window)
+                    return
+                }
+                candidate = view.superview
+            }
+        }
+        @objc private func menuWillOpen(_ sender: UIControl) {
+            // A physical press already froze the earlier pixels. Accessibility has no touch.
+            guard ProcessInfo.processInfo.systemUptime - lastPress > 1, let window = sender.window else { return }
+            presenter?.prepareMenuFeedback(in: window)
+        }
+    }
+}
+private final class CompanionFeedbackOpeningPress: UIGestureRecognizer {
+    weak var anchor: CompanionFeedbackMenuCapture.Anchor?
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        if let touch = touches.first { anchor?.openingPress(touch) }
+        state = .failed
     }
 }

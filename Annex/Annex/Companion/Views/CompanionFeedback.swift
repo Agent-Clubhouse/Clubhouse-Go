@@ -98,6 +98,7 @@ import ClubhouseTransport
 
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
+    var initialScreenshotPNG: Data? = nil
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
     @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
@@ -120,7 +121,7 @@ struct CompanionFeedbackSettings: View {
                 if let model {
                     NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }
                     if model.status?.canSubmit == true {
-                        NavigationLink("Send feedback") { CompanionFeedbackComposer(model: model) }
+                        NavigationLink("Send feedback") { CompanionFeedbackComposer(model: model, initialScreenshotPNG: initialScreenshotPNG) }
                     }
                     Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
                     Text(model.telemetry == nil ? Self.feedbackOnlyDisclosure : Self.telemetryDisclosure)
@@ -148,7 +149,7 @@ struct CompanionFeedbackSettings: View {
                     Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
                         .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
                 }
-                Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Send. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback is also in Settings, in Home's ⋯ menu and in a chat's ⋯ menu.")
+                Text("When enrolled, shake opens the feedback form. With Attach a screenshot on, it includes a picture of the screen you were on, taken on this device and shown for you to check. Remove or replace it before you submit; nothing is sent until you tap Send. After you take an iOS screenshot, Send feedback with this screenshot? opens the form with that screen attached the same way. No screenshot is taken while a password field is in use. Send feedback in Home's ⋯ menu and a chat's ⋯ menu includes the screen from before the menu opened. In Settings it includes the screen from before Settings opened. Remove or replace the image before Send; a failed or suppressed capture leaves Add screenshot available.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

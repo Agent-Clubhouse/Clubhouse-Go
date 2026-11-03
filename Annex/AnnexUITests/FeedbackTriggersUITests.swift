@@ -175,7 +175,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         waitAndTap(more, until: app.buttons["Send feedback"], timeout: 5)
         app.buttons["Send feedback"].tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5), "Home's menu opens the feedback form")
-        XCTAssertFalse(app.images["framebriar-attachment"].exists, "A menu entry attaches nothing on its own")
+        XCTAssertTrue(app.images["framebriar-attachment"].exists, "The underlying screen starts attached for review")
         app.buttons["Cancel"].tap()
         XCTAssertFalse(composer.waitForExistence(timeout: 2))
 
@@ -187,6 +187,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         waitAndTap(actions, until: app.buttons["Send feedback"], timeout: 5)
         app.buttons["Send feedback"].tap()
         XCTAssertTrue(composer.waitForExistence(timeout: 5), "The chat ⋯ menu opens the feedback form")
+        XCTAssertTrue(app.images["framebriar-attachment"].exists)
         app.buttons["Cancel"].tap()
         XCTAssertTrue(actions.waitForExistence(timeout: 5))
     }

@@ -3,6 +3,8 @@ import SwiftUI
 import Framebriar
 import FramebriarUI
 import ClubhouseTransport
+import CryptoKit
+import ImageIO
 
 /// Only injected into the isolated fake-wire fixture; never present in a normal app launch.
 struct CompanionFeedbackFixtureControls {
@@ -23,7 +25,7 @@ struct FramebriarShakePreview: View {
     @State private var password = ""
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
-    @State private var showingSettings = false
+    @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     @State private var showingOther = false
     @State private var lastResponder = "none"
     @State private var selection: String?
@@ -61,14 +63,14 @@ struct FramebriarShakePreview: View {
         fixtureRoot
         .companionFeedbackShake(presenter, enabled: enabled, captureScreen: captureScreen)
         .companionFeedbackEntryPoints(presenter)
-        .sheet(isPresented: $showingSettings) {
+        .sheet(item: $settingsCapture) { capture in
             NavigationStack {
                 Form {
                     Button("Simulate shake in Settings") { PreviewMotionProbe.shake() }
-                    CompanionFeedbackSettings(model: model)
+                    CompanionFeedbackSettings(model: model, initialScreenshotPNG: capture.screenshotPNG)
                 }
                     .navigationTitle("Fixture settings")
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { settingsCapture = nil } } }
             }.environment(\.companionFeedbackFixtureControls, isWireFixture ? Self.wireControls : nil)
         }
         .sheet(isPresented: $showingOther) {
@@ -153,12 +155,42 @@ struct FramebriarShakePreview: View {
         } else {
             NavigationStack {
                 List { fixtureControls }.navigationTitle("Shake fixture")
+                    .toolbar {
+                        if isWireFixture {
+                            ToolbarItem(placement: .topBarTrailing) { fixtureFeedbackMenu }
+                        }
+                    }
             }
         }
     }
 
+    /// Exercise the public native menu event without synthesizing a source-control touch.
+    private func activateMenuWithoutTouch() {
+        func find(_ view: UIView) -> UIView? {
+            if view.accessibilityIdentifier == "fixture-feedback-menu" { return view }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        if let window = CompanionFeedbackPresenter.keyWindow(), let control = find(window) as? UIControl {
+            control.sendActions(for: .menuActionTriggered)
+            presenter.sendMenuFeedback()
+        }
+    }
+
+    private var fixtureFeedbackMenu: some View {
+        Menu {
+            Button("Send feedback") { presenter.sendMenuFeedback() }
+        } label: { Label("Feedback menu", systemImage: "ellipsis") }
+            .accessibilityIdentifier("fixture-feedback-menu")
+    }
+
     @ViewBuilder private var fixtureControls: some View {
         Text("Synthetic feedback fixture")
+        if isWireFixture {
+            Color(red: 0.9, green: 0.05, blue: 0.7).frame(height: 140)
+                .accessibilityLabel("Underlying app content").accessibilityIdentifier("fixture-screen-marker")
+            Button("Open feedback through native menu event") { activateMenuWithoutTouch() }
+                .accessibilityIdentifier("fixture-activate-feedback-menu")
+        }
         if isWireFixture {
             Text(wireSummary).font(.caption2).lineLimit(1).accessibilityIdentifier("fixture-wire-summary")
         }
@@ -166,7 +198,10 @@ struct FramebriarShakePreview: View {
         Button("Simulate shake") { lastResponder = PreviewMotionProbe.shake() }.accessibilityIdentifier("fixture-shake")
         Button("Simulate repeated shake") { for _ in 0..<3 { lastResponder = PreviewMotionProbe.shake() } }
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
-        Button("Settings") { showingSettings = true }
+        Button("Settings") {
+            settingsCapture = CompanionFeedbackSettingsCapture(screenshotPNG:
+                CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.capture))
+        }
         Button("Present other screen") { showingOther = true }
         // What iOS posts after the side and volume buttons take a screenshot.
         Button("Simulate screenshot") {
@@ -219,6 +254,7 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
     nonisolated(unsafe) private var captures: [Data] = []
     nonisolated(unsafe) private var incidents: [Data] = []
     nonisolated(unsafe) private var changes = 0
+    nonisolated(unsafe) private var media: [Data] = []
     init(wire: Bool = false) { self.wire = wire }
     nonisolated var count: Int { lock.withLock { requests } }
     nonisolated func recordCapture(_ value: FeedbackDiagnostics) {
@@ -232,9 +268,22 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
         lock.withLock {
             func objects(_ values: [Data]) -> [Any] { values.suffix(20).compactMap { try? JSONSerialization.jsonObject(with: $0) } }
             let result: [String: Any] = ["reports": objects(reports), "telemetry": objects(telemetryBodies),
-                "captures": objects(captures), "incidents": objects(incidents), "enrollmentChanges": changes]
+                "captures": objects(captures), "incidents": objects(incidents), "enrollmentChanges": changes, "media": media.map(Self.mediaEvidence)]
             return (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
         }
+    }
+    /// Keep the accessibility fixture small, while binding pixel evidence to the actual upload bytes.
+    nonisolated private static func mediaEvidence(_ png: Data) -> [String: Any] {
+        let output = NSMutableData()
+        if let source = CGImageSourceCreateWithData(png as CFData, nil),
+           let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true,
+               kCGImageSourceThumbnailMaxPixelSize: 256] as CFDictionary),
+           let destination = CGImageDestinationCreateWithData(output, "public.png" as CFString, 1, nil) {
+            CGImageDestinationAddImage(destination, image, nil)
+            CGImageDestinationFinalize(destination)
+        }
+        return ["sha256": SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined(),
+                "bytes": png.count, "samplePNG": (output as Data).base64EncodedString()]
     }
     nonisolated func send(_ request: URLRequest) async throws -> HTTPResponse {
         lock.withLock { requests += 1 }
@@ -247,7 +296,11 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
         } else if path.hasSuffix("/reports") {
             lock.withLock { reports.append(request.httpBody!) }
             let report = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
-            reply = ["id": report["id"]!, "status": "ready", "gameId": "simulator-fixture"]
+            reply = ["id": report["id"]!, "status": report["media"] is [String: Any] ? "pending" : "ready",
+                     "ticket": String(repeating: "u", count: 43), "gameId": "simulator-fixture"]
+        } else if path.hasSuffix("/media") {
+            lock.withLock { media.append(request.httpBody!) }
+            reply = ["id": request.url!.deletingLastPathComponent().lastPathComponent, "status": "ready", "gameId": "simulator-fixture"]
         } else {
             reply = ["v": 1, "scopeVersion": 2, "gameId": "simulator-fixture", "feedbackCorrelationVersion": 1,
                 "token": String(repeating: "t", count: 43), "refreshToken": String(repeating: "r", count: 43),
