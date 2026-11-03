@@ -27,6 +27,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
+| `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |

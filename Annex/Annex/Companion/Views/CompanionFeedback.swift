@@ -90,8 +90,13 @@ import ClubhouseTransport
         let telemetry = try? CompanionTelemetry(client: client, configuration: client.configuration, source: source,
                                                 transport: telemetryTransport, observeAppLifecycle: observeAppLifecycle)
         let model = FeedbackModel(client: client, telemetry: telemetry?.telemetry, incidentProvider: {
-            snapshotIncident(telemetry: source, backend: AnnexDiagnosticSettings.shared.destination?.backendReference)
-        }, diagnosticsProvider: { diagnosticsSnapshot(from: source) }, reportDiagnostics: .off)
+            // Freeze the current performance interval at capture, without refreshing a reviewed draft.
+            telemetry?.checkpointCapture()
+            return snapshotIncident(telemetry: source, backend: AnnexDiagnosticSettings.shared.destination?.backendReference)
+        }, diagnosticsProvider: {
+            telemetry?.checkpointCapture()
+            return diagnosticsSnapshot(from: source)
+        }, reportDiagnostics: .off)
         return (model, telemetry)
     }
 }

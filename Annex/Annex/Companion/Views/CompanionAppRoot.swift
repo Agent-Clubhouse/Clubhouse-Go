@@ -257,9 +257,9 @@ struct CompanionAppRoot: View {
             // Keep the pump alive through it; pause only on background, like the transport.
             .task(id: scenePhase == .background) {
                 guard let feedback = runtime.feedback else { return }
+                // Synchronous lifecycle checkpointing belongs to CompanionTelemetry, before SDK flush.
                 await feedback.setActive(scenePhase != .background)
-                // Hand over the ping summary before the SDK's background flush.
-                guard scenePhase != .background else { runtime.appTelemetry?.tick(force: true); return }
+                guard scenePhase != .background else { return }
                 while !Task.isCancelled {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()

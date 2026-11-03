@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Framebriar
 import ClubhouseTransport
 
@@ -16,6 +17,7 @@ import ClubhouseTransport
     private let enrollment: EnrollmentSignal
     private var observer: UUID?
     private var recordObserver: UUID?
+    private var lifecycleObservers: [NSObjectProtocol] = []
     private let captureOwner = UUID()
     private var lastSummary: Date
     private let now: @Sendable () -> Date
@@ -42,6 +44,16 @@ import ClubhouseTransport
             source.setEnrolledCapture(enrolled, owner: captureOwner)
             if enrolled { telemetry.log(.info, "app.session.start") }
         }
+        if observeAppLifecycle {
+            // SDK observers enqueue their async background flush. This synchronous notification
+            // callback hands over the aggregate map before that task can run on the main actor.
+            for name in [UIApplication.willResignActiveNotification, UIApplication.didEnterBackgroundNotification,
+                         UIApplication.willTerminateNotification] {
+                lifecycleObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { _ = self?.tick(force: true) }
+                })
+            }
+        }
     }
 
     /// Once at launch: the session start (a no-op unless enrolled) and, as the recipe recommends for Go,
@@ -57,16 +69,28 @@ import ClubhouseTransport
     }
 
     /// From the foreground pump: routine summaries (pings) at most once a minute, or now when `force`.
-    func tick(force: Bool = false) {
-        guard force || now().timeIntervalSince(lastSummary) >= AnnexAppTelemetry.summaryInterval else { return }
+    @discardableResult func tick(force: Bool = false) -> Bool {
+        guard force || now().timeIntervalSince(lastSummary) >= AnnexAppTelemetry.summaryInterval else { return false }
         lastSummary = now()
-        for summary in source.drainSummaries() {
+        let summaries = source.drainSummaries()
+        for summary in summaries {
             CompanionTelemetryForwarder.forward(AnnexAppTelemetry.signals(for: summary), to: telemetry)
         }
+        return !summaries.isEmpty
+    }
+
+    /// Capture is synchronous and content-free. Flush the checkpoint promptly without waiting for
+    /// report submission or changing the SDK's immutable reviewed draft.
+    func checkpointCapture() {
+        guard tick(force: true) else { return }
+        let telemetry = telemetry
+        Task { await telemetry.flush() }
     }
 
     /// Tests only: the app keeps one instance for its lifetime.
     func stop() {
+        lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+        lifecycleObservers.removeAll()
         if let observer { enrollment.removeObserver(observer) }
         observer = nil
         if let recordObserver { source.removeRecordObserver(recordObserver) }

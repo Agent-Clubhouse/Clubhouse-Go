@@ -11,7 +11,7 @@ nonisolated public enum AnnexAppTelemetry {
     public static let platform = "ios"
     /// Added to every log and span (`Telemetry(commonAttributes:)`).
     public static let commonAttributes: [String: Value] = ["app.telemetry.schema_version": .int(schemaVersion), "app.platform": .string(platform)]
-    /// At most one `app.performance.summary` per kind per minute.
+    /// One `app.performance.summary` per kind per minute, plus explicit capture/lifecycle checkpoints.
     public static let summaryInterval: TimeInterval = 60
 
     public enum Value: Sendable, Equatable {
@@ -185,6 +185,8 @@ nonisolated public enum AnnexAppTelemetry {
         var signals: [Signal] = [.log(event: "app.performance.summary", severity: .info, attributes: [
             "app.performance.kind": .string(kind), "count": .int(summary.count), "mean_ms": .double(summary.meanMs),
             "durationMs": .double(summary.totalMs), "messageCount": .int(summary.messageCount), "textBytes": .int(summary.textBytes),
+            "visibleRows": .int(summary.visibleRows), "laidOutRows": .int(summary.laidOutRows),
+            "windowStartUnixMs": .double(summary.windowStartUnixMs), "windowEndUnixMs": .double(summary.windowEndUnixMs),
             "max_ms": .double(summary.maxMs), "over_threshold": .int(summary.slow), "annex.failed": .int(summary.failed)
         ], traceID: nil, spanID: nil)]
         if summary.operation == .ping {

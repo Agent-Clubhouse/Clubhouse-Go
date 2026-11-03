@@ -176,6 +176,66 @@ import SwiftUI
         #expect(resources.allSatisfy { attributes($0)["session.id"] as? String == source.instanceID.uuidString.lowercased() })
     }
 
+    @Test func feedbackCaptureCheckpointsOnceWithoutRefreshingReviewedDraft() async throws {
+        let network = TelemetryMockTransport()
+        let (_, model, bridge, source) = try compose(network)
+        defer { bridge.stop() }
+        await model.setActive(true)
+        await model.connect(String(repeating: "i", count: 43))
+        source.recordPerformance(.scrollGeometry, durationMs: 2, messageCount: 128)
+        let draft = model.openDraft(reportDiagnostics: .on)
+        #expect(source.drainSummaries().isEmpty)
+        try await waitUntil {
+            await network.bodies(for: "logs").flatMap(logBodies).contains("app.performance.summary")
+        }
+        let summaries = await network.bodies(for: "logs").flatMap(logRecords).filter {
+            ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.performance.summary"
+        }
+        #expect(summaries.count == 1, "Both capture providers must drain the interval only once")
+        #expect(attributes(summaries[0])["count"] as? String == "1")
+        #expect(attributes(summaries[0])["windowEndUnixMs"] as? Double != nil)
+        let frozen = try draft.report(configuration: config, notes: "fixture", screenshotPNG: nil, includeDiagnostics: true)
+        source.recordPerformance(.scrollGeometry, durationMs: 3, messageCount: 129)
+        let reviewed = try draft.report(configuration: config, notes: "fixture", screenshotPNG: nil, includeDiagnostics: true)
+        #expect(reviewed == frozen && reviewed.incident == draft.incident)
+        #expect(reviewed.diagnostics == draft.capturedDiagnostics)
+        #expect(bridge.tick(force: true))
+        #expect(!bridge.tick(force: true), "Empty checkpoints cannot duplicate samples")
+        #expect(await bridge.telemetry.flush())
+        let all = await network.bodies(for: "logs").flatMap(logRecords).filter {
+            ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.performance.summary"
+        }
+        #expect(all.count == 2 && all.allSatisfy { attributes($0)["count"] as? String == "1" })
+        #expect(all.reduce(0.0) { $0 + (attributes($1)["durationMs"] as? Double ?? 0) } == 5)
+    }
+
+    @Test func lifecycleCheckpointPrecedesSDKBackgroundAndTerminationFlush() async throws {
+        let network = TelemetryMockTransport(), source = AnnexTelemetry()
+        let client = try Client(configuration: config, transport: network, enrollmentStore: TelemetryMemoryEnrollment(), feedbackStore: TelemetryMemoryQueue())
+        let parts = CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: true)
+        let bridge = try #require(parts.telemetry)
+        defer { bridge.stop() }
+        await parts.model.setActive(true)
+        await parts.model.connect(String(repeating: "i", count: 43))
+        for name in [UIApplication.didEnterBackgroundNotification, UIApplication.willTerminateNotification] {
+            source.recordPerformance(.readingPreference, durationMs: 4, messageCount: 140)
+            NotificationCenter.default.post(name: name, object: nil)
+            #expect(source.drainSummaries().isEmpty, "Checkpoint must be synchronous, with no lifecycle await")
+        }
+        try await waitUntil {
+            await network.bodies(for: "logs").flatMap(logRecords).filter {
+                ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.performance.summary"
+            }.count == 2
+        }
+        let records = await network.bodies(for: "logs").flatMap(logRecords).filter {
+            ($0["body"] as? [String: Any])?["stringValue"] as? String == "app.performance.summary"
+        }
+        let counts = records.compactMap { record -> Int? in
+            (attributes(record)["count"] as? String).flatMap(Int.init)
+        }
+        #expect(counts == [1, 1])
+    }
+
     private func recordRetry(on source: AnnexTelemetry) {
         let connection = source.begin(.connection)
         connection.identifier(.connectionAttemptID, UUID()); connection.fail(.connection); connection.end()

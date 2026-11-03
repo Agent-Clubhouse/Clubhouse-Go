@@ -604,6 +604,19 @@
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
       "reason": "UIView superclass owns UIKit state; owns a gesture recognizer and weak UIControl collection. Keep UIKit field destruction on MainActor."
+    },
+    "CompanionChatPerformance.DisplayTarget": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionChatPerformance.swift",
+      "reason": "NSObject callback target has no stored fields, callbacks or UI ownership. The process-lifetime enum owns and invalidates the display link on MainActor; target deinit performs no cleanup.",
+      "surface": {
+        "bases": [
+          "NSObject"
+        ],
+        "nestedValueProperties": {},
+        "properties": {},
+        "storageMacros": []
+      }
     }
   },
   "captureSites": {

@@ -12,10 +12,12 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case iconCache, iconFetch
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
     case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
+    case composerEditTurnDelay, typingConversationBody, scrollGeometry, readingPreference, readingFrameReduce, chatDisplayLinkCallbackGap, chatViewport
 }
 /// Only these fixed kinds can produce UI/model performance summaries.
 nonisolated public enum AnnexPerformanceOperation: String, CaseIterable, Sendable {
     case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
+    case composerEditTurnDelay, typingConversationBody, scrollGeometry, readingPreference, readingFrameReduce, chatDisplayLinkCallbackGap, chatViewport
     var diagnostic: AnnexDiagnosticOperation { AnnexDiagnosticOperation(rawValue: rawValue)! }
 }
 nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
@@ -106,6 +108,10 @@ nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
     public let maxMs: Double
     public var messageCount: Int = 0
     public var textBytes: Int = 0
+    public var visibleRows: Int = 0
+    public var laidOutRows: Int = 0
+    public var windowStartUnixMs: Double = 0
+    public var windowEndUnixMs: Double = 0
     public var meanMs: Double { count == 0 ? 0 : totalMs / Double(count) }
 }
 nonisolated public struct AnnexDiagnosticSnapshot: Codable, Sendable {
@@ -262,7 +268,10 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     private var active: [AnnexDiagnosticSpan] = []
     private var summaries: [AnnexDiagnosticOperation: AnnexDiagnosticSummary] = [:]
     private let clock: @Sendable () -> TimeInterval
-    public init(capacity: Int = 256, instanceID: UUID = UUID(), clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+    private let wallClock: @Sendable () -> Date
+    private var summaryWindowStart: Date
+    public init(capacity: Int = 256, instanceID: UUID = UUID(), clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }, wallClock: @escaping @Sendable () -> Date = { Date() }) {
+        self.wallClock = wallClock; summaryWindowStart = wallClock()
         let instanceID = AnnexTelemetryHandshake.canonicalUUID(instanceID.uuidString.lowercased()) == nil ? UUID() : instanceID
         self.clock = clock; self.instanceID = instanceID
         let exporter = AnnexLocalSpanExporter(capacity: capacity, instanceID: instanceID); self.exporter = exporter
@@ -305,7 +314,7 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     public func clear() { lock.withLock { reconfigureLocked() } }
     private func reconfigureLocked() {
         _ = exporter.configure(enabled: localCapture || enrolledCapture) // Fence late completion before ending old scopes.
-        active.forEach { $0.end() }; active.removeAll(); summaries.removeAll()
+        active.forEach { $0.end() }; active.removeAll(); summaries.removeAll(); summaryWindowStart = wallClock()
     }
     public func snapshot() -> AnnexDiagnosticSnapshot { expire(); return exporter.snapshot() }
     public func exportJSON(maximumBytes: Int = 512 * 1024) throws -> Data {
@@ -401,22 +410,49 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
         guard durationMs.isFinite else { return }
         _ = summarize(.mainActorDelay, max(0, durationMs), slow: durationMs >= 100, failed: false, messageCount: messageCount)
     }
+    /// From a composer's binding edit to the next queued main-thread turn. This is a scheduling
+    /// proxy, not key delivery or presentation latency. No text, lengths or input identities are accepted.
+    public func recordComposerEdit(messageCount: Int) {
+        guard let generation = exporter.captureGeneration() else { return }
+        let started = clock()
+        DispatchQueue.main.async { [self] in
+            let ms = max(0, (clock() - started) * 1_000)
+            _ = summarize(.composerEditTurnDelay, ms, slow: ms >= 100, failed: false,
+                          messageCount: messageCount, generation: generation)
+        }
+    }
+    /// External monotonic-clock samples and row counts, bounded just like synchronous measurements.
+    public func recordPerformance(_ operation: AnnexPerformanceOperation, durationMs: Double, messageCount: Int = 0,
+                                  visibleRows: Int = 0, laidOutRows: Int = 0) {
+        guard durationMs.isFinite else { return }
+        let threshold: Double = operation == .chatDisplayLinkCallbackGap ? 50 : 16
+        _ = summarize(operation.diagnostic, max(0, durationMs), slow: durationMs >= threshold, failed: false,
+                      messageCount: messageCount, visibleRows: visibleRows, laidOutRows: laidOutRows)
+    }
     /// Returns and resets the routine summaries counted since the last call (or since capture changed).
     public func drainSummaries() -> [AnnexDiagnosticSummary] {
         lock.withLock {
-            defer { summaries.removeAll() }
-            return summaries.values.sorted { $0.operation.rawValue < $1.operation.rawValue }
+            let end = wallClock()
+            defer { summaries.removeAll(); summaryWindowStart = end }
+            return summaries.values.map { value in
+                var value = value
+                value.windowStartUnixMs = summaryWindowStart.timeIntervalSince1970 * 1_000
+                value.windowEndUnixMs = max(summaryWindowStart, end).timeIntervalSince1970 * 1_000
+                return value
+            }.sorted { $0.operation.rawValue < $1.operation.rawValue }
         }
     }
     /// False, counting nothing, while capture is off.
-    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool, messageCount: Int = 0, textBytes: Int = 0, generation: Int? = nil) -> Bool {
+    private func summarize(_ operation: AnnexDiagnosticOperation, _ ms: Double, slow: Bool, failed: Bool, messageCount: Int = 0, textBytes: Int = 0, visibleRows: Int = 0, laidOutRows: Int = 0, generation: Int? = nil) -> Bool {
         lock.withLock {
             guard let current = exporter.captureGeneration(), generation == nil || generation == current else { return false }
             let ms = min(600_000, ms), old = summaries[operation]
             summaries[operation] = AnnexDiagnosticSummary(operation: operation, count: min(1_000_000, (old?.count ?? 0) + 1),
                 slow: min(1_000_000, (old?.slow ?? 0) + (slow ? 1 : 0)), failed: min(1_000_000, (old?.failed ?? 0) + (failed ? 1 : 0)),
                 totalMs: min(1e12, (old?.totalMs ?? 0) + ms), maxMs: max(old?.maxMs ?? 0, ms), messageCount: max(old?.messageCount ?? 0, min(1_000_000, max(0, messageCount))),
-                textBytes: max(old?.textBytes ?? 0, min(1_000_000_000, max(0, textBytes))))
+                textBytes: max(old?.textBytes ?? 0, min(1_000_000_000, max(0, textBytes))),
+                visibleRows: max(old?.visibleRows ?? 0, min(1_000_000, max(0, visibleRows))),
+                laidOutRows: max(old?.laidOutRows ?? 0, min(1_000_000, max(0, laidOutRows))))
             return true
         }
     }

@@ -222,18 +222,52 @@ included. See [incident contract](feedback-incident-v1.md). Vendor SOURCE.json r
 
 ## Local chat performance summaries
 
-Open conversations aggregate `projectorApply`, `storeApply`, `timelineBuild`, `markdownParse`,
-`conversationBody`, `messageBody`, and `mainActorDelay` into the existing bounded routine-summary
-map. Each kind exports at most one `app.performance.summary` per flush interval, with numeric
-`count`, `durationMs` (sum), `mean_ms`, `max_ms`, `over_threshold`, `messageCount` (maximum), and
-`textBytes` (maximum, where applicable). There is no per-chunk span or retained message content.
-Collection uses the existing diagnostics/enrollment gate and clear/opt-out generation fence.
+Open conversations aggregate fixed kinds into the existing bounded routine-summary map. Each kind
+exports one `app.performance.summary` at the normal 60-second checkpoint, or an earlier explicit
+capture/lifecycle checkpoint. `count`, `durationMs` (sum), `mean_ms`, `max_ms`, `over_threshold`,
+`messageCount` (maximum retained timeline items), and `textBytes` (maximum, where applicable) are
+numeric. `visibleRows` and `laidOutRows` are interval maxima, not sums. There is no per-edit/chunk span,
+text, draft length, agent ID, input identity or arbitrary label. Collection uses the existing
+diagnostics/enrollment gate; clear/opt-out fences queued input samples as well as synchronous timing.
+The map has at most one entry per closed operation kind, with existing count/duration clamps.
 
-Body timing measures synchronous SwiftUI view construction, not layout or GPU rendering. A 250 ms
-probe while an open conversation is active records excess main-actor scheduling delay; delays of
-100 ms or more count as over threshold. This can reveal a stall but is not a frame-rate/hitch metric
-and must not be interpreted as a measured display frame. Counts and sizes distinguish a long
-history, large rows, repeated body passes, and reconnect fan-out without exporting agent/session IDs.
+| Kind | What is measured / counted |
+|---|---|
+| `projectorApply`, `storeApply`, `timelineBuild`, `markdownParse`, `conversationBody`, `messageBody` | Synchronous model/view construction work. A body pass is not layout or display presentation. Over threshold: 16 ms. |
+| `mainActorDelay` | Excess elapsed time over a 250 ms sleep in the active conversation's main-actor task. Over threshold: 100 ms. A scheduling stall probe, not frame time. |
+| `composerEditTurnDelay` | Composer binding edit to the next queued main-thread turn, including the binding setter's work. A scheduling proxy, **not keystroke-to-screen latency**. Count is completed changed-value edits (unchanged duplicate setter calls are ignored), including paste, autocorrect and IME changes; physical keys are not observed. Over threshold: 100 ms. |
+| `typingConversationBody` | Conversation body passes and construction time during the one-second activity tail after an edit. Compare count with `composerEditTurnDelay` in the same interval to estimate passes per edit; concurrent stream/layout passes are included, not causally attributed to the key. The numerator can cross checkpoint boundaries. Its timing is nested in `conversationBody`; do not sum those durations. |
+| `scrollGeometry`, `readingPreference` | Synchronous scroll-geometry handler and reading-frame preference handler time, including bookmark processing. Over threshold: 16 ms. Excludes framework geometry generation and later layout. |
+| `readingFrameReduce` | Time reducing a reading-frame preference dictionary. Counts reductions, not frames. Over threshold: 16 ms. |
+| `chatViewport` | Geometry samples; `durationMs` is zero. `visibleRows` counts laid-out timeline entries intersecting the normalized scroll viewport (estimated visibility, before occlusion by overlays); `laidOutRows` counts frame entries, including offscreen entries. Slices and routed cards need not equal retained item count. |
+| `chatDisplayLinkCallbackGap` | Raw monotonic elapsed time between main-thread CADisplayLink **callbacks**, only during typing's one-second activity tail or a user tracking/drag/deceleration phase in an active chat. Over threshold: 50 ms. Includes scheduling, refresh-rate changes and simulator contention; **not GPU hitches, dropped frames, or a presentation-latency measurement**. The first callback after activation/resume has no sample; will-resign-active synchronously clears the activity tail and previous callback, so background time cannot become a gap. |
+
+One non-observable monitor and at most one display link serve the frontmost active chat; the link is
+created lazily, pauses outside input/scroll activity, and invalidates when that conversation task
+leaves the foreground. Monitor changes cannot invalidate SwiftUI. Streaming alone does not activate
+the link. Existing geometry callbacks supply row estimates; no extra row GeometryReaders are added.
+
+Every summary carries numeric `windowStartUnixMs` / `windowEndUnixMs`: the aggregate interval since
+the previous drain (or capture generation change) through this checkpoint. Its OTLP log timestamp is
+emission time, which must not be mistaken for sample time. An interval can overlap a report window;
+it is not necessarily wholly contained within that window. A drain clears exactly once; an empty
+checkpoint emits nothing. Resetting capture discards the old interval, including late edit callbacks.
+
+Opening feedback checkpoints before incident capture (and before the optional diagnostics snapshot)
+and requests an ordinary automatic-telemetry flush without awaiting it. The reviewed draft's capture
+time, five-minute incident window and contents remain frozen; subsequent summaries stay ordinary
+later telemetry. The report-diagnostics OFF gate is unchanged. Synchronous main-thread notification
+callbacks checkpoint at will-resign-active, did-enter-background and will-terminate, handing over
+Go's map before the SDK's asynchronously scheduled background flush. This avoids the former await
+before drain and the wait for the next minute. SDK session identity, enrollment, retry/backoff and
+background delivery limits remain authoritative: a missing marker proves neither capture nor delivery.
+
+This is memory-only checkpointing, not crash-safe storage. Force-kill without a lifecycle callback,
+a hard hang before checkpoint, or failure to finish SDK delivery can still lose the interval. MetricKit
+hang/CPU diagnostics arrive later and can help identify prior resource problems; their receive time
+cannot attribute them to the report's current interaction, and they do not recover these aggregates.
+Actual layout, AttributeGraph evaluation, render-server/GPU work, keyboard delivery and
+keystroke-to-screen latency still require a scoped Instruments/device profile.
 
 ## Report delivery and local diagnostics preparation
 

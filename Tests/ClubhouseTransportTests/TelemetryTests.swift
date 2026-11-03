@@ -296,3 +296,42 @@ private struct RoutineFailure: Error {}
     telemetry.measurePerformance(.markdownParse) { telemetry.clear() }
     #expect(telemetry.drainSummaries().isEmpty, "Clear must fence an operation already in progress")
 }
+
+@Test func performanceCheckpointsPreserveWindowAndDrainExactlyOnce() throws {
+    let clock = DiagnosticClock()
+    let telemetry = AnnexTelemetry(clock: { clock.now() }, wallClock: { Date(timeIntervalSince1970: clock.now()) })
+    telemetry.setEnabled(true)
+    let start = clock.now()
+    telemetry.recordPerformance(.chatDisplayLinkCallbackGap, durationMs: 75, messageCount: 128, visibleRows: 4, laidOutRows: 150)
+    clock.advance(2)
+    let first = try #require(telemetry.drainSummaries().first)
+    #expect(first.count == 1 && first.slow == 1 && first.totalMs == 75)
+    #expect(first.windowStartUnixMs == start * 1_000 && first.windowEndUnixMs == (start + 2) * 1_000)
+    #expect(first.visibleRows == 4 && first.laidOutRows == 150 && first.messageCount == 128)
+    #expect(telemetry.drainSummaries().isEmpty)
+    telemetry.recordPerformance(.chatViewport, durationMs: 0, messageCount: Int.max, visibleRows: -2, laidOutRows: Int.max)
+    clock.advance(3)
+    let second = try #require(telemetry.drainSummaries().first)
+    #expect(second.windowStartUnixMs == first.windowEndUnixMs && second.windowEndUnixMs == (start + 5) * 1_000)
+    #expect(second.visibleRows == 0 && second.laidOutRows == 1_000_000 && second.messageCount == 1_000_000)
+    telemetry.recordPerformance(.readingPreference, durationMs: .infinity)
+    telemetry.recordPerformance(.scrollGeometry, durationMs: .nan)
+    #expect(telemetry.drainSummaries().isEmpty)
+}
+
+@Test @MainActor func composerTurnProxyIsNumericAndFencedByCaptureGeneration() async throws {
+    let clock = DiagnosticClock()
+    let telemetry = AnnexTelemetry(clock: { clock.now() })
+    telemetry.setEnabled(true)
+    telemetry.recordComposerEdit(messageCount: 128)
+    clock.advance(0.125)
+    await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    let summary = try #require(telemetry.drainSummaries().first)
+    #expect(summary.operation == .composerEditTurnDelay && summary.count == 1 && summary.slow == 1)
+    #expect(abs(summary.totalMs - 125) < 0.001 && summary.messageCount == 128)
+    telemetry.recordComposerEdit(messageCount: 140)
+    telemetry.clear()
+    await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    #expect(telemetry.drainSummaries().isEmpty)
+    #expect(telemetry.snapshot().records.isEmpty)
+}

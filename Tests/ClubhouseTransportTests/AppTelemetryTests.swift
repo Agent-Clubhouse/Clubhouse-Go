@@ -190,3 +190,16 @@ private func strings(_ signals: [AnnexAppTelemetry.Signal]) -> [String] {
 
 
 }
+
+@Test func viewportSummaryUsesOnlyFixedNumericFields() throws {
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    telemetry.recordPerformance(.chatViewport, durationMs: 0, messageCount: 128, visibleRows: 4, laidOutRows: 150)
+    let summary = try #require(telemetry.drainSummaries().first)
+    let log = try #require(logs(AnnexAppTelemetry.signals(for: summary)).first)
+    #expect(log.1["visibleRows"] == .int(4) && log.1["laidOutRows"] == .int(150))
+    #expect(log.1["windowStartUnixMs"] != nil && log.1["windowEndUnixMs"] != nil)
+    #expect(log.1.allSatisfy { key, value in
+        if key == "app.performance.kind" { return value == .string("chatViewport") }
+        switch value { case .int, .double: return true; default: return false }
+    })
+}
