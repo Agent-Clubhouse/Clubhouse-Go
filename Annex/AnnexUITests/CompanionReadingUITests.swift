@@ -33,7 +33,7 @@ import XCTest
 
     func testNativeScrollToTopSticksWithAndWithoutStreaming() {
         for streaming in [false, true] {
-            let app = launchApp(["--companion-preview", "--companion-preview-reading"] + (streaming ? ["--companion-preview-stream"] : []))
+            let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"] + (streaming ? ["--companion-preview-stream"] : []))
             openRiver(app)
             let earlier = app.buttons["companion-show-earlier"], latest = app.buttons["Latest"]
             XCTAssertTrue(earlier.waitForExistence(timeout: 5))
@@ -58,7 +58,7 @@ import XCTest
     }
 
     func testStreamingKeepsFollowingWhenNobodyScrolls() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace", "--companion-preview-stream"])
         // Streaming begins before navigation. Cross the first four-second tool
         // run deliberately: history replacement can discard live-0 on a slow launch.
         RunLoop.current.run(until: Date().addingTimeInterval(4.2))
@@ -85,8 +85,28 @@ import XCTest
         screenshot(app, "Streaming continues following with no scroll")
     }
 
+    func testProgrammaticPreviousMessageJumpStaysWhileStreaming() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply", "--companion-preview-follow-trace"])
+        openRiver(app)
+        let replies = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply."))
+        XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Latest"].exists)
+        let before = replies.allElementsBoundByIndex.map(\.label)
+        app.buttons["companion-previous-message"].tap()
+        XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5))
+        let first = replies.firstMatch
+        XCTAssertTrue(first.isHittable, "The explicit message jump puts its first text slice on screen")
+        let y = first.frame.minY
+        XCTAssertTrue(waitFor(first, NSPredicate { _, _ in replies.allElementsBoundByIndex.map(\.label) != before }, timeout: 5))
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        XCTAssertTrue(first.isHittable)
+        XCTAssertEqual(first.frame.minY, y, accuracy: 1, "Later chunks cannot undo a programmatic message jump")
+        XCTAssertTrue(app.buttons["Latest"].exists)
+        screenshot(app, "Programmatic message jump stays under streaming")
+    }
+
     func testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream"], allowance: 360)
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace", "--companion-preview-stream"], allowance: 360)
         openRiver(app)
         let latest = app.buttons["Latest"]
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5), "Opening at the latest hides the indicator")
@@ -147,7 +167,7 @@ import XCTest
     }
 
     func testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"])
         openRiver(app)
         let latest = app.buttons["Latest"]
         XCTAssertTrue(waitFor(latest, NSPredicate(format: "exists == false"), timeout: 5))
@@ -164,7 +184,7 @@ import XCTest
     }
 
     func testFailedOutputFoldsButErrorStatusStaysVisible() {
-        let app = launchApp(["--companion-preview", "--companion-preview-reading"])
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"])
         openRiver(app)
         let status = element(app, "companion-tool-status-reading-failure")
         XCTAssertTrue(status.waitForExistence(timeout: 10))

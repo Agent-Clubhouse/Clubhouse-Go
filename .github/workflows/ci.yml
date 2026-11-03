@@ -245,6 +245,17 @@ jobs:
           python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}" \
             ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }}
 
+      # Opt-in preview diagnostics contain closed reasons and numeric geometry only.
+      # Preserve them even when a UI assertion fails; the app runs in a separate process.
+      - name: Collect preview follow diagnostics
+        if: ${{ always() && env.SIMULATOR_UDID != '' }}
+        continue-on-error: true
+        run: |
+          mkdir -p TestResults
+          xcrun simctl spawn "$SIMULATOR_UDID" log show --last 1h --style compact \
+            --predicate 'eventMessage BEGINSWITH "CHAT_FOLLOW " OR eventMessage BEGINSWITH "CHAT_PHASE " OR eventMessage BEGINSWITH "CHAT_UP "' \
+            > TestResults/chat-follow.log
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
