@@ -122,10 +122,9 @@ struct CompanionConversationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down", action: dismissComposer)
-                        .labelStyle(.titleAndIcon)
+                        .labelStyle(.iconOnly)
                         .accessibilityIdentifier("companion-dismiss-keyboard")
                 }
                 ToolbarItem(placement: .topBarTrailing) {

@@ -102,7 +102,7 @@ import ClubhouseTransport
             }
             if showsReadingScenario {
                 continuation?.yield(.upsert(Self.target, .message(.init(id: "reading-live", role: .assistant,
-                    text: String(repeating: "Streaming preview reply. ", count: step), isStreaming: true)), sequence: nil))
+                    text: String(repeating: "Streaming preview reply. ", count: step + (showsLongReply ? 100 : 0)), isStreaming: true)), sequence: nil))
             }
             for tool in updates {
                 guard case .enqueued = continuation?.yield(.upsert(Self.target, .tool(tool), sequence: nil)) else { return }
