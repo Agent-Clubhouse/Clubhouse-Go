@@ -303,6 +303,7 @@ struct CompanionConversationView: View {
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { old, phase, context in
+                cancelReadingRestoration(.scrollPhase, userAction: phase == .tracking || phase == .interacting || phase == .decelerating)
                 traceScrollPhase(phase, metrics: Self.metrics(context.geometry))
                 CompanionChatPerformance.scroll(target: target, isUserScrolling: phase == .tracking || phase == .interacting || phase == .decelerating)
                 if phase == .tracking {
@@ -311,7 +312,7 @@ struct CompanionConversationView: View {
                     readingViewport.gesture.begin(at: Self.metrics(context.geometry), last: readingViewport.metrics, beforeLast: readingViewport.previousMetrics)
                 }
                 readingViewport.isInteracting = phase == .interacting || phase == .decelerating
-                if phase == .idle && canRecordReadingPosition && !readingViewport.isRestoring {
+                if phase == .idle && canRecordReadingPosition && !readingViewport.preserveBookmarkUntilUserAction && !readingViewport.isRestoring {
                     let metrics = Self.metrics(context.geometry)
                     if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     readingViewport.gesture.end()
@@ -331,7 +332,7 @@ struct CompanionConversationView: View {
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
-                    guard canRecordReadingPosition else { return }
+                    guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction else { return }
                     if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     if readingViewport.isRestoring {
                         guard let restoreOffset = readingViewport.restoreOffset,
@@ -357,6 +358,8 @@ struct CompanionConversationView: View {
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
+                    guard !readingViewport.preserveBookmarkUntilUserAction,
+                          readingViewport.restoration?.outcome != nil || readingViewport.restoration == nil else { return }
                     guard canRecordReadingPosition, !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
                     let saved = readingBookmark.position
                     if let entryID = saved.entryID, frames[entryID] == nil { return }
@@ -373,6 +376,7 @@ struct CompanionConversationView: View {
                     }
                 }
             }
+            .background { CompanionReadingTouchObserver { cancelReadingRestoration(.touch) }.allowsHitTesting(false).accessibilityHidden(true) }
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")
@@ -409,6 +413,8 @@ struct CompanionConversationView: View {
             // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
             .task(id: conversation.historyRevision) {
                 let revision = conversation.historyRevision
+                readingViewport.finishRestoration(.generation)
+                readingViewport.preserveBookmarkUntilUserAction = false
                 readingViewport.hasInitialized = false
                 readingViewport.historyRevision = nil
                 readingViewport.gesture.end()
@@ -423,19 +429,22 @@ struct CompanionConversationView: View {
                 let saved = readingBookmark.position
                 setFollowing(saved.followsLatest, reason: .restore)
                 traceFollow(reason: .mount, previous: followLatest, next: followLatest)
-                readingViewport.isRestoring = !saved.followsLatest
+                readingViewport.isRestoring = !saved.followsLatest && conversation.isLoaded
                 readingViewport.restoreOffset = nil
+                readingViewport.restoration = saved.followsLatest || !conversation.isLoaded ? nil
+                    : CompanionReadingRestoration(revision: revision, startedAt: ProcessInfo.processInfo.systemUptime)
+                let restorationID = readingViewport.restoration?.id
                 guard conversation.isLoaded else { return }
                 await Task.yield()
-                guard !Task.isCancelled, conversation.historyRevision == revision else { return }
-                if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
-                else if saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil {
-                    let offset = saved.restoredOffset(frames: readingViewport.frames)
-                    readingViewport.restoreOffset = offset
-                    readingScrollPosition.scrollTo(y: offset)
+                guard !Task.isCancelled, conversation.historyRevision == revision else {
+                    if readingViewport.restoration?.id == restorationID { readingViewport.finishRestoration(.taskCancelled) }
+                    return
                 }
                 readingViewport.historyRevision = revision
                 readingViewport.hasInitialized = true
+                if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+                if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
@@ -480,10 +489,52 @@ struct CompanionConversationView: View {
         readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
     }
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
-        guard canRecordReadingPosition else { return }
+        guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
     }
+    private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome, userAction: Bool = true) {
+        guard (userAction && readingViewport.preserveBookmarkUntilUserAction) || readingViewport.isRestoring
+                || (readingViewport.restoration != nil && readingViewport.restoration?.outcome == nil) else { return }
+        readingViewport.finishRestoration(outcome)
+        if userAction { readingViewport.preserveBookmarkUntilUserAction = false }
+        // A touch owns the current position immediately; a later frame preference must
+        // not resurrect the old bookmark while the user's gesture is getting started.
+        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+    }
+
+    private func restoreReadingPosition(_ saved: CompanionReadingPosition, id: UUID) async {
+        while readingViewport.restoration?.id == id {
+            guard !Task.isCancelled else { readingViewport.finishRestoration(.taskCancelled); return }
+            guard var attempt = readingViewport.restoration, attempt.outcome == nil else { return }
+            let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
+            let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
+                followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
+                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames) : nil)
+            readingViewport.restoration = attempt
+            switch step {
+            case .finish(let outcome):
+                readingViewport.finishRestoration(outcome)
+                if outcome == .arrived, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+                return
+            case .scroll(let offset):
+                readingViewport.restoreOffset = offset
+                #if DEBUG
+                let deliver = CompanionReadingRestoreProbe.deliver?(attempt.revision, attempt.attempts, offset) ?? true
+                if deliver { readingScrollPosition.scrollTo(y: offset) }
+                #else
+                readingScrollPosition.scrollTo(y: offset)
+                #endif
+            case .wait: break
+            }
+            do { try await Task.sleep(for: .milliseconds(50)) }
+            catch {
+                if readingViewport.restoration?.id == id { readingViewport.finishRestoration(.taskCancelled) }
+                return
+            }
+        }
+    }
+
     private func jump(stops: [String], forward: Bool, proxy: ScrollViewProxy) {
         let offset = readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset
         guard let id = CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
@@ -498,6 +549,8 @@ struct CompanionConversationView: View {
     private enum FollowReason: String { case earlier, gesture, bottom, nativeUpward, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
+        if reason == .bottom && readingViewport.preserveBookmarkUntilUserAction { return }
+        if reason != .restore && reason != .mount { cancelReadingRestoration(.navigation, userAction: reason != .bottom) }
         let previous = followLatest
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
@@ -652,3 +705,10 @@ private struct CompanionReadingFrames: PreferenceKey {
         }
     }
 }
+
+#if DEBUG
+@MainActor enum CompanionReadingRestoreProbe {
+    /// Synthetic command loss only. Never installed outside bounded hosted tests.
+    static var deliver: ((UUID, Int, Double) -> Bool)?
+}
+#endif
