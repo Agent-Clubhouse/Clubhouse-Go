@@ -346,7 +346,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let photos = app.buttons["Add screenshot"]
         XCTAssertTrue(photos.exists); photos.tap()
         let picker = app.navigationBars["Photos"]
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        XCTAssertTrue(picker.waitForExistence(timeout: 20), "Photos may still be loading after presentation")
         picker.buttons["Cancel"].tap()
         note("menu removed image", in: app)
         sendAndClose(app)
@@ -769,36 +769,38 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 1)
     }
 
-    @MainActor func testLargestTypeAttachmentReproEvidence() throws {
+    @MainActor func testLargestTypeAttachmentIsReachableAndOpensEditor() throws {
         let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
         menu(app)
         let image = app.images["framebriar-attachment"]
         let canvas = app.descendants(matching: .any)["framebriar-editor-canvas"]
-        var evidence: [String: Any] = [:]
-        for attempt in 0..<30 {
-            let top = app.navigationBars["Send feedback"].frame.maxY + 8
+        var tapPoint: CGPoint?
+        for _ in 0..<16 {
+            let navigation = app.navigationBars["Send feedback"]
+            guard navigation.exists else { XCTFail("Composer must stay open while revealing its attachment"); return }
+            let top = navigation.frame.maxY + 8
             let bottom = app.staticTexts["framebriar-included"].frame.minY - 8
             let visible = image.exists ? image.frame.intersection(CGRect(x: 0, y: top, width: app.frame.width, height: max(0, bottom - top))) : .null
-            if !visible.isNull, visible.width > 4, visible.height > 4 {
-                evidence = ["attempt": attempt, "imageFrame": NSCoder.string(for: image.frame), "visibleImage": NSCoder.string(for: visible),
-                    "summaryTop": bottom + 8, "screen": NSCoder.string(for: app.frame), "isHittable": image.isHittable,
-                    "tapX": visible.midX, "tapY": visible.midY]
-                let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "largest-type-before-coordinate-tap"; shot.lifetime = .keepAlways; add(shot)
-                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: visible.midX, dy: visible.midY)).tap()
-                if canvas.waitForExistence(timeout: 2) { break }
+            if !visible.isNull, visible.width >= 44, visible.height >= 44 {
+                // On 26.5 the AX image frame spans the cell, but the portrait
+                // thumbnail is aspect-fit at its leading edge. Its midpoint is
+                // blank space. Tap the visible thumbnail, above the pinned summary.
+                tapPoint = CGPoint(x: visible.minX + 40, y: visible.midY)
+                break
             }
             let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
             let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
-            let delta: CGFloat = image.exists && image.frame.midY < top ? 100 : (attempt < 20 ? -100 : 100)
+            let delta: CGFloat = image.exists && image.frame.maxY < top + 44 ? 100 : -100
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
         }
-        evidence["editorOpened"] = canvas.exists
-        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys, .prettyPrinted]), uniformTypeIdentifier: "public.json")
-        attachment.name = "largest-type-coordinate-evidence"; attachment.lifetime = .keepAlways; add(attachment)
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "largest-type-outcome"; shot.lifetime = .keepAlways; add(shot)
-        print("LARGEST_TYPE_EVIDENCE \(evidence)")
-        if canvas.exists { app.buttons["framebriar-editor-cancel"].tap() }
+        let point = try XCTUnwrap(tapPoint, "Attachment must be reachable above the summary at largest type")
+        let before = XCTAttachment(screenshot: app.screenshot()); before.name = "largest-type-visible-attachment"; before.lifetime = .keepAlways; add(before)
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+        XCTAssertTrue(canvas.waitForExistence(timeout: 10), "Tapping the visible attachment must open the editor at largest type")
+        let after = XCTAttachment(screenshot: app.screenshot()); after.name = "largest-type-editor"; after.lifetime = .keepAlways; add(after)
+        guard canvas.exists else { return }
+        app.buttons["framebriar-editor-cancel"].tap()
         app.buttons["Cancel"].tap()
         XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
