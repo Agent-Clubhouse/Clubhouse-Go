@@ -94,7 +94,8 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
    On a real phone with VoiceOver, use the composer's **Dismiss Keyboard** action and two-finger Z scrub while
    editing; after dismissal, the scrub must retain normal Back behavior. With VoiceOver or Switch Control running,
    a labelled **Dismiss Keyboard** button appears beside the composer: reach it from transcript focus and activate it.
-   Check the narrowest phone with Interrupt, Attach and Send visible. With Voice Control, try a numbered/grid tap
+   Check the narrowest phone with Interrupt, Attach and Send visible. With a hardware keyboard, Esc must close
+   the slash menu first. With Voice Control, try a numbered/grid tap
    on blank transcript space and the composer's named action; verify what spoken commands are available.
 3. **Latest and reply jumps.** Read above the bottom while new text arrives: it must not pull you down.
    Tap Latest: reach the actual bottom and resume following. Try previous/next reply repeatedly;

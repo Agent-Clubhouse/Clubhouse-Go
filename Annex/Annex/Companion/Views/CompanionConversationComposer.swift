@@ -196,6 +196,7 @@ struct CompanionConversationComposer: View {
         .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("companion-composer-region")
         .onAppear {
             slashHighlight = memory.slashHighlight
