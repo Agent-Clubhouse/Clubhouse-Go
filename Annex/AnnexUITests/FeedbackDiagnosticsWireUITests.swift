@@ -472,11 +472,15 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last)
         let png = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["uploadedPNG"] as? String)))
         let digest = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
+        let artifact = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        artifact.name = "actual-upload-\(digest)"; artifact.lifetime = .keepAlways; add(artifact)
         XCTAssertEqual(digest, upload["sha256"] as? String)
         let report = try XCTUnwrap((snapshot["reports"] as? [[String: Any]])?.last)
         let media = try XCTUnwrap(report["media"] as? [String: Any])
         XCTAssertEqual(media["sha256"] as? String, digest)
         XCTAssertEqual(media["bytes"] as? Int, png.count)
+        let binding = XCTAttachment(data: try JSONSerialization.data(withJSONObject: ["reportMedia": media, "uploadSHA256": digest, "uploadBytes": png.count], options: [.sortedKeys, .prettyPrinted]), uniformTypeIdentifier: "public.json")
+        binding.name = "upload-binding-\(digest)"; binding.lifetime = .keepAlways; add(binding)
         let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
         // The editor sends an opaque PNG, with no source image or separate mark payload.
         XCTAssertTrue(image.alphaInfo == .none || image.alphaInfo == .noneSkipLast || image.alphaInfo == .noneSkipFirst)
@@ -492,10 +496,32 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let app = launch()
         menu(app)
         let canvas = editor(app)
-        XCTAssertTrue((canvas.value as? String ?? "").hasSuffix("100% zoom"))
+        func capture(_ name: String) throws -> (Int, Int, [UInt8]) {
+            let shot = canvas.screenshot()
+            let attachment = XCTAttachment(screenshot: shot)
+            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+            let cg = try XCTUnwrap(UIImage(data: shot.pngRepresentation)?.cgImage)
+            var pixels = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
+            let context = try XCTUnwrap(CGContext(data: &pixels, width: cg.width, height: cg.height,
+                bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            return (cg.width, cg.height, pixels)
+        }
+        let beforeAX = canvas.value as? String ?? "", before = try capture("before-pinch")
+        XCTAssertTrue(beforeAX.hasSuffix("100% zoom"))
         canvas.pinch(withScale: 2, velocity: 2)
+        let after = try capture("after-pinch"), afterAX = canvas.value as? String ?? ""
+        XCTAssertEqual(before.0, after.0); XCTAssertEqual(before.1, after.1)
+        let changed = zip(before.2, after.2).filter { $0 != $1 }.count
+        let evidence: [String: Any] = ["beforeAX": beforeAX, "afterAX": afterAX,
+            "width": before.0, "height": before.1, "changedChannels": changed, "channels": before.2.count]
+        print("PINCH_EVIDENCE \(evidence)")
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys, .prettyPrinted]), uniformTypeIdentifier: "public.json")
+        attachment.name = "pinch-pixel-evidence"; attachment.lifetime = .keepAlways; add(attachment)
         expectation(for: NSPredicate(format: "NOT value ENDSWITH ' 100% zoom'"), evaluatedWith: canvas)
         waitForExpectations(timeout: 5)
+        XCTAssertGreaterThan(changed, 0, "Zoom must change rendered pixels independently of the AX value")
         canvas.doubleTap()
         expectation(for: NSPredicate(format: "value ENDSWITH '100% zoom'"), evaluatedWith: canvas)
         waitForExpectations(timeout: 5)
@@ -616,6 +642,40 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertEqual((report["media"] as? [String: Any])?["sha256"] as? String, saves[0]["sha256"])
         _ = try uploadedPixels(snapshot)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 1)
+    }
+
+    @MainActor func testLargestTypeAttachmentReproEvidence() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
+        menu(app)
+        let image = app.images["framebriar-attachment"]
+        let canvas = app.descendants(matching: .any)["framebriar-editor-canvas"]
+        var evidence: [String: Any] = [:]
+        for attempt in 0..<12 {
+            let top = app.navigationBars["Send feedback"].frame.maxY + 8
+            let bottom = app.staticTexts["framebriar-included"].frame.minY - 8
+            let visible = image.exists ? image.frame.intersection(CGRect(x: 0, y: top, width: app.frame.width, height: max(0, bottom - top))) : .null
+            if !visible.isNull, visible.width > 4, visible.height > 4 {
+                evidence = ["attempt": attempt, "imageFrame": NSCoder.string(for: image.frame), "visibleImage": NSCoder.string(for: visible),
+                    "summaryTop": bottom + 8, "screen": NSCoder.string(for: app.frame), "isHittable": image.isHittable,
+                    "tapX": visible.midX, "tapY": visible.midY]
+                let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "largest-type-before-coordinate-tap"; shot.lifetime = .keepAlways; add(shot)
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: visible.midX, dy: visible.midY)).tap()
+                if canvas.waitForExistence(timeout: 2) { break }
+            }
+            let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
+            let delta: CGFloat = image.exists && image.frame.midY < top ? 100 : (attempt < 6 ? -100 : 100)
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
+        }
+        evidence["editorOpened"] = canvas.exists
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys, .prettyPrinted]), uniformTypeIdentifier: "public.json")
+        attachment.name = "largest-type-coordinate-evidence"; attachment.lifetime = .keepAlways; add(attachment)
+        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "largest-type-outcome"; shot.lifetime = .keepAlways; add(shot)
+        print("LARGEST_TYPE_EVIDENCE \(evidence)")
+        if canvas.exists { app.buttons["framebriar-editor-cancel"].tap() }
+        app.buttons["Cancel"].tap()
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     @MainActor func testEditorControlsReachableAtAccessibilitySize() throws {
