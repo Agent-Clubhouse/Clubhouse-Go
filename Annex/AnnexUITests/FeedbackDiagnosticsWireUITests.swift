@@ -680,9 +680,11 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let (width, height, pixels) = try uploadedPixels(snapshot)
         let colors: [(UInt8, UInt8, UInt8)] = [(255, 0, 0), (255, 204, 0), (0, 122, 255), (255, 255, 255)]
         for (r, g, b) in colors {
-            let count = stride(from: 0, to: pixels.count, by: 4).filter {
-                abs(Int(pixels[$0]) - Int(r)) < 12 && abs(Int(pixels[$0 + 1]) - Int(g)) < 12 && abs(Int(pixels[$0 + 2]) - Int(b)) < 12
-            }.count
+            func near(_ value: UInt8, _ target: UInt8) -> Bool { abs(Int(value) - Int(target)) < 12 }
+            var count = 0
+            for i in stride(from: 0, to: pixels.count, by: 4) where near(pixels[i], r) && near(pixels[i + 1], g) && near(pixels[i + 2], b) {
+                count += 1
+            }
             XCTAssertGreaterThan(count, 10, "Ink \(r),\(g),\(b) must be in decoded PUT bytes")
         }
         for y in Int(Double(height) * 0.69)..<Int(Double(height) * 0.81) {
