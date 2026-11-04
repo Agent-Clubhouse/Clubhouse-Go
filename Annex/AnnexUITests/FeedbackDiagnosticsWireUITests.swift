@@ -47,9 +47,26 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     }
     @MainActor private func toggle(_ app: XCUIApplication) {
         let row = app.switches["framebriar-diagnostics-switch"]
-        XCTAssertTrue(row.exists, "Telemetry-enabled OFF still has its disclosed excerpt switch")
-        if row.switches.firstMatch.exists { row.switches.firstMatch.tap() }
-        else { row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        guard row.exists else {
+            XCTFail("Telemetry-enabled OFF still has its disclosed excerpt switch")
+            return
+        }
+        let hasChild = row.switches.firstMatch.exists
+        let control = hasChild ? row.switches.firstMatch : row
+        let before = control.value as? String
+        guard before == "0" || before == "1" else {
+            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "diagnostics-switch-invalid-value"; shot.lifetime = .keepAlways; add(shot)
+            XCTFail("Diagnostics switch must expose its state before tapping; value=\(String(describing: before)) frame=\(control.frame)")
+            return
+        }
+        let expected = before == "1" ? "0" : "1"
+        if !hasChild { row.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        else { control.tap() }
+        let changed = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: control)], timeout: 3) == .completed
+        if !changed {
+            let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "diagnostics-switch-did-not-change"; shot.lifetime = .keepAlways; add(shot)
+            XCTFail("One diagnostics toggle tap must change value: before=\(before ?? "nil") expected=\(expected) actual=\(String(describing: control.value)) frame=\(control.frame)")
+        }
     }
     @MainActor private func sendAndClose(_ app: XCUIApplication) {
         app.buttons["framebriar-send"].tap()
