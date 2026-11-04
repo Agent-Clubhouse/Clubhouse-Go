@@ -36,17 +36,25 @@ before copying these notes to TestFlight.
   desktop supports them. Agent and project icons load through a bounded cache.
 - Feedback adds screenshot zoom, four pen colors, opaque redaction, Undo, Clear edits and an
   Include screenshot switch, alongside the existing capture and held-report recovery routes.
-- Startup and view-lifetime fixes protect 24 reviewed classes from an iOS 26.0 runtime abort.
+- Typing in long chats does less work per keystroke, and opening a chat keeps following the latest
+  message when its history loads.
+- Close the keyboard by tapping or dragging the chat. VoiceOver and Switch Control get a Dismiss
+  Keyboard button in the composer row, and the VoiceOver escape gesture works while editing.
+- Sending feedback from a menu or Settings attaches the screen underneath by default, without slowing
+  the menu.
+- Startup and view-lifetime fixes protect 27 reviewed classes from an iOS 26.0 runtime abort.
 
 ### Known limits
 
 - **Do not roll back to an older feedback SDK.** Older versions can lose enrollment binding and held
   state, or send a report under a later enrollment. Follow the [rollback guidance](#unsafe-older-sdk-rollback)
   before any planned downgrade.
-- **12 class teardown paths retain actor isolation** to preserve UI safety and remain exposed if the
+- **14 class teardown paths retain actor isolation** to preserve UI safety and remain exposed if the
   affected runtime/release conditions occur. iOS 26.1–26.4 are untested. Simulator controls reproduce
   the abort on 26.0 and pass on the observed 26.5 compiler/runtime pair; that does not establish a
   fixed-version boundary or prove phone safety. See [runtime evidence](isolated-deinit.md).
+- Go runs in one window on iPad. Stage Manager resizing and split view still work; a second window isn't
+  available.
 - Terminal history is bounded; older scrollback may be missing. A disconnected project/worktree
   shell is replaced on reconnect, rather than resumed. Do not use it for work that must survive a
   connection loss.
