@@ -112,6 +112,31 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertNil(reports[1]["traceId"]); XCTAssertNil(reports[1]["spanId"])
     }
 
+    @MainActor func testScreenshotCaptureFailureExplainsTextOnlyAndNeverUploadsMedia() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--feedback-capture-failure"])
+        XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
+        let screenshot = app.buttons["fixture-screenshot"]
+        XCTAssertTrue(scrollTo(screenshot, in: app, maxSwipes: 6)); screenshot.tap()
+        let prompt = app.buttons["screenshot-feedback-prompt"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5)); prompt.tap()
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
+        let reason = app.staticTexts["framebriar-screenshot-unavailable"]
+        XCTAssertTrue(scrollTo(reason, in: app, maxSwipes: 6))
+        XCTAssertTrue(reason.label.contains("couldn't be captured"))
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        note("screenshot capture failed", in: app)
+        sendAndClose(app)
+        let snapshot = try wire(app)
+        let reports = try XCTUnwrap(snapshot["reports"] as? [[String: Any]])
+        XCTAssertEqual(reports.count, 1)
+        XCTAssertEqual(reports[0]["notes"] as? String, "screenshot capture failed")
+        XCTAssertTrue(reports[0]["media"] is NSNull)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+        XCTAssertNil(reports[0]["diagnostics"])
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
+    }
+
     @MainActor func testOneLabeledDraftCancelDoesNotCarryAndFrozenFailuresDoNotDuplicateExcerpt() throws {
         let app = launch()
         settings(app); testDraft(app)
