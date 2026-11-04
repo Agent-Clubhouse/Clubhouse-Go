@@ -36,7 +36,7 @@ struct ClubhouseGoApp: App {
 
     init() {
         #if DEBUG
-        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing")
+        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
         _runtimeLifetime = State(initialValue: CompanionStateLifetime {
             // Lazy: previews/probes never reset the install or construct a feedback client.
             if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }

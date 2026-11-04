@@ -171,7 +171,7 @@ import FramebriarUI
             XCTAssertEqual(connectionCounts, [1])
             // The process-owned presenter resolves the replacement window at presentation time.
             presenter.sendFeedback(from: window)
-            try await wait { window.rootViewController?.presentedViewController != nil }
+            try await wait { window.rootViewController?.presentedViewController?.view.window === window }
             XCTAssertEqual(window.rootViewController?.presentedViewController?.view.window, window)
             window.rootViewController?.dismiss(animated: false)
             try await wait { window.rootViewController?.presentedViewController == nil }
@@ -182,12 +182,64 @@ import FramebriarUI
         XCTAssertEqual(transports.count, 1)
         setPhase?(.background)
         try await wait { activePumps == 0 }
-        setPhase?(.active)
-        try await wait { activePumps == 1 }
+        await first.lifecycle.settle()
+        let startsBeforeReturn = pumpStarts
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: try XCTUnwrap(owner)).environment(\.scenePhase, .active))
+        try await wait { pumpStarts == startsBeforeReturn + 1 && activePumps == 1 }
+        await first.lifecycle.settle()
+        let resumedConnections = await transports.asyncCounts()
+        XCTAssertEqual(resumedConnections, [2], "A new active root must resume the backgrounded process runtime exactly once")
         XCTAssertEqual(peakPumps, 1)
         XCTAssertEqual(runtimes.count, 1)
         XCTAssertEqual(clients.count, 1)
         print("CLIENT_OWNER phase=background-foreground activePumps=\(activePumps) peakPumps=\(peakPumps) starts=\(pumpStarts) connects=\(await transports.asyncCounts())")
+    }
+
+    func testColdRootPhasesRestoreOneConnection() async throws {
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "scene.invalid", port: 443), verifiedHostID: Array(repeating: "ab", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        for (initialPhase, preSuspended) in [(ScenePhase.active, false), (.inactive, false), (.background, false), (.active, true)] {
+            let transport = SceneTransport()
+            var enteredRestore = false, releaseRestore = false, restoreCalls = 0
+            CompanionSceneTestSupport.restoreRegistrations = {
+                restoreCalls += 1; enteredRestore = true
+                while !releaseRestore { try await Task.sleep(for: .milliseconds(5)) }
+                return [.init(host: host, alias: "Synthetic restored desktop", transport: transport)]
+            }
+            let owner = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
+            let runtime = owner.value
+            if preSuspended { runtime.lifecycle.update(.background); await runtime.lifecycle.settle() }
+            let window = UIWindow(windowScene: scene)
+            let controller = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: owner).environment(\.scenePhase, initialPhase))
+            window.rootViewController = controller; window.makeKeyAndVisible()
+            defer {
+                window.rootViewController = nil; window.isHidden = true
+                runtime.store.stop(); runtime.service.remove(hostID: host.hostID)
+                CompanionSceneTestSupport.restoreRegistrations = nil
+            }
+            try await wait { enteredRestore }
+            // Hold restoration until the root has applied its initial phase. No transport
+            // exists in LiveService yet; an early resume cannot race a restore into two connects.
+            await runtime.lifecycle.settle()
+            releaseRestore = true
+            try await wait { !runtime.isRestoring }
+            await runtime.lifecycle.settle()
+            let beforeActive = await transport.connectCount
+            if initialPhase == .background { XCTAssertEqual(beforeActive, 0) }
+            controller.rootView = CompanionAppRoot(runtimeLifetime: owner).environment(\.scenePhase, .active)
+            try await Task.sleep(for: .milliseconds(100))
+            await runtime.lifecycle.settle()
+            for _ in 0..<100 {
+                if await transport.connectCount > 0 { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            let afterActive = await transport.connectCount
+            XCTAssertEqual(afterActive, 1, "Cold launch must connect exactly once")
+            XCTAssertEqual(restoreCalls, 1)
+            XCTAssertEqual(runtime.restoredHostIDs, Set([host.hostID]))
+            print("CLIENT_COLD phase=\(initialPhase) preSuspended=\(preSuspended) restoreCalls=\(restoreCalls) beforeActive=\(beforeActive) afterActive=\(afterActive)")
+        }
     }
 
     func testOneClientKeepsQueueAndEnrollmentCoherentAcrossCallers() async throws {

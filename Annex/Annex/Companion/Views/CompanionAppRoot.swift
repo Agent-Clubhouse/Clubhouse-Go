@@ -62,7 +62,13 @@ import ClubhouseTransport
         service.prepareResume = { [weak self] in await self?.switchToAnsweringRoutes() ?? [] }
         defer { isRestoring = false }
         do {
+            #if DEBUG
+            let restored: [AnnexTransportRegistry.Registration]
+            if let restore = CompanionSceneTestSupport.restoreRegistrations { restored = try await restore() }
+            else { restored = try await registry.restoreSaved() }
+            #else
             let restored = try await registry.restoreSaved()
+            #endif
             restoredHostIDs = Set(restored.map { $0.host.hostID })
             for registration in restored { await service.register(await answeringRoute(for: registration)) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
@@ -187,7 +193,7 @@ struct CompanionAppRoot: View {
     init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
         self.runtimeLifetime = runtimeLifetime
         #if DEBUG
-        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing")
+        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
         showsWelcome = !testMode
         #endif
     }
@@ -278,7 +284,9 @@ struct CompanionAppRoot: View {
                         .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }
-            .onChange(of: scenePhase) { _, phase in
+            // A recreated root must apply its current phase to the surviving runtime,
+            // including an initial active phase after the old root suspended it.
+            .onChange(of: scenePhase, initial: true) { _, phase in
                 switch phase {
                 case .active: runtime.lifecycle.update(.active)
                 case .background: runtime.lifecycle.update(.background)
