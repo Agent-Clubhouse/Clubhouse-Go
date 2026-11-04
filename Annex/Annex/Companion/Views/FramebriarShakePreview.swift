@@ -128,8 +128,8 @@ struct FramebriarShakePreview: View {
     private static var wireControls: CompanionFeedbackFixtureControls {
         let parts = wireFixture
         let image = ProcessInfo.processInfo.arguments.contains("--framebriar-wire-image")
-            ? UIGraphicsImageRenderer(size: CGSize(width: 60, height: 60)).image { context in
-                UIColor.magenta.setFill(); context.fill(CGRect(x: 0, y: 0, width: 60, height: 60))
+            ? UIGraphicsImageRenderer(size: CGSize(width: 200, height: 200)).image { context in
+                UIColor.magenta.setFill(); context.fill(CGRect(x: 0, y: 0, width: 200, height: 200))
             }.pngData() : nil
         return CompanionFeedbackFixtureControls(changeEnrollment: {
             Task {
@@ -310,7 +310,7 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
         var evidence: [String: Any] = ["sha256": SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined(),
                 "bytes": png.count, "samplePNG": (output as Data).base64EncodedString()]
         // Small synthetic editor fixtures expose the exact PUT body, without bloating screen captures.
-        if let image = UIImage(data: png)?.cgImage, image.width <= 256, image.height <= 256 {
+        if let image = UIImage(data: png)?.cgImage, image.width <= 1024, image.height <= 1024 {
             evidence["uploadedPNG"] = png.base64EncodedString()
         }
         return evidence

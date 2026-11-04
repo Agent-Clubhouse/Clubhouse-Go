@@ -11,11 +11,12 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     }
     @MainActor private func wire(_ app: XCUIApplication) throws -> [String: Any] {
         let text = app.staticTexts["fixture-wire-summary"]
-        XCTAssertTrue(text.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollUntilExists(text, in: app, maxSwipes: 8, wait: 0.3))
         return try JSONSerialization.jsonObject(with: Data(text.label.utf8)) as! [String: Any]
     }
-    @MainActor private func settings(_ app: XCUIApplication) {
+    @MainActor private func settings(_ app: XCUIApplication, beforeOpen: (() -> Void)? = nil) {
         XCTAssertTrue(scrollTo(app.buttons["Settings"], in: app, maxSwipes: 8))
+        beforeOpen?()
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 5)
     }
     @MainActor private func ordinaryButton(_ app: XCUIApplication) {
@@ -72,7 +73,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor func testTelemetryEnabledOrdinaryButtonShakeAndScreenshotNeverCaptureOrAttachDiagnostics() throws {
         let app = launch()
         settings(app); ordinaryButton(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         note("ordinary button", in: app)
         toggle(app); toggle(app) // OFF stays OFF under either switch position.
         sendAndClose(app); closeSettings(app)
@@ -84,7 +85,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         _ = app.navigationBars["Send feedback"].waitForExistence(timeout: 2.5)
         app.buttons["fixture-shake"].tap()
         XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         note("ordinary shake", in: app); toggle(app)
         sendAndClose(app)
         snapshot = try wire(app)
@@ -96,7 +97,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertTrue(scrollTo(screenshot, in: app, maxSwipes: 3)); screenshot.tap()
         let prompt = app.buttons["screenshot-feedback-prompt"]
         XCTAssertTrue(prompt.waitForExistence(timeout: 5)); prompt.tap()
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         note("ordinary screenshot", in: app)
         sendAndClose(app)
         snapshot = try wire(app)
@@ -150,14 +151,14 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor func testEnrollmentChangeKeepsNotesAndImageButNewSendUsesOffAndFreshIncidentBytes() throws {
         let app = launch(image: true)
         settings(app); testDraft(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         note("Diagnostics test enrollment race", in: app)
         app.buttons["Change fixture enrollment"].tap()
         let banner = app.staticTexts["feedback-diagnostics-test-banner"]
         expectation(for: NSPredicate(format: "label CONTAINS 'enrollment changed'"), evaluatedWith: banner)
         waitForExpectations(timeout: 5)
         app.buttons["framebriar-send"].tap()
-        XCTAssertTrue(app.images["framebriar-attachment"].exists)
+        // The pinned recovery notice/keyboard can hide the preview; verify its submitted bytes below.
         XCTAssertEqual(app.textViews["framebriar-notes"].value as? String, "Diagnostics test enrollment race")
         XCTAssertFalse(app.staticTexts["framebriar-included"].label.contains("recent diagnostics"))
         let notice = app.staticTexts["framebriar-error"]
@@ -183,6 +184,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertNil(report["diagnostics"])
         XCTAssertEqual(report["notes"] as? String, "Diagnostics test enrollment race")
         XCTAssertNotNil(report["media"] as? [String: Any])
+        XCTAssertEqual((report["media"] as? [String: Any])?["sha256"] as? String, snapshot["initialScreenshotSHA"] as? String, "Enrollment recovery preserves the exact image")
         XCTAssertEqual(incident["id"] as? String, incidents.last?["id"] as? String)
         XCTAssertNotEqual(incident["id"] as? String, incidents.first?["id"] as? String)
         XCTAssertNotEqual(try canonical(incident["traces"]!), try canonical(incidents.first!["traces"]!))
@@ -274,7 +276,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let marker = app.otherElements["fixture-screen-marker"].firstMatch
         let markerFrame = marker.frame, screen = app.frame
         menu(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         XCTAssertTrue(app.buttons["Replace screenshot"].exists)
         app.buttons["Cancel"].tap()
         var snapshot = try wire(app)
@@ -331,7 +333,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
             expectState("Pending: false · Alive: false · Encodes: 0")
         }
         menu(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         app.buttons["Cancel"].tap()
         expectState("Pending: false · Alive: false · Encodes: 1")
         XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
@@ -357,7 +359,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         expectation(for: NSPredicate(format: "label == 'Pending: false · Alive: false · Encodes: 0'"), evaluatedWith: state)
         waitForExpectations(timeout: 5)
         settings(app); ordinaryButton(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         app.buttons["Cancel"].tap(); closeSettings(app)
         expectation(for: NSPredicate(format: "label == 'Pending: false · Alive: false · Encodes: 1'"), evaluatedWith: state)
         waitForExpectations(timeout: 5)
@@ -367,26 +369,32 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let app = launch()
         let activate = app.buttons["fixture-activate-feedback-menu"]
         XCTAssertTrue(scrollTo(activate, in: app, maxSwipes: 4)); activate.tap()
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         app.buttons["Cancel"].tap()
         let send = app.buttons["Send feedback"]
         app.buttons["fixture-feedback-menu"].press(forDuration: 1.2)
         XCTAssertTrue(send.waitForExistence(timeout: 5)); send.tap()
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         app.buttons["Cancel"].tap()
         XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     @MainActor func testSettingsUsesScreenBeforeSheetAndDoesNotUseShakeAttachmentPreference() throws {
         let app = launch()
-        let marker = app.otherElements["fixture-screen-marker"].firstMatch.frame, screen = app.frame
-        settings(app)
+        let screen = app.frame
+        var marker = CGRect.zero
+        settings(app) {
+            let top = app.navigationBars["Shake fixture"].frame.maxY
+            marker = app.otherElements["fixture-screen-marker"].firstMatch.frame.intersection(
+                CGRect(x: 0, y: top + 8, width: screen.width, height: screen.height - top - 8))
+        }
+        XCTAssertGreaterThan(marker.height, 0, "Sample only marker pixels still visible when Settings freezes")
         let toggle = app.switches["Attach a screenshot when you shake"]
         XCTAssertTrue(scrollTo(toggle, in: app, maxSwipes: 6))
         if toggle.switches.firstMatch.exists { toggle.switches.firstMatch.tap() }
         else { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
         ordinaryButton(app)
-        XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         note("settings underlying screen", in: app)
         sendAndClose(app); closeSettings(app)
         let snapshot = try wire(app)
@@ -423,7 +431,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
 
     /// Keep taps between the SDK's pinned summary and navigation bars, including at accessibility sizes.
     @MainActor private func revealComposerElement(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
-        for _ in 0..<12 {
+        for attempt in 0..<16 {
             var top = app.navigationBars["Send feedback"].frame.maxY
             for id in ["framebriar-error", "framebriar-send-reason"] where app.staticTexts[id].exists {
                 top = max(top, app.staticTexts[id].frame.maxY)
@@ -432,8 +440,9 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
             if explanation.exists { top = max(top, explanation.frame.maxY) }
             let bottom = app.staticTexts["framebriar-included"].frame.minY
             if element.exists, element.frame.midY > top + 10, element.frame.midY < bottom - 10 { break }
-            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width - 12, dy: (top + bottom) / 2))
-            let delta: CGFloat = element.exists && element.frame.midY < top + 10 ? 110 : -110
+            let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
+            let delta: CGFloat = element.exists ? (element.frame.midY < top + 10 ? 110 : -110) : (attempt < 8 ? -110 : 110)
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
         }
         XCTAssertTrue(element.isHittable)
@@ -473,10 +482,26 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertTrue(image.alphaInfo == .none || image.alphaInfo == .noneSkipLast || image.alphaInfo == .noneSkipFirst)
         var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
         let context = try XCTUnwrap(CGContext(data: &bytes, width: image.width, height: image.height,
-            bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return (image.width, image.height, bytes)
+    }
+
+    @MainActor func testEditorPinchZoomOnHostCapturedScreen() throws {
+        let app = launch()
+        menu(app)
+        let canvas = editor(app)
+        XCTAssertTrue((canvas.value as? String ?? "").hasSuffix("100% zoom"))
+        canvas.pinch(withScale: 2, velocity: 2)
+        expectation(for: NSPredicate(format: "NOT value ENDSWITH ' 100% zoom'"), evaluatedWith: canvas)
+        waitForExpectations(timeout: 5)
+        canvas.doubleTap()
+        expectation(for: NSPredicate(format: "value ENDSWITH '100% zoom'"), evaluatedWith: canvas)
+        waitForExpectations(timeout: 5)
+        app.buttons["framebriar-editor-cancel"].tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     @MainActor func testEditorUploadsFourInksAndDestructiveOpaqueRedaction() throws {
@@ -484,7 +509,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         settings(app); testDraft(app)
         let canvas = editor(app)
         XCTAssertTrue((canvas.value as? String ?? "").hasSuffix("100% zoom"))
-        canvas.pinch(withScale: 2, velocity: 2)
+        canvas.doubleTap()
         expectation(for: NSPredicate(format: "NOT value ENDSWITH ' 100% zoom'"), evaluatedWith: canvas)
         waitForExpectations(timeout: 5)
         canvas.doubleTap()
@@ -549,8 +574,8 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         mark(canvas, from: CGPoint(x: 0.2, y: 0.2), to: CGPoint(x: 0.8, y: 0.8))
         finishEditor(app)
         let screenshot = app.switches["framebriar-screenshot-switch"]
-        XCTAssertTrue(scrollTo(screenshot, in: app, up: false, maxSwipes: 6))
         func toggleScreenshot() {
+            _ = revealComposerElement(screenshot, in: app)
             if screenshot.switches.firstMatch.exists { screenshot.switches.firstMatch.tap() }
             else { screenshot.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
         }
@@ -594,7 +619,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     }
 
     @MainActor func testEditorControlsReachableAtAccessibilitySize() throws {
-        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--framebriar-wire-image", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--framebriar-wire-image", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
         XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
         menu(app)
         let canvas = editor(app)

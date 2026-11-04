@@ -142,7 +142,9 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
     Dynamic Type sizes and with VoiceOver. Inspect/remove the image, check **Add screenshot** still
     opens Photos, and cancel without Send. Photos replacement can show/send sideways; edited
     wide-gamut images flatten to sRGB. Record these SDK limits instead of assuming orientation or
-    original colors are preserved. Also dismiss the menu without selecting feedback, or choose another action, then
+    original colors are preserved. At the largest accessibility text size, the pinned Included/logs
+    bar can occupy over half the smallest phone screen; record any control you cannot reach.
+    Also dismiss the menu without selecting feedback, or choose another action, then
     reopen it from a changed screen: feedback must use the new screen. Settings may briefly show
     **Preparing feedback…** after choosing feedback. A secure-field or failed capture should open
     text-only with Photos available. With iOS Full-Screen Previews on, return
