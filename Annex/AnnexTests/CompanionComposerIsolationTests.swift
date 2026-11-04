@@ -101,4 +101,43 @@ import SwiftUI
         }
     }
 
+    func testRealComposerAccessibilityDismissalPreservesDraftSelectionAndFieldIdentity() async throws {
+        let service = CompanionPreviewService(showsDispatcher: true, showsEmptyConversation: true)
+        let store = CompanionStore(service: service)
+        let target = CompanionPreviewService.dispatcherTarget
+        let hosts = CompanionPreviewService.hosts(now: .now, dispatcher: true)
+        store.apply(.hosts(hosts)); await store.load(target)
+        store.drafts[target] = "Keep this selected draft"
+        let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView: CompanionConversationComposer(store: store, agent: agent,
+            memory: CompanionComposerMemory(), focusRequests: 0, confirmCancel: .constant(false), dismissals: 0))
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func find(_ view: UIView) -> UITextView? {
+            (view as? UITextView) ?? view.subviews.lazy.compactMap(find).first
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        let input = try XCTUnwrap(find(window))
+        let selection = NSRange(location: 5, length: 4)
+        for escape in [false, true] {
+            XCTAssertTrue(input.becomeFirstResponder())
+            try await Task.sleep(for: .milliseconds(200))
+            input.selectedRange = selection
+            try await Task.sleep(for: .milliseconds(100))
+            let action = try XCTUnwrap(input.accessibilityCustomActions?.first { $0.name == "Dismiss Keyboard" })
+            if escape { XCTAssertTrue(input.accessibilityPerformEscape()) }
+            else { XCTAssertTrue(try XCTUnwrap(action.actionHandler)(action)) }
+            try await Task.sleep(for: .milliseconds(200))
+            XCTAssertFalse(input.isFirstResponder)
+            XCTAssertEqual(store.drafts[target], "Keep this selected draft")
+            XCTAssertEqual(input.text, "Keep this selected draft")
+            XCTAssertEqual(input.selectedRange, selection)
+            XCTAssertTrue(find(window) === input, "Focus changes must not recreate the native input")
+            XCTAssertFalse((input.accessibilityCustomActions ?? []).contains { $0.name == "Dismiss Keyboard" })
+        }
+    }
+
 }

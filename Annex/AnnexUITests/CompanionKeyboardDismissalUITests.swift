@@ -20,11 +20,8 @@ import XCTest
             XCTAssertTrue(show.waitForExistence(timeout: 3)); show.tap()
         }
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
-        if !app.buttons["companion-dismiss-keyboard"].exists {
-            let tree = XCTAttachment(string: app.debugDescription); tree.name = "Focused keyboard without dismiss control"; tree.lifetime = .keepAlways; add(tree)
-            screenshot(app, "Focused keyboard before typing")
-        }
-        XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].isHittable)
+        XCTAssertFalse(app.navigationBars.buttons["companion-dismiss-keyboard"].exists,
+                       "Keyboard dismissal does not add a navigation-bar control")
     }
     private func transcriptPoint(_ app: XCUIApplication) -> XCUICoordinate {
         let frame = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
@@ -41,7 +38,8 @@ import XCTest
         XCTAssertTrue(waitFor(element(app, "companion-composer"), NSPredicate(format: "value == %@", draft), timeout: 5))
         XCTAssertFalse(element(app, "companion-composer").debugDescription.contains("Keyboard Focused"),
                        "Focus, not just the software keyboard, ends")
-        XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].isHittable, "The dismissal action stays accessible")
+        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists,
+                       "The assistive control is scoped to editing")
     }
     private func dispatcher(_ flags: [String]) {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"] + flags, allowance: 360)
@@ -53,7 +51,8 @@ import XCTest
         if app.tabBars.firstMatch.exists {
             XCTAssertFalse(tab(app, "Home").isHittable, "The software keyboard covers iPhone's bottom tabs")
         }
-        screenshot(app, "Dispatcher keyboard and labelled dismissal")
+        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists, "Sighted editing has no extra control")
+        screenshot(app, "Dispatcher keyboard with transcript exit")
         // A single real tap in blank transcript space, with no rescue tap.
         transcriptPoint(app).tap()
         assertDismissed(app, draft: "Keep my Dispatcher draft")
@@ -65,7 +64,13 @@ import XCTest
         assertDismissed(app, draft: "Keep my Dispatcher draft")
 
         focus(composer, in: app)
-        app.buttons["companion-dismiss-keyboard"].tap()
+        // Also cover the other end of the full-height blank hit area, just above the composer.
+        let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
+        let bottom = min(transcript.maxY, composer.frame.minY) - 20
+        let point = CGPoint(x: transcript.minX + 8, y: bottom)
+        XCTAssertGreaterThan(bottom, element(app, "companion-chat-header").frame.maxY)
+        XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         assertDismissed(app, draft: "Keep my Dispatcher draft")
         // Native interactive dismissal is a user drag, never a streamed scrollTo.
         focus(composer, in: app)
@@ -115,13 +120,53 @@ import XCTest
         XCTAssertGreaterThan(bottom, top)
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: band.midX, dy: (top + bottom) / 2)).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
-        focus(composer, in: app); app.buttons["companion-dismiss-keyboard"].tap()
+        focus(composer, in: app); transcriptPoint(app).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(river.waitForExistence(timeout: 5))
         waitAndTap(river, until: composer)
         assertDismissed(app, draft: "Keep editing while streaming")
     }
+    func testAssistiveDismissControlFitsTheComposerAndKeepsTheSlashWordClosed() {
+        // This flag exercises the same button as VoiceOver/Switch Control without changing simulator settings.
+        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard"])
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        let composer = element(app, "companion-composer")
+        waitAndTap(river, until: composer)
+        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists)
+        focus(composer, in: app)
+        composer.typeText("/r")
+        let menu = element(app, "companion-slash-menu")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        let dismiss = app.buttons["companion-dismiss-keyboard"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+        XCTAssertEqual(dismiss.label, "Dismiss Keyboard")
+        let interrupt = app.buttons["Interrupt"]
+        let attach = app.buttons["companion-attach"]
+        let send = app.buttons["companion-send"]
+        for control in [interrupt, attach, send, dismiss] {
+            XCTAssertTrue(control.isHittable, "Every composer control remains reachable: \(control.label)")
+            XCTAssertTrue(app.frame.contains(control.frame))
+        }
+        XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44)
+        XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Retain a useful text-entry width with every control visible")
+        XCTAssertLessThanOrEqual(interrupt.frame.maxX, composer.frame.minX)
+        XCTAssertLessThanOrEqual(composer.frame.maxX, send.frame.minX)
+        XCTAssertLessThanOrEqual(send.frame.maxX, dismiss.frame.minX)
+        XCTContext.runActivity(named: "Assistive row: window \(app.frame), input \(composer.frame), interrupt \(interrupt.frame), attach \(attach.frame), send \(send.frame), dismiss \(dismiss.frame)") { _ in }
+        screenshot(app, "Assistive composer row with slash menu")
+        dismiss.tap()
+        assertDismissed(app, draft: "/r")
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5))
+        focus(composer, in: app)
+        composer.typeText("e")
+        XCTAssertFalse(menu.waitForExistence(timeout: 1), "Refocusing keeps the dismissed slash word closed")
+        composer.typeText(" /")
+        XCTAssertTrue(menu.waitForExistence(timeout: 5), "A new slash word opens the menu")
+    }
+
     func testTranscriptCardContentLinkAndCopyStillWorkWhileEditing() {
         let app = launchApp(["--companion-preview", "--companion-preview-keyboard-interactions"])
         let river = element(app, "agent-preview-studio-river")

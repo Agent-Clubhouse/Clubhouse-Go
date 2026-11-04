@@ -4,7 +4,8 @@ import ObjectiveC
 
 /// Lets the composer take pasted images. SwiftUI's vertical `TextField` is a `UITextView`, which offers Paste only
 /// for text unless it edits rich text, so this finds the one it sits behind and registers it: Paste is then offered
-/// for images too, and image items go to `handle` while text pastes as before. Other text views are untouched.
+/// for images too, and image items go to `handle` while text pastes as before. The same stable native input also
+/// exposes keyboard dismissal to accessibility while editing. Other text views are untouched.
 struct CompanionComposerPasteHook: UIViewRepresentable {
     let handle: @MainActor ([NSItemProvider]) async -> [Bool]
     /// Nil outside editing, so Escape retains UIKit's standard navigation behavior.
@@ -113,15 +114,20 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         // Native equivalents of SwiftUI's named action and .escape. Unlike a conditional modifier around
         // TextField, updating these doesn't replace the field (and its selection) when focus changes.
         let actionName = String(localized: "Dismiss Keyboard")
-        var actions = (textView.accessibilityCustomActions ?? []).filter { $0.name != actionName }
-        if coordinator.dismissKeyboard != nil {
-            actions.append(UIAccessibilityCustomAction(name: actionName) { [weak textView, weak coordinator] _ in
-                guard let textView, textView.isFirstResponder, let dismiss = coordinator?.dismissKeyboard else { return false }
+        let actions = textView.accessibilityCustomActions ?? []
+        let hasDismissAction = actions.contains { $0.name == actionName }
+        if coordinator.dismissKeyboard != nil, !hasDismissAction {
+            let action = UIAccessibilityCustomAction(name: actionName) { [weak textView] _ in
+                guard let textView, textView.isFirstResponder,
+                      let dismiss = Self.coordinator(for: textView)?.dismissKeyboard else { return false }
                 dismiss()
                 return true
-            })
+            }
+            textView.accessibilityCustomActions = actions + [action]
+        } else if coordinator.dismissKeyboard == nil, hasDismissAction {
+            let remaining = actions.filter { $0.name != actionName }
+            textView.accessibilityCustomActions = remaining.isEmpty ? nil : remaining
         }
-        textView.accessibilityCustomActions = actions.isEmpty ? nil : actions
         var type: AnyClass = object_getClass(textView) ?? UITextView.self
         // Key-value observing swaps in a temporary subclass; patch the real one.
         if NSStringFromClass(type).hasPrefix("NSKVONotifying_"), let base = class_getSuperclass(type) { type = base }

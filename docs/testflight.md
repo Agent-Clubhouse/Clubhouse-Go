@@ -89,8 +89,13 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
    pause, scroll, show/hide the keyboard and continue typing. Every character must remain in order;
    the keyboard must keep focus and the view must remain responsive. In both Dispatcher and an ordinary
    chat, try an empty and a long conversation: tap transcript text and blank space, drag down to dismiss
-   interactively, and use **Dismiss Keyboard** in the chat navigation bar. The draft must remain intact. On iPhone,
-   dismissing must reveal the tabs so Home and back to Dispatcher work. Check this with VoiceOver too.
+   interactively, including blank space near both the top and bottom of empty and short chats. The draft and
+   selection must remain intact. On iPhone, dismissing must reveal the tabs so Home and back to Dispatcher work.
+   On a real phone with VoiceOver, use the composer's **Dismiss Keyboard** action and two-finger Z scrub while
+   editing; after dismissal, the scrub must retain normal Back behavior. With VoiceOver or Switch Control running,
+   a labelled **Dismiss Keyboard** button appears beside the composer: reach it from transcript focus and activate it.
+   Check the narrowest phone with Interrupt, Attach and Send visible. With Voice Control, try a numbered/grid tap
+   on blank transcript space and the composer's named action; verify what spoken commands are available.
 3. **Latest and reply jumps.** Read above the bottom while new text arrives: it must not pull you down.
    Tap Latest: reach the actual bottom and resume following. Try previous/next reply repeatedly;
    land on assistant replies or questions, without stopping at routine tool traffic.
