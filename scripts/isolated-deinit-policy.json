@@ -524,7 +524,7 @@
     "CompanionReadingViewport": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
-      "reason": "Only gesture/scroll metric value structs, String-to-Double-range geometry, optional Doubles and Bools; no UI object or callback ownership.",
+      "reason": "Gesture/scroll metrics and frame ranges plus a bounded restoration value (UUIDs, Doubles, Int, closed outcome); no task, UI object or callback ownership.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
@@ -537,7 +537,9 @@
           "isInteracting": "Bool",
           "isRestoring": "Bool",
           "metrics": "CompanionScrollMetrics ?",
+          "preserveBookmarkUntilUserAction": "Bool",
           "previousMetrics": "CompanionScrollMetrics ?",
+          "restoration": "CompanionReadingRestoration ?",
           "restoreOffset": "Double ?"
         },
         "storageMacros": []
@@ -651,6 +653,16 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionReadingTouchObserver.Anchor": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionReadingTouchObserver.swift",
+      "reason": "UIKit view/recognizer attachment and the view callback require MainActor teardown; retain synthesized isolated deinit. The recognizer weakly references the anchor and immediately fails without claiming touches."
+    },
+    "ReadingOpeningTouch": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionReadingTouchObserver.swift",
+      "reason": "UIKit view/recognizer attachment and the view callback require MainActor teardown; retain synthesized isolated deinit. The recognizer weakly references the anchor and immediately fails without claiming touches."
     }
   },
   "captureSites": {
@@ -775,6 +787,20 @@
       "constructor:CompanionStateLifetime": [
         {
           "expression": "CompanionStateLifetime { let ( model , transport ) = Self . fixtureModel ( enrolled : ! ProcessInfo . processInfo . arguments . contains ( \" --framebriar-shake-unenrolled \" ) ) return ( model , transport , CompanionFeedbackPresenter ( model : model ) ) }",
+          "producers": {}
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) ) }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
           "producers": {}
         }
       ]

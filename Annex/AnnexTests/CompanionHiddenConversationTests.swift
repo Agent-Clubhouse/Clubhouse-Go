@@ -55,7 +55,24 @@ import UIKit
         return view.subviews.lazy.compactMap { transcript(in: $0) }.first
     }
 
+    private func touchObserver(in view: UIView) -> CompanionReadingTouchObserver.Anchor? {
+        if let anchor = view as? CompanionReadingTouchObserver.Anchor { return anchor }
+        return view.subviews.lazy.compactMap { touchObserver(in: $0) }.first
+    }
+
     @Test(arguments: Hidden.allCases) func hiddenStreamsDoNoTimelineWork(hidden: Hidden) async throws {
+        try await exercise(hidden: hidden, dropFirstRestore: false)
+    }
+    @Test func lostRestoreCommandRecoversWhileStreaming() async throws {
+        try await exercise(hidden: .tab, dropFirstRestore: true)
+    }
+    @Test func touchDuringRetryWindowKeepsTheUsersPosition() async throws {
+        try await exercise(hidden: .tab, dropFirstRestore: true, touchDuringRestore: true)
+    }
+    @Test func timeoutPreservesBookmarkAndTheNextMountRetriesIt() async throws {
+        try await exercise(hidden: .tab, dropFirstRestore: true, timeoutRestore: true)
+    }
+    private func exercise(hidden: Hidden, dropFirstRestore: Bool, touchDuringRestore: Bool = false, timeoutRestore: Bool = false) async throws {
         let service = CompanionPreviewService(showsLongReply: true, showsDispatcher: true, showsMultipleDispatchers: true)
         let store = CompanionStore(service: service)
         var events = service.events().makeAsyncIterator()
@@ -94,6 +111,11 @@ import UIKit
 
         // Move through the top first, which stops follow-latest just like the status-bar gesture. Then preserve an
         // arbitrary reading offset, not just a latest/top flag, through hidden events and a newly mounted scroll view.
+        weak var originalObserver = try #require(touchObserver(in: window))
+        let recognizer = try #require(window.gestureRecognizers?.first { String(describing: type(of: $0)).contains("ReadingOpeningTouch") })
+        #expect(!recognizer.cancelsTouchesInView)
+        #expect(!recognizer.delaysTouchesBegan)
+        #expect(!recognizer.delaysTouchesEnded)
         let before = try #require(transcript(in: window))
         before.setContentOffset(CGPoint(x: 0, y: -before.adjustedContentInset.top), animated: false)
         try await settle(window)
@@ -117,6 +139,7 @@ import UIKit
         print("HIDDEN_STREAM_MEASUREMENT case=\(hidden.rawValue) visibleEvents=\(visibleEvents) visibleBody=\(visibleBodies) visibleTimeline=\(visibleTimelines) hiddenEvents=\(streamedEvents) hiddenBody=\(hiddenBodies) hiddenTimeline=\(hiddenTimelines)")
         #expect(bookmark.position.entryID == entryID, "Unmounting retains the shared entry bookmark")
         #expect(bookmark.viewport.metrics == nil, "Unmounting clears mounted geometry, not the bookmark")
+        #expect(originalObserver?.window == nil, "The touch observer detaches on unmount")
         #expect(hiddenTimelines == 0, "Hidden conversations must do zero timeline builds for 20 streamed events")
         #expect(store.drafts[target] == "Draft for this desktop")
 
@@ -128,6 +151,35 @@ import UIKit
         diagnostic("hidden")
         let clock = ContinuousClock()
         let started = clock.now
+        var requests: [Double] = []
+        if dropFirstRestore {
+            CompanionReadingRestoreProbe.deliver = { _, attempt, offset, phaseChanged in
+                requests.append(offset)
+                if attempt == 1 {
+                    phaseChanged(.animating)
+                    phaseChanged(.idle)
+                    #expect(bookmark.viewport.restoration?.outcome == nil, "Non-user phases cannot cancel initial delivery")
+                    #expect(bookmark.viewport.isRestoring)
+                    #expect(abs(bookmark.position.offset - readingOffset) <= 2, "Non-user phases cannot save the bottom before arrival")
+                    if touchDuringRestore {
+                        // Invoke the installed passive recognizer's public touch-down path,
+                        // then model the drag's offset. No private UIKit touch construction.
+                        let anchor = self.touchObserver(in: window)
+                        #expect(anchor != nil)
+                        anchor?.touchBegan(at: CGPoint(x: -10, y: -10))
+                        #expect(bookmark.viewport.restoration?.outcome == nil, "A touch outside the transcript must not cancel")
+                        anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
+                        let scroll = self.transcript(in: window)
+                        #expect(scroll != nil)
+                        scroll?.setContentOffset(CGPoint(x: 0, y: 2_400 - (scroll?.adjustedContentInset.top ?? 0)), animated: false)
+                    }
+                    store.apply(.textDelta(target, messageID: "dispatcher-long-reply", text: " during restore", sequence: nil))
+                    return false
+                }
+                return !timeoutRestore
+            }
+        }
+        defer { CompanionReadingRestoreProbe.deliver = nil }
         navigation.tab = 0; navigation.desktop = 0
         var firstReadyMs: Double?
         var loggedEarlyState = false
@@ -157,16 +209,44 @@ import UIKit
         print("HIDDEN_RESTORE_TIMING case=\(hidden.rawValue) firstObservedReadyMs=\(firstReadyMs ?? -1) observedCompletionMs=\(elapsedMs()) ready=\(ready)")
         diagnostic(ready ? "completed" : "timeout")
         #expect(ready, "Restoration must complete within three seconds; see HIDDEN_RESTORE_DIAGNOSTIC and HIDDEN_RESTORE_TIMING")
+        if timeoutRestore {
+            #expect(bookmark.viewport.restoration?.outcome == .exhausted)
+            #expect(!bookmark.viewport.isRestoring)
+            #expect(bookmark.viewport.preserveBookmarkUntilUserAction)
+            #expect(abs(bookmark.position.offset - readingOffset) <= 2, "Timeout must preserve the reading bookmark, never the bottom")
+            #expect(!bookmark.position.followsLatest)
+            navigation.tab = 1
+            try await settle(window)
+            CompanionReadingRestoreProbe.deliver = nil
+            navigation.tab = 0
+            let retryStarted = clock.now
+            while !restorationReady(), retryStarted.duration(to: clock.now) < .seconds(3) {
+                window.layoutIfNeeded()
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            #expect(restorationReady(), "A later mount retries the preserved bookmark")
+        }
         let restored = try #require(transcript(in: window))
         let restoredOffset = restored.contentOffset.y + restored.adjustedContentInset.top
         print("HIDDEN_SCROLL_MEASUREMENT case=\(hidden.rawValue) before=\(readingOffset) restored=\(restoredOffset)")
-        #expect(abs(restoredOffset - readingOffset) <= 2, "The reading offset survives unmounting within two points")
+        if touchDuringRestore {
+            #expect(abs(restoredOffset - 2_400) <= 2, "Touch-down cancels restoration before the user's drag offset")
+            #expect(requests.count == 1, "No late retry may overwrite the user")
+            #expect(bookmark.viewport.restoration?.outcome == .touch)
+        } else {
+            #expect(abs(restoredOffset - readingOffset) <= 2, "The reading offset survives unmounting within two points")
+        }
+        if dropFirstRestore && !touchDuringRestore && !timeoutRestore {
+            #expect(requests.count >= 2, "Dropping the first command requires another delivery")
+            #expect(requests.count <= CompanionReadingRestoration.maximumAttempts)
+            #expect(requests.allSatisfy { $0 == requests.first }, "Streaming must not move the frozen restore target")
+        }
         #expect(counts.timelines[target, default: 0] >= 1, "Becoming visible remounts current history")
         counts.reset()
         store.apply(.textDelta(target, messageID: "dispatcher-long-reply", text: " resumed", sequence: nil))
         try await settle(window)
         #expect(store.conversation(for: target).items.contains { item in
-            if case .message(let message) = item { message.text.hasSuffix(String(repeating: " hidden", count: streamedEvents) + " resumed") } else { false }
+            if case .message(let message) = item { message.text.hasSuffix(String(repeating: " hidden", count: streamedEvents) + (dropFirstRestore ? " during restore" : "") + " resumed") } else { false }
         })
     }
 }

@@ -37,6 +37,7 @@ extension CompanionScrollMetrics {
 /// Measure a gesture cumulatively: a slow drag can move over a point through many subpixel geometry samples.
 struct CompanionReadingGesture {
     private var highestOffset: Double?
+    var hasStarted: Bool { highestOffset != nil }
     mutating func begin(at offset: Double) { highestOffset = offset }
     mutating func begin(at current: CompanionScrollMetrics, last: CompanionScrollMetrics?, beforeLast: CompanionScrollMetrics?) {
         // Geometry and phase callbacks can arrive in either order. Retain the first pan delta in both cases.
@@ -140,9 +141,28 @@ enum CompanionAssistantNavigation {
         hasInitialized && isLoaded && self.historyRevision == historyRevision
     }
     var restoreOffset: Double?
+    var restoration: CompanionReadingRestoration?
+    var preserveBookmarkUntilUserAction = false
+
+    func finishRestoration(_ outcome: CompanionReadingRestoration.Outcome, now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        guard var value = restoration, value.outcome == nil else {
+            isRestoring = false
+            restoreOffset = nil
+            return
+        }
+        value.outcome = outcome
+        restoration = value
+        if outcome == .exhausted { preserveBookmarkUntilUserAction = true }
+        isRestoring = false
+        restoreOffset = nil
+        #if DEBUG
+        print("READING_RESTORE outcome=\(outcome.rawValue) attempts=\(value.attempts) durationMs=\((now - value.startedAt) * 1_000)")
+        #endif
+    }
 
     /// Geometry belongs to one mounted transcript; the entry-relative bookmark survives unmounting.
     func clearGeometry() {
+        finishRestoration(.unmounted)
         gesture.end()
         frames = [:]
         metrics = nil
@@ -153,5 +173,37 @@ enum CompanionAssistantNavigation {
         hasInitialized = false
         historyRevision = nil
         restoreOffset = nil
+        restoration = nil
+        preserveBookmarkUntilUserAction = false
+    }
+}
+
+/// One remount's bounded delivery, with a fixed target once layout supplies it. Streaming
+/// may change the content height but cannot move that target or extend the deadline.
+struct CompanionReadingRestoration {
+    enum Outcome: String { case arrived, touch, scrollPhase, navigation, generation, unmounted, taskCancelled, exhausted }
+    enum Step: Equatable { case wait, scroll(Double), finish(Outcome) }
+    static let maximumAttempts = 20
+    static let maximumDuration: TimeInterval = 2
+    let id = UUID()
+    let revision: UUID
+    let startedAt: TimeInterval
+    private(set) var offset: Double?
+    private(set) var attempts = 0
+    var outcome: Outcome?
+
+    mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
+                       metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?) -> Step {
+        if let outcome { return .finish(outcome) }
+        guard self.revision == revision else { return .finish(.generation) }
+        guard !followsLatest else { return .finish(.navigation) }
+        guard now - startedAt < Self.maximumDuration else { return .finish(.exhausted) }
+        guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else { return .wait }
+        if offset == nil { offset = proposedOffset }
+        guard let offset else { return .wait }
+        if abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 { return .finish(.arrived) }
+        guard attempts < Self.maximumAttempts else { return .finish(.exhausted) }
+        attempts += 1
+        return .scroll(offset)
     }
 }
