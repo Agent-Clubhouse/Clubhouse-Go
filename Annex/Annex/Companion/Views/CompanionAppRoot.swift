@@ -25,7 +25,12 @@ import ClubhouseTransport
     private var nextRediscovery: [String: Date] = [:]
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
+        #if DEBUG
+        assert(!UIApplication.shared.supportsMultipleScenes, "CompanionRuntime requires a single app scene")
+        let feedback = CompanionSceneTestSupport.makeFeedback?() ?? (persistsDrafts ? CompanionFeedback.makeModel() : nil)
+        #else
         let feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
+        #endif
         self.feedback = feedback?.model
         self.appTelemetry = feedback?.telemetry
         appTelemetry?.start()
@@ -41,6 +46,9 @@ import ClubhouseTransport
         }
         self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
                                     finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
+        #if DEBUG
+        CompanionSceneTestSupport.didCreateRuntime?(self)
+        #endif
     }
     func start() async {
         guard !started else { return }
@@ -180,7 +188,7 @@ struct CompanionAppRoot: View {
         #if DEBUG
         // Only the integration worker supplies this explicit test invitation.
         // It selects an in-memory registry and never writes a saved pairing.
-        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil
+        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing")
         if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
         showsWelcome = !testMode
         _runtimeLifetime = State(initialValue: CompanionStateLifetime {
