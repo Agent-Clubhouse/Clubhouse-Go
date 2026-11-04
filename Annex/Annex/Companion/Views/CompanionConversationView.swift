@@ -303,23 +303,7 @@ struct CompanionConversationView: View {
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
             // keyboard and the composer resizing don't stop following.
             .onScrollPhaseChange { old, phase, context in
-                cancelReadingRestoration(.scrollPhase, userAction: phase == .tracking || phase == .interacting || phase == .decelerating)
-                traceScrollPhase(phase, metrics: Self.metrics(context.geometry))
-                CompanionChatPerformance.scroll(target: target, isUserScrolling: phase == .tracking || phase == .interacting || phase == .decelerating)
-                if phase == .tracking {
-                    readingViewport.gesture.begin(at: Self.metrics(context.geometry).normalizedOffset)
-                } else if phase == .interacting && old != .tracking {
-                    readingViewport.gesture.begin(at: Self.metrics(context.geometry), last: readingViewport.metrics, beforeLast: readingViewport.previousMetrics)
-                }
-                readingViewport.isInteracting = phase == .interacting || phase == .decelerating
-                if phase == .idle && canRecordReadingPosition && !readingViewport.preserveBookmarkUntilUserAction && !readingViewport.isRestoring {
-                    let metrics = Self.metrics(context.geometry)
-                    if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
-                    readingViewport.gesture.end()
-                    atLatest = metrics.isAtTrueBottom
-                    if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
-                    saveReadingPosition(metrics)
-                }
+                readingScrollPhaseChanged(from: old, to: phase, metrics: Self.metrics(context.geometry))
             }
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
@@ -488,19 +472,44 @@ struct CompanionConversationView: View {
     private var canRecordReadingPosition: Bool {
         readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
     }
+    private func readingScrollPhaseChanged(from old: ScrollPhase, to phase: ScrollPhase, metrics: CompanionScrollMetrics) {
+        let userPhase = phase == .tracking || phase == .interacting || phase == .decelerating
+        if userPhase { cancelReadingRestoration(.scrollPhase) }
+        traceScrollPhase(phase, metrics: metrics)
+        CompanionChatPerformance.scroll(target: target, isUserScrolling: userPhase)
+        if phase == .tracking {
+            readingViewport.gesture.begin(at: metrics.normalizedOffset)
+        } else if phase == .interacting && old != .tracking {
+            readingViewport.gesture.begin(at: metrics, last: readingViewport.metrics, beforeLast: readingViewport.previousMetrics)
+        }
+        readingViewport.isInteracting = phase == .interacting || phase == .decelerating
+        if phase == .idle {
+            defer { readingViewport.gesture.end() }
+            // A system animation or settling to idle is not a user's reading choice.
+            guard readingViewport.gesture.hasStarted, canRecordReadingPosition,
+                  !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring else { return }
+            if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
+            atLatest = metrics.isAtTrueBottom
+            if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+            saveReadingPosition(metrics)
+        }
+    }
+
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
-        guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction else { return }
+        guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction,
+              readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
     }
-    private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome, userAction: Bool = true) {
-        guard (userAction && readingViewport.preserveBookmarkUntilUserAction) || readingViewport.isRestoring
+    private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
+        guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring
                 || (readingViewport.restoration != nil && readingViewport.restoration?.outcome == nil) else { return }
         readingViewport.finishRestoration(outcome)
-        if userAction { readingViewport.preserveBookmarkUntilUserAction = false }
+        readingViewport.preserveBookmarkUntilUserAction = false
         // A touch owns the current position immediately; a later frame preference must
         // not resurrect the old bookmark while the user's gesture is getting started.
-        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+        // Navigation cancels delivery, but its pre-arrival geometry is not a new bookmark.
+        if (outcome == .touch || outcome == .scrollPhase), let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
     private func restoreReadingPosition(_ saved: CompanionReadingPosition, id: UUID) async {
@@ -515,12 +524,20 @@ struct CompanionConversationView: View {
             switch step {
             case .finish(let outcome):
                 readingViewport.finishRestoration(outcome)
-                if outcome == .arrived, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+                if outcome == .arrived, let metrics = readingViewport.metrics {
+                    if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+                    saveReadingPosition(metrics)
+                }
                 return
             case .scroll(let offset):
+                readingViewport.isRestoring = true
                 readingViewport.restoreOffset = offset
                 #if DEBUG
-                let deliver = CompanionReadingRestoreProbe.deliver?(attempt.revision, attempt.attempts, offset) ?? true
+                var priorPhase = ScrollPhase.idle
+                let deliver = CompanionReadingRestoreProbe.deliver?(attempt.revision, attempt.attempts, offset, { phase in
+                    if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
+                    priorPhase = phase
+                }) ?? true
                 if deliver { readingScrollPosition.scrollTo(y: offset) }
                 #else
                 readingScrollPosition.scrollTo(y: offset)
@@ -549,8 +566,10 @@ struct CompanionConversationView: View {
     private enum FollowReason: String { case earlier, gesture, bottom, nativeUpward, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
-        if reason == .bottom && readingViewport.preserveBookmarkUntilUserAction { return }
-        if reason != .restore && reason != .mount { cancelReadingRestoration(.navigation, userAction: reason != .bottom) }
+        if reason == .bottom {
+            guard !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring,
+                  readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
+        } else if reason != .restore && reason != .mount { cancelReadingRestoration(.navigation) }
         let previous = followLatest
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
@@ -708,7 +727,7 @@ private struct CompanionReadingFrames: PreferenceKey {
 
 #if DEBUG
 @MainActor enum CompanionReadingRestoreProbe {
-    /// Synthetic command loss only. Never installed outside bounded hosted tests.
-    static var deliver: ((UUID, Int, Double) -> Bool)?
+    /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
+    static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
 }
 #endif

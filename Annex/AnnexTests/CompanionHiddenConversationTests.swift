@@ -153,9 +153,14 @@ import UIKit
         let started = clock.now
         var requests: [Double] = []
         if dropFirstRestore {
-            CompanionReadingRestoreProbe.deliver = { _, attempt, offset in
+            CompanionReadingRestoreProbe.deliver = { _, attempt, offset, phaseChanged in
                 requests.append(offset)
                 if attempt == 1 {
+                    phaseChanged(.animating)
+                    phaseChanged(.idle)
+                    #expect(bookmark.viewport.restoration?.outcome == nil, "Non-user phases cannot cancel initial delivery")
+                    #expect(bookmark.viewport.isRestoring)
+                    #expect(abs(bookmark.position.offset - readingOffset) <= 2, "Non-user phases cannot save the bottom before arrival")
                     if touchDuringRestore {
                         // Invoke the installed passive recognizer's public touch-down path,
                         // then model the drag's offset. No private UIKit touch construction.

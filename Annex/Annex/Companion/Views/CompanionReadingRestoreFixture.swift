@@ -37,7 +37,7 @@ struct CompanionReadingRestoreFixture: View {
             let bookmark = store.readingBookmark(for: target)
             bookmark.position = CompanionReadingPosition(followsLatest: false, offset: 1_200,
                 shownEntries: CompanionTimelineWindow.pageSize)
-            CompanionReadingRestoreProbe.deliver = { _, _, _ in !refuse }
+            CompanionReadingRestoreProbe.deliver = { _, _, _, _ in !refuse }
             ready = true
             defer { CompanionReadingRestoreProbe.deliver = nil }
             while !Task.isCancelled {

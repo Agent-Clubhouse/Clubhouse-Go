@@ -37,6 +37,7 @@ extension CompanionScrollMetrics {
 /// Measure a gesture cumulatively: a slow drag can move over a point through many subpixel geometry samples.
 struct CompanionReadingGesture {
     private var highestOffset: Double?
+    var hasStarted: Bool { highestOffset != nil }
     mutating func begin(at offset: Double) { highestOffset = offset }
     mutating func begin(at current: CompanionScrollMetrics, last: CompanionScrollMetrics?, beforeLast: CompanionScrollMetrics?) {
         // Geometry and phase callbacks can arrive in either order. Retain the first pan delta in both cases.
