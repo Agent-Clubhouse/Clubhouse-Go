@@ -70,6 +70,15 @@ import ClubhouseTransport
                 let hostID = hosts[1].id
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
+            #if DEBUG
+            // Exercise the narrowest composer with Interrupt, Attach, Send and the assistive dismiss button.
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview"),
+               ProcessInfo.processInfo.arguments.contains("--companion-preview-assistive-keyboard"),
+               let project = hosts[0].projects.firstIndex(where: { $0.id == Self.target.projectID }),
+               let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.target }) {
+                hosts[0].projects[project].agents[agent].status = .working
+            }
+            #endif
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
