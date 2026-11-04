@@ -770,6 +770,14 @@
           }
         }
       ]
+    },
+    "Annex/Annex/Companion/Views/FramebriarShakePreview.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { let ( model , transport ) = Self . fixtureModel ( enrolled : ! ProcessInfo . processInfo . arguments . contains ( \" --framebriar-shake-unenrolled \" ) ) return ( model , transport , CompanionFeedbackPresenter ( model : model ) ) }",
+          "producers": {}
+        }
+      ]
     }
   }
 }

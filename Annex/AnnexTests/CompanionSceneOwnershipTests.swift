@@ -169,6 +169,15 @@ import FramebriarUI
             XCTAssertNil(first.store.selection)
             let connectionCounts = await transports.asyncCounts()
             XCTAssertEqual(connectionCounts, [1])
+            // Exercise the real root/presenter notification path, not the shake fixture.
+            NotificationCenter.default.post(name: UIApplication.userDidTakeScreenshotNotification, object: nil)
+            func promptCount() -> Int {
+                window.windowScene?.windows.filter { !$0.isHidden && String(describing: type(of: $0)).contains("PassthroughWindow") }.count ?? 0
+            }
+            try await wait { promptCount() > 0 }
+            try await Task.sleep(for: .milliseconds(100))
+            XCTAssertEqual(promptCount(), 1, "A screenshot after root replacement must produce exactly one prompt")
+            print("CLIENT_OWNER_SCREENSHOT cycle=\(cycle) prompts=\(promptCount()) runtimes=\(runtimes.count) clients=\(clients.count)")
             // The process-owned presenter resolves the replacement window at presentation time.
             presenter.sendFeedback(from: window)
             try await wait { window.rootViewController?.presentedViewController?.view.window === window }
