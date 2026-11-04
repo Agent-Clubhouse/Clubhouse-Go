@@ -143,19 +143,65 @@ import FramebriarUI
         #expect(await network.reports.count == 1, "Only the released report may attempt; fake network is offline")
     }
 
-    @Test func heldOnlyClearWorksUnenrolledWithoutATokenOrAnyRequest() async throws {
+    @Test func heldOnlyClearWorksUnenrolledWithDisplayedTokenWithoutAnyRequest() async throws {
         let (model, network) = try model()
         await enroll(model)
         for _ in 0..<2 { _ = try await model.save(model.openDraft(), notes: "held", screenshotPNG: nil, includeDiagnostics: false) }
         await model.disconnect()
         #expect(model.status?.heldForEnrollment == 2 && model.status?.releaseToken == nil)
         let before = await network.calls
-        let result = await model.clearHeldReports(), expected = try fixture("clear", "whileUnenrolled")
-        #expect(result.cleared == expected["cleared"] as? Int)
-        #expect(result.remaining == expected["remaining"] as? Int)
+        let prompt = try #require(CompanionHeldFeedbackClearPrompt(status: model.status))
+        #expect(prompt.count == 2)
+        #expect(await prompt.confirm(using: model) == nil)
+        #expect(model.message == "2 cleared from this device. They weren't sent.")
         #expect(model.status?.queued == 0)
         let after = await network.calls, reports = await network.reports
         #expect(after == before && reports.isEmpty)
+    }
+
+    @Test func clearPromptRetainsDisplayedTokenAndReasksWhenAnotherReportJoinsTheHold() async throws {
+        let queue = AdoptionQueue(), (model, network) = try model(queue: queue)
+        await enroll(model)
+        _ = try await model.save(model.openDraft(), notes: "first held", screenshotPNG: nil, includeDiagnostics: false)
+        await enroll(model)
+        _ = try await model.save(model.openDraft(), notes: "joins the hold later", screenshotPNG: nil, includeDiagnostics: false)
+        let prompt = try #require(CompanionHeldFeedbackClearPrompt(status: model.status))
+        #expect(prompt.count == 1 && prompt.title == "Clear 1 report saved under a previous enrollment? They won't be sent.")
+        await model.disconnect() // The second saved report joins the hold while the first prompt is open.
+        #expect(model.status?.heldForEnrollment == 2)
+        #expect(prompt.count == 1 && prompt.token != model.status?.clearToken)
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let before = try encoder.encode(queue.load(scope: config.storageScope))
+        let calls = await network.calls
+        let retry = try #require(await prompt.confirm(using: model))
+        #expect(try encoder.encode(queue.load(scope: config.storageScope)) == before, "Stale confirmation deletes nothing")
+        #expect(model.status?.queued == 2 && model.status?.heldForEnrollment == 2)
+        #expect(retry.count == 2 && retry.title == "Clear 2 reports saved under a previous enrollment? They won't be sent.")
+        #expect(retry.token == model.status?.clearToken)
+        #expect(retry.message == model.message && retry.message == "These reports changed, so nothing was cleared. Check the count and try again.")
+        #expect(await retry.confirm(using: model) == nil)
+        #expect(model.status?.queued == 0 && model.status?.heldForEnrollment == 0)
+        #expect(model.message == "2 cleared from this device. They weren't sent.")
+        let after = await network.calls, reports = await network.reports
+        #expect(after == calls && reports.isEmpty)
+    }
+
+    @Test func missingClearTokenDeletesNothingAndMatchingTokenKeepsCurrentEnrollmentReports() async throws {
+        let queue = AdoptionQueue(), (model, network) = try model(queue: queue)
+        await enroll(model)
+        _ = try await model.save(model.openDraft(), notes: "held", screenshotPNG: nil, includeDiagnostics: false)
+        await enroll(model)
+        let current = try await model.save(model.openDraft(), notes: "current", screenshotPNG: nil, includeDiagnostics: false)
+        let calls = await network.calls
+        let missing = await model.clearHeldReports(clearToken: nil)
+        #expect(missing.code == "stale-release" && missing.cleared == 0 && missing.remaining == 1)
+        #expect(model.status?.queued == 2)
+        let prompt = try #require(CompanionHeldFeedbackClearPrompt(status: model.status))
+        #expect(await prompt.confirm(using: model) == nil)
+        #expect(model.status?.queued == 1 && model.status?.heldForEnrollment == 0)
+        #expect(try queue.load(scope: config.storageScope).map(\.feedback.id) == [current.id])
+        let after = await network.calls, reports = await network.reports
+        #expect(after == calls && reports.isEmpty)
     }
 
     @Test func immediateDeliveryAndGoQueueWakeDoNotDuplicateTheReport() async throws {
