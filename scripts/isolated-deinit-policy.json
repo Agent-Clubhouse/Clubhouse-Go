@@ -790,6 +790,20 @@
           "producers": {}
         }
       ]
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) ) }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
+          "producers": {}
+        }
+      ]
     }
   }
 }
