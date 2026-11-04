@@ -43,8 +43,13 @@ import Framebriar
     }
     public func connect(_ invitation: String) async {
         await perform {
-            try await self.client.connect(invitation: invitation)
-            self.message = "Enrolled. Only feedback you explicitly submit will be shared."
+            do {
+                try await self.client.connect(invitation: invitation)
+                self.message = "Enrolled. Only feedback you explicitly submit will be shared."
+            } catch {
+                guard await self.client.status().notice != nil else { throw error }
+                self.message = "This app could not accept the connection response. Ask for a new invitation or update the app."
+            }
         }
     }
     public func disconnect() async {
@@ -111,8 +116,9 @@ import Framebriar
     }
 
     /// The local commit. When this returns, the report survives a crash or relaunch. Sends nothing.
-    /// On a throw nothing was saved, and the draft can be sent again with the same ID, except after
-    /// `enrollmentChanged`: that draft can never send. Call `openDraft()` for a new ID and new captures.
+    /// A store that replaces its file and then fails counts as saved, when reading it back finds this report.
+    /// So a `storage` throw means the read-back disagreed or couldn't read, which doesn't prove nothing was
+    /// saved. Pass any throw to `recovery(after:for:)` for the draft to use next and what to tell the user.
     public func save(_ draft: FeedbackDraft, notes: String, screenshotPNG: Data?, includeDiagnostics: Bool) async throws -> ReviewedFeedback {
         guard !working else { throw FramebriarError.busy }
         working = true; defer { working = false }
@@ -121,6 +127,19 @@ import Framebriar
         catch { await update(); throw error }
         await update()
         return report
+    }
+    /// What a composer does after `save` throws. The note and image stay with the composer, and nothing
+    /// goes out until the next Send. Keeps the same ID, so editing and sending again after a failed save
+    /// doesn't conflict, except where that ID can't be used:
+    /// - `enrollmentChanged`: that draft can never send, so this opens a new one with new captures.
+    /// - `conflict`: different contents are already committed under that ID and stay as they are, so this
+    ///   moves to a new ID with the same frozen captures, and the notice says both may be delivered.
+    public func recovery(after error: any Error, for draft: FeedbackDraft) -> (draft: FeedbackDraft, notice: String) {
+        switch error as? FramebriarError {
+        case .enrollmentChanged: (openDraft(), FeedbackDisclosure.enrollmentChangedNotice)
+        case .conflict: (draft.withNewID(), FeedbackDisclosure.saveConflictNotice)
+        default: (draft, FeedbackDisclosure.detail(.needsAttention(Self.notSaved(error))))
+        }
     }
     /// Attempts delivery now and reports what happened. The telemetry marker follows the attempt, so the
     /// two don't compete for the client. Telemetry failure never affects the report.
@@ -134,7 +153,7 @@ import Framebriar
         }
         return outcome
     }
-    /// `save` then `deliver`. A failed save comes back as `needsAttention` with the draft still usable.
+    /// `save` then `deliver`. A failed save comes back as `needsAttention`. Use `save` and `recovery(after:for:)` to recover from a conflict, which this can't.
     public func send(_ draft: FeedbackDraft, notes: String, screenshotPNG: Data?, includeDiagnostics: Bool) async -> FeedbackDeliveryOutcome {
         do {
             let report = try await save(draft, notes: notes, screenshotPNG: screenshotPNG, includeDiagnostics: includeDiagnostics)
@@ -144,7 +163,8 @@ import Framebriar
     nonisolated static func notSaved(_ error: any Error) -> FeedbackDeliveryOutcome.AttentionReason {
         switch error as? FramebriarError {
         case .capacity: .storageFull
-        case .storage: .storageUnavailable
+        // A conflict means a copy is already on this device, which that wording covers.
+        case .storage, .conflict: .storageUnavailable
         case .accessRequired, .expired: .notEnrolled
         case .busy: .busy
         case .enrollmentChanged: .enrollmentChanged
@@ -172,11 +192,11 @@ import Framebriar
         catch {
             switch error as? FramebriarError {
             case .capacity: message = "Local feedback storage is full. Your review has not been saved."
-            case .storage: message = "Local storage is unavailable. Your review has not been saved."
+            case .storage: message = "Local storage reported an error, so this couldn't be confirmed."
             case .invalidInput: message = "Check the invitation or feedback. PNG attachments must be at most 8 MiB."
             case .accessRequired, .expired: message = "Feedback access needs a new invitation. Existing reports remain on this device."
             case .paused: message = "Feedback delivery is paused."
-            default: message = "The operation could not be confirmed. Retry the same invitation or reviewed report."
+            default: message = "The operation could not be confirmed. Retry the same reviewed report or invitation. If the invitation is refused, ask for a new one."
             }
         }
         await update()

@@ -287,8 +287,11 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 
 @Test func telemetryNoteOnlyPromisesWhatTheSwitchDoes() {
     #expect(FeedbackDisclosure.telemetryNote(enabled: false, excerptOnly: false, includeDiagnostics: true) == nil)
-    #expect(FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: false, includeDiagnostics: false)!.contains("doesn't stop the regular telemetry"))
-    #expect(!FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: true, includeDiagnostics: false)!.contains("regular telemetry"))
+    #expect(FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: false, includeDiagnostics: false)!.contains("this switch doesn't change it"))
+    let excerptOnly = FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: true, includeDiagnostics: false)!
+    #expect(excerptOnly.contains("Nothing is sent automatically") && !excerptOnly.contains("this switch doesn't change it"), "That mode has no continuous sending")
+    #expect(FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: false, includeDiagnostics: true)!.contains("automatically sends"), "Both parts, either way")
+    #expect(FeedbackDisclosure.telemetryNote(enabled: true, excerptOnly: true, includeDiagnostics: true)!.contains("a copy of the last five minutes"))
 }
 
 @MainActor @Test func switchedOffSendsNoTelemetryExcerpt() async throws {
@@ -435,7 +438,9 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(FeedbackModel.notSaved(FramebriarError.storage) == .storageUnavailable)
     #expect(FeedbackModel.notSaved(FramebriarError.expired) == .notEnrolled)
     #expect(FeedbackModel.notSaved(FramebriarError.invalidInput) == .invalidReport)
-    for reason: FeedbackDeliveryOutcome.AttentionReason in [.busy, .storageFull, .storageUnavailable, .notEnrolled, .invalidReport] {
+    #expect(FeedbackModel.notSaved(FramebriarError.conflict) == .storageUnavailable)
+    #expect(!FeedbackDisclosure.detail(.needsAttention(.storageUnavailable)).contains("Not saved"), "A store can fail after replacing its file")
+    for reason: FeedbackDeliveryOutcome.AttentionReason in [.busy, .storageFull, .notEnrolled, .invalidReport] {
         #expect(FeedbackDisclosure.detail(.needsAttention(reason)).hasPrefix("Not saved:"))
     }
 }
@@ -699,14 +704,14 @@ private func noIncident(_ body: Data) -> Bool {
     let off = try rig.model(client, telemetry: t, mode: .off).openDraft()
     #expect(off.offersDiagnosticsSwitch && off.diagnosticsMeaning == FeedbackDisclosure.telemetryDiagnosticsMeaning)
     #expect(off.diagnosticsMeaning?.contains("aren't part of this report") == true)
-    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: true)?.contains("A copy of the last five minutes") == true)
-    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: false)?.contains("A marker") == true)
+    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: true)?.contains("a copy of the last five minutes") == true)
+    #expect(off.telemetryNote(telemetry: t, includeDiagnostics: false)?.contains("only a marker") == true)
 
     let on = try rig.model(client, telemetry: t, mode: .on).openDraft()
     #expect(on.offersDiagnosticsSwitch && on.diagnosticsMeaning == FeedbackDisclosure.diagnosticsMeaning)
     for include in [true, false] {
         let note = try #require(on.telemetryNote(telemetry: t, includeDiagnostics: include))
-        #expect(note.contains("A marker") && !note.contains("copy"), "No copy claim when the report carries the events")
+        #expect(note.contains("only a marker") && !note.contains("copy"), "No copy claim when the report carries the events")
     }
     #expect(try rig.model(client, mode: .on).openDraft().offersDiagnosticsSwitch, "The field's switch needs no telemetry")
 }

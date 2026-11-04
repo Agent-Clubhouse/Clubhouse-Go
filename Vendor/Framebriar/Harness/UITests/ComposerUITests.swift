@@ -35,7 +35,7 @@ final class ComposerUITests: XCTestCase {
         app.buttons["framebriar-remove-attachment"].tap()
         XCTAssertFalse(app.images["framebriar-attachment"].exists)
         XCTAssertFalse(send.isEnabled)
-        XCTAssertEqual(app.staticTexts["framebriar-send-reason"].label, "Add a note or a screenshot to send.")
+        XCTAssertEqual(app.staticTexts["framebriar-send-reason"].label, "Add a note or include a screenshot to send.")
         let notes = app.textViews["framebriar-notes"]
         notes.tap(); notes.typeText("It broke")
         XCTAssertTrue(send.isEnabled)
@@ -85,6 +85,31 @@ final class ComposerUITests: XCTestCase {
         XCTAssertEqual(included, "Included: note", "The new draft uses the model's mode")
         XCTAssertFalse(app.switches["framebriar-diagnostics-switch"].exists)
         XCTAssertFalse(app.staticTexts["framebriar-result-title"].exists, "Nothing sends until a new Send")
+        send.tap()
+        let title = app.staticTexts["framebriar-result-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        wait(for: [expectation(for: NSPredicate(format: "label == 'Sent'"), evaluatedWith: title)], timeout: 10)
+    }
+
+    func testNoCaptureOpensTextOnlyAndSendsANote() {
+        open("--no-capture", "--model-off")
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        XCTAssertFalse(app.switches["framebriar-screenshot-switch"].exists, "Nothing to leave out")
+        XCTAssertFalse(app.staticTexts["framebriar-screenshot-unavailable"].exists, "Capture was off, so nothing's missing")
+        XCTAssertTrue(app.buttons["Add screenshot"].exists, "The gallery path is still here")
+        let notes = app.textViews["framebriar-notes"]
+        notes.tap(); notes.typeText("It broke")
+        XCTAssertTrue(send.isEnabled)
+        XCTAssertEqual(included, "Included: note")
+    }
+
+    func testAnUnavailableScreenshotSaysWhyAndDoesntBlockANote() {
+        open("--no-capture", "--model-off", "--unavailable-secure")
+        let reason = app.staticTexts["framebriar-screenshot-unavailable"]
+        XCTAssertTrue(reason.waitForExistence(timeout: 5))
+        XCTAssertTrue(reason.label.contains("secure text field") && reason.label.contains("You can still send a note"), reason.label)
+        let notes = app.textViews["framebriar-notes"]
+        notes.tap(); notes.typeText("It broke")
         send.tap()
         let title = app.staticTexts["framebriar-result-title"]
         XCTAssertTrue(title.waitForExistence(timeout: 10))

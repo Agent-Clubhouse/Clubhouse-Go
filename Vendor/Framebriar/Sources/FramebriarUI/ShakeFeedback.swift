@@ -27,6 +27,8 @@ import UIKit
 @MainActor public struct FeedbackShakeEvent {
     public let window: UIWindow
     public let screenshotPNG: Data?
+    /// Why a capture that was on produced nothing. Pass it to `FeedbackView` so the composer can say so.
+    public let screenshotUnavailable: FeedbackScreenshotUnavailable?
 }
 
 extension View {
@@ -131,14 +133,16 @@ private struct ShakeAnchor: UIViewRepresentable {
     /// True when this shake was acted on, opening feedback or explaining enrollment.
     func handle(_ window: UIWindow) -> Bool {
         guard let model, let status = model.status, let scene, window.windowScene === scene else { return false }
-        let presenting = suppressed || model.isComposerOpen || ShakeWindowInspector.isBusy(window)
+        let presenting = suppressed || model.isComposerOpen || ShakeWindowInspector.editorsOpen > 0 || ShakeWindowInspector.isBusy(window)
         let editing = ShakeWindowInspector.hasActiveTextInput(window)
         let open = gate.shouldOpen(at: ProcessInfo.processInfo.systemUptime, enabled: enabled, canSubmit: status.canSubmit || onNotEnrolled != nil,
                                    isActive: scene.activationState == .foregroundActive, isPresenting: presenting, isEditing: editing)
         guard open else { return false }
         guard status.canSubmit else { onNotEnrolled?(); return true }
         // Capture before presenting so the composer itself is never in the image.
-        perform?(FeedbackShakeEvent(window: window, screenshotPNG: captureScreen ? ShakeWindowInspector.capture(window) : nil))
+        let png = captureScreen ? ShakeWindowInspector.capture(window) : nil
+        let unavailable: FeedbackScreenshotUnavailable? = !captureScreen || png != nil ? nil : ShakeWindowInspector.hasSecureInput(window) ? .secureField : .failed
+        perform?(FeedbackShakeEvent(window: window, screenshotPNG: png, screenshotUnavailable: unavailable))
         return true
     }
 }
@@ -205,6 +209,9 @@ enum ShakeWindowHook {
 
 /// Read-only checks of what a window is showing, plus the capture and default presentation.
 @MainActor enum ShakeWindowInspector {
+    /// `FeedbackScreenshotEditor`s on screen. A shake then must not open anything, nor capture an image
+    /// that's being reviewed, whatever composer the editor belongs to.
+    static var editorsOpen = 0
     static func topmost(_ window: UIWindow) -> UIViewController? {
         var top = window.rootViewController
         while let next = top?.presentedViewController { top = next }
@@ -239,7 +246,7 @@ enum ShakeWindowHook {
         guard let top = topmost(event.window) else { return }
         // A hosting controller, because a SwiftUI sheet on the root can't open over another sheet.
         let host = UIHostingController(rootView: NavigationStack {
-            FeedbackView(model: model, initialScreenshotPNG: event.screenshotPNG) { [weak top] in top?.dismiss(animated: true) }
+            FeedbackView(model: model, initialScreenshotPNG: event.screenshotPNG, onClose: { [weak top] in top?.dismiss(animated: true) }, screenshotUnavailable: event.screenshotUnavailable)
         })
         top.present(host, animated: true)
     }

@@ -11,6 +11,7 @@ xcodebuild test -project FramebriarHarness.xcodeproj -scheme FramebriarHarness \
 - `UITests/` post the Darwin notification `com.apple.UIKit.SimulatorShake`, and the event goes through UIKit's own motion delivery.
 - `UnitTests/` run hosted in the app and call `motionEnded` directly, to test the hook and routing with real windows.
 - `ComposerUITests` also runs the report diagnostics modes through the real `FeedbackView`, including the override dropped after an enrollment change.
+- `ScreenshotEditorUITests` runs zoom, the pen, redaction, Undo, Cancel, Done, Send and a shake through the real `FeedbackScreenshotEditor`, and compares the bytes the fake service received with the capture. Synthetic drags and pinches say nothing about how drawing feels on a device.
 - `ShakeMultiSceneUITests` needs an iPad simulator, and skips itself when two scenes aren't on screen.
 
 **Simulator-only.** That notification skips the device's sensors and anything iOS does before UIKit delivers the event, so these results say nothing about hardware or the Shake to Undo setting there.
