@@ -20,8 +20,11 @@ extension EnvironmentValues {
 /// Isolated simulator fixture: in-memory enrollment/outbox and a transport that cannot use a socket.
 /// Accessible only through the explicit debug launch flag; no paired desktop or Keychain is read.
 struct FramebriarShakePreview: View {
-    @State private var model: FeedbackModel
-    @State private var presenter: CompanionFeedbackPresenter
+    // App/scene updates may evaluate and discard this View's initial State value.
+    // Only the installed lifetime may create a client or register screenshot observers.
+    @State private var lifetime: CompanionStateLifetime<(model: FeedbackModel, transport: PreviewFeedbackTransport, presenter: CompanionFeedbackPresenter)>
+    private var model: FeedbackModel { lifetime.value.model }
+    private var presenter: CompanionFeedbackPresenter { lifetime.value.presenter }
     @State private var password = ""
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
@@ -33,7 +36,7 @@ struct FramebriarShakePreview: View {
     @State private var captureState = ""
     private var isWireFixture: Bool { ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing") }
     private let companionLayout = ProcessInfo.processInfo.arguments.contains("--framebriar-shake-companion-layout")
-    private let transport: PreviewFeedbackTransport
+    private var transport: PreviewFeedbackTransport { lifetime.value.transport }
     // SwiftUI can recreate this value after a settings or scene update. Seed the
     // fixture once per process, never overwrite the user's toggle on recreation.
     private static let initializePreference: Void = {
@@ -43,10 +46,10 @@ struct FramebriarShakePreview: View {
     }()
     init() {
         _ = Self.initializePreference
-        let (model, transport) = Self.fixtureModel(enrolled: !ProcessInfo.processInfo.arguments.contains("--framebriar-shake-unenrolled"))
-        self.transport = transport
-        _model = State(initialValue: model)
-        _presenter = State(initialValue: CompanionFeedbackPresenter(model: model))
+        _lifetime = State(initialValue: CompanionStateLifetime {
+            let (model, transport) = Self.fixtureModel(enrolled: !ProcessInfo.processInfo.arguments.contains("--framebriar-shake-unenrolled"))
+            return (model, transport, CompanionFeedbackPresenter(model: model))
+        })
     }
     /// In-memory enrollment and outbox; the transport counts requests and never opens a socket.
     static func fixtureModel(enrolled: Bool) -> (FeedbackModel, PreviewFeedbackTransport) {
