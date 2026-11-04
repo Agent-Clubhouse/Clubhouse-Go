@@ -687,7 +687,7 @@
         {
           "expression": "CompanionStateLifetime { CompanionRuntime ( registry : testMode ? AnnexTransportRegistry ( ) : AnnexTransportRegistry ( pairings : KeychainAnnexPairingStore ( ) ) , persistsDrafts : ! testMode ) }",
           "producers": {
-            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil"
+            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil || ProcessInfo . processInfo . arguments . contains ( \" --scene-runtime-testing \" )"
           }
         }
       ],

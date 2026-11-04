@@ -7,15 +7,28 @@ import FramebriarUI
 
 /// All reports, enrollment, defaults and desktop traffic are synthetic and local to this test.
 @MainActor final class CompanionSceneOwnershipTests: XCTestCase {
+    func testBuiltManifestRequiresOneScene() throws {
+        let manifest = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "UIApplicationSceneManifest") as? [String: Any])
+        XCTAssertEqual(manifest["UIApplicationSupportsMultipleScenes"] as? Bool, false)
+        XCTAssertFalse(UIApplication.shared.supportsMultipleScenes)
+    }
+
     func testSceneActivationOwnership() async throws {
         guard ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") else {
             throw XCTSkip("Requires isolated scene test launch argument")
         }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let config = try Configuration(gameID: "scene-fixture")
+        let fileStore = try FileFeedbackStore(directory: directory)
+        try fileStore.save([
+            QueuedFeedback(feedback: ReviewedFeedback(configuration: config, notes: "Queued scene fixture"), nextAttemptAt: Date(timeIntervalSince1970: 4_000_000_000), enrollmentRef: "scene-enrollment"),
+            QueuedFeedback(feedback: ReviewedFeedback(configuration: config, notes: "Held scene fixture"), blocked: true, enrollmentRef: "previous-enrollment", heldForEnrollment: true)
+        ], scope: config.storageScope)
+        let queueFile = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first)
+        let originalQueue = try Data(contentsOf: queueFile)
         let enrollment = SceneEnrollment()
         let network = SceneHTTP()
         let source = AnnexTelemetry()
-        let config = try Configuration(gameID: "scene-fixture")
         var runtimes: [CompanionRuntime] = []
         var transports: [SceneTransport] = []
         var registrations: [Task<Void, Never>] = []
@@ -44,45 +57,98 @@ import FramebriarUI
         var activationError: Error?
         UIApplication.shared.requestSceneSessionActivation(nil, userActivity: nil, options: nil) { activationError = $0 }
         let multiple = UIApplication.shared.supportsMultipleScenes
-        if multiple { try await wait { runtimes.count == 2 } }
-        else { try await Task.sleep(for: .seconds(3)) }
+        XCTAssertFalse(multiple)
+        try await Task.sleep(for: .seconds(3))
         for task in registrations { await task.value }
         let counts = await transports.asyncCounts()
         let clients = Set(runtimes.compactMap { $0.feedback.map { ObjectIdentifier($0.client) } }).count
         print("SCENE_AFTER supportsMultiple=\(multiple) runtimes=\(runtimes.count) clients=\(clients) bridges=\(runtimes.compactMap(\.appTelemetry).count) transports=\(transports.count) hostConnectCounts=\(counts) sessions=\(UIApplication.shared.openSessions.count) connectedScenes=\(UIApplication.shared.connectedScenes.count) activationError=\(activationError.map { String(describing: $0) } ?? "none")")
-        XCTAssertEqual(runtimes.count, multiple ? 2 : 1)
+        XCTAssertEqual(runtimes.count, 1)
+        XCTAssertEqual(UIApplication.shared.connectedScenes.filter { $0 is UIWindowScene }.count, 1)
         XCTAssertEqual(clients, runtimes.count)
         XCTAssertEqual(transports.count, runtimes.count)
-        XCTAssertEqual(counts, Array(repeating: 1, count: runtimes.count))
+        XCTAssertEqual(counts, [1])
+        XCTAssertNotNil(activationError)
+        XCTAssertEqual((activationError as NSError?)?.domain, "UISceneErrorDomain")
+        XCTAssertEqual(try Data(contentsOf: queueFile), originalQueue)
+        let client = try XCTUnwrap(runtimes.first?.feedback?.client)
+        let status = await client.status()
+        XCTAssertEqual(status.queued, 2); XCTAssertEqual(status.heldForEnrollment, 1)
+        XCTAssertTrue(client.enrollmentSignal.isEnrolled(at: Date()))
+        XCTAssertEqual(client.enrollmentSignal.enrollmentRef, try enrollment.load(scope: config.storageScope).enrollmentRef)
     }
 
-    func testTwoClientsOverwriteAndDuplicateSyntheticQueue() async throws {
+    func testOneClientKeepsQueueAndEnrollmentCoherentAcrossCallers() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let config = try Configuration(gameID: "scene-fixture")
         let store = try FileFeedbackStore(directory: directory)
         let enrollment = SceneEnrollment(), network = SceneHTTP()
-        let make = { try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: store) }
-        let a = try make(), b = try make()
+        let a = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: store)
+        let b = a
         let first = try ReviewedFeedback(configuration: config, notes: "Synthetic A")
         let second = try ReviewedFeedback(configuration: config, notes: "Synthetic B")
         try await a.enqueue(first, enrollmentRef: "scene-enrollment")
-        XCTAssertEqual(try store.load(scope: config.storageScope).map(\.feedback.id), [first.id])
         try await b.enqueue(second, enrollmentRef: "scene-enrollment")
-        XCTAssertEqual(try store.load(scope: config.storageScope).map(\.feedback.id), [second.id])
-        print("QUEUE_OVERWRITE accepted=2 persisted=1 lost=1 clientA=\(await a.status().queued) clientB=\(await b.status().queued)")
-        // Both now cache B, and both deliver it, even though the first delivery removes it on disk.
-        let c = try make()
-        await b.resume(); await c.resume()
-        try await b.flush(); try await c.flush()
+        XCTAssertEqual(try store.load(scope: config.storageScope).map(\.feedback.id), [first.id, second.id])
+        let aStatus = await a.status(), bStatus = await b.status()
+        XCTAssertEqual(aStatus.queued, 2); XCTAssertEqual(bStatus.queued, 2)
+        await a.resume()
+        try await a.flush(); try await b.flush()
         let ids = await network.reportIDs
-        XCTAssertEqual(ids, [second.id.uuidString.lowercased(), second.id.uuidString.lowercased()])
-        print("QUEUE_DUPLICATE distinctReports=1 reportRequests=\(ids.count) persisted=\(try store.load(scope: config.storageScope).count)")
-        // The actor's cached enrollment also does not track another client's disconnect.
-        _ = try await b.disconnect()
+        XCTAssertEqual(ids, [first.id.uuidString.lowercased(), second.id.uuidString.lowercased()])
+        XCTAssertTrue(try store.load(scope: config.storageScope).isEmpty)
+        _ = try await a.disconnect()
+        XCTAssertFalse(a.enrollmentSignal.isEnrolled(at: Date()))
         XCTAssertFalse(b.enrollmentSignal.isEnrolled(at: Date()))
-        XCTAssertTrue(c.enrollmentSignal.isEnrolled(at: Date()))
-        print("ENROLLMENT_AFTER_DISCONNECT clientB=\(b.enrollmentSignal.isEnrolled(at: Date())) clientC=\(c.enrollmentSignal.isEnrolled(at: Date())) persisted=\(try enrollment.load(scope: config.storageScope).enrolled)")
+        XCTAssertFalse(try enrollment.load(scope: config.storageScope).enrolled)
+    }
+
+    func testUpgradePersistence() async throws {
+        let phase = ProcessInfo.processInfo.environment["CLUBHOUSE_SCENE_UPGRADE_PHASE"] ?? "roundtrip"
+        let suite = "scene-upgrade-" + UUID().uuidString
+        let defaults = phase == "roundtrip" ? try XCTUnwrap(UserDefaults(suiteName: suite)) : .standard
+        let root = phase == "roundtrip" ? FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            : try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        defer {
+            if phase == "roundtrip" { try? FileManager.default.removeItem(at: root); defaults.removePersistentDomain(forName: suite) }
+        }
+        let directory = root.appendingPathComponent("Framebriar")
+        let expected = root.appendingPathComponent("scene-upgrade-expected.json")
+        let config = try Configuration(gameID: "scene-fixture")
+        let store = try FileFeedbackStore(directory: directory)
+        let target = CompanionTarget(hostID: "fixture-host", projectID: "fixture-project", agentID: "fixture-agent")
+        let text = "Saved before upgrade: café 👩🏽‍💻 日本語\nsecond line 🏠"
+        let drafts = CompanionLocalDrafts(defaults: defaults)
+        if phase != "verify" {
+            let first = try ReviewedFeedback(configuration: config, notes: "Synthetic queued before upgrade")
+            let held = try ReviewedFeedback(configuration: config, notes: "Synthetic held before upgrade")
+            try store.save([
+                QueuedFeedback(feedback: first, attempts: 3, nextAttemptAt: Date(timeIntervalSince1970: 4_000_000_000), enrollmentRef: "scene-enrollment"),
+                QueuedFeedback(feedback: held, attempts: 2, blocked: true, enrollmentRef: "previous-enrollment", heldForEnrollment: true)
+            ], scope: config.storageScope)
+            drafts.save([target: text])
+            defaults.set(true, forKey: CompanionInstallReset.markerKey)
+            let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first)
+            try Data(contentsOf: file).write(to: expected)
+            print("UPGRADE_SEEDED reports=2 held=1 drafts=1 sessions=\(UIApplication.shared.openSessions.count)")
+        }
+        if phase != "seed" {
+            var deletedServices: [String] = []
+            XCTAssertFalse(CompanionInstallReset.clearLeftoversIfFreshInstall(defaults: defaults, domain: phase == "roundtrip" ? suite : Bundle.main.bundleIdentifier, delete: { deletedServices.append($0) }))
+            XCTAssertTrue(deletedServices.isEmpty)
+            let client = try Client(configuration: config, transport: SceneHTTP(), enrollmentStore: SceneEnrollment(), feedbackStore: store)
+            let status = await client.status()
+            XCTAssertEqual(status.queued, 2); XCTAssertEqual(status.heldForEnrollment, 1)
+            let file = try XCTUnwrap(FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).first)
+            XCTAssertEqual(try Data(contentsOf: file), try Data(contentsOf: expected))
+            let restored = CompanionStore(service: CompanionPreviewService(), draftPersistence: drafts)
+            XCTAssertEqual(restored.drafts[target], text)
+            let items = try store.load(scope: config.storageScope)
+            XCTAssertEqual(items.map(\.enrollmentRef), ["scene-enrollment", "previous-enrollment"])
+            XCTAssertEqual(items.map(\.attempts), [3, 2])
+            print("UPGRADE_VERIFIED byteIdentical=true reports=2 held=1 ids=\(items.map { $0.feedback.id.uuidString }) unicodeDraft=true sessions=\(UIApplication.shared.openSessions.count) connected=\(UIApplication.shared.connectedScenes.count)")
+        }
     }
 
     private func wait(_ condition: () -> Bool) async throws {

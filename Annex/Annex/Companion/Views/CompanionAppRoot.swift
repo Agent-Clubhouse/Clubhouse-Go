@@ -26,6 +26,7 @@ import ClubhouseTransport
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         #if DEBUG
+        assert(!UIApplication.shared.supportsMultipleScenes, "CompanionRuntime requires a single app scene")
         let feedback = CompanionSceneTestSupport.makeFeedback?() ?? (persistsDrafts ? CompanionFeedback.makeModel() : nil)
         #else
         let feedback = persistsDrafts ? CompanionFeedback.makeModel() : nil
