@@ -1,15 +1,18 @@
 import SwiftUI
 import ClubhouseTransport
+import ClubhouseTransport
 
 @main
 struct ClubhouseGoApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    /// The process owns clients and transports; reconnecting a scene only mounts another view.
+    @State private var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>
 
     var body: some Scene {
         WindowGroup {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") {
-                CompanionSceneTestRoot()
+                CompanionSceneTestRoot(runtimeLifetime: runtimeLifetime)
             } else if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
                 CompanionDeinitProbe()
             } else if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
@@ -19,10 +22,10 @@ struct ClubhouseGoApp: App {
             } else if ProcessInfo.processInfo.arguments.contains("--companion-preview") {
                 CompanionPreviewRoot()
             } else {
-                CompanionAppRoot()
+                CompanionAppRoot(runtimeLifetime: runtimeLifetime)
             }
             #else
-            CompanionAppRoot()
+            CompanionAppRoot(runtimeLifetime: runtimeLifetime)
             #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -32,6 +35,19 @@ struct ClubhouseGoApp: App {
     }
 
     init() {
+        #if DEBUG
+        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
+        _runtimeLifetime = State(initialValue: CompanionStateLifetime {
+            // Lazy: previews/probes never reset the install or construct a feedback client.
+            if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
+            return CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode)
+        })
+        #else
+        _runtimeLifetime = State(initialValue: CompanionStateLifetime {
+            CompanionInstallReset.clearLeftoversIfFreshInstall()
+            return CompanionRuntime()
+        })
+        #endif
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
             UserDefaults.standard.removeObject(forKey: AnnexDiagnosticSettings.preferenceKey)
