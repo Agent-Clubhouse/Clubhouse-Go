@@ -206,8 +206,7 @@ struct FramebriarShakePreview: View {
         Button("Simulate repeated shake") { for _ in 0..<3 { lastResponder = PreviewMotionProbe.shake() } }
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
         Button("Settings") {
-            settingsCapture = CompanionFeedbackSettingsCapture(screenshot:
-                CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.freeze))
+            settingsCapture = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
         }
         Button("Present other screen") { showingOther = true }
         // What iOS posts after the side and volume buttons take a screenshot.

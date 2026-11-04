@@ -167,17 +167,21 @@ private struct CompanionFeedbackCapturedComposer: View {
     let capture: CompanionFeedbackSettingsCapture?
     @State private var png: Data?
     @State private var prepared = false
+    @State private var unavailable: FeedbackScreenshotUnavailable?
     var body: some View {
         Group {
-            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png) }
+            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable) }
             else { ProgressView("Preparing feedback…") }
         }
         .navigationTitle("Send feedback")
         .task {
             guard !prepared else { return }
-            let encoded = await CompanionFeedbackPresenter.encode(capture?.screenshot)
+            let image = capture?.screenshot
+            let encoded = await CompanionFeedbackPresenter.encode(image)
             guard !Task.isCancelled else { return }
-            png = encoded; prepared = true
+            png = encoded
+            unavailable = capture?.screenshotUnavailable ?? (image != nil && encoded == nil ? .failed : nil)
+            prepared = true
         }
     }
 }
@@ -221,6 +225,7 @@ struct CompanionFeedbackComposer: View {
                 }
             }
             #endif
+            .navigationBarBackButtonHidden()
             .onAppear {
                 #if DEBUG
                 CompanionFeedbackPresenter.recordFixtureScreenshot(screenshot)

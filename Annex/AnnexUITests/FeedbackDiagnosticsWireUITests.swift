@@ -116,6 +116,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let app = launch()
         settings(app); testDraft(app)
         XCTAssertFalse(app.images["framebriar-attachment"].exists, "The scoped diagnostics test must not inherit Settings' screen")
+        XCTAssertFalse(app.staticTexts["framebriar-screenshot-unavailable"].exists, "This route never expected a capture")
         XCTAssertTrue(app.staticTexts["framebriar-included"].label.contains("recent diagnostics (2 events)"))
         app.buttons["Cancel"].tap()
         ordinaryButton(app); note("ordinary after cancelled test", in: app)
@@ -271,6 +272,28 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertLessThan(actualDifference, menuDifference * 0.4, "Uploaded pixels must match the app before the menu, not its overlay")
     }
 
+    private func assertCapturedScreen(_ snapshot: [String: Any], matches original: Data) throws {
+        let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last)
+        XCTAssertEqual(snapshot["initialScreenshotSHA"] as? String, upload["sha256"] as? String)
+        let png = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["samplePNG"] as? String)))
+        let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
+        func pixels(_ data: Data) throws -> [UInt8] {
+            let cg = try XCTUnwrap(UIImage(data: data)?.cgImage)
+            var result = [UInt8](repeating: 0, count: image.width * image.height * 4)
+            let context = try XCTUnwrap(CGContext(data: &result, width: image.width, height: image.height,
+                bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return result
+        }
+        let actual = try pixels(png), expected = try pixels(original)
+        var difference = 0.0, count = 0
+        for i in stride(from: image.width * 4 * image.height / 10, to: actual.count, by: 4) {
+            for channel in 0..<3 { difference += abs(Double(actual[i + channel]) - Double(expected[i + channel])) / 255; count += 1 }
+        }
+        XCTAssertLessThan(difference / Double(count), 0.04, "Uploaded screen must match the app before Settings, with no Settings overlay")
+    }
+
     @MainActor func testMenuPreAttachesUnderlyingScreenAndRemovePreventsImageUpload() throws {
         let app = launch()
         let marker = app.otherElements["fixture-screen-marker"].firstMatch
@@ -345,6 +368,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         menu(app)
         XCTAssertFalse(app.images["framebriar-attachment"].exists)
         XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        XCTAssertFalse(app.staticTexts["framebriar-screenshot-unavailable"].exists, "Early cleanup is not a capture failure")
         note("early menu dismissal", in: app)
         sendAndClose(app)
         let snapshot = try wire(app)
@@ -382,13 +406,13 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor func testSettingsUsesScreenBeforeSheetAndDoesNotUseShakeAttachmentPreference() throws {
         let app = launch()
         let screen = app.frame
-        var marker = CGRect.zero
+        var marker = CGRect.zero, underlying = Data()
         settings(app) {
+            underlying = app.screenshot().pngRepresentation
             let top = app.navigationBars["Shake fixture"].frame.maxY
             marker = app.otherElements["fixture-screen-marker"].firstMatch.frame.intersection(
                 CGRect(x: 0, y: top + 8, width: screen.width, height: screen.height - top - 8))
         }
-        XCTAssertGreaterThan(marker.height, 0, "Sample only marker pixels still visible when Settings freezes")
         let toggle = app.switches["Attach a screenshot when you shake"]
         XCTAssertTrue(scrollTo(toggle, in: app, maxSwipes: 6))
         if toggle.switches.firstMatch.exists { toggle.switches.firstMatch.tap() }
@@ -398,7 +422,8 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         note("settings underlying screen", in: app)
         sendAndClose(app); closeSettings(app)
         let snapshot = try wire(app)
-        try assertUnderlyingPixels(snapshot, marker: marker, screen: screen)
+        if marker.height > 0 { try assertUnderlyingPixels(snapshot, marker: marker, screen: screen) }
+        try assertCapturedScreen(snapshot, matches: underlying)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
     }
 
@@ -410,6 +435,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         menu(app)
         XCTAssertFalse(app.images["framebriar-attachment"].exists)
         XCTAssertTrue(app.buttons["Add screenshot"].exists)
+        XCTAssertTrue(app.staticTexts["framebriar-screenshot-unavailable"].label.contains("secure text field"))
         note("secure field menu", in: app)
         sendAndClose(app)
         var snapshot = try wire(app)
@@ -422,11 +448,83 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertFalse(app.images["framebriar-attachment"].exists)
         XCTAssertTrue(app.buttons["Add screenshot"].exists)
         XCTAssertFalse(app.staticTexts["framebriar-error"].exists)
+        XCTAssertTrue(app.staticTexts["framebriar-screenshot-unavailable"].label.contains("couldn't be captured"))
         note("failed capture menu", in: app)
         sendAndClose(app)
         snapshot = try wire(app)
         XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
         XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testSettingsAndMenuExplainDeferredEncodingFailure() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--feedback-encode-failure"])
+        XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
+        for route in ["menu", "settings"] {
+            if route == "menu" { menu(app) } else { settings(app); ordinaryButton(app) }
+            XCTAssertFalse(app.images["framebriar-attachment"].exists)
+            let reason = app.staticTexts["framebriar-screenshot-unavailable"]
+            XCTAssertTrue(scrollTo(reason, in: app, maxSwipes: 6))
+            XCTAssertTrue(reason.label.contains("couldn't be captured"))
+            XCTAssertTrue(app.buttons["Add screenshot"].exists)
+            note("deferred encoding failed \(route)", in: app)
+            sendAndClose(app)
+            if route == "settings" { closeSettings(app) }
+        }
+        let snapshot = try wire(app)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+        XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.allSatisfy { $0["media"] is NSNull && $0["diagnostics"] == nil } == true)
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
+    }
+
+    @MainActor func testSettingsSecureAndRenderFailureSayWhyWithoutUploading() throws {
+        for secure in [true, false] {
+            let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing"] + (secure ? [] : ["--feedback-capture-failure"]))
+            XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
+            if secure {
+                let field = app.secureTextFields["Fixture password"]
+                XCTAssertTrue(scrollTo(field, in: app, maxSwipes: 6)); field.tap()
+                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            }
+            settings(app); ordinaryButton(app)
+            let reason = app.staticTexts["framebriar-screenshot-unavailable"]
+            XCTAssertTrue(scrollTo(reason, in: app, maxSwipes: 6))
+            XCTAssertTrue(reason.label.contains(secure ? "secure text field" : "couldn't be captured"))
+            XCTAssertFalse(app.images["framebriar-attachment"].exists)
+            note(secure ? "settings secure input" : "settings renderer failure", in: app)
+            sendAndClose(app); closeSettings(app)
+            let snapshot = try wire(app)
+            XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+            XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
+            XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
+        }
+    }
+
+    @MainActor func testSettingsComposerKeepsNoteAndEditsUntilExplicitCancel() throws {
+        let app = launch(image: true)
+        settings(app); ordinaryButton(app)
+        note("Keep this note until Cancel", in: app)
+        let navigation = app.navigationBars["Send feedback"]
+        XCTAssertFalse(navigation.buttons["Fixture settings"].exists, "Only explicit Cancel leaves a composer")
+        let start = navigation.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: navigation.frame.width * 0.8, dy: 20)))
+        navigation.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        XCTAssertTrue(navigation.exists)
+        XCTAssertEqual(app.textViews["framebriar-notes"].value as? String, "Keep this note until Cancel")
+        app.buttons["Cancel"].tap()
+        testDraft(app)
+        var canvas = editor(app)
+        app.buttons["Redact"].tap()
+        mark(canvas, from: CGPoint(x: 0.2, y: 0.2), to: CGPoint(x: 0.8, y: 0.8))
+        finishEditor(app)
+        navigation.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)))
+        XCTAssertTrue(navigation.exists)
+        canvas = editor(app)
+        XCTAssertTrue((canvas.value as? String ?? "").hasPrefix("1 mark"))
+        app.buttons["framebriar-editor-cancel"].tap()
+        app.buttons["Cancel"].tap(); closeSettings(app)
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     /// Keep taps between the SDK's pinned summary and navigation bars, including at accessibility sizes.
@@ -651,7 +749,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let image = app.images["framebriar-attachment"]
         let canvas = app.descendants(matching: .any)["framebriar-editor-canvas"]
         var evidence: [String: Any] = [:]
-        for attempt in 0..<12 {
+        for attempt in 0..<30 {
             let top = app.navigationBars["Send feedback"].frame.maxY + 8
             let bottom = app.staticTexts["framebriar-included"].frame.minY - 8
             let visible = image.exists ? image.frame.intersection(CGRect(x: 0, y: top, width: app.frame.width, height: max(0, bottom - top))) : .null
@@ -665,7 +763,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
             }
             let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
             let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
-            let delta: CGFloat = image.exists && image.frame.midY < top ? 100 : (attempt < 6 ? -100 : 100)
+            let delta: CGFloat = image.exists && image.frame.midY < top ? 100 : (attempt < 20 ? -100 : 100)
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
         }
         evidence["editorOpened"] = canvas.exists

@@ -147,7 +147,11 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
     Also dismiss the menu without selecting feedback, or choose another action, then
     reopen it from a changed screen: feedback must use the new screen. Settings may briefly show
     **Preparing feedback…** after choosing feedback. A secure-field or failed capture should open
-    text-only with Photos available. With iOS Full-Screen Previews on, return
+    text-only with Photos available and say whether a secure field prevented capture or capture
+    failed. Early menu highlight cleanup can intentionally open text-only without a capture-problem
+    message; it must never reuse old pixels. In Settings, type a note or make an edit, then try Back,
+    an edge-back swipe and swiping the Settings sheet away: only explicit Cancel should discard it.
+    With iOS Full-Screen Previews on, return
     from its editor and look for the prompt then. Shake should not interrupt typing; secure fields must
     suppress capture. Record settings and timing if absent.
 12. **Held feedback — inspect first.** If reports are held from an earlier enrollment, check count,

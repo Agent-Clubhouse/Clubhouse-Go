@@ -33,7 +33,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
 | `CompanionFeedbackMenuCapture.Anchor` | main_actor | UIView state, owned gesture recognizer, weak control collection and KVO observations require UIKit teardown affinity. |
-| `CompanionFeedbackSettingsCapture` | arc_only | UUID and immutable CoreGraphics bitmap only; sheet dismissal clears shared pixels even if SwiftUI retains destination values. No UI fields or callbacks. |
+| `CompanionFeedbackSettingsCapture` | arc_only | UUID, immutable CoreGraphics bitmap and a Sendable capture-reason enum; sheet dismissal clears shared pixels even if SwiftUI retains destination values. No UI fields or callbacks. |
 | `CompanionFeedbackOpeningPress` | main_actor | UIGestureRecognizer tracking state requires UIKit teardown affinity; the anchor is weak. |
 | `CompanionDecisionQueue` | arc_only | Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted. |
 | `CompanionHelperPresetsScreen` | arc_only | Sendable routing/Auto/quota snapshot, String/Bool, Date, UUID, ContinuousClock.Instant and Observation state; read/write closures are not retained. No UI fields, retained tasks/timers or cleanup resources. |

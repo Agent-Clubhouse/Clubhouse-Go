@@ -173,8 +173,7 @@ struct CompanionAppRoot: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private func openSettings() {
-        settingsCapture = CompanionFeedbackSettingsCapture(screenshot:
-            CompanionFeedbackPresenter.keyWindow().flatMap(CompanionFeedbackPresenter.freeze))
+        settingsCapture = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
     }
 
     init() {
