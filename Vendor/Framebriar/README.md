@@ -63,6 +63,7 @@ Without optional incident references or [report diagnostics](#report-diagnostics
 
 - `connect(invitation:)` is an explicit user action, `POST /v1/access/redeem`, `{v:1, scopeVersion:2, invitation, gameId, buildSha, attemptId}`. Clear the password field immediately. A lost reply is not automatically retried; manually retrying the same invitation in the same client within 14 minutes reuses its attempt ID. The invitation/attempt exist only in memory. Process termination loses this recovery context; do not promise recovery of a spent invitation after a crash.
 - `POST /v1/access/refresh` uses only `{v:1, scopeVersion:2, refreshToken}`. Access tokens are refreshed inside the final five minutes of their one-hour life, and never persisted. Refresh credentials and the original family deadline cannot rotate/extend during refresh. Issuer-selected deadlines up to its current 365-day maximum are accepted (default 30 days).
+- A successful redeem reply that fails local validation throws `invalidResponse`, as before, and sets `ClientStatus.notice` to `enrollment-response-rejected` with `noticeReason` `invalid-deadline`, `invalid-token`, `wrong-game` or `invalid-response`. Say "Ask for a new invitation or update the app", not "try again"; `FeedbackModel` does. Both fields are persisted, stay nil for network, 5xx and non-JSON failures, and clear when the next `connect` starts or on Disconnect. Tokens from the rejected reply are not kept. An existing enrollment stays usable.
 - Credentials are in a device-only, non-synchronizing Keychain record, accessible while unlocked. Invitations, access tokens and upload tickets are never queued or written to disk. Keychain errors fail closed; there is no plaintext fallback.
 - `POST /v1/reports` sends the service's v1 report schema with a short-lived Bearer token. Text-only reports complete with `ready` or `processed`. Image reports may return `pending` with a five-minute ticket; the SDK uses `PUT /v1/reports/{id}/media` with Bearer + `x-upload-ticket`. A retry starts with the same report POST, obtaining a new ticket or a finalized receipt.
 - The ephemeral URLSession disables cookies, credential storage and caches, refuses redirects, uses normal platform TLS validation, has 45-second request / 60-second resource timeouts, and bounds response bodies to 4 KiB. Error bodies are not surfaced or logged. Do not inject a transport that redirects credentials or logs requests.
@@ -110,17 +111,17 @@ npm run check && npm test
 python3 scripts/native-pin.py --check
 ```
 
-The Swift tests use synthetic credentials, injected clocks and in-memory transports; they do not contact the service. A shared fixture checks the Swift report against the actual JS service normalizer. Tests cover report diagnostics (all states, allowlist, trimming, the shared fixture, frozen wire bytes across retries and relaunch), the composer's summary and result states, the shake screenshot policy (secure-field suppression, pixel/byte caps and downscaling, composer pre-fill validation), text/image flows, same-UUID recovery, invite attempt reuse, early renewal/fixed deadlines, rejection, pause/disconnect races, expiry, storage failure, item/byte bounds, redaction, corrupt local files and durable backoff. Full live enrollment, issuer state, real-device Keychain/protection behavior, physical-device UI, provisioning and release remain separate approval/validation gates.
+The Swift tests use synthetic credentials, injected clocks and in-memory transports; they do not contact the service. A shared fixture checks the Swift report against the actual JS service normalizer. Tests cover report diagnostics (all states, allowlist, trimming, the shared fixture, frozen wire bytes across retries and relaunch), the composer's summary and result states, screenshot editing (decoded pixels at source and fit-down sizes, orientation, alpha, metadata, and delivered bytes across a retry and relaunch), failed saves with a fault-injecting store, the shake screenshot policy (secure-field suppression, pixel/byte caps and downscaling, composer pre-fill validation), text/image flows, same-UUID recovery, invite attempt reuse, early renewal/fixed deadlines, rejection, pause/disconnect races, expiry, storage failure, item/byte bounds, redaction, corrupt local files and durable backoff. Full live enrollment, issuer state, real-device Keychain/protection behavior, physical-device UI, provisioning and release remain separate approval/validation gates.
 
 ## The composer
 
-`FeedbackView` is one screen: notes, the image with Replace and Remove, a pinned summary of what will be sent, one switch for diagnostics, and **Send** in the top bar. There is no review step: the Send tap is the consent. Shake and screenshot triggers only open it. While Send is unavailable, a line at the top says why.
+`FeedbackView` is one screen: notes, the image with Replace and Remove and tap to edit, a pinned summary of what will be sent, one switch for diagnostics, and **Send** in the top bar. There is no review step: the Send tap is the consent. Shake and screenshot triggers only open it. While Send is unavailable, a line at the top says why.
 
 The summary is built from the values that go on the wire, for example `Included: note · screenshot · recent diagnostics (12 events)`. Every statement the composer makes about content or delivery lives in [`FeedbackDisclosure.swift`](Sources/FramebriarUI/FeedbackDisclosure.swift), so that's the one file to review.
 
 After Send:
 
-1. The report is committed locally first (`FeedbackModel.save`). If that fails, the composer stays open with the draft and says why, and sending again keeps the same report ID.
+1. The report is committed locally first (`FeedbackModel.save`). If that fails, the composer stays open with the draft and says why. Sending again keeps the same report ID, except after an enrollment change or a conflict (see [Failed saves](#failed-saves)).
 2. One delivery attempt for that report runs at once (`FeedbackModel.deliver`). **Done** is available from here, and closing doesn't cancel the attempt.
 3. The screen shows the outcome:
 
@@ -133,11 +134,74 @@ After Send:
 | `.needsAttention(.rejected)` | Needs attention | Kept and marked blocked until cleared |
 | `.needsAttention(.heldForEnrollment)` | Needs attention | Saved under a previous enrollment and not sent. Kept until the user sends or clears it from the enrollment screen |
 | `.needsAttention(.enrollmentChanged)` | Needs attention | Not saved. The composer keeps the note and image, recaptures, and waits for a new Send |
-| `.needsAttention(.storageFull)`, `(.storageUnavailable)` and other not-saved reasons | An error in the composer | Not saved. The draft is still open |
+| `.needsAttention(.storageFull)`, `(.invalidReport)`, `(.notEnrolled)`, `(.busy)` | An error in the composer | Not saved. The draft is still open |
+| `.needsAttention(.storageUnavailable)` | An error in the composer | Unconfirmed: the store failed, and reading it back didn't find this report or couldn't read. The draft is still open, and the message says a copy could still send |
 
 There is no background delivery in this release. A saved report waits for the host's foreground `tick()`.
 
-A custom composer can use the same parts: `model.openDraft()` once when it opens, `draft.summary(...)`, then `model.save(...)` and `model.deliver(...)`, or `model.send(...)` for both.
+A custom composer can use the same parts: `model.openDraft()` once when it opens, `draft.summary(...)`, then `model.save(...)` and `model.deliver(...)`, or `model.send(...)` for both. After `save` throws, `model.recovery(after:for:)` returns the draft to use next and the message to show.
+
+### Editing the screenshot
+
+Tapping the image opens `FeedbackScreenshotEditor` full screen. **Move** pinches, pans and double-taps. **Pen** draws in red, yellow, blue or white, about 6 points thick on screen, and never thinner than 3 points at the fitted zoom, so a stroke reads at phone size. **Redact** drags a solid black rectangle. A pen or redaction tool takes one-finger drags and turns zoom off, so the two never compete: zoom in under Move, then switch. **Undo** removes the last mark, **Clear edits** removes them all after a confirmation, **Cancel** discards what changed in this visit, and **Done** flattens.
+
+**Edits are reversible until the first Send tap, and final after it.**
+
+| State | What the composer holds | Reopening the editor | Clear edits |
+|---|---|---|---|
+| Before any Send | The source and its marks, in view memory only, plus the flattened image | Marks are still editable on the source, and Undo works | Removes every mark. The confirmation says the original comes back, including anything covered, and that's what's sent |
+| After a Send tap that didn't complete (a failed save or an enrollment change) | Only the flattened image, which is the new source | No earlier marks. New ones are allowed | Removes only marks made since. Covered pixels can never come back, and the confirmation says so |
+| Cancel, dismiss, Replace or Remove | Nothing from before | | |
+| Backgrounded | The same, in memory only | The same | The same |
+| Relaunched | Nothing from before, by design | | |
+
+The source and marks are never in `FeedbackDraft`, `ReviewedFeedback`, the queue or a log, and `ScreenshotMark` isn't `Codable`. Only flattened bytes are sent, and those exact bytes go out across retries and relaunch. After a Clear with nothing else marked, that's the source re-encoded. An image that was never edited is sent as it was attached.
+
+**Include screenshot** is on whenever an image is attached. Off, the report has no media, the summary says "screenshot left out", and the image stays in the composer, with its edits, until it closes. Checking it again restores the same image. A Send tap ends reversibility while it's off too, so after a failed Send, checking it shows only the flattened image. With no note and nothing included, Send stays off and says why.
+
+- **What a redaction does.** Its pixels are replaced at source resolution, expanded outward to whole pixels, before any fit-down, and again after it. So no original pixel in the area reaches the delivered image, including through resampling at its edges. Pen strokes of any color go under redactions, whichever came first.
+- **What it doesn't do.** A redaction only covers what the user covers. A pen stroke isn't redaction, in any color: what's under a line may still show, and the editor's wording says so.
+- **The output** is an opaque sRGB PNG with no alpha and no source metadata, composited over white, with orientation applied. It fits the report limits (8 MiB, 20 MP, 8192 px) by downscaling. If it can't, or can't be decoded, the editor says so and the image doesn't change. A wide-gamut screenshot loses colors outside sRGB when edited.
+- **When it's available.** Only while composing with the image included: not during the local save, and not after commit. Diagnostics stay frozen at open, and editing doesn't recapture them.
+- **Shakes** do nothing while the editor is on screen: no second composer, and no capture of the editor.
+
+**When there's no image**, the composer still opens text-only, and a note sends as usual. **Add screenshot** picks from Photos. To say why a capture is missing, pass `screenshotUnavailable: .secureField` or `.failed`. `FeedbackShakeEvent.screenshotUnavailable` carries this for a shake, and an `initialScreenshotPNG` that can't be used counts as `.failed`. Leave it nil when capture is simply off.
+
+A custom composer can present the same view, and follows the same rule by holding the source and marks itself:
+
+```swift
+.fullScreenCover(isPresented: $editing) {
+    FeedbackScreenshotEditor(png: source, marks: marks, editsAreFinal: editsAreFinal, onDone: { flattened, newMarks in
+        image = flattened; marks = newMarks; editing = false
+    }, onCancel: { editing = false })
+}
+
+// On the first Send tap, whether or not the image is included, before saving:
+editsAreFinal = editsAreFinal || !marks.isEmpty
+source = image; marks = []
+```
+
+Keep `source` and `marks` in view memory only, and pass `image` to `save`. Without that last step, a failed save leaves the original one tap from coming back. `FeedbackScreenshotEditor(png:onDone:onCancel:)` still works for a composer that doesn't keep marks: the flattened PNG replaces its copy, and it should drop the original.
+
+### Failed saves
+
+After any failed save the client reads the store back. If it holds exactly the queue the save was given, the save counts, because that's what a relaunch would load. The cost is on the failure path only. This applies to every queue write, not just Send. A custom `FeedbackStore` must throw from `load`, not return an empty queue, when it can't tell what's stored.
+
+| What failed | State | Editing and sending again |
+|---|---|---|
+| The write, before anything changed | Disk and memory unchanged, and `save` throws | Same ID, the latest image, no conflict |
+| After the file was replaced, then the store threw, and the read-back matches | Saved. `save` returns and the composer moves on to sending those bytes | No editable state is left over the copy. A custom composer's same-ID edit gets `.conflict`, and `recovery(after:for:)` moves to a new ID. Once delivered, it gets `.needsAttention(.rejected)` from the service's 409 |
+| The same, and the read-back couldn't read | `save` throws. The copy is on disk but not in memory, so this process won't send it | Same ID. That whole-queue write replaces the unacknowledged copy, so only the latest image reaches the service |
+| **The same, with no later successful save, then a relaunch** | **The earlier bytes load and send, even if the user went on to redact.** The message warned of this | The composer is gone, so nothing to edit |
+| The same, with a draft ID still held across the relaunch and different contents | The loaded copy is committed | `FramebriarError.conflict`, and the committed bytes stay. `recovery(after:for:)` moves to a new ID with the same frozen captures and says both may be delivered. Nothing goes out until the next Send |
+| The write landed different contents (a partial store, or a file from elsewhere) | Not committed, `save` throws, and memory doesn't adopt them | A later successful save rewrites the queue from memory, replacing them. After a relaunch first, they load as committed and a same-ID edit conflicts |
+| The delivery record, after the service confirmed | If it landed and reads back, `.sent`. Otherwise the report stays queued and it's `.deliveryUnconfirmed`, never `.sent` | The next pass resends the same bytes, and the service recognizes them |
+
+A report the client acknowledged or loaded is never replaced: different contents under its ID are a conflict. So `.storageUnavailable` means unconfirmed, not unsaved.
+
+The relaunch row is the one remaining way superseded bytes can send. It takes all of: a store that replaces its file and then throws, a read-back that also fails, and no later successful save. `FileFeedbackStore` runs no SDK code after its atomic write, so this needs Foundation or a custom store to throw after replacing the file.
+
+`Client.deliver` reports the latest save of an ID. A draft saved again after delivery has to earn its own result: new bytes get `.needsAttention(.rejected)` from the 409, and the same bytes get `.sent` once the service confirms the repeat. Until then it reports that attempt, such as `.saved(.offline)`.
 
 ## Report diagnostics
 
@@ -239,7 +303,7 @@ The core package does not depend on motion APIs; this is entirely optional `Fram
 On an accepted shake, and before anything is presented, the SDK renders that window with `UIGraphicsImageRenderer` and `drawHierarchy(in:afterScreenUpdates: false)`, so the composer itself is never in the image. `ShakeScreenshot` encodes it as a metadata-free PNG within the report limits (8 MiB, at most 20 MP and 8192 px per side), downscaling if needed; if it cannot fit, no image is attached.
 
 - The capture happens **on the device** and is held only in memory by the composer. It is not written to the queue or sent anywhere until the user taps **Send**.
-- `FeedbackView(model:initialScreenshotPNG:)` shows it attached for review, with **Remove** and **Replace screenshot**. Cancelling the composer discards it.
+- `FeedbackView(model:initialScreenshotPNG:)` shows it attached for review and included, with **Include screenshot**, **Remove** and **Replace screenshot**. Cancelling the composer discards it.
 - No capture is taken while a secure text field is first responder. (Shakes are ignored during text input anyway; this is a second check.)
 - Pass `captureScreen: false` to open an empty composer instead. Hosts should expose this as a setting, e.g. "Attach a screenshot when you shake", and pass `false` for scenes that should never be captured.
 - Screen pixels can contain private text, and redaction is not image OCR: the user must review the image before sending.

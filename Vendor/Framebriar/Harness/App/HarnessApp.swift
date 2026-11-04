@@ -1,5 +1,7 @@
+import CryptoKit
 import Framebriar
 import FramebriarUI
+import ImageIO
 import ObjectiveC
 import SwiftUI
 import UIKit
@@ -7,7 +9,10 @@ import UIKit
 /// Test fixture only. In-memory stores and a fake transport: it opens no socket and has no real invitation.
 /// Launch arguments: --callback (route through `onFeedbackShake`), --offline, --not-enrolled, --no-capture,
 /// --passthrough-window (a non-key overlay like a host's PassthroughWindow), --model-off (the model's
-/// default report diagnostics mode), --override-on (the first composer passes `.on`), --reenroll-after-open.
+/// default report diagnostics mode), --override-on (the first composer passes `.on`), --reenroll-after-open,
+/// --tall-image (the composer gets a very tall screenshot instead of the capture), --fail-first-save (the first
+/// report save throws and writes nothing), --unavailable-secure (the composer is told a secure field stopped capture).
+/// The `open-editor` button presents the editor with no composer, as a host's own composer would.
 @MainActor @Observable final class Counters {
     static let shared = Counters()
     var chain = 0
@@ -15,6 +20,44 @@ import UIKit
     var captures = 0
     var notEnrolled = 0
     var probe = 0
+    /// The last capture a shake delivered, and the image bytes the service last received, to compare exactly.
+    var captureSHA = "none"
+    var deliveredSHA = "none"
+    var captureBlack = 0
+    var deliveredBlack = 0
+    var deliveredInks = ""
+    var reportsPosted = 0
+    var reportsWithMedia = 0
+}
+
+func sha(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
+/// How many pixels are exactly black, which is how a redaction shows in the delivered bytes.
+func blackPixels(_ png: Data) -> Int {
+    guard let source = CGImageSourceCreateWithData(png as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return -1 }
+    let width = image.width, height = image.height
+    var bytes = [UInt8](repeating: 0, count: width * height * 4)
+    bytes.withUnsafeMutableBytes { raw in
+        CGContext(data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?
+            .draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    }
+    return stride(from: 0, to: bytes.count, by: 4).reduce(0) { $0 + (bytes[$1] == 0 && bytes[$1 + 1] == 0 && bytes[$1 + 2] == 0 ? 1 : 0) }
+}
+/// Which ink colors are exactly present in the delivered bytes, in the order red, yellow, blue, white.
+func inksPresent(_ png: Data) -> String {
+    guard let source = CGImageSourceCreateWithData(png as CFData, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return "" }
+    let width = image.width, height = image.height
+    var bytes = [UInt8](repeating: 0, count: width * height * 4)
+    bytes.withUnsafeMutableBytes { raw in
+        CGContext(data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?
+            .draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    }
+    var found = Set<ScreenshotInk>()
+    for i in stride(from: 0, to: bytes.count, by: 4) {
+        for ink in ScreenshotInk.allCases where ink.rgb == (bytes[i], bytes[i + 1], bytes[i + 2]) { found.insert(ink) }
+    }
+    return ScreenshotInk.allCases.filter(found.contains).map { "\($0)" }.joined(separator: " ")
 }
 
 final class MemoryEnrollment: EnrollmentStore, @unchecked Sendable {
@@ -23,9 +66,15 @@ final class MemoryEnrollment: EnrollmentStore, @unchecked Sendable {
     func save(_ record: EnrollmentRecord, scope: String) throws { lock.withLock { self.record = record } }
 }
 final class MemoryQueue: FeedbackStore, @unchecked Sendable {
-    private let lock = NSLock(); private var items: [QueuedFeedback] = []
+    private let lock = NSLock(); private var items: [QueuedFeedback] = []; private var failNext = false
+    func failNextSave() { lock.withLock { failNext = true } }
     func load(scope: String) throws -> [QueuedFeedback] { lock.withLock { items } }
-    func save(_ items: [QueuedFeedback], scope: String) throws { lock.withLock { self.items = items } }
+    func save(_ items: [QueuedFeedback], scope: String) throws {
+        try lock.withLock {
+            if failNext { failNext = false; throw FramebriarError.storage }
+            self.items = items
+        }
+    }
 }
 final class FakeTransport: HTTPTransport, @unchecked Sendable {
     let offline: Bool
@@ -38,8 +87,16 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
                      "expiresAt": f.string(from: Date() + 3600), "refreshExpiresAt": f.string(from: Date() + 86400)]
         } else {
             if offline { throw FramebriarError.network }
-            let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
-            reply = ["id": body?["id"] ?? "", "status": "ready", "gameId": "harness"]
+            if request.url!.path.hasSuffix("/media") {
+                let png = request.httpBody ?? Data(), digest = sha(png), black = blackPixels(png), inks = inksPresent(png)
+                await MainActor.run { Counters.shared.deliveredSHA = digest; Counters.shared.deliveredBlack = black; Counters.shared.deliveredInks = inks }
+                reply = ["id": request.url!.deletingLastPathComponent().lastPathComponent, "status": "ready", "gameId": "harness"]
+            } else {
+                let body = try JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any]
+                let pending = body?["media"] is [String: Any]
+                await MainActor.run { Counters.shared.reportsPosted += 1; if pending { Counters.shared.reportsWithMedia += 1 } }
+                reply = ["id": body?["id"] ?? "", "status": pending ? "pending" : "ready", "gameId": "harness", "ticket": String(repeating: "t", count: 43)]
+            }
         }
         return HTTPResponse(status: 200, body: try JSONSerialization.data(withJSONObject: reply))
     }
@@ -47,9 +104,11 @@ final class FakeTransport: HTTPTransport, @unchecked Sendable {
 
 @MainActor func makeHarnessModel(offline: Bool, enrolled: Bool, reportDiagnostics: FeedbackReportDiagnostics = .on) async throws -> FeedbackModel {
     let config = try Configuration(gameID: "harness", endpoint: URL(string: "https://harness.invalid/api")!)
-    let client = try Client(configuration: config, transport: FakeTransport(offline: offline), enrollmentStore: MemoryEnrollment(), feedbackStore: MemoryQueue())
+    let queue = MemoryQueue()
+    let client = try Client(configuration: config, transport: FakeTransport(offline: offline), enrollmentStore: MemoryEnrollment(), feedbackStore: queue)
     await client.resume()
     if enrolled { try await client.connect(invitation: String(repeating: "i", count: 43)) }
+    if ProcessInfo.processInfo.arguments.contains("--fail-first-save") { queue.failNextSave() }
     let model = FeedbackModel(client: client, diagnosticsProvider: {
         FeedbackDiagnostics(windowStart: Date() - 60, windowEnd: Date(), entries: [
             .init(at: Date() - 2, level: .warn, ns: "transport", event: "connect.failed", attrs: ["failure": "timeout", "attempt": 1]),
@@ -108,6 +167,13 @@ struct CounterStrip: View {
             Text("\(counters.captures)").accessibilityIdentifier("count-capture")
             Text("\(counters.notEnrolled)").accessibilityIdentifier("count-not-enrolled")
             Text("\(counters.probe)").accessibilityIdentifier("count-probe")
+            Text(counters.captureSHA).accessibilityIdentifier("capture-sha")
+            Text(counters.deliveredSHA).accessibilityIdentifier("delivered-sha")
+            Text(verbatim: "\(counters.captureBlack)").accessibilityIdentifier("capture-black")
+            Text(verbatim: "\(counters.deliveredBlack)").accessibilityIdentifier("delivered-black")
+            Text(verbatim: counters.deliveredInks).accessibilityIdentifier("delivered-inks")
+            Text(verbatim: "\(counters.reportsPosted)").accessibilityIdentifier("reports-posted")
+            Text(verbatim: "\(counters.reportsWithMedia)").accessibilityIdentifier("reports-with-media")
         }.font(.caption2)
     }
 }
@@ -135,6 +201,7 @@ struct RootView: View {
     @State private var plain = ""
     @State private var secure = ""
     @State private var showSheet = false
+    @State private var showEditor = false
     @State private var claim = false
     @State private var presenter = HostPresenter()
     @FocusState private var focus: Field?
@@ -148,6 +215,7 @@ struct RootView: View {
             Button("Resign") { focus = nil }.accessibilityIdentifier("resign")
             Button("Open sheet") { showSheet = true }.accessibilityIdentifier("open-sheet")
             Button("Toggle responder") { claim.toggle() }.accessibilityIdentifier("toggle-responder")
+            Button("Open editor") { showEditor = true }.accessibilityIdentifier("open-editor")
             if UIDevice.current.userInterfaceIdiom == .pad {
                 Button("New scene") { UIApplication.shared.requestSceneSessionActivation(nil, userActivity: nil, options: nil) }.accessibilityIdentifier("new-scene")
             }
@@ -156,13 +224,21 @@ struct RootView: View {
             Text(model.isComposerOpen ? "open" : "closed").accessibilityIdentifier("composer-state")
         }
         .sheet(isPresented: $showSheet) { SheetContent() }
+        .fullScreenCover(isPresented: $showEditor) {
+            if let png = tallImage() {
+                FeedbackScreenshotEditor(png: png, onDone: { _ in showEditor = false }, onCancel: { showEditor = false })
+            }
+        }
         return Group {
             if ProcessInfo.processInfo.arguments.contains("--no-sdk") {
                 base // control: no SDK shake code at all, to compare the system's own behavior
             } else if callback {
                 base.onFeedbackShake(model: model, enabled: true, captureScreen: capture, onNotEnrolled: { Counters.shared.notEnrolled += 1 }) { event in
                     Counters.shared.perform += 1
-                    if event.screenshotPNG != nil { Counters.shared.captures += 1 }
+                    if let png = event.screenshotPNG {
+                        Counters.shared.captures += 1
+                        Counters.shared.captureSHA = sha(png); Counters.shared.captureBlack = blackPixels(png)
+                    }
                     presenter.present(model: model, event: event)
                 }
             } else {
@@ -170,6 +246,15 @@ struct RootView: View {
             }
         }
     }
+}
+
+/// A long scrolling capture, in light gray.
+@MainActor func tallImage() -> Data? {
+    guard let context = CGContext(data: nil, width: 1170, height: 8000, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+    context.setFillColor(CGColor(srgbRed: 0.9, green: 0.9, blue: 0.9, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 1170, height: 8000))
+    return context.makeImage().flatMap { ShakeScreenshot.encodePNG($0) }
 }
 
 /// The way a host routes a shake to its own presenter: from `event.window`, reusing `event.screenshotPNG`.
@@ -181,7 +266,8 @@ struct RootView: View {
         var top = event.window.rootViewController
         while let next = top?.presentedViewController { top = next }
         let host = UIHostingController(rootView: NavigationStack {
-            FeedbackView(model: model, initialScreenshotPNG: event.screenshotPNG, onClose: { [weak top] in top?.dismiss(animated: true) }, reportDiagnostics: reportDiagnostics)
+            FeedbackView(model: model, initialScreenshotPNG: ProcessInfo.processInfo.arguments.contains("--tall-image") ? tallImage() : event.screenshotPNG, onClose: { [weak top] in top?.dismiss(animated: true) }, reportDiagnostics: reportDiagnostics,
+                         screenshotUnavailable: ProcessInfo.processInfo.arguments.contains("--unavailable-secure") ? .secureField : event.screenshotUnavailable)
         })
         top?.present(host, animated: true)
         if ProcessInfo.processInfo.arguments.contains("--reenroll-after-open") {

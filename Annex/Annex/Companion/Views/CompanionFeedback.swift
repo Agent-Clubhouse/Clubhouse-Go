@@ -167,17 +167,21 @@ private struct CompanionFeedbackCapturedComposer: View {
     let capture: CompanionFeedbackSettingsCapture?
     @State private var png: Data?
     @State private var prepared = false
+    @State private var unavailable: FeedbackScreenshotUnavailable?
     var body: some View {
         Group {
-            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png) }
+            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable) }
             else { ProgressView("Preparing feedback…") }
         }
         .navigationTitle("Send feedback")
         .task {
             guard !prepared else { return }
-            let encoded = await CompanionFeedbackPresenter.encode(capture?.screenshot)
+            let image = capture?.screenshot
+            let encoded = await CompanionFeedbackPresenter.encode(image)
             guard !Task.isCancelled else { return }
-            png = encoded; prepared = true
+            png = encoded
+            unavailable = capture?.screenshotUnavailable ?? (image != nil && encoded == nil ? .failed : nil)
+            prepared = true
         }
     }
 }
@@ -187,6 +191,7 @@ private struct CompanionFeedbackCapturedComposer: View {
 struct CompanionFeedbackComposer: View {
     let model: FeedbackModel
     var initialScreenshotPNG: Data? = nil
+    var screenshotUnavailable: FeedbackScreenshotUnavailable? = nil
     var onClose: (@MainActor () -> Void)? = nil
     var isDiagnosticsTest = false
     @State private var openedEnrollment: String?
@@ -197,7 +202,7 @@ struct CompanionFeedbackComposer: View {
     #endif
     var body: some View {
         FeedbackView(model: model, initialScreenshotPNG: screenshot, onClose: onClose,
-                     reportDiagnostics: isDiagnosticsTest ? .on : .off)
+                     reportDiagnostics: isDiagnosticsTest ? .on : .off, screenshotUnavailable: screenshotUnavailable)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if isDiagnosticsTest {
                     VStack(alignment: .leading, spacing: 4) {
@@ -220,7 +225,11 @@ struct CompanionFeedbackComposer: View {
                 }
             }
             #endif
+            .navigationBarBackButtonHidden()
             .onAppear {
+                #if DEBUG
+                CompanionFeedbackPresenter.recordFixtureScreenshot(screenshot)
+                #endif
                 if openedEnrollment == nil {
                     openedEnrollment = model.client.enrollmentSignal.enrollmentRef
                     #if DEBUG
@@ -335,7 +344,7 @@ extension View {
                                 suppressed: Bool = false, captureScreen: Bool = true) -> some View {
         onFeedbackShake(model: presenter?.model, enabled: enabled, isPresenting: suppressed,
                         captureScreen: captureScreen, onNotEnrolled: { presenter?.sendFeedback(fromShake: true) }) { event in
-            presenter?.sendFeedback(screenshotPNG: event.screenshotPNG, from: event.window)
+            presenter?.sendFeedback(screenshotPNG: event.screenshotPNG, screenshotUnavailable: event.screenshotUnavailable, from: event.window)
         }
     }
 }

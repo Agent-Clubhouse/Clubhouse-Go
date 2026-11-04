@@ -34,8 +34,8 @@ before copying these notes to TestFlight.
 - Dispatcher has its own first tab. Choose your preferred Start screen in Settings.
 - Helper presets, Auto provider choices, plan limits and context-window controls appear when your
   desktop supports them. Agent and project icons load through a bounded cache.
-- Feedback has a simpler Send screen, clearer Included details, more reliable shake and screenshot
-  entry points, and recovery for reports saved under an earlier feedback enrollment.
+- Feedback adds screenshot zoom, four pen colors, opaque redaction, Undo, Clear edits and an
+  Include screenshot switch, alongside the existing capture and held-report recovery routes.
 - Startup and view-lifetime fixes protect 24 reviewed classes from an iOS 26.0 runtime abort.
 
 ### Known limits
@@ -132,11 +132,26 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
     composer. Home and chat's ⋯ → **Send feedback** should pre-attach the screen from before the menu
     opened; Settings → **Send feedback** should attach the screen from before Settings opened, even
     with the shake attachment setting off. Check the picture contains neither menu nor Settings nor
-    feedback UI. Inspect/remove the image, check **Add screenshot** still opens Photos, and cancel
-    without Send. Also dismiss the menu without selecting feedback, or choose another action, then
+    feedback UI. Tap the image: under **Move**, pinch, pan and double-tap; under **Pen**, try red,
+    yellow, blue and white, then use **Redact** to cover harmless text. A pen is not redaction. Check
+    Undo, Cancel and Done, reopen the editor, then **Clear edits** and its original-restoration
+    confirmation. Before the first Send, Clear restores covered pixels too; the first Send makes
+    edits final even if saving fails or enrollment changes. Later Clear removes only later marks.
+    Turn **Include screenshot** off: Included must say screenshot left out; turn it on again to
+    recover the edited image. Check the controls on the smallest supported iPhone and iPad at large
+    Dynamic Type sizes and with VoiceOver. Inspect/remove the image, check **Add screenshot** still
+    opens Photos, and cancel without Send. Photos replacement can show/send sideways; edited
+    wide-gamut images flatten to sRGB. Record these SDK limits instead of assuming orientation or
+    original colors are preserved. At the largest accessibility text size, the pinned Included/logs
+    bar can occupy over half the smallest phone screen; record any control you cannot reach.
+    Also dismiss the menu without selecting feedback, or choose another action, then
     reopen it from a changed screen: feedback must use the new screen. Settings may briefly show
     **Preparing feedback…** after choosing feedback. A secure-field or failed capture should open
-    text-only with Photos available. With iOS Full-Screen Previews on, return
+    text-only with Photos available and say whether a secure field prevented capture or capture
+    failed. Early menu highlight cleanup can intentionally open text-only without a capture-problem
+    message; it must never reuse old pixels. In Settings, type a note or make an edit, then try Back,
+    an edge-back swipe and swiping the Settings sheet away: only explicit Cancel should discard it.
+    With iOS Full-Screen Previews on, return
     from its editor and look for the prompt then. Shake should not interrupt typing; secure fields must
     suppress capture. Record settings and timing if absent.
 12. **Held feedback — inspect first.** If reports are held from an earlier enrollment, check count,
@@ -271,8 +286,8 @@ the note above.
 
 ## Report diagnostics release gate
 
-Framebriar is re-vendored unchanged from the approved v0.7.1 tag
-`bb9b614292e54e4a4d0e9a764f9cbc47b7fc1981`; hashes verify. API diagnostics v1 and the 256-KiB
+Framebriar is re-vendored unchanged from the approved v0.8.0 tag
+`2cfe5abbe7965a690b9e22a1db13925b1744f003`; all 48 file hashes verify. API diagnostics v1 and the 256-KiB
 request cap are confirmed. General report diagnostics remain **OFF**, explicitly at both model and
 ordinary composer boundaries. OFF calls no provider and sends no diagnostics key, whether the
 telemetry/incident switch is on or off. Ordinary consented telemetry remains separately enrolled.
@@ -314,8 +329,19 @@ unsafe.** A report still bound when downgraded can send under a later enrollment
 Held reports are fenced, but an older Swift writer drops their refs/held marker on a queue save;
 after upgrading, those reports can only be cleared, not released. Before a planned downgrade,
 let bound reports deliver and explicitly release or clear held reports. Follow the tagged
-[rollback guidance](https://github.com/masra91/framebriar/blob/bb9b614292e54e4a4d0e9a764f9cbc47b7fc1981/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
+[rollback guidance](https://github.com/masra91/framebriar/blob/2cfe5abbe7965a690b9e22a1db13925b1744f003/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
 changing only the dependency pin is not a supported rollback.” This draft is not a release announcement.
+
+For the 0.8.0 adoption, a synthetic queue and enrollment serialized by the actual 0.7.1 SDK
+are tested through the new file store: report IDs, image bytes, enrollment identity, retry state
+and held recovery survive. This does not authorize a downgrade or prove device Keychain behavior.
+Older Swift ignores the new rejected-response notice. Unsent editor source/marks exist only in
+view memory; saved reports contain flattened images. After an unconfirmed save, a copy may already
+be on disk and send on relaunch. In the documented store-write/read-back double failure, that copy
+can contain superseded pixels even if later edits were never successfully saved. Do not treat
+reverting the vendor pin as recovery for that state; review the tagged SDK
+[failed-save contract](https://github.com/masra91/framebriar/blob/2cfe5abbe7965a690b9e22a1db13925b1744f003/adapters/swift/README.md#failed-saves)
+and settle queued/held reports before any planned rollback.
 
 Migration limit: older queued reports have no enrollment ref. On first load the SDK binds them to
 an enrollment present then, which may differ from the one used when they were captured. If no

@@ -1,5 +1,8 @@
 import SwiftUI
 import UIKit
+#if DEBUG
+import CryptoKit
+#endif
 import Framebriar
 import FramebriarUI
 
@@ -13,7 +16,11 @@ extension EnvironmentValues {
 final class CompanionFeedbackSettingsCapture: Identifiable {
     let id: UUID = UUID()
     var screenshot: CGImage?
-    init(screenshot: CGImage?) { self.screenshot = screenshot }
+    let screenshotUnavailable: FeedbackScreenshotUnavailable?
+    init(window: UIWindow?) {
+        let capture = CompanionFeedbackPresenter.freezeExpected(window)
+        screenshot = capture.image; screenshotUnavailable = capture.unavailable
+    }
     nonisolated deinit {}
 }
 
@@ -28,7 +35,9 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     private var statusTask: Task<Void, Never>?
     private var screenshotLifecycle = CompanionScreenshotPromptLifecycle()
     private var screenshotData: Data?
+    private var screenshotUnavailable: FeedbackScreenshotUnavailable?
     private var menuScreenshot: CGImage?
+    private var menuScreenshotUnavailable: FeedbackScreenshotUnavailable?
     private weak var menuSource: UIControl?
     private weak var menuWindow: UIWindow?
     private weak var screenshotScene: UIWindowScene?
@@ -69,7 +78,8 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
         }
         menuWindow = window
         menuSource = source
-        menuScreenshot = Self.freeze(window)
+        let capture = Self.freezeExpected(window)
+        menuScreenshot = capture.image; menuScreenshotUnavailable = capture.unavailable
         #if DEBUG
         // Isolated fixture: simulate the source ending its highlight before selection.
         if ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing"),
@@ -78,9 +88,9 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     }
 
     func sendMenuFeedback() {
-        let screenshot = menuScreenshot, window = menuWindow
+        let screenshot = menuScreenshot, unavailable = menuScreenshotUnavailable, window = menuWindow
         discardMenuFeedback()
-        sendFeedback(frozenImage: screenshot, from: window)
+        sendFeedback(screenshotUnavailable: unavailable, frozenImage: screenshot, from: window)
     }
 
     /// Ignore a late dismissal from another menu. The selected action consumes its image first.
@@ -88,11 +98,11 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
         guard source == nil || source === menuSource else { return }
         menuScreenshot = nil
         // A premature highlight-end must still allow text-only feedback from its source window.
-        if source == nil { menuWindow = nil; menuSource = nil }
+        if source == nil { menuWindow = nil; menuSource = nil; menuScreenshotUnavailable = nil }
     }
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
-    func sendFeedback(screenshotPNG: Data? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
+    func sendFeedback(screenshotPNG: Data? = nil, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
         guard let model, presented == nil else { return }
         dismissPrompt()
         statusTask?.cancel()
@@ -102,7 +112,7 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
             if model.status?.canSubmit == true {
                 let png = frozenImage == nil ? screenshotPNG : await Self.encode(frozenImage)
                 guard !Task.isCancelled, self.presented == nil else { return }
-                self.presentComposer(screenshot: png, from: sourceWindow)
+                self.presentComposer(screenshot: png, screenshotUnavailable: screenshotUnavailable ?? (frozenImage != nil && png == nil ? .failed : nil), from: sourceWindow)
             } else { self.explainEnrollment(fromScreenshot: false, fromShake: fromShake) }
         }
     }
@@ -116,6 +126,7 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
         guard decision != .ignore else { return }
         dismissPrompt()
         screenshotData = Self.capture(window)
+        screenshotUnavailable = screenshotData == nil ? .failed : nil
         screenshotScene = window.windowScene
         screenshotWindow = window
         _ = screenshotLifecycle.request(active: false, ready: false)
@@ -154,10 +165,11 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
         _ = screenshotLifecycle.resume(active: true, ready: true)
         let window = PassthroughWindow(windowScene: scene)
         let sourceWindow = screenshotWindow
+        let unavailable = screenshotUnavailable
         let prompt = CompanionScreenshotFeedbackPrompt(
             frameChanged: { [weak window] in window?.interactiveFrame = $0 },
             // Present before closing: closing releases this prompt and the closure that holds the capture.
-            open: { [weak self] in self?.presentComposer(screenshot: screenshot, from: sourceWindow); self?.dismissPrompt() },
+            open: { [weak self] in self?.presentComposer(screenshot: screenshot, screenshotUnavailable: unavailable, from: sourceWindow); self?.dismissPrompt() },
             close: { [weak self] in self?.dismissPrompt() })
         let host = UIHostingController(rootView: prompt)
         host.view.backgroundColor = .clear
@@ -174,6 +186,7 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     private func dismissPrompt() {
         screenshotLifecycle.dismiss()
         screenshotData = nil
+        screenshotUnavailable = nil
         screenshotScene = nil
         screenshotWindow = nil
         hidePrompt()
@@ -188,11 +201,11 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
 
     // MARK: Presentation
 
-    private func presentComposer(screenshot: Data?, from sourceWindow: UIWindow? = nil) {
+    private func presentComposer(screenshot: Data?, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, from sourceWindow: UIWindow? = nil) {
         guard let model else { return }
         guard presented == nil, !model.isComposerOpen else { return }
         let host = UIHostingController(rootView: NavigationStack {
-            CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, onClose: { [weak self] in
+            CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, screenshotUnavailable: screenshotUnavailable, onClose: { [weak self] in
                 self?.presented?.dismiss(animated: true)
             })
         })
@@ -247,6 +260,13 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     static func capture(_ window: UIWindow) -> Data? { freeze(window).flatMap { ShakeScreenshot.encodePNG($0) } }
 
     /// UIKit rendering must run on MainActor. Keep these immutable pixels frozen without PNG work.
+    static func freezeExpected(_ window: UIWindow?) -> (image: CGImage?, unavailable: FeedbackScreenshotUnavailable?) {
+        guard let window else { return (nil, .failed) }
+        guard !hasSecureFirstResponder(window) else { return (nil, .secureField) }
+        guard let image = freeze(window) else { return (nil, .failed) }
+        return (image, nil)
+    }
+
     static func freeze(_ window: UIWindow) -> CGImage? {
         #if DEBUG
         // Isolated fake-wire UI test only: exercise the same nil path as a failed renderer.
@@ -278,10 +298,19 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
 
     nonisolated private static func encodePixels(_ image: CGImage) -> Data? {
         assert(!Thread.isMainThread)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing"),
+           ProcessInfo.processInfo.arguments.contains("--feedback-encode-failure") { return nil }
+        #endif
         return ShakeScreenshot.encodePNG(image)
     }
 
     #if DEBUG
+    private(set) static var fixtureInitialScreenshotSHA: String?
+    static func recordFixtureScreenshot(_ png: Data?) {
+        guard ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing") else { return }
+        fixtureInitialScreenshotSHA = png.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() }
+    }
     private static weak var lastFrozenImage: CGImage?
     private static var deferredPNGEncodes = 0
     var fixtureCaptureState: String {

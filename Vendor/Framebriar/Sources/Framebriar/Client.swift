@@ -100,7 +100,9 @@ public actor Client {
                             correlationWaiting: correlationSupported && accessExpiry.map { $0 > now() } == true ? 0 : queue.filter { $0.feedback.incident != nil && !isHeld($0) }.count,
                             lastDeliveryResult: lastDeliveryResult,
                             heldForEnrollment: held().count, heldBytes: held().reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
-                            releaseToken: releaseToken(held()))
+                            releaseToken: releaseToken(held()),
+                            notice: enrollment.responseRejection == nil ? nil : "enrollment-response-rejected",
+                            noticeReason: enrollment.responseRejection)
     }
 
     /// Lifecycle pause stops subsequent requests. Already transmitted bytes cannot be recalled.
@@ -121,7 +123,16 @@ public actor Client {
         }
         let body: [String: Any] = ["v": 1, "invitation": invitation, "gameId": configuration.gameID,
                                   "buildSha": configuration.buildSHA as Any? ?? NSNull(), "scopeVersion": 2, "attemptId": lastAttempt!.id]
+        if enrollment.responseRejection != nil {
+            var record = enrollment; record.responseRejection = nil
+            try saveEnrollment(record)
+        }
         let value = try await request("v1/access/redeem", json: body, generation: ticket)
+        if let reason = rejection(value) {
+            var record = enrollment; record.responseRejection = reason
+            try saveEnrollment(record)
+            throw FramebriarError.invalidResponse
+        }
         try accept(value, previous: nil)
         lastAttempt = nil; accessBackoff = .distantPast
     }
@@ -172,6 +183,8 @@ public actor Client {
         guard queue.count < ClientStatus.maxItems,
               queue.reduce(0, { $0 + ($1.feedback.screenshotPNG?.count ?? 0) }) + (feedback.screenshotPNG?.count ?? 0) <= ClientStatus.maxBytes else { throw FramebriarError.capacity }
         try persist(queue + [QueuedFeedback(feedback: feedback, enrollmentRef: enrollmentRef)])
+        // A receipt covers the bytes it was for. These get their own, from their own attempt.
+        receivedIDs.removeAll { $0 == feedback.id }
         return feedback.id
     }
 
@@ -345,9 +358,21 @@ public actor Client {
     private func fenceHeldReports() {
         try? persist(Self.settled(queue, enrollment: enrollment, seen: false))
     }
+    /// A store can replace its file and then fail. A failed save still counts when reading the store back
+    /// finds exactly `items`, because that's what a relaunch would load. Anything else is a failure, and
+    /// memory isn't touched: what's on disk is never adopted. Every caller builds `items` from `queue` in
+    /// this actor turn, so this can't bring back or lose anything a successful save wouldn't.
     private func persist(_ items: [QueuedFeedback]) throws {
-        do { try feedbackStore.save(items, scope: configuration.storageScope); queue = items }
-        catch { throw FramebriarError.storage }
+        do { try feedbackStore.save(items, scope: configuration.storageScope) }
+        catch {
+            guard let stored = try? feedbackStore.load(scope: configuration.storageScope), Self.sameContents(stored, items) else { throw FramebriarError.storage }
+        }
+        queue = items
+    }
+    private static func sameContents(_ a: [QueuedFeedback], _ b: [QueuedFeedback]) -> Bool {
+        let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
+        guard let left = try? encoder.encode(a), let right = try? encoder.encode(b) else { return false }
+        return left == right
     }
     private func saveEnrollment(_ record: EnrollmentRecord) throws {
         do { try enrollmentStore.save(record, scope: configuration.storageScope); enrollment = record }
@@ -383,19 +408,30 @@ public actor Client {
             throw error
         }
     }
+    /// Tolerated on upper bounds only: a device clock behind the issuer's sees its deadlines as further away.
+    private static let clockSkew: TimeInterval = 300
+    /// Why a parsed reply can't be used, or nil. Only the reason leaves here, never the reply's values.
+    private func rejection(_ value: [String: Any]) -> String? {
+        guard value["v"] as? Int == 1, value["scopeVersion"] as? Int == 2 else { return "invalid-response" }
+        guard value["gameId"] as? String == configuration.gameID else { return "wrong-game" }
+        guard let token = value["token"] as? String, matches(token, "^[A-Za-z0-9_-]{43}$"),
+              let refresh = value["refreshToken"] as? String, matches(refresh, "^[A-Za-z0-9_-]{43}$") else { return "invalid-token" }
+        guard let expiry = (value["expiresAt"] as? String).flatMap(parseDate),
+              let end = (value["refreshExpiresAt"] as? String).flatMap(parseDate),
+              expiry > now(), expiry.timeIntervalSince(now()) <= 3600 + Self.clockSkew, end >= expiry,
+              end.timeIntervalSince(now()) <= 365 * 86400 + Self.clockSkew else { return "invalid-deadline" }
+        return nil
+    }
     private func accept(_ value: [String: Any], previous: EnrollmentRecord?) throws {
-        guard value["v"] as? Int == 1, value["scopeVersion"] as? Int == 2,
-              value["gameId"] as? String == configuration.gameID,
-              let token = value["token"] as? String, matches(token, "^[A-Za-z0-9_-]{43}$"),
-              let refresh = value["refreshToken"] as? String, matches(refresh, "^[A-Za-z0-9_-]{43}$"),
+        guard rejection(value) == nil,
+              let token = value["token"] as? String, let refresh = value["refreshToken"] as? String,
               let expiry = (value["expiresAt"] as? String).flatMap(parseDate),
               let end = (value["refreshExpiresAt"] as? String).flatMap(parseDate),
-              expiry > now(), expiry.timeIntervalSince(now()) <= 3600, end >= expiry,
-              end.timeIntervalSince(now()) <= 365 * 86400,
               previous == nil || (previous?.refreshToken == refresh && previous?.expiresAt == end) else { throw FramebriarError.invalidResponse }
         // A redemption is a new enrollment, even under the same invitation. A refresh is not.
         let ref = previous == nil ? UUID().uuidString.lowercased() : previous?.enrollmentRef
-        try saveEnrollment(EnrollmentRecord(refreshToken: refresh, expiresAt: end, enrolled: true, notice: .connected, enrollmentRef: ref))
+        try saveEnrollment(EnrollmentRecord(refreshToken: refresh, expiresAt: end, enrolled: true, notice: .connected, enrollmentRef: ref,
+                                            responseRejection: previous?.responseRejection))
         // In the same actor turn, before the new token can be used for anything.
         if previous == nil { fenceHeldReports() }
         accessToken = token; accessExpiry = expiry

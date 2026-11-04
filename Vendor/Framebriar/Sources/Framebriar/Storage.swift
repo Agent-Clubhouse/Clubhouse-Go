@@ -3,6 +3,8 @@ import Security
 
 /// Operations must commit atomically or throw. Scope is endpoint + game, never build SHA.
 /// One Client owns a scope; do not share it with another client, process or app extension.
+/// The client reads `FeedbackStore` back after a failed save, so `load` must throw, not return an empty
+/// queue, when it can't tell what's stored.
 public protocol EnrollmentStore: Sendable {
     func load(scope: String) throws -> EnrollmentRecord
     func save(_ record: EnrollmentRecord, scope: String) throws
@@ -57,12 +59,12 @@ public struct FileFeedbackStore: FeedbackStore {
     private func url(_ scope: String) -> URL { directory.appendingPathComponent(digest(Data(scope.utf8)) + ".json") }
     public func load(scope: String) throws -> [QueuedFeedback] {
         let file = url(scope)
-        guard FileManager.default.fileExists(atPath: file.path) else { return [] }
         do {
             let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? Int.max
             guard size <= 46 * 1024 * 1024 else { throw FramebriarError.storage }
             return try JSONDecoder().decode([QueuedFeedback].self, from: Data(contentsOf: file))
-        } catch { throw FramebriarError.storage }
+        } catch CocoaError.fileReadNoSuchFile { return [] } // Only this means empty: `fileExists` also says no for a directory it can't search.
+        catch { throw FramebriarError.storage }
     }
     public func save(_ items: [QueuedFeedback], scope: String) throws {
         do {

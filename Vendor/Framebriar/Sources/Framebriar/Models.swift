@@ -67,6 +67,12 @@ public struct ClientStatus: Sendable {
     /// Pass to `releaseHeldReports` from the status the user saw. Nil if nothing is held or there's no
     /// active enrollment. Changes with the enrollment or the set of held reports.
     public var releaseToken: String? = nil
+    /// `enrollment-response-rejected` when the last invitation got a successful reply that failed local
+    /// validation, otherwise nil. Don't suggest retrying that invitation: ask for a new one or an app update.
+    /// Stays until a redemption succeeds, another `connect` starts, or Disconnect.
+    public var notice: String? = nil
+    /// With that notice: `invalid-deadline`, `invalid-token`, `wrong-game` or `invalid-response`.
+    public var noticeReason: String? = nil
     public static let maxItems = 10
     public static let maxBytes = 32 * 1024 * 1024
 }
@@ -140,7 +146,9 @@ public enum FeedbackDeliveryOutcome: Sendable, Equatable {
         /// Saved on this device under another enrollment. It won't send unless the user releases it.
         case heldForEnrollment
         /// Not saved: the draft is still in the composer.
-        case storageFull, storageUnavailable, invalidReport, notEnrolled, busy
+        case storageFull, invalidReport, notEnrolled, busy
+        /// The save reported an error, so it may not have happened. The draft is still in the composer.
+        case storageUnavailable
         /// Not saved: the enrollment changed after this draft opened. Open a new one, keeping the
         /// notes and image, and wait for a new Send.
         case enrollmentChanged
@@ -158,7 +166,11 @@ public struct EnrollmentRecord: Codable, Sendable {
     /// Random local identity, minted on each redemption. Refresh, expiry and revocation keep it, because
     /// capture stays allowed. Disconnect clears it. Never on the wire.
     public var enrollmentRef: String?
-    public init(refreshToken: String? = nil, expiresAt: Date? = nil, enrolled: Bool = false, notice: AccessState = .disconnected, enrollmentRef: String? = nil) {
+    /// Why the last redemption's reply failed local validation: a closed reason, never response text.
+    /// Optional, so records from older SDKs decode and older SDKs ignore it.
+    public var responseRejection: String?
+    public init(refreshToken: String? = nil, expiresAt: Date? = nil, enrolled: Bool = false, notice: AccessState = .disconnected, enrollmentRef: String? = nil, responseRejection: String? = nil) {
+        self.responseRejection = responseRejection
         self.refreshToken = refreshToken; self.expiresAt = expiresAt; self.enrolled = enrolled; self.notice = notice; self.enrollmentRef = enrollmentRef
     }
 }

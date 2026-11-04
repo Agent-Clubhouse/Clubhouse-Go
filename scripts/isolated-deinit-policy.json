@@ -622,7 +622,7 @@
     "CompanionFeedbackSettingsCapture": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
-      "reason": "Owns only a UUID and immutable CoreGraphics bitmap pixels. No UIKit views, callbacks or teardown work; the image can be ARC-released on any thread. Shared holder lets sheet dismissal clear pixels even if SwiftUI retains destination values.",
+      "reason": "Owns a UUID, immutable CoreGraphics bitmap pixels and a Sendable screenshot-unavailable enum. No UIKit views, callbacks or teardown work; fields can be ARC-released on any thread. Shared holder lets sheet dismissal clear pixels even if SwiftUI retains destination values.",
       "surface": {
         "bases": [
           "Identifiable"
@@ -630,7 +630,8 @@
         "nestedValueProperties": {},
         "properties": {
           "id": "UUID",
-          "screenshot": "CGImage ?"
+          "screenshot": "CGImage ?",
+          "screenshotUnavailable": "FeedbackScreenshotUnavailable ?"
         },
         "storageMacros": []
       }

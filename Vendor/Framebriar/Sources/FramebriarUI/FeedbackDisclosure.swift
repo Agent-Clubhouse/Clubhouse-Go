@@ -45,15 +45,42 @@ public enum FeedbackDisclosure {
 
     public static let notesPrompt = "Describe the issue without prompts, agent responses, credentials, or other private information. A screenshot is optional."
     public static let capturedScreenNote = "This is the screen you were on. It stays on this device unless you tap Send. Check it for private information, then keep, remove or replace it."
-    public static let diagnosticsToggle = "Include recent diagnostics"
+    /// True in both modes: under `.on` the logs are in the report, and under `.off` they go to telemetry labeled with its ID.
+    public static let diagnosticsToggle = "Send recent logs with this report"
+    public static let screenshotToggle = "Include screenshot"
+    public static let screenshotLeftOutNote = "This image won't be sent. It stays here, with any edits, until you close this form, so you can include it again."
+    /// Why a composer that expected a capture has no image. It still opens, and a note can still be sent.
+    public static func screenshotUnavailable(_ reason: FeedbackScreenshotUnavailable) -> String {
+        switch reason {
+        case .secureField: "No screenshot was taken, because a secure text field was active. You can still send a note or add an image."
+        case .failed: "The screen couldn't be captured, so no screenshot is attached. You can still send a note or add an image."
+        }
+    }
+    public static let imageToolsHint = "Tap the image to zoom in, draw on it or cover part of it."
+    /// While edits are still reversible, before any Send.
+    public static let editedImageNote = "You edited this image, and this flattened copy is the one that will be sent. Tap the image to change or clear your edits, until you tap Send. After that they're permanent. Only areas you covered with Redact are hidden, so check the rest for private information."
+    /// After a Send that didn't complete, when the image holds edits from before it.
+    public static let editedImageFinalNote = "Edits you made before tapping Send are now part of this image and can't be undone, so anything you covered stays covered. To start over, replace or remove it. You can add marks, and clear those, until you tap Send again. Only areas you covered with Redact are hidden, so check the rest for private information."
+    public static func clearEditsConfirmation(editsAreFinal: Bool) -> String {
+        editsAreFinal ? "Clear the marks you added since tapping Send? Edits from before that are part of the image and stay, so anything you covered then stays covered."
+                      : "Clear all edits? The original image comes back, including anything you covered, and that's what will be sent."
+    }
+    public static let editorMoveHint = "Pinch, drag or double-tap to look closely. To hide something, choose Redact."
+    public static let editorPenHint = "Drawing only marks the image, and what's under a line may still show. To hide something, choose Redact."
+    public static let editorRedactHint = "Drag over what to hide. That area becomes solid black in the image you send. It only covers what you cover, so check the rest."
+    public static let editorCannotOpen = "This image couldn't be opened for editing. Your screenshot hasn't changed."
+    public static let editorCannotFinish = "These edits couldn't be applied. Your screenshot hasn't changed. Try Done again, or Cancel."
+    /// After `FramebriarError.conflict`: this device already holds different contents under this report's ID.
+    public static let saveConflictNotice = "A saved copy of this report with different contents is already on this device and may also be delivered. Your note and image are still here. Tap Send to send them as a separate report."
     public static let enrollmentChangedNotice = "Your enrollment changed while this was open, so nothing was saved or sent. Your note and image are still here. Check what's included, then tap Send."
 
     /// The one-line summary, built from the same values that go on the wire.
     /// Nil `diagnostics` means the report has no such field, so the line doesn't mention them.
-    public static func summary(hasNote: Bool, hasScreenshot: Bool, diagnostics: FeedbackDiagnostics?, hasIncident: Bool) -> String {
+    /// `screenshotLeftOut`: an image is attached and unchecked, so the report has no media.
+    public static func summary(hasNote: Bool, hasScreenshot: Bool, diagnostics: FeedbackDiagnostics?, hasIncident: Bool, screenshotLeftOut: Bool = false) -> String {
         var items: [String] = []
         if hasNote { items.append("note") }
-        if hasScreenshot { items.append("screenshot") }
+        if hasScreenshot { items.append("screenshot") } else if screenshotLeftOut { items.append("screenshot left out") }
         switch diagnostics?.state {
         case .attached: items.append("recent diagnostics (\(diagnostics?.entries.count ?? 0) \(diagnostics?.entries.count == 1 ? "event" : "events"))")
         case .none?: items.append("no diagnostics recorded")
@@ -66,18 +93,21 @@ public enum FeedbackDisclosure {
     }
 
     public static let alwaysIncluded = "Every report includes your note, any image shown here, the app's identifier and build, iOS, touch input, the time, and random report and session IDs."
-    public static let diagnosticsMeaning = "Recent diagnostics are this app's event names, levels, times, counts, timings, error categories and random connection and trace IDs, recorded before this form opened. They are short fixed-format labels and numbers, not free text, and are designed not to include your messages or file paths. Turning the switch off also removes incident references, which are random IDs that link this report to other diagnostics."
+    public static let diagnosticsMeaning = "Recent logs, listed above as diagnostics, are this app's event names, levels, times, counts, timings, error categories and random connection and trace IDs, recorded before this form opened. They are short fixed-format labels and numbers, not free text, and are designed not to include your messages or file paths. Turning the switch off also removes incident references, which are random IDs that link this report to other diagnostics."
 
     /// `diagnosticsMeaning` for a report with no `diagnostics` field, where the switch governs the telemetry excerpt.
-    public static let telemetryDiagnosticsMeaning = "Recent diagnostics are this app's telemetry events: event names, counts, timings and error classes, designed not to include your messages or file paths. They aren't part of this report. Turning the switch off also removes any incident references, which are random IDs that link this report to other diagnostics."
+    public static let telemetryDiagnosticsMeaning = "Recent logs are this app's telemetry events: event names, counts, timings and error classes, designed not to include your messages or file paths. They aren't part of this report. Turning the switch off also removes any incident references, which are random IDs that link this report to other diagnostics."
 
-    /// What the app's own telemetry does around this report, which the switch only partly controls.
-    /// `includeDiagnostics` means an excerpt goes out, which never happens for a report carrying its own.
+    /// What the app's own telemetry sends without asking, then what this report adds to it. The switch only
+    /// controls the second. `includeDiagnostics` means an excerpt goes out, which never happens for a report
+    /// carrying its own.
     public static func telemetryNote(enabled: Bool, excerptOnly: Bool, includeDiagnostics: Bool) -> String? {
         guard enabled else { return nil }
-        if includeDiagnostics { return "A copy of the last five minutes of these events not yet delivered also goes to the developer's telemetry, labeled with this report's ID." }
-        return excerptOnly ? "Only a marker with this report's ID goes to the developer's telemetry."
-                           : "A marker with this report's ID goes to the developer's telemetry. Turning this off doesn't stop the regular telemetry you agreed to when enrolling."
+        let automatic = excerptOnly ? "Nothing is sent automatically while you're enrolled. Logs stay on this device unless they go with a report you send."
+                                    : "While you're enrolled, this app automatically sends the developer performance and diagnostic data: event names, counts, timings and error classes. That happens whether or not you send a report, and this switch doesn't change it. Clearing enrollment stops it."
+        let added = includeDiagnostics ? "This report also sends a copy of the last five minutes of these events not yet delivered, labeled with its ID."
+                                       : "This report adds only a marker with its ID."
+        return automatic + " " + added
     }
 
     // MARK: Why Send is unavailable
@@ -86,7 +116,7 @@ public enum FeedbackDisclosure {
         switch block {
         case .checkingAccess: "Checking feedback access…"
         case .notEnrolled: "Redeem a feedback invitation to send reports."
-        case .empty: "Add a note or a screenshot to send."
+        case .empty: "Add a note or include a screenshot to send."
         case .notesTooLong: "Use at most 2,000 characters."
         case .queueFull: "\(ClientStatus.maxItems) reports are already waiting on this device, which may include reports from a previous enrollment. Send or clear them first."
         case .preparingImage: "Preparing the image…"
@@ -121,13 +151,16 @@ public enum FeedbackDisclosure {
         case .needsAttention(.removed): "This report was cleared from this device before it was sent."
         case .needsAttention(.deliveryUnconfirmed): "Your report is saved on this device, but local storage failed while recording its delivery. It may send again while the app is open; the service recognizes a repeat."
         case .needsAttention(.storageFull): "Not saved: local feedback storage is full. Your draft is still here."
-        case .needsAttention(.storageUnavailable): "Not saved: local storage is unavailable. Your draft is still here."
+        case .needsAttention(.storageUnavailable): "Couldn't confirm this saved, because local storage reported an error. Your draft is still here, so you can try Send again. Unless a later Send succeeds, a copy may still be on this device and could send the next time the app opens."
         case .needsAttention(.invalidReport): "Not saved: use at most 2,000 characters and an image up to 8 MiB. Your draft is still here."
         case .needsAttention(.notEnrolled): "Not saved: feedback access is required. Your draft is still here."
         case .needsAttention(.busy): "Not saved: another feedback action is in progress. Your draft is still here, so try Send again."
         }
     }
 }
+
+/// Why there's no image, for a host that does its own capture. `FeedbackShakeEvent` carries this for a shake.
+public enum FeedbackScreenshotUnavailable: Sendable, Equatable { case secureField, failed }
 
 public enum FeedbackSendBlock: Sendable, Equatable {
     case checkingAccess, notEnrolled, empty, notesTooLong, queueFull, preparingImage, saving
@@ -180,9 +213,15 @@ public struct FeedbackDraft: Sendable {
         FeedbackDisclosure.telemetryNote(enabled: telemetry?.isEnabled == true, excerptOnly: telemetry?.mode == .excerptOnly,
                                          includeDiagnostics: reportDiagnosticsMode == .off && includeDiagnostics)
     }
-    public func summary(notes: String, hasScreenshot: Bool, includeDiagnostics: Bool) -> String {
+    /// - Parameter screenshotLeftOut: an image is attached and unchecked. `hasScreenshot` is false then.
+    public func summary(notes: String, hasScreenshot: Bool, includeDiagnostics: Bool, screenshotLeftOut: Bool = false) -> String {
         FeedbackDisclosure.summary(hasNote: !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, hasScreenshot: hasScreenshot,
-                                   diagnostics: diagnostics(included: includeDiagnostics), hasIncident: includeDiagnostics && incident != nil)
+                                   diagnostics: diagnostics(included: includeDiagnostics), hasIncident: includeDiagnostics && incident != nil, screenshotLeftOut: screenshotLeftOut)
+    }
+    /// The same frozen captures under a new report ID.
+    func withNewID() -> FeedbackDraft {
+        FeedbackDraft(id: UUID(), openedAt: openedAt, reportDiagnosticsMode: reportDiagnosticsMode, offersDiagnosticsSwitch: offersDiagnosticsSwitch,
+                      capturedDiagnostics: capturedDiagnostics, incident: incident, enrollmentRef: enrollmentRef)
     }
     /// The same report for the same inputs: a save retried after a failure keeps its ID and time.
     public func report(configuration: Configuration, notes: String, screenshotPNG: Data?, includeDiagnostics: Bool) throws -> ReviewedFeedback {

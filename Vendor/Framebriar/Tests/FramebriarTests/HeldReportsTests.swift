@@ -25,6 +25,8 @@ private actor HeldNetwork: HTTPTransport {
     var park = false
     var failReports = false
     var offline = false
+    var rejectRedeem = false
+    func set(rejectRedeem: Bool) { self.rejectRedeem = rejectRedeem }
     private(set) var reports: [(token: String, body: Data)] = []
     private(set) var refreshes = 0
     private(set) var all: [Data] = []
@@ -43,8 +45,9 @@ private actor HeldNetwork: HTTPTransport {
             tokens += 1
             let sent = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
             let family = path.hasSuffix("/refresh") ? sent["refreshToken"] as! String : ("f\(families)" + String(repeating: "r", count: 43)).prefix(43).description
+            let deadline = path.hasSuffix("/redeem") && rejectRedeem ? clock.now() + 400 * 86400 : Date(timeIntervalSince1970: 1_800_000_000) + 20 * 86400
             return json(["v": 1, "scopeVersion": 2, "gameId": "test-app", "token": token(tokens), "refreshToken": family, "feedbackCorrelationVersion": 1,
-                         "expiresAt": iso(clock.now() + 3600), "refreshExpiresAt": iso(Date(timeIntervalSince1970: 1_800_000_000) + 20 * 86400)])
+                         "expiresAt": iso(clock.now() + 3600), "refreshExpiresAt": iso(deadline)])
         }
         if path.hasSuffix("/disconnect") { return json(["v": 1, "disconnected": true]) }
         reports.append((request.value(forHTTPHeaderField: "Authorization")!.replacingOccurrences(of: "Bearer ", with: ""), request.httpBody!))
@@ -90,6 +93,64 @@ private struct HeldRig {
 }
 private func ids(_ network: HeldNetwork) async -> [String] {
     await network.reports.map { (try! JSONSerialization.jsonObject(with: $0.body) as! [String: Any])["id"] as! String }
+}
+
+// Unlike Node, browser and Godot, a Swift connect keeps the existing enrollment until a redemption succeeds.
+private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
+    await r.network.set(rejectRedeem: true)
+    await #expect(throws: FramebriarError.invalidResponse) { try await r.enrolled(c, "b") }
+    await r.network.set(rejectRedeem: false)
+    #expect(await c.status().notice == "enrollment-response-rejected")
+    #expect(await c.status().noticeReason == "invalid-deadline")
+}
+@Test func aRejectedReplacementLeavesDeliveryUnderTheOldRefWorking() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let ref = r.ref(c)
+    let firstToken = await r.network.token(1)
+    let before = try await r.saveUnsent(c)
+    try await rejectedReplacement(r, c)
+    #expect(r.ref(c) == ref)
+    #expect(await c.status().access == .connected)
+    #expect(await c.status().canSubmit)
+    #expect(await c.status().heldForEnrollment == 0)
+    let after = try await r.saveUnsent(c)
+    #expect(try r.row(after.id)?.enrollmentRef == ref)
+    try await c.flush()
+    #expect(await Set(ids(r.network)) == [before.id.uuidString.lowercased(), after.id.uuidString.lowercased()])
+    for report in await r.network.reports { #expect(report.token == firstToken, "the rejected reply's token is never used") }
+    #expect(await c.status().queued == 0)
+    #expect(r.ref(c) == ref)
+}
+@Test func aRejectedReplacementSurvivesRestartAndKeepsDelivering() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let ref = r.ref(c)
+    try await rejectedReplacement(r, c)
+    let next = try await r.started()
+    #expect(await next.status().notice == "enrollment-response-rejected")
+    #expect(r.ref(next) == ref)
+    let report = try await r.saveUnsent(next)
+    try await next.flush()
+    #expect(await ids(r.network) == [report.id.uuidString.lowercased()])
+    #expect(r.ref(next) == ref)
+}
+@Test func aNewInvitationAfterARejectionHoldsOldReportsUntilTheExplicitChoice() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let ref = r.ref(c)
+    await r.network.set(offline: true)
+    let report = try await r.saveUnsent(c); try await c.flush()
+    await r.network.set(offline: false)
+    try await rejectedReplacement(r, c)
+    try await rejectedReplacement(r, c)
+    #expect(r.ref(c) == ref)
+    #expect(try r.row(report.id)?.enrollmentRef == ref)
+    try await r.enrolled(c, "c")
+    #expect(r.ref(c) != ref)
+    #expect(await c.status().notice == nil)
+    try await c.flush()
+    #expect(await r.network.reports.isEmpty)
+    #expect(try r.row(report.id)?.enrollmentRef == ref)
+    let status = await c.status()
+    #expect(status.heldForEnrollment == 1)
+    #expect(await c.releaseHeldReports(releaseToken: status.releaseToken).released == 1)
+    try await c.flush()
+    #expect(await ids(r.network) == [report.id.uuidString.lowercased()])
 }
 
 @Test func refreshKeepsTheRefAndStillDelivers() async throws {
