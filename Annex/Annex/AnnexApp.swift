@@ -8,7 +8,9 @@ struct ClubhouseGoApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
+            if ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") {
+                CompanionSceneTestRoot()
+            } else if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
                 CompanionDeinitProbe()
             } else if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
                 NavigationStack { CompanionDiagnosticsView() }
