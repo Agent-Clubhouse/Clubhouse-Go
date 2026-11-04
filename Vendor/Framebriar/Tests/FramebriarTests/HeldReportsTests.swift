@@ -190,7 +190,7 @@ private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
     let cleared = HeldRig(), d = try await cleared.started(); try await cleared.enrolled(d); try await cleared.saveUnsent(d)
     _ = try await d.disconnect(); #expect(await d.status().heldForEnrollment == 1); #expect(await d.status().releaseToken == nil)
     let requests = await cleared.network.all.count
-    #expect(await d.clearHeldReports() == HeldClearResult(cleared: 1, remaining: 0, failed: 0))
+    #expect(await d.clearHeldReports(clearToken: d.status().clearToken) == HeldClearResult(cleared: 1, remaining: 0, failed: 0))
     #expect(await cleared.network.all.count == requests, "no token and nothing sent"); #expect(await d.status().queued == 0)
     try await c.clearQueuedFeedback(); #expect(await c.status().queued == 0); #expect(try r.row(keep.id) == nil)
 }
@@ -379,7 +379,7 @@ private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
     #expect(r.ref(c) == first); #expect(await c.status().canSubmit)
     let report = try await r.saveUnsent(c); #expect(await c.status().heldForEnrollment == 0)
     #expect(await c.releaseHeldReports(releaseToken: "x").code == "not-enrolled")
-    #expect(await c.clearHeldReports().cleared == 0)
+    #expect(await c.clearHeldReports(clearToken: c.status().clearToken).cleared == 0)
     r.clock.advance(-21 * 86400); try await r.enrolled(c, "b"); try await c.flush()
     #expect(await r.network.reports.isEmpty); #expect(await c.status().heldForEnrollment == 1); #expect(try r.row(report.id)?.enrollmentRef == first)
 }
@@ -388,7 +388,7 @@ private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
     for _ in 0..<10 { try await r.saveUnsent(c) }
     try await r.enrolled(c, "b"); let s = await c.status(); #expect(s.queued == 10); #expect(s.heldForEnrollment == 10); #expect(s.blocked == 0)
     await #expect(throws: FramebriarError.capacity) { try await r.saveUnsent(c) }
-    #expect(await c.clearHeldReports().cleared == 10); #expect(await c.status().queued == 0)
+    #expect(await c.clearHeldReports(clearToken: c.status().clearToken).cleared == 10); #expect(await c.status().queued == 0)
     var rejected = QueuedFeedback(feedback: try r.review(), blocked: true); rejected.enrollmentRef = "11111111-1111-4111-8111-111111111111"
     r.queue.seed([rejected]); let next = try await r.started(); let t = await next.status(); #expect(t.blocked == 1); #expect(t.heldForEnrollment == 0); #expect(t.releaseToken == nil)
 }
@@ -410,7 +410,7 @@ private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
     #expect(FeedbackDisclosure.releaseResult(done).contains("aren't confirmed sent"))
     #expect(FeedbackDisclosure.heldSummary(count: 2).contains("haven't been sent")); #expect(FeedbackDisclosure.releaseConfirmation(count: 1).contains("this one"))
     try await r.saveUnsent(c); _ = try await c.disconnect(); await model.update(); #expect(await model.status?.heldForEnrollment == 1); #expect(await model.status?.releaseToken == nil)
-    #expect(await model.clearHeldReports().cleared == 1); #expect(await model.status?.queued == 0)
+    #expect(await model.clearHeldReports(clearToken: model.status?.clearToken).cleared == 1); #expect(await model.status?.queued == 0)
 }
 @Test func theSharedFixtureHasTheStatusShapeAndCodes() async throws {
     let f = try heldFixture(); let codes = try #require(f["codes"] as? [String: String])
@@ -421,7 +421,66 @@ private func rejectedReplacement(_ r: HeldRig, _ c: Client) async throws {
     #expect(status.queued == held["items"] as? Int); #expect(status.heldForEnrollment == held["heldForEnrollment"] as? Int); #expect(status.heldBytes == held["heldBytes"] as? Int)
     #expect(status.releaseToken == nil); #expect(ClientStatus.maxItems == held["maxItems"] as? Int); #expect(ClientStatus.maxBytes == held["maxBytes"] as? Int)
     let clear = try #require((f["clear"] as? [String: Any])?["whileUnenrolled"] as? [String: Int])
-    #expect(await c.clearHeldReports() == HeldClearResult(cleared: clear["cleared"]!, remaining: clear["remaining"]!, failed: clear["failed"]!))
+    #expect(status.clearToken?.count == 64)
+    #expect(await c.clearHeldReports(clearToken: status.clearToken) == HeldClearResult(cleared: clear["cleared"]!, remaining: clear["remaining"]!, failed: clear["failed"]!))
+}
+@Test func aStaleClearTokenDeletesNothingAndStatusCanAskAgain() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let first = try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let shown = await c.status(); #expect(shown.heldForEnrollment == 1); #expect(shown.clearToken?.count == 64)
+    let second = try await r.saveUnsent(c); try await r.enrolled(c, "c")
+    #expect(await c.clearHeldReports(clearToken: shown.clearToken) == HeldClearResult(cleared: 0, remaining: 2, failed: 0, code: "stale-release"))
+    #expect(try r.row(first.id) != nil); #expect(try r.row(second.id) != nil)
+    let now = await c.status(); #expect(now.heldForEnrollment == 2); #expect(now.clearToken != shown.clearToken)
+    #expect(await c.clearHeldReports(clearToken: now.clearToken) == HeldClearResult(cleared: 2, remaining: 0, failed: 0))
+}
+@Test func clearIsStrictAndNeitherTokenWorksForTheOther() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let report = try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let shown = await c.status(); #expect(shown.clearToken != shown.releaseToken)
+    for wrong in [nil, String(repeating: "0", count: 64), shown.releaseToken] {
+        #expect(await c.clearHeldReports(clearToken: wrong) == HeldClearResult(cleared: 0, remaining: 1, failed: 0, code: "stale-release"))
+    }
+    #expect(await c.releaseHeldReports(releaseToken: shown.clearToken).code == "stale-release")
+    #expect(try r.row(report.id) != nil); #expect(await c.status().heldForEnrollment == 1)
+}
+@Test func aReleaseMakesTheOldClearTokenStaleAndAClearTheOldReleaseToken() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let shown = await c.status(); #expect(await c.releaseHeldReports(releaseToken: shown.releaseToken).released == 1)
+    #expect(await c.clearHeldReports(clearToken: shown.clearToken).code == "stale-release"); #expect(await c.status().queued == 1)
+    let other = HeldRig(), d = try await other.started(); try await other.enrolled(d); try await other.saveUnsent(d); try await other.enrolled(d, "b")
+    let before = await d.status(); #expect(await d.clearHeldReports(clearToken: before.clearToken).cleared == 1)
+    #expect(await d.releaseHeldReports(releaseToken: before.releaseToken).code == "stale-release")
+}
+@Test func theClearTokenIsFreshAfterARejectedReplacementAndAPartialClearKeepsTheShape() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); try await r.saveUnsent(c); try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let shown = await c.status(); #expect(shown.heldForEnrollment == 2)
+    try await rejectedReplacement(r, c)
+    // Swift keeps delivering under the old enrollment here, so the release token stays good too.
+    let view = await c.status(); #expect(view.heldForEnrollment == 2); #expect(view.releaseToken == shown.releaseToken); #expect(view.clearToken == shown.clearToken, "same enrollment, same reports")
+    r.queue.failAfter = 1
+    #expect(await c.clearHeldReports(clearToken: view.clearToken) == HeldClearResult(cleared: 1, remaining: 1, failed: 1))
+    r.queue.failAfter = nil
+    let after = await c.status(); #expect(after.heldForEnrollment == 1); #expect(after.clearToken != view.clearToken)
+    #expect(await c.clearHeldReports(clearToken: view.clearToken).code == "stale-release")
+    #expect(await c.clearHeldReports(clearToken: after.clearToken) == HeldClearResult(cleared: 1, remaining: 0, failed: 0))
+}
+@Test func theClearTokenIsFreshAfterDisconnect() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let enrolled = await c.status(); _ = try await c.disconnect()
+    let unenrolled = await c.status(); #expect(unenrolled.heldForEnrollment == 1); #expect(unenrolled.releaseToken == nil)
+    #expect(unenrolled.clearToken?.count == 64); #expect(unenrolled.clearToken != enrolled.clearToken)
+    let requests = await r.network.all.count
+    #expect(await c.clearHeldReports(clearToken: unenrolled.clearToken) == HeldClearResult(cleared: 1, remaining: 0, failed: 0))
+    #expect(await r.network.all.count == requests, "no token and nothing sent"); #expect(await c.status().clearToken == nil)
+}
+@MainActor @Test func theModelClearsWithTheTokenTheUserSawAndSaysWhenItChanged() async throws {
+    let r = HeldRig(), c = try await r.started(); try await r.enrolled(c); let report = try await r.saveUnsent(c); try await r.enrolled(c, "b")
+    let model = FeedbackModel(client: c); await model.update(); let shown = model.status?.clearToken; #expect(shown?.count == 64)
+    try await r.enrolled(c, "c")
+    let stale = await model.clearHeldReports(clearToken: shown); #expect(stale.code == "stale-release"); #expect(try r.row(report.id) != nil)
+    #expect(model.message?.contains("nothing was cleared") == true)
+    #expect(model.status?.clearToken != shown, "status refreshed, so the view can ask again"); #expect(model.status?.heldForEnrollment == 1)
+    let done = await model.clearHeldReports(clearToken: model.status?.clearToken); #expect(done.cleared == 1); #expect(done.code == nil)
+    #expect(model.message?.contains("cleared from this device") == true); #expect(model.status?.clearToken == nil)
 }
 @Test func aFileStoreFromAnOlderSDKDecodesAndKeepsReports() async throws {
     let r = HeldRig(); let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString); defer { try? FileManager.default.removeItem(at: dir) }

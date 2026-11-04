@@ -288,12 +288,32 @@ struct CompanionFeedbackEnrollment: View {
     var body: some View { EnrollmentView(model: model) }
 }
 
+/// Immutable snapshot shared by the clear prompt and its action, including while unenrolled.
+struct CompanionHeldFeedbackClearPrompt {
+    let token: String
+    let count: Int
+    let message: String?
+    var title: String {
+        "Clear \(count) \(count == 1 ? "report" : "reports") saved under a previous enrollment? They won't be sent."
+    }
+    init?(status: ClientStatus?, message: String? = nil) {
+        guard let status, status.heldForEnrollment > 0, let token = status.clearToken else { return nil }
+        self.token = token; count = status.heldForEnrollment; self.message = message
+    }
+    @MainActor func confirm(using model: FeedbackModel) async -> Self? {
+        let result = await model.clearHeldReports(clearToken: token)
+        // The SDK re-reads status before returning. Ask again with that count/token and its message.
+        guard result.code == "stale-release" else { return nil }
+        return Self(status: model.status, message: model.message)
+    }
+}
+
 /// The confirmation owns the exact token/count that were displayed. Never obtain a fresh token
-/// when Send is tapped: a different enrollment or held set must fail with stale-release.
+/// when Send or Clear is tapped: a different enrollment or held set must fail with stale-release.
 private struct CompanionHeldFeedbackActions: View {
     let model: FeedbackModel
     @State private var pendingRelease: Release?
-    @State private var confirmingClear = false
+    @State private var pendingClear: CompanionHeldFeedbackClearPrompt?
     private struct Release { let token: String; let count: Int }
     var body: some View {
         if let status = model.status, status.heldForEnrollment > 0 {
@@ -310,11 +330,19 @@ private struct CompanionHeldFeedbackActions: View {
                     }
                 }
             }
-            Button("Clear held reports", role: .destructive) { confirmingClear = true }
-                .disabled(model.working).accessibilityIdentifier("feedback-clear-held")
-                .confirmationDialog("Clear reports saved under a previous enrollment? They won't be sent.",
-                                    isPresented: $confirmingClear, titleVisibility: .visible) {
-                    Button("Clear held reports", role: .destructive) { Task { await model.clearHeldReports() } }
+            Button("Clear held reports", role: .destructive) {
+                pendingClear = CompanionHeldFeedbackClearPrompt(status: status)
+            }
+                .disabled(model.working || status.clearToken == nil).accessibilityIdentifier("feedback-clear-held")
+                .confirmationDialog(pendingClear?.title ?? "",
+                                    isPresented: Binding(get: { pendingClear != nil }, set: { if !$0 { pendingClear = nil } }), titleVisibility: .visible) {
+                    if let clear = pendingClear {
+                        Button("Clear held reports", role: .destructive) {
+                            Task { pendingClear = await clear.confirm(using: model) }
+                        }
+                    }
+                } message: {
+                    if let message = pendingClear?.message { Text(message) }
                 }
             Text("Send queues these reports for the current enrollment. Delivery needs a service receipt.")
                 .font(.caption).foregroundStyle(.secondary)

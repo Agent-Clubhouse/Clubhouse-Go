@@ -157,6 +157,8 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
 12. **Held feedback — inspect first.** If reports are held from an earlier enrollment, check count,
     **Send with this enrollment…**, its destination/count confirmation, and Cancel. Check **Clear held
     reports** and **Clear queued feedback** are reachable, without confirming deletion merely to test.
+    Clear confirms the displayed held count. If that set changes before confirmation, nothing is
+    deleted; the SDK explains the change and Go asks again with the refreshed count.
     Release or clear only reports you intend to send/delete. Release queues delivery; partial results
     and held counts must be honest, never called Sent. No held reports means this path is not exercised.
 13. **One labeled diagnostics report — last, only when requested.** If safe, repeat a brief
@@ -286,8 +288,8 @@ the note above.
 
 ## Report diagnostics release gate
 
-Framebriar is re-vendored unchanged from the approved v0.8.0 tag
-`2cfe5abbe7965a690b9e22a1db13925b1744f003`; all 48 file hashes verify. API diagnostics v1 and the 256-KiB
+Framebriar is re-vendored unchanged from the approved v0.9.0 tag
+`b2976ce33ea1df57c24a72eb501e07a989e95b37`; all 48 file hashes verify. API diagnostics v1 and the 256-KiB
 request cap are confirmed. General report diagnostics remain **OFF**, explicitly at both model and
 ordinary composer boundaries. OFF calls no provider and sends no diagnostics key, whether the
 telemetry/incident switch is on or off. Ordinary consented telemetry remains separately enrolled.
@@ -329,7 +331,7 @@ unsafe.** A report still bound when downgraded can send under a later enrollment
 Held reports are fenced, but an older Swift writer drops their refs/held marker on a queue save;
 after upgrading, those reports can only be cleared, not released. Before a planned downgrade,
 let bound reports deliver and explicitly release or clear held reports. Follow the tagged
-[rollback guidance](https://github.com/masra91/framebriar/blob/2cfe5abbe7965a690b9e22a1db13925b1744f003/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
+[rollback guidance](https://github.com/masra91/framebriar/blob/b2976ce33ea1df57c24a72eb501e07a989e95b37/docs/general-feedback-v2.md#rollback-to-an-older-sdk);
 changing only the dependency pin is not a supported rollback.” This draft is not a release announcement.
 
 For the 0.8.0 adoption, a synthetic queue and enrollment serialized by the actual 0.7.1 SDK
@@ -340,7 +342,7 @@ view memory; saved reports contain flattened images. After an unconfirmed save, 
 be on disk and send on relaunch. In the documented store-write/read-back double failure, that copy
 can contain superseded pixels even if later edits were never successfully saved. Do not treat
 reverting the vendor pin as recovery for that state; review the tagged SDK
-[failed-save contract](https://github.com/masra91/framebriar/blob/2cfe5abbe7965a690b9e22a1db13925b1744f003/adapters/swift/README.md#failed-saves)
+[failed-save contract](https://github.com/masra91/framebriar/blob/b2976ce33ea1df57c24a72eb501e07a989e95b37/adapters/swift/README.md#failed-saves)
 and settle queued/held reports before any planned rollback.
 
 Migration limit: older queued reports have no enrollment ref. On first load the SDK binds them to

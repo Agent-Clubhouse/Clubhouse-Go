@@ -86,6 +86,11 @@ public actor Client {
         let ids = items.map { $0.feedback.id.uuidString.lowercased() }.sorted()
         return digest(Data((["framebriar-release-v1", ref] + ids).joined(separator: "\n").utf8))
     }
+    private func clearToken(_ items: [QueuedFeedback]) -> String? {
+        guard !items.isEmpty else { return nil }
+        let ids = items.map { $0.feedback.id.uuidString.lowercased() }.sorted()
+        return digest(Data((["framebriar-clear-v1", enrollment.enrollmentRef ?? ""] + ids).joined(separator: "\n").utf8))
+    }
     private var hasActiveEnrollment: Bool {
         enrollment.refreshToken != nil && enrollment.expiresAt.map { $0 > now() } == true
     }
@@ -100,7 +105,7 @@ public actor Client {
                             correlationWaiting: correlationSupported && accessExpiry.map { $0 > now() } == true ? 0 : queue.filter { $0.feedback.incident != nil && !isHeld($0) }.count,
                             lastDeliveryResult: lastDeliveryResult,
                             heldForEnrollment: held().count, heldBytes: held().reduce(0) { $0 + ($1.feedback.screenshotPNG?.count ?? 0) },
-                            releaseToken: releaseToken(held()),
+                            releaseToken: releaseToken(held()), clearToken: clearToken(held()),
                             notice: enrollment.responseRejection == nil ? nil : "enrollment-response-rejected",
                             noticeReason: enrollment.responseRejection)
     }
@@ -211,9 +216,15 @@ public actor Client {
         return HeldReleaseResult(released: released, remaining: items.count - released, failed: failed)
     }
 
-    /// Discards held reports only. Takes no token and sends nothing, so it works while unenrolled.
-    @discardableResult public func clearHeldReports() -> HeldClearResult {
+    /// Discards held reports only, and only the ones the user confirmed. Pass the `clearToken` from the
+    /// status they saw: if the enrollment or the held set has changed since, nothing is removed and
+    /// `status()` has the new count and token, so the host can ask again. The check and the removal are
+    /// one actor turn. Takes no access token and sends nothing, so it works while unenrolled.
+    @discardableResult public func clearHeldReports(clearToken supplied: String?) -> HeldClearResult {
         let items = held()
+        guard let supplied, supplied == clearToken(items) else {
+            return HeldClearResult(cleared: 0, remaining: items.count, failed: 0, code: "stale-release")
+        }
         var cleared = 0, failed = 0
         for item in items {
             do { try persist(queue.filter { $0.feedback.id != item.feedback.id }); cleared += 1 } catch { failed += 1 }

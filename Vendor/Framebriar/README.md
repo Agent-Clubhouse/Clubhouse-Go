@@ -87,15 +87,16 @@ A report never delivers under a different enrollment than it was saved under. Th
 `FeedbackView` handles a changed enrollment: it keeps the note and image, recaptures, updates the Included summary, shows a notice, and waits for a new Send. `EnrollmentView` shows the held count with Send and Clear actions. For a custom screen, `FeedbackModel` does everything those do:
 
 ```swift
-let status = model.status                // heldForEnrollment, heldBytes, releaseToken
-// Keep status?.releaseToken from what the user saw when they confirm. A fresh one defeats the check.
+let status = model.status                // heldForEnrollment, heldBytes, releaseToken, clearToken
+// Keep the token from what the user saw when they confirm. A fresh one defeats the check.
 let result = await model.releaseHeldReports(releaseToken: confirmedToken)  // released, remaining, failed, code
-let cleared = await model.clearHeldReports()                               // works unenrolled
+let cleared = await model.clearHeldReports(clearToken: confirmedClearToken) // cleared, remaining, failed, code; works unenrolled
 ```
 
 - `FeedbackModel.save` throws `FramebriarError.enrollmentChanged` (`.code == "enrollment-changed"`), and `send` returns `.needsAttention(.enrollmentChanged)`. Nothing was saved and that draft can't send again. Call `openDraft()` for a new ID and new captures, then wait for a new Send.
 - `.needsAttention(.heldForEnrollment)`: saved under a previous enrollment and not sent.
 - `result.code` is `"stale-release"`, `"not-enrolled"` or nil. `released` doesn't mean delivered.
+- `cleared.code` is `"stale-release"` or nil. A stale or nil `clearToken` removes nothing, and `status` then has the new count and token to ask again. It's there while unenrolled, when `releaseToken` is nil. `EnrollmentView` handles this.
 - `Client.enqueue(_:)` without a ref is deprecated. It binds to the enrollment at the call, for a report with no open draft, as does the deprecated `FeedbackModel.submit`. Use `enqueue(_:enrollmentRef:)` with `FeedbackDraft.enrollmentRef`.
 
 `AttentionReason` gained two cases and stays a plain enum, so an exhaustive `switch` surfaces them at compile time.
