@@ -311,6 +311,20 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         let result: unknown;
         try {
           switch (request.op) {
+            case 'resetGates': {
+              // This is the disposable fixture's profile only. Restore all gates even when a prior test
+              // aborted while MCP/Dispatcher was disabled, and return authoritative values for XCTest.
+              result = await window.evaluate(async () => {
+                const ch = (window as any).clubhouse;
+                await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: true });
+                await ch.settings.save('mcp', { ...await ch.settings.get('mcp'), enabled: true });
+                await ch.dispatcher.setEnabled(false);
+                return { mcpEnabled: (await ch.settings.get('mcp')).enabled,
+                  dispatcherFlag: (await ch.app.getExperimentalSettings()).dispatcher,
+                  dispatcherEnabled: (await ch.dispatcher.get()).enabled };
+              });
+              break;
+            }
             case 'iconsState': {
               if (!icons) throw new Error('Set E2E_ICON_FIXTURE=1 for live icons');
               result = await icons.state();
