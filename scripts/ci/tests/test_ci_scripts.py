@@ -73,6 +73,29 @@ class ChangesTests(unittest.TestCase):
         self.assertEqual(self.run_main([]), {"swift": "false", "app": "false"})
 
 
+class SimulatorBootTests(unittest.TestCase):
+    def test_one_stalled_client_is_retried_without_restarting_the_device(self):
+        module = load("wait_simulator", SCRIPTS / "ci" / "wait_simulator.py")
+        calls = []
+        def run(command, **options):
+            calls.append((command, options))
+            if len(calls) == 1:
+                raise module.subprocess.TimeoutExpired(command, options["timeout"])
+        self.assertEqual(module.wait_for_boot("owned", run), 0)
+        self.assertEqual([x[1]["timeout"] for x in calls], [120, 150])
+        self.assertTrue(all(x[0] == ["xcrun", "simctl", "bootstatus", "owned", "-b"] for x in calls))
+
+    def test_two_failed_clients_fail_within_the_existing_step_budget(self):
+        module = load("wait_simulator", SCRIPTS / "ci" / "wait_simulator.py")
+        calls = []
+        def run(command, **options):
+            calls.append(options["timeout"])
+            raise module.subprocess.CalledProcessError(1, command)
+        self.assertEqual(module.wait_for_boot("owned", run), 1)
+        self.assertEqual(calls, [120, 150])
+        self.assertLess(sum(calls), 300)
+
+
 class UIShardTests(unittest.TestCase):
     def test_every_listed_test_runs_exactly_once(self):
         include = ui_shards.matrix()["include"]

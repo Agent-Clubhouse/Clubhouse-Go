@@ -465,10 +465,18 @@ private struct ReadOnlyTransport: AnnexTransporting {
 
 // MARK: Timers on an injected clock
 
-/// Waits for work the code under test has already scheduled, by yielding rather than sleeping.
+private struct ScheduledConditionTimeout: Error {}
+
+/// Wait for scheduled work's actual condition, giving other executors a chance to run.
+/// A yield count can expire in milliseconds while the actor we await has not been scheduled.
 private func settle(_ done: () async -> Bool) async throws {
-    for _ in 0..<10_000 { if await done() { return }; await Task.yield() }
-    Issue.record("Condition never settled"); throw CancellationError()
+    let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+    repeat {
+        if await done() { return }
+        try await Task.sleep(for: .milliseconds(1))
+    } while ContinuousClock.now < deadline
+    Issue.record("Scheduled condition did not become true within 10 seconds")
+    throw ScheduledConditionTimeout()
 }
 
 @Test func commandsOlderThanTheDesktopsRetentionAreUnknownAndNeverSent() async throws {

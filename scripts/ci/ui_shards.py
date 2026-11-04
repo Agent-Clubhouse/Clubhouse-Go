@@ -15,54 +15,73 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Seconds are measured on macos-26 (runs 41020974154, 41023516202). Every `xcodebuild test` invocation also
-# spends 2–3 minutes installing and launching before its first test, so each shard is a single one.
+# Attempt-time estimates use runs 41713658226/41713894400 and the preceding 7a3356b run.
+# Setup, installation, retries and artifact collection also consume the 55-minute job budget.
 SHARDS = [
     {
+        # Mixed-run worst observed attempts: ~31 minutes, including content-preview retries.
         "name": "UI tests (preview)",
         "tests": [
             "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetLinksToAgentSettings",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetForAnAgentWithoutSession",
-            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",  # 90–100
-            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",  # 75
-            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",  # 45–55
-            "FeedbackTriggersUITests",  # 110–130
+            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",
+            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",
+            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",
+            "FeedbackTriggersUITests",
+            "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",
         ],
     },
     {
+        # ~22 minutes of timed attempts, plus the short hosted Swift Testing cases.
         "name": "UI tests (sheets, review, terminal) + unit tests",
         # The ClubhouseGoTests bundle takes seconds; it shares this shard's invocation (and launch cost).
         "unit": True,
         "tests": [
-            "CompanionAgentSheetsTests",  # 230–350
-            "CompanionTerminalUITests",  # 155–180
-            "CompanionReviewUITests",  # 80
-            "CompanionImageAttachmentUITests",  # 40–70
-            "DiagnosticSettingsTests",  # 25
+            "CompanionAgentSheetsTests",
+            "CompanionTerminalUITests",
+            "CompanionReviewUITests",
+            "CompanionImageAttachmentUITests",
+            "DiagnosticSettingsTests",
         ],
     },
     {
-        # Split from "other" after run 41487601605 took 50 minutes of test time.
-        # These classes contributed 1,473 s of test bodies; the remainder 1,310 s
-        # (including one 48 s failed attempt). Each gets its own launch budget.
-        "name": "UI tests (chat)",
+        # Runs 41713658226/41713894400: these classes consumed 21–30 minutes,
+        # including retries. Separate them from reading/input's projected 28–31.
+        "name": "UI tests (dispatcher, auto quota)",
         "tests": [
-            "CompanionDispatcherUITests",  # 341
-            "CompanionAutoQuotaUITests",  # 211
-            "CompanionReadingUITests",  # 194, before the native-top regressions
-            "CompanionMarkdownBlockUITests",  # 144
-            "CompanionSlashCommandUITests",  # 139
-            "CompanionHelperPresetsUITests",  # 105
-            "CompanionContextWindowUITests",  # 104
-            "CompanionLongReplyUITests",  # 86
-            "CompanionComposerPasteUITests",  # 73
-            "CompanionQueuedBurstUITests",  # 46
-            "CompanionQuestionUITests",  # 29
+            "CompanionDispatcherUITests",
+            "CompanionAutoQuotaUITests",
         ],
     },
     {
-        # Remaining preview, agent tree and diagnostics tests, plus every new UI class.
+        # ~28 minutes in main; ~36 using each method's slowest observed attempt total.
+        "name": "UI tests (reading, input)",
+        "tests": [
+            "CompanionReadingUITests",
+            "CompanionMarkdownBlockUITests",
+            "CompanionSlashCommandUITests",
+            "CompanionHelperPresetsUITests",
+            "CompanionContextWindowUITests",
+            "CompanionLongReplyUITests",
+            "CompanionComposerPasteUITests",
+            "CompanionQueuedBurstUITests",
+            "CompanionQuestionUITests",
+        ],
+    },
+    {
+        # About 23 minutes in each recent run, ~32 in a mixed worst-case estimate.
+        # The CLI settings retry moves here; content-preview retries share the preview lane.
+        "name": "UI tests (agents, keyboard)",
+        "tests": [
+            "CompanionAgentTreeUITests",
+            "CompanionKeyboardDismissalUITests",
+            "CompanionPreviewSmokeTests/testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection",
+        ],
+    },
+    {
+        # Remaining preview/diagnostics and new UI classes: ~31 mixed-worst minutes.
+        # Live-test guards and all existing skip behavior remain as before.
         "name": "UI tests (other)",
         "tests": None,
     },
