@@ -983,6 +983,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Opt in with E2E_ICON_FIXTURE=1 and --only CompanionLiveE2ETests/test9fRealIconsAndDiskReuse.
     func test9fRealIconsAndDiskReuse() throws {
         try XCTSkipUnless(env["CLUBHOUSE_E2E_ICON_FIXTURE"] == "1", "Needs the iconRefs desktop fixture")
+        try dispatcherFixture("setEnabled", ["enabled": true])
         func state() throws -> [String: Any] {
             try XCTUnwrap(try dispatcherFixture("iconsState") as? [String: Any])
         }
