@@ -66,7 +66,10 @@ import XCTest
         focus(composer, in: app)
         // Also cover the other end of the full-height blank hit area, just above the composer.
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
-        let bottom = min(transcript.maxY, composer.frame.minY) - 20
+        let composerRegion = element(app, "companion-composer-region")
+        XCTAssertTrue(composerRegion.exists)
+        // The text field's AX frame excludes its outer padding; use the entire bottom bar's bounds.
+        let bottom = min(transcript.maxY, composerRegion.frame.minY) - 12
         let point = CGPoint(x: transcript.minX + 8, y: bottom)
         XCTAssertGreaterThan(bottom, element(app, "companion-chat-header").frame.maxY)
         XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
