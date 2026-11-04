@@ -120,9 +120,43 @@ import UIKit
         #expect(hiddenTimelines == 0, "Hidden conversations must do zero timeline builds for 20 streamed events")
         #expect(store.drafts[target] == "Draft for this desktop")
 
+        func diagnostic(_ stage: String) {
+            let view = bookmark.viewport
+            let offset = view.metrics?.normalizedOffset ?? -1
+            print("HIDDEN_RESTORE_DIAGNOSTIC case=\(hidden.rawValue) stage=\(stage) geometryOffset=\(offset) saved=\(bookmark.position.offset) follows=\(bookmark.position.followsLatest) entryPresent=\(bookmark.position.entryID.map { view.frames[$0] != nil } ?? false) frames=\(view.frames.count) initialized=\(view.hasInitialized) restoring=\(view.isRestoring) ready=\(view.acceptsGeometry(historyRevision: store.conversation(for: target).historyRevision, isLoaded: store.conversation(for: target).isLoaded)) restoreOffset=\(view.restoreOffset ?? -1)")
+        }
+        diagnostic("hidden")
+        let clock = ContinuousClock()
+        let started = clock.now
         navigation.tab = 0; navigation.desktop = 0
-        try await settle(window)
-        try await settle(window)
+        var firstReadyMs: Double?
+        var loggedEarlyState = false
+        func restorationReady() -> Bool {
+            let viewport = bookmark.viewport
+            return viewport.acceptsGeometry(historyRevision: store.conversation(for: target).historyRevision,
+                                            isLoaded: store.conversation(for: target).isLoaded)
+                && !viewport.isRestoring
+        }
+        func elapsedMs() -> Double {
+            let duration = started.duration(to: clock.now).components
+            return Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1e15
+        }
+        // Wait for completion, never for the expected offset: a completed restore to the
+        // wrong place must still fail the original two-point assertion below. The old
+        // two 100ms sleeps could sample the mounted scroll view before its restore task ran.
+        while elapsedMs() < 3_000 {
+            window.layoutIfNeeded()
+            if restorationReady(), firstReadyMs == nil { firstReadyMs = elapsedMs() }
+            if elapsedMs() >= 200 {
+                if !loggedEarlyState { diagnostic("200ms"); loggedEarlyState = true }
+                if restorationReady() { break }
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let ready = restorationReady()
+        print("HIDDEN_RESTORE_TIMING case=\(hidden.rawValue) firstObservedReadyMs=\(firstReadyMs ?? -1) observedCompletionMs=\(elapsedMs()) ready=\(ready)")
+        diagnostic(ready ? "completed" : "timeout")
+        #expect(ready, "Restoration must complete within three seconds; see HIDDEN_RESTORE_DIAGNOSTIC and HIDDEN_RESTORE_TIMING")
         let restored = try #require(transcript(in: window))
         let restoredOffset = restored.contentOffset.y + restored.adjustedContentInset.top
         print("HIDDEN_SCROLL_MEASUREMENT case=\(hidden.rawValue) before=\(readingOffset) restored=\(restoredOffset)")
