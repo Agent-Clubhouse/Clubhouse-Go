@@ -88,7 +88,7 @@ struct FramebriarShakePreview: View {
             if isWireFixture {
                 await model.tick() // synthetic refresh; establishes SDK telemetry eligibility
                 while !Task.isCancelled {
-                    let next = transport.wireSummary
+                    let next = transport.wireSummary(initialScreenshotSHA: CompanionFeedbackPresenter.fixtureInitialScreenshotSHA)
                     if wireSummary != next { wireSummary = next }
                     let nextCapture = presenter.fixtureCaptureState
                     if captureState != nextCapture { captureState = nextCapture }
@@ -102,7 +102,8 @@ struct FramebriarShakePreview: View {
     private static let wireFixture: (model: FeedbackModel, transport: PreviewFeedbackTransport, bridge: CompanionTelemetry, source: AnnexTelemetry) = {
         let transport = PreviewFeedbackTransport(wire: true), source = AnnexTelemetry()
         let config = try! Configuration(gameID: "simulator-fixture", buildSHA: "abcdef0", endpoint: URL(string: "https://fixture.invalid/api")!)
-        let client = try! Client(configuration: config, transport: transport, enrollmentStore: PreviewEnrollment(enrolled: true), feedbackStore: PreviewQueue())
+        let client = try! Client(configuration: config, transport: transport, enrollmentStore: PreviewEnrollment(enrolled: true), feedbackStore: PreviewQueue(
+            failFirstSave: ProcessInfo.processInfo.arguments.contains("--feedback-save-failure"), observer: transport))
         CompanionFeedback.adoptSession(of: source)
         let bridge = try! CompanionTelemetry(client: client, configuration: config, source: source, transport: transport, observeAppLifecycle: false)
         recordRetry(on: source, failure: .timeout)
@@ -127,8 +128,8 @@ struct FramebriarShakePreview: View {
     private static var wireControls: CompanionFeedbackFixtureControls {
         let parts = wireFixture
         let image = ProcessInfo.processInfo.arguments.contains("--framebriar-wire-image")
-            ? UIGraphicsImageRenderer(size: CGSize(width: 20, height: 20)).image { context in
-                UIColor.systemBlue.setFill(); context.fill(CGRect(x: 0, y: 0, width: 20, height: 20))
+            ? UIGraphicsImageRenderer(size: CGSize(width: 60, height: 60)).image { context in
+                UIColor.magenta.setFill(); context.fill(CGRect(x: 0, y: 0, width: 60, height: 60))
             }.pngData() : nil
         return CompanionFeedbackFixtureControls(changeEnrollment: {
             Task {
@@ -246,9 +247,19 @@ private struct PreviewEnrollment: EnrollmentStore {
 private final class PreviewQueue: FeedbackStore, @unchecked Sendable {
     private nonisolated let lock = NSLock()
     nonisolated(unsafe) private var items: [QueuedFeedback]
-    init(seed: [QueuedFeedback] = []) { items = seed }
+    nonisolated(unsafe) private var failFirstSave: Bool
+    nonisolated private let observer: PreviewFeedbackTransport?
+    init(seed: [QueuedFeedback] = [], failFirstSave: Bool = false, observer: PreviewFeedbackTransport? = nil) {
+        items = seed; self.failFirstSave = failFirstSave; self.observer = observer
+    }
     nonisolated func load(scope: String) throws -> [QueuedFeedback] { lock.withLock { items } }
-    nonisolated func save(_ items: [QueuedFeedback], scope: String) throws { lock.withLock { self.items = items } }
+    nonisolated func save(_ items: [QueuedFeedback], scope: String) throws {
+        try lock.withLock {
+            observer?.recordSave(items)
+            if failFirstSave { failFirstSave = false; throw FramebriarError.storage }
+            self.items = items
+        }
+    }
 }
 final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
     nonisolated static let enrollmentDeadline = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) + 86400)
@@ -261,6 +272,14 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
     nonisolated(unsafe) private var incidents: [Data] = []
     nonisolated(unsafe) private var changes = 0
     nonisolated(unsafe) private var media: [Data] = []
+    nonisolated(unsafe) private var saves: [[String: String]] = []
+    nonisolated func recordSave(_ items: [QueuedFeedback]) {
+        let records = items.map { item in
+            ["id": item.feedback.id.uuidString.lowercased(),
+             "sha256": item.feedback.screenshotPNG.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() } ?? "none"]
+        }
+        lock.withLock { saves.append(contentsOf: records) }
+    }
     init(wire: Bool = false) { self.wire = wire }
     nonisolated var count: Int { lock.withLock { requests } }
     nonisolated func recordCapture(_ value: FeedbackDiagnostics) {
@@ -270,11 +289,11 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
         if let value, let data = try? JSONEncoder().encode(value) { lock.withLock { incidents.append(data) } }
     }
     nonisolated func changedEnrollment() { lock.withLock { changes += 1 } }
-    nonisolated var wireSummary: String {
+    nonisolated func wireSummary(initialScreenshotSHA: String?) -> String {
         lock.withLock {
             func objects(_ values: [Data]) -> [Any] { values.suffix(20).compactMap { try? JSONSerialization.jsonObject(with: $0) } }
-            let result: [String: Any] = ["reports": objects(reports), "telemetry": objects(telemetryBodies),
-                "captures": objects(captures), "incidents": objects(incidents), "enrollmentChanges": changes, "media": media.map(Self.mediaEvidence)]
+            let result: [String: Any] = ["initialScreenshotSHA": initialScreenshotSHA as Any? ?? NSNull(), "reports": objects(reports), "telemetry": objects(telemetryBodies),
+                "captures": objects(captures), "incidents": objects(incidents), "enrollmentChanges": changes, "saves": saves, "media": media.map(Self.mediaEvidence)]
             return (try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
         }
     }
@@ -288,8 +307,13 @@ final class PreviewFeedbackTransport: HTTPTransport, @unchecked Sendable {
             CGImageDestinationAddImage(destination, image, nil)
             CGImageDestinationFinalize(destination)
         }
-        return ["sha256": SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined(),
+        var evidence: [String: Any] = ["sha256": SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined(),
                 "bytes": png.count, "samplePNG": (output as Data).base64EncodedString()]
+        // Small synthetic editor fixtures expose the exact PUT body, without bloating screen captures.
+        if let image = UIImage(data: png)?.cgImage, image.width <= 256, image.height <= 256 {
+            evidence["uploadedPNG"] = png.base64EncodedString()
+        }
+        return evidence
     }
     nonisolated func send(_ request: URLRequest) async throws -> HTTPResponse {
         lock.withLock { requests += 1 }

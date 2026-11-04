@@ -1,5 +1,8 @@
 import SwiftUI
 import UIKit
+#if DEBUG
+import CryptoKit
+#endif
 import Framebriar
 import FramebriarUI
 
@@ -92,7 +95,7 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     }
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
-    func sendFeedback(screenshotPNG: Data? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
+    func sendFeedback(screenshotPNG: Data? = nil, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
         guard let model, presented == nil else { return }
         dismissPrompt()
         statusTask?.cancel()
@@ -102,7 +105,7 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
             if model.status?.canSubmit == true {
                 let png = frozenImage == nil ? screenshotPNG : await Self.encode(frozenImage)
                 guard !Task.isCancelled, self.presented == nil else { return }
-                self.presentComposer(screenshot: png, from: sourceWindow)
+                self.presentComposer(screenshot: png, screenshotUnavailable: screenshotUnavailable, from: sourceWindow)
             } else { self.explainEnrollment(fromScreenshot: false, fromShake: fromShake) }
         }
     }
@@ -188,11 +191,11 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
 
     // MARK: Presentation
 
-    private func presentComposer(screenshot: Data?, from sourceWindow: UIWindow? = nil) {
+    private func presentComposer(screenshot: Data?, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, from sourceWindow: UIWindow? = nil) {
         guard let model else { return }
         guard presented == nil, !model.isComposerOpen else { return }
         let host = UIHostingController(rootView: NavigationStack {
-            CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, onClose: { [weak self] in
+            CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, screenshotUnavailable: screenshotUnavailable, onClose: { [weak self] in
                 self?.presented?.dismiss(animated: true)
             })
         })
@@ -282,6 +285,11 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     }
 
     #if DEBUG
+    private(set) static var fixtureInitialScreenshotSHA: String?
+    static func recordFixtureScreenshot(_ png: Data?) {
+        guard ProcessInfo.processInfo.arguments.contains("--framebriar-wire-ui-testing") else { return }
+        fixtureInitialScreenshotSHA = png.map { SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined() }
+    }
     private static weak var lastFrozenImage: CGImage?
     private static var deferredPNGEncodes = 0
     var fixtureCaptureState: String {

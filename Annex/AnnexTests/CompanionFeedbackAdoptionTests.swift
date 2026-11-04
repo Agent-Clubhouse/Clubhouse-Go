@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 import Framebriar
 import FramebriarUI
@@ -23,6 +24,65 @@ import FramebriarUI
         await model.setActive(true)
         await model.connect(String(repeating: "i", count: 43))
         #expect(model.status?.canSubmit == true, "Fake enrollment must succeed before exercising identity")
+    }
+
+    // Serialized by the real v0.7.1 bb9b614292e54e4a4d0e9a764f9cbc47b7fc1981 adapter.
+    // Synthetic credentials and PNG-signature bytes only; no device Keychain or live service.
+    @Test func v071PersistedIdentityBoundAndHeldQueueSurviveUpgrade() async throws {
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let enrollmentJSON = #"{"enrolled":true,"enrollmentRef":"v071-current","expiresAt":821692800,"notice":"disconnected","refreshToken":"rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"}"#
+        let queueJSON = #"[{"attempts":2,"blocked":false,"enrollmentRef":"v071-current","feedback":{"buildSHA":"abcdef0","capturedAt":815472773.194344,"gameID":"go-adoption-fixture","id":"F2143F44-AEA4-4E21-82A5-047223DAF497","notes":"v071 bound","screenshotPNG":"iVBORw0KGgoB","sessionID":"43b84639-e15a-4551-beaa-7976277b0b55"},"heldForEnrollment":false,"nextAttemptAt":821692800},{"attempts":0,"blocked":true,"enrollmentRef":"v071-previous","feedback":{"buildSHA":"abcdef0","capturedAt":815472773.196141,"gameID":"go-adoption-fixture","id":"68710BEA-CDFE-4D5B-AC92-3823AC3540EC","notes":"v071 held","sessionID":"43b84639-e15a-4551-beaa-7976277b0b55"},"heldForEnrollment":true,"nextAttemptAt":-63114076800}]"#
+        let record = try JSONDecoder().decode(EnrollmentRecord.self, from: Data(enrollmentJSON.utf8))
+        let original = try JSONDecoder().decode([QueuedFeedback].self, from: Data(queueJSON.utf8))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try FileFeedbackStore(directory: directory)
+        let filename = SHA256.hash(data: Data(config.storageScope.utf8)).map { String(format: "%02x", $0) }.joined() + ".json"
+        try Data(queueJSON.utf8).write(to: directory.appendingPathComponent(filename))
+        let enrollment = AdoptionEnrollment(record: record)
+        let network = AdoptionNetwork()
+        let client = try Client(configuration: config, transport: network, enrollmentStore: enrollment, feedbackStore: store,
+                                now: { Date(timeIntervalSince1970: 1_793_779_200) })
+        let model = FeedbackModel(client: client, reportDiagnostics: .off)
+        await model.update()
+        #expect(model.status?.queued == 2 && model.status?.heldForEnrollment == 1 && model.status?.blocked == 0)
+        #expect(client.enrollmentSignal.enrollmentRef == "v071-current")
+        let persisted = try enrollment.load(scope: config.storageScope)
+        #expect(persisted.enrollmentRef == record.enrollmentRef && persisted.refreshToken == record.refreshToken)
+        let reloaded = try store.load(scope: config.storageScope)
+        #expect(try encoder.encode(reloaded) == encoder.encode(original))
+        #expect(await network.calls == 0, "Upgrade and inspection make no request")
+        let displayed = try #require(model.status?.releaseToken)
+        let released = await model.releaseHeldReports(releaseToken: displayed)
+        #expect(released.released == 1 && released.remaining == 0 && released.failed == 0)
+        #expect(model.status?.queued == 2 && model.status?.heldForEnrollment == 0)
+        let after = try store.load(scope: config.storageScope)
+        for (old, current) in zip(original, after) {
+            #expect(try encoder.encode(old.feedback) == encoder.encode(current.feedback))
+            #expect(current.enrollmentRef == record.enrollmentRef)
+        }
+        #expect(after[0].attempts == 2 && after[0].nextAttemptAt == original[0].nextAttemptAt)
+        let stale = await model.releaseHeldReports(releaseToken: displayed)
+        #expect(stale.code == "stale-release")
+        #expect(await network.calls == 0, "Paused release queues for later, never claims delivery")
+    }
+
+    @Test func failedSameEnrollmentSaveKeepsDraftIDAndReviewedBytes() async throws {
+        let queue = AdoptionQueue(), (model, network) = try model(queue: queue)
+        await enroll(model)
+        let draft = model.openDraft()
+        let png = Data([137,80,78,71,13,10,26,10,1])
+        queue.fail(after: 0)
+        await #expect(throws: FramebriarError.storage) {
+            try await model.save(draft, notes: "same reviewed report", screenshotPNG: png, includeDiagnostics: false)
+        }
+        let recovery = model.recovery(after: FramebriarError.storage, for: draft)
+        #expect(recovery.draft.id == draft.id && recovery.draft.enrollmentRef == draft.enrollmentRef)
+        #expect(await network.reports.isEmpty)
+        queue.allowSaves()
+        let saved = try await model.save(recovery.draft, notes: "same reviewed report", screenshotPNG: png, includeDiagnostics: false)
+        #expect(saved.id == draft.id && saved.screenshotPNG == png && saved.notes == "same reviewed report")
+        #expect(try queue.load(scope: config.storageScope).first?.feedback.id == draft.id)
     }
 
     @Test func changedEnrollmentRequiresNewDraftAndAnotherExplicitSave() async throws {
@@ -139,7 +199,8 @@ import FramebriarUI
 nonisolated private final class FeedbackFixtureBundle {}
 nonisolated private final class AdoptionEnrollment: EnrollmentStore, @unchecked Sendable {
     private let lock = NSLock()
-    private var record = EnrollmentRecord()
+    private var record: EnrollmentRecord
+    init(record: EnrollmentRecord = EnrollmentRecord()) { self.record = record }
     func load(scope: String) throws -> EnrollmentRecord { lock.withLock { record } }
     func save(_ record: EnrollmentRecord, scope: String) throws { lock.withLock { self.record = record } }
 }
@@ -147,6 +208,7 @@ nonisolated private final class AdoptionQueue: FeedbackStore, @unchecked Sendabl
     private let lock = NSLock()
     private var items: [QueuedFeedback] = []
     private var remainingSaves: Int?
+    func allowSaves() { lock.withLock { remainingSaves = nil } }
     func fail(after count: Int) { lock.withLock { remainingSaves = count } }
     func load(scope: String) throws -> [QueuedFeedback] { lock.withLock { items } }
     func save(_ items: [QueuedFeedback], scope: String) throws {

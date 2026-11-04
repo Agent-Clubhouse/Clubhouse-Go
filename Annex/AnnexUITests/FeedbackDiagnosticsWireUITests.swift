@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import CryptoKit
 
 /// Actual SDK FeedbackView, Go entry points and memory-only fake HTTP/telemetry. No live endpoint.
 final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
@@ -14,6 +15,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         return try JSONSerialization.jsonObject(with: Data(text.label.utf8)) as! [String: Any]
     }
     @MainActor private func settings(_ app: XCUIApplication) {
+        XCTAssertTrue(scrollTo(app.buttons["Settings"], in: app, maxSwipes: 8))
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 5)
     }
     @MainActor private func ordinaryButton(_ app: XCUIApplication) {
@@ -40,7 +42,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor private func note(_ text: String, in app: XCUIApplication) {
         let notes = app.textViews["framebriar-notes"]
         XCTAssertTrue(scrollTo(notes, in: app, up: false, maxSwipes: 4))
-        notes.tap(); notes.typeText(text)
+        revealComposerElement(notes, in: app).tap(); notes.typeText(text)
     }
     @MainActor private func toggle(_ app: XCUIApplication) {
         let row = app.switches["framebriar-diagnostics-switch"]
@@ -77,6 +79,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         var snapshot = try wire(app)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
         XCTAssertNil((snapshot["reports"] as? [[String: Any]])?.first?["diagnostics"])
+        XCTAssertEqual(snapshot["initialScreenshotSHA"] as? String, (snapshot["media"] as? [[String: Any]])?.last?["sha256"] as? String)
 
         _ = app.navigationBars["Send feedback"].waitForExistence(timeout: 2.5)
         app.buttons["fixture-shake"].tap()
@@ -87,6 +90,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         snapshot = try wire(app)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0)
         XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 2)
+        XCTAssertEqual(snapshot["initialScreenshotSHA"] as? String, (snapshot["media"] as? [[String: Any]])?.last?["sha256"] as? String)
 
         let screenshot = app.buttons["fixture-screenshot"]
         XCTAssertTrue(scrollTo(screenshot, in: app, maxSwipes: 3)); screenshot.tap()
@@ -102,6 +106,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertTrue(reports.allSatisfy { $0["media"] is [String: Any] }, "All three routes keep the reviewed image")
         XCTAssertEqual((snapshot["media"] as? [Any])?.count, 3)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 0, "No provider call on any ordinary route")
+        XCTAssertEqual(snapshot["initialScreenshotSHA"] as? String, (snapshot["media"] as? [[String: Any]])?.last?["sha256"] as? String)
         XCTAssertNil(reports[1]["incident"], "OFF's user switch still removes incident and flat trace fields")
         XCTAssertNil(reports[1]["traceId"]); XCTAssertNil(reports[1]["spanId"])
     }
@@ -156,8 +161,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertEqual(app.textViews["framebriar-notes"].value as? String, "Diagnostics test enrollment race")
         XCTAssertFalse(app.staticTexts["framebriar-included"].label.contains("recent diagnostics"))
         let notice = app.staticTexts["framebriar-error"]
-        // The SDK places this below the image, in a lazy Form. Scroll the visible Form margin,
-        // above its pinned summary/keyboard, rather than swiping on the focused text editor.
+        // The SDK pins errors above the Form. Keep the bounded fallback for slow UI snapshots.
         for _ in 0..<8 {
             if notice.exists { break }
             let bottom = app.staticTexts["framebriar-included"].frame.minY - 16
@@ -209,6 +213,7 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         let report = try XCTUnwrap((snapshot["reports"] as? [[String: Any]])?.last, file: file, line: line)
         let metadata = try XCTUnwrap(report["media"] as? [String: Any], file: file, line: line)
         let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last, file: file, line: line)
+        XCTAssertEqual(snapshot["initialScreenshotSHA"] as? String, upload["sha256"] as? String, "Unedited host PNG must reach upload byte-for-byte", file: file, line: line)
         XCTAssertEqual(metadata["sha256"] as? String, upload["sha256"] as? String, file: file, line: line)
         XCTAssertEqual(metadata["bytes"] as? Int, upload["bytes"] as? Int, file: file, line: line)
         let data = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["samplePNG"] as? String)))
@@ -414,6 +419,196 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         snapshot = try wire(app)
         XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
         XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+    }
+
+    /// Keep taps between the SDK's pinned summary and navigation bars, including at accessibility sizes.
+    @MainActor private func revealComposerElement(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
+        for _ in 0..<12 {
+            var top = app.navigationBars["Send feedback"].frame.maxY
+            for id in ["framebriar-error", "framebriar-send-reason"] where app.staticTexts[id].exists {
+                top = max(top, app.staticTexts[id].frame.maxY)
+            }
+            let explanation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Start your note with ‘Diagnostics test’")).firstMatch
+            if explanation.exists { top = max(top, explanation.frame.maxY) }
+            let bottom = app.staticTexts["framebriar-included"].frame.minY
+            if element.exists, element.frame.midY > top + 10, element.frame.midY < bottom - 10 { break }
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width - 12, dy: (top + bottom) / 2))
+            let delta: CGFloat = element.exists && element.frame.midY < top + 10 ? 110 : -110
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
+        }
+        XCTAssertTrue(element.isHittable)
+        return element
+    }
+    @MainActor private func editor(_ app: XCUIApplication) -> XCUIElement {
+        revealComposerElement(app.images["framebriar-attachment"], in: app).tap()
+        let canvas = app.descendants(matching: .any)["framebriar-editor-canvas"]
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+        return canvas
+    }
+    /// The synthetic image is square, fitted inside a possibly tall canvas.
+    @MainActor private func mark(_ canvas: XCUIElement, from: CGPoint, to: CGPoint) {
+        let side = min(canvas.frame.width, canvas.frame.height)
+        let origin = canvas.coordinate(withNormalizedOffset: .zero)
+        func point(_ p: CGPoint) -> XCUICoordinate {
+            origin.withOffset(CGVector(dx: (canvas.frame.width - side) / 2 + side * p.x,
+                                       dy: (canvas.frame.height - side) / 2 + side * p.y))
+        }
+        point(from).press(forDuration: 0.1, thenDragTo: point(to))
+    }
+    @MainActor private func finishEditor(_ app: XCUIApplication) {
+        app.buttons["framebriar-editor-done"].tap()
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 10))
+    }
+    private func uploadedPixels(_ snapshot: [String: Any]) throws -> (Int, Int, [UInt8]) {
+        let upload = try XCTUnwrap((snapshot["media"] as? [[String: Any]])?.last)
+        let png = try XCTUnwrap(Data(base64Encoded: try XCTUnwrap(upload["uploadedPNG"] as? String)))
+        let digest = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(digest, upload["sha256"] as? String)
+        let report = try XCTUnwrap((snapshot["reports"] as? [[String: Any]])?.last)
+        let media = try XCTUnwrap(report["media"] as? [String: Any])
+        XCTAssertEqual(media["sha256"] as? String, digest)
+        XCTAssertEqual(media["bytes"] as? Int, png.count)
+        let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
+        // The editor sends an opaque PNG, with no source image or separate mark payload.
+        XCTAssertTrue(image.alphaInfo == .none || image.alphaInfo == .noneSkipLast || image.alphaInfo == .noneSkipFirst)
+        var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let context = try XCTUnwrap(CGContext(data: &bytes, width: image.width, height: image.height,
+            bitsPerComponent: 8, bytesPerRow: image.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return (image.width, image.height, bytes)
+    }
+
+    @MainActor func testEditorUploadsFourInksAndDestructiveOpaqueRedaction() throws {
+        let app = launch(image: true)
+        settings(app); testDraft(app)
+        let canvas = editor(app)
+        XCTAssertTrue((canvas.value as? String ?? "").hasSuffix("100% zoom"))
+        canvas.pinch(withScale: 2, velocity: 2)
+        expectation(for: NSPredicate(format: "NOT value ENDSWITH ' 100% zoom'"), evaluatedWith: canvas)
+        waitForExpectations(timeout: 5)
+        canvas.doubleTap()
+        expectation(for: NSPredicate(format: "value ENDSWITH '100% zoom'"), evaluatedWith: canvas)
+        waitForExpectations(timeout: 5)
+        app.buttons["Pen"].tap()
+        for (index, color) in ["red", "yellow", "blue", "white"].enumerated() {
+            let ink = app.buttons["framebriar-editor-ink-\(color)"]
+            XCTAssertTrue(ink.isHittable); ink.tap()
+            let y = 0.15 + Double(index) * 0.12
+            mark(canvas, from: CGPoint(x: 0.15, y: y), to: CGPoint(x: 0.85, y: y))
+        }
+        app.buttons["Redact"].tap()
+        mark(canvas, from: CGPoint(x: 0.25, y: 0.65), to: CGPoint(x: 0.75, y: 0.85))
+        XCTAssertTrue((canvas.value as? String ?? "").hasPrefix("5 marks"))
+        finishEditor(app)
+        sendAndClose(app); closeSettings(app)
+        let snapshot = try wire(app)
+        let (width, height, pixels) = try uploadedPixels(snapshot)
+        let colors: [(UInt8, UInt8, UInt8)] = [(255, 0, 0), (255, 204, 0), (0, 122, 255), (255, 255, 255)]
+        for (r, g, b) in colors {
+            let count = stride(from: 0, to: pixels.count, by: 4).filter {
+                abs(Int(pixels[$0]) - Int(r)) < 12 && abs(Int(pixels[$0 + 1]) - Int(g)) < 12 && abs(Int(pixels[$0 + 2]) - Int(b)) < 12
+            }.count
+            XCTAssertGreaterThan(count, 10, "Ink \(r),\(g),\(b) must be in decoded PUT bytes")
+        }
+        for y in Int(Double(height) * 0.69)..<Int(Double(height) * 0.81) {
+            for x in Int(Double(width) * 0.3)..<Int(Double(width) * 0.7) {
+                let i = (y * width + x) * 4
+                XCTAssertEqual(Array(pixels[i..<i + 4]), [0, 0, 0, 255], "Covered source pixels must be replaced, not translucent")
+            }
+        }
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 1, "Editing never recaptures frozen diagnostics")
+    }
+
+    @MainActor func testEditorClearRestoresOriginalPixelsBeforeFirstSend() throws {
+        let app = launch(image: true)
+        settings(app); testDraft(app)
+        var canvas = editor(app)
+        app.buttons["Redact"].tap()
+        mark(canvas, from: CGPoint(x: 0.2, y: 0.2), to: CGPoint(x: 0.8, y: 0.8))
+        finishEditor(app)
+        canvas = editor(app)
+        XCTAssertTrue((canvas.value as? String ?? "").hasPrefix("1 mark"))
+        app.buttons["framebriar-editor-clear"].tap()
+        let confirm = app.buttons["framebriar-editor-clear-confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+        XCTAssertTrue((canvas.value as? String ?? "").hasPrefix("0 marks"))
+        finishEditor(app)
+        sendAndClose(app); closeSettings(app)
+        let (_, _, pixels) = try uploadedPixels(wire(app))
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            XCTAssertEqual(Array(pixels[i..<i + 4]), [255, 0, 255, 255], "Clear restores every original magenta pixel")
+        }
+    }
+
+    @MainActor func testExcludeEditedScreenshotSendsNoMediaAndReincludeKeepsImage() throws {
+        let app = launch(image: true)
+        settings(app); testDraft(app)
+        let canvas = editor(app)
+        app.buttons["Redact"].tap()
+        mark(canvas, from: CGPoint(x: 0.2, y: 0.2), to: CGPoint(x: 0.8, y: 0.8))
+        finishEditor(app)
+        let screenshot = app.switches["framebriar-screenshot-switch"]
+        XCTAssertTrue(scrollTo(screenshot, in: app, up: false, maxSwipes: 6))
+        func toggleScreenshot() {
+            if screenshot.switches.firstMatch.exists { screenshot.switches.firstMatch.tap() }
+            else { screenshot.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap() }
+        }
+        toggleScreenshot()
+        XCTAssertTrue(app.staticTexts["framebriar-included"].label.contains("screenshot left out"))
+        toggleScreenshot()
+        XCTAssertTrue(app.staticTexts["framebriar-edited-note"].exists, "Reinclude retains the edit")
+        toggleScreenshot()
+        note("deliberately text only", in: app)
+        sendAndClose(app); closeSettings(app)
+        let snapshot = try wire(app)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+        XCTAssertTrue((snapshot["reports"] as? [[String: Any]])?.last?["media"] is NSNull)
+    }
+
+    @MainActor func testFailedSaveRetryKeepsFlattenedPixelsAndDraftID() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--framebriar-wire-image", "--feedback-save-failure"])
+        XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
+        settings(app); testDraft(app)
+        let canvas = editor(app)
+        app.buttons["Redact"].tap()
+        mark(canvas, from: CGPoint(x: 0.2, y: 0.2), to: CGPoint(x: 0.8, y: 0.8))
+        finishEditor(app)
+        app.buttons["framebriar-send"].tap()
+        XCTAssertTrue(app.staticTexts["framebriar-error"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["framebriar-error"].label.contains("Couldn't confirm"))
+        let reopened = editor(app)
+        XCTAssertTrue((reopened.value as? String ?? "").hasPrefix("0 marks"), "First Send drops original and marks even on failure")
+        XCTAssertFalse(app.buttons["framebriar-editor-clear"].isEnabled, "Earlier covered pixels cannot be restored")
+        app.buttons["framebriar-editor-cancel"].tap()
+        sendAndClose(app); closeSettings(app)
+        let snapshot = try wire(app)
+        let saves = try XCTUnwrap(snapshot["saves"] as? [[String: String]])
+        XCTAssertEqual(saves.count, 2)
+        XCTAssertEqual(saves[0], saves[1], "Same-enrollment retry keeps the ID and exact flattened bytes")
+        let report = try XCTUnwrap((snapshot["reports"] as? [[String: Any]])?.first)
+        XCTAssertEqual(report["id"] as? String, saves[0]["id"])
+        XCTAssertEqual((report["media"] as? [String: Any])?["sha256"] as? String, saves[0]["sha256"])
+        _ = try uploadedPixels(snapshot)
+        XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 1)
+    }
+
+    @MainActor func testEditorControlsReachableAtAccessibilitySize() throws {
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing", "--framebriar-wire-image", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        XCTAssertTrue(app.buttons["fixture-feedback-menu"].waitForExistence(timeout: 10))
+        menu(app)
+        let canvas = editor(app)
+        XCTAssertGreaterThan(canvas.frame.height, 80)
+        for id in ["framebriar-editor-cancel", "framebriar-editor-undo", "framebriar-editor-done", "framebriar-editor-clear"] {
+            XCTAssertTrue(app.buttons[id].exists)
+            XCTAssertTrue(app.frame.contains(app.buttons[id].frame), "\(id) must fit on screen")
+        }
+        for tool in ["Move", "Pen", "Redact"] { XCTAssertTrue(app.buttons[tool].isHittable); app.buttons[tool].tap() }
+        app.buttons["Pen"].tap()
+        for color in ["red", "yellow", "blue", "white"] { XCTAssertTrue(app.buttons["framebriar-editor-ink-\(color)"].isHittable) }
+        app.buttons["framebriar-editor-cancel"].tap()
+        app.buttons["Cancel"].tap()
+        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     private func canonical(_ value: Any) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]) }
