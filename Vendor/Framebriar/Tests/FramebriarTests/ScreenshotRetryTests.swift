@@ -425,7 +425,7 @@ private func id(_ draft: FeedbackDraft) -> String { draft.id.uuidString.lowercas
     let rig = RetryRig(); let (client, model) = try await rig.enrolled()
     _ = try await held(rig, client, model)
     rig.store.fail(.afterWrite)
-    let result = await client.clearHeldReports()
+    let result = await client.clearHeldReports(clearToken: client.status().clearToken)
     #expect(result.cleared == 1 && result.failed == 0 && result.remaining == 0)
     #expect(rig.store.disk.isEmpty)
     #expect(await client.status().queued == 0)
@@ -435,7 +435,9 @@ private func id(_ draft: FeedbackDraft) -> String { draft.id.uuidString.lowercas
     let rig = RetryRig(); let (client, model) = try await rig.enrolled()
     _ = try await held(rig, client, model)
     rig.store.fail(.beforeWrite)
-    #expect(await client.clearHeldReports().failed == 1)
+    let token = await client.status().clearToken
+    let failed = await client.clearHeldReports(clearToken: token)
+    #expect(failed == HeldClearResult(cleared: 0, remaining: 1, failed: 1))
     #expect(rig.store.disk.count == 1)
     #expect(await client.status().queued == 1)
 }

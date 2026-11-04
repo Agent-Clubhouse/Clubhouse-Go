@@ -67,6 +67,10 @@ public struct ClientStatus: Sendable {
     /// Pass to `releaseHeldReports` from the status the user saw. Nil if nothing is held or there's no
     /// active enrollment. Changes with the enrollment or the set of held reports.
     public var releaseToken: String? = nil
+    /// Pass to `clearHeldReports` from the status the user saw. Nil only if nothing is held, so it's there
+    /// while unenrolled too. Changes with the enrollment or the set of held reports. Neither token works
+    /// in place of the other.
+    public var clearToken: String? = nil
     /// `enrollment-response-rejected` when the last invitation got a successful reply that failed local
     /// validation, otherwise nil. Don't suggest retrying that invitation: ask for a new one or an app update.
     /// Stays until a redemption succeeds, another `connect` starts, or Disconnect.
@@ -189,7 +193,11 @@ public struct HeldClearResult: Sendable, Equatable {
     public let cleared: Int
     public let remaining: Int
     public let failed: Int
-    public init(cleared: Int, remaining: Int, failed: Int) { self.cleared = cleared; self.remaining = remaining; self.failed = failed }
+    /// `stale-release` when the token wasn't the current one, so nothing was removed. Otherwise nil.
+    public let code: String?
+    public init(cleared: Int, remaining: Int, failed: Int, code: String? = nil) {
+        self.cleared = cleared; self.remaining = remaining; self.failed = failed; self.code = code
+    }
 }
 
 public struct QueuedFeedback: Codable, Sendable {

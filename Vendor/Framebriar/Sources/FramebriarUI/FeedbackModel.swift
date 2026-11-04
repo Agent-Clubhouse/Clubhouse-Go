@@ -70,10 +70,12 @@ import Framebriar
         if result.released > 0 { await tick() } else { await update() }
         return result
     }
-    /// Discards held reports from this device without sending them. Works while unenrolled.
-    @discardableResult public func clearHeldReports() async -> HeldClearResult {
-        let result = await client.clearHeldReports()
-        message = FeedbackDisclosure.clearHeldResult(result)
+    /// Discards held reports from this device without sending them. Pass the `status.clearToken` the user
+    /// saw when they confirmed, not a fresh one: if the reports have changed, nothing is removed, and
+    /// `status` has the new count and token to ask again. Works while unenrolled.
+    @discardableResult public func clearHeldReports(clearToken: String?) async -> HeldClearResult {
+        let result = await client.clearHeldReports(clearToken: clearToken)
+        message = result.code == nil ? FeedbackDisclosure.clearHeldResult(result) : "These reports changed, so nothing was cleared. Check the count and try again."
         await update()
         return result
     }
@@ -208,7 +210,7 @@ public struct EnrollmentView: View {
     @State private var invitation = ""
     @State private var confirmClear = false
     @State private var confirmDisconnect = false
-    @State private var confirmClearHeld = false
+    @State private var pendingClear: (token: String, count: Int)?
     /// The token and count the confirmation showed, so a change before the tap makes the release stale.
     @State private var pendingRelease: (token: String, count: Int)?
     public init(model: FeedbackModel) { self.model = model }
@@ -237,8 +239,10 @@ public struct EnrollmentView: View {
                         Button("Send with this enrollment…") { pendingRelease = (token, status.heldForEnrollment) }
                             .disabled(model.working).accessibilityIdentifier("framebriar-release-held")
                     }
-                    Button("Clear these reports", role: .destructive) { confirmClearHeld = true }
-                        .disabled(model.working).accessibilityIdentifier("framebriar-clear-held")
+                    if let token = status.clearToken {
+                        Button("Clear these reports", role: .destructive) { pendingClear = (token, status.heldForEnrollment) }
+                            .disabled(model.working).accessibilityIdentifier("framebriar-clear-held")
+                    }
                 }
                 Button("Retry delivery") { Task { await model.tick() } }.disabled(model.working)
                 Button("Clear queued feedback", role: .destructive) { confirmClear = true }.disabled(model.working)
@@ -256,8 +260,10 @@ public struct EnrollmentView: View {
                 Button("Send") { Task { await model.releaseHeldReports(releaseToken: token) } }
             }
         }
-        .confirmationDialog("Clear reports saved under a previous enrollment? They won't be sent.", isPresented: $confirmClearHeld, titleVisibility: .visible) {
-            Button("Clear these reports", role: .destructive) { Task { await model.clearHeldReports() } }
+        .confirmationDialog("Clear reports saved under a previous enrollment? They won't be sent.", isPresented: Binding(get: { pendingClear != nil }, set: { if !$0 { pendingClear = nil } }), titleVisibility: .visible) {
+            if let token = pendingClear?.token {
+                Button("Clear these reports", role: .destructive) { Task { await model.clearHeldReports(clearToken: token) } }
+            }
         }
         .confirmationDialog("Clear enrollment? Queued reports will remain.", isPresented: $confirmDisconnect, titleVisibility: .visible) {
             Button("Clear enrollment", role: .destructive) { Task { await model.disconnect() } }
