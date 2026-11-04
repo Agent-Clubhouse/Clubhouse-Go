@@ -208,6 +208,22 @@ class ReliableUITestCase: XCTestCase {
     /// at a particular edge, and keep gestures between the header and composer.
     func bringTranscriptRowIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
         let height = app.windows.firstMatch.frame.height
+        for _ in 0..<maxGestures {
+            checkTimeLeft("bringing transcript content into view")
+            if row.exists && row.frame.minY > height * 0.23 && row.frame.maxY < height * 0.72 && row.isHittable { return true }
+            let above = row.exists && row.frame.minY < height * 0.23
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.35 : 0.65))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.65 : 0.35))
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
+        return row.exists && row.isHittable
+    }
+
+    /// A compact activity fold can be tappable at the end of a short transcript without its entire AX frame
+    /// fitting above a fixed screen fraction. Keep this acceptance separate from images/links whose callers
+    /// require their whole frame visible (including with approval cards and a keyboard open).
+    private func bringActivityFoldIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
+        let height = app.windows.firstMatch.frame.height
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         let top = max(app.navigationBars.firstMatch.frame.maxY, height * 0.15)
         let bottom = composer.exists ? composer.frame.minY : height * 0.72
@@ -243,7 +259,7 @@ class ReliableUITestCase: XCTestCase {
             let groups = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-activity-' AND value == 'Collapsed'"))
             if let candidate = groups.allElementsBoundByIndex.last {
                 let group = app.buttons[candidate.identifier]
-                XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
+                XCTAssertTrue(bringActivityFoldIntoView(group, in: app))
                 tapToExpand(group)
             } else { _ = target.waitForExistence(timeout: 1) }
         } while Date() < end
