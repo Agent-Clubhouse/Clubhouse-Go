@@ -12,6 +12,10 @@ on:
         description: Clubhouse desktop branch, tag or commit to test against
         default: main
         required: true
+      only_test:
+        description: Optional space-separated CompanionLiveE2ETests methods (empty runs the full suite)
+        default: ''
+        required: false
 
 concurrency:
   group: e2e-nightly
@@ -88,7 +92,17 @@ jobs:
           E2E_OUT_DIR: ${{ github.workspace }}/e2e-results
           # The workflow checked out the ref; the script builds it without fetching again.
           E2E_SKIP_DESKTOP_CHECKOUT: '1'
-        run: scripts/e2e-live.sh --simulator 'iPhone 17 Pro'
+          E2E_ONLY_TEST: ${{ inputs.only_test }}
+        run: |
+          args=(--simulator 'iPhone 17 Pro')
+          if [[ -n "$E2E_ONLY_TEST" ]]; then
+            read -r -a methods <<< "$E2E_ONLY_TEST"
+            for method in "${methods[@]}"; do
+              [[ "$method" =~ ^test[A-Za-z0-9_]+$ ]] || { echo 'Expected test method names'; exit 2; }
+              args+=(--only "CompanionLiveE2ETests/$method")
+            done
+          fi
+          scripts/e2e-live.sh "${args[@]}"
 
       - name: Upload results
         if: always()

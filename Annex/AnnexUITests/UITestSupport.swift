@@ -219,6 +219,38 @@ class ReliableUITestCase: XCTestCase {
         return row.exists && row.isHittable
     }
 
+    /// A compact activity fold can be tappable at the end of a short transcript without its entire AX frame
+    /// fitting above a fixed screen fraction. Keep this acceptance separate from images/links whose callers
+    /// require their whole frame visible (including with approval cards and a keyboard open).
+    private func bringActivityFoldIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
+        let height = app.windows.firstMatch.frame.height
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        let top = max(app.navigationBars.firstMatch.frame.maxY, height * 0.15)
+        let bottom = composer.exists ? composer.frame.minY : height * 0.72
+        let viewport = CGRect(x: 0, y: top, width: app.windows.firstMatch.frame.width, height: max(0, bottom - top))
+        for _ in 0..<maxGestures {
+            checkTimeLeft("bringing transcript content into view")
+            let before = row.exists ? row.frame : nil
+            if let before, before.minY >= top && before.maxY <= bottom && row.isHittable { return true }
+            let above = before.map { $0.minY < top } ?? false
+            let high = (top + viewport.height * 0.25) / height
+            let low = (top + viewport.height * 0.75) / height
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? high : low))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? low : high))
+            from.press(forDuration: 0.05, thenDragTo: to)
+            if let before, row.exists {
+                let after = row.frame
+                if abs(after.minY - before.minY) < 1 && abs(after.maxY - before.maxY) < 1 {
+                    // A short transcript cannot move its last fold further up. Do not burn forty drags:
+                    // require a visible, hittable target, and let the caller prove its tap actually acts.
+                    print("[transcript-target] stoppedAtBoundary=true minY=\(after.minY) maxY=\(after.maxY) viewportTop=\(top) viewportBottom=\(bottom)")
+                    return viewport.intersects(after) && row.isHittable
+                }
+            }
+        }
+        return row.exists && viewport.intersects(row.frame) && row.isHittable
+    }
+
     /// Routine traffic now starts compact. Expand enclosing activity rows without changing inner routed folds.
     func revealActivityContent(_ target: XCUIElement, in app: XCUIApplication, timeout: TimeInterval = 20) {
         let end = Date().addingTimeInterval(timeout)
@@ -227,7 +259,7 @@ class ReliableUITestCase: XCTestCase {
             let groups = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'companion-activity-' AND value == 'Collapsed'"))
             if let candidate = groups.allElementsBoundByIndex.last {
                 let group = app.buttons[candidate.identifier]
-                XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
+                XCTAssertTrue(bringActivityFoldIntoView(group, in: app))
                 tapToExpand(group)
             } else { _ = target.waitForExistence(timeout: 1) }
         } while Date() < end

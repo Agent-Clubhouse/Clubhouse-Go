@@ -25,6 +25,23 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try super.setUpWithError()
         try XCTSkipUnless(env["CLUBHOUSE_RUN_LIVE_E2E"] == "1" && env["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil,
                           "Run through scripts/e2e-live.sh, which launches the desktop fixture")
+        // Also run before retries/--only: a failed test may have left the desktop's global MCP gate off.
+        try resetDispatcherGates()
+    }
+
+    override func tearDownWithError() throws {
+        try super.tearDownWithError()
+        guard env["CLUBHOUSE_RUN_LIVE_E2E"] == "1",
+              env["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil else { return }
+        // XCTest runs teardown after an assertion/budget failure; body-local cleanup is not sufficient.
+        try resetDispatcherGates()
+    }
+
+    private func resetDispatcherGates() throws {
+        let state = try XCTUnwrap(try dispatcherFixture("resetGates") as? [String: Any])
+        XCTAssertEqual(state["mcpEnabled"] as? Bool, true)
+        XCTAssertEqual(state["dispatcherFlag"] as? Bool, true)
+        XCTAssertEqual(state["dispatcherEnabled"] as? Bool, false)
     }
 
     // MARK: - Helpers
@@ -180,7 +197,24 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         while Date() < deadline {
             if let data = try? Data(contentsOf: done), let reply = try? JSONSerialization.jsonObject(with: data) as? [String: Any], reply["id"] as? String == id {
                 XCTAssertNil(reply["error"], "Fixture \(op): \(reply["error"] ?? "")", file: file, line: line)
-                return reply["result"] ?? NSNull()
+                let result = reply["result"] ?? NSNull()
+                if op == "command", let response = result as? [String: Any],
+                   let status = response["status"] as? Int, status >= 400 {
+                    // Preserve refusal evidence for every update path without attaching the response body,
+                    // agent identity, command fields or desktop-provided prose. Unknown codes stay redacted.
+                    let body = response["body"] as? [String: Any]
+                    let error = body?["error"] as? [String: Any]
+                    let rawCode = error?["code"] as? String ?? body?["code"] as? String
+                    let knownCodes: Set<String> = ["mcp_off", "dispatcher_off", "dispatcher_flag_off", "dispatcher_locked",
+                        "orchestration_has_helpers", "orchestration_refused", "agent_not_found", "agent_running",
+                        "agent_creating", "invalid_command", "not_found", "authorization_revoked", "too_large"]
+                    let code = rawCode.flatMap { knownCodes.contains($0) ? $0 : nil } ?? "unknown"
+                    let attachment = XCTAttachment(string: "HTTP \(status); errorCode=\(code)")
+                    attachment.name = "Mobile command refusal (code only)"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+                return result
             }
             sleep(1)
         }
@@ -949,6 +983,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Opt in with E2E_ICON_FIXTURE=1 and --only CompanionLiveE2ETests/test9fRealIconsAndDiskReuse.
     func test9fRealIconsAndDiskReuse() throws {
         try XCTSkipUnless(env["CLUBHOUSE_E2E_ICON_FIXTURE"] == "1", "Needs the iconRefs desktop fixture")
+        try dispatcherFixture("setEnabled", ["enabled": true])
         func state() throws -> [String: Any] {
             try XCTUnwrap(try dispatcherFixture("iconsState") as? [String: Any])
         }
