@@ -7,16 +7,20 @@ import UIKit
 @MainActor struct CompanionComposerPasteTests {
     private struct Field: View {
         var hooked: Bool
-        @State private var text = ""
+        @State private var text: String
+        init(hooked: Bool, text: String = "") {
+            self.hooked = hooked
+            _text = State(initialValue: text)
+        }
         var body: some View {
             TextField("Message", text: $text, axis: .vertical)
                 .background { if hooked { CompanionComposerPasteHook { providers in providers.map { _ in true } } } }
         }
     }
 
-    private func textView(hooked: Bool) throws -> (UITextView, UIWindow) {
+    private func textView(hooked: Bool, text: String = "") throws -> (UITextView, UIWindow) {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 300))
-        window.rootViewController = UIHostingController(rootView: Field(hooked: hooked))
+        window.rootViewController = UIHostingController(rootView: Field(hooked: hooked, text: text))
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         func find(_ view: UIView) -> UITextView? { (view as? UITextView) ?? view.subviews.lazy.compactMap(find).first }
@@ -50,9 +54,8 @@ import UIKit
     }
 
     @Test func keyboardAccessibilityActionsOnlyHandleAnEditingComposerAndKeepSelection() throws {
-        let (composer, window) = try textView(hooked: true)
+        let (composer, window) = try textView(hooked: true, text: "Keep this selected draft")
         defer { window.isHidden = true }
-        composer.text = "Keep this selected draft"
         let selection = NSRange(location: 5, length: 4)
         composer.selectedRange = selection
         var dismissals = 0
