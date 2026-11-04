@@ -165,7 +165,7 @@ import ClubhouseTransport
 }
 
 struct CompanionAppRoot: View {
-    @State private var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>
+    let runtimeLifetime: CompanionStateLifetime<CompanionRuntime>
     private var runtime: CompanionRuntime { runtimeLifetime.value }
     @State private var showPairing = false
     /// A pairing invitation opened from the iPhone Camera (`clubhousego://pair?...`).
@@ -184,20 +184,11 @@ struct CompanionAppRoot: View {
         settingsCapture = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
     }
 
-    init() {
+    init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
+        self.runtimeLifetime = runtimeLifetime
         #if DEBUG
-        // Only the integration worker supplies this explicit test invitation.
-        // It selects an in-memory registry and never writes a saved pairing.
         let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing")
-        if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
         showsWelcome = !testMode
-        _runtimeLifetime = State(initialValue: CompanionStateLifetime {
-            CompanionRuntime(registry: testMode ? AnnexTransportRegistry() : AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: !testMode)
-        })
-        #else
-        // Before the runtime restores pairings or the feedback client reads its enrollment.
-        CompanionInstallReset.clearLeftoversIfFreshInstall()
-        _runtimeLifetime = State(initialValue: CompanionStateLifetime { CompanionRuntime() })
         #endif
     }
     var body: some View {
@@ -268,6 +259,10 @@ struct CompanionAppRoot: View {
                 // Synchronous lifecycle checkpointing belongs to CompanionTelemetry, before SDK flush.
                 await feedback.setActive(scenePhase != .background)
                 guard scenePhase != .background else { return }
+                #if DEBUG
+                CompanionSceneTestSupport.feedbackPumpChanged?(true)
+                defer { CompanionSceneTestSupport.feedbackPumpChanged?(false) }
+                #endif
                 while !Task.isCancelled {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()

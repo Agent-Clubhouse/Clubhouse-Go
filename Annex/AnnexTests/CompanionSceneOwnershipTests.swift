@@ -78,6 +78,118 @@ import FramebriarUI
         XCTAssertEqual(client.enrollmentSignal.enrollmentRef, try enrollment.load(scope: config.storageScope).enrollmentRef)
     }
 
+    func testRootReplacementReusesAppOwnedRuntimeAndFeedback() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let config = try Configuration(gameID: "scene-fixture")
+        let enrollment = SceneEnrollment(), network = SceneHTTP(), source = AnnexTelemetry()
+        var runtimes: [WeakSceneObject<CompanionRuntime>] = []
+        var clients: [WeakSceneObject<Client>] = []
+        var bridges: [WeakSceneObject<CompanionTelemetry>] = []
+        var transports: [SceneTransport] = []
+        var registrationTasks: [Task<Void, Never>] = []
+        var activePumps = 0, peakPumps = 0, pumpStarts = 0
+        CompanionSceneTestSupport.feedbackPumpChanged = { started in
+            activePumps += started ? 1 : -1
+            if started { pumpStarts += 1 }
+            peakPumps = max(peakPumps, activePumps)
+        }
+        CompanionSceneTestSupport.makeFeedback = {
+            let client = try! Client(configuration: config, transport: network, enrollmentStore: enrollment,
+                                     feedbackStore: FileFeedbackStore(directory: directory))
+            clients.append(WeakSceneObject(client))
+            return CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
+        }
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "scene.invalid", port: 443), verifiedHostID: Array(repeating: "ab", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
+        CompanionSceneTestSupport.didCreateRuntime = { runtime in
+            runtimes.append(WeakSceneObject(runtime))
+            if let bridge = runtime.appTelemetry { bridges.append(WeakSceneObject(bridge)) }
+            let transport = SceneTransport(); transports.append(transport)
+            let service = runtime.service
+            registrationTasks.append(Task { await service.register(.init(host: host, alias: "Synthetic desktop", transport: transport)) })
+        }
+        let isolated = ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing")
+        // Normal CI uses a synthetic app owner in its own window. The isolated scene launch
+        // additionally exercises the actual ClubhouseGoApp State owner and its first window.
+        var owner: CompanionStateLifetime<CompanionRuntime>?
+        let window: UIWindow
+        if isolated {
+            CompanionSceneTestSupport.ready = true
+            try await wait { CompanionSceneTestSupport.runtimeLifetime != nil && runtimes.count == 1 }
+            owner = CompanionSceneTestSupport.runtimeLifetime
+            window = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.windows.first { $0.isKeyWindow })
+        } else {
+            owner = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
+            XCTAssertTrue(clients.isEmpty, "A lifetime holder must not eagerly create feedback")
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+            window = UIWindow(windowScene: scene)
+            window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: try XCTUnwrap(owner)).environment(\.scenePhase, .active))
+            window.makeKeyAndVisible()
+        }
+        defer {
+            window.rootViewController = nil
+            for runtime in runtimes { runtime.value?.appTelemetry?.stop(); runtime.value?.service.remove(hostID: host.hostID); runtime.value?.store.stop() }
+            CompanionSceneTestSupport.makeFeedback = nil
+            CompanionSceneTestSupport.didCreateRuntime = nil
+            CompanionSceneTestSupport.feedbackPumpChanged = nil
+            try? FileManager.default.removeItem(at: directory)
+        }
+        try await wait { runtimes.count == 1 && activePumps == 1 }
+        for task in registrationTasks { await task.value }
+        let first = try XCTUnwrap(runtimes.first?.value)
+        let preview = CompanionPreviewService()
+        var events = preview.events().makeAsyncIterator()
+        let initial = await events.next()
+        first.store.apply(try XCTUnwrap(initial))
+        let target = try XCTUnwrap(first.store.hosts.first?.projects.first?.agents.first?.id)
+        first.store.drafts[target] = "Synthetic lifetime draft 👩🏽‍💻"
+        first.store.selection = target
+        let presenter = first.feedbackPresenter
+        var setPhase: ((ScenePhase) -> Void)?
+        for cycle in 1...2 {
+            let lifetime = try XCTUnwrap(owner)
+            let controller = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: lifetime).environment(\.scenePhase, .active))
+            window.rootViewController = controller
+            setPhase = { [weak controller] phase in controller?.rootView = CompanionAppRoot(runtimeLifetime: lifetime).environment(\.scenePhase, phase) }
+            window.makeKeyAndVisible()
+            try await wait { pumpStarts >= cycle + 1 && activePumps == 1 }
+            for task in registrationTasks { await task.value }
+            XCTAssertEqual(runtimes.count, 1); XCTAssertEqual(clients.count, 1); XCTAssertEqual(bridges.count, 1)
+            XCTAssertTrue(runtimes[0].value === first)
+            XCTAssertEqual(clients.filter { $0.value != nil }.count, 1)
+            XCTAssertEqual(bridges.filter { $0.value != nil }.count, 1)
+            let telemetry = try XCTUnwrap(first.appTelemetry?.telemetry)
+            let beforeLogs = telemetry.stats().ringLogs
+            source.record(.foreground)
+            XCTAssertEqual(telemetry.stats().ringLogs, beforeLogs + 1, "One source record must have one bridge observer")
+            XCTAssertTrue(first.feedbackPresenter === presenter)
+            XCTAssertEqual(first.store.drafts[target], "Synthetic lifetime draft 👩🏽‍💻")
+            // This synthetic desktop is not in the pairing registry. The root intentionally
+            // prunes its placeholder selection, while the process-owned draft remains.
+            XCTAssertNil(first.store.selection)
+            let connectionCounts = await transports.asyncCounts()
+            XCTAssertEqual(connectionCounts, [1])
+            // The process-owned presenter resolves the replacement window at presentation time.
+            presenter.sendFeedback(from: window)
+            try await wait { window.rootViewController?.presentedViewController != nil }
+            XCTAssertEqual(window.rootViewController?.presentedViewController?.view.window, window)
+            window.rootViewController?.dismiss(animated: false)
+            try await wait { window.rootViewController?.presentedViewController == nil }
+            print("CLIENT_OWNER cycle=\(cycle) runtime=\(runtimes.count) client=\(clients.count) bridge=\(bridges.count) liveClient=\(clients.filter { $0.value != nil }.count) connects=\(await transports.asyncCounts()) activePumps=\(activePumps) peakPumps=\(peakPumps) pumpStarts=\(pumpStarts) draft=true unpairedSelectionCleared=\(first.store.selection == nil) presenter=true actualAppOwner=\(isolated)")
+        }
+        XCTAssertEqual(activePumps, 1)
+        XCTAssertEqual(peakPumps, 1, "Replacement must cancel the old root pump before starting another")
+        XCTAssertEqual(transports.count, 1)
+        setPhase?(.background)
+        try await wait { activePumps == 0 }
+        setPhase?(.active)
+        try await wait { activePumps == 1 }
+        XCTAssertEqual(peakPumps, 1)
+        XCTAssertEqual(runtimes.count, 1)
+        XCTAssertEqual(clients.count, 1)
+        print("CLIENT_OWNER phase=background-foreground activePumps=\(activePumps) peakPumps=\(peakPumps) starts=\(pumpStarts) connects=\(await transports.asyncCounts())")
+    }
+
     func testOneClientKeepsQueueAndEnrollmentCoherentAcrossCallers() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -200,3 +312,9 @@ private extension Array where Element == SceneTransport {
 }
 
 nonisolated private enum SceneFixtureValues { static let expiry = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) + 86400) }
+
+@MainActor private final class WeakSceneObject<Value: AnyObject> {
+    nonisolated deinit {}
+    weak var value: Value?
+    init(_ value: Value) { self.value = value }
+}

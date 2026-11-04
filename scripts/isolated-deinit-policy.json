@@ -679,18 +679,6 @@
           }
         }
       ],
-      "constructor:CompanionStateLifetime": [
-        {
-          "expression": "CompanionStateLifetime { CompanionRuntime ( ) }",
-          "producers": {}
-        },
-        {
-          "expression": "CompanionStateLifetime { CompanionRuntime ( registry : testMode ? AnnexTransportRegistry ( ) : AnnexTransportRegistry ( pairings : KeychainAnnexPairingStore ( ) ) , persistsDrafts : ! testMode ) }",
-          "producers": {
-            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil || ProcessInfo . processInfo . arguments . contains ( \" --scene-runtime-testing \" )"
-          }
-        }
-      ],
       "constructor:CompanionStore": [
         {
           "expression": "CompanionStore ( service : service , draftPersistence : persistsDrafts ? CompanionLocalDrafts ( ) : nil , finishedPersistence : persistsDrafts ? CompanionLocalFinished ( ) : nil )",
@@ -766,6 +754,20 @@
         {
           "expression": "CompanionStateLifetime { CompanionComposerMemory ( ) }",
           "producers": {}
+        }
+      ]
+    },
+    "Annex/Annex/AnnexApp.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionInstallReset . clearLeftoversIfFreshInstall ( ) return CompanionRuntime ( ) }",
+          "producers": {}
+        },
+        {
+          "expression": "CompanionStateLifetime { if ! testMode { CompanionInstallReset . clearLeftoversIfFreshInstall ( ) } return CompanionRuntime ( registry : testMode ? AnnexTransportRegistry ( ) : AnnexTransportRegistry ( pairings : KeychainAnnexPairingStore ( ) ) , persistsDrafts : ! testMode ) }",
+          "producers": {
+            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil || ProcessInfo . processInfo . arguments . contains ( \" --scene-runtime-testing \" )"
+          }
         }
       ]
     }
