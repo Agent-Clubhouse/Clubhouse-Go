@@ -7,8 +7,10 @@ import ObjectiveC
 /// for images too, and image items go to `handle` while text pastes as before. Other text views are untouched.
 struct CompanionComposerPasteHook: UIViewRepresentable {
     let handle: @MainActor ([NSItemProvider]) async -> [Bool]
+    /// Nil outside editing, so Escape retains UIKit's standard navigation behavior.
+    var dismissKeyboard: (@MainActor () -> Void)? = nil
 
-    func makeCoordinator() -> Coordinator { Coordinator(handle: handle) }
+    func makeCoordinator() -> Coordinator { Coordinator(handle: handle, dismissKeyboard: dismissKeyboard) }
 
     func makeUIView(context: Context) -> HookView {
         let view = HookView()
@@ -18,6 +20,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
 
     func updateUIView(_ view: HookView, context: Context) {
         context.coordinator.handle = handle
+        context.coordinator.dismissKeyboard = dismissKeyboard
         view.attach()
     }
 
@@ -25,9 +28,13 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     /// as plain text rather than the styled text a rich text view would take.
     @MainActor final class Coordinator: NSObject, UITextPasteDelegate {
         var handle: @MainActor ([NSItemProvider]) async -> [Bool]
+        var dismissKeyboard: (@MainActor () -> Void)?
         private var pending: [UITextPasteItem] = []
 
-        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool]) { self.handle = handle }
+        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?) {
+            self.handle = handle
+            self.dismissKeyboard = dismissKeyboard
+        }
 
         /// UIKit asks about every item of one drop in a row, so they are handled together on the next turn.
         func textPasteConfigurationSupporting(_ supporting: any UITextPasteConfigurationSupporting, transform item: UITextPasteItem) {
@@ -103,12 +110,25 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         // formatting actions are hidden below, and everything but images pastes with rich text off.
         if !textView.allowsEditingTextAttributes { textView.allowsEditingTextAttributes = true }
         if textView.pasteDelegate == nil { textView.pasteDelegate = coordinator }
+        // Native equivalents of SwiftUI's named action and .escape. Unlike a conditional modifier around
+        // TextField, updating these doesn't replace the field (and its selection) when focus changes.
+        let actionName = String(localized: "Dismiss Keyboard")
+        var actions = (textView.accessibilityCustomActions ?? []).filter { $0.name != actionName }
+        if coordinator.dismissKeyboard != nil {
+            actions.append(UIAccessibilityCustomAction(name: actionName) { [weak textView, weak coordinator] _ in
+                guard let textView, textView.isFirstResponder, let dismiss = coordinator?.dismissKeyboard else { return false }
+                dismiss()
+                return true
+            })
+        }
+        textView.accessibilityCustomActions = actions.isEmpty ? nil : actions
         var type: AnyClass = object_getClass(textView) ?? UITextView.self
         // Key-value observing swaps in a temporary subclass; patch the real one.
         if NSStringFromClass(type).hasPrefix("NSKVONotifying_"), let base = class_getSuperclass(type) { type = base }
         guard type != UITextView.self, patched.insert(ObjectIdentifier(type)).inserted else { return }
         patchCanPerformAction(type)
         patchPaste(type)
+        patchAccessibilityEscape(type)
         patchTypingProbe(type)
     }
 
@@ -165,6 +185,23 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
                 original(object, selector, sender)
                 textView.allowsEditingTextAttributes = true
             }
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+
+    private static func patchAccessibilityEscape(_ type: AnyClass) {
+        typealias Function = @convention(c) (AnyObject, Selector) -> Bool
+        let selector = #selector(NSObject.accessibilityPerformEscape)
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+        let block: @convention(block) (AnyObject) -> Bool = { object in
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard let textView = object as? UITextView, textView.isFirstResponder,
+                      let dismiss = coordinator(for: textView)?.dismissKeyboard else { return false }
+                dismiss()
+                return true
+            }
+            return handled || original(object, selector)
         }
         replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
     }

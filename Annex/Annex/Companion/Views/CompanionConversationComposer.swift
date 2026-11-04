@@ -24,6 +24,8 @@ struct CompanionConversationComposer: View {
     @Binding var confirmCancel: Bool
     let dismissals: Int
     @State private var showRefreshing = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
@@ -153,7 +155,7 @@ struct CompanionConversationComposer: View {
                         .accessibilityIdentifier("companion-composer")
                         // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                         // accessibility modifiers so the hook doesn't appear as a second composer element.
-                        .background(CompanionComposerPasteHook(handle: pasteImages).accessibilityHidden(true))
+                        .background(composerInputHook.accessibilityHidden(true))
                         .onKeyPress(keys: [.upArrow, .downArrow, .tab, .escape], phases: .down, action: slashKey)
                     Button {
                         Task { await store.sendDraft(to: target) }
@@ -175,6 +177,18 @@ struct CompanionConversationComposer: View {
                 .onDrop(of: CompanionPastedImages.acceptedTypes, isTargeted: nil) { providers in
                     Task { _ = await pasteImages(providers) }
                     return true
+                }
+                // A real scan/focus target when assistive technology is running, in the existing row:
+                // no accessory toolbar, and no extra vertical space above the slash menu.
+                if composerFocused && showsKeyboardDismissButton {
+                    Button("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down", action: dismissKeyboard)
+                        .labelStyle(.iconOnly)
+                        .font(.body)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("companion-dismiss-keyboard")
+                        .frame(height: composerRowHeight)
                 }
             }
             composerCaption
@@ -217,6 +231,32 @@ struct CompanionConversationComposer: View {
             guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
             showRefreshing = true
         }
+    }
+
+    private var composerInputHook: some View {
+        let dismissal: (@MainActor () -> Void)?
+        if composerFocused { dismissal = { @MainActor in self.dismissKeyboard() } }
+        else { dismissal = nil }
+        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal)
+    }
+
+    private var showsKeyboardDismissButton: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview"),
+           ProcessInfo.processInfo.arguments.contains("--companion-preview-assistive-keyboard") { return true }
+        #endif
+        return voiceOverEnabled || switchControlEnabled
+    }
+
+    private func dismissKeyboard() {
+        // Keep this word closed on refocus, just like a transcript tap. Input state remains in this subtree.
+        if let token = caretSlashToken, let commands = agent.slashCommands,
+           !CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token).isEmpty {
+            slashDismissedAt = token.start
+        }
+        composerFocused = false
+        // Clearing SwiftUI focus alone failed on the retained Dispatcher's empty chat (#264).
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     /// Adds the images among pasted or dropped items, or explains why it can't, and returns which items it used.

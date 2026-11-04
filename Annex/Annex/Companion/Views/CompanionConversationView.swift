@@ -87,11 +87,6 @@ struct CompanionConversationView: View {
         .toolbar {
             if showsActions {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down", action: dismissComposer)
-                        .labelStyle(.iconOnly)
-                        .accessibilityIdentifier("companion-dismiss-keyboard")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
