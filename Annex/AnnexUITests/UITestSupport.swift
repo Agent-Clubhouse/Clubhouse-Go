@@ -208,15 +208,31 @@ class ReliableUITestCase: XCTestCase {
     /// at a particular edge, and keep gestures between the header and composer.
     func bringTranscriptRowIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
         let height = app.windows.firstMatch.frame.height
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        let top = max(app.navigationBars.firstMatch.frame.maxY, height * 0.15)
+        let bottom = composer.exists ? composer.frame.minY : height * 0.72
+        let viewport = CGRect(x: 0, y: top, width: app.windows.firstMatch.frame.width, height: max(0, bottom - top))
         for _ in 0..<maxGestures {
             checkTimeLeft("bringing transcript content into view")
-            if row.exists && row.frame.minY > height * 0.23 && row.frame.maxY < height * 0.72 && row.isHittable { return true }
-            let above = row.exists && row.frame.minY < height * 0.23
-            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.35 : 0.65))
-            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.65 : 0.35))
+            let before = row.exists ? row.frame : nil
+            if let before, before.minY >= top && before.maxY <= bottom && row.isHittable { return true }
+            let above = before.map { $0.minY < top } ?? false
+            let high = (top + viewport.height * 0.25) / height
+            let low = (top + viewport.height * 0.75) / height
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? high : low))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? low : high))
             from.press(forDuration: 0.05, thenDragTo: to)
+            if let before, row.exists {
+                let after = row.frame
+                if abs(after.minY - before.minY) < 1 && abs(after.maxY - before.maxY) < 1 {
+                    // A short transcript cannot move its last fold further up. Do not burn forty drags:
+                    // require a visible, hittable target, and let the caller prove its tap actually acts.
+                    print("[transcript-target] stoppedAtBoundary=true minY=\(after.minY) maxY=\(after.maxY) viewportTop=\(top) viewportBottom=\(bottom)")
+                    return viewport.intersects(after) && row.isHittable
+                }
+            }
         }
-        return row.exists && row.isHittable
+        return row.exists && viewport.intersects(row.frame) && row.isHittable
     }
 
     /// Routine traffic now starts compact. Expand enclosing activity rows without changing inner routed folds.
