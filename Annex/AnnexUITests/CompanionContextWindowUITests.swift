@@ -79,15 +79,16 @@ import XCTest
         let app = launchApp(["--companion-preview", "--companion-preview-context-window"])
         let row = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollTo(row, in: app))
-        let report = element(app, "companion-context-report")
-        waitAndTap(row, until: report)
-        XCTAssertTrue(report.label.contains("Effective context:") && report.label.contains("Auto-compaction at:") && report.label.contains("Reserved:"), report.label)
-        screenshot(app, "Context - current reported limits (preview)")
-        let actions = app.buttons["Conversation actions"]
-        let settings = app.buttons["Agent settings"]
-        waitAndTap(actions, until: settings)
-        waitAndTap(settings, until: element(app, "agent-settings-summary"))
+        waitAndTap(row, until: element(app, "companion-composer"))
+        XCTAssertFalse(element(app, "companion-context-report").exists, "Context details don't take space from the transcript")
+        let ring = app.buttons["companion-context-settings"]
+        XCTAssertTrue(ring.exists && ring.isHittable)
         let picker = app.buttons["agent-settings-context-window"]
+        waitAndTap(ring, until: picker)
+        XCTAssertTrue(picker.isHittable, "The ring opens Agent settings at the context row")
+        let report = element(app, "companion-context-report")
+        XCTAssertTrue(report.label.contains("Effective context:") && report.label.contains("Auto-compaction at:") && report.label.contains("Reserved:"), report.label)
+        screenshot(app, "Context - current reported limits in Agent settings (preview)")
         XCTAssertTrue(scrollTo(picker, in: app))
         XCTAssertFalse(picker.isEnabled)
         XCTAssertFalse(app.buttons["agent-settings-context-window-reset"].isEnabled)

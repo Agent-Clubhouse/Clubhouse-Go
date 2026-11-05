@@ -231,6 +231,7 @@ import ClubhouseTransport
         if contextWindow, hosts[0].dispatcher?.agent != nil {
             var controls = contextPreviewControls
             controls.level = .fullAccess
+            controls.context = .init(effectiveTokens: 258_400)
             hosts[0].dispatcher?.agent?.chatControls = controls
             hosts[0].dispatcher?.agent?.contextUsage = .init(used: 99_000, size: 300_000)
         }
