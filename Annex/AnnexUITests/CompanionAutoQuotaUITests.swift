@@ -113,7 +113,7 @@ import XCTest
         XCTAssertFalse(element(app, "agent-settings-orchestrate-dispatcher").exists)
         capture(app, "Report-only helper retains Clubhouse mode but cannot enable orchestration")
         let auto = element(app, "agent-settings-helper-auto")
-        XCTAssertTrue(scrollUntilExists(auto, in: app) && scrollTo(auto, in: app))
+        XCTAssertTrue(scrollUntilExists(auto, in: app, up: false) && scrollTo(auto, in: app, up: false))
         waitAndTap(auto, until: element(app, "helper-auto-scope-agent"))
         XCTAssertFalse(app.buttons["helper-auto-change-on"].exists)
         XCTAssertTrue(app.buttons["helper-auto-change-off"].isEnabled)
