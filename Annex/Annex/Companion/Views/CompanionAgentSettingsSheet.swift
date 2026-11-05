@@ -486,7 +486,7 @@ struct CompanionAgentSettingsForm: View {
                 .accessibilityIdentifier("agent-settings-orchestrate-cross-project")
             }
             // Older desktops omit helper identity; keep showing their authoritative returned value.
-            if !isHelper, policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true {
+            if !isHelper, policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true, store.host(for: target)?.dispatcher?.mcpOff == nil {
                 Toggle(isOn: Binding(get: { policy.connectToDispatcher },
                                      set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -605,16 +605,18 @@ struct CompanionDispatcherSwitch: View {
         if let host = store.hosts.first(where: { $0.id == hostID }), let dispatcher = host.dispatcher {
             let switching = store.dispatcherSwitching.contains(hostID)
             VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: Binding(get: { dispatcher.enabled },
-                                     set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Turn on Dispatcher")
-                        if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                if dispatcher.mcpOff == nil {
+                    Toggle(isOn: Binding(get: { dispatcher.enabled },
+                                         set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Turn on Dispatcher")
+                            if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                        }
                     }
+                    // Turning it off is always allowed; turning it on needs the desktop's flag and layout.
+                    .disabled(switching || !host.connection.canOperate || !dispatcher.canToggle || (!dispatcher.enabled && dispatcher.turnOnBlocker != nil))
+                    .accessibilityIdentifier("dispatcher-enabled-\(hostID)")
                 }
-                // Turning it off is always allowed; turning it on needs the desktop's flag and layout.
-                .disabled(switching || !host.connection.canOperate || !dispatcher.canToggle || (!dispatcher.enabled && dispatcher.turnOnBlocker != nil))
-                .accessibilityIdentifier("dispatcher-enabled-\(hostID)")
                 Text(note(dispatcher)).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("dispatcher-enabled-note-\(hostID)")
@@ -627,6 +629,7 @@ struct CompanionDispatcherSwitch: View {
     }
 
     private func note(_ dispatcher: CompanionDispatcher) -> String {
+        if let note = dispatcher.statusNote { return note }
         if dispatcher.enabled { return CompanionDispatcher.offNote }
         return dispatcher.turnOnBlocker ?? "One app-wide agent that sends your orchestrators work and gets their reports."
     }

@@ -69,6 +69,29 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Dispatcher settings")
     }
 
+    func testMCPOffRunningRetainsChatWithRestrictedActions() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-mcp-off"])
+        XCTAssertTrue(element(app, "dispatcher-mcp-off-notice").waitForExistence(timeout: 15))
+        XCTAssertTrue(text(app, containing: "This session is still running").exists)
+        XCTAssertTrue(text(app, containing: "New messages are unavailable").exists)
+        XCTAssertTrue(text(app, containing: "finish the reconnect fix").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Sleep"].exists)
+        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
+        XCTAssertFalse(app.buttons["Turn on Dispatcher"].exists)
+        screenshot(app, "MCP off with the running Dispatcher retained")
+    }
+
+    func testMCPOffStoppedRetainsReadOnlyHistory() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-mcp-off", "--companion-preview-dispatcher-stopped"])
+        XCTAssertTrue(element(app, "dispatcher-mcp-off-notice").waitForExistence(timeout: 15))
+        XCTAssertTrue(text(app, containing: "MCP is off on the desktop").exists)
+        XCTAssertTrue(text(app, containing: "finish the reconnect fix").waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Sleep"].exists)
+        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
+        XCTAssertFalse(app.buttons["Turn on Dispatcher"].exists)
+        screenshot(app, "MCP off with stopped Dispatcher history retained")
+    }
+
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
         let home = tab(app, "Home")

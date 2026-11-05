@@ -136,7 +136,8 @@ import Observation
         host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
-        canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
+        if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
+        return canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
     }
     /// The ways to wake this agent: Wake & Resume only when it has a session to resume, and Start New Session.
     func wakeChoices(for target: CompanionTarget) -> [CompanionWakeChoice] {
@@ -144,6 +145,7 @@ import Observation
     }
     /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
     func mayWake(_ target: CompanionTarget) -> Bool {
+        if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
         guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
         return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
             && (!conversation(for: target).isLoaded || agent.capabilities.contains(.wake))
@@ -177,6 +179,7 @@ import Observation
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots { contentRoots[target] ?? .init() }
     func canSend(_ target: CompanionTarget) -> Bool {
+        if isDispatcher(target), let off = host(for: target)?.dispatcher?.mcpOff, !off.allows("chat.send") { return false }
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)
     }
@@ -384,6 +387,18 @@ import Observation
             }
         }
         conversations[target, default: .init()].items = items
+    }
+
+    func canSleepDispatcher(_ target: CompanionTarget) -> Bool {
+        isDispatcher(target) && canOperate(target) && !pendingCommands.contains(target)
+            && host(for: target)?.dispatcher?.mcpOff?.allows("agent.stop") == true
+    }
+    func sleepDispatcher(_ target: CompanionTarget) async {
+        guard canSleepDispatcher(target) else { return }
+        pendingCommands.insert(target); operationErrors[target] = nil
+        defer { pendingCommands.remove(target) }
+        do { try await service.sleepDispatcher(target, clientCommandID: UUID().uuidString) }
+        catch { operationErrors[target] = error.localizedDescription }
     }
 
     func cancel(_ target: CompanionTarget) async {
@@ -610,6 +625,7 @@ import Observation
     /// Settings are offered for durable agents on desktops that support them.
     func canEditSettings(_ target: CompanionTarget) -> Bool {
         host(for: target)?.canEditSettings == true && agent(for: target).map { !$0.isQuick } == true
+            && !(isDispatcher(target) && host(for: target)?.dispatcher?.mcpOff != nil)
     }
     func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Connect to the desktop to read helper presets.") }
@@ -916,6 +932,7 @@ import Observation
             let listed = Set(current.allAgents.map(\.id))
             for agent in previous.allAgents where !listed.contains(agent.id) {
                 if previous.isDispatcher(agent.id) {
+                    if current.dispatcher?.mcpOff != nil { continue }
                     if current.dispatcher?.enabled == false || current.dispatcher?.flagOn == false ||
                         current.dispatcher?.liveAgent != nil || (current.dispatcher == nil && current.hasLoadedCatalog) {
                         gone.insert(agent.id)

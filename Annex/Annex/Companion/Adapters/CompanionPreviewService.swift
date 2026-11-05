@@ -72,6 +72,18 @@ import ClubhouseTransport
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-mcp-off") {
+                let running = !ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-stopped")
+                var dispatcher = Self.dispatcher(now: Date())
+                dispatcher.enabled = false; dispatcher.flagOn = false
+                dispatcher.mcpOff = CompanionDispatcherMCPOff(json: .object([
+                    "offReason": .string("mcp_off"), "running": .bool(running), "status": .string(running ? "running" : "sleeping"),
+                    "commandsWhileOff": .array(running ? [.string("chat.interrupt"), .string("agent.stop"), .string("chat.permission")] : []),
+                ]))
+                dispatcher.agent?.status = running ? .working : .sleeping
+                dispatcher.agent?.capabilities = running ? [.cancel, .approve] : []
+                hosts[0].dispatcher = dispatcher
+            }
             // Exercise the narrowest composer with Interrupt, Attach, Send and the assistive dismiss button.
             if ProcessInfo.processInfo.arguments.contains("--companion-preview"),
                ProcessInfo.processInfo.arguments.contains("--companion-preview-assistive-keyboard"),

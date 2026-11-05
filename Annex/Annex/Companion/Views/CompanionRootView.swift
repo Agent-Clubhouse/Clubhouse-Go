@@ -164,6 +164,8 @@ struct CompanionRootView: View {
                 VStack(spacing: 0) {
                     if let target = desktop.target, let agent = store.agent(for: target) {
                         conversation(agent, visible: visible).id(target)
+                    } else if store.hosts.contains(where: { $0.id == desktop.id && $0.dispatcher?.mcpOff != nil }) {
+                        CompanionDispatcherUnavailableView(store: store, hostID: desktop.id)
                     } else {
                         ProgressView("Loading the Dispatcher…")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -207,6 +209,21 @@ struct CompanionRootView: View {
     private func conversation(_ agent: CompanionAgent, visible: Bool? = nil) -> some View {
         VStack(spacing: 0) {
             if isPreview { CompanionPreviewLabel().padding(6).frame(maxWidth: .infinity) }
+            if agent.isDispatcher, let off = store.host(for: agent.id)?.dispatcher?.mcpOff {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(off.note)
+                    if off.running && !off.allows("chat.send") {
+                        Text("New messages are unavailable while MCP is off.").font(.caption)
+                    }
+                    if store.canSleepDispatcher(agent.id) {
+                        Button("Sleep", systemImage: "moon") { Task { await store.sleepDispatcher(agent.id) } }
+                    }
+                }
+                .font(.subheadline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .accessibilityIdentifier("dispatcher-mcp-off-notice")
+            }
             CompanionConversationView(store: store, agent: agent, showsActions: visible ?? true, isVisible: visible)
         }
         .companionTheme(preferences.theme(forHost: agent.id.hostID, hosts: store.hosts))
@@ -402,7 +419,7 @@ struct CompanionHomeView: View {
 
     /// Each listed desktop's Dispatcher while it's on: a pinned row above the projects, as on the desktop's sidebar.
     @ViewBuilder private var dispatchers: some View {
-        let shown = store.hosts.filter { isListed($0) && $0.dispatcher?.enabled == true }
+        let shown = store.hosts.filter { isListed($0) && $0.dispatcher?.isVisible == true }
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
@@ -656,7 +673,7 @@ struct CompanionDispatcherRow: View {
     var body: some View {
         if let agent = host.dispatcher?.liveAgent {
             Button { openAgent(agent.id) } label: {
-                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: activity(agent))
+                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: host.dispatcher?.statusNote ?? activity(agent))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("dispatcher-row-\(host.id)")
