@@ -663,6 +663,21 @@
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionReadingTouchObserver.swift",
       "reason": "UIKit view/recognizer attachment and the view callback require MainActor teardown; retain synthesized isolated deinit. The recognizer weakly references the anchor and immediately fails without claiming touches."
+    },
+    "CompanionPlanLimitsScreen": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionPlanLimits.swift",
+      "reason": "Dictionary owns only CompanionHelperPresetsScreen instances, already reviewed ARC-only value-snapshot owners. No UI, timer, task, service or callback is stored; screen-lifetime structured tasks are owned by SwiftUI.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "readings": "[ String : CompanionHelperPresetsScreen ]"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     }
   },
   "captureSites": {
