@@ -96,6 +96,31 @@ import XCTest
         XCTAssertTrue(app.buttons["helper-auto-change-inherit"].isEnabled)
         capture(app, "Persona off with agent on (preview)")
     }
+    func testReportOnlyKeepsClubhouseModeAndAllowsAutoOffAndClear() {
+        let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-report-only"])
+        let row = element(app, "agent-preview-studio-juniper")
+        XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app))
+        let settings = app.buttons["Agent settings"]
+        longPressUntilMenu(row, shows: settings)
+        waitAndTap(settings, until: element(app, "agent-settings-summary"))
+        let clubhouseMode = element(app, "agent-settings-clubhouse-mode")
+        XCTAssertTrue(scrollUntilExists(clubhouseMode, in: app) && scrollTo(clubhouseMode, in: app))
+        XCTAssertTrue(clubhouseMode.isEnabled, "Its own editable policy still governs Clubhouse mode")
+        let reportOnly = element(app, "agent-settings-report-only")
+        XCTAssertTrue(scrollUntilExists(reportOnly, in: app) && scrollTo(reportOnly, in: app))
+        XCTAssertFalse(element(app, "agent-settings-orchestrate").isEnabled)
+        XCTAssertFalse(element(app, "agent-settings-orchestrate-cross-project").isEnabled)
+        XCTAssertFalse(element(app, "agent-settings-orchestrate-dispatcher").exists)
+        capture(app, "Report-only helper retains Clubhouse mode but cannot enable orchestration")
+        let auto = element(app, "agent-settings-helper-auto")
+        XCTAssertTrue(scrollUntilExists(auto, in: app) && scrollTo(auto, in: app))
+        waitAndTap(auto, until: element(app, "helper-auto-scope-agent"))
+        XCTAssertFalse(app.buttons["helper-auto-change-on"].exists)
+        XCTAssertTrue(app.buttons["helper-auto-change-off"].isEnabled)
+        XCTAssertTrue(app.buttons["helper-auto-change-inherit"].isEnabled)
+        capture(app, "Report-only helper keeps Auto provider off and clear available")
+    }
+
     func testMCPOffAllowsOffAndClearButDisablesOn() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-mcp-off"])
         openPresets(app)

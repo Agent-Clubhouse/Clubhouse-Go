@@ -371,9 +371,10 @@ struct CompanionAgentSettingsForm: View {
         Section {
             if isDispatcher {
                 // It lives outside every project, so there's no project mode to follow.
-            } else if orchestration(settings)?.mcpReportOnly != true, settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
+            } else if settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
                 Toggle("Clubhouse mode for this agent", isOn: Binding(get: { value }, set: { save(.init(clubhouseMode: $0)) }))
                     .disabled(!settings.clubhouseMode.canEdit(sleeping: sleeping) || saving)
+                    .accessibilityIdentifier("agent-settings-clubhouse-mode")
             } else {
                 LabeledContent("Clubhouse mode", value: clubhouseModeSummary(settings))
             }
