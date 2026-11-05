@@ -155,6 +155,7 @@ import XCTest
         XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44)
         XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44)
         XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Retain a useful text-entry width with every control visible")
+        print("ASSISTIVE_COMPOSER window=\(app.frame) field=\(composer.frame) interrupt=\(interrupt.frame) send=\(send.frame) dismiss=\(dismiss.frame)")
         XCTAssertLessThanOrEqual(interrupt.frame.maxX, composer.frame.minX)
         XCTAssertLessThanOrEqual(composer.frame.maxX, send.frame.minX)
         XCTAssertLessThanOrEqual(send.frame.maxX, dismiss.frame.minX)
