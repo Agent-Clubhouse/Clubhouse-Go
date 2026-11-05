@@ -144,7 +144,11 @@ struct CompanionQuotaView: View {
         }
         .accessibilityElement(children: .combine)
     }
-    private func resetText(_ date: Date) -> some View { Text("Resets \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+    private func resetText(_ date: Date) -> some View {
+        Text("Resets \(date.formatted(date: .abbreviated, time: .shortened))")
+            .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
 }
 
 struct CompanionHelperWarningView: View {
