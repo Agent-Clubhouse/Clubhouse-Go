@@ -185,13 +185,31 @@ struct CompanionConversationView: View {
 
     private var statusAndPermissions: some View {
         let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
-        return layout {
-            if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
-            if agent.freeAgentMode { CompanionFreeAgentBadge() }
-            if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+        return HStack(spacing: 8) {
+            if store.hosts.count > 1, let host = store.host(for: target) {
+                CompanionHostTag(name: host.name)
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: 120, alignment: .leading)
+                    .layoutPriority(-1)
+                    .accessibilityIdentifier("companion-chat-host-tag")
+            }
+            layout {
+                if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
+                if agent.freeAgentMode { CompanionFreeAgentBadge() }
+                if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+            }
+            .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(headerAccessibilityLabel)
         .accessibilityIdentifier("companion-chat-header")
+    }
+
+    private var headerAccessibilityLabel: String {
+        [contextName, agent.status.label,
+         agent.freeAgentMode ? "Free Agent Mode: all permissions bypassed" : nil,
+         agent.chatControls.map { "Permissions: \($0.currentLevel.label)" }]
+            .compactMap { $0 }.joined(separator: ", ")
     }
 
     @ViewBuilder private var contextButton: some View {
