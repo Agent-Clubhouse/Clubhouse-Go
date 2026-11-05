@@ -81,7 +81,7 @@ import XCTest
         XCTAssertTrue(scrollTo(row, in: app))
         waitAndTap(row, until: element(app, "companion-composer"))
         XCTAssertFalse(element(app, "companion-context-report").exists, "Context details don't take space from the transcript")
-        let ring = app.buttons["companion-context-settings"]
+        let ring = app.buttons["companion-context-usage"]
         XCTAssertTrue(ring.exists && ring.isHittable)
         let picker = app.buttons["agent-settings-context-window"]
         waitAndTap(ring, until: picker)

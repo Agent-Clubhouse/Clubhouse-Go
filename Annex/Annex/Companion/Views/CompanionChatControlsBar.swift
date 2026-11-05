@@ -27,7 +27,9 @@ struct CompanionChatControlsBar: View, Equatable {
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                 }
-                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.large)
+                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(.circle)
                 .accessibilityLabel("Chat controls")
                 .accessibilityValue([controls.currentLevel.label, controls.modelLabel, controls.effortLabel].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityHint("Permissions, model and reasoning effort")

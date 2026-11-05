@@ -285,7 +285,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let activity = app.staticTexts.matching(identifier: "companion-chat-activity").firstMatch
         XCTAssertTrue(activity.waitForExistence(timeout: 5))
         XCTAssertEqual(activity.label, "Run xcodebuild", "The activity line names the oldest waiting request")
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-context-usage").firstMatch.label.contains("42%"))
+        let context = app.buttons["companion-context-usage"]
+        XCTAssertTrue(context.exists)
+        XCTAssertEqual(context.label, "Context 42% full")
 
         // The approval card: the request's title, its place in the queue, and the desktop-only option.
         let position = app.staticTexts.matching(identifier: "companion-approval-position").firstMatch

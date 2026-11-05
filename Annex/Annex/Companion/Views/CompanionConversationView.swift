@@ -222,7 +222,7 @@ struct CompanionConversationView: View {
             .frame(minWidth: 44, minHeight: 44)
             .accessibilityLabel(agent.contextUsage?.percent.map { "Context \($0)% full" } ?? "Context report")
             .accessibilityHint("Opens Agent settings at context")
-            .accessibilityIdentifier("companion-context-settings")
+            .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
         }
     }
 
@@ -269,12 +269,24 @@ struct CompanionConversationView: View {
     @ViewBuilder private var otherAgentBanner: some View {
         // Compare by agent, not list entry: a desktop can list one agent under more than one project.
         if let other = store.allAgents.first(where: { $0.status.needsYou && ($0.id.agentID != target.agentID || $0.id.hostID != target.hostID) }) {
-            CompanionGlassBanner(systemImage: other.status.symbol,
-                                 text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
-                Button("View") { openAgent(other.id) }.buttonStyle(.glass)
-                    .accessibilityLabel("View \(other.name)")
+            if compactAccessibilityHeader {
+                // Keep the other chat actionable without letting its banner consume this chat's viewport.
+                Button { openAgent(other.id) } label: {
+                    Label("\(other.name) \(other.status == .failed ? "hit an error" : "needs you")", systemImage: other.status.symbol)
+                        .font(.caption).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16).frame(minHeight: 44)
+                }
+                .buttonStyle(.glass).buttonBorderShape(.capsule)
+                .accessibilityLabel("View \(other.name), \(other.status == .failed ? "hit an error" : "needs you")")
+                .padding(.horizontal, 16).padding(.bottom, 6)
+            } else {
+                CompanionGlassBanner(systemImage: other.status.symbol,
+                                     text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
+                    Button("View") { openAgent(other.id) }.buttonStyle(.glass)
+                        .accessibilityLabel("View \(other.name)")
+                }
+                .padding(.bottom, 6)
             }
-            .padding(.bottom, 6)
         }
     }
 
