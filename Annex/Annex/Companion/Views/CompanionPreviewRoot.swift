@@ -39,6 +39,7 @@ struct CompanionPreviewRoot: View {
             .sheet(isPresented: $showSettings) {
                 NavigationStack {
                     Form {
+                        CompanionPlanLimitsLink(store: store)
                         CompanionHelperPresetLinks(store: store)
                         CompanionStartScreenPicker(preferences: preferences)
                         if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-controls") {

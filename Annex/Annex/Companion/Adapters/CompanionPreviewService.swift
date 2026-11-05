@@ -64,6 +64,7 @@ import ClubhouseTransport
             self.continuation = continuation
             var hosts = Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
                                    terminalAgent: self.showsTerminalAgent, dispatcher: self.showsDispatcher, helperTree: self.showsHelperTree, contextWindow: self.showsContextWindow, helperPresets: self.showsHelperPresets, autoQuota: self.showsAutoQuota)
+            if self.showsAutoQuota { hosts += Self.planLimitsHosts() }
             if self.showsMultipleDispatchers {
                 hosts[1].connection = .connected
                 hosts[1].dispatcher = Self.dispatcher(now: Date())
@@ -509,6 +510,7 @@ import ClubhouseTransport
     }
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         guard showsHelperPresets else { throw previewError }
+        if showsAutoQuota && hostID == "preview-work" { return Self.planLimitsPage }
         return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID, mcpEnabled: mcpEnabled) : Self.helperPresets
     }
     func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting { throw previewError }

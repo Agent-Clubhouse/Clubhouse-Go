@@ -44,6 +44,24 @@ extension CompanionPreviewService {
         }
         return page
     }
+    /// Multiple desktops deliberately repeat provider IDs: their accounts are not known to be the same.
+    static func planLimitsHosts() -> [CompanionHost] {
+        [
+            .init(id: "preview-work", name: "Work Mac", endpoint: "work.local", connection: .connected, projects: [],
+                  helperRouting: autoQuotaCapability, providers: [.init(id: "claude-code", name: "Claude Code"), .init(id: "codex-cli", name: "Codex CLI")]),
+            .init(id: "preview-legacy", name: "Older Mac", endpoint: "older.local", connection: .connected, projects: [])
+        ]
+    }
+    static var planLimitsPage: CompanionHelperRouting {
+        var page = autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true)
+        page.providers.removeValue(forKey: "copilot-cli")
+        page.providers["claude-code"]?.quota = .init(state: "low", asOf: page.serverTime,
+            weekly: .init(usedPercent: 88, resetsAt: page.serverTime?.addingTimeInterval(86_400)),
+            fiveHour: .init(usedPercent: 36, resetsAt: page.serverTime?.addingTimeInterval(3_600)), refreshAfterSeconds: 300)
+        page.providers["codex-cli"]?.quota = .init(state: "unknown", unknownReason: "read_failed", asOf: page.serverTime,
+            weekly: .init(usedPercent: nil, resetsAt: page.serverTime?.addingTimeInterval(86_400)), refreshAfterSeconds: 300)
+        return page
+    }
     private static func previewRoutingJSON(_ text: String) -> AnnexJSON { (try? JSONDecoder().decode(AnnexJSON.self, from: Data(text.utf8))) ?? .null }
     private static let autoQuotaCapabilityJSON = #"""
     {
