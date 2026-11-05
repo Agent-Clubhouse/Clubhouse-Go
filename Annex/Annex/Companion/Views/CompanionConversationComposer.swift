@@ -123,7 +123,7 @@ struct CompanionConversationComposer: View {
             if !slashMatches.isEmpty {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: usesCompactControls ? 4 : 8) {
                 if usesCompactControls { chatControls(compact: true).frame(height: composerRowHeight) }
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {
