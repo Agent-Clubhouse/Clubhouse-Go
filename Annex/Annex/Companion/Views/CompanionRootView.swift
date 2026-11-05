@@ -215,9 +215,7 @@ struct CompanionRootView: View {
                     if off.running && !off.allows("chat.send") {
                         Text("New messages are unavailable while MCP is off.").font(.caption)
                     }
-                    if store.canSleepDispatcher(agent.id) {
-                        Button("Sleep", systemImage: "moon") { Task { await store.sleepDispatcher(agent.id) } }
-                    }
+                    CompanionSleepControl(store: store, target: agent.id, title: "Sleep")
                 }
                 .font(.subheadline)
                 .frame(maxWidth: .infinity, alignment: .leading)

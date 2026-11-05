@@ -16,6 +16,9 @@ import Observation
     var attachmentDrafts: [CompanionTarget: [CompanionImageAttachment]] = [:]
     private(set) var conversations: [CompanionTarget: CompanionConversation] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
+    /// A stop receipt only acknowledges the request. Keep mutations blocked until the desktop confirms sleep.
+    private(set) var sleepRequests: Set<CompanionTarget> = []
+    private(set) var sleepRefreshes: Set<CompanionTarget> = []
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     /// Helper requests being answered, and why an answer failed, by `CompanionHelperRequest.slot`.
     private(set) var helperRequestsInFlight: Set<String> = []
@@ -133,7 +136,7 @@ import Observation
 
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
+        !sleepRequests.contains(target) && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
@@ -145,6 +148,7 @@ import Observation
     }
     /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
     func mayWake(_ target: CompanionTarget) -> Bool {
+        guard !sleepRequests.contains(target) else { return false }
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
         guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
         return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
@@ -411,9 +415,37 @@ import Observation
     }
     func sleepDispatcher(_ target: CompanionTarget) async {
         guard canSleepDispatcher(target) else { return }
+        await sleepAgent(target)
+    }
+    func canSleep(_ target: CompanionTarget) -> Bool {
+        if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return canSleepDispatcher(target) }
+        return canOperate(target) && !pendingCommands.contains(target) && host(for: target)?.canStopAgents == true
+            && agent(for: target).map { !$0.isQuick && $0.isSleepingOnDesktop == false } == true
+    }
+    func sleepAgent(_ target: CompanionTarget) async {
+        guard canSleep(target) else { return }
+        sleepRequests.insert(target)
         pendingCommands.insert(target); operationErrors[target] = nil
         defer { pendingCommands.remove(target) }
-        do { try await service.sleepDispatcher(target, clientCommandID: UUID().uuidString) }
+        do {
+            if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil {
+                try await service.sleepDispatcher(target, clientCommandID: UUID().uuidString)
+            } else {
+                try await service.sleepAgent(target, clientCommandID: UUID().uuidString)
+            }
+            await refreshSleepState(target)
+        } catch {
+            // A lost reply is not a refusal and must not unlock provider changes or a new start.
+            if case CompanionServiceError.rejected = error { sleepRequests.remove(target) }
+            if case CompanionServiceError.unavailable = error { sleepRequests.remove(target) }
+            operationErrors[target] = error.localizedDescription
+        }
+    }
+    func refreshSleepState(_ target: CompanionTarget) async {
+        guard !sleepRefreshes.contains(target), host(for: target)?.connection.canOperate == true else { return }
+        sleepRefreshes.insert(target)
+        defer { sleepRefreshes.remove(target) }
+        do { try await service.refreshSleepState(target) }
         catch { operationErrors[target] = error.localizedDescription }
     }
 
@@ -664,6 +696,9 @@ import Observation
         return try await service.settings(for: target)
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
+        guard !sleepRequests.contains(target) else {
+            throw CompanionServiceError.rejected("Wait for the desktop to confirm that the agent is asleep.")
+        }
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
@@ -880,6 +915,13 @@ import Observation
             }
             clearRemovedChats(in: hosts)
             self.hosts = hosts
+            for target in sleepRequests {
+                guard let host = host(for: target), host.connection.canOperate else { continue }
+                let confirmed: Bool
+                if isDispatcher(target), let off = host.dispatcher?.mcpOff { confirmed = !off.running }
+                else { confirmed = agent(for: target)?.isSleepingOnDesktop == true }
+                if confirmed { sleepRequests.remove(target); operationErrors[target] = nil }
+            }
             var runs = finishedRuns
             if runs.observe(hosts, now: Date()) { finishedRuns = runs }
         case .timeline(let target, let incoming, let sequence, let reset, let sessionID):
@@ -968,6 +1010,7 @@ import Observation
         }
         for target in gone {
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
+            sleepRequests.remove(target); sleepRefreshes.remove(target)
         }
     }
 

@@ -1,6 +1,53 @@
 import SwiftUI
 import ClubhouseTransport
 
+/// Shared whole-session action. A stop acknowledgment is deliberately not presented as sleep completion.
+struct CompanionSleepAction: View {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    var title = "Sleep agent"
+    var confirm: () -> Void = {}
+
+    var body: some View {
+        if store.sleepRequests.contains(target) {
+            Label("Sleep requested. Waiting for the desktop to confirm.", systemImage: "moon")
+                .accessibilityIdentifier("agent-sleep-pending")
+            Button("Check sleep status", systemImage: "arrow.clockwise") { Task { await store.refreshSleepState(target) } }
+                .disabled(store.sleepRefreshes.contains(target) || store.host(for: target)?.connection.canOperate != true)
+                .accessibilityIdentifier("agent-sleep-refresh")
+        } else if store.canSleep(target) {
+            Button(title, systemImage: "moon", action: confirm)
+                .accessibilityIdentifier("agent-sleep")
+        }
+    }
+}
+
+struct CompanionSleepConfirmation: ViewModifier {
+    let store: CompanionStore
+    let target: CompanionTarget
+    @Binding var isPresented: Bool
+    func body(content: Content) -> some View {
+        content.confirmationDialog("Sleep \(store.agent(for: target)?.name ?? "agent")?", isPresented: $isPresented, titleVisibility: .visible) {
+            Button("Sleep agent", role: .destructive) { Task { await store.sleepAgent(target) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This stops the agent's session on \(store.host(for: target)?.name ?? "the desktop"). Wait for Sleeping before changing its provider. Starting again is a separate action.")
+        }
+    }
+}
+
+/// Non-menu surfaces own their confirmation here; a menu must present it from the enclosing screen.
+struct CompanionSleepControl: View {
+    let store: CompanionStore
+    let target: CompanionTarget
+    var title = "Sleep agent"
+    @State private var confirming = false
+    var body: some View {
+        CompanionSleepAction(store: store, target: target, title: title) { confirming = true }
+            .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirming))
+    }
+}
+
 /// Opens an agent's details, and a durable agent's settings, from anywhere: the chat header, or an agent row's long-press menu.
 struct CompanionAgentSettingsAction {
     var canOpen: @MainActor (CompanionTarget) -> Bool
@@ -161,14 +208,25 @@ struct CompanionAgentSettingsForm: View {
     private var isDispatcher: Bool { store.isDispatcher(target) }
     /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
-        [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
-         agent?.orchestration.map { "\($0)" } ?? "", agent?.parentAgentID ?? ""].joined(separator: "|")
+        let sleeping = agent?.isSleepingOnDesktop
+        let lifecycle = sleeping == true ? "asleep" : sleeping == false ? "awake" : "unknown"
+        return [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
+         agent?.orchestration.map { "\($0)" } ?? "", agent?.parentAgentID ?? "",
+         lifecycle].joined(separator: "|")
     }
 
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-                if let settings { form(settings) }
+                if store.canSleep(target) || store.sleepRequests.contains(target) {
+                    Section("Session") {
+                        CompanionSleepControl(store: store, target: target)
+                        if let error = store.operationErrors[target] { Text(error).foregroundStyle(.red) }
+                    }
+                } else if let error = store.operationErrors[target] {
+                    Section { Text(error).foregroundStyle(.red) }
+                }
+                if let settings { form(settings).disabled(store.sleepRequests.contains(target)) }
                 else if let loadError {
                     contextSection(nil)
                     ContentUnavailableView {
@@ -314,15 +372,22 @@ struct CompanionAgentSettingsForm: View {
         }
 
         Section {
-            Picker("Runs on", selection: Binding(get: { settings.orchestrator.value ?? settings.resolvedOrchestrator },
-                                                 set: { id in
-                guard id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
-                if settings.orchestratorChangeWarning(to: id, agentName: settings.name.value) != nil {
-                    pendingOrchestrator = id
-                    confirmOrchestratorChange = true
-                } else { save(.init(orchestrator: id)) }
-            })) {
-                ForEach(orchestratorChoices(settings), id: \.id) { Text($0.label).tag($0.id) }
+            Menu {
+                ForEach(orchestratorChoices(settings), id: \.id) { choice in
+                    Button {
+                        guard choice.available, choice.id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
+                        if settings.orchestratorChangeWarning(to: choice.id, agentName: settings.name.value) != nil {
+                            pendingOrchestrator = choice.id
+                            confirmOrchestratorChange = true
+                        } else { save(.init(orchestrator: choice.id)) }
+                    } label: {
+                        if choice.id == (settings.orchestrator.value ?? settings.resolvedOrchestrator) { Label(choice.label, systemImage: "checkmark") }
+                        else { Text(choice.label) }
+                    }
+                    .disabled(!choice.available)
+                }
+            } label: {
+                LabeledContent("Runs on", value: settings.orchestratorName)
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-orchestrator")
@@ -352,6 +417,7 @@ struct CompanionAgentSettingsForm: View {
             }
         } header: { Text("Runtime") } footer: {
             Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
+            Text("Sign-in and remaining quota aren't reported by this provider list.")
         }
 
         Section {
@@ -552,10 +618,12 @@ struct CompanionAgentSettingsForm: View {
         }
     }
 
-    private func orchestratorChoices(_ settings: CompanionAgentSettings) -> [(id: String, label: String)] {
-        var choices = settings.options.orchestrators.map { (id: $0.id, label: $0.available ? $0.displayName : "\($0.displayName) (CLI not found)") }
+    private func orchestratorChoices(_ settings: CompanionAgentSettings) -> [(id: String, label: String, available: Bool)] {
+        var choices = settings.options.orchestrators.map {
+            (id: $0.id, label: $0.available ? $0.displayName : "\($0.displayName) (\($0.unavailableReason ?? "Unavailable on this desktop"))", available: $0.available)
+        }
         let current = settings.orchestrator.value ?? settings.resolvedOrchestrator
-        if !choices.contains(where: { $0.id == current }) { choices.append((id: current, label: current)) }
+        if !choices.contains(where: { $0.id == current }) { choices.append((id: current, label: "\(current) (availability unknown)", available: false)) }
         return choices
     }
 
