@@ -94,9 +94,14 @@ import XCTest
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A local offline draft"), timeout: 5))
     }
 
-    func testLargestTextKeepsSafetyStatusAndControlsReachable() {
+    func testLargestTextKeepsSafetyStatusAndControlsReachable() { largestText(hidePreviewBanner: false) }
+
+    func testLargestTextWithoutPreviewBannerKeepsSafetyStatusAndControlsReachable() { largestText(hidePreviewBanner: true) }
+
+    private func largestText(hidePreviewBanner: Bool) {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window",
-                             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+                             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+                            + (hidePreviewBanner ? ["--companion-preview-hide-banner"] : []))
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         let header = element(app, "companion-chat-header")
@@ -105,10 +110,15 @@ import XCTest
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
         XCTAssertTrue(app.buttons["companion-context-settings"].isHittable)
         focus(composer, in: app)
+        let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
+        let region = element(app, "companion-composer-region").frame
+        let readable = transcript.isNull ? 0 : max(0, min(transcript.maxY, region.minY) - max(transcript.minY, header.frame.maxY))
+        print("CHAT_CHROME largest-text hiddenPreviewBanner=\(hidePreviewBanner) transcript=\(transcript) header=\(header.frame) composer=\(region) readableHeight=\(readable)")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Chat chrome largest accessibility text \(hidePreviewBanner ? "without preview banner" : "with preview banner")"
+        shot.lifetime = .keepAlways; add(shot)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
         XCTAssertTrue(app.buttons["companion-send"].exists)
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "Chat chrome largest accessibility text"; shot.lifetime = .keepAlways; add(shot)
     }
 
     private func focus(_ composer: XCUIElement, in app: XCUIApplication) {
