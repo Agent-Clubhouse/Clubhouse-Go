@@ -14,6 +14,7 @@ struct CompanionConversationView: View {
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showContextSettings = false
+    @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
@@ -92,6 +93,10 @@ struct CompanionConversationView: View {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                        if dynamicTypeSize.isAccessibilitySize, agent.contextUsage != nil || agent.chatControls?.context != nil {
+                            Button("Context", systemImage: "chart.pie") { showContextSettings = true }
+                                .accessibilityIdentifier("companion-context-settings")
+                        }
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
                         Section("Conversation details") {
@@ -140,6 +145,13 @@ struct CompanionConversationView: View {
                 AnnexTelemetry.shared.recordMainActorDelay(durationMs: max(0, ms - 250), messageCount: conversation.items.count)
             }
         }
+        // System keyboard visibility is independent of draft/selection observation in the composer.
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            if !keyboardVisible { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            if keyboardVisible { keyboardVisible = false }
+        }
         .onChange(of: connection) { _, current in
             if current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
@@ -151,16 +163,22 @@ struct CompanionConversationView: View {
         }
     }
 
+    private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
+
     private var contextHeader: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { statusAndPermissions; Spacer(minLength: 0); contextButton }
-                VStack(alignment: .leading, spacing: 0) {
-                    statusAndPermissions
-                    contextButton
+            if compactAccessibilityHeader {
+                statusAndPermissions.frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { statusAndPermissions; Spacer(minLength: 0); contextButton }
+                    VStack(alignment: .leading, spacing: 0) {
+                        statusAndPermissions
+                        contextButton
+                    }
                 }
+                activityLine
             }
-            activityLine
         }
         .padding(.horizontal, 20).padding(.vertical, 2)
     }
@@ -168,7 +186,7 @@ struct CompanionConversationView: View {
     private var statusAndPermissions: some View {
         let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
         return layout {
-            CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
+            if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
             if agent.freeAgentMode { CompanionFreeAgentBadge() }
             if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
         }
