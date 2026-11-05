@@ -1,0 +1,115 @@
+
+swift-test.log
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+✔ Test run with 1166 tests in 147 suites passed after 8.115 seconds.
+
+focused-iphone.log
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testNativeEditsDoNotRebuildTheTranscriptButStreamingStillDoes]' passed (1.428 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRealComposerAccessibilityDismissalPreservesDraftSelectionAndFieldIdentity]' passed (1.377 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRemountDoesNotReuseSelectionAfterDraftChangesWhileUnmounted]' passed (1.669 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.474 (4.475) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.474 (4.476) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.474 (4.476) seconds
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testDispatcherTranscriptSpaceWithKeyboardDownAndUp]' passed (11.453 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testEditingKeepsPermissionConfirmationAndModelAndEffortReachable]' passed (38.727 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextKeepsSafetyStatusAndControlsReachable]' passed (10.274 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testSlashMenuAvailableHeight]' passed (23.242 seconds).
+	 Executed 4 tests, with 0 failures (0 unexpected) in 83.696 (83.702) seconds
+Test Case '-[ClubhouseGoUITests.CompanionContextWindowUITests testDispatcherPendingChoiceCanChangeWithoutSleeping]' passed (21.269 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionContextWindowUITests testReportedContextIsReadOnlyAndAwakePendingChoiceIsLocked]' passed (13.979 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionContextWindowUITests testSleepingAgentShowsPendingChoiceAndResetRefusal]' passed (23.233 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 58.481 (58.482) seconds
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testAssistiveDismissControlFitsTheComposerAndKeepsTheSlashWordClosed]' failed (13.371 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testEmptyDispatcherCanDismissAndReturnHome]' passed (31.738 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testLongDispatcherCanDismissAndReturnHome]' passed (39.659 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testShortDispatcherCanDismissAndReturnHome]' passed (32.046 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses]' passed (31.401 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testTranscriptCardContentLinkAndCopyStillWorkWhileEditing]' passed (25.979 seconds).
+	 Executed 6 tests, with 1 failure (0 unexpected) in 174.193 (174.197) seconds
+Test Case '-[ClubhouseGoUITests.CompanionPreviewSmokeTests testChatControlsMenusAndPersistentApproval]' passed (26.127 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionPreviewSmokeTests testComposerCentresOneLineAtLargeText]' passed (10.209 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 36.336 (36.338) seconds
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testCompactActivityBuildsNoHiddenDetailAndNavigationSkipsIt]' passed (12.669 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testFailedOutputFoldsButErrorStatusStaysVisible]' passed (9.646 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry]' passed (46.560 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout]' passed (16.346 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testNativeScrollToTopSticksWithAndWithoutStreaming]' passed (28.275 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testProgrammaticPreviousMessageJumpStaysWhileStreaming]' passed (13.341 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testStreamingKeepsFollowingWhenNobodyScrolls]' passed (16.181 seconds).
+	 Executed 7 tests, with 0 failures (0 unexpected) in 143.019 (143.023) seconds
+Test Case '-[ClubhouseGoUITests.CompanionSlashCommandUITests testKeyboardMovesAndPicksAndADismissedWordStaysClosed]' passed (35.020 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionSlashCommandUITests testTypingSlashSuggestsCommandsAndTappingOneInsertsIt]' passed (29.350 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 64.370 (64.371) seconds
+	 Executed 24 tests, with 1 failure (0 unexpected) in 560.095 (560.116) seconds
+	 Executed 24 tests, with 1 failure (0 unexpected) in 560.095 (560.117) seconds
+** TEST FAILED **
+
+final-iphone.log
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testNativeEditsDoNotRebuildTheTranscriptButStreamingStillDoes]' passed (1.254 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRealComposerAccessibilityDismissalPreservesDraftSelectionAndFieldIdentity]' passed (1.445 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRemountDoesNotReuseSelectionAfterDraftChangesWhileUnmounted]' passed (1.722 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.421 (4.422) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.421 (4.423) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.421 (4.423) seconds
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testDispatcherTranscriptSpaceWithKeyboardDownAndUp]' passed (9.631 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testEditingKeepsPermissionConfirmationAndModelAndEffortReachable]' passed (28.696 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextKeepsSafetyStatusAndControlsReachable]' passed (7.808 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testOfflineCaptionAppearsOnlyWhileReconnecting]' passed (16.095 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testSlashMenuAvailableHeight]' passed (11.429 seconds).
+	 Executed 5 tests, with 0 failures (0 unexpected) in 73.659 (73.662) seconds
+Test Case '-[ClubhouseGoUITests.CompanionContextWindowUITests testReportedContextIsReadOnlyAndAwakePendingChoiceIsLocked]' passed (8.524 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 8.524 (8.525) seconds
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testAssistiveDismissControlFitsTheComposerAndKeepsTheSlashWordClosed]' passed (24.432 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 24.432 (24.433) seconds
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout]' passed (16.515 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 16.515 (16.516) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 123.130 (123.138) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 123.130 (123.140) seconds
+** TEST SUCCEEDED **
+
+definitive-iphone.log
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testNativeEditsDoNotRebuildTheTranscriptButStreamingStillDoes]' passed (1.305 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRealComposerAccessibilityDismissalPreservesDraftSelectionAndFieldIdentity]' passed (1.376 seconds).
+Test Case '-[ClubhouseGoTests.CompanionComposerIsolationTests testRemountDoesNotReuseSelectionAfterDraftChangesWhileUnmounted]' passed (1.660 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.341 (4.343) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.341 (4.343) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 4.341 (4.343) seconds
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testDispatcherTranscriptSpaceWithKeyboardDownAndUp]' passed (9.355 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextKeepsSafetyStatusAndControlsReachable]' passed (11.824 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextWithoutPreviewBannerKeepsSafetyStatusAndControlsReachable]' passed (11.608 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 32.787 (32.789) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 32.787 (32.790) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 32.787 (32.790) seconds
+** TEST SUCCEEDED **
+
+final-ipad.log
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testDispatcherTranscriptSpaceWithKeyboardDownAndUp]' passed (12.080 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testEditingKeepsPermissionConfirmationAndModelAndEffortReachable]' passed (29.662 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextKeepsSafetyStatusAndControlsReachable]' passed (8.113 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testOfflineCaptionAppearsOnlyWhileReconnecting]' passed (16.802 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testSlashMenuAvailableHeight]' passed (11.973 seconds).
+	 Executed 5 tests, with 0 failures (0 unexpected) in 78.629 (78.631) seconds
+Test Case '-[ClubhouseGoUITests.CompanionContextWindowUITests testReportedContextIsReadOnlyAndAwakePendingChoiceIsLocked]' passed (9.333 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 9.333 (9.333) seconds
+Test Case '-[ClubhouseGoUITests.CompanionKeyboardDismissalUITests testAssistiveDismissControlFitsTheComposerAndKeepsTheSlashWordClosed]' passed (25.298 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 25.298 (25.299) seconds
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout]' passed (16.709 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 16.709 (16.710) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 129.969 (129.974) seconds
+	 Executed 8 tests, with 0 failures (0 unexpected) in 129.969 (129.975) seconds
+** TEST EXECUTE SUCCEEDED **
+
+definitive-ipad.log
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testDispatcherTranscriptSpaceWithKeyboardDownAndUp]' passed (12.180 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextKeepsSafetyStatusAndControlsReachable]' passed (12.338 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionChatChromeUITests testLargestTextWithoutPreviewBannerKeepsSafetyStatusAndControlsReachable]' passed (11.980 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 36.498 (36.499) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 36.498 (36.499) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 36.498 (36.499) seconds
+** TEST EXECUTE SUCCEEDED **
+
+definitive-deinits.log
+Deinit policy: 28 ARC-only protections; 16 reviewed isolated paths retained. UI affinity is not waived.
+
+definitive-release.log
+** BUILD SUCCEEDED **
