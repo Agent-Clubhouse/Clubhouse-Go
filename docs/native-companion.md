@@ -43,6 +43,9 @@ The Dispatcher (`dispatcher` v1, desktop #2533 and #2575) is one app-wide durabl
 
 Shipped build 210 and older show an MCP-off Dispatcher as off and can't interrupt from the phone. This compatibility reaches phones only in a later build. Fake-transport and preview checks establish phone behavior; device proof and proof against a live desktop are separate and are not implied by those checks.
 
+Dispatcher compatibility tests use `snapshot-dispatcher-mcp-off-running.json`, the three surfaces in `dispatcher-off-states.json`, and the accepted/refused outcomes in `dispatcher-off-routes.json`. The whole fixture set is pinned by `Tests/Fixtures/AnnexContract/SOURCE.json`. Legacy fixtures deliberately keep their older shape; live desktops send the additive off fields. Local variants cover unrecorded on/return transitions, missing or unknown reasons/fields, restricted allowlists and missing session capabilities, changed identity, stopped-mid-compose/uncertain delivery, and report-only enable/clear behavior. Synthetic chat events and receipt envelopes supply timing and framing that the HTTP state matrices do not record.
+
+
 
 Desktops & settings exposes explicit online session revocation when advertised. Local forgetting explains that it does not revoke desktop trust. Unknown revocation results preserve local material and direct the user to check desktop state. Pairing describes the controller authority granted and distinguishes session access from remembered access.
 
