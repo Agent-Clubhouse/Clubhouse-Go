@@ -121,6 +121,13 @@ import Testing
         #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: nil) == CompanionDispatcher.flagOffNote)
     }
 
+    @Test func dispatcherFlagOffUsesTheDesktopsPlainMessage() {
+        let message = "MCP is off. This session is still running."
+        #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: message) == message)
+        #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: nil) == CompanionDispatcher.flagOffNote)
+        #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: "") == CompanionDispatcher.flagOffNote)
+    }
+
     @Test func dispatcherSettingsOfferOnlyWhatTheDesktopAllows() throws {
         let settings = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-dispatcher.json"))
         #expect(settings.name.editable == .never && settings.color.editable == .never && settings.emoji.editable == .never)

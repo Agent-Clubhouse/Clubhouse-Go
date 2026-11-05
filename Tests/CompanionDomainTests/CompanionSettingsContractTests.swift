@@ -31,6 +31,39 @@ import Testing
         #expect(CompanionOrchestration(json: .object([:]))?.mcpEnabled == true)
     }
 
+    @Test func reportOnlyIsTolerantAndDoesNotGrantFullMCPAuthority() throws {
+        for value in [AnnexJSON.bool(true), .bool(false), .null, .string("true"), .integer(1)] {
+            let policy = try #require(CompanionOrchestration(json: .object(["mcpEnabled": .bool(true), "mcpReportOnly": value])))
+            #expect(policy.mcpEnabled, "Report-only retains the bridge")
+            #expect(policy.mcpReportOnly == (value == .bool(true)))
+            #expect(policy.hasFullMCP == (value != .bool(true)))
+            #expect(policy.canChangeMCPOption(current: true))
+            #expect(policy.canChangeMCPOption(current: false) == (value != .bool(true)))
+        }
+        #expect(CompanionOrchestration(json: .object([:]))?.hasFullMCP == true)
+        #expect(CompanionOrchestration(json: .object(["mcpEnabled": .bool(false)]))?.hasFullMCP == false)
+        guard case .object(var body) = try ContractFixtures.body("agent-settings-helper.json"),
+              case .object(var policy)? = body["orchestration"] else { Issue.record("Missing helper policy"); return }
+        policy["mcpEnabled"] = .bool(true); policy["mcpReportOnly"] = .bool(true)
+        body["orchestration"] = .object(policy)
+        #expect(try CompanionAgentSettings(json: .object(body)).orchestration?.mcpReportOnly == true)
+    }
+
+    @MainActor @Test func reportOnlyPreventsNewHelperApprovalsButKeepsDeclineAvailable() throws {
+        var hosts = CompanionPreviewService.hosts(now: .now, helperRequests: CompanionPreviewService.helperRequests)
+        let request = try #require(hosts[0].helperRequests.first { $0.kind == .start })
+        let project = try #require(hosts[0].projects.firstIndex { $0.id == request.projectID })
+        let agent = try #require(hosts[0].projects[project].agents.firstIndex { $0.id.agentID == request.requesterID })
+        hosts[0].projects[project].agents[agent].orchestration = .init(mcpReportOnly: true)
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.apply(.hosts(hosts))
+        #expect(store.isMCPReportOnly(request.agentTarget))
+        #expect(store.canAnswer(request) && !store.canApprove(request))
+        hosts[0].projects[project].agents[agent].orchestration?.mcpReportOnly = false
+        store.apply(.hosts(hosts))
+        #expect(store.canApprove(request), "An absent or false report-only flag keeps the existing behavior")
+    }
+
     @Test func cliSessionWarningDefaultsFalseAndUsesTheDesktopSentence() throws {
         let original = try ContractFixtures.body("agent-settings.json")
         for (raw, expected) in [(AnnexJSON.bool(true), true), (.bool(false), false), (.null, false), (.string("true"), false)] {
@@ -138,6 +171,55 @@ import Testing
         await harness.transport.emit(snapshot(false))
         try await harness.waitUntil { harness.store.agent(for: harness.target)?.hasSession == false }
         #expect(harness.store.wakeChoices(for: harness.target) == [.newSession])
+    }
+
+    @Test func staleReportOnlySettingsShowTheServersRefusal() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        await harness.transport.emit(harness.snapshotEvent(["agents": .object(["project": .array([.object([
+            "id": .string("agent"), "name": .string("Helper"), "status": .string("running"),
+            "orchestration": .object(["mcpEnabled": .bool(true), "mcpReportOnly": .bool(true)]),
+        ])])])]))
+        try await harness.waitUntil { harness.store.isMCPReportOnly(harness.target) }
+        let message = "This helper can only report to its parent while Clubhouse MCP is off."
+        await harness.transport.enqueue(.rejected(code: "mcp_off", message: message))
+        #expect(await serviceErrorText { _ = try await harness.store.updateSettings(.init(orchestration: .init(orchestrate: .set(true))), target: harness.target) } == message)
+        #expect(await harness.transport.executed.count == 1, "A stale client still shows the authoritative server refusal")
+    }
+
+    @Test func reportOnlyRefusesEnableWithoutSavingAndAcceptsClearing() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let caps = try ContractFixtures.body("capabilities.json")
+        await harness.transport.setFeature("helperRouting", caps["helperRouting"] ?? .null)
+        try await harness.refreshCatalog()
+        guard case .object(var body) = try ContractFixtures.body("agent-settings-helper.json"),
+              case .object(var policy)? = body["orchestration"] else { Issue.record("Missing helper policy"); return }
+        policy["mcpEnabled"] = .bool(true); policy["mcpReportOnly"] = .bool(true)
+        for key in ["orchestrate", "crossProjectHelpers", "autoHelpers", "connectToDispatcher"] { policy[key] = .bool(false) }
+        body["orchestration"] = .object(policy)
+        await harness.transport.setRead("agentSettings", .object(body))
+        let before = try await harness.store.settings(for: harness.target)
+        let message = CompanionOrchestration.mcpRequiredHelp
+        let enables: [CompanionOrchestrationChange] = [.init(orchestrate: .set(true)), .init(crossProjectHelpers: .set(true)),
+            .init(autoHelpers: .set(true)), .init(connectToDispatcher: .set(true))]
+        for change in enables {
+            await harness.transport.enqueue(.rejected(code: "mcp_off", message: message))
+            #expect(await serviceErrorText { _ = try await harness.store.updateSettings(.init(orchestration: change), target: harness.target) } == message)
+            let reloaded = try await harness.store.settings(for: harness.target)
+            #expect(reloaded.orchestration == before.orchestration, "A stale enable refusal does not become an optimistic saved value")
+        }
+        let clears: [CompanionOrchestrationChange] = [.init(orchestrate: .clear), .init(crossProjectHelpers: .clear),
+            .init(autoHelpers: .clear), .init(connectToDispatcher: .clear)]
+        for change in clears {
+            policy["autoHelpers"] = .null
+            body["orchestration"] = .object(policy)
+            await harness.transport.enqueue(.completed(.object(body)))
+            let saved = try await harness.store.updateSettings(.init(orchestration: change), target: harness.target)
+            #expect(saved.orchestration?.mcpReportOnly == true && saved.orchestration?.orchestrate == false)
+            #expect(saved.orchestration?.autoHelpers == nil && saved.orchestration?.connectToDispatcher == false)
+        }
+        #expect(await harness.transport.executed.count == 8)
     }
 
     @Test func createAndUpdateShowTheMcpOffSentence() async throws {

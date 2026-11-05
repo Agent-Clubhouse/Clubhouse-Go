@@ -374,6 +374,7 @@ struct CompanionAgentSettingsForm: View {
             } else if settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
                 Toggle("Clubhouse mode for this agent", isOn: Binding(get: { value }, set: { save(.init(clubhouseMode: $0)) }))
                     .disabled(!settings.clubhouseMode.canEdit(sleeping: sleeping) || saving)
+                    .accessibilityIdentifier("agent-settings-clubhouse-mode")
             } else {
                 LabeledContent("Clubhouse mode", value: clubhouseModeSummary(settings))
             }
@@ -448,11 +449,15 @@ struct CompanionAgentSettingsForm: View {
     /// The desktop's Orchestrate card. It changes at any time, and is hidden on desktops without `orchestration` v1.
     @ViewBuilder private func orchestrateSection(_ policy: CompanionOrchestration, name: String, running: Bool, isHelper: Bool) -> some View {
         Section {
+            if policy.mcpReportOnly {
+                Text(CompanionOrchestration.reportOnlyHelp)
+                    .accessibilityIdentifier("agent-settings-report-only")
+            }
             Toggle("Let this agent orchestrate", isOn: Binding(get: { policy.orchestrate },
                                                                set: { save(.init(orchestration: .init(orchestrate: .set($0)))) }))
-                .disabled(saving || !policy.mcpEnabled)
+                .disabled(saving || !policy.canChangeMCPOption(current: policy.orchestrate))
                 .accessibilityIdentifier("agent-settings-orchestrate")
-            if policy.orchestrate {
+            if policy.orchestrate && !policy.mcpReportOnly {
                 Picker("Helpers get", selection: Binding(get: { policy.access },
                                                          set: { if $0 != policy.access { save(.init(orchestration: .init(access: .set($0)))) } })) {
                     ForEach(policy.accessChoices, id: \.self) { Text(CompanionOrchestration.accessLabel($0, agentName: name)).tag($0) }
@@ -473,7 +478,7 @@ struct CompanionAgentSettingsForm: View {
                 .disabled(saving)
                 .accessibilityIdentifier("agent-settings-orchestrate-max-helpers")
             }
-            if policy.sources["crossProjectHelpers"] != nil && (policy.orchestrate || !policy.mcpEnabled) {
+            if policy.sources["crossProjectHelpers"] != nil && (policy.orchestrate || !policy.hasFullMCP) {
                 Toggle(isOn: Binding(get: { policy.crossProjectHelpers },
                                      set: { save(.init(orchestration: .init(crossProjectHelpers: .set($0)))) })) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -481,12 +486,13 @@ struct CompanionAgentSettingsForm: View {
                         Text(CompanionOrchestration.crossProjectHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     }
                 }
-                .disabled(saving || !policy.mcpEnabled)
+                .disabled(saving || !policy.canChangeMCPOption(current: policy.crossProjectHelpers))
                 .accessibilityLabel("Let \(name) start helpers in other projects")
                 .accessibilityIdentifier("agent-settings-orchestrate-cross-project")
             }
             // Older desktops omit helper identity; keep showing their authoritative returned value.
-            if !isHelper, policy.sources["connectToDispatcher"] != nil, store.host(for: target)?.dispatcher?.enabled == true {
+            if policy.sources["connectToDispatcher"] != nil,
+               (policy.mcpReportOnly && policy.connectToDispatcher) || (!isHelper && store.host(for: target)?.dispatcher?.enabled == true && store.host(for: target)?.dispatcher?.mcpOff == nil) {
                 Toggle(isOn: Binding(get: { policy.connectToDispatcher },
                                      set: { save(.init(orchestration: .init(connectToDispatcher: .set($0)))) })) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -494,12 +500,12 @@ struct CompanionAgentSettingsForm: View {
                         Text(CompanionOrchestration.dispatcherHelp).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     }
                 }
-                .disabled(saving || !policy.mcpEnabled)
+                .disabled(saving || !policy.canChangeMCPOption(current: policy.connectToDispatcher))
                 .accessibilityLabel("Connect \(name) to the Dispatcher")
                 .accessibilityIdentifier("agent-settings-orchestrate-dispatcher")
             }
         } header: { Text("Orchestrate") } footer: {
-            Text(orchestrateFooter(policy, name: name, running: running))
+            if !policy.mcpReportOnly { Text(orchestrateFooter(policy, name: name, running: running)) }
         }
     }
 
@@ -511,7 +517,7 @@ struct CompanionAgentSettingsForm: View {
 
     /// The card's notes: what helpers get, what Control means, the cap, and when the tools appear.
     private func orchestrateFooter(_ policy: CompanionOrchestration, name: String, running: Bool) -> String {
-        guard policy.mcpEnabled else { return CompanionOrchestration.mcpRequiredHelp }
+        guard policy.hasFullMCP else { return CompanionOrchestration.mcpRequiredHelp }
         guard policy.orchestrate else { return CompanionOrchestration.offHelp(agentName: name) }
         var notes = [CompanionOrchestration.accessNote(agentName: name)]
         if let help = CompanionOrchestration.controlHelp(policy.control, agentName: name) { notes.append(help) }
@@ -605,16 +611,18 @@ struct CompanionDispatcherSwitch: View {
         if let host = store.hosts.first(where: { $0.id == hostID }), let dispatcher = host.dispatcher {
             let switching = store.dispatcherSwitching.contains(hostID)
             VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: Binding(get: { dispatcher.enabled },
-                                     set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Turn on Dispatcher")
-                        if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                if dispatcher.mcpOff == nil {
+                    Toggle(isOn: Binding(get: { dispatcher.enabled },
+                                         set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Turn on Dispatcher")
+                            if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                        }
                     }
+                    // Turning it off is always allowed; turning it on needs the desktop's flag and layout.
+                    .disabled(switching || !host.connection.canOperate || !dispatcher.canToggle || (!dispatcher.enabled && dispatcher.turnOnBlocker != nil))
+                    .accessibilityIdentifier("dispatcher-enabled-\(hostID)")
                 }
-                // Turning it off is always allowed; turning it on needs the desktop's flag and layout.
-                .disabled(switching || !host.connection.canOperate || !dispatcher.canToggle || (!dispatcher.enabled && dispatcher.turnOnBlocker != nil))
-                .accessibilityIdentifier("dispatcher-enabled-\(hostID)")
                 Text(note(dispatcher)).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("dispatcher-enabled-note-\(hostID)")
@@ -627,6 +635,7 @@ struct CompanionDispatcherSwitch: View {
     }
 
     private func note(_ dispatcher: CompanionDispatcher) -> String {
+        if let note = dispatcher.statusNote { return note }
         if dispatcher.enabled { return CompanionDispatcher.offNote }
         return dispatcher.turnOnBlocker ?? "One app-wide agent that sends your orchestrators work and gets their reports."
     }

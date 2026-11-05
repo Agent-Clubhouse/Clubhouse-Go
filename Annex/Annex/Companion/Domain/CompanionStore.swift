@@ -136,7 +136,8 @@ import Observation
         host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
-        canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
+        if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
+        return canOperate(target) && !pendingCommands.contains(target) && agent(for: target)?.capabilities.contains(.wake) == true
     }
     /// The ways to wake this agent: Wake & Resume only when it has a session to resume, and Start New Session.
     func wakeChoices(for target: CompanionTarget) -> [CompanionWakeChoice] {
@@ -144,6 +145,7 @@ import Observation
     }
     /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
     func mayWake(_ target: CompanionTarget) -> Bool {
+        if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
         guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
         return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
             && (!conversation(for: target).isLoaded || agent.capabilities.contains(.wake))
@@ -177,6 +179,7 @@ import Observation
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots { contentRoots[target] ?? .init() }
     func canSend(_ target: CompanionTarget) -> Bool {
+        if isDispatcher(target), let off = host(for: target)?.dispatcher?.mcpOff, !off.allows("chat.send") { return false }
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }
         return agent.status == .working ? !agent.capabilities.intersection([.steer, .queue]).isEmpty : agent.capabilities.contains(.chat)
     }
@@ -275,7 +278,8 @@ import Observation
     }
 
     func sendDraft(to target: CompanionTarget) async {
-        let text = (drafts[target] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = drafts[target] ?? ""
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = attachmentDrafts[target] ?? []
         guard !text.isEmpty || !attachments.isEmpty, canSend(target) else { return }
         guard attachments.isEmpty || attachmentLimits(for: target) != nil else {
@@ -289,7 +293,16 @@ import Observation
         conversations[target, default: .init()].items.append(.message(message))
         drafts[target] = ""
         attachmentDrafts[target] = nil
-        await submit(message, to: target)
+        let dispatcher = isDispatcher(target)
+        if let refusal = await submit(message, to: target), dispatcher {
+            // A session can end after the button was enabled, including while a send is in flight.
+            // Keep newer typing; a definitive refusal restores the submitted draft for editing.
+            if (drafts[target] ?? "").isEmpty { drafts[target] = draft }
+            let current = attachmentDrafts[target] ?? []
+            let restored = Set(attachments.map(\.id))
+            attachmentDrafts[target] = attachments + current.filter { !restored.contains($0.id) }
+            operationErrors[target] = refusal
+        }
     }
 
     /// Retry is only offered for a definite rejection. Unknown delivery requires reconciliation first.
@@ -303,11 +316,12 @@ import Observation
         message.clientCommandID = UUID().uuidString
         message.delivery = .sending
         upsert(.message(message), target: target)
-        await submit(message, to: target)
+        _ = await submit(message, to: target)
     }
 
-    private func submit(_ message: CompanionMessage, to target: CompanionTarget) async {
-        guard var commandID = message.clientCommandID else { return }
+    /// A definite refusal can restore a draft. Unknown delivery must first be reconciled.
+    private func submit(_ message: CompanionMessage, to target: CompanionTarget) async -> String? {
+        guard var commandID = message.clientCommandID else { return nil }
         pendingCommands.insert(target)
         operationErrors[target] = nil
         updateDelivery(commandID, target: target, delivery: .sending)
@@ -341,12 +355,17 @@ import Observation
         } catch let error as CompanionAttachmentError {
             if error == .imagesNotSupported { imagesRefused[target] = conversation(for: target).sessionID ?? "" }
             updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
+            return error.localizedDescription
         } catch let error as CompanionServiceError {
             if case .uncertain(let detail) = error { updateDelivery(commandID, target: target, delivery: .uncertain(detail)) }
-            else { updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription)) }
+            else {
+                updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
+                return error.localizedDescription
+            }
         } catch {
             updateDelivery(commandID, target: target, delivery: .uncertain(error.localizedDescription))
         }
+        return nil
     }
 
     /// Uploads in order, reusing ids from an earlier try. Waits out a short `Retry-After` up to twice.
@@ -384,6 +403,18 @@ import Observation
             }
         }
         conversations[target, default: .init()].items = items
+    }
+
+    func canSleepDispatcher(_ target: CompanionTarget) -> Bool {
+        isDispatcher(target) && canOperate(target) && !pendingCommands.contains(target)
+            && host(for: target)?.dispatcher?.mcpOff?.allows("agent.stop") == true
+    }
+    func sleepDispatcher(_ target: CompanionTarget) async {
+        guard canSleepDispatcher(target) else { return }
+        pendingCommands.insert(target); operationErrors[target] = nil
+        defer { pendingCommands.remove(target) }
+        do { try await service.sleepDispatcher(target, clientCommandID: UUID().uuidString) }
+        catch { operationErrors[target] = error.localizedDescription }
     }
 
     func cancel(_ target: CompanionTarget) async {
@@ -463,10 +494,16 @@ import Observation
             && !consumedHelperRequests.contains(request.slot) && host.helperRequests.contains { $0.id == request.id }
     }
 
+    func canApprove(_ request: CompanionHelperRequest) -> Bool {
+        canAnswer(request) && request.canApprove
+            && (request.kind != .start || agent(for: request.agentTarget)?.orchestration?.mcpReportOnly != true)
+    }
+    func isMCPReportOnly(_ target: CompanionTarget) -> Bool { agent(for: target)?.orchestration?.mcpReportOnly == true }
+
     /// Approve or decline a helper request, as the desktop's Needs you does. Approving a dispose with work at risk is
     /// the desktop's "Dispose anyway"; one whose checks couldn't run can only be declined.
     func answer(_ request: CompanionHelperRequest, approve: Bool) async {
-        guard canAnswer(request), !approve || request.canApprove else { return }
+        guard canAnswer(request), !approve || canApprove(request) else { return }
         let force = approve && request.kind == .dispose && request.dispose?.workAtRisk == true
         helperRequestsInFlight.insert(request.slot)
         helperRequestErrors[request.slot] = nil
@@ -610,6 +647,7 @@ import Observation
     /// Settings are offered for durable agents on desktops that support them.
     func canEditSettings(_ target: CompanionTarget) -> Bool {
         host(for: target)?.canEditSettings == true && agent(for: target).map { !$0.isQuick } == true
+            && !(isDispatcher(target) && host(for: target)?.dispatcher?.mcpOff != nil)
     }
     func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Connect to the desktop to read helper presets.") }
@@ -916,6 +954,7 @@ import Observation
             let listed = Set(current.allAgents.map(\.id))
             for agent in previous.allAgents where !listed.contains(agent.id) {
                 if previous.isDispatcher(agent.id) {
+                    if current.dispatcher?.mcpOff != nil { continue }
                     if current.dispatcher?.enabled == false || current.dispatcher?.flagOn == false ||
                         current.dispatcher?.liveAgent != nil || (current.dispatcher == nil && current.hasLoadedCatalog) {
                         gone.insert(agent.id)

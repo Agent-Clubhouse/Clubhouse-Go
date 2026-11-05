@@ -24,9 +24,11 @@ import ClubhouseTransport
     private var buffers: [CompanionTarget: [AnnexJSON]] = [:]
     private var historyGenerations: [CompanionTarget: UUID] = [:]
     private var quickCatalog: [String: AnnexJSON] = [:]
-    /// The snapshot's `dispatcher` per host (`null` while it's off), kept for catalog refreshes: the REST routes never list it.
+    /// The snapshot's Dispatcher record, retained for MCP-off and catalog refreshes; REST catalogs never list it.
     private var dispatcherCatalog: [String: AnnexJSON] = [:]
-    /// The Dispatcher's on/off and flag per host, from capabilities and then each `dispatcher:changed`.
+    /// Recognized MCP-off metadata, from the snapshot, change event or capability refresh.
+    private var dispatcherMCPOff: [String: CompanionDispatcherMCPOff] = [:]
+    /// The Dispatcher's on/off and flag per host, from capabilities and each `dispatcher:changed`.
     private var dispatcherFlags: [String: (enabled: Bool, flagOn: Bool)] = [:]
     /// Hosts whose snapshot says `ptyHost.platform == "win32"`, for matching content roots.
     private var windowsHosts: Set<String> = []
@@ -147,7 +149,7 @@ import ClubhouseTransport
                 emitHosts()
                 return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID,
                              contentRoots: Self.contentRoots(from: snapshot, windows: windowsHosts.contains(target.hostID)),
-                             capabilities: availableCapabilities(projection.capabilities, hostID: target.hostID))
+                             capabilities: availableCapabilities(projection.capabilities, target: target))
             } catch {
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 let pending = buffers.removeValue(forKey: target) ?? []
@@ -189,6 +191,9 @@ import ClubhouseTransport
     }
 
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
+        if let off = mcpOff(for: request.target), !off.allows("chat.send") || readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {
+            throw CompanionServiceError.rejected(off.note)
+        }
         let kind: AnnexCommand.Kind
         if readOnly.contains(request.target) || projections[request.target]?.sessionID == nil {
             // `agent.start` carries text only; the desktop answers an image upload for a stopped agent with `not_chat`.
@@ -620,6 +625,7 @@ import ClubhouseTransport
         Task { await iconStore.remove(host: hostID) }
         dispatcherCatalog.removeValue(forKey: hostID)
         dispatcherFlags.removeValue(forKey: hostID)
+        dispatcherMCPOff.removeValue(forKey: hostID)
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
@@ -696,6 +702,7 @@ import ClubhouseTransport
     }
 
     private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String, validateReceipt: Bool = true) async throws -> AnnexCommandReceipt {
+        try validateDispatcherCommand(kind, hostID: hostID)
         guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }
         let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
         guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.") }
@@ -709,6 +716,29 @@ import ClubhouseTransport
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
+    /// The off-state allowlist never authorizes a start, a wake, settings changes or enable=true.
+    private func validateDispatcherCommand(_ kind: AnnexCommand.Kind, hostID: String) throws {
+        guard let off = dispatcherMCPOff[hostID] else { return }
+        let agentID: String?
+        let allowed: Bool
+        switch kind {
+        case .send(let id, _, _, _, _): agentID = id; allowed = off.allows("chat.send")
+        case .interrupt(let id, _): agentID = id; allowed = off.allows("chat.interrupt")
+        case .stop(let id): agentID = id; allowed = off.allows("agent.stop")
+        case .permission(let id, _, _, _): agentID = id; allowed = off.allows("chat.permission")
+        case .question(let id, _, _, _): agentID = id; allowed = off.allows("chat.question")
+        case .removeQueued(let id, _, _): agentID = id; allowed = off.allows("chat.queue.remove")
+        case .start(let id, _, _), .setModel(let id, _, _, _), .setLevel(let id, _, _): agentID = id; allowed = false
+        case .update(let update): agentID = update.agentID; allowed = false
+        case .setDispatcherEnabled(let enabled):
+            guard !enabled && off.commands.contains("dispatcher.setEnabled") else { throw CompanionServiceError.rejected(off.note) }
+            return
+        default: return
+        }
+        let dispatcherID = dispatcherCatalog[hostID]?["agent"]?["id"]?.string
+        if agentID == dispatcherID && !allowed { throw CompanionServiceError.rejected(off.note) }
+    }
+
     /// What a receipt means for the user: nil when the command was dispatched. Image refusals keep their own recovery.
     nonisolated static func receiptError(_ receipt: AnnexCommandReceipt, attachmentCount: Int = 0) -> Error? {
         switch receipt.status {
@@ -869,7 +899,7 @@ import ClubhouseTransport
             case "agent:deleted": scheduleRefresh(hostID: hostID)
             case "dispatcher:changed":
                 applyDispatcherChange(enabled: payload["enabled"].boolValue == true, flagOn: payload["flagOn"].boolValue == true,
-                                      agentID: payload["agentId"]?.string, hostID: hostID)
+                                      agentID: payload["agentId"]?.string, agent: payload["agent"], mcpOff: CompanionDispatcherMCPOff(json: payload), hostID: hostID)
                 scheduleRefresh(hostID: hostID)
             default: break
             }
@@ -917,9 +947,16 @@ import ClubhouseTransport
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
                     dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
-                    if !dispatcher.enabled || !dispatcher.flagOn { dropDispatcher(hostID: hostID) }
+                    let off = !dispatcher.enabled || !dispatcher.flagOn ? CompanionDispatcherMCPOff(json: rawCaps?["dispatcher"]) : nil
+                    // New capabilities carry the record too, including on a cold reconnect before any snapshot.
+                    if off != nil, let value = rawCaps?["dispatcher"], value["agent"]?["id"]?.string?.isEmpty == false {
+                        dispatcherCatalog[hostID] = value
+                    }
+                    rememberMCPOff(off, hostID: hostID)
+                    if (!dispatcher.enabled || !dispatcher.flagOn) && dispatcherMCPOff[hostID] == nil { dropDispatcher(hostID: hostID) }
                 } else {
                     dispatcherFlags[hostID] = nil
+                    dispatcherMCPOff[hostID] = nil
                     dropDispatcher(hostID: hostID)
                 }
                 if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
@@ -1132,7 +1169,7 @@ import ClubhouseTransport
         let status: CompanionAgentStatus = (runsOutsideChat ? nil : projection?.status)
             ?? CompanionChatProjector.status(value["status"]?.string, detailed: detailed)
         let model: String? = projection?.model ?? value["model"]?.string
-        let supported = availableCapabilities(projection?.capabilities ?? [], hostID: target.hostID)
+        let supported = availableCapabilities(projection?.capabilities ?? [], target: target)
         let activity = (value["lastActivityAt"] ?? value["spawnedAt"]).flatMap(Self.date(from:))
         var agent = CompanionAgent(id: target, name: name, subtitle: subtitle, status: status, model: model, capabilities: supported,
                                    executionMode: value["executionMode"]?.string ?? meta?["executionMode"]?.string, lastActivity: activity,
@@ -1212,7 +1249,8 @@ import ClubhouseTransport
         // An agent running outside chat (it has an execution mode but no live chat) keeps its catalog status.
         let runsOutsideChat = readOnly.contains(target) && agent.executionMode != nil
         if !runsOutsideChat { agent.status = projection.status }
-        agent.capabilities = availableCapabilities(projection.capabilities, hostID: target.hostID)
+        if let off = mcpOff(for: target), !off.running { agent.status = CompanionChatProjector.status(off.status ?? "sleeping") }
+        agent.capabilities = availableCapabilities(projection.capabilities, target: target)
         if let model = projection.model { agent.model = model }
         agent.turnStartedAt = projection.turnStartedAt
         agent.contextUsage = projection.contextUsage
@@ -1229,6 +1267,11 @@ import ClubhouseTransport
 
     // MARK: Dispatcher (`dispatcher` v1)
 
+    func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws {
+        guard mcpOff(for: target)?.allows("agent.stop") == true else { throw CompanionServiceError.rejected("Sleep is not available for this session.") }
+        _ = try await execute(.stop(agentID: target.agentID), id: clientCommandID, hostID: target.hostID)
+    }
+
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
         guard capabilities[hostID]?.supportsDispatcherToggle == true else {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to turn the Dispatcher on from your phone.")
@@ -1237,7 +1280,7 @@ import ClubhouseTransport
         // The receipt says where it ended up; `dispatcher:changed` and a snapshot with its agent follow.
         let result = receipt.result
         applyDispatcherChange(enabled: result?["enabled"]?.boolOrNil ?? enabled, flagOn: result?["flagOn"]?.boolOrNil ?? dispatcherFlags[hostID]?.flagOn ?? true,
-                              agentID: result?["agentId"]?.string, hostID: hostID)
+                              agentID: result?["agentId"]?.string, mcpOff: CompanionDispatcherMCPOff(json: result), hostID: hostID)
     }
     /// The Dispatcher as the desktop last described it: its flags from capabilities and `dispatcher:changed`, its agent
     /// from the snapshot. Nil on desktops without `dispatcher` v1, which leaves everything as before.
@@ -1250,14 +1293,20 @@ import ClubhouseTransport
         let flags = dispatcherFlags[hostID] ?? (base?.enabled ?? false, base?.flagOn ?? false)
         var state = CompanionDispatcher(enabled: flags.enabled && flags.flagOn, flagOn: flags.flagOn, newLayout: base?.newLayout ?? true,
                                         projectID: value?["projectId"]?.string ?? value?["agent"]?["projectId"]?.string ?? base?.projectID ?? CompanionDispatcher.defaultProjectID,
-                                        canToggle: caps?.supportsDispatcherToggle == true)
-        if state.enabled, let entry = value?["agent"], let id = entry["id"]?.string, !id.isEmpty {
+                                        canToggle: caps?.supportsDispatcherToggle == true, mcpOff: dispatcherMCPOff[hostID])
+        if state.isVisible, let entry = value?["agent"], let id = entry["id"]?.string, !id.isEmpty {
             var agent = catalogAgent(entry, target: .init(hostID: hostID, projectID: state.projectID, agentID: id), isQuick: false,
                                      meta: meta?[id], icon: icons?[id])
             agent.isDispatcher = true
             if entry["name"]?.string?.isEmpty != false { agent.name = CompanionDispatcher.name }
             // Its orchestration is the desktop's, and locked.
             agent.orchestration = nil
+            if let off = state.mcpOff {
+                if !off.running { agent.status = CompanionChatProjector.status(off.status ?? "sleeping") }
+                if !off.running, let detail = off.detail { agent.detail = .init(message: detail) }
+                agent.capabilities = availableCapabilities(agent.capabilities, target: agent.id)
+                agent.chatControls = nil; agent.slashCommands = nil
+            }
             state.agent = agent
         }
         return state
@@ -1265,6 +1314,7 @@ import ClubhouseTransport
     /// Only an explicit null confirms shutdown. An omitted field never calls this method.
     private func rememberDispatcher(_ value: AnnexJSON, hostID: String) {
         if value == .null {
+            dispatcherMCPOff[hostID] = nil
             dispatcherFlags[hostID] = (false, dispatcherFlags[hostID]?.flagOn ?? true)
             dropDispatcher(hostID: hostID)
             return
@@ -1273,12 +1323,19 @@ import ClubhouseTransport
         let enabled = value["enabled"]?.boolOrNil
         let flagOn = value["flagOn"]?.boolOrNil
         let previous = dispatcherFlags[hostID]
-        if enabled == false || flagOn == false {
-            dispatcherFlags[hostID] = (enabled ?? previous?.enabled ?? false, flagOn ?? previous?.flagOn ?? true)
+        let resolved = (enabled: enabled ?? previous?.enabled ?? capabilities[hostID]?.dispatcher?.enabled ?? false,
+                        flagOn: flagOn ?? previous?.flagOn ?? capabilities[hostID]?.dispatcher?.flagOn ?? false)
+        rememberMCPOff((!resolved.enabled || !resolved.flagOn) ? CompanionDispatcherMCPOff(json: value) : nil, hostID: hostID)
+        if dispatcherMCPOff[hostID] != nil {
+            dispatcherCatalog[hostID] = value
+            rememberMCPOff(dispatcherMCPOff[hostID], hostID: hostID)
+            dispatcherFlags[hostID] = resolved
+        } else if !resolved.enabled || !resolved.flagOn {
+            dispatcherFlags[hostID] = resolved
             dropDispatcher(hostID: hostID)
         } else if value["agent"]?["id"]?.string?.isEmpty == false {
             dispatcherCatalog[hostID] = value
-            dispatcherFlags[hostID] = (enabled ?? true, flagOn ?? true)
+            dispatcherFlags[hostID] = resolved
         } else {
             // A starting or partial entry does not revoke the last known identity.
             if enabled != nil || flagOn != nil {
@@ -1296,15 +1353,39 @@ import ClubhouseTransport
         dispatcher["agent"] = .object(agent)
         dispatcherCatalog[hostID] = .object(dispatcher)
     }
-    /// `dispatcher:changed` or a `dispatcher.setEnabled` receipt. Turned off, its chat and every cached piece of it go.
-    private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, hostID: String) {
+    /// Change events and receipts preserve MCP-off records; legacy turn-off still removes their caches.
+    private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, agent: AnnexJSON? = nil, mcpOff: CompanionDispatcherMCPOff?, hostID: String) {
         guard capabilities[hostID]?.supportsDispatcher == true || !knownCapabilities.contains(hostID) else { return }
         dispatcherFlags[hostID] = (enabled, flagOn)
+        let off = !enabled || !flagOn ? mcpOff : nil
         let cachedID = dispatcherCatalog[hostID]?["agent"]?["id"]?.string
-        if !enabled || !flagOn || (agentID != nil && cachedID != nil && agentID != cachedID) { dropDispatcher(hostID: hostID) }
-        hosts[hostID]?.dispatcher = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
+        // Off events intentionally keep legacy agentId null. The additive agent record is authoritative.
+        let reportedID = agent?["id"]?.string ?? agentID
+        if ((!enabled || !flagOn) && off == nil) || (reportedID != nil && cachedID != nil && reportedID != cachedID) { dropDispatcher(hostID: hostID) }
+        if (enabled && flagOn) || off != nil, let agent, agent["id"]?.string?.isEmpty == false {
+            dispatcherCatalog[hostID] = .object(["agent": agent, "projectId": .string(agent["projectId"]?.string
+                ?? hosts[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID)])
+        }
+        rememberMCPOff(off, hostID: hostID)
+        let state = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
+        hosts[hostID]?.dispatcher = state
         emitHosts()
     }
+    private func rememberMCPOff(_ off: CompanionDispatcherMCPOff?, hostID: String) {
+        dispatcherMCPOff[hostID] = off
+        guard let off, !off.running else { return }
+        let projectID = hosts[hostID]?.dispatcher?.projectID ?? capabilities[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID
+        for target in projections.keys where target.hostID == hostID && target.projectID == projectID {
+            projections[target]?.endSession(CompanionChatProjector.status(off.status ?? "sleeping"))
+            readOnly.insert(target)
+        }
+        if case .object(var block)? = dispatcherCatalog[hostID], case .object(var agent)? = block["agent"] {
+            agent["status"] = .string(off.status ?? "sleeping")
+            block["agent"] = .object(agent)
+            dispatcherCatalog[hostID] = .object(block)
+        }
+    }
+
     private func dropDispatcher(hostID: String) {
         dispatcherCatalog[hostID] = .null
         let projectID = hosts[hostID]?.dispatcher?.projectID ?? capabilities[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID
@@ -1316,7 +1397,8 @@ import ClubhouseTransport
         }
     }
     private func slashCommands(_ projection: CompanionChatProjector, target: CompanionTarget) -> [CompanionSlashCommand]? {
-        Self.slashCommands(projection.slashCommands, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
+        guard mcpOff(for: target) == nil else { return nil }
+        return Self.slashCommands(projection.slashCommands, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
                            session: projection.capabilities, capabilities: capabilities[target.hostID])
     }
     /// The `/` menu needs a desktop that sends commands (`slashCommands` v1) and a live session that reports them.
@@ -1328,7 +1410,8 @@ import ClubhouseTransport
     }
     /// The composer's controls while the session is live, limited to the commands the desktop takes. Older desktops get none.
     private func chatControls(_ projection: CompanionChatProjector, target: CompanionTarget) -> CompanionChatControls? {
-        Self.chatControls(projection.controls, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
+        guard mcpOff(for: target) == nil else { return nil }
+        return Self.chatControls(projection.controls, live: !readOnly.contains(target) && projection.capabilities.contains(.chat),
                           capabilities: capabilities[target.hostID])
     }
     nonisolated static func chatControls(_ controls: CompanionChatControls, live: Bool, capabilities: AnnexCapabilities?) -> CompanionChatControls? {
@@ -1339,7 +1422,8 @@ import ClubhouseTransport
         if !capabilities.supportsLevelSwitch { offered.liveLevels = [] }
         return offered
     }
-    private func availableCapabilities(_ proposed: CompanionCapabilities, hostID: String) -> CompanionCapabilities {
+    private func availableCapabilities(_ proposed: CompanionCapabilities, target: CompanionTarget) -> CompanionCapabilities {
+        let hostID = target.hostID
         guard let commands = capabilities[hostID]?.commands else { return [] }
         var result = proposed
         if !commands.contains("chat.send") || capabilities[hostID].flatMap(Self.attachmentLimits) == nil { result.remove(.images) }
@@ -1352,7 +1436,21 @@ import ClubhouseTransport
         if !commands.contains("chat.permission") { result.remove(.approve) }
         if !commands.contains("chat.question") { result.remove(.answer) }
         if !commands.contains("chat.queue.remove") { result.remove(.removeQueued) }
+        if let off = mcpOff(for: target) {
+            guard off.running, !readOnly.contains(target) else { return [] }
+            let gates: [(CompanionCapabilities, String)] = [(.chat, "chat.send"), (.steer, "chat.send"), (.queue, "chat.send"),
+                (.images, "chat.send"), (.cancel, "chat.interrupt"), (.approve, "chat.permission"),
+                (.answer, "chat.question"), (.removeQueued, "chat.queue.remove")]
+            result.remove(.wake)
+            result.remove(.slashCommands)
+            for (flag, command) in gates where !off.allows(command) { result.remove(flag) }
+        }
         return result
+    }
+
+    private func mcpOff(for target: CompanionTarget) -> CompanionDispatcherMCPOff? {
+        let projectID = hosts[target.hostID]?.dispatcher?.projectID ?? capabilities[target.hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID
+        return target.projectID == projectID ? dispatcherMCPOff[target.hostID] : nil
     }
 
     /// Images need the upload route and `chat.send`; an older desktop advertises neither and gets text only.

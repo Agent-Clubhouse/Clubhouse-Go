@@ -468,7 +468,7 @@ struct CompanionChatProjector {
         case "error", "failed": .failed
         case "completed": .completed
         case "sleeping": .sleeping
-        case "cancelled": .stopped
+        case "cancelled", "stopped": .stopped
         default: .idle
         }
     }

@@ -113,7 +113,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// never sorts, pins, idles or spawns like a project.
     var dispatcher: CompanionDispatcher?
 
-    /// Every agent on this desktop: each project's, then the Dispatcher's while it's on.
+    /// Every listed agent, including a Dispatcher retained under the MCP-off contract.
     var allAgents: [CompanionAgent] { projects.flatMap(\.agents) + (dispatcher?.liveAgent.map { [$0] } ?? []) }
     /// The agent behind a target: in its project, or the Dispatcher.
     func agent(for target: CompanionTarget) -> CompanionAgent? {
@@ -137,7 +137,7 @@ struct CompanionDispatcher: Sendable, Equatable {
     static let defaultProjectID = "__dispatcher__"
     /// The desktop's Settings › Dispatcher notes.
     static let flagOffNote = "Turn on Dispatcher in Settings > Experimental on the desktop first."
-    static let layoutOffNote = "The Dispatcher needs the new layout. Turn on New layout in Settings > Experimental on the desktop."
+    static let layoutOffNote = "The Dispatcher needs the new layout. Turn off Classic layout in Settings > Display & UI on the desktop, then restart Clubhouse."
     static let offNote = "Turning it off stops it. Its folder and notes are kept, so turning it back on carries on where it left off."
     /// The experimental flag and the app setting are both on.
     var enabled: Bool
@@ -148,18 +148,42 @@ struct CompanionDispatcher: Sendable, Equatable {
     var projectID = Self.defaultProjectID
     /// The desktop takes `dispatcher.setEnabled` from this phone.
     var canToggle = false
-    /// Its agent, from the snapshot. Nil while the desktop is still starting it, or when it's off.
+    /// Only the recognized MCP-off contract retains the agent and transcript while disabled.
+    var mcpOff: CompanionDispatcherMCPOff?
+    var isVisible: Bool { (enabled && flagOn) || mcpOff != nil }
+    var statusNote: String? { mcpOff?.note }
+    /// Its desktop record. MCP-off retains it after the session stops.
     var agent: CompanionAgent?
-    /// Its agent while it's on.
-    var liveAgent: CompanionAgent? { enabled && flagOn ? agent : nil }
+    /// Its agent while on, or retained under MCP-off.
+    var liveAgent: CompanionAgent? { isVisible ? agent : nil }
     /// On, but its agent hasn't arrived yet.
-    var isLoading: Bool { enabled && agent == nil }
+    var isLoading: Bool { enabled && mcpOff == nil && agent == nil }
     /// Why it can't be turned on from here, or nil when it can.
     var turnOnBlocker: String? {
+        if mcpOff != nil { return "MCP is off on the desktop." }
         if !flagOn { return Self.flagOffNote }
         if !newLayout { return Self.layoutOffNote }
         if !canToggle { return "Update Clubhouse on your desktop to turn the Dispatcher on from your phone." }
         return nil
+    }
+}
+
+/// Additive desktop contract. Missing and unknown reasons deliberately retain legacy shutdown behaviour.
+struct CompanionDispatcherMCPOff: Sendable, Equatable {
+    var running: Bool
+    var status: String?
+    var detail: String?
+    var commands: Set<String>
+    var note: String { running ? "MCP is off. This session is still running." : "MCP is off on the desktop." }
+    func allows(_ command: String) -> Bool { running && commands.contains(command) }
+
+    /// All three desktop surfaces use this one tolerant decode point.
+    init?(json: AnnexJSON?) {
+        guard json?["offReason"]?.string == "mcp_off" else { return nil }
+        running = json?["running"].boolValue == true
+        status = json?["status"]?.string
+        detail = json?["detail"]?.string
+        commands = Set(json?["commandsWhileOff"].arrayValue.compactMap(\.string) ?? [])
     }
 }
 
@@ -743,9 +767,14 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel
     /// `dispatcher.setEnabled`: turns the desktop's Dispatcher on or off.
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws
+    func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws
 }
 
 @MainActor extension CompanionService {
+    func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop does not offer Sleep for the Dispatcher.")
+    }
+
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         throw CompanionServiceError.unavailable("This desktop does not offer helper presets.")
     }

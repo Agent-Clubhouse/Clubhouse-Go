@@ -59,6 +59,13 @@ import ClubhouseTransport
         self.showsLongBlocks = showsLongBlocks
         self.showsLongReply = showsLongReply
     }
+    #if DEBUG
+    private static var reportOnlyPolicy: CompanionOrchestration {
+        .init(mcpReportOnly: true, autoHelpers: true, autoHelpersEffective: false,
+              sources: ["orchestrate": .agent, "crossProjectHelpers": .agent, "connectToDispatcher": .default, "autoHelpers": .agent])
+    }
+    #endif
+
     func events() -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
@@ -72,6 +79,24 @@ import ClubhouseTransport
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
+               let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
+               let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.sleepingTarget }) {
+                hosts[0].projects[project].agents[agent].orchestration = Self.reportOnlyPolicy
+                hosts[0].projects[project].agents[agent].parentAgentID = Self.target.agentID
+            }
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-mcp-off") {
+                let running = !ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-stopped")
+                var dispatcher = Self.dispatcher(now: Date())
+                dispatcher.enabled = false; dispatcher.flagOn = false
+                dispatcher.mcpOff = CompanionDispatcherMCPOff(json: .object([
+                    "offReason": .string("mcp_off"), "running": .bool(running), "status": .string(running ? "running" : "sleeping"),
+                    "commandsWhileOff": .array(running ? [.string("chat.interrupt"), .string("agent.stop"), .string("chat.permission")] : []),
+                ]))
+                dispatcher.agent?.status = running ? .working : .sleeping
+                dispatcher.agent?.capabilities = running ? [.cancel, .approve] : []
+                hosts[0].dispatcher = dispatcher
+            }
             // Exercise the narrowest composer with Interrupt, Attach, Send and the assistive dismiss button.
             if ProcessInfo.processInfo.arguments.contains("--companion-preview"),
                ProcessInfo.processInfo.arguments.contains("--companion-preview-assistive-keyboard"),
@@ -558,6 +583,13 @@ import ClubhouseTransport
             result.orchestration?.autoHelpers = sleeping ? true : nil
             result.orchestration?.autoHelpersEffective = !sleeping && mcpEnabled
         }
+        #if DEBUG
+        if sleeping, ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only") {
+            result.orchestration = Self.reportOnlyPolicy
+            result.parentAgentID = Self.target.agentID
+            result.clubhouseMode = .init(value: true, editable: .sleeping)
+        }
+        #endif
         return result
     }
     /// What the desktop lets you change on the Dispatcher: its CLI, model, runtime, Free Agent Mode and auto-sleep.

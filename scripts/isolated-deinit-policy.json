@@ -149,7 +149,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting.",
+      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -168,6 +168,7 @@
           "consumedHelperRequests": "Set < String >",
           "dispatcherCatalog": "[ String : AnnexJSON ]",
           "dispatcherFlags": "[ String : ( enabled : Bool , flagOn : Bool ) ]",
+          "dispatcherMCPOff": "[ String : CompanionDispatcherMCPOff ]",
           "eventGenerations": "[ String : UUID ]",
           "eventTasks": "[ String : Task < Void , Never > ]",
           "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",

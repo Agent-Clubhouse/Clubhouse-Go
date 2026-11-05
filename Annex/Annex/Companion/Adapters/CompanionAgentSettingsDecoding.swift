@@ -172,6 +172,7 @@ extension CompanionOrchestration {
         crossProjectHelpers = json["crossProjectHelpers"]?.boolOrNil ?? false
         connectToDispatcher = json["connectToDispatcher"]?.boolOrNil ?? false
         mcpEnabled = json["mcpEnabled"]?.boolOrNil ?? true
+        mcpReportOnly = json["mcpReportOnly"]?.boolOrNil ?? false
         autoHelpers = json["autoHelpers"]?.boolOrNil
         autoHelpersEffective = json["autoHelpersEffective"]?.boolOrNil
         controls = strings("controls") ?? Self.defaultControls

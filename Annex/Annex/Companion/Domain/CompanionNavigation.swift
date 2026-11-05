@@ -14,7 +14,7 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
     var target: CompanionTarget?
 
     init?(host: CompanionHost) {
-        guard let dispatcher = host.dispatcher, dispatcher.enabled, dispatcher.flagOn else { return nil }
+        guard let dispatcher = host.dispatcher, dispatcher.isVisible else { return nil }
         id = host.id
         name = host.name
         target = dispatcher.liveAgent?.id
@@ -83,7 +83,7 @@ struct CompanionNavigation {
             dispatcherDesktops.removeAll { $0.id == host.id }
             if var desktop = CompanionDispatcherDesktop(host: host) {
                 // During a reconnect the flags can arrive before the agent catalog.
-                if desktop.target == nil { desktop.target = previous?.target }
+                if desktop.target == nil, host.dispatcher?.mcpOff == nil { desktop.target = previous?.target }
                 dispatcherDesktops.append(desktop)
             }
         }
