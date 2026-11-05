@@ -368,6 +368,7 @@ struct CompanionSettingsSheet: View {
                     }
                     Button("Pair another desktop", systemImage: "plus", action: pair)
                 }
+                CompanionPlanLimitsLink(store: runtime.store)
                 CompanionHelperPresetLinks(store: runtime.store)
                 let dispatcherHosts = runtime.store.hosts.filter { $0.dispatcher != nil }
                 if !dispatcherHosts.isEmpty {

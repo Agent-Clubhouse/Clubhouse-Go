@@ -5,6 +5,40 @@ import XCTest
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
+    func testPlanLimitsFromSettingsGroupsMachinesAndKeepsUnknownHonest() {
+        let app = launchApp(["--companion-preview", "--companion-preview-auto-quota"])
+        let link = element(app, "settings-plan-limits")
+        waitAndTap(app.buttons["Settings"], until: link)
+        let weekly = element(app, "plan-limits-preview-studio-claude-code")
+        waitAndTap(link, until: weekly)
+        capture(app, "Plan limits by desktop — weekly progress")
+        XCTAssertTrue(weekly.label.contains("Claude Code") && weekly.label.contains("41% used"), weekly.debugDescription)
+        XCTAssertTrue(weekly.label.contains("ago"))
+        XCTAssertFalse(weekly.label.contains("Read at"))
+        let offline = element(app, "plan-limits-unavailable-preview-laptop")
+        XCTAssertTrue(scrollUntilExists(offline, in: app) && scrollTo(offline, in: app))
+        XCTAssertTrue(offline.label.contains("offline"))
+        let work = element(app, "plan-limits-preview-work-claude-code")
+        XCTAssertTrue(scrollUntilExists(work, in: app) && scrollTo(work, in: app))
+        XCTAssertTrue(work.label.contains("88% used") && work.label.contains("Limit getting low") && work.label.contains("Resets"))
+        XCTAssertFalse(work.label.contains("High use") || work.label.contains("Almost all used"))
+        let unknown = element(app, "plan-limits-preview-work-codex-cli")
+        XCTAssertTrue(scrollUntilExists(unknown, in: app) && scrollTo(unknown, in: app))
+        XCTAssertTrue(unknown.label.contains("Couldn’t check"))
+        XCTAssertFalse(unknown.label.contains("0% used"))
+        let unsupported = element(app, "plan-limits-unavailable-preview-legacy")
+        XCTAssertTrue(scrollUntilExists(unsupported, in: app) && scrollTo(unsupported, in: app))
+        capture(app, "Plan limits — separate accounts and unsupported desktop")
+    }
+    func testPlanLimitsWithAccessibilityTextSize() {
+        let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
+        let link = element(app, "settings-plan-limits")
+        waitAndTap(app.buttons["Settings"], until: link)
+        let weekly = element(app, "plan-limits-preview-studio-claude-code")
+        waitAndTap(link, until: weekly)
+        capture(app, "Plan limits — accessibility text size")
+        XCTAssertTrue(weekly.label.contains("41% used") && weekly.label.contains("Resets"), weekly.debugDescription)
+    }
     private func openPresets(_ app: XCUIApplication) {
         let link = element(app, "helper-presets-preview-studio")
         waitAndTap(app.buttons["Settings"], until: link)

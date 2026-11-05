@@ -81,23 +81,35 @@ struct CompanionQuotaView: View {
     let labels: CompanionHelperRouting.Labels
     var serverTime: Date? = nil
     var receivedAt: ContinuousClock.Instant? = nil
+    var showsProgress = false
+    var showsReadingDate = true
     private func label(_ family: String, _ code: String) -> String { CompanionHelperRouting.label(labels, family: family, code: code) }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(label("quota", quota.state)).accessibilityIdentifier("helper-quota-state-\(quota.state)")
+            Text(label("quota", quota.state)).foregroundStyle(stateColor).accessibilityIdentifier("helper-quota-state-\(quota.state)")
             if let reason = quota.unknownReason { Text(label("unknown", reason)).font(.subheadline) }
-            if let limiting = quota.limitingWindow { Text(label("window", limiting)).font(.subheadline) }
-            if let resetsAt = quota.resetsAt { resetText(resetsAt) }
+            if !showsProgress {
+                if let limiting = quota.limitingWindow { Text(label("window", limiting)).font(.subheadline) }
+                if let resetsAt = quota.resetsAt { resetText(resetsAt) }
+            }
             if let weekly = quota.weekly { window(weekly, name: label("window", "weekly")) }
-            if let fiveHour = quota.fiveHour { window(fiveHour, name: label("window", "fiveHour")) }
+            else if showsProgress { Text("\(label("window", "weekly")): \(label("quota", "unknown"))").font(.subheadline) }
+            if let fiveHour = quota.fiveHour { window(fiveHour, name: label("window", "fiveHour"), secondary: showsProgress) }
             ForEach(quota.unreadableWindows.filter { $0 != "weekly" && $0 != "fiveHour" }, id: \.self) { code in
                 Text("\(label("window", code)): \(label("quota", "unknown"))").font(.subheadline)
             }
             if !quota.modelWindows.isEmpty {
-                Text("Limits for individual models").font(.caption).foregroundStyle(.secondary)
-                ForEach(Array(quota.modelWindows.enumerated()), id: \.offset) { _, item in window(item.window, name: item.name) }
+                if showsProgress {
+                    DisclosureGroup("Limits for individual models") { modelWindows }
+                        .font(.subheadline)
+                } else {
+                    Text("Limits for individual models").font(.caption).foregroundStyle(.secondary)
+                    modelWindows
+                }
             }
-            if let asOf = quota.asOf { Text("Read at \(asOf.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+            if let asOf = quota.asOf, showsReadingDate || receivedAt == nil || serverTime == nil {
+                Text("Read at \(asOf.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary)
+            }
             if let receivedAt {
                 TimelineView(.periodic(from: .now, by: 5)) { _ in
                     if let age = CompanionHelperQuota.age(asOf: quota.asOf, serverTime: serverTime, elapsed: receivedAt.duration(to: .now)) {
@@ -106,20 +118,44 @@ struct CompanionQuotaView: View {
                 }
             }
         }
-        .accessibilityElement(children: .contain)
+        .fixedSize(horizontal: false, vertical: showsProgress)
+        .accessibilityElement(children: showsProgress ? .combine : .contain)
+    }
+    private var stateColor: Color {
+        guard showsProgress else { return .primary }
+        return warningColor ?? .primary
+    }
+    /// Quota tiers belong to the desktop; the phone does not infer tiers from percentages.
+    private var warningColor: Color? {
+        switch quota.state { case "exhausted": return .red; case "near_limit", "low": return .orange; default: return nil }
+    }
+    private var modelWindows: some View {
+        ForEach(Array(quota.modelWindows.enumerated()), id: \.offset) { _, item in window(item.window, name: item.name) }
     }
     private func ageText(_ age: Double) -> String {
         if age < 60 { return "Read less than a minute ago" }
         let minutes = Int(min(age / 60, Double(Int.max / 2)))
         return "Read \(minutes) minutes ago" + (age > 900 ? " · over 15 minutes old" : "")
     }
-    private func window(_ window: CompanionHelperQuota.Window, name: String) -> some View {
+    private func window(_ window: CompanionHelperQuota.Window, name: String, secondary: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text("\(name): \(window.usedPercent.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "% used" } ?? label("quota", "unknown"))").font(.subheadline)
+            Text("\(name): \(window.usedPercent.map { $0.formatted(.number.precision(.fractionLength(0...1))) + "% used" } ?? label("quota", "unknown"))").font(secondary ? .caption : .subheadline)
+            if showsProgress, let percent = window.usedPercent {
+                ProgressView(value: percent, total: 100)
+                    .controlSize(secondary ? .small : .regular)
+                    .tint(warningColor ?? .accentColor)
+                    .accessibilityLabel(name)
+                    .accessibilityValue("\(percent.formatted(.number.precision(.fractionLength(0...1))))% used")
+            }
             if let resetsAt = window.resetsAt { resetText(resetsAt) }
         }
+        .accessibilityElement(children: .combine)
     }
-    private func resetText(_ date: Date) -> some View { Text("Resets \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+    private func resetText(_ date: Date) -> some View {
+        Text("Resets \(date.formatted(date: .abbreviated, time: .shortened))")
+            .font(.caption).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
 }
 
 struct CompanionHelperWarningView: View {

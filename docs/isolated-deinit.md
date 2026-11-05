@@ -36,6 +36,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionFeedbackSettingsCapture` | arc_only | UUID, immutable CoreGraphics bitmap and a Sendable capture-reason enum; sheet dismissal clears shared pixels even if SwiftUI retains destination values. No UI fields or callbacks. |
 | `CompanionFeedbackOpeningPress` | main_actor | UIGestureRecognizer tracking state requires UIKit teardown affinity; the anchor is weak. |
 | `CompanionDecisionQueue` | arc_only | Values/tasks plus commit closure. Reviewed production construction captures only CompanionStore, whose reviewed concrete service/persistence graph is UI-free; no raw UI capture permitted. |
+| `CompanionPlanLimitsScreen` | arc_only | Dictionary of reviewed ARC-only CompanionHelperPresetsScreen snapshots. No retained task, timer, service or callback; SwiftUI owns structured polling tasks. |
 | `CompanionHelperPresetsScreen` | arc_only | Sendable routing/Auto/quota snapshot, String/Bool, Date, UUID, ContinuousClock.Instant and Observation state; read/write closures are not retained. No UI fields, retained tasks/timers or cleanup resources. |
 | `CompanionIconStore.ImageBox` | arc_only | Immutable Sendable CGImage wrapper, made only by bounded ImageIO decode; no UIKit ownership, callbacks or main-only teardown. |
 | `CompanionImageBytes` | arc_only | Immutable Data bytes, Sendable; no decoded UIImage is stored. |
