@@ -137,7 +137,7 @@ struct CompanionDispatcher: Sendable, Equatable {
     static let defaultProjectID = "__dispatcher__"
     /// The desktop's Settings › Dispatcher notes.
     static let flagOffNote = "Turn on Dispatcher in Settings > Experimental on the desktop first."
-    static let layoutOffNote = "The Dispatcher needs the new layout. Turn on New layout in Settings > Experimental on the desktop."
+    static let layoutOffNote = "Turn off Classic layout in Settings > Display & UI on the desktop."
     static let offNote = "Turning it off stops it. Its folder and notes are kept, so turning it back on carries on where it left off."
     /// The experimental flag and the app setting are both on.
     var enabled: Bool

@@ -1367,7 +1367,8 @@ import ClubhouseTransport
                 ?? hosts[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID)])
         }
         rememberMCPOff(off, hostID: hostID)
-        hosts[hostID]?.dispatcher = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
+        let state = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
+        hosts[hostID]?.dispatcher = state
         emitHosts()
     }
     private func rememberMCPOff(_ off: CompanionDispatcherMCPOff?, hostID: String) {

@@ -918,7 +918,7 @@ struct CompanionHelperRequestActions: View {
                 }
                 .buttonStyle(.bordered)
                 .accessibilityIdentifier("helper-request-decline")
-                if request.canApprove {
+                if request.canApprove && (request.kind != .start || !store.isMCPReportOnly(request.agentTarget)) {
                     Button {
                         if request.kind == .dispose { confirmingDispose = true }
                         else { Task { await store.answer(request, approve: true) } }
@@ -932,6 +932,9 @@ struct CompanionHelperRequestActions: View {
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!enabled)
+            if request.kind == .start, store.isMCPReportOnly(request.agentTarget) {
+                Text(CompanionOrchestration.reportOnlyHelp).font(.caption)
+            }
             if let error = store.helperRequestErrors[request.slot] {
                 Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("helper-request-error")

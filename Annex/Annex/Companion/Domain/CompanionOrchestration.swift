@@ -25,6 +25,11 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var connectToDispatcher = false
     /// Clubhouse MCP is required for orchestration; older desktops omit this and keep today's behavior.
     var mcpEnabled = true
+    /// A compatibility bridge can report to its parent without authority to orchestrate.
+    var mcpReportOnly = false
+    var hasFullMCP: Bool { mcpEnabled && !mcpReportOnly }
+    /// Report-only permits removing saved authority, never enabling it.
+    func canChangeMCPOption(current: Bool) -> Bool { mcpReportOnly ? current : mcpEnabled }
     var autoHelpers: Bool?
     var autoHelpersEffective: Bool?
     var controls = CompanionOrchestration.defaultControls
@@ -69,6 +74,7 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     static func nextStartNote(agentName: String) -> String { "The helper tools appear the next time \(agentName) starts." }
     /// The desktop's `CROSS_PROJECT_HELP` and `DISPATCHER_HELP` (`OrchestrationFields.tsx`).
     static let crossProjectHelp = "Let this agent start helpers in other projects."
+    static let reportOnlyHelp = "This helper can only report to its parent. Enabling helper options needs full Clubhouse MCP; turning them off or clearing overrides is allowed."
     static let mcpRequiredHelp = "These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."
     static let dispatcherHelp = "Let the Dispatcher message this agent and get its reports."
 

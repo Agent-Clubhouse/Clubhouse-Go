@@ -19,6 +19,10 @@ struct CompanionHelperAutoSection: View {
         default: return scope.choices
         }
     }
+    private var isReportOnly: Bool {
+        guard let agentID, let target = host?.allAgents.first(where: { $0.id.agentID == agentID })?.id else { return false }
+        return store.isMCPReportOnly(target)
+    }
     private var canEdit: Bool {
         host?.connection.canOperate == true && !screen.saving && policy.scopes[scopeID]?.editable == true
             && host?.helperRouting?.scopes.contains(scopeID) == true
@@ -37,8 +41,9 @@ struct CompanionHelperAutoSection: View {
                         .accessibilityIdentifier("helper-auto-scope-\(id)")
                 }
             }
+            if isReportOnly { Text(CompanionOrchestration.reportOnlyHelp) }
             if policy.scopes[scopeID]?.editable == true {
-                ForEach(choices, id: \.self) { value in
+                ForEach(choices.filter { !isReportOnly || $0 != .enabled(true) }, id: \.self) { value in
                     Button(valueText(value, scope: scopeID)) { change(value) }
                         .disabled(!canEdit || value == policy.scopes[scopeID]?.value || (value == .enabled(true) && policy.reason == "mcp_off"))
                         .accessibilityIdentifier("helper-auto-change-\(choiceID(value))")

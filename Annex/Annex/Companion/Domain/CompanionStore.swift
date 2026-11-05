@@ -494,10 +494,16 @@ import Observation
             && !consumedHelperRequests.contains(request.slot) && host.helperRequests.contains { $0.id == request.id }
     }
 
+    func canApprove(_ request: CompanionHelperRequest) -> Bool {
+        canAnswer(request) && request.canApprove
+            && (request.kind != .start || agent(for: request.agentTarget)?.orchestration?.mcpReportOnly != true)
+    }
+    func isMCPReportOnly(_ target: CompanionTarget) -> Bool { agent(for: target)?.orchestration?.mcpReportOnly == true }
+
     /// Approve or decline a helper request, as the desktop's Needs you does. Approving a dispose with work at risk is
     /// the desktop's "Dispose anyway"; one whose checks couldn't run can only be declined.
     func answer(_ request: CompanionHelperRequest, approve: Bool) async {
-        guard canAnswer(request), !approve || request.canApprove else { return }
+        guard canAnswer(request), !approve || canApprove(request) else { return }
         let force = approve && request.kind == .dispose && request.dispose?.workAtRisk == true
         helperRequestsInFlight.insert(request.slot)
         helperRequestErrors[request.slot] = nil

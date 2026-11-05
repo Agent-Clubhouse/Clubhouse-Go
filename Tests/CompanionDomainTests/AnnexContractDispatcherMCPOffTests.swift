@@ -99,6 +99,10 @@ import Testing
         navigation.update(hosts: harness.store.hosts)
         navigation.open(target, hosts: harness.store.hosts)
         try await apply(block(), via: source, to: harness)
+        #expect(harness.store.conversation(for: target).items == items, "Resync must preserve cached content before the view reloads it")
+        // The mounted conversation performs this read after a resync; the domain harness has no SwiftUI view.
+        if source == .capabilities { await harness.store.load(target, force: true) }
+        try await harness.waitUntil { harness.store.canOperate(target) }
         navigation.update(hosts: harness.store.hosts)
         #expect(harness.store.agent(for: target)?.isDispatcher == true)
         #expect(harness.store.conversation(for: target).items == items)
@@ -336,10 +340,12 @@ import Testing
     }
 
     @Test func enableRefusalCodesKeepTheirDistinctDesktopMessages() throws {
+        #expect(CompanionDispatcher.layoutOffNote == "Turn off Classic layout in Settings > Display & UI on the desktop.")
+        #expect(CompanionAgentCommandError.message(code: "dispatcher_layout_off", message: "Desktop-specific layout reason.") == "Desktop-specific layout reason.")
         for (code, message) in [
             ("mcp_off", "Clubhouse MCP is off, so the Dispatcher can only be stopped or answered from a phone. Turn on Clubhouse MCP on the desktop."),
             ("dispatcher_flag_off", "Clubhouse MCP is off. Turn on Clubhouse MCP on the desktop first."),
-            ("dispatcher_layout_off", CompanionDispatcher.layoutOffNote),
+            ("dispatcher_layout_off", "Turn off Classic layout in Settings > Display & UI on the desktop."),
         ] {
             let receipt = try AnnexJSON.object([
                 "version": .integer(1), "commandId": .string("enable"), "epoch": .string("epoch"), "status": .string("rejected"),
