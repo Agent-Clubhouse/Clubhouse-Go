@@ -434,7 +434,7 @@ enum CompanionAgentCommandError {
         case "invalid_model": return "That model isn't one this CLI lists. Choose another."
         case "dispatcher_off": return "The Dispatcher is turned off on the desktop. Turn it on first."
         case "dispatcher_locked": return "The desktop doesn't let you change this for the Dispatcher."
-        case "dispatcher_flag_off": return CompanionDispatcher.flagOffNote
+        case "dispatcher_flag_off": return detail ?? CompanionDispatcher.flagOffNote
         case "dispatcher_layout_off": return CompanionDispatcher.layoutOffNote
         // Chat commands (`docs/mobile-control-v1.md` → Commands).
         case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."
