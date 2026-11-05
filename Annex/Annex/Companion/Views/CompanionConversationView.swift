@@ -381,26 +381,26 @@ struct CompanionConversationView: View {
             .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
             .overlay(alignment: .bottomTrailing) {
                 GlassEffectContainer {
-                HStack(spacing: 8) {
-                    if !stops.isEmpty {
-                        Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
-                            .accessibilityLabel("Previous assistant message")
-                            .accessibilityIdentifier("companion-previous-message")
-                            .buttonBorderShape(.circle)
-                        Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
-                            .accessibilityLabel("Next assistant message")
-                            .accessibilityIdentifier("companion-next-message")
-                            .buttonBorderShape(.circle)
+                    HStack(spacing: 8) {
+                        if !stops.isEmpty {
+                            Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
+                                .accessibilityLabel("Previous assistant message")
+                                .accessibilityIdentifier("companion-previous-message")
+                                .buttonBorderShape(.circle)
+                            Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
+                                .accessibilityLabel("Next assistant message")
+                                .accessibilityIdentifier("companion-next-message")
+                                .buttonBorderShape(.circle)
+                        }
+                        if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
+                            Button {
+                                setFollowing(true, reason: .latest)
+                                readingBookmark.position.followsLatest = true
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                            } label: { Label("Latest", systemImage: "arrow.down") }
+                        }
                     }
-                    if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
-                        Button {
-                            setFollowing(true, reason: .latest)
-                            readingBookmark.position.followsLatest = true
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
-                        } label: { Label("Latest", systemImage: "arrow.down") }
-                    }
-                }
-                .buttonStyle(.glass).controlSize(.large)
+                    .buttonStyle(.glass).controlSize(.large)
                 }.padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
