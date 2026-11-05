@@ -100,3 +100,5 @@ The resync measurement was then run separately after removing its pre-existing i
 The reading-restore retry adds only a value session (UUID generation, fixed numeric target, attempts, start time and closed outcome) to `CompanionReadingViewport`; it owns no Task or callback. `CompanionReadingTouchObserver.Anchor` and `ReadingOpeningTouch` retain MainActor teardown: they own UIKit attachment and a view callback, with a weak recognizer-to-anchor reference. The observer disconnects when dismantled and immediately fails recognition so it neither claims nor delays touches.
 
 The opt-in DEBUG reading-restore UI fixture has a capture-free lifetime factory producing Store with the already reviewed, UI-free PreviewService. Its forced-refusal callback and numeric polling task exist only in this synthetic route, and the task clears the callback on cancellation. It creates no Runtime, feedback client, socket or saved pairing.
+
+The phone Sleep controls add only two `Set<CompanionTarget>` values to Store for requests and status refreshes. Targets contain String identifiers; neither set retains callbacks or UI objects. Store keeps its existing ARC-only teardown policy.
