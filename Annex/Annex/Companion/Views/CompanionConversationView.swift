@@ -14,6 +14,7 @@ struct CompanionConversationView: View {
     @State private var confirmCancel = false
     @State private var showArchive = false
     @State private var showContextSettings = false
+    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
     private static var initialEntryLimit: Int {
@@ -289,7 +290,7 @@ struct CompanionConversationView: View {
                     }
                     // Scrollable clearance lets every final line move above the floating navigation controls.
                     // Include that clearance in Latest so it reaches the physical bottom.
-                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, 64).id("latest")
+                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, navigationClearance).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.top, 24)
