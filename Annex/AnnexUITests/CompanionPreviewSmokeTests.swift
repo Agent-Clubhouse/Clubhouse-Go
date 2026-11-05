@@ -96,26 +96,56 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let unavailable = app.buttons["provider-choice-codex"]
         XCTAssertTrue(scrollUntilExists(unavailable, in: app))
         XCTAssertFalse(unavailable.isEnabled)
-        XCTAssertTrue(scrollTo(current, in: app, up: false))
-        current.tap()
+        tapVisibleProviderControl(current, in: app, up: false)
+        XCTAssertTrue(app.navigationBars["Provider"].exists)
+        XCTAssertTrue(waitFor(current, NSPredicate(format: "selected == true"), timeout: 5))
         let save = app.buttons["provider-save"]
         XCTAssertTrue(scrollUntilExists(save, in: app, maxSwipes: 8))
         XCTAssertTrue(save.isEnabled)
         XCTAssertFalse(app.buttons["Resume"].exists, "Same-provider resume hint must not offer Resume")
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
         let alternative = app.buttons["provider-choice-codex-cli"]
-        XCTAssertTrue(scrollTo(alternative, in: app, up: false, maxSwipes: 8))
-        alternative.tap()
+        tapVisibleProviderControl(alternative, in: app, up: false)
+        XCTAssertTrue(app.navigationBars["Provider"].exists, "Choosing a provider must stay on the Provider page")
+        XCTAssertTrue(waitFor(alternative, NSPredicate(format: "selected == true"), timeout: 5), "Codex CLI must be selected before looking for Save")
         XCTAssertTrue(scrollTo(save, in: app, maxSwipes: 8))
         XCTAssertTrue(save.isEnabled)
         let preview = XCTAttachment(screenshot: app.screenshot())
         preview.name = largeText ? "Guided provider preview at large text" : "Guided provider preview"; preview.lifetime = .keepAlways; add(preview)
-        save.tap()
+        tapVisibleProviderControl(save, in: app)
         let refusal = app.staticTexts["provider-flow-error"]
         XCTAssertTrue(scrollUntilExists(refusal, in: app, up: false, maxSwipes: 8))
         XCTAssertTrue(refusal.label.contains("Preview only"))
         XCTAssertFalse(app.buttons["provider-start-new"].exists, "Refused Save never enables Start")
         XCTAssertFalse(app.buttons["Resume"].exists)
+    }
+
+    /// A partially obscured Form row can be reported hittable and tap Back instead.
+    /// Reveal the entire control below this sheet's navigation bar, then tap once at its checked center.
+    private func tapVisibleProviderControl(_ control: XCUIElement, in app: XCUIApplication, up: Bool = true) {
+        let navigation = app.navigationBars["Provider"]
+        XCTAssertTrue(navigation.exists)
+        XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+        for _ in 0..<4 {
+            let top = navigation.frame.maxY + 12
+            let bottom = app.frame.maxY - 34
+            let frame = control.frame
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dy: CGFloat = frame.minY < top ? 120 : -120
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+        }
+        let frame = control.frame
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        XCTAssertTrue(control.exists && control.isHittable)
+        XCTAssertGreaterThanOrEqual(frame.minY, navigation.frame.maxY + 12)
+        XCTAssertLessThanOrEqual(frame.maxY, app.frame.maxY - 34)
+        XCTAssertFalse(navigation.frame.contains(point))
+        XCTContext.runActivity(named: "Tap visible provider control at \(point), frame \(frame), navigation \(navigation.frame)") { _ in
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Visible \(control.identifier) before one checked tap"; shot.lifetime = .keepAlways; add(shot)
+            control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
     }
 
     func testAgentSettingsShowsDispatcherWithOrchestrationOff() {
