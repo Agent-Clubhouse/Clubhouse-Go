@@ -128,10 +128,11 @@ struct CompanionColorSwatches: View {
 struct CompanionAgentSettingsSheet: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
+    var focusContext = false
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            CompanionAgentSettingsForm(store: store, target: target)
+            CompanionAgentSettingsForm(store: store, target: target, focusContext: focusContext)
                 .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
@@ -143,6 +144,7 @@ struct CompanionAgentSettingsSheet: View {
 struct CompanionAgentSettingsForm: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
+    var focusContext = false
     @Environment(\.companionPalette) private var palette
     @State private var settings: CompanionAgentSettings?
     @State private var loadError: String?
@@ -164,35 +166,63 @@ struct CompanionAgentSettingsForm: View {
     }
 
     var body: some View {
-        Form {
-            if let settings { form(settings) }
-            else if let loadError {
-                ContentUnavailableView {
-                    Label("Settings unavailable", systemImage: "slider.horizontal.3")
-                } description: { Text(loadError) } actions: {
-                    Button("Try again") { Task { await load() } }
+        ScrollViewReader { proxy in
+            Form {
+                if let settings { form(settings) }
+                else if let loadError {
+                    contextSection(nil)
+                    ContentUnavailableView {
+                        Label("Settings unavailable", systemImage: "slider.horizontal.3")
+                    } description: { Text(loadError) } actions: {
+                        Button("Try again") { Task { await load() } }
+                    }
+                } else {
+                    ProgressView("Loading settings…").frame(maxWidth: .infinity)
                 }
-            } else {
-                ProgressView("Loading settings…").frame(maxWidth: .infinity)
+            }
+            .navigationTitle(agent?.name ?? "Agent settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .task(id: refreshKey) { await load() }
+            .task(id: settings != nil) {
+                if focusContext, settings != nil { proxy.scrollTo("agent-context-section", anchor: .top) }
+            }
+            .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
+                Button("Turn on Free Agent Mode", role: .destructive) { save(.init(freeAgentMode: true)) }
+            } message: { Text(CompanionFreeAgentMode.help) }
+            .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
+                Button("Change CLI", role: .destructive) {
+                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
+                    pendingOrchestrator = nil
+                }
+                Button("Cancel", role: .cancel) { pendingOrchestrator = nil }
+            } message: {
+                if let pendingOrchestrator, let settings,
+                   let warning = settings.orchestratorChangeWarning(to: pendingOrchestrator, agentName: settings.name.value) {
+                    Text(warning)
+                }
             }
         }
-        .navigationTitle(agent?.name ?? "Agent settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .task(id: refreshKey) { await load() }
-        .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-            Button("Turn on Free Agent Mode", role: .destructive) { save(.init(freeAgentMode: true)) }
-        } message: { Text(CompanionFreeAgentMode.help) }
-        .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
-            Button("Change CLI", role: .destructive) {
-                if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
-                pendingOrchestrator = nil
+    }
+
+    /// Current usage/report stays readable even if this desktop cannot load editable agent settings.
+    @ViewBuilder private func contextSection(_ settings: CompanionAgentSettings?) -> some View {
+        if settings?.contextWindow != nil || agent?.chatControls?.context != nil || agent?.contextUsage != nil {
+            Section("Context") {
+                if let context = settings?.contextWindow { contextWindow(context, sleeping: settings?.sleeping ?? false) }
+                if let usage = agent?.contextUsage {
+                    LabeledContent("Context used", value: "\(usage.used.formatted()) / \(usage.size.formatted()) tokens")
+                }
+                if let report = agent?.chatControls?.context {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if !report.summary.isEmpty { Text(report.summary) }
+                        if let note = report.note { Text(note) }
+                    }
+                    .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("companion-context-report")
+                }
             }
-            Button("Cancel", role: .cancel) { pendingOrchestrator = nil }
-        } message: {
-            if let pendingOrchestrator, let settings,
-               let warning = settings.orchestratorChangeWarning(to: pendingOrchestrator, agentName: settings.name.value) {
-                Text(warning)
-            }
+            .id("agent-context-section")
         }
     }
 
@@ -215,6 +245,8 @@ struct CompanionAgentSettingsForm: View {
                     .accessibilityIdentifier("agent-settings-context-reset-notice")
             }
         }
+
+        contextSection(settings)
 
         if let routing = settings.routing, store.host(for: target)?.helperRouting != nil {
             Section("Helper routing") {
@@ -301,7 +333,6 @@ struct CompanionAgentSettingsForm: View {
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
-            if let context = settings.contextWindow { contextWindow(context, sleeping: sleeping) }
             Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
                 Text("Provider default").tag("default")
                 Text("Chat").tag("chat")

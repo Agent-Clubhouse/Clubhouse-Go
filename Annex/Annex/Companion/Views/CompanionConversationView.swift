@@ -13,6 +13,9 @@ struct CompanionConversationView: View {
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var confirmCancel = false
     @State private var showArchive = false
+    @State private var showContextSettings = false
+    @State private var keyboardVisible = false
+    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
     private static var initialEntryLimit: Int {
@@ -90,6 +93,10 @@ struct CompanionConversationView: View {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                        if dynamicTypeSize.isAccessibilitySize, agent.contextUsage != nil || agent.chatControls?.context != nil {
+                            Button("Context", systemImage: "chart.pie") { showContextSettings = true }
+                                .accessibilityIdentifier("companion-context-settings-menu")
+                        }
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
                         Section("Conversation details") {
@@ -120,6 +127,7 @@ struct CompanionConversationView: View {
                     focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
             }
         }
+        .sheet(isPresented: $showContextSettings) { CompanionAgentSettingsSheet(store: store, target: target, focusContext: true) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
         .task(id: scenePhase == .active && showsActions) {
@@ -137,6 +145,13 @@ struct CompanionConversationView: View {
                 AnnexTelemetry.shared.recordMainActorDelay(durationMs: max(0, ms - 250), messageCount: conversation.items.count)
             }
         }
+        // System keyboard visibility is independent of draft/selection observation in the composer.
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            if !keyboardVisible { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            if keyboardVisible { keyboardVisible = false }
+        }
         .onChange(of: connection) { _, current in
             if current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
@@ -148,44 +163,59 @@ struct CompanionConversationView: View {
         }
     }
 
+    private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
+
     private var contextHeader: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 6) {
-                CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
-                if agent.freeAgentMode { CompanionFreeAgentBadge() }
-                if !dynamicTypeSize.isAccessibilitySize {
-                    Text("· \(contextName)").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
-                    Spacer(minLength: 8)
-                    if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
-                    else if let model = agent.model { Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1) }
-                } else {
-                    Spacer(minLength: 0)
-                    if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+        VStack(alignment: .leading, spacing: 0) {
+            if compactAccessibilityHeader {
+                statusAndPermissions.frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { statusAndPermissions; Spacer(minLength: 0); contextButton }
+                    VStack(alignment: .leading, spacing: 0) {
+                        statusAndPermissions
+                        contextButton
+                    }
                 }
+                activityLine
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("companion-chat-header")
-            activityLine
         }
-        .padding(.horizontal, 20).padding(.vertical, 8)
+        .padding(.horizontal, 20).padding(.vertical, 2)
     }
 
-    /// Elapsed time and the running tool, or what the agent waits on, with context fill: the desktop's chat header.
-    @ViewBuilder private var activityLine: some View {
-        let percent = agent.contextUsage?.percent
+    private var statusAndPermissions: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
+            if agent.freeAgentMode { CompanionFreeAgentBadge() }
+            if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("companion-chat-header")
+    }
+
+    @ViewBuilder private var contextButton: some View {
+        if agent.contextUsage != nil || agent.chatControls?.context != nil {
+            Button { showContextSettings = true } label: {
+                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
+                else { Label("Context", systemImage: "chart.pie").font(.caption) }
+            }
+            .buttonStyle(.plain)
+            .frame(minWidth: 44, minHeight: 44)
+            .accessibilityLabel(agent.contextUsage?.percent.map { "Context \($0)% full" } ?? "Context report")
+            .accessibilityHint("Opens Agent settings at context")
+            .accessibilityIdentifier("companion-context-settings")
+        }
+    }
+
+    /// Only active work earns a second status line. Idle context usage fits beside status and permissions.
+    private var activityLine: some View {
         let ticking = agent.status == .working && agent.turnStartedAt != nil
-        TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
-            let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date)
-            if activity != nil || percent != nil {
-                HStack(spacing: 6) {
-                    if let activity {
-                        Text(activity).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
-                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                            .accessibilityIdentifier("companion-chat-activity")
-                    }
-                    Spacer(minLength: 8)
-                    if let percent { CompanionContextRing(percent: percent) }
-                }
+        return TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
+            if let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date) {
+                Text(activity).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .accessibilityIdentifier("companion-chat-activity")
             }
         }
     }
@@ -276,9 +306,9 @@ struct CompanionConversationView: View {
                             }
                         }
                     }
-                    // Include the transcript's bottom breathing room in the target. Otherwise scrollTo("latest")
-                    // stops 24pt before the physical bottom, leaving the near-bottom state permanently ambiguous.
-                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, 24).id("latest")
+                    // Scrollable clearance lets every final line move above the floating navigation controls.
+                    // Include that clearance in Latest so it reaches the physical bottom.
+                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, navigationClearance).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.top, 24)
@@ -369,24 +399,28 @@ struct CompanionConversationView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
             .overlay(alignment: .bottomTrailing) {
-                HStack(spacing: 8) {
-                    if !stops.isEmpty {
-                        Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
-                            .accessibilityLabel("Previous assistant message")
-                            .accessibilityIdentifier("companion-previous-message")
-                        Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
-                            .accessibilityLabel("Next assistant message")
-                            .accessibilityIdentifier("companion-next-message")
+                GlassEffectContainer {
+                    HStack(spacing: 8) {
+                        if !stops.isEmpty {
+                            Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
+                                .accessibilityLabel("Previous assistant message")
+                                .accessibilityIdentifier("companion-previous-message")
+                                .buttonBorderShape(.circle)
+                            Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
+                                .accessibilityLabel("Next assistant message")
+                                .accessibilityIdentifier("companion-next-message")
+                                .buttonBorderShape(.circle)
+                        }
+                        if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
+                            Button {
+                                setFollowing(true, reason: .latest)
+                                readingBookmark.position.followsLatest = true
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+                            } label: { Label("Latest", systemImage: "arrow.down") }
+                        }
                     }
-                    if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
-                        Button {
-                            setFollowing(true, reason: .latest)
-                            readingBookmark.position.followsLatest = true
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
-                        } label: { Label("Latest", systemImage: "arrow.down") }
-                    }
-                }
-                .buttonStyle(.glass).controlSize(.small).padding(10)
+                    .buttonStyle(.glass).controlSize(.large)
+                }.padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
                 if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
