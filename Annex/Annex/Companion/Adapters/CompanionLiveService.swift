@@ -928,6 +928,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
                 hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
                 hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
+                hosts[hostID]?.canStopAgents = newCapabilities?.commands.contains("agent.stop") == true
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
                 hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
@@ -1177,6 +1178,13 @@ import ClubhouseTransport
                                    exitCode: value["exitCode"]?.integer.map(Int.init),
                                    turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
         Self.applyIdentity(value, icon: icon, to: &agent)
+        if !isQuick {
+            switch value["status"]?.string {
+            case "sleeping": agent.isSleepingOnDesktop = true
+            case "running", "waking", "spawning", "starting", "stopping": agent.isSleepingOnDesktop = false
+            default: agent.isSleepingOnDesktop = nil
+            }
+        }
         agent.detail = Self.detail(from: detailed)
         if case .bool(let has)? = value["hasSession"] { agent.hasSession = has }
         agent.branch = value["branch"]?.string
@@ -1269,7 +1277,27 @@ import ClubhouseTransport
 
     func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws {
         guard mcpOff(for: target)?.allows("agent.stop") == true else { throw CompanionServiceError.rejected("Sleep is not available for this session.") }
+        try await sleepAgent(target, clientCommandID: clientCommandID)
+    }
+
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
+        if let off = mcpOff(for: target) {
+            guard off.allows("agent.stop") else { throw CompanionServiceError.rejected(off.note) }
+        } else {
+            guard capabilities[target.hostID]?.commands.contains("agent.stop") == true,
+                  let agent = hosts[target.hostID]?.agent(for: target), !agent.isQuick,
+                  agent.isSleepingOnDesktop == false else {
+                throw CompanionServiceError.rejected("Refresh the agent's status before putting it to sleep.")
+            }
+        }
         _ = try await execute(.stop(agentID: target.agentID), id: clientCommandID, hostID: target.hostID)
+    }
+
+    func refreshSleepState(_ target: CompanionTarget) async throws {
+        await refresh(hostID: target.hostID)
+        guard hosts[target.hostID]?.connection.canOperate == true else {
+            throw CompanionServiceError.unavailable("Reconnect to the desktop to confirm whether the agent is asleep.")
+        }
     }
 
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {

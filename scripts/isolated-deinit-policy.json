@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -47,6 +47,8 @@
           "selection": "CompanionTarget ?",
           "sendRequests": "[ String : CompanionSendRequest ]",
           "service": "any CompanionService",
+          "sleepRefreshes": "Set < CompanionTarget >",
+          "sleepRequests": "Set < CompanionTarget >",
           "spawnError": "String ?",
           "spawnInProgress": "Bool",
           "timelineProjections": "[ CompanionTarget : CompanionTimelineProjection ]",

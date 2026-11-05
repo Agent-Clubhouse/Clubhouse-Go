@@ -12,6 +12,7 @@ struct CompanionConversationView: View {
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var confirmCancel = false
+    @State private var confirmSleep = false
     @State private var showArchive = false
     @State private var showContextSettings = false
     @State private var keyboardVisible = false
@@ -69,6 +70,12 @@ struct CompanionConversationView: View {
             contextHeader
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             if !connection.canOperate || conversation.requiresResync { connectionBanner }
+            if store.sleepRequests.contains(target), !(agent.isDispatcher && store.host(for: target)?.dispatcher?.mcpOff != nil) {
+                HStack {
+                    CompanionSleepAction(store: store, target: target)
+                }
+                .font(.subheadline).padding(.horizontal)
+            }
             if let error = store.operationErrors[target] {
                 HStack(alignment: .top) {
                     Label(error, systemImage: "exclamationmark.circle").font(.subheadline)
@@ -98,6 +105,7 @@ struct CompanionConversationView: View {
                                 .accessibilityIdentifier("companion-context-settings-menu")
                         }
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
+                        CompanionSleepAction(store: store, target: target) { confirmSleep = true }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
                         Section("Conversation details") {
                             Text(contextName)
@@ -160,6 +168,7 @@ struct CompanionConversationView: View {
         .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
+        .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
         }
     }
 

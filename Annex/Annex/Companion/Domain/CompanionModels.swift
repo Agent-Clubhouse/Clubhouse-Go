@@ -72,6 +72,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canCreateDurable = false
     /// The desktop reads and changes durable agents' settings (`agent.update` and agent settings v1).
     var canEditSettings = false
+    /// Whole-agent stop, distinct from interrupting a chat turn.
+    var canStopAgents = false
     var canRevokeSession = false
     /// The desktop answers "Allow always" and the other lasting options from a phone (`permissions.persistentApprovals`).
     var canAnswerPersistentApprovals = false
@@ -261,6 +263,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var name: String
     var subtitle: String
     var status: CompanionAgentStatus
+    /// The durable agent's catalog lifecycle, never inferred from a chat turn ending.
+    var isSleepingOnDesktop: Bool?
     var model: String?
     var capabilities: CompanionCapabilities = []
     /// `chat`, `pty` or `headless` while the agent runs; nil when the desktop doesn't say (a sleeping agent).
@@ -768,9 +772,17 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     /// `dispatcher.setEnabled`: turns the desktop's Dispatcher on or off.
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws
     func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws
+    func refreshSleepState(_ target: CompanionTarget) async throws
 }
 
 @MainActor extension CompanionService {
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop does not offer Sleep for this agent.")
+    }
+    func refreshSleepState(_ target: CompanionTarget) async throws {
+        throw CompanionServiceError.unavailable("Reconnect to the desktop to check whether the agent is asleep.")
+    }
     func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not offer Sleep for the Dispatcher.")
     }

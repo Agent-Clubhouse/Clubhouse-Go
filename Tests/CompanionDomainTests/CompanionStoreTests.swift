@@ -22,6 +22,19 @@ import Testing
     var nextHistory: CompanionHistory?
     var responseGate: CheckedContinuation<Void, Error>?
     var shouldSuspendResponse = false
+    var slept: [CompanionTarget] = []
+    var sleepError: CompanionServiceError?
+    var sleepRefreshCount = 0
+    var settingsWrites = 0
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
+        slept.append(target)
+        if let sleepError { throw sleepError }
+    }
+    func refreshSleepState(_ target: CompanionTarget) async throws { sleepRefreshCount += 1 }
+    func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
+        settingsWrites += 1
+        throw CompanionServiceError.rejected("Fixture refuses settings")
+    }
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
@@ -63,6 +76,68 @@ import Testing
 
 @Suite @MainActor struct CompanionStoreTests {
     private let target = CompanionTarget(hostID: "host-a", projectID: "project", agentID: "agent")
+
+    @Test func sleepAcknowledgmentAndChatEndDoNotUnlockUntilDesktopConfirmsSleep() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        desktop.canStopAgents = true; desktop.canEditSettings = true
+        desktop.projects[0].agents[0].isSleepingOnDesktop = false
+        store.apply(.hosts([desktop]))
+        store.drafts[target] = "Keep this draft"
+        #expect(store.canSleep(target))
+        await store.sleepAgent(target)
+        #expect(service.slept == [target] && service.sleepRefreshCount == 1)
+        #expect(store.sleepRequests.contains(target) && !store.canOperate(target))
+        await store.sleepAgent(target)
+        #expect(service.slept.count == 1)
+        do { _ = try await store.updateSettings(.init(orchestrator: "codex-cli"), target: target); Issue.record("Provider save must wait") }
+        catch {}
+        #expect(service.settingsWrites == 0)
+        desktop.projects[0].agents[0].status = .stopped
+        desktop.projects[0].agents[0].capabilities = [.chat, .wake]
+        store.apply(.hosts([desktop]))
+        #expect(store.sleepRequests.contains(target), "A stopped chat is not a stopped agent")
+        #expect(!store.canWake(target) && !store.mayWake(target) && !store.canSend(target))
+        desktop.projects[0].agents[0].isSleepingOnDesktop = true
+        desktop.connection = .reconnecting
+        store.apply(.hosts([desktop]))
+        #expect(store.sleepRequests.contains(target), "Disconnected cached state cannot confirm sleep")
+        desktop.connection = .connected
+        store.apply(.hosts([desktop]))
+        #expect(!store.sleepRequests.contains(target) && store.canWake(target))
+        #expect(store.drafts[target] == "Keep this draft" && service.sent.isEmpty)
+    }
+
+    @Test(arguments: [false, true]) func sleepRefusalUnlocksButUnknownDeliveryStaysPending(uncertain: Bool) async {
+        let service = TestCompanionService()
+        service.sleepError = uncertain ? .uncertain("Reply lost") : .rejected("Sleep refused")
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        desktop.canStopAgents = true
+        desktop.projects[0].agents[0].isSleepingOnDesktop = false
+        store.apply(.hosts([desktop]))
+        await store.sleepAgent(target)
+        #expect(store.sleepRequests.contains(target) == uncertain)
+        #expect(store.operationErrors[target] == (uncertain ? "Reply lost" : "Sleep refused"))
+        #expect(!store.pendingCommands.contains(target))
+    }
+
+    @Test func sleepRequiresAdvertisedCommandAndKnownDurableLifecycle() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        #expect(!store.canSleep(target))
+        var desktop = host(id: target.hostID)
+        desktop.canStopAgents = true
+        store.apply(.hosts([desktop]))
+        #expect(!store.canSleep(target), "Unknown lifecycle is not permission to stop")
+        desktop.projects[0].agents[0].isSleepingOnDesktop = false
+        desktop.projects[0].agents[0].isQuick = true
+        store.apply(.hosts([desktop]))
+        #expect(!store.canSleep(target))
+        await store.sleepAgent(target)
+        #expect(service.slept.isEmpty)
+    }
 
     private func makeStore(service: TestCompanionService) -> CompanionStore {
         let store = CompanionStore(service: service)

@@ -29,6 +29,35 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         waitAndTap(settings, until: any.matching(identifier: "agent-settings-summary").firstMatch)
     }
 
+    func testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal() {
+        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard"])
+        openRiver(app)
+        waitAndTap(app.buttons["Conversation actions"], until: app.buttons["agent-sleep"])
+        XCTAssertTrue(app.buttons["Interrupt turn"].exists)
+        let confirmation = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Sleep agent", "agent-sleep")).firstMatch
+        waitAndTap(app.buttons["agent-sleep"], until: confirmation)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Studio Mac")).count > 0)
+        let dialog = XCTAttachment(screenshot: app.screenshot())
+        dialog.name = "Sleep confirmation names agent and machine"; dialog.lifetime = .keepAlways; add(dialog)
+        if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
+        else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap() }
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5))
+        waitAndTap(app.buttons["Conversation actions"], until: app.buttons["Agent settings"])
+        waitAndTap(app.buttons["Agent settings"], until: app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch)
+        let provider = app.buttons["agent-settings-orchestrator"]
+        XCTAssertTrue(scrollUntilExists(provider, in: app))
+        XCTAssertFalse(provider.isEnabled)
+        XCTAssertTrue(scrollTo(app.buttons["agent-sleep"], in: app, up: false))
+        waitAndTap(app.buttons["agent-sleep"], until: confirmation)
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["agent-sleep-pending"].exists)
+        let refusal = XCTAttachment(screenshot: app.screenshot())
+        refusal.name = "Sleep refused, provider remains locked"; refusal.lifetime = .keepAlways; add(refusal)
+        XCTAssertTrue(scrollUntilExists(provider, in: app))
+        XCTAssertFalse(provider.isEnabled, "A refused stop cannot unlock the provider")
+    }
+
     func testAgentSettingsKeepsMcpOffSwitchesVisibleAndDisabled() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-mcp-off"])
         openAgentSettings(app)
@@ -61,14 +90,17 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
 
     func testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection() {
-        let app = launchApp(["--companion-preview"])
+        let app = launchApp(["--companion-preview", "--companion-preview-provider-options"])
         openAgentSettings(app, sleeping: true)
         let picker = app.buttons["agent-settings-orchestrator"]
-        let codex = app.buttons["Codex (CLI not found)"]
+        let codex = app.buttons["Codex CLI"]
         waitAndTap(picker, until: codex)
+        let unavailable = app.buttons["Codex (Not installed on this desktop)"]
+        XCTAssertTrue(unavailable.exists)
+        XCTAssertFalse(unavailable.isEnabled, "An unavailable provider cannot be selected")
         let confirm = app.buttons["Change CLI"]
         waitAndTap(codex, until: confirm)
-        XCTAssertTrue(app.staticTexts["Juniper starts a new session on Codex the next time it wakes. Its current conversation can't move to another CLI."].exists)
+        XCTAssertTrue(app.staticTexts["Juniper starts a new session on Codex CLI the next time it wakes. Its current conversation can't move to another CLI."].exists)
         let cancel = app.buttons["Cancel"]
         if cancel.exists {
             waitAndTap(cancel, untilGone: confirm)

@@ -162,6 +162,7 @@ import ClubhouseTransport
                                        capabilities: capabilities.union(extra),
                                        lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
+            if !quick { agent.isSleepingOnDesktop = status == .sleeping }
             agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
             agent.chatControls = chatControls
             agent.slashCommands = slashCommands
@@ -194,7 +195,7 @@ import ClubhouseTransport
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
-            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true,
+            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, canStopAgents: true,
                canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canSetContextWindow: contextWindow, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
                terminal: .init(projectShell: true, agentShell: true, agentAttach: true),
@@ -468,6 +469,7 @@ import ClubhouseTransport
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     /// River's composer controls, matching its session: every level is live, and model and effort changes apply from the next message.
     /// River's `/` menu: the CLI's own commands (start only), a skill and a custom command.
     static let slashCommands: [CompanionSlashCommand] = [
@@ -555,7 +557,11 @@ import ClubhouseTransport
         let sleeping = target == Self.sleepingTarget
         let routed = showsHelperPresets && sleeping
         var options = Self.agentOptions
-        if routed {
+        var includesAvailableProvider = routed
+        #if DEBUG
+        includesAvailableProvider = includesAvailableProvider || ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-options")
+        #endif
+        if includesAvailableProvider {
             options.orchestrators.append(.init(id: "codex-cli", displayName: "Codex CLI", shortName: "CX", available: true, permissions: true, chat: true,
                                                models: Self.helperPresets.providers["codex-cli"]?.models.map { .init(id: $0.id, label: $0.label) } ?? []))
         }
@@ -620,7 +626,7 @@ import ClubhouseTransport
         orchestrators: [
             .init(id: "claude-code", displayName: "Claude Code", shortName: "CC", available: true, permissions: true, chat: true,
                   models: [.init(id: "default", label: "Default"), .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")]),
-            .init(id: "codex", displayName: "Codex", shortName: "CX", available: false, unavailableReason: nil, permissions: false, chat: false,
+            .init(id: "codex", displayName: "Codex", shortName: "CX", available: false, unavailableReason: "Not installed on this desktop", permissions: false, chat: false,
                   models: [.init(id: "default", label: "Default")]),
         ],
         personas: [.init(id: "qa", name: "QA", source: "builtin"), .init(id: "reviewer", name: "Reviewer", source: "project")],

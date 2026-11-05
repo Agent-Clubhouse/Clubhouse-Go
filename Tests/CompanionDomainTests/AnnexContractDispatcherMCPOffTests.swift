@@ -188,6 +188,21 @@ import Testing
         #expect(harness.host?.dispatcher?.isLoading == false)
     }
 
+    @Test func sleepRequestWaitsForStoppedMetadataAndNeverEnablesDispatcherSettings() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await applyFixture("mcpOffRunning", via: .capabilities, to: harness)
+        await harness.store.load(target, force: true)
+        await harness.transport.enqueue(.completed(.object(["stopRequested": .bool(true)])))
+        await harness.store.sleepDispatcher(target)
+        #expect(harness.store.sleepRequests.contains(target))
+        #expect(!harness.store.canWake(target) && !harness.store.canEditSettings(target))
+        try await applyFixture("mcpOffStopped", via: .change, to: harness)
+        try await harness.waitUntil { !harness.store.sleepRequests.contains(target) }
+        #expect(!harness.store.canWake(target) && !harness.store.canSend(target) && !harness.store.canEditSettings(target))
+        #expect(await harness.transport.executed.map(\.type) == ["agent.stop"])
+    }
+
     @Test(arguments: Source.allCases) func stoppedUnderMCPOffKeepsHistoryAndReturningMCPDoesNotStartIt(source: Source) async throws {
         let harness = try await start()
         defer { harness.stop() }
