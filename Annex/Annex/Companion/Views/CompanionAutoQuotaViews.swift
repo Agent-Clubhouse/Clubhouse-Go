@@ -82,6 +82,7 @@ struct CompanionQuotaView: View {
     var serverTime: Date? = nil
     var receivedAt: ContinuousClock.Instant? = nil
     var showsProgress = false
+    var showsReadingDate = true
     private func label(_ family: String, _ code: String) -> String { CompanionHelperRouting.label(labels, family: family, code: code) }
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -106,7 +107,9 @@ struct CompanionQuotaView: View {
                     modelWindows
                 }
             }
-            if let asOf = quota.asOf { Text("Read at \(asOf.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+            if let asOf = quota.asOf, showsReadingDate || receivedAt == nil || serverTime == nil {
+                Text("Read at \(asOf.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary)
+            }
             if let receivedAt {
                 TimelineView(.periodic(from: .now, by: 5)) { _ in
                     if let age = CompanionHelperQuota.age(asOf: quota.asOf, serverTime: serverTime, elapsed: receivedAt.duration(to: .now)) {
@@ -120,7 +123,11 @@ struct CompanionQuotaView: View {
     }
     private var stateColor: Color {
         guard showsProgress else { return .primary }
-        switch quota.state { case "exhausted": return .red; case "near_limit", "low": return .orange; default: return .primary }
+        return warningColor ?? .primary
+    }
+    /// Quota tiers belong to the desktop; the phone does not infer tiers from percentages.
+    private var warningColor: Color? {
+        switch quota.state { case "exhausted": return .red; case "near_limit", "low": return .orange; default: return nil }
     }
     private var modelWindows: some View {
         ForEach(Array(quota.modelWindows.enumerated()), id: \.offset) { _, item in window(item.window, name: item.name) }
@@ -136,10 +143,9 @@ struct CompanionQuotaView: View {
             if showsProgress, let percent = window.usedPercent {
                 ProgressView(value: percent, total: 100)
                     .controlSize(secondary ? .small : .regular)
-                    .tint(percent >= 95 ? .red : percent >= 80 ? .orange : .accentColor)
+                    .tint(warningColor ?? .accentColor)
                     .accessibilityLabel(name)
                     .accessibilityValue("\(percent.formatted(.number.precision(.fractionLength(0...1))))% used")
-                if percent >= 80 { Text(percent >= 95 ? "Almost all used" : "High use").font(.caption).foregroundStyle(percent >= 95 ? .red : .orange) }
             }
             if let resetsAt = window.resetsAt { resetText(resetsAt) }
         }

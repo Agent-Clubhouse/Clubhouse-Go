@@ -66,11 +66,12 @@ struct CompanionPlanLimitsView: View {
                 if group.providerIDs(in: page).isEmpty { Text("No connected providers reported by this desktop.").foregroundStyle(.secondary) }
                 ForEach(group.providerIDs(in: page), id: \.self) { id in
                     VStack(alignment: .leading, spacing: 8) {
+                        // The desktop catalog supplies displayName/shortName; routing-only IDs have no label in v1.
                         Text(group.host.providers.first { $0.id == id }?.name ?? id).font(.headline)
                         if let quota = page.providers[id]?.quota {
                             if reading?.error == nil || quota.asOf != nil {
                                 if reading?.error != nil { Text("Last reading · refresh failed").font(.caption).foregroundStyle(.secondary) }
-                                CompanionQuotaView(quota: quota, labels: page.labels, serverTime: page.serverTime, receivedAt: reading?.receivedAt, showsProgress: true)
+                                CompanionQuotaView(quota: quota, labels: page.labels, serverTime: page.serverTime, receivedAt: reading?.receivedAt, showsProgress: true, showsReadingDate: reading?.error != nil)
                             } else { Text("No dated reading available.").foregroundStyle(.secondary) }
                         } else {
                             Text(page.label("quota", "unknown"))
