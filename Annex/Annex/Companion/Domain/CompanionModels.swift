@@ -74,6 +74,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canEditSettings = false
     /// Whole-agent stop, distinct from interrupting a chat turn.
     var canStopAgents = false
+    var canControlProvider = false
     var canRevokeSession = false
     /// The desktop answers "Allow always" and the other lasting options from a phone (`permissions.persistentApprovals`).
     var canAnswerPersistentApprovals = false
@@ -774,9 +775,17 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws
     func refreshSleepState(_ target: CompanionTarget) async throws
+    func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws
+    func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview
+    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult
+    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws
 }
 
 @MainActor extension CompanionService {
+    func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to confirm Sleep.") }
+    func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview { throw CompanionServiceError.unavailable("Update the desktop to preview a provider change.") }
+    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult { throw CompanionServiceError.unavailable("Update the desktop to save a provider change.") }
+    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to start with a checked provider.") }
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop does not offer Sleep for this agent.")
     }

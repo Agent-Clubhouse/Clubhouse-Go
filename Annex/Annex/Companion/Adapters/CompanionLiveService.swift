@@ -930,6 +930,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
                 hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
                 hosts[hostID]?.canStopAgents = newCapabilities?.commands.contains("agent.stop") == true
+                hosts[hostID]?.canControlProvider = newCapabilities?.supportsProviderControl == true
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
                 hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
@@ -1298,6 +1299,78 @@ import ClubhouseTransport
         await refresh(hostID: target.hostID)
         guard hosts[target.hostID]?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to the desktop to confirm whether the agent is asleep.")
+        }
+    }
+
+    private func requireProviderControl(_ target: CompanionTarget) throws {
+        guard capabilities[target.hostID]?.supportsProviderControl == true, mcpOff(for: target) == nil,
+              hosts[target.hostID]?.agent(for: target)?.isQuick == false else {
+            throw CompanionServiceError.unavailable("This desktop does not offer the guided provider flow for this agent.")
+        }
+    }
+    private func providerResult(_ kind: AnnexCommand.Kind, target: CompanionTarget, id: String) async throws -> AnnexJSON {
+        try requireProviderControl(target)
+        try validateDispatcherCommand(kind, hostID: target.hostID)
+        guard let caps = capabilities[target.hostID] else { throw CompanionServiceError.unavailable("Reconnect to the desktop.") }
+        if let previous = savedCommands[id], Date().timeIntervalSince(previous.createdAt) * 1000 >= Double(caps.idempotency.ttlMs) {
+            throw CompanionServiceError.uncertain("The desktop's retry window expired. The previous action's outcome is still unknown. Check the agent on the desktop before another action.")
+        }
+        let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
+        guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. The previous action's outcome is still unknown. Check the agent on the desktop before another action.") }
+        savedCommands[id] = command
+        let receipt: AnnexCommandReceipt
+        do { receipt = try await transport(for: target.hostID).execute(command) }
+        catch AnnexTransportError.rejected(let status, let code, _) {
+            if status == 409 { throw CompanionServiceError.rejected(CompanionProviderReason.message(code)) }
+            // A transport/auth rejection cannot resolve a previously lost command's outcome.
+            throw CompanionServiceError.unavailable("The desktop refused access to this provider action. Check the connection and desktop permissions.")
+        }
+        catch let error as CompanionServiceError { throw error }
+        catch { throw CompanionServiceError.uncertain("The reply was lost. Check the previous result before another provider action.") }
+        switch receipt.status {
+        case .rejected: throw CompanionServiceError.rejected(CompanionProviderReason.message(receipt.error?.code))
+        case .failed: throw CompanionServiceError.uncertain(CompanionProviderReason.message(receipt.error?.code))
+        case .completed:
+            guard let result = receipt.result else { throw CompanionServiceError.uncertain("The desktop's result could not be verified. Check the previous result before another action.") }
+            return result
+        }
+    }
+    private func decodeProvider<T: Decodable>(_ type: T.Type, result: AnnexJSON) throws -> T {
+        do { return try JSONDecoder().decode(type, from: JSONEncoder().encode(result)) }
+        catch { throw CompanionServiceError.uncertain("The desktop's provider result could not be verified. Check the previous result before another action.") }
+    }
+    func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview {
+        let result = try await providerResult(.providerPreview(agentID: target.agentID, provider: provider), target: target, id: UUID().uuidString)
+        let preview = try decodeProvider(AnnexProviderPreview.self, result: result)
+        guard preview.outcome.agentId == target.agentID, preview.outcome.provider == provider else {
+            throw CompanionServiceError.unavailable("The desktop returned a preview for a different agent or provider. Refresh before saving.")
+        }
+        return preview
+    }
+    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
+        guard preview.outcome.agentId == target.agentID, preview.outcome.permitsSave else {
+            throw CompanionServiceError.unavailable("Refresh the provider preview before saving.")
+        }
+        let result = try await providerResult(.providerChange(agentID: target.agentID, provider: preview.outcome.provider, expectedState: preview.expectedState), target: target, id: clientCommandID)
+        let saved = try decodeProvider(AnnexProviderChangeResult.self, result: result)
+        let outcome: AnnexProviderOutcome
+        switch saved { case .changed(let value): outcome = value; case .alreadySelected(let value): outcome = value.outcome }
+        guard outcome.agentId == target.agentID, outcome.provider == preview.outcome.provider, outcome.savedProvider == preview.outcome.provider,
+              outcome.state == .sleeping, outcome.activeProvider == nil else {
+            throw CompanionServiceError.uncertain("The saved provider could not be verified. Check the previous result before another action.")
+        }
+        await refresh(hostID: target.hostID)
+        return saved
+    }
+    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws {
+        _ = try await providerResult(.start(agentID: target.agentID, resume: false, expectedProvider: provider), target: target, id: clientCommandID)
+        await refresh(hostID: target.hostID)
+    }
+    func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws {
+        let result = try await providerResult(.stop(agentID: target.agentID, waitForStopped: true), target: target, id: clientCommandID)
+        let stopped = try decodeProvider(AnnexStoppedAcknowledgment.self, result: result)
+        guard stopped.agentId == target.agentID, stopped.confirmsSleep else {
+            throw CompanionServiceError.uncertain("Sleep was requested, but process exit and saved history are not confirmed yet.")
         }
     }
 

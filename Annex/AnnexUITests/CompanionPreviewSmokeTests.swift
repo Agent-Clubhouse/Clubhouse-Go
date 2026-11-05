@@ -75,6 +75,49 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(footer.exists)
     }
 
+    func testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume() {
+        checkGuidedProviderFlow(largeText: false)
+    }
+
+    func testGuidedProviderFlowAtLargeText() {
+        checkGuidedProviderFlow(largeText: true)
+    }
+
+    private func checkGuidedProviderFlow(largeText: Bool) {
+        var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control"]
+        if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        let app = launchApp(arguments)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        let current = app.buttons["provider-choice-claude-code"]
+        waitAndTap(link, until: current)
+        XCTAssertFalse(app.buttons["provider-save"].exists, "Opening the flow must not preview or save a provider")
+        let unavailable = app.buttons["provider-choice-codex"]
+        XCTAssertTrue(scrollUntilExists(unavailable, in: app))
+        XCTAssertFalse(unavailable.isEnabled)
+        XCTAssertTrue(scrollTo(current, in: app, up: false))
+        current.tap()
+        let save = app.buttons["provider-save"]
+        XCTAssertTrue(scrollUntilExists(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertFalse(app.buttons["Resume"].exists, "Same-provider resume hint must not offer Resume")
+        XCTAssertFalse(app.buttons["provider-start-new"].exists)
+        let alternative = app.buttons["provider-choice-codex-cli"]
+        XCTAssertTrue(scrollTo(alternative, in: app, up: false, maxSwipes: 8))
+        alternative.tap()
+        XCTAssertTrue(scrollTo(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(save.isEnabled)
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = largeText ? "Guided provider preview at large text" : "Guided provider preview"; preview.lifetime = .keepAlways; add(preview)
+        save.tap()
+        let refusal = app.staticTexts["provider-flow-error"]
+        XCTAssertTrue(scrollUntilExists(refusal, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(refusal.label.contains("Preview only"))
+        XCTAssertFalse(app.buttons["provider-start-new"].exists, "Refused Save never enables Start")
+        XCTAssertFalse(app.buttons["Resume"].exists)
+    }
+
     func testAgentSettingsShowsDispatcherWithOrchestrationOff() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         openAgentSettings(app)
