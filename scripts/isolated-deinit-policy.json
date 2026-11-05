@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -15,6 +15,7 @@
         "properties": {
           "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",
           "clock": "AnnexClock",
+          "confirmedSleepCommands": "[ CompanionTarget : String ]",
           "consumedHelperRequests": "Set < String >",
           "contentRoots": "[ CompanionTarget : CompanionContentRoots ]",
           "conversations": "[ CompanionTarget : CompanionConversation ]",
@@ -41,6 +42,7 @@
           "pendingFinishedRemovals": "Set < CompanionTarget >",
           "pendingProjectStates": "[ CompanionProjectTarget : CompanionProjectState ]",
           "projectStateError": "String ?",
+          "providerFlows": "[ CompanionTarget : CompanionProviderFlow ]",
           "readingBookmarks": "[ CompanionTarget : CompanionReadingBookmark ]",
           "remoteImageOrder": "[ String ]",
           "remoteImages": "[ String : CompanionImageBytes ]",
@@ -681,6 +683,11 @@
           "@ Observable"
         ]
       }
+    },
+    "CompanionProviderFlow": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift",
+      "reason": "Owns an injected CompanionService protocol and canRequest callback. Production callback captures Store weakly plus a value target, but arbitrary injected owners are not constrained to UI-free teardown; retain synthesized MainActor destruction. Remaining fields are provider receipt/target/String/Bool values, with no cleanup side effects."
     }
   },
   "captureSites": {
