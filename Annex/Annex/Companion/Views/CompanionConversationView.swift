@@ -95,7 +95,7 @@ struct CompanionConversationView: View {
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                         if dynamicTypeSize.isAccessibilitySize, agent.contextUsage != nil || agent.chatControls?.context != nil {
                             Button("Context", systemImage: "chart.pie") { showContextSettings = true }
-                                .accessibilityIdentifier("companion-context-settings")
+                                .accessibilityIdentifier("companion-context-settings-menu")
                         }
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
