@@ -160,7 +160,10 @@ struct CompanionConversationComposer: View {
                         Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
                             .font(.headline.weight(.bold))
                     }
-                    .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.large)
+                    .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                    // Keep the regular-size glass circle inside the field, with a full-size interaction target.
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.circle)
                     .disabled(!store.canSend(target) || !hasMessage)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
