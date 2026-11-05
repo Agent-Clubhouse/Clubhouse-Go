@@ -108,7 +108,7 @@ import XCTest
         XCTAssertTrue(header.label.contains("Full access") && header.label.contains("Free Agent"), header.label)
         XCTAssertLessThanOrEqual(header.frame.maxX, app.frame.maxX)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
-        XCTAssertTrue(app.buttons["companion-context-settings"].isHittable)
+        XCTAssertTrue(app.buttons["companion-context-usage"].isHittable)
         focus(composer, in: app)
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
         let region = element(app, "companion-composer-region").frame
@@ -122,7 +122,7 @@ import XCTest
         XCTAssertTrue(header.label.contains("Full access") && header.label.contains("Free Agent"), "Safety stays visible while editing")
         // The artificial preview banner had only 10pt in the baseline. Real chat must keep at least one readable band.
         XCTAssertGreaterThanOrEqual(readable, hidePreviewBanner ? 44 : 10, "Largest text must improve on the matching baseline")
-        XCTAssertFalse(app.buttons["companion-context-settings"].exists, "The ring yields its header row while editing")
+        XCTAssertFalse(app.buttons["companion-context-usage"].exists, "The ring yields its header row while editing")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["companion-context-settings-menu"])
         let picker = app.buttons["agent-settings-context-window"]
         waitAndTap(app.buttons["companion-context-settings-menu"], until: picker)

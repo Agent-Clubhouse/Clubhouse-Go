@@ -129,14 +129,16 @@ struct CompanionConversationComposer: View {
                     Button { confirmCancel = true } label: {
                         Image(systemName: "stop.fill").font(.headline)
                     }
-                    .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.large)
+                    .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.circle)
                     .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
                     .accessibilityLabel("Interrupt")
                     .frame(height: composerRowHeight)
                 }
                 HStack(alignment: .bottom, spacing: 6) {
                     if let limits = attachmentLimits {
-                        CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, 8).frame(height: composerRowHeight)
+                        CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, assistiveRow ? 2 : 8).frame(height: composerRowHeight)
                     }
                     TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
                         .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
@@ -169,7 +171,7 @@ struct CompanionConversationComposer: View {
                     .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
                     .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : "")
                     .accessibilityIdentifier("companion-send")
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, assistiveRow ? 2 : 6)
                     .frame(height: composerRowHeight)
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
@@ -193,7 +195,7 @@ struct CompanionConversationComposer: View {
             }
             composerCaption
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        .padding(.horizontal, assistiveRow ? 12 : 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -242,6 +244,8 @@ struct CompanionConversationComposer: View {
             showRefreshing = true
         }
     }
+
+    private var assistiveRow: Bool { composerFocused && showsKeyboardDismissButton }
 
     private var usesCompactControls: Bool { composerFocused || dynamicTypeSize.isAccessibilitySize }
 
