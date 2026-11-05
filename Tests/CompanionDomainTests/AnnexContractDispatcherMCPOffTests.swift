@@ -9,17 +9,22 @@ import Testing
     private let target = CompanionTarget(hostID: LiveServiceHarness.hostID, projectID: "__dispatcher__", agentID: "durable_dispatcher")
     private let allowed = ["chat.interrupt", "agent.stop", "chat.permission", "chat.question", "chat.queue.remove", "dispatcher.setEnabled"]
 
-    private func block(reason: String? = "mcp_off", running: Bool = true, commands: [String]? = nil, enabled: Bool = false) -> AnnexJSON {
+    private func block(reason: String? = "mcp_off", running: Bool = true, commands: [String]? = nil, enabled: Bool = false, flagOn: Bool? = nil, newLayout: Bool = true) -> AnnexJSON {
         var value: [String: AnnexJSON] = [
-            "version": .integer(1), "enabled": .bool(enabled), "flagOn": .bool(enabled), "projectId": .string(target.projectID),
-            "running": .bool(running), "status": .string(running ? "running" : "sleeping"), "detail": .string("MCP off"),
-            "commandsWhileOff": .array((commands ?? allowed).map(AnnexJSON.string)), "agentId": .string(target.agentID),
+            "version": .integer(1), "enabled": .bool(enabled), "flagOn": .bool(flagOn ?? enabled), "newLayout": .bool(newLayout), "projectId": .string(target.projectID),
+            "agentId": enabled ? .string(target.agentID) : .null,
             // Even a stopped or user-disabled Dispatcher keeps its desktop record. This never implies enabled.
             "agent": .object(["id": .string(target.agentID), "name": .string("Dispatcher"), "kind": .string("durable"),
                               "projectId": .string(target.projectID), "status": .string(running ? "running" : "sleeping"),
                               "isDispatcher": .bool(true), "hasSession": .bool(true)]),
         ]
-        if let reason { value["offReason"] = .string(reason) }
+        if !enabled {
+            value["running"] = .bool(running)
+            value["status"] = .string(running ? "running" : "sleeping")
+            value["detail"] = .string(running ? "MCP off; session running" : "MCP off")
+            value["commandsWhileOff"] = .array((commands ?? allowed).map(AnnexJSON.string))
+            if let reason { value["offReason"] = .string(reason) }
+        }
         return .object(value)
     }
 
@@ -55,6 +60,35 @@ import Testing
         case .capabilities: try await harness.refreshCatalog()
         }
         try await harness.waitUntil { harness.host?.dispatcher?.enabled == value["enabled"].boolValue && harness.host?.dispatcher?.mcpOff?.running == (value["offReason"]?.string == "mcp_off" ? value["running"].boolValue : nil) }
+    }
+
+    @Test(arguments: Source.allCases) func aColdOffReportCarriesItsOwnAgentRecord(source: Source) async throws {
+        let off = block()
+        let on = block(reason: nil, enabled: true)
+        let harness = try await LiveServiceHarness.start(configure: { transport in
+            await transport.setFeature("dispatcher", source == .capabilities ? off : on)
+            await transport.addCommands(["dispatcher.setEnabled"])
+        })
+        defer { harness.stop() }
+        if source != .capabilities { try await apply(off, via: source, to: harness) }
+        try await harness.waitUntil { harness.store.agent(for: target) != nil }
+        #expect(off["agentId"] == .null, "Off events keep the legacy id null")
+        #expect(harness.store.agent(for: target)?.name == "Dispatcher")
+        #expect(harness.store.allAgents.filter { $0.id == target }.count == 1)
+        #expect(harness.host?.dispatcher?.mcpOff?.running == true)
+    }
+
+    @Test func offChangeReadsAgentAndKeepsTheCachedTranscriptWithLegacyNullID() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let items = harness.store.conversation(for: target).items
+        guard case .object(var value) = block(), case .object(var agent)? = value["agent"] else { Issue.record("Missing local agent"); return }
+        agent["name"] = .string("Desktop Dispatcher")
+        value["agent"] = .object(agent)
+        try await apply(.object(value), via: .change, to: harness)
+        #expect(value["agentId"] == .null)
+        #expect(harness.store.agent(for: target)?.name == "Desktop Dispatcher", "The new agent record is consumed even with agentId null")
+        #expect(harness.store.conversation(for: target).items == items)
     }
 
     @Test(arguments: Source.allCases) func eachMetadataPathRetainsOpenChatNavigationAndApproval(source: Source) async throws {
@@ -214,6 +248,116 @@ import Testing
         ])]))
         try await harness.refreshCatalog()
         #expect(harness.store.agent(for: target) == nil && harness.host?.dispatcher?.enabled == false)
+    }
+
+    @Test func aSessionEndingDuringSendRestoresDraftAndShowsTheDesktopMessage() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await apply(block(commands: ["chat.send"]), via: .snapshot, to: harness)
+        let message = "Clubhouse MCP is off, so the Dispatcher can only be stopped or answered from a phone. Turn on Clubhouse MCP on the desktop."
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "commandId": .string("held"), "epoch": .string("epoch"), "status": .string("rejected"),
+            "error": .object(["code": .string("mcp_off"), "message": .string(message)]),
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let draft = "  Keep this draft after the session stops.  "
+        harness.store.drafts[target] = draft
+        let submission = Task { await harness.store.sendDraft(to: target) }
+        defer { Task { await harness.transport.releaseCommand() } }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        try await apply(block(running: false, commands: ["dispatcher.setEnabled"]), via: .change, to: harness)
+        await harness.transport.releaseCommand()
+        await submission.value
+        #expect(harness.store.drafts[target] == draft)
+        #expect(harness.store.operationErrors[target] == message)
+        #expect(harness.store.conversation(for: target).items.contains { item in
+            if case .message(let sent) = item, case .failed(let detail) = sent.delivery { return detail == message }
+            return false
+        })
+        #expect(!harness.store.canSend(target) && !harness.store.canWake(target))
+        #expect(await harness.transport.executed.map(\.type) == ["chat.send"])
+    }
+
+    @Test func anEndedSessionKeepsAnUnsubmittedDraftAndCannotWakeFromSend() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await apply(block(commands: ["chat.send"]), via: .snapshot, to: harness)
+        harness.store.drafts[target] = "Keep composing"
+        try await apply(block(running: false, commands: ["dispatcher.setEnabled"]), via: .change, to: harness)
+        await harness.store.sendDraft(to: target)
+        #expect(harness.store.drafts[target] == "Keep composing")
+        #expect(await harness.transport.executed.isEmpty)
+    }
+
+    @Test func uncertainDeliveryDoesNotRestoreADraftForAccidentalResending() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await apply(block(commands: ["chat.send"]), via: .snapshot, to: harness)
+        await harness.transport.enqueue(.thrown(.commandOutcomeUnknown(commandID: "uncertain-send")))
+        harness.store.drafts[target] = "May already be delivered"
+        await harness.store.sendDraft(to: target)
+        #expect(harness.store.drafts[target] == "")
+        #expect(harness.store.conversation(for: target).items.contains { item in
+            if case .message(let sent) = item, case .uncertain = sent.delivery { return true }
+            return false
+        })
+    }
+
+    @Test func anAllowedPermissionStillShowsItsOwnDesktopValidationError() async throws {
+        let harness = try await start(pending: true)
+        defer { harness.stop() }
+        try await apply(block(), via: .snapshot, to: harness)
+        let approval = try #require(harness.store.pinnedApproval(for: target))
+        let option = try #require(approval.options.first)
+        let message = "This request is too large to review here. Review it on the desktop to approve it, or deny it here."
+        await harness.transport.enqueue(.rejected(code: "incomplete_representation", message: message))
+        await harness.store.respond(approval, option: option, target: target)
+        #expect(harness.store.operationErrors[target] == message)
+        #expect(harness.store.pinnedApproval(for: target)?.resolution == .pending)
+        #expect(await harness.transport.executed.map(\.type) == ["chat.permission"])
+    }
+
+    @Test func onlyUserSwitchedOffWithMCPOnOffersEnableAndKeepsLegacyReceiptShape() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await apply(block(reason: "switched_off", running: false, flagOn: true), via: .snapshot, to: harness)
+        #expect(harness.host?.dispatcher?.turnOnBlocker == nil)
+        await harness.transport.enqueue(.completed(.object(["enabled": .bool(true), "flagOn": .bool(true), "agentId": .string(target.agentID)])))
+        await harness.store.setDispatcher(enabled: true, hostID: target.hostID)
+        try await harness.waitUntil { harness.host?.dispatcher?.enabled == true }
+        #expect(harness.host?.dispatcher?.isLoading == true, "The unchanged setEnabled receipt still waits for the agent snapshot")
+        #expect(await harness.transport.executed.map(\.type) == ["dispatcher.setEnabled"])
+        for off in [block(reason: "switched_off", running: false), block(reason: "classic_layout", running: false, flagOn: true, newLayout: false), block()] {
+            try await apply(off, via: .snapshot, to: harness)
+            #expect(harness.host?.dispatcher?.turnOnBlocker != nil)
+            await harness.store.setDispatcher(enabled: true, hostID: target.hostID)
+        }
+        #expect(await harness.transport.executed.count == 1, "MCP off and classic states do not offer enable")
+    }
+
+    @Test func enableRefusalCodesKeepTheirDistinctDesktopMessages() throws {
+        for (code, message) in [
+            ("mcp_off", "Clubhouse MCP is off, so the Dispatcher can only be stopped or answered from a phone. Turn on Clubhouse MCP on the desktop."),
+            ("dispatcher_flag_off", "Clubhouse MCP is off. Turn on Clubhouse MCP on the desktop first."),
+            ("dispatcher_layout_off", CompanionDispatcher.layoutOffNote),
+        ] {
+            let receipt = try AnnexJSON.object([
+                "version": .integer(1), "commandId": .string("enable"), "epoch": .string("epoch"), "status": .string("rejected"),
+                "error": .object(["code": .string(code), "message": .string(message)]),
+            ]).decode(AnnexCommandReceipt.self)
+            #expect(CompanionLiveService.receiptError(receipt)?.localizedDescription == message)
+        }
+    }
+
+    @Test(arguments: ["switched_off", "classic_layout"]) func otherOffReasonsDoNotKeepHistoryRoutes(reason: String) async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        try await apply(block(reason: reason, running: false, flagOn: true, newLayout: reason != "classic_layout"), via: .snapshot, to: harness)
+        await harness.transport.failRead("chat", .rejected(status: 404, code: "agent_not_found"))
+        await harness.transport.failRead("chatSessions", .rejected(status: 404, code: "agent_not_found"))
+        #expect(await serviceErrorText { _ = try await harness.service.history(for: target) } != nil)
+        #expect(await serviceErrorText { _ = try await harness.service.sessions(for: target) } != nil)
+        #expect(harness.store.agent(for: target) == nil && !harness.store.conversation(for: target).isLoaded)
     }
 
     @Test func desktopMCPOffRefusalIsShownThroughTheMessagePath() async throws {

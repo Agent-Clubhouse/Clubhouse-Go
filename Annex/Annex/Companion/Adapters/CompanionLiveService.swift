@@ -899,7 +899,7 @@ import ClubhouseTransport
             case "agent:deleted": scheduleRefresh(hostID: hostID)
             case "dispatcher:changed":
                 applyDispatcherChange(enabled: payload["enabled"].boolValue == true, flagOn: payload["flagOn"].boolValue == true,
-                                      agentID: payload["agentId"]?.string, mcpOff: CompanionDispatcherMCPOff(json: payload), hostID: hostID)
+                                      agentID: payload["agentId"]?.string, agent: payload["agent"], mcpOff: CompanionDispatcherMCPOff(json: payload), hostID: hostID)
                 scheduleRefresh(hostID: hostID)
             default: break
             }
@@ -947,7 +947,12 @@ import ClubhouseTransport
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
                     dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
-                    rememberMCPOff(!dispatcher.enabled || !dispatcher.flagOn ? CompanionDispatcherMCPOff(json: rawCaps?["dispatcher"]) : nil, hostID: hostID)
+                    let off = !dispatcher.enabled || !dispatcher.flagOn ? CompanionDispatcherMCPOff(json: rawCaps?["dispatcher"]) : nil
+                    // New capabilities carry the record too, including on a cold reconnect before any snapshot.
+                    if off != nil, let value = rawCaps?["dispatcher"], value["agent"]?["id"]?.string?.isEmpty == false {
+                        dispatcherCatalog[hostID] = value
+                    }
+                    rememberMCPOff(off, hostID: hostID)
                     if (!dispatcher.enabled || !dispatcher.flagOn) && dispatcherMCPOff[hostID] == nil { dropDispatcher(hostID: hostID) }
                 } else {
                     dispatcherFlags[hostID] = nil
@@ -1349,12 +1354,19 @@ import ClubhouseTransport
         dispatcherCatalog[hostID] = .object(dispatcher)
     }
     /// Change events and receipts preserve MCP-off records; legacy turn-off still removes their caches.
-    private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, mcpOff: CompanionDispatcherMCPOff?, hostID: String) {
+    private func applyDispatcherChange(enabled: Bool, flagOn: Bool, agentID: String?, agent: AnnexJSON? = nil, mcpOff: CompanionDispatcherMCPOff?, hostID: String) {
         guard capabilities[hostID]?.supportsDispatcher == true || !knownCapabilities.contains(hostID) else { return }
         dispatcherFlags[hostID] = (enabled, flagOn)
-        rememberMCPOff(!enabled || !flagOn ? mcpOff : nil, hostID: hostID)
+        let off = !enabled || !flagOn ? mcpOff : nil
         let cachedID = dispatcherCatalog[hostID]?["agent"]?["id"]?.string
-        if ((!enabled || !flagOn) && dispatcherMCPOff[hostID] == nil) || (agentID != nil && cachedID != nil && agentID != cachedID) { dropDispatcher(hostID: hostID) }
+        // Off events intentionally keep legacy agentId null. The additive agent record is authoritative.
+        let reportedID = agent?["id"]?.string ?? agentID
+        if ((!enabled || !flagOn) && off == nil) || (reportedID != nil && cachedID != nil && reportedID != cachedID) { dropDispatcher(hostID: hostID) }
+        if (enabled && flagOn) || off != nil, let agent, agent["id"]?.string?.isEmpty == false {
+            dispatcherCatalog[hostID] = .object(["agent": agent, "projectId": .string(agent["projectId"]?.string
+                ?? hosts[hostID]?.dispatcher?.projectID ?? CompanionDispatcher.defaultProjectID)])
+        }
+        rememberMCPOff(off, hostID: hostID)
         hosts[hostID]?.dispatcher = dispatcherState(hostID: hostID, icons: iconCatalog[hostID]?.agents, meta: nil)
         emitHosts()
     }

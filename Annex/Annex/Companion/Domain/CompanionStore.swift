@@ -278,7 +278,8 @@ import Observation
     }
 
     func sendDraft(to target: CompanionTarget) async {
-        let text = (drafts[target] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let draft = drafts[target] ?? ""
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = attachmentDrafts[target] ?? []
         guard !text.isEmpty || !attachments.isEmpty, canSend(target) else { return }
         guard attachments.isEmpty || attachmentLimits(for: target) != nil else {
@@ -292,7 +293,16 @@ import Observation
         conversations[target, default: .init()].items.append(.message(message))
         drafts[target] = ""
         attachmentDrafts[target] = nil
-        await submit(message, to: target)
+        let dispatcher = isDispatcher(target)
+        if let refusal = await submit(message, to: target), dispatcher {
+            // A session can end after the button was enabled, including while a send is in flight.
+            // Keep newer typing; a definitive refusal restores the submitted draft for editing.
+            if (drafts[target] ?? "").isEmpty { drafts[target] = draft }
+            let current = attachmentDrafts[target] ?? []
+            let restored = Set(attachments.map(\.id))
+            attachmentDrafts[target] = attachments + current.filter { !restored.contains($0.id) }
+            operationErrors[target] = refusal
+        }
     }
 
     /// Retry is only offered for a definite rejection. Unknown delivery requires reconciliation first.
@@ -306,11 +316,12 @@ import Observation
         message.clientCommandID = UUID().uuidString
         message.delivery = .sending
         upsert(.message(message), target: target)
-        await submit(message, to: target)
+        _ = await submit(message, to: target)
     }
 
-    private func submit(_ message: CompanionMessage, to target: CompanionTarget) async {
-        guard var commandID = message.clientCommandID else { return }
+    /// A definite refusal can restore a draft. Unknown delivery must first be reconciled.
+    private func submit(_ message: CompanionMessage, to target: CompanionTarget) async -> String? {
+        guard var commandID = message.clientCommandID else { return nil }
         pendingCommands.insert(target)
         operationErrors[target] = nil
         updateDelivery(commandID, target: target, delivery: .sending)
@@ -344,12 +355,17 @@ import Observation
         } catch let error as CompanionAttachmentError {
             if error == .imagesNotSupported { imagesRefused[target] = conversation(for: target).sessionID ?? "" }
             updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
+            return error.localizedDescription
         } catch let error as CompanionServiceError {
             if case .uncertain(let detail) = error { updateDelivery(commandID, target: target, delivery: .uncertain(detail)) }
-            else { updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription)) }
+            else {
+                updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
+                return error.localizedDescription
+            }
         } catch {
             updateDelivery(commandID, target: target, delivery: .uncertain(error.localizedDescription))
         }
+        return nil
     }
 
     /// Uploads in order, reusing ids from an earlier try. Waits out a short `Retry-After` up to twice.
