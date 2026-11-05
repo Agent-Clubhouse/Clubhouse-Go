@@ -120,6 +120,7 @@ import XCTest
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
         XCTAssertTrue(app.buttons["companion-send"].exists)
         XCTAssertTrue(header.label.contains("Full access") && header.label.contains("Free Agent"), "Safety stays visible while editing")
+        XCTAssertTrue(app.buttons["View River, needs you"].isHittable, "The compact other-agent notice stays actionable")
         // The artificial preview banner had only 10pt in the baseline. Real chat must keep at least one readable band.
         XCTAssertGreaterThanOrEqual(readable, hidePreviewBanner ? 44 : 10, "Largest text must improve on the matching baseline")
         XCTAssertFalse(app.buttons["companion-context-usage"].exists, "The ring yields its header row while editing")

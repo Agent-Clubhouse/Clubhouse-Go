@@ -273,7 +273,7 @@ struct CompanionConversationView: View {
                 // Keep the other chat actionable without letting its banner consume this chat's viewport.
                 Button { openAgent(other.id) } label: {
                     Label("\(other.name) \(other.status == .failed ? "hit an error" : "needs you")", systemImage: other.status.symbol)
-                        .font(.caption).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                        .font(.caption).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16).frame(minHeight: 44)
                 }
                 .buttonStyle(.glass).buttonBorderShape(.capsule)
