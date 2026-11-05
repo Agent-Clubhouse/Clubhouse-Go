@@ -115,6 +115,7 @@ struct CompanionQuotaView: View {
                 }
             }
         }
+        .fixedSize(horizontal: false, vertical: showsProgress)
         .accessibilityElement(children: showsProgress ? .combine : .contain)
     }
     private var stateColor: Color {
