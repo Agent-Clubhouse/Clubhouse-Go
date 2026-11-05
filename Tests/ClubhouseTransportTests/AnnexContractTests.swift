@@ -7,7 +7,7 @@ import Testing
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled", "helperRouting.update"]
+                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange"]
 
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
@@ -35,6 +35,7 @@ import Testing
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
         #expect(caps.supportsSlashCommands && caps.slashCommands?.version == 1)
         #expect(caps.supportsOrchestration && caps.orchestration?.version == 1)
+        #expect(caps.supportsProviderControl)
         #expect(caps.attachments == .init(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10))
         #expect(caps.terminal == .init(projectShell: true, agentShell: true, agentAttach: true, maxShellsPerConnection: 8, maxInputLength: 65_536))
         #expect(caps.idempotency.maxEntries == 2048 && caps.idempotency.ttlMs == 3_600_000 && caps.idempotency.scope == "peer-and-epoch")
@@ -63,7 +64,7 @@ import Testing
     @Test func phoneCommandsEncodeExactlyAsTheDesktopAcceptsThem() throws {
         var checked = 0
         for type in Self.commandTypes {
-            for item in try AnnexContract.cases("commands/\(type).json") where item["name"]?.string?.hasPrefix("accepted") == true {
+            for item in try AnnexContract.cases("commands/\(type).json") where item["response"]?["body"]?["status"]?.string == "completed" {
                 let request = try #require(item["request"])
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
@@ -228,8 +229,14 @@ import Testing
         case "chat.setLevel":
             guard let a = s("agentId"), let session = s("sessionId"), let level = s("level") else { return nil }
             return .setLevel(agentID: a, sessionID: session, level: level)
-        case "agent.start": return s("agentId").map { .start(agentID: $0, message: s("message"), resume: b("resume")) }
-        case "agent.stop": return s("agentId").map { .stop(agentID: $0) }
+        case "agent.start": return s("agentId").map { .start(agentID: $0, message: s("message"), resume: b("resume"), expectedProvider: s("expectedProvider"), expectedSessionID: s("expectedSessionId")) }
+        case "agent.stop": return s("agentId").map { .stop(agentID: $0, waitForStopped: b("waitForStopped")) }
+        case "agent.providerPreview":
+            guard let agent = s("agentId"), let provider = s("provider") else { return nil }
+            return .providerPreview(agentID: agent, provider: provider)
+        case "agent.providerChange":
+            guard let agent = s("agentId"), let provider = s("provider"), let expectedState = s("expectedState") else { return nil }
+            return .providerChange(agentID: agent, provider: provider, expectedState: expectedState)
         case "agent.spawn":
             guard let p = s("projectId"), let prompt = s("prompt") else { return nil }
             return .spawn(projectID: p, prompt: prompt, model: s("model"), orchestrator: s("orchestrator"))
@@ -288,8 +295,10 @@ import Testing
             .removeQueued(agentID: "a", sessionID: "s", messageIDs: ["m"]),
             .permission(agentID: "a", sessionID: "s", requestID: "r", optionID: "o"),
             .question(agentID: "a", sessionID: "s", requestID: "r", answers: ["q": .array([.string("x")])]),
-            .start(agentID: "a", message: "m", resume: true),
-            .stop(agentID: "a"),
+            .start(agentID: "a", message: "m", resume: true, expectedProvider: "o", expectedSessionID: "native"),
+            .stop(agentID: "a", waitForStopped: true),
+            .providerPreview(agentID: "a", provider: "o"),
+            .providerChange(agentID: "a", provider: "o", expectedState: "opaque"),
             .spawn(projectID: "p", prompt: "p", model: "m", orchestrator: "o"),
             .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", persona: "p", freeAgentMode: true, useWorktree: true,
                           mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f", orchestration: .init(orchestrate: .set(true)))),
