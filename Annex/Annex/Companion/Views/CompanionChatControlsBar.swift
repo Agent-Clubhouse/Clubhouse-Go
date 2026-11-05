@@ -9,39 +9,37 @@ struct CompanionChatControlsBar: View, Equatable {
     let enabled: Bool
     let setLevel: @MainActor (CompanionPermissionLevel) -> Void
     let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
-    @State private var pendingLevel: CompanionPermissionLevel?
+    var compact = false
+    let requestLevel: @MainActor (CompanionPermissionLevel) -> Void
     @Environment(\.companionPalette) private var palette
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled
+        lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
     }
 
     var body: some View {
-        // One row; long names truncate rather than scroll, so the composer has no nested scroll view.
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                levelMenu
-                if let label = controls.modelLabel { modelMenu(label) }
-                if controls.showsEffortChip { effortMenu }
-            }
-            if let context = controls.context {
-                VStack(alignment: .leading, spacing: 2) {
-                    if !context.summary.isEmpty { Text(context.summary) }
-                    if let note = context.note { Text(note) }
+        Group {
+            if compact {
+                Menu {
+                    levelMenu
+                    if let label = controls.modelLabel { modelMenu(label) }
+                    if controls.showsEffortChip { effortMenu }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
                 }
-                .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("companion-context-report")
+                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.large)
+                .accessibilityLabel("Chat controls")
+                .accessibilityValue([controls.currentLevel.label, controls.modelLabel, controls.effortLabel].compactMap { $0 }.joined(separator: ", "))
+                .accessibilityHint("Permissions, model and reasoning effort")
+                .accessibilityIdentifier("companion-level-menu")
+            } else {
+                HStack(spacing: 8) {
+                    levelMenu
+                    if let label = controls.modelLabel { modelMenu(label) }
+                    if controls.showsEffortChip { effortMenu }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .confirmationDialog(pendingLevel.map { "Switch to \($0.label)?" } ?? "", isPresented: Binding(get: { pendingLevel != nil }, set: { if !$0 { pendingLevel = nil } }),
-                            titleVisibility: .visible, presenting: pendingLevel) { level in
-            Button("Switch to \(level.label)") { setLevel(level) }
-        } message: { level in
-            Text(level == .fullAccess
-                 ? "\(agentName) will edit files and run commands without asking you first."
-                 : "\(agentName) will decide for itself what needs your approval.")
         }
     }
 
@@ -52,7 +50,7 @@ struct CompanionChatControlsBar: View, Equatable {
                 ForEach(controls.levels, id: \.self) { level in
                     Button {
                         guard level != current else { return }
-                        if level.needsConfirmation(from: current) { pendingLevel = level }
+                        if level.needsConfirmation(from: current) { requestLevel(level) }
                         else { setLevel(level) }
                     } label: {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
@@ -65,12 +63,17 @@ struct CompanionChatControlsBar: View, Equatable {
                 }
             }
         } label: {
-            chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)
+            // The permission name stays visible in the header; don't repeat it in this row.
+            if compact { Label(current.label, systemImage: "shield") }
+            else {
+                Image(systemName: "shield")
+            }
         }
+        .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
         .disabled(!enabled || !controls.canChangeLevel)
         .accessibilityLabel("Permissions: \(current.label)")
         .accessibilityHint(controls.canChangeLevel ? "Changes the permission level" : "This agent can't change permission level mid-session")
-        .accessibilityIdentifier("companion-level-menu")
+        .accessibilityIdentifier(compact ? "companion-permissions-menu" : "companion-level-menu")
     }
 
     private func modelDetail(_ model: CompanionChatModel) -> String? {
@@ -99,7 +102,8 @@ struct CompanionChatControlsBar: View, Equatable {
             }
             note
         } label: {
-            chip(label, systemImage: "cpu", menu: controls.showsModelMenu)
+            if compact { Label(label, systemImage: "cpu") }
+            else { chip(label, systemImage: "cpu", menu: controls.showsModelMenu) }
         }
         .disabled(!enabled || !controls.showsModelMenu)
         .accessibilityLabel("Model: \(label)")
@@ -135,7 +139,8 @@ struct CompanionChatControlsBar: View, Equatable {
             }
             note
         } label: {
-            chip(controls.effortLabel, systemImage: "gauge.with.dots.needle.50percent", menu: controls.showsEffortMenu)
+            if compact { Label(controls.effortLabel, systemImage: "gauge.with.dots.needle.50percent") }
+            else { chip(controls.effortLabel, systemImage: "gauge.with.dots.needle.50percent", menu: controls.showsEffortMenu) }
         }
         .disabled(!enabled || !controls.showsEffortMenu)
         .accessibilityLabel("Reasoning effort: \(controls.effortLabel)")
@@ -168,7 +173,7 @@ struct CompanionLevelBadge: View {
         Label(level.label, systemImage: level >= .auto ? "exclamationmark.shield" : "shield")
             .font(.caption)
             .foregroundStyle(level >= .auto ? Color(palette.warning) : Color(palette.secondaryLabel))
-            .lineLimit(1)
+            .lineLimit(nil)
             .accessibilityLabel("Permissions: \(level.label)")
             .accessibilityIdentifier("companion-header-level")
     }

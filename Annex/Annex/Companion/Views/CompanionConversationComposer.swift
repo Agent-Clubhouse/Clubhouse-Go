@@ -24,6 +24,7 @@ struct CompanionConversationComposer: View {
     @Binding var confirmCancel: Bool
     let dismissals: Int
     @State private var showRefreshing = false
+    @State private var pendingLevel: CompanionPermissionLevel?
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -118,21 +119,17 @@ struct CompanionConversationComposer: View {
                 .accessibilityElement(children: .contain)
             }
             CompanionAttachmentStrip(store: store, target: target)
-            if let controls = agent.chatControls, !isAsleep {
-                CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
-                                         setLevel: { level in Task { await store.setLevel(level, target: target) } },
-                                         setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } })
-                    .equatable()
-            }
+            if !usesCompactControls { chatControls(compact: false) }
             if !slashMatches.isEmpty {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
             HStack(alignment: .bottom, spacing: 8) {
+                if usesCompactControls { chatControls(compact: true).frame(height: composerRowHeight) }
                 if agent.status == .working {
                     Button { confirmCancel = true } label: {
-                        Image(systemName: "stop.fill").font(.headline).frame(width: 44, height: 44)
+                        Image(systemName: "stop.fill").font(.headline)
                     }
-                    .buttonStyle(.glass).buttonBorderShape(.circle)
+                    .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.large)
                     .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
                     .accessibilityLabel("Interrupt")
                     .frame(height: composerRowHeight)
@@ -161,9 +158,9 @@ struct CompanionConversationComposer: View {
                         Task { await store.sendDraft(to: target) }
                     } label: {
                         Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
-                            .font(.headline.weight(.bold)).frame(width: 36, height: 36)
+                            .font(.headline.weight(.bold))
                     }
-                    .buttonStyle(.companionTintedCircle)
+                    .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.large)
                     .disabled(!store.canSend(target) || !hasMessage)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
@@ -198,6 +195,14 @@ struct CompanionConversationComposer: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("companion-composer-region")
+        .confirmationDialog(pendingLevel.map { "Switch to \($0.label)?" } ?? "", isPresented: Binding(get: { pendingLevel != nil }, set: { if !$0 { pendingLevel = nil } }),
+                            titleVisibility: .visible, presenting: pendingLevel) { level in
+            Button("Switch to \(level.label)") { Task { await store.setLevel(level, target: target) } }
+        } message: { level in
+            Text(level == .fullAccess
+                 ? "\(agent.name) will edit files and run commands without asking you first."
+                 : "\(agent.name) will decide for itself what needs your approval.")
+        }
         .onAppear {
             slashHighlight = memory.slashHighlight
             slashDismissedAt = memory.slashDismissedAt
@@ -232,6 +237,18 @@ struct CompanionConversationComposer: View {
             guard conversation.isLoading else { showRefreshing = false; return }
             guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
             showRefreshing = true
+        }
+    }
+
+    private var usesCompactControls: Bool { composerFocused || dynamicTypeSize.isAccessibilitySize }
+
+    @ViewBuilder private func chatControls(compact: Bool) -> some View {
+        if let controls = agent.chatControls, !isAsleep {
+            CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
+                setLevel: { level in Task { await store.setLevel(level, target: target) } },
+                setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } },
+                compact: compact, requestLevel: { pendingLevel = $0 })
+                .equatable()
         }
     }
 
@@ -331,9 +348,9 @@ struct CompanionConversationComposer: View {
     }
 
     /// The send button with its padding, or one line of text with the field's padding if that is taller.
-    private var composerRowHeight: CGFloat { max(36 + 12, composerLineHeight + 24) }
+    private var composerRowHeight: CGFloat { max(48, composerLineHeight + 24) }
 
-    /// One caption line under the composer. Refresh state shows in the same line, so the composer doesn't move.
+    /// Reserve a caption only for information that changes what sending will do.
     @ViewBuilder private var composerCaption: some View {
         if let caption = composerCaptionText {
             Group {
@@ -359,20 +376,20 @@ struct CompanionConversationComposer: View {
     private var isShowingRefresh: Bool { showRefreshing && conversation.isLoading && !conversation.items.isEmpty }
 
     private var composerCaptionText: String? {
+        if !connection.canOperate { return "Draft saved while you reconnect" }
         // Loading disables Send; say why rather than implying chat is unsupported.
         if isShowingRefresh {
-            return dynamicTypeSize.isAccessibilitySize ? nil : "Refreshing… you can send in a moment"
+            return "Refreshing… you can send in a moment"
         }
-        if conversation.isLoading { return dynamicTypeSize.isAccessibilitySize ? nil : defaultCaption }
+        if conversation.isLoading { return nil }
         if !store.canSend(target) && connection.canOperate && !store.pendingCommands.contains(target) && !conversation.requiresResync {
             return "This desktop does not support chat control for this agent yet."
         }
-        if dynamicTypeSize.isAccessibilitySize { return nil }
-        return connection.canOperate ? defaultCaption : "Draft saved while you reconnect"
+        return defaultCaption
     }
 
-    private var defaultCaption: String {
-        agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : "Runs on your desktop • ⌘ Return to send"
+    private var defaultCaption: String? {
+        agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : nil
     }
 
     /// The desktop's "Message {name}…". Mid-turn, the desktop's send actions name what happens: Steer or Queue.
