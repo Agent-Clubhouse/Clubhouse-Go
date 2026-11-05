@@ -11,8 +11,8 @@ import XCTest
         waitAndTap(app.buttons["Settings"], until: link)
         let weekly = element(app, "plan-limits-preview-studio-claude-code")
         waitAndTap(link, until: weekly)
-        XCTAssertTrue(weekly.label.contains("41% used"))
         capture(app, "Plan limits by desktop — weekly progress")
+        XCTAssertTrue(weekly.label.contains("41% used"), weekly.debugDescription)
         let offline = element(app, "plan-limits-unavailable-preview-laptop")
         XCTAssertTrue(scrollUntilExists(offline, in: app) && scrollTo(offline, in: app))
         XCTAssertTrue(offline.label.contains("offline"))
@@ -33,8 +33,8 @@ import XCTest
         waitAndTap(app.buttons["Settings"], until: link)
         let weekly = element(app, "plan-limits-preview-studio-claude-code")
         waitAndTap(link, until: weekly)
-        XCTAssertTrue(weekly.label.contains("41% used") && weekly.label.contains("Resets"))
         capture(app, "Plan limits — accessibility text size")
+        XCTAssertTrue(weekly.label.contains("41% used") && weekly.label.contains("Resets"), weekly.debugDescription)
     }
     private func openPresets(_ app: XCUIApplication) {
         let link = element(app, "helper-presets-preview-studio")

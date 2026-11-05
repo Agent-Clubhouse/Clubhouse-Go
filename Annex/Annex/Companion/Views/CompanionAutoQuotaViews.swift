@@ -87,8 +87,10 @@ struct CompanionQuotaView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label("quota", quota.state)).foregroundStyle(stateColor).accessibilityIdentifier("helper-quota-state-\(quota.state)")
             if let reason = quota.unknownReason { Text(label("unknown", reason)).font(.subheadline) }
-            if let limiting = quota.limitingWindow { Text(label("window", limiting)).font(.subheadline) }
-            if let resetsAt = quota.resetsAt { resetText(resetsAt) }
+            if !showsProgress {
+                if let limiting = quota.limitingWindow { Text(label("window", limiting)).font(.subheadline) }
+                if let resetsAt = quota.resetsAt { resetText(resetsAt) }
+            }
             if let weekly = quota.weekly { window(weekly, name: label("window", "weekly")) }
             else if showsProgress { Text("\(label("window", "weekly")): \(label("quota", "unknown"))").font(.subheadline) }
             if let fiveHour = quota.fiveHour { window(fiveHour, name: label("window", "fiveHour"), secondary: showsProgress) }
@@ -113,7 +115,7 @@ struct CompanionQuotaView: View {
                 }
             }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: showsProgress ? .combine : .contain)
     }
     private var stateColor: Color {
         guard showsProgress else { return .primary }
