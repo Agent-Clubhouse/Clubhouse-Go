@@ -306,9 +306,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(transcript.waitForExistence(timeout: 5))
             let approval = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch
             let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
-            let top = transcript.frame.minY + 12
-            let bottom = min(composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
-            let viewport = CGRect(x: transcript.frame.minX, y: top, width: transcript.frame.width, height: bottom - top)
+            func usableViewport() -> CGRect {
+                let bounds = transcript.frame.intersection(app.frame)
+                let top = bounds.minY + 12
+                var bottom = min(bounds.maxY, composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
+                let latest = app.buttons["Latest"]
+                if latest.exists { bottom = min(bottom, latest.frame.minY - 12) }
+                return CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bottom - top))
+            }
+            var viewport = usableViewport()
             XCTAssertGreaterThan(viewport.height, 100)
             // Stop following the live bottom with a real reading gesture; updates keep streaming.
             // Waiting for the total link count to settle can prevent every tap as new runs arrive.
@@ -317,10 +323,24 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
             // Existing links precede appended runs. Reveal one instead of chasing the newest index.
             let candidate = links.firstMatch
-            XCTAssertTrue(bringTranscriptRowIntoView(candidate, in: app), "A real log link must be visible in the transcript")
+            // The generic helper's fixed screen band can accept a link above this viewport.
+            // Use the same current unobscured region for revealing and checking the whole link.
+            for _ in 0..<40 {
+                checkTimeLeft("bringing the streaming log inside its usable viewport")
+                viewport = usableViewport()
+                XCTAssertGreaterThan(viewport.height, 100)
+                if candidate.exists && viewport.contains(candidate.frame) && candidate.isHittable { break }
+                let above = candidate.exists && candidate.frame.minY < viewport.minY
+                let start = app.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: viewport.midX, dy: viewport.midY))
+                let distance = viewport.height * 0.3 * (above ? 1 : -1)
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)))
+            }
+            viewport = usableViewport()
+            XCTAssertTrue(candidate.exists, "A real log link must be visible in the transcript")
             XCTAssertTrue(candidate.isHittable)
             let frame = candidate.frame
-            XCTAssertTrue(viewport.contains(frame))
+            XCTAssertTrue(viewport.contains(frame), "Log \(frame) must fit within the current unobscured transcript \(viewport)")
             let point = CGPoint(x: frame.midX, y: frame.midY)
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "Visible log before one checked tap"
