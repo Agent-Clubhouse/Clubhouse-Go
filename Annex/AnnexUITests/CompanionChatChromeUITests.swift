@@ -70,6 +70,30 @@ import XCTest
         XCTAssertEqual(composer.value as? String, "Keep this draft")
     }
 
+    func testOfflineCaptionAppearsOnlyWhileReconnecting() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls"])
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        let caption = app.staticTexts["Draft saved while you reconnect"]
+        XCTAssertFalse(caption.exists)
+        XCTAssertFalse(app.staticTexts["Runs on your desktop • ⌘ Return to send"].exists)
+        waitAndTap(app.buttons["Settings"], until: app.buttons["Disconnect desktop"])
+        app.buttons["Disconnect desktop"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(caption.waitForExistence(timeout: 5))
+        focus(composer, in: app)
+        composer.typeText("A local offline draft")
+        XCTAssertTrue(caption.exists)
+        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Chat chrome offline caption and draft"; shot.lifetime = .keepAlways; add(shot)
+        waitAndTap(app.buttons["Settings"], until: app.buttons["Reconnect desktop"])
+        app.buttons["Reconnect desktop"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(caption.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A local offline draft"), timeout: 5))
+    }
+
     func testLargestTextKeepsSafetyStatusAndControlsReachable() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window",
                              "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
