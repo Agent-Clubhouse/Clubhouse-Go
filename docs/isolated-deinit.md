@@ -41,7 +41,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionIconStore.ImageBox` | arc_only | Immutable Sendable CGImage wrapper, made only by bounded ImageIO decode; no UIKit ownership, callbacks or main-only teardown. |
 | `CompanionImageBytes` | arc_only | Immutable Data bytes, Sendable; no decoded UIImage is stored. |
 | `CompanionLifecycle` | main_actor | Owns injected main-actor transition closure; arbitrary captures not proved UI-free. |
-| `CompanionLiveService` | arc_only | Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. |
+| `CompanionLiveService` | arc_only | Transport/value/task state; the MCP-off cache adds only Bool, optional String and Set<String> in a Sendable value struct, with no callback or UI owner. All three production callbacks in AppRoot still capture Runtime WEAKLY, not raw UI. New assignments require capture review. |
 | `CompanionLiveTerminalChannel` | arc_only | Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned. |
 | `CompanionLocalDrafts` | arc_only | UserDefaults (thread-safe Foundation) plus fixed String; deinit performs no write. |
 | `CompanionLocalFinished` | arc_only | UserDefaults plus fixed String; no UI fields or deinit I/O. |
