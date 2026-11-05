@@ -2,9 +2,35 @@ import Foundation
 import Testing
 @testable import ClubhouseTransport
 
-/// Local draft fixtures only. Canonical annex-mobile fixtures stay pinned to desktop main.
-/// Source: Clubhouse c571cefac2161c06ad445a266208494015c6ac4f, agent-provider-control.ts.
-@Suite struct ProviderControlDraftTests {
+/// Synthetic edge cases supplement the complete canonical fixtures pinned in SOURCE.json.
+@Suite struct ProviderControlTests {
+    @Test func canonicalPreviewAndChangeResultsDecodeWithTheirDistinctTokenShapes() throws {
+        for item in try AnnexContract.cases("commands/agent.providerPreview.json") {
+            let result = try #require(item["response"]?["body"]?["result"])
+            let preview = try result.decode(AnnexProviderPreview.self)
+            #expect(preview.outcome.provider == item["request"]?["provider"]?.string)
+            #expect(preview.outcome.permitsSave == (result["canSave"] == .bool(true)))
+            #expect(preview.outcome.availabilityMeaning == "local_cli_only" && preview.outcome.instructionScope == "native_primary_only")
+        }
+        for item in try AnnexContract.cases("commands/agent.providerChange.json") {
+            let receipt = try #require(item["response"]?["body"]).decode(AnnexCommandReceipt.self)
+            guard receipt.status == .completed else { #expect(receipt.error?.code != nil); continue }
+            let raw = try #require(receipt.result)
+            guard case .changed(let outcome) = try raw.decode(AnnexProviderChangeResult.self) else { Issue.record("Expected changed"); continue }
+            #expect(raw["expectedState"] == nil && outcome.savedProvider == outcome.provider)
+            #expect(outcome.state == .sleeping && outcome.nextStart == .newSession)
+        }
+    }
+
+    @Test func canonicalStoppedAcknowledgmentRequiresTheOptInReceipt() throws {
+        for item in try AnnexContract.cases("commands/agent.stop.json") {
+            let receipt = try #require(item["response"]?["body"]).decode(AnnexCommandReceipt.self)
+            guard receipt.status == .completed else { continue }
+            let stopped = try #require(receipt.result).decode(AnnexStoppedAcknowledgment.self)
+            #expect(stopped.confirmsSleep == (item["request"]?["waitForStopped"] == .bool(true)))
+        }
+    }
+
     private let outcome: [String: AnnexJSON] = [
         "agentId": .string("agent"), "savedProvider": .string("claude-code"), "activeProvider": .null,
         "provider": .string("codex-cli"), "state": .string("sleeping"), "expectedState": .string("opaque-state"),

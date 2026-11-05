@@ -404,6 +404,9 @@ enum CompanionAgentCommandError {
         let detail = message.flatMap { $0.isEmpty || $0 == code ? nil : $0 }
         switch code {
         case "agent_running": return detail ?? CompanionAgentSettings.lockedHint
+        case "stale_state": return "The agent or its settings changed. Refresh before trying again."
+        case "session_capture_failed": return "The desktop could not save the previous session. Check the agent on the desktop before changing providers."
+        case "resume_unverified", "resume_failed": return "Resume could not be verified. No fresh session was started."
         case "create_refused": return detail ?? "The desktop couldn't create this agent."
         case "invalid_name": return detail ?? "Choose a different agent name."
         case "invalid_color": return detail ?? "Choose one of the colours offered."

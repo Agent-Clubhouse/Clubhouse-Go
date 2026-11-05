@@ -1,7 +1,7 @@
 import Foundation
 
-// Draft contract from Clubhouse c571cefac2161c06ad445a266208494015c6ac4f.
-// Not canonical fixture adoption. No live caller enables this flow yet.
+// Provider control v1 from Clubhouse main 4b3b4f59e67adcbe9df477b5f091ae1d9fb81953.
+// Availability and instruction comparison have the limited scopes carried in each result.
 nonisolated public struct AnnexProviderControlCapability: Decodable, Sendable, Equatable {
     public let version: Int
     public let preview: String

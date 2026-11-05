@@ -11,7 +11,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case question(agentID: String, sessionID: String, requestID: String, answers: [String: AnnexJSON])
         case start(agentID: String, message: String? = nil, resume: Bool? = nil, expectedProvider: String? = nil, expectedSessionID: String? = nil)
         case stop(agentID: String, waitForStopped: Bool? = nil)
-        /// Draft providerControl v1. Callers must gate these on the advertised capability.
+        /// providerControl v1. Callers must gate these on the advertised capability.
         case providerPreview(agentID: String, provider: String)
         case providerChange(agentID: String, provider: String, expectedState: String)
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
@@ -364,7 +364,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     public let createOptions: Feature?
     public let agentSettings: Feature?
-    /// Draft additive contract; parsing it alone does not enable the guided UI.
+    /// Gate guided controls on this complete capability and the advertised commands.
     public let providerControl: AnnexProviderControlCapability?
     public var supportsProviderControl: Bool {
         providerControl?.isSupported == true && ["agent.providerPreview", "agent.providerChange", "agent.stop", "agent.start"].allSatisfy(commands.contains)
