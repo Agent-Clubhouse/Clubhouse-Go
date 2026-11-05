@@ -487,7 +487,7 @@ nonisolated extension AnnexCommand {
         case .spawn: .spawn
         case .create: .createAgent
         case .update: .updateAgent
-        case .setModel, .setLevel, .setDispatcherEnabled, .updateHelperRouting: .command
+        case .setModel, .setLevel, .setDispatcherEnabled, .updateHelperRouting, .providerPreview, .providerChange: .command
         case .helperApprove, .helperDecline: .helperRequest
         case .setProjectPinned, .setProjectInactive: .updateProject
         case .dismissFinishedQuick, .clearFinishedQuick: .finishedQuick

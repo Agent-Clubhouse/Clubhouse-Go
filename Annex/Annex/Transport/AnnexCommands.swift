@@ -9,8 +9,11 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case removeQueued(agentID: String, sessionID: String, messageIDs: [String])
         case permission(agentID: String, sessionID: String, requestID: String, optionID: String)
         case question(agentID: String, sessionID: String, requestID: String, answers: [String: AnnexJSON])
-        case start(agentID: String, message: String? = nil, resume: Bool? = nil)
-        case stop(agentID: String)
+        case start(agentID: String, message: String? = nil, resume: Bool? = nil, expectedProvider: String? = nil, expectedSessionID: String? = nil)
+        case stop(agentID: String, waitForStopped: Bool? = nil)
+        /// Draft providerControl v1. Callers must gate these on the advertised capability.
+        case providerPreview(agentID: String, provider: String)
+        case providerChange(agentID: String, provider: String, expectedState: String)
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
         case create(AnnexAgentCreate)
         case update(AnnexAgentUpdate)
@@ -56,6 +59,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .question: "chat.question"
         case .start: "agent.start"
         case .stop: "agent.stop"
+        case .providerPreview: "agent.providerPreview"
+        case .providerChange: "agent.providerChange"
         case .spawn: "agent.spawn"
         case .create: "agent.create"
         case .update: "agent.update"
@@ -98,9 +103,23 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             target(agent, session); v["requestId"] = .string(request); v["optionId"] = .string(option)
         case .question(let agent, let session, let request, let answers):
             target(agent, session); v["requestId"] = .string(request); v["answers"] = .object(answers)
-        case .start(let agent, let message, let resume):
+        case .start(let agent, let message, let resume, let provider, let session):
+            if let provider { guard !provider.isEmpty, provider.count <= 256 else { throw AnnexTransportError.malformedResponse }; v["expectedProvider"] = .string(provider) }
+            if let session {
+                guard provider != nil, resume == true, !session.isEmpty, session.count <= 256 else { throw AnnexTransportError.malformedResponse }
+                v["expectedSessionId"] = .string(session)
+            }
+            // A strict resume cannot silently become a fresh start.
+            guard provider == nil || resume != true || session != nil else { throw AnnexTransportError.malformedResponse }
             target(agent); if let message { v["message"] = .string(message) }; if let resume { v["resume"] = .bool(resume) }
-        case .stop(let agent): target(agent)
+        case .stop(let agent, let wait):
+            target(agent); if let wait { v["waitForStopped"] = .bool(wait) }
+        case .providerPreview(let agent, let provider):
+            guard !provider.isEmpty, provider.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent); v["provider"] = .string(provider)
+        case .providerChange(let agent, let provider, let expectedState):
+            guard !provider.isEmpty, provider.count <= 256, !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent); v["provider"] = .string(provider); v["expectedState"] = .string(expectedState)
         case .spawn(let project, let prompt, let model, let orchestrator):
             v["projectId"] = .string(project); v["prompt"] = .string(prompt)
             if let model { v["model"] = .string(model) }; if let orchestrator { v["orchestrator"] = .string(orchestrator) }
@@ -345,6 +364,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     public let createOptions: Feature?
     public let agentSettings: Feature?
+    /// Draft additive contract; parsing it alone does not enable the guided UI.
+    public let providerControl: AnnexProviderControlCapability?
+    public var supportsProviderControl: Bool {
+        providerControl?.isSupported == true && ["agent.providerPreview", "agent.providerChange", "agent.stop", "agent.start"].allSatisfy(commands.contains)
+    }
     /// Every agent's live state in one read (`agentState` v1). Older desktops have no bulk read.
     public let agentState: Feature?
     public var supportsAgentState: Bool { (agentState?.version ?? 0) >= 1 }
@@ -481,6 +505,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         routes = optional(.routes)
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
+        providerControl = optional(.providerControl)
         agentState = optional(.agentState)
         projectState = optional(.projectState)
         finishedQuickAgents = optional(.finishedQuickAgents)
@@ -497,7 +522,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState
+        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }

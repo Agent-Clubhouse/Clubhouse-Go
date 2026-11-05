@@ -724,11 +724,12 @@ import ClubhouseTransport
         switch kind {
         case .send(let id, _, _, _, _): agentID = id; allowed = off.allows("chat.send")
         case .interrupt(let id, _): agentID = id; allowed = off.allows("chat.interrupt")
-        case .stop(let id): agentID = id; allowed = off.allows("agent.stop")
+        case .stop(let id, _): agentID = id; allowed = off.allows("agent.stop")
         case .permission(let id, _, _, _): agentID = id; allowed = off.allows("chat.permission")
         case .question(let id, _, _, _): agentID = id; allowed = off.allows("chat.question")
         case .removeQueued(let id, _, _): agentID = id; allowed = off.allows("chat.queue.remove")
-        case .start(let id, _, _), .setModel(let id, _, _, _), .setLevel(let id, _, _): agentID = id; allowed = false
+        case .start(let id, _, _, _, _), .setModel(let id, _, _, _), .setLevel(let id, _, _),
+             .providerPreview(let id, _), .providerChange(let id, _, _): agentID = id; allowed = false
         case .update(let update): agentID = update.agentID; allowed = false
         case .setDispatcherEnabled(let enabled):
             guard !enabled && off.commands.contains("dispatcher.setEnabled") else { throw CompanionServiceError.rejected(off.note) }
