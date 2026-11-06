@@ -290,8 +290,12 @@ import XCTest
             } else {
                 XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
             }
-            XCTAssertLessThanOrEqual(interrupt.frame.maxX, send.frame.minX, state, file: file, line: line)
-            XCTAssertLessThanOrEqual(send.frame.minX - interrupt.frame.maxX, 16, state, file: file, line: line)
+            let interruptFrame = interrupt.frame, sendFrame = send.frame
+            let gap = sendFrame.minX - interruptFrame.maxX
+            let adjacent = "\(state): Interrupt \(interruptFrame), Send \(sendFrame), gap \(gap)"
+            XCTContext.runActivity(named: "Compact composer adjacent action frames — \(adjacent)") { _ in }
+            XCTAssertLessThanOrEqual(interruptFrame.maxX, sendFrame.minX, adjacent, file: file, line: line)
+            XCTAssertLessThanOrEqual(gap, 16, adjacent, file: file, line: line)
             XCTAssertTrue(interrupt.isHittable, state, file: file, line: line)
         } else {
             XCTAssertFalse(app.buttons["companion-interrupt"].exists, state, file: file, line: line)
