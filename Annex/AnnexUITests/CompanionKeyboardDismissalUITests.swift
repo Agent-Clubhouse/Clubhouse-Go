@@ -334,7 +334,101 @@ import XCTest
         XCTAssertEqual(interrupt.label, "Interrupt")
         let attach = app.buttons["companion-attach"]
         let send = app.buttons["companion-send"]
-        for control in [interrupt, attach, send, dismiss] {
+        let controls = app.buttons["companion-level-menu"]
+        func editingViewport() -> CGRect? {
+            func note(_ text: String) {
+                XCTContext.runActivity(named: "Assistive stacked viewport — \(text)") { _ in }
+            }
+            func finite(_ frame: CGRect) -> Bool {
+                !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+                    && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy { $0.isFinite }
+            }
+            func reject(_ text: String) -> CGRect? {
+                note("FAIL: \(text)")
+                screenshot(app, "Assistive stacked viewport unsupported geometry")
+                let tree = XCTAttachment(data: Data(app.debugDescription.utf8.prefix(65_536)), uniformTypeIdentifier: "public.plain-text")
+                tree.name = "Assistive stacked public hierarchy (capped; later retrieval)"
+                tree.lifetime = .keepAlways; add(tree)
+                XCTFail(text)
+                return nil
+            }
+            let navigationBars = app.navigationBars
+            let riverBars = navigationBars.matching(identifier: "River")
+            let regionID = "companion-composer-region"
+            let regions = app.descendants(matching: .any).matching(identifier: regionID)
+            let regionOthers = app.otherElements.matching(identifier: regionID)
+            let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
+            let actionIDs = ["companion-level-menu", "companion-interrupt", "companion-attach", "companion-send", "companion-dismiss-keyboard"]
+            let actionCounts = actionIDs.map { app.buttons.matching(identifier: $0).count }
+            let keyboards = app.keyboards
+            let inputs = app.otherElements.matching(identifier: "inputView")
+            let assistants = app.otherElements.matching(identifier: "SystemInputAssistantView")
+            let tabs = app.tabBars
+            let windows = app.windows.containing(.navigationBar, identifier: "River").containing(.other, identifier: regionID)
+            let windowCount = app.windows.count, contentWindowCount = windows.count
+            let navCount = navigationBars.count, riverCount = riverBars.count
+            let regionCount = regions.count, regionOtherCount = regionOthers.count, editorCount = editors.count
+            let keyboardCount = keyboards.count, inputCount = inputs.count, assistantCount = assistants.count, tabCount = tabs.count
+            note("global windows(diagnostic)=\(windowCount) contentWindow=\(contentWindowCount) nav/River=\(navCount)/\(riverCount) regionAny/Other=\(regionCount)/\(regionOtherCount) editor=\(editorCount) actionIDs=\(actionIDs) counts=\(actionCounts) keyboard/input/assistant/tab=\(keyboardCount)/\(inputCount)/\(assistantCount)/\(tabCount)")
+            guard contentWindowCount == 1, navCount == 1, riverCount == 1, regionCount == 1, regionOtherCount == 1,
+                  editorCount == 1, actionCounts.allSatisfy({ $0 == 1 }), keyboardCount == 1, inputCount == 1,
+                  assistantCount <= 1, tabCount <= 1 else { return reject("Expected unique current assistive River content and global input exports") }
+            let contentWindow = windows.element(boundBy: 0)
+            let localNavCount = contentWindow.navigationBars.count
+            let localRiverCount = contentWindow.navigationBars.matching(identifier: "River").count
+            let localRegionCount = contentWindow.descendants(matching: .any).matching(identifier: regionID).count
+            let localRegionOtherCount = contentWindow.otherElements.matching(identifier: regionID).count
+            let localEditorCount = contentWindow.descendants(matching: .any).matching(identifier: "companion-composer").count
+            let localActionCounts = actionIDs.map { contentWindow.buttons.matching(identifier: $0).count }
+            note("local nav/River=\(localNavCount)/\(localRiverCount) regionAny/Other=\(localRegionCount)/\(localRegionOtherCount) editor=\(localEditorCount) actions=\(localActionCounts)")
+            guard localNavCount == navCount, localRiverCount == riverCount, localRegionCount == regionCount,
+                  localRegionOtherCount == regionOtherCount, localEditorCount == editorCount, localActionCounts == actionCounts else {
+                return reject("The actual content Window must own the same guarded global editor and action exports before frame use")
+            }
+            let appFrame = app.frame, windowFrame = contentWindow.frame
+            let navFrame = riverBars.element(boundBy: 0).frame, regionFrame = regions.element(boundBy: 0).frame
+            let keyboardFrame = keyboards.element(boundBy: 0).frame, inputFrame = inputs.element(boundBy: 0).frame
+            let assistantFrame = assistantCount == 1 ? assistants.element(boundBy: 0).frame : nil
+            let tabFrame = tabCount == 1 ? tabs.element(boundBy: 0).frame : nil
+            let rawFrames = [appFrame, windowFrame, navFrame, regionFrame, keyboardFrame, inputFrame]
+            let finiteFrames = rawFrames.map(finite), finiteAssistant = assistantFrame.map(finite) ?? true, finiteTab = tabFrame.map(finite) ?? true
+            note("raw app/window/nav/region/keyboard/input=\(rawFrames) assistant=\(String(describing: assistantFrame)) tab=\(String(describing: tabFrame)) finite=\(finiteFrames) finiteAssistant=\(finiteAssistant) finiteTab=\(finiteTab)")
+            guard finiteFrames.allSatisfy({ $0 }), finiteAssistant, finiteTab else { return reject("All actual viewport/input frames must be finite and positive") }
+            let window = windowFrame.intersection(appFrame)
+            let keyboardVisible = keyboardFrame.intersection(window), inputVisible = inputFrame.intersection(window)
+            let assistantVisible = assistantFrame.map { $0.intersection(window) }, tabVisible = tabFrame.map { $0.intersection(window) }
+            let validWindow = finite(window), navInside = window.contains(navFrame), regionInside = window.contains(regionFrame)
+            let visibleKeyboard = finite(keyboardVisible), visibleInput = finite(inputVisible)
+            let connectedInput = finite(keyboardVisible.intersection(inputVisible))
+            let connectedAssistant = assistantVisible.map { !finite($0) || finite($0.intersection(inputVisible)) } ?? true
+            let visibleTab = tabVisible.map(finite) ?? true
+            note("visible window=\(window) keyboard=\(keyboardVisible) input=\(inputVisible) assistant=\(String(describing: assistantVisible)) tab=\(String(describing: tabVisible)) validWindow=\(validWindow) navInside=\(navInside) regionInside=\(regionInside) visibleKeyboard=\(visibleKeyboard) visibleInput=\(visibleInput) connectedInput=\(connectedInput) connectedAssistant=\(connectedAssistant) visibleTab=\(visibleTab)")
+            guard validWindow, navInside, regionInside, visibleKeyboard, visibleInput, connectedInput, connectedAssistant, visibleTab else {
+                return reject("Actual app/content-window/nav/composer/full-input intersections must agree")
+            }
+            var bottom = min(window.maxY, min(keyboardVisible.minY, inputVisible.minY))
+            if let assistantVisible, finite(assistantVisible) { bottom = min(bottom, assistantVisible.minY) }
+            if let tabVisible { bottom = min(bottom, tabVisible.minY) }
+            let top = max(window.minY, navFrame.maxY)
+            let viewport = CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
+            note("actual nav-to-full-input viewport=\(viewport) finite=\(finite(viewport))")
+            guard finite(viewport) else { return reject("The actual nav-to-full-input viewport must have positive area") }
+            let regionInsideViewport = viewport.contains(regionFrame)
+            note("whole composer region=\(regionFrame) viewport=\(viewport) regionInsideViewport=\(regionInsideViewport)")
+            guard regionInsideViewport else { return reject("The whole composer region, including slash/pinned/attachments, must fit nav-to-full-input viewport") }
+            return viewport
+        }
+        guard let viewport = editingViewport() else { return }
+        for control in [controls, interrupt, attach, send, dismiss] {
+            let frame = control.frame
+            let finiteFrame = !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+                && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy { $0.isFinite }
+            XCTContext.runActivity(named: "Assistive stacked target \(control.identifier): \(frame), viewport \(viewport), finite=\(finiteFrame)") { _ in }
+            XCTAssertTrue(finiteFrame)
+            guard finiteFrame else { return }
+            XCTAssertTrue(viewport.contains(frame), "The whole actual composer action stays inside nav-to-full-input viewport")
+            XCTAssertGreaterThanOrEqual(frame.width, 44)
+            XCTAssertGreaterThanOrEqual(frame.height, 44)
             XCTAssertTrue(control.isHittable, "Every composer control remains reachable: \(control.label)")
             XCTAssertTrue(app.frame.contains(control.frame))
         }
@@ -345,10 +439,17 @@ import XCTest
         let editorFrame = composer.frame, interruptFrame = interrupt.frame, sendFrame = send.frame
         let interruptSendGap = sendFrame.minX - interruptFrame.maxX
         XCTContext.runActivity(named: "Assistive trailing actions — editor \(editorFrame), Interrupt \(interruptFrame), Send \(sendFrame), gap \(interruptSendGap)") { _ in }
-        XCTAssertLessThanOrEqual(editorFrame.maxX, interruptFrame.minX)
+        let dismissFrame = dismiss.frame, controlsFrame = controls.frame
+        let finiteEditor = !editorFrame.isNull && !editorFrame.isInfinite && editorFrame.width > 0 && editorFrame.height > 0
+            && [editorFrame.minX, editorFrame.minY, editorFrame.maxX, editorFrame.maxY].allSatisfy { $0.isFinite }
+        XCTAssertTrue(finiteEditor)
+        guard finiteEditor else { return }
+        XCTAssertTrue(viewport.contains(editorFrame), "The full editor stays inside nav-to-full-input viewport")
+        XCTAssertTrue(composer.isHittable)
+        XCTAssertLessThanOrEqual(editorFrame.maxY, min(interruptFrame.minY, min(sendFrame.minY, min(dismissFrame.minY, controlsFrame.minY))),
+                                 "Focused assistive editor is above its action rail")
         XCTAssertLessThanOrEqual(interruptFrame.maxX, sendFrame.minX)
         XCTAssertLessThanOrEqual(interruptSendGap, 16)
-        XCTAssertLessThanOrEqual(composer.frame.maxX, send.frame.minX)
         XCTAssertLessThanOrEqual(send.frame.maxX, dismiss.frame.minX)
         XCTContext.runActivity(named: "Assistive row: window \(app.frame), input \(composer.frame), interrupt \(interrupt.frame), attach \(attach.frame), send \(send.frame), dismiss \(dismiss.frame)") { _ in }
         screenshot(app, "Assistive composer row with slash menu")
