@@ -36,25 +36,50 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         note("keyboard count=\(keyboardCount)")
         if keyboardCount == 0 { return }
 
-        let windows = app.windows
+        let allWindows = app.windows
+        let windows = allWindows
+            .containing(.navigationBar, identifier: "Dispatcher")
+            .containing(.other, identifier: "companion-transcript")
+            .containing(.scrollView, identifier: "companion-transcript")
+            .containing(.other, identifier: "companion-composer-region")
         let navigationBars = app.navigationBars
         let dispatcherBars = navigationBars.matching(identifier: "Dispatcher")
         let transcriptID = "companion-transcript"
         let allTranscripts = app.descendants(matching: .any).matching(identifier: transcriptID)
         let reducedTranscripts = app.otherElements.matching(identifier: transcriptID)
         let nativeTranscripts = app.scrollViews.matching(identifier: transcriptID)
-        let composers = app.descendants(matching: .any).matching(identifier: "companion-composer-region")
+        let composerID = "companion-composer-region"
+        let composers = app.descendants(matching: .any).matching(identifier: composerID)
+        let composerOthers = app.otherElements.matching(identifier: composerID)
         let inputViews = app.otherElements.matching(identifier: "inputView")
         let assistants = app.otherElements.matching(identifier: "SystemInputAssistantView")
         let tabs = app.tabBars
-        let windowCount = windows.count, navigationCount = navigationBars.count, dispatcherCount = dispatcherBars.count
+        let windowCount = allWindows.count, contentWindowCount = windows.count
+        let navigationCount = navigationBars.count, dispatcherCount = dispatcherBars.count
         let transcriptCount = allTranscripts.count, reducedCount = reducedTranscripts.count, nativeCount = nativeTranscripts.count
-        let composerCount = composers.count, inputCount = inputViews.count, assistantCount = assistants.count, tabCount = tabs.count
-        note("counts window=\(windowCount) nav=\(navigationCount) Dispatcher=\(dispatcherCount) transcriptAny/Other/ScrollView=\(transcriptCount)/\(reducedCount)/\(nativeCount) composerRegion=\(composerCount) inputView=\(inputCount) assistant=\(assistantCount) tab=\(tabCount)")
-        guard keyboardCount == 1, windowCount == 1, navigationCount == 1, dispatcherCount == 1,
-              transcriptCount == 2, reducedCount == 1, nativeCount == 1, composerCount == 1,
+        let composerCount = composers.count, composerOtherCount = composerOthers.count
+        let inputCount = inputViews.count, assistantCount = assistants.count, tabCount = tabs.count
+        note("counts window(diagnostic)=\(windowCount) contentWindow=\(contentWindowCount) nav=\(navigationCount) Dispatcher=\(dispatcherCount) transcriptAny/Other/ScrollView=\(transcriptCount)/\(reducedCount)/\(nativeCount) composerRegionAny/Other=\(composerCount)/\(composerOtherCount) inputView=\(inputCount) assistant=\(assistantCount) tab=\(tabCount)")
+        guard keyboardCount == 1, contentWindowCount == 1, navigationCount == 1, dispatcherCount == 1,
+              transcriptCount == 2, reducedCount == 1, nativeCount == 1, composerCount == 1, composerOtherCount == 1,
               inputCount == 1, assistantCount <= 1, tabCount <= 1 else {
-            reject("Expected unique current Dispatcher window/nav/composer/input and empirical transcript Other/ScrollView pair")
+            reject("Expected unique content-owning Dispatcher window/nav/composer/input and empirical transcript Other/ScrollView pair")
+            return
+        }
+        // Chained containing queries require common Window ownership; no label or frame chooses a Window.
+        let contentWindow = windows.element(boundBy: 0)
+        let localNavigationCount = contentWindow.navigationBars.count
+        let localDispatcherCount = contentWindow.navigationBars.matching(identifier: "Dispatcher").count
+        let localTranscriptCount = contentWindow.descendants(matching: .any).matching(identifier: transcriptID).count
+        let localReducedCount = contentWindow.otherElements.matching(identifier: transcriptID).count
+        let localNativeCount = contentWindow.scrollViews.matching(identifier: transcriptID).count
+        let localComposerCount = contentWindow.descendants(matching: .any).matching(identifier: composerID).count
+        let localComposerOtherCount = contentWindow.otherElements.matching(identifier: composerID).count
+        note("contentWindow local nav/Dispatcher=\(localNavigationCount)/\(localDispatcherCount) transcriptAny/Other/ScrollView=\(localTranscriptCount)/\(localReducedCount)/\(localNativeCount) composerRegionAny/Other=\(localComposerCount)/\(localComposerOtherCount)")
+        guard localNavigationCount == navigationCount, localDispatcherCount == dispatcherCount,
+              localTranscriptCount == transcriptCount, localReducedCount == reducedCount, localNativeCount == nativeCount,
+              localComposerCount == composerCount, localComposerOtherCount == composerOtherCount else {
+            reject("Content Window must own the same unique global Dispatcher nav/transcript/composer exports before frame use")
             return
         }
         // The pair is a checked native export shape, not a source-guaranteed AX role/ancestor contract.
@@ -64,7 +89,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let native = nativeTranscripts.element(boundBy: 0)
         let composer = composers.element(boundBy: 0)
         let input = inputViews.element(boundBy: 0)
-        let appFrame = app.frame, windowFrame = windows.element(boundBy: 0).frame
+        let appFrame = app.frame, windowFrame = contentWindow.frame
         let navigationFrame = navigation.frame, reducedFrame = reduced.frame, nativeFrame = native.frame
         let composerFrame = composer.frame, keyboardFrame = keyboard.frame, inputFrame = input.frame
         let assistantFrame: CGRect? = assistantCount == 1 ? assistants.element(boundBy: 0).frame : nil
