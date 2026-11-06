@@ -38,6 +38,26 @@ The component is intentionally unwired here. The parent/header owner owns
 `CompanionConversationView` integration after source review. Composer, RootView,
 Store, lifecycle, and transport are outside this change's scope.
 
+Construct `CompanionRecoveryStatus(connection:isLoading:requiresResync:error:)`
+from the current host connection and conversation flags. Pass it to
+`CompanionRecoveryStatusView(status:onRetry:)`; a clean connected value takes no
+layout space. The view has no Store dependency and never creates a Task.
+
+`onRetry` receives `.reconnect` or `.refreshConversation` only after a button
+press. The caller can use its existing `store.reconnect(hostID:)` and
+`store.load(target, force: true)` paths respectively. The caller must continue to
+derive command availability from Store; presentation is not authorization.
+
+Automatic recovery uses a compact progress row with a 44pt details button.
+Unavailable/stale states add a 44pt Retry or Refresh button. Narrow layouts and
+large Dynamic Type stack the label above the controls, with no text truncation
+or font cap. Details open a scrollable sheet retaining complete error text;
+an issue glyph/accessible issue label signals errors even during progress.
+
+The header owner should review overlap with the existing first-load transcript
+spinner and timeline error text during integration. This component intentionally
+does not change either caller surface or suppress any existing warning.
+
 ## Test plan
 
 - Exercise every connection enum case crossed with loading, resync, and errors.
@@ -53,3 +73,24 @@ Store, lifecycle, and transport are outside this change's scope.
 - Run source parsing and `git diff --check` immediately. Run package tests and
   hosted app tests/build when the orchestrator grants the serial heavy-work slot.
   Record exact commands/results in the PR; do not claim unrun checks passed.
+
+Focused issue: [#322](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/322).
+Related issues reviewed: #125 (composer spinner), #150 (host wording), and #205
+(first snapshot stall). These do not own the standalone recovery presentation.
+
+## Validation commands
+
+```sh
+swift test --filter CompanionRecoveryStatusTests
+swift test
+xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
+  -destination 'platform=iOS Simulator,id=<allocated simulator>' \
+  -derivedDataPath '<worktree>/.codex/reconnect-status-evidence/DerivedData' \
+  CODE_SIGNING_ALLOWED=NO -only-testing:ClubhouseGoTests/CompanionRecoveryStatusViewTests test
+git diff --check
+```
+
+The package target automatically includes the new Domain file. The app and hosted
+tests use Xcode synchronized groups, so no project-file changes are needed.
+There is no dedicated repository lint command; source parsing and whitespace
+validation accompany the compiler/test checks.
