@@ -53,6 +53,8 @@ Unavailable/stale states add a 44pt Retry or Refresh button. Narrow layouts and
 large Dynamic Type stack the label above the controls, with no text truncation
 or font cap. Details open a scrollable sheet retaining complete error text;
 an issue glyph/accessible issue label signals errors even during progress.
+Accessibility identifiers are on leaf controls only; the containing element has
+no identifier because #311 found container identifiers masking child selectors.
 
 The header owner should review overlap with the existing first-load transcript
 spinner and timeline error text during integration. This component intentionally
@@ -70,6 +72,10 @@ does not change either caller surface or suppress any existing warning.
 - Host only synthetic status views: compact standard-size progress row,
   actionable unavailable states, hidden clean state, large Dynamic Type at narrow
   widths, and complete detailed explanations. No desktop/provider/network fixture.
+- The five hosted tests only measure `sizeThatFits` and check model strings. They
+  do not establish sheet/action reachability, leaf selector behavior, or hit target
+  geometry. The integrated synthetic UI must tap Details, read full errors,
+  dismiss the sheet, and route Retry/Refresh correctly, including large text.
 - Run source parsing and `git diff --check` immediately. Run package tests and
   hosted app tests/build when the orchestrator grants the serial heavy-work slot.
   Record exact commands/results in the PR; do not claim unrun checks passed.
@@ -81,11 +87,11 @@ Related issues reviewed: #125 (composer spinner), #150 (host wording), and #205
 ## Validation commands
 
 ```sh
-swift test --filter CompanionRecoveryStatusTests
-swift test
+swift test --jobs 4 --filter CompanionRecoveryStatusTests
 xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   -destination 'platform=iOS Simulator,id=<allocated simulator>' \
   -derivedDataPath '<worktree>/.codex/reconnect-status-evidence/DerivedData' \
+  -jobs 4 -parallel-testing-enabled NO -test-iterations 1 \
   CODE_SIGNING_ALLOWED=NO -only-testing:ClubhouseGoTests/CompanionRecoveryStatusViewTests test
 git diff --check
 ```
@@ -94,3 +100,5 @@ The package target automatically includes the new Domain file. The app and hoste
 tests use Xcode synchronized groups, so no project-file changes are needed.
 There is no dedicated repository lint command; source parsing and whitespace
 validation accompany the compiler/test checks.
+The bounded allocation is filtered Domain tests and exactly five hosted tests,
+once without retries; it does not authorize a full-suite follow-on.

@@ -3,6 +3,8 @@ import SwiftUI
 @testable import ClubhouseGo
 
 /// Layout-only fixtures: no store, service, transport, provider, or feedback calls.
+/// These sizeThatFits checks do not prove hit targets, accessibility selectors, sheet
+/// presentation, or retry routing. Those need the integrated synthetic UI fixture.
 @MainActor final class CompanionRecoveryStatusViewTests: XCTestCase {
     private func size(status: CompanionRecoveryStatus, width: CGFloat = 320,
                       typeSize: DynamicTypeSize = .large) -> CGSize {
@@ -16,7 +18,7 @@ import SwiftUI
             let status = CompanionRecoveryStatus(connection: connection, isLoading: true, requiresResync: true, error: nil)
             let measured = size(status: status, width: 390)
             XCTAssertLessThanOrEqual(measured.width, 390)
-            XCTAssertGreaterThanOrEqual(measured.height, 44, "Details target remains at least 44 points")
+            XCTAssertGreaterThanOrEqual(measured.height, 44, "Row retains the minimum action-height budget")
             XCTAssertLessThanOrEqual(measured.height, 60, "Automatic recovery stays a single compact row at standard text size")
         }
     }

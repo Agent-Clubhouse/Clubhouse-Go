@@ -28,7 +28,7 @@ struct CompanionRecoveryStatusView: View {
             .padding(.horizontal, 12)
             .background(Color(status.isInProgress ? palette.card : palette.warning).opacity(status.isInProgress ? 1 : 0.12))
             .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("companion-recovery-status")
+            // Keep identifiers on leaves: a container identifier can mask child selectors (#311).
             .sheet(isPresented: $showsDetails) {
                 CompanionRecoveryStatusDetails(status: status, onRetry: onRetry)
                     .environment(\.companionPalette, palette)
@@ -53,10 +53,13 @@ struct CompanionRecoveryStatusView: View {
     private var actions: some View {
         HStack(spacing: 0) {
             if let action = status.retryAction {
-                Button(action.compactTitle) { onRetry(action) }
-                    .frame(minWidth: 44, minHeight: 44)
-                    .accessibilityLabel(action.title)
-                    .accessibilityIdentifier("companion-recovery-retry")
+                Button { onRetry(action) } label: {
+                    Text(action.compactTitle)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(action.title)
+                .accessibilityIdentifier("companion-recovery-retry")
             }
             Button { showsDetails = true } label: {
                 Image(systemName: status.hasError ? "exclamationmark.circle" : "info.circle")
@@ -88,11 +91,14 @@ struct CompanionRecoveryStatusDetails: View {
                     Text(status.explanation).textSelection(.enabled)
                         .accessibilityIdentifier("companion-recovery-explanation")
                     if let action = status.retryAction {
-                        Button(action.title) {
+                        Button {
                             dismiss()
                             onRetry(action)
+                        } label: {
+                            Text(action.title)
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(Rectangle())
                         }
-                        .frame(minWidth: 44, minHeight: 44)
                         .accessibilityIdentifier("companion-recovery-detail-retry")
                     }
                 }
@@ -106,8 +112,11 @@ struct CompanionRecoveryStatusDetails: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .frame(minWidth: 44, minHeight: 44)
+                    Button { dismiss() } label: {
+                        Text("Done")
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
                 }
             }
         }
