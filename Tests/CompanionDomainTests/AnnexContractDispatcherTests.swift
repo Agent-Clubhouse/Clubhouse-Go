@@ -40,7 +40,7 @@ import Testing
         #expect(harness.store.isDispatcher(target))
     }
 
-    @Test func dispatcherAppearanceSnapshotsUpdateRowAndSenderIdentity() async throws {
+    @Test func dispatcherAppearanceSnapshotsApplyGoProfilePriorityAndInvalidateSender() async throws {
         let harness = try await start()
         defer { harness.stop() }
         var value = try #require(try ContractFixtures.json("snapshot-dispatcher.json")["value"])
@@ -50,9 +50,12 @@ import Testing
         let sender = CompanionRoutedMessagePart.Sender(agentID: target.agentID, name: "Dispatcher")
         var previous = CompanionSenderResolver(agents: harness.host!.allAgents)
         let iconURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
-        // Custom colour alone, emoji with an image present, then image alone.
+        let iconVersion = "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640"
+        #expect(CompanionIdentityColor.data(fromDataURL: iconURL).map(CompanionIconReference.digest) == iconVersion)
+        // Synthetic appearance updates retain an emoji-only control, then exercise Go's explicit
+        // profile-image priority for coexistence, image alone, and complete image removal.
         for (emoji, icon, expected): (String?, String?, CompanionAgentFace) in [
-            (nil, nil, .initials("D")), ("🧭", iconURL, .emoji("🧭")),
+            (nil, nil, .initials("D")), ("🧭", nil, .emoji("🧭")), ("🧭", iconURL, .icon),
             (nil, iconURL, .icon), (nil, nil, .initials("D"))
         ] {
             guard case .object(var entry)? = original["agent"], case .object(var block) = original else {
@@ -73,6 +76,9 @@ import Testing
             let identity = try #require(resolver.avatarIdentity(for: sender))
             #expect(resolver != previous, "A snapshot appearance change invalidates the identity-only resolver")
             #expect(identity == CompanionSenderIdentity(agent: row), "Pinned row and sender use the same live identity")
+            #expect(identity.emoji == emoji)
+            #expect(row.icon?.version == (icon == nil ? nil : iconVersion))
+            #expect(identity.icon?.version == (icon == nil ? nil : iconVersion), "Expected image bytes come from the synthetic input, not the resolved face")
             #expect(identity.face == expected)
             #expect(CompanionIdentityColor.agentRGB(row.color) == CompanionRGB(hex: "#f43f5e"))
             try await harness.refreshCatalog()
