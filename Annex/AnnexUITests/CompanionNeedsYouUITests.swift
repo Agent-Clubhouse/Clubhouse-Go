@@ -30,11 +30,21 @@ import XCTest
         let app = open("all-unavailable", largeText: true)
         let empty = app.staticTexts["No requests to show"]
         XCTAssertTrue(empty.waitForExistence(timeout: 10))
+        XCTAssertEqual(empty.label, "No requests to show")
+        XCTAssertGreaterThan(empty.frame.height, 60, "The full AccessibilityL title must wrap, rather than truncate or shrink to one line on the narrow iPhone")
         attach(app, "Needs you unavailable empty state — AccessibilityL")
+        let studioTitle = app.staticTexts["Studio Mac is offline"]
+        XCTAssertTrue(scrollUntilExists(studioTitle, in: app) && scrollTo(studioTitle, in: app))
+        XCTAssertEqual(studioTitle.label, "Studio Mac is offline")
+        XCTAssertGreaterThan(studioTitle.frame.width, app.frame.width * 0.65, "Accessibility text must use the card width, not a narrow column beside Retry")
         let studio = app.buttons["needs-you-retry-preview-studio"]
         XCTAssertTrue(scrollUntilExists(studio, in: app) && scrollTo(studio, in: app))
         XCTAssertEqual(studio.label, "Retry Studio Mac")
         attach(app, "Needs you first unavailable desktop — AccessibilityL")
+        let laptopTitle = app.staticTexts["Travel MacBook has a connection issue"]
+        XCTAssertTrue(scrollUntilExists(laptopTitle, in: app) && scrollTo(laptopTitle, in: app))
+        XCTAssertEqual(laptopTitle.label, "Travel MacBook has a connection issue")
+        XCTAssertGreaterThan(laptopTitle.frame.width, app.frame.width * 0.65)
         let laptop = app.buttons["needs-you-retry-preview-laptop"]
         XCTAssertTrue(scrollUntilExists(laptop, in: app) && scrollTo(laptop, in: app))
         XCTAssertEqual(laptop.label, "Retry Travel MacBook")
