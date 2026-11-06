@@ -26,6 +26,12 @@ Change only `CompanionConversationComposer.swift` and dedicated tests/docs:
 4. Preserve native editor, selection, focus, Return, slash, attachments,
    approvals, sleep and keyboard dismissal behavior.
 
+After the first allocated run measured the existing Attach target at 36pt,
+parent authorized a narrow exception in `CompanionAttachments.swift`: retain
+the 36pt icon frame inside a minimum 44×44 label/content shape shared by the
+picker and preview button. Cache, upload, picker and attachment state behavior
+are unchanged.
+
 ## Dedicated cases and serial validation plan
 
 `CompanionCompactComposerUITests` covers:
@@ -74,8 +80,46 @@ not authority to contact a live desktop.
 
 ## Validation recorded
 
-- `swiftc -frontend -parse` passed for all four changed Swift files: the composer,
-  dedicated UI test class and both authorized compatibility test files.
-- `git diff --check` passed.
-- Build, runtime tests and screenshots remain unexecuted pending serial
-  allocation; no simulator, device or live commands were run.
+Allocated tested SHA: `cc959d41351e3b1a2ec87f396139c4de71145856` (before the
+successor target/test corrections). The branch was preserved at docs-only head
+`e1243666` during the detached run. One jobs-4 Debug build passed on Xcode
+26.0.1; four selected UI cases ran serially on an owned 375pt iPhone SE (3rd
+generation), iOS 26.0 / 23A343. Each started exactly once, with no test retries:
+
+- Existing `testChatControlsMenusAndPersistentApproval` passed.
+- Idle case failed because the dedicated test used an unsupported fixture flag;
+  Dispatcher settings require `--companion-preview-context-window`. This does
+  not establish a product settings failure.
+- Normal and largest-text working cases failed at the initial empty/unfocused
+  Attach width: 36pt, below the required 44pt. The fixed 36pt label predates this
+  composer change. Both cases stopped before image-only/typed/confirmation/
+  dismissal checks; those outcomes are not yet runtime validated.
+
+The UI batch exited 65, with 1 pass and 3 failures in 79.109 seconds. Its
+effective generated xctestrun selected only the four UI methods and set
+`ParallelizationEnabled=false`; the CLI also disabled parallel testing and
+used no retry flags. An initial invalid `-test-iterations 1` invocation was
+rejected before any build/test and its log is retained separately.
+
+Evidence stays under ignored `build/composer-cc959-validation/`: result bundle,
+logs, generated/effective configuration, summary, test tree, attempt audit and
+attachment manifests. Original PNGs exist for the smoke test; the new row
+cases failed before their screenshot calls. Their original screen recordings
+are retained. Full, unedited PNG frames extracted from those recordings are
+explicitly labeled as video-derived, with local blob mappings; they are not
+original XCTest screenshot attachments. No image uploads or blob commits.
+Owned simulator was shut down/deleted and build/test processes drained.
+
+The successor fixes the fixture flag and actual Attach label target, captures
+screenshots before geometry checks, and checks enabled typed controls/Send/
+dismissal for hittability and full unobscured app/keyboard bounds. It invokes
+dismissal and checks keyboard/focus exit with text and image draft retained.
+Existing empty Send semantics, test timeouts and retry policy remain intact.
+
+Successor validation is source-only: `swiftc -frontend -parse` passed for all
+five changed Swift files and `git diff --check` passed. No successor runtime
+execution is authorized until allocated. Native editor identity through status
+changes remains source-reviewed only. Missing preview errors are UI evidence,
+not a transport spy: the reviewed Interrupt action only opens confirmation;
+the unchanged parent dialog calls the store command only on explicit confirm.
+No physical-device or live commands/tests were run.

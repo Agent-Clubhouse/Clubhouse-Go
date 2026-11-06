@@ -6,7 +6,7 @@ import XCTest
     }
 
     func testIdleControlsStayCollapsedBeforeAndAfterTyping() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         assertRow(app, working: false, state: "idle empty unfocused")
@@ -20,6 +20,7 @@ import XCTest
         composer.typeText("Keep this draft")
         XCTAssertEqual(composer.value as? String, "Keep this draft")
         assertRow(app, working: false, state: "idle typed focused")
+        assertEnabledEditingRow(app, working: false)
     }
 
     func testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation() {
@@ -49,20 +50,33 @@ import XCTest
         XCTAssertTrue(app.buttons["companion-send"].isEnabled)
         XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].exists)
         assertRow(app, working: true, state: "working typed focused")
+        assertEnabledEditingRow(app, working: true)
         XCTAssertFalse(app.staticTexts["Your direction will be sent to the running agent."].exists)
         let interrupt = app.buttons["companion-interrupt"]
         waitAndTap(interrupt, until: app.buttons["Interrupt turn"])
         XCTAssertTrue(app.staticTexts["Interrupt this turn?"].exists)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists,
-                       "Opening confirmation must not issue a command")
+                       "Preview errors should not appear while confirmation is open")
         app.buttons["Cancel"].tap()
         XCTAssertEqual(composer.value as? String, "Keep this direction")
-        if app.buttons["companion-dismiss-keyboard"].exists { app.buttons["companion-dismiss-keyboard"].tap() }
+        // The dialog can end editing. Refocus so this always exercises the real dismiss action.
+        composer.tap()
+        assertEnabledEditingRow(app, working: true)
+        let dismiss = app.buttons["companion-dismiss-keyboard"]
+        dismiss.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(dismiss.waitForNonExistence(timeout: 5), "The assistive action leaves editing")
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "Keep this direction"), timeout: 5))
+        XCTAssertFalse(composer.debugDescription.contains("Keyboard Focused"))
+        XCTAssertTrue(element(app, "companion-attachment-thumbnail").exists, "Dismissal keeps the image draft")
         assertRow(app, working: true, state: "working typed unfocused")
     }
 
     private func assertRow(_ app: XCUIApplication, working: Bool, state: String,
                            file: StaticString = #filePath, line: UInt = #line) {
+        // Capture the unmodified screen before geometry checks so a failure retains its actual row.
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Compact composer \(state)"; shot.lifetime = .keepAlways; add(shot)
         let controls = app.buttons["companion-level-menu"]
         let send = app.buttons["companion-send"]
         XCTAssertTrue(controls.label.contains("Chat controls"), state, file: file, line: line)
@@ -82,6 +96,7 @@ import XCTest
             let composer = element(app, "companion-composer")
             XCTAssertTrue(attach.isHittable, state, file: file, line: line)
             XCTAssertGreaterThanOrEqual(attach.frame.width, 44, state, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(attach.frame.height, 44, state, file: file, line: line)
             XCTAssertGreaterThanOrEqual(composer.frame.width, 44, "The editor retains usable width: \(state)", file: file, line: line)
             XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
             XCTAssertLessThanOrEqual(interrupt.frame.maxX, send.frame.minX, state, file: file, line: line)
@@ -90,7 +105,32 @@ import XCTest
         } else {
             XCTAssertFalse(app.buttons["companion-interrupt"].exists, state, file: file, line: line)
         }
-        let shot = XCTAttachment(screenshot: app.screenshot())
-        shot.name = "Compact composer \(state)"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    /// Only typed, enabled states require actionable Send; empty drafts intentionally keep it disabled.
+    private func assertEnabledEditingRow(_ app: XCUIApplication, working: Bool,
+                                         file: StaticString = #filePath, line: UInt = #line) {
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), file: file, line: line)
+        let top = max(app.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        let bottom = min(app.frame.maxY, keyboard.frame.minY)
+        let unobscured = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
+        XCTAssertGreaterThan(unobscured.height, 0, file: file, line: line)
+        var targets = [app.buttons["companion-level-menu"], app.buttons["companion-send"], element(app, "companion-composer")]
+        if working {
+            let dismiss = app.buttons["companion-dismiss-keyboard"]
+            XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44, file: file, line: line)
+            targets += [app.buttons["companion-interrupt"], app.buttons["companion-attach"], dismiss]
+        }
+        for target in targets {
+            XCTAssertTrue(target.isEnabled && target.isHittable, target.identifier, file: file, line: line)
+            let frame = target.frame
+            let details = "\(target.identifier): \(frame), unobscured: \(unobscured)"
+            XCTAssertGreaterThanOrEqual(frame.minX, unobscured.minX, details, file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxX, unobscured.maxX, details, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(frame.minY, unobscured.minY, details, file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxY, unobscured.maxY, details, file: file, line: line)
+        }
     }
 }

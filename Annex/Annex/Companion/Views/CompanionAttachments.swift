@@ -50,6 +50,8 @@ struct CompanionAttachButton: View {
             if processing { ProgressView() } else { Image(systemName: "photo.badge.plus").font(.title3) }
         }
         .frame(width: 36, height: 36)
+        // Both PhotosPicker and the preview button use this label as their interaction region.
+        .frame(minWidth: 44, minHeight: 44)
         .contentShape(Rectangle())
     }
 
