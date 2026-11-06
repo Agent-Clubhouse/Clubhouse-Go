@@ -98,7 +98,18 @@ import XCTest
             composerTop = min(composerTop, button.frame.minY)
         }
         for id in ["companion-chat-header", "companion-context-usage"] {
-            let button = try unique(app, id)
+            let button: XCUIElement
+            if id == "companion-context-usage" {
+                // Toolbar wrappers can share an identifier; the interaction contract is one Button.
+                let controls = app.buttons.matching(identifier: id)
+                XCTAssertEqual(controls.count, 1, "Exactly one actionable context Button")
+                guard controls.count == 1 else { throw HeaderGeometryFailure.invalid }
+                button = controls.element(boundBy: 0)
+                XCTAssertEqual(button.label, "Context and plan limits")
+                XCTAssertEqual(button.value as? String, "Latest reported context: 28% full")
+            } else {
+                button = try unique(app, id)
+            }
             XCTAssertTrue(button.isEnabled && button.isHittable, id)
             XCTAssertTrue(region.navigation.contains(button.frame), "\(id) must stay in navigation: \(button.frame), \(region.navigation)")
         }
