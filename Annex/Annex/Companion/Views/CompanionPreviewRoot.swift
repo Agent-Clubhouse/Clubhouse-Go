@@ -37,6 +37,8 @@ struct CompanionPreviewRoot: View {
     var body: some View {
         if CompanionConversationHeaderFixture.isEnabled {
             CompanionConversationHeaderFixture()
+        } else if CompanionRecoveryFixture.isEnabled {
+            CompanionRecoveryFixture()
         } else { normalPreview }
     }
 

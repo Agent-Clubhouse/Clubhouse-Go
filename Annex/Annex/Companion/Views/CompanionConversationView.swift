@@ -47,6 +47,10 @@ struct CompanionConversationView: View {
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
+    private var recoveryStatus: CompanionRecoveryStatus {
+        .init(connection: connection, isLoading: conversation.isLoading,
+              requiresResync: conversation.requiresResync, error: conversation.error)
+    }
     private var canRespond: Bool { store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target) }
     /// A running terminal agent's own PTY takes the chat's place, when the desktop lets the phone attach to it.
     private var showsAgentTerminal: Bool { agent.runsInTerminal && store.terminalAvailability(.agentPTY(target)).isAvailable }
@@ -71,7 +75,7 @@ struct CompanionConversationView: View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
-            if !connection.canOperate || conversation.requiresResync { connectionBanner }
+            connectionBanner
             if store.hasPendingProviderAction(target) {
                 Text("A provider action is awaiting confirmation. Open Agent settings to check its result.")
                     .font(.subheadline).padding(.horizontal)
@@ -239,24 +243,19 @@ struct CompanionConversationView: View {
     }
 
     private var connectionBanner: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: conversation.requiresResync ? "arrow.trianglehead.2.clockwise.rotate.90" : "wifi.exclamationmark")
-            VStack(alignment: .leading, spacing: 4) {
-                Text(conversation.requiresResync ? "Conversation needs a refresh" : connection.label).font(.subheadline.weight(.semibold))
-                Text(conversation.requiresResync ? "Some updates were missed. Refresh before sending another command." : connection.detail).font(.caption)
-                Button(conversation.requiresResync ? "Refresh conversation" : "Retry") {
-                    Task {
-                        if conversation.requiresResync { await store.load(target, force: true) }
-                        else { await store.reconnect(hostID: target.hostID) }
-                    }
+        // A retained page's presented action belongs to that page, even if selection changes before its Task runs.
+        let presentedTarget = target
+        let presentedStore = store
+        return CompanionRecoveryStatusView(status: recoveryStatus) { action in
+            Task {
+                switch action {
+                case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
+                case .refreshConversation: await presentedStore.load(presentedTarget, force: true)
                 }
-                .font(.subheadline.weight(.semibold)).padding(.top, 2)
             }
-            Spacer(minLength: 0)
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .padding(.horizontal, 16).padding(.bottom, 8)
+        // Reset only recovery presentation when a retained page becomes inactive; never reset transcript identity.
+        .id(CompanionRecoveryPresentationID(target: presentedTarget, isActive: showsActions && isVisible != false))
     }
 
     /// While the app is open there are no system banners, so another agent that needs you shows here.
@@ -500,28 +499,19 @@ struct CompanionConversationView: View {
         }
     }
 
-    /// Loading, errors, the archive link and the empty state, above the conversation's entries.
+    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
     @ViewBuilder private var timelineHeader: some View {
-        // Refreshes of a transcript already on screen show in the composer instead.
-        if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
-        if let error = conversation.error {
-            ContentUnavailableView {
-                Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
-            } description: { Text(error) } actions: {
-                Button("Try again") { Task { await store.load(target, force: true) } }
-            }
-        }
         if conversation.hasEarlierMessages {
             Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                 .font(.caption).frame(maxWidth: .infinity)
         }
-        if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
+        if conversation.items.isEmpty && !recoveryStatus.isVisible {
             ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
                 .accessibilityIdentifier("companion-empty-conversation")
         }
     }
-    /// Loading and the empty state show only without entries, so they never sit above one.
-    private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
+    /// The settled empty state has no entries below it; only the archive link precedes actual entries.
+    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
 
     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
         .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
@@ -773,6 +763,11 @@ struct CompanionContextRing: View {
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
     }
+}
+
+private struct CompanionRecoveryPresentationID: Hashable {
+    let target: CompanionTarget
+    let isActive: Bool
 }
 
 private struct CompanionReadingFrames: PreferenceKey {
