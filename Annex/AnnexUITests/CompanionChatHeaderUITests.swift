@@ -100,6 +100,132 @@ import XCTest
         log("hierarchyStarted=\(hierarchyStarted), fullUTF8Bytes=\(hierarchy.count), retainedUTF8Bytes=\(retained.count), truncated=\(hierarchy.count > retained.count); started=\(started), finished=\(ProcessInfo.processInfo.systemUptime)")
     }
 
+    /// One optional content drag on a freshly verified description; never a full-viewport claim.
+    private func navigateContextDescriptionOnce(_ app: XCUIApplication) -> Bool {
+        let description = "How much conversation the CLI keeps before it compacts. This doesn't change the model's own context window."
+        let pickerID = "agent-settings-context-window", resetID = "agent-settings-context-window-reset"
+        let noteID = "companion-context-reading-note", limitsID = "companion-context-plan-limits"
+        func log(_ value: String) {
+            XCTContext.runActivity(named: "Context description anchor: \(value); uptime=\(ProcessInfo.processInfo.systemUptime)") { _ in }
+        }
+        func reject(_ reason: String) -> Bool { log(reason); XCTFail(reason); return false }
+        func finite(_ r: CGRect) -> Bool {
+            !r.isNull && !r.isInfinite && r.width > 0 && r.height > 0
+                && [r.minX, r.minY, r.maxX, r.maxY].allSatisfy { $0.isFinite }
+        }
+        func one(_ query: XCUIElementQuery, _ name: String) -> XCUIElement? {
+            let count = query.count; log("\(name) count=\(count)")
+            guard count == 1 else { return nil }
+            let value = query.element(boundBy: 0)
+            return value.exists ? value : nil
+        }
+        func reportPresent() -> Bool? {
+            let any = app.descendants(matching: .any).matching(identifier: "companion-context-report")
+            let text = app.staticTexts.matching(identifier: "companion-context-report")
+            let counts = [any.count, text.count]; log("report Any/StaticText=\(counts)")
+            if counts == [0, 0] { return false }
+            guard counts == [1, 1], text.element(boundBy: 0).exists else { return nil }
+            return true
+        }
+        func capture(_ phase: String) {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Context description anchor — \(phase)"; shot.lifetime = .keepAlways; add(shot)
+        }
+        checkTimeLeft("before the context description anchor")
+        guard let present = reportPresent() else { return reject("Ambiguous report export") }
+        if present { return true }
+        capture("before fresh anchor queries")
+        let exact = NSPredicate(format: "label == %@", description)
+        guard let anchor = one(app.staticTexts.matching(exact), "description StaticText"),
+              app.descendants(matching: .any).matching(exact).count == 1,
+              let picker = one(app.buttons.matching(identifier: pickerID), "picker"),
+              let reset = one(app.buttons.matching(identifier: resetID), "Reset"),
+              let note = one(app.staticTexts.matching(identifier: noteID), "reading note"),
+              let limits = one(app.buttons.matching(identifier: limitsID), "Plan limits"),
+              let collection = one(app.collectionViews.containing(.button, identifier: pickerID), "picker CollectionView"),
+              let cell = one(collection.cells.containing(.button, identifier: pickerID).containing(.button, identifier: resetID)
+                .containing(.staticText, identifier: description), "picker/Reset/description Cell"),
+              let window = one(app.windows.containing(.button, identifier: pickerID).containing(.button, identifier: resetID)
+                .containing(.staticText, identifier: noteID).containing(.button, identifier: limitsID), "content Window"),
+              let nav = one(app.navigationBars.matching(identifier: "River").containing(.button, identifier: "Done"), "presented River navigation"),
+              let done = one(nav.buttons.matching(identifier: "Done"), "presented Done") else {
+            return reject("Missing or ambiguous anchor/owner/presented surface")
+        }
+        let localCounts = [collection.staticTexts.matching(exact).count, cell.staticTexts.matching(exact).count,
+            collection.buttons.matching(identifier: resetID).count, collection.buttons.matching(identifier: pickerID).count,
+            window.collectionViews.containing(.button, identifier: pickerID).count, window.staticTexts.matching(exact).count,
+            window.navigationBars.matching(identifier: "River").containing(.button, identifier: "Done").count,
+            window.staticTexts.matching(identifier: noteID).count, window.buttons.matching(identifier: limitsID).count]
+        let roleCounts = [pickerID, resetID, noteID, limitsID].map { app.descendants(matching: .any).matching(identifier: $0).count }
+        log("local ownership counts=\(localCounts), any-role surface counts=\(roleCounts)")
+        guard (localCounts + roleCounts).allSatisfy({ $0 == 1 }) else { return reject("Ownership or role agreement changed") }
+        let appFrame = app.frame, windowFrame = window.frame, collectionFrame = collection.frame, cellFrame = cell.frame
+        let anchorFrame = anchor.frame
+        let ownerFrames = [appFrame, windowFrame, collectionFrame, cellFrame]
+        let start = CGPoint(x: anchorFrame.midX, y: anchorFrame.minY + anchorFrame.height * 0.75)
+        let end = CGPoint(x: anchorFrame.midX, y: anchorFrame.minY + anchorFrame.height * 0.25)
+        log("owner frames=\(ownerFrames), description=\(anchorFrame), start=\(start), end=\(end)")
+        guard finite(anchorFrame), ownerFrames.allSatisfy(finite),
+              ownerFrames.allSatisfy({ $0.contains(anchorFrame) && $0.contains(start) && $0.contains(end) }),
+              start.y > end.y, anchor.isHittable else { return reject("Unsupported or non-hittable description segment") }
+        func clear(_ element: XCUIElement, _ name: String) -> Bool {
+            guard element.exists else { log("\(name) disappeared"); return false }
+            let r = element.frame
+            let intersects = r.minX <= start.x && start.x <= r.maxX && r.minY <= start.y && end.y <= r.maxY
+            log("surface \(name) frame=\(r), intersects segment=\(intersects)")
+            return finite(r) && !intersects
+        }
+        for (name, surface) in [("navigation", nav), ("Done", done), ("note", note), ("limits", limits), ("picker", picker), ("Reset", reset)] {
+            guard clear(surface, name) else { return reject("Required presented surface obstructs or is unavailable: \(name)") }
+        }
+        // Inspect controls only in the owned collection; underlying chat shares its Window.
+        let controlRoles: [XCUIElement.ElementType] = [.button, .link, .switch, .slider, .stepper, .picker, .pickerWheel,
+            .textField, .secureTextField, .textView, .searchField, .segmentedControl]
+        for role in controlRoles {
+            let controls = collection.descendants(matching: role), count = controls.count
+            log("collection control role=\(role.rawValue) count=\(count)")
+            guard count <= 32 else { return reject("Unsupported collection control cardinality") }
+            for index in 0..<count {
+                guard clear(controls.element(boundBy: index), "collection role \(role.rawValue) index \(index)") else {
+                    return reject("Exported collection control obstructs or changed")
+                }
+            }
+        }
+        let overlays = collection.images.matching(identifier: "AdditionalDimmingOverlay"), overlayCount = overlays.count
+        log("known collection dimming overlays=\(overlayCount)")
+        guard overlayCount == 2 else { return reject("Unsupported known decoration export shape") }
+        for index in 0..<overlayCount {
+            guard clear(overlays.element(boundBy: index), "dimming overlay \(index)") else { return reject("Known decoration overlaps or changed") }
+        }
+        let inputs = [app.keyboards, app.otherElements.matching(identifier: "inputView"), app.otherElements.matching(identifier: "SystemInputAssistantView")]
+        let inputCounts = inputs.map { $0.count }
+        let inputAnyCounts = ["inputView", "SystemInputAssistantView"].map { app.descendants(matching: .any).matching(identifier: $0).count }
+        let alertCount = app.alerts.count
+        log("global keyboard/inputView/assistant counts=\(inputCounts), input any-role counts=\(inputAnyCounts), alerts=\(alertCount)")
+        guard inputAnyCounts == Array(inputCounts.dropFirst()), alertCount == 0 else { return reject("Unsupported input role or alert presentation") }
+        guard inputCounts == [0, 0, 0] || inputCounts == [1, 1, 0] || inputCounts == [1, 1, 1] else {
+            return reject("Unsupported full-input export shape")
+        }
+        for index in inputs.indices where inputCounts[index] == 1 {
+            guard clear(inputs[index].element(boundBy: 0), "global input \(index)") else { return reject("Input surface overlaps or changed") }
+        }
+        checkTimeLeft("before the single context description drag")
+        guard let nowPresent = reportPresent() else { return reject("Report export became ambiguous") }
+        if nowPresent { return true }
+        // No intervening screenshot; reject changed anchor geometry rather than choosing another segment.
+        guard anchor.exists, anchor.label == description, anchor.frame == anchorFrame, anchor.isHittable,
+              app.frame == appFrame, window.frame == windowFrame, collection.frame == collectionFrame, cell.frame == cellFrame else {
+            return reject("Description changed before the one allowed gesture")
+        }
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let from = origin.withOffset(CGVector(dx: start.x - appFrame.minX, dy: start.y - appFrame.minY))
+        let to = origin.withOffset(CGVector(dx: end.x - appFrame.minX, dy: end.y - appFrame.minY))
+        log("one upward drag, distance=\(start.y - end.y); public checks are sequential, not a native recipient proof")
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: XCUIGestureVelocity(rawValue: start.y - end.y), thenHoldForDuration: 0.2)
+        capture("after single drag, before unchanged report assertion")
+        return true
+    }
+
     func testIdentityDisclosesDetailsAndUsageOpensContextAndDesktopPlanLimits() {
         let app = launchApp(["--companion-preview", "--companion-preview-context-window"])
         openRiver(app)
@@ -169,6 +295,7 @@ import XCTest
         waitAndTap(actions, until: app.buttons["companion-context-settings-menu"])
         waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["agent-settings-context-window"])
         captureContextReport(app, "AXL after original context target wait")
+        guard navigateContextDescriptionOnce(app) else { return }
         XCTAssertTrue(element(app, "companion-context-report").exists, "Context stays available through conversation actions")
     }
 
