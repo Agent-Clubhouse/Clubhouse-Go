@@ -50,7 +50,11 @@ import UIKit
         let service = Service(), target = CompanionPreviewService.target
         let store = CompanionStore(service: service)
         var hosts = CompanionPreviewService.hosts(now: .now)
-        if let capabilities { hosts[0].projects[0].agents[0].capabilities = capabilities }
+        if let capabilities {
+            let project = try XCTUnwrap(hosts[0].projects.firstIndex { $0.id == target.projectID })
+            let agent = try XCTUnwrap(hosts[0].projects[project].agents.firstIndex { $0.id == target })
+            hosts[0].projects[project].agents[agent].capabilities = capabilities
+        }
         store.apply(.hosts(hosts)); await store.load(target)
         store.drafts[target] = draft
         let agent = try XCTUnwrap(store.agent(for: target))
@@ -138,7 +142,7 @@ import UIKit
 
         f.store.drafts[f.target] = "🙂 select me"
         try await settle()
-        f.input.selectedRange = NSRange(location: 3, length: 6)
+        f.input.selectedRange = NSRange(location: 3, length: 7)
         invoke(newline, on: f.input)
         try await settle()
         XCTAssertEqual(f.store.drafts[f.target], "🙂 \nme")
@@ -175,6 +179,8 @@ import UIKit
             } else if condition == "resync" {
                 f.store.apply(.resyncRequired(hostID: f.target.hostID))
             }
+            if condition == "empty" { XCTAssertTrue(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
+            else { XCTAssertFalse(f.store.canSend(f.target), "Fixture must actually disable sending: \(condition)") }
             // Use the cached native command: safety must be checked at dispatch, even before a view update.
             invoke(enter, on: f.input)
             try await settle()
