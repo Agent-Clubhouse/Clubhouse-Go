@@ -15,6 +15,7 @@ struct CompanionConversationView: View {
     @State private var confirmSleep = false
     @State private var showArchive = false
     @State private var showContextSettings = false
+    @State private var showHeaderDetails = false
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -67,7 +68,6 @@ struct CompanionConversationView: View {
     private var content: some View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
         VStack(spacing: 0) {
-            contextHeader
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             if !connection.canOperate || conversation.requiresResync { connectionBanner }
             if store.hasPendingProviderAction(target) {
@@ -100,14 +100,17 @@ struct CompanionConversationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
+                ToolbarItem(placement: .principal) {
+                    CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
+                                                        accessibilityLabel: headerAccessibilityLabel)
+                }
+                ToolbarItem(placement: .topBarTrailing) { contextButton }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                        if dynamicTypeSize.isAccessibilitySize, agent.contextUsage != nil || agent.chatControls?.context != nil {
-                            Button("Context", systemImage: "chart.pie") { showContextSettings = true }
-                                .accessibilityIdentifier("companion-context-settings-menu")
-                        }
+                        Button("Context and plan limits", systemImage: "chart.pie") { showContextSettings = true }
+                            .accessibilityIdentifier("companion-context-settings-menu")
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                         CompanionSleepAction(store: store, target: target) { confirmSleep = true }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
@@ -132,14 +135,27 @@ struct CompanionConversationView: View {
             }
         }
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-                CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
-                    focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+        .safeAreaBar(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                if showHeaderDetails {
+                    CompanionConversationDetailsCard(agent: agent, contextName: contextName)
+                        .padding(.horizontal, 16).padding(.bottom, 6)
+                }
+                otherAgentBanner
             }
         }
-        .sheet(isPresented: $showContextSettings) { CompanionAgentSettingsSheet(store: store, target: target, focusContext: true) }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
+                VStack(spacing: 0) {
+                    activityLine
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                    CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
+                        focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+                }
+            }
+        }
+        .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
         .task(id: scenePhase == .active && showsActions) {
@@ -178,75 +194,38 @@ struct CompanionConversationView: View {
 
     private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
 
-    private var contextHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if compactAccessibilityHeader {
-                statusAndPermissions.frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { statusAndPermissions; Spacer(minLength: 0); contextButton }
-                    VStack(alignment: .leading, spacing: 0) {
-                        statusAndPermissions
-                        contextButton
-                    }
-                }
-                activityLine
-            }
-        }
-        .padding(.horizontal, 20).padding(.vertical, 2)
-    }
-
-    private var statusAndPermissions: some View {
-        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
-        return HStack(spacing: 8) {
-            if store.hosts.count > 1, let host = store.host(for: target) {
-                CompanionHostTag(name: host.name)
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: 120, alignment: .leading)
-                    .layoutPriority(-1)
-                    .accessibilityIdentifier("companion-chat-host-tag")
-            }
-            layout {
-                if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
-                if agent.freeAgentMode { CompanionFreeAgentBadge() }
-                if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
-            }
-            .layoutPriority(1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(headerAccessibilityLabel)
-        .accessibilityIdentifier("companion-chat-header")
-    }
-
     private var headerAccessibilityLabel: String {
-        [contextName, agent.status.label,
+        [agent.name, contextName, agent.status.label,
          agent.freeAgentMode ? "Free Agent Mode: all permissions bypassed" : nil,
          agent.chatControls.map { "Permissions: \($0.currentLevel.label)" }]
             .compactMap { $0 }.joined(separator: ", ")
     }
 
-    @ViewBuilder private var contextButton: some View {
-        if agent.contextUsage != nil || agent.chatControls?.context != nil {
-            Button { showContextSettings = true } label: {
-                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
-                else { Label("Context", systemImage: "chart.pie").font(.caption) }
-            }
-            .buttonStyle(.plain)
-            .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel(agent.contextUsage?.percent.map { "Context \($0)% full" } ?? "Context report")
-            .accessibilityHint("Opens Agent settings at context")
-            .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
+    private var contextButton: some View {
+        Button { showContextSettings = true } label: {
+            if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
+            else { Image(systemName: "chart.pie").font(.caption) }
         }
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel("Context and plan limits")
+        .accessibilityValue(agent.contextUsage?.percent.map { "Latest reported context: \($0)% full" } ?? "Context usage unknown")
+        .accessibilityHint("Opens context settings and plan limits by desktop")
+        .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
     }
 
-    /// Only active work earns a second status line. Idle context usage fits beside status and permissions.
+    /// A slim worker/activity footer stays above the composer; idle chats reserve no footer line.
     private var activityLine: some View {
         let ticking = agent.status == .working && agent.turnStartedAt != nil
         return TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
             if let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date) {
-                Text(activity).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .accessibilityIdentifier("companion-chat-activity")
+                HStack(spacing: 4) {
+                    Text(agent.name).lineLimit(1).truncationMode(.tail).layoutPriority(-1)
+                    Text("·")
+                    Text(activity)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .accessibilityIdentifier("companion-chat-activity")
+                }
+                .font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
             }
         }
     }
@@ -434,6 +413,7 @@ struct CompanionConversationView: View {
                 }
             }
             .background { CompanionReadingTouchObserver { cancelReadingRestoration(.touch) }.allowsHitTesting(false).accessibilityHidden(true) }
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")

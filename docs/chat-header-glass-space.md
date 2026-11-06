@@ -23,43 +23,85 @@ control its accessibility header fallback. These sources identify independent
 inputs; the captures do not establish which interaction caused the observed
 keyboard, focus, or tab states.
 
-## Bounded correction
+## Requested compact identity header
 
-Place the header and existing other-agent banner in one top `safeAreaBar` with
-zero spacing. Give the transcript the native hard top scroll-edge effect,
-matching its bottom treatment. Keep the shared background at the conversation
-level: no extra opaque panel, custom blur, or additional safe-area inset.
+Mason's subsequent glass-chat reference supersedes the spacing-only candidate:
+use the real Clubhouse identity beside the name, expand details on demand, and
+remove persistent status/Free Agent text from the top. A slim worker/time
+footer sits above the composer. A compact usage control opens context and
+quota information. The reference image is also local-only.
+
+The navigation principal is a 28-point canonical `CompanionAgentAvatar` beside
+a single-line name and disclosure, in a native glass capsule with a minimum
+44×44 interaction target. Its combined accessibility label retains agent
+context/status/permissions even when the visual details card is collapsed.
+The full name, host/project, status, permissions and model appear in the
+natural-height card below when requested. Canonical avatar resolution/cache
+handles custom image references and version changes; this component adds no
+image requests of its own.
+
+The card and existing other-agent banner share one top `safeAreaBar` with
+zero spacing. The transcript uses the native hard top scroll-edge effect,
+matching its bottom treatment. The worker/activity footer joins the existing
+bottom bar above the composer. Idle chats reserve no activity line.
 Apple documents that [`safeAreaBar`](https://developer.apple.com/documentation/swiftui/view/safeareabar(edge:alignment:spacing:content:))
 adjusts safe areas and extends affected scroll views' edge effects;
 [`scrollEdgeEffectStyle`](https://developer.apple.com/documentation/swiftui/view/scrolledgeeffectstyle(_:for:))
 configures their native style.
 
-At fitting widths, status and activity share a leading stack beside the
-unchanged context target. This saves the extra caption line when both lines
-fit within that target's height. Preserve the vertical width fallback and the
-existing accessibility keyboard fallback/context menu action. Notices,
-connection/provider/sleep warnings, operation errors, transcript anchors,
-navigation overlays, and keyboard/focus handlers retain their own behavior.
+The usage control always has a 44×44 target, including when context is unknown.
+Its sheet wraps the existing context-focused agent settings form. A separate,
+always-reachable “Plan limits by desktop” link opens the unchanged plan limits
+screen even if settings fail to load. There is no quota fetch or polling merely
+because the chat or context sheet opens.
+
+Context has no timestamp; wording is “latest reported,” absent means unknown,
+and offline values may be out of date. Quota identity is `(hostID, providerID)`,
+with no account association. The existing plan limits screen groups all paired
+desktops and owns capability/version/connection checks, clock age, desktop
+stale/unknown readings, retained readings after failed refreshes, and polling
+lifetime. Saved routing decisions remain historical. The header never infers
+quota readiness from provider/CLI presence or Auto eligibility.
+
+Connection/provider/sleep notices, operation errors, pinned approval actions,
+reading anchors and navigation controls retain separate behavior. Keyboard
+and focus handlers are unchanged. The existing accessibility keyboard rule
+still compacts the other-agent banner; the default header has no permanent
+status row to compact.
 
 ## Test plan and cases
 
 Automated, dedicated `CompanionChatHeaderUITests`:
 
-1. Open the preview River approval chat with context reporting. Assert status,
-   permissions and activity remain visible; context retains at least a 44×44
-   target; activity fits within the context row vertically. Native scroll to
-   top keeps context pinned and actionable. Open its settings/report.
-2. At Accessibility Large, check permissions and context before editing. Focus
-   the composer and type; the existing compact header releases space while
-   retaining permissions. Open Context through conversation actions.
+1. Open River with context reporting. Details start collapsed, disclosure opens
+   and closes them, identity/usage targets stay at least 44×44, and activity is
+   above the composer. Native scroll-to-top keeps usage pinned/actionable.
+   Open the actual context editor/report, then desktop plan limits; unsupported
+   quota capabilities remain explicitly unavailable.
+2. At Accessibility Large, focus/type into the composer. Identity and usage
+   stay reachable without a permanent status row. Open the context editor via
+   the actions menu.
+3. Open Dispatcher with no context usage. The control and sheet say unknown
+   and still offer desktop plan limits.
+
+Dedicated hosted `CompanionChatHeaderIdentityTests` render the actual header
+with locally generated synthetic custom images: absent icon fallback, custom
+image, new image version for the same identity, and return to absent fallback.
+No unrelated images are fetched and no screenshot artifacts are attached.
+The separate canonical avatar owner handles shared emoji/image precedence.
+
+Authorized shared test edit: only context label/value expectations in
+`CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop` change;
+its activity expectation stays intact.
 
 Parent-owned simulator/visual acceptance, after the serial slot is available:
 
-- Compare Working and Done with context/permissions/Free Agent Mode, short and
-  long activity names, narrow portrait, landscape, and large accessibility
-  sizes. When the normal layout fits, Working activity should not add a full
-  row beneath the context target. Inspect native glass/scroll-edge readability
-  as text passes behind the header; check for doubled top inset.
+- Produce the combined screenshot package: keyboard up/down, narrow portrait,
+  landscape, large accessibility text, light/dark, long names, Working and
+  idle/Done. Show both collapsed identity and disclosed details with actual
+  canonical identity. Inspect glass/scroll-edge readability as text passes
+  behind the top, footer and composer; check for doubled top inset and ensure
+  opening details while editing leaves a usable transcript.
 - Exercise other-agent needs-you/error banners, connection/resync warning,
   operation error/dismiss, just-created notice, and pending provider/sleep
   notices. They must remain legible and actionable below the header, without
@@ -70,6 +112,16 @@ Parent-owned simulator/visual acceptance, after the serial slot is available:
   paging. Reuse reading/keyboard/context regression suites for those behaviors.
 - Include the agent terminal path: header and banners remain available.
 
+Current-region helpers requiring runtime review (no speculative edits):
+`CompanionKeyboardDismissalUITests.transcriptPoint`, the safe-transcript helper
+in `CompanionSlashCommandUITests`, reading viewport/marker geometry in
+`CompanionReadingUITests`, and Dispatcher transcript drag helpers. The
+`companion-chat-header` accessibility frame is now the navigation principal,
+so tests must intersect actual transcript/composer/bar frames for usable space.
+The identity button replaces no existing scroll view or reading anchor.
+
 Validation is serialized by the parent. Source parse and whitespace/diff checks
 can run independently; builds, tests, and simulator actions wait for its slot.
-Visual acceptance cannot be inferred from source checks or the two old captures.
+Source parse and diff checks pass. Full build/tests and combined visual
+acceptance remain pending the parent's queue; old captures are not acceptance
+evidence for this draft.
