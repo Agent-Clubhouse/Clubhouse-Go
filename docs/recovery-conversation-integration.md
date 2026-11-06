@@ -271,7 +271,7 @@ neither can rescue a failure or justify a later test lookup/action. No hook
 tap, refocus, private API or explicit wait is added.
 
 After source review and explicit allocation, parent should select exactly
-one invocation (test iterations 1, repetition/retry disabled) on the same
+one default invocation (no iteration or retry flags) on the same
 375-point/iOS 26.0 simulator configuration:
 
 ```sh
@@ -280,7 +280,8 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   -derivedDataPath build/recovery-xcui-diagnostic/DerivedData \
   -resultBundlePath build/recovery-xcui-diagnostic/SingleRoute.xcresult \
   -only-testing:ClubhouseGoUITests/CompanionRecoveryXCUIDiagnosticTests/testSingleAttemptProgressFailureDetailsRetryAndRecovery \
-  -test-iterations 1 CODE_SIGNING_ALLOWED=NO test
+  -jobs 4 -parallel-testing-enabled NO \
+  -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test
 ```
 
 Parent records the exact new combined head before execution, preserving both
