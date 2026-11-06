@@ -4,8 +4,8 @@ import XCTest
 /// any desktop, storing credentials, or pretending preview commands succeeded.
 @MainActor
 final class CompanionPreviewSmokeTests: ReliableUITestCase {
-    /// Opens River's conversation from Home, tapping again if a slow runner drops the tap.
-    private func openRiver(_ app: XCUIApplication, maxSwipes: Int = 4, file: StaticString = #filePath, line: UInt = #line) {
+    /// Opens River from Home; callers can bound tap attempts without changing the existing scroll limits.
+    private func openRiver(_ app: XCUIApplication, maxSwipes: Int = 4, attempts: Int = 3, file: StaticString = #filePath, line: UInt = #line) {
         let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
         if home.exists && !home.isSelected { home.tap() }
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
@@ -14,7 +14,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // At large text sizes River's row exists below the fold before it can be tapped.
         XCTAssertTrue(scrollTo(agent, in: app, maxSwipes: maxSwipes, file: file, line: line), "River's row must be on screen", file: file, line: line)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
-        waitAndTap(agent, until: composer, timeout: 15, "Selecting an agent must open its conversation", file: file, line: line)
+        waitAndTap(agent, until: composer, timeout: 15, attempts: attempts, "Selecting an agent must open its conversation", file: file, line: line)
     }
 
     private func openAgentSettings(_ app: XCUIApplication, sleeping: Bool = false) {
@@ -692,8 +692,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// The desktop composer's pills (#155): level, model and effort menus with the desktop's labels, a confirmation
     /// before raising to Full access, and "Always allow" as a confirmed secondary action. Preview refuses every change.
     func testChatControlsMenusAndPersistentApproval() {
-        let app = launchApp(["--companion-preview"])
-        openRiver(app)
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        openRiver(app, attempts: 1)
         let any = app.descendants(matching: .any)
         func item(_ label: String) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch }
         let previewError = app.staticTexts["Preview only. This action does not contact a desktop."]
@@ -708,9 +708,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let level = any.matching(identifier: "companion-level-menu").firstMatch
         XCTAssertTrue(level.waitForExistence(timeout: 5))
         let permissions = any.matching(identifier: "companion-permissions-menu").firstMatch
-        waitAndTap(level, until: permissions, timeout: 5)
+        waitAndTap(level, until: permissions, timeout: 5, attempts: 1)
         let fullAccess = item("Full access")
-        waitAndTap(permissions, until: fullAccess, timeout: 5, "Every live level is offered")
+        waitAndTap(permissions, until: fullAccess, timeout: 5, attempts: 1, "Every live level is offered")
         for label in ["Plan", "Ask first", "Auto-accept edits", "Auto"] { XCTAssertTrue(item(label).exists, label) }
         XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'bypassPermissions'")).firstMatch.exists, "The driver's own name is the subtitle")
         let levelShot = XCTAttachment(screenshot: app.screenshot())
@@ -718,18 +718,18 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         levelShot.lifetime = .keepAlways
         add(levelShot)
         let confirmLevel = app.buttons["Switch to Full access"]
-        waitAndTap(fullAccess, until: confirmLevel, timeout: 5, "Raising to Full access asks first")
+        waitAndTap(fullAccess, until: confirmLevel, timeout: 5, attempts: 1, "Raising to Full access asks first")
         confirmLevel.tap()
         XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the level changed")
         dismissError.tap()
 
         // Model: the session's models, and when a change applies.
         let model = any.matching(identifier: "companion-model-menu").firstMatch
-        waitAndTap(level, until: model, timeout: 5)
+        waitAndTap(level, until: model, timeout: 5, attempts: 1)
         XCTAssertTrue(model.exists)
         XCTAssertTrue(model.label.contains("Opus"), "The chip names the model: \(model.label)")
         let mini = item("Haiku")
-        waitAndTap(model, until: mini, timeout: 5)
+        waitAndTap(model, until: mini, timeout: 5, attempts: 1)
         XCTAssertTrue(any.matching(NSPredicate(format: "label == 'Applies from the next message.'")).firstMatch.exists, "The switch note shows under the menu")
         let modelShot = XCTAttachment(screenshot: app.screenshot())
         modelShot.name = "Model menu"
@@ -741,11 +741,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Effort: sentence case, with Default when the provider has one.
         let effort = any.matching(identifier: "companion-effort-menu").firstMatch
-        waitAndTap(level, until: effort, timeout: 5)
+        waitAndTap(level, until: effort, timeout: 5, attempts: 1)
         XCTAssertTrue(effort.exists)
         XCTAssertTrue(effort.label.contains("High effort"), "The chip names the effort: \(effort.label)")
         let extraHigh = item("Extra high")
-        waitAndTap(effort, until: extraHigh, timeout: 5, "xhigh reads as Extra high")
+        waitAndTap(effort, until: extraHigh, timeout: 5, attempts: 1, "xhigh reads as Extra high")
         XCTAssertTrue(item("Default").exists, "Default is offered when the provider has one")
         extraHigh.tap()
         XCTAssertTrue(previewError.waitForExistence(timeout: 5))

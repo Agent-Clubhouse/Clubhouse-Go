@@ -7,11 +7,11 @@ import XCTest
     }
     private func fixture(_ app: XCUIApplication, _ action: String) {
         let button = app.buttons["recovery-fixture-\(action)"]
-        waitAndTap(app.buttons["recovery-fixture-menu"], until: button)
-        waitAndTap(button, untilGone: button)
+        waitAndTap(app.buttons["recovery-fixture-menu"], until: button, attempts: 1)
+        waitAndTap(button, untilGone: button, attempts: 1)
     }
     private func launch(_ extra: [String] = []) -> XCUIApplication {
-        launchApp(["--companion-preview", "--companion-preview-recovery-fixture"] + extra)
+        launchApp(["--companion-preview", "--companion-preview-recovery-fixture"] + extra, attempts: 1)
     }
     private func assertNoLargeRecovery(_ app: XCUIApplication) {
         XCTAssertFalse(app.staticTexts["Loading conversation…"].exists)
@@ -24,6 +24,63 @@ import XCTest
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
+    /// One geometry-directed content drag for an exported control below the medium sheet's visible content.
+    private func revealDetailsRetry(_ retry: XCUIElement, in app: XCUIApplication) -> Bool {
+        let scrolls = app.scrollViews.containing(.button, identifier: "companion-recovery-detail-retry")
+        let bars = app.navigationBars.matching(identifier: "Connection and recovery")
+        guard scrolls.count == 1, bars.count == 1 else {
+            XCTFail("Recovery Details must have one containing scroll view and one sheet navigation bar")
+            return false
+        }
+        let scroll = scrolls.firstMatch, bar = bars.firstMatch
+        func viewport() -> CGRect? {
+            let visible = scroll.frame.intersection(app.windows.firstMatch.frame)
+            let navigation = bar.frame
+            let top = max(visible.minY, navigation.maxY)
+            guard !visible.isNull, !visible.isInfinite, visible.width > 24,
+                  top.isFinite, visible.maxY.isFinite, visible.maxY - top > 24 else {
+                XCTFail("Recovery sheet must expose a finite content viewport below its navigation bar")
+                return nil
+            }
+            return CGRect(x: visible.minX, y: top, width: visible.width, height: visible.maxY - top)
+                .insetBy(dx: 12, dy: 12)
+        }
+        guard let before = viewport() else { return false }
+        let target = retry.frame
+        guard target.minX.isFinite, target.minY.isFinite, target.maxX.isFinite, target.maxY.isFinite,
+              target.width > 0, target.height > 0 else {
+            XCTFail("The exported retry must have a finite nonempty frame")
+            return false
+        }
+        if !before.contains(target) {
+            let displacement = target.midY - before.midY
+            let start = CGPoint(x: before.midX, y: before.maxY - 1)
+            let end = CGPoint(x: start.x, y: start.y - displacement)
+            let appFrame = app.frame
+            guard target.minX >= before.minX, target.maxX <= before.maxX,
+                  target.minY >= before.minY, target.maxY > before.maxY,
+                  displacement > 0, displacement <= before.height,
+                  before.contains(start), before.contains(end),
+                  appFrame.contains(start), appFrame.contains(end) else {
+                XCTFail("Only a below-viewport retry reachable by one bounded upward content drag may be navigated to")
+                return false
+            }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let from = origin.withOffset(CGVector(dx: start.x - appFrame.minX, dy: start.y - appFrame.minY))
+            let to = origin.withOffset(CGVector(dx: end.x - appFrame.minX, dy: end.y - appFrame.minY))
+            XCTContext.runActivity(named: "Recovery Details content drag: viewport \(before), retry \(target), \(start) → \(end)") { _ in
+                from.press(forDuration: 0.05, thenDragTo: to)
+            }
+        }
+        // The gesture may change the sheet detent. Re-read both the viewport/nav and the target, without a wait/loop.
+        guard let after = viewport() else { return false }
+        let revealed = retry.frame
+        let contained = after.contains(revealed)
+        XCTAssertTrue(contained, "The whole retry must be inside the current sheet content viewport: \(revealed), viewport \(after)")
+        return contained
+    }
+
 
     func testFirstLoadProgressFailureDetailsRetryAndRecovery() {
         let app = launch()
@@ -40,16 +97,18 @@ import XCTest
         let details = app.buttons["companion-recovery-details"]
         XCTAssertGreaterThanOrEqual(details.frame.width, 44)
         XCTAssertGreaterThanOrEqual(details.frame.height, 44)
-        waitAndTap(details, until: element(app, "companion-recovery-explanation"))
+        waitAndTap(details, until: element(app, "companion-recovery-explanation"), attempts: 1)
         let explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Synthetic history failure.\nThe response was incomplete.\nNo real desktop was contacted."))
         XCTAssertTrue(explanation.label.contains("Target: alpha on recovery-one."))
         capture(app, "full failure Details")
         let retry = app.buttons["companion-recovery-detail-retry"]
+        guard revealDetailsRetry(retry, in: app) else { return }
+        capture(app, "full failure Details after content navigation")
         XCTAssertTrue(retry.isHittable)
         XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
         XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
-        waitAndTap(retry, untilGone: explanation)
+        waitAndTap(retry, untilGone: explanation, attempts: 1)
         XCTAssertTrue(details.waitForNonExistence(timeout: 5), "Clean connected history success removes recovery")
         XCTAssertTrue(app.buttons["Read earlier messages in archive"].exists)
         XCTAssertTrue(element(app, "companion-composer").isHittable)
@@ -72,12 +131,12 @@ import XCTest
         capture(app, "AX warning and connection retry")
         retry.tap() // Synthetic reconnect records intent; no invented connection success follows.
         XCTAssertTrue(app.staticTexts["Connection issue"].exists)
-        waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"))
+        waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"), attempts: 1)
         var explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Synthetic connection failure."))
         XCTAssertTrue(explanation.label.contains("Synthetic history failure."))
         capture(app, "AX full connection and history Details")
-        waitAndTap(app.navigationBars.buttons["Done"], untilGone: explanation)
+        waitAndTap(app.navigationBars.buttons["Done"], untilGone: explanation, attempts: 1)
         fixture(app, "progress")
         XCTAssertTrue(app.staticTexts["Reconnecting…"].waitForExistence(timeout: 5))
         XCTAssertFalse(retry.exists)
@@ -86,7 +145,7 @@ import XCTest
         fixture(app, "select-gamma")
         XCTAssertTrue(app.navigationBars["Gamma"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Conversation refresh failed"].waitForExistence(timeout: 5))
-        waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"))
+        waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"), attempts: 1)
         explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Target: gamma on recovery-two."))
         XCTAssertFalse(explanation.label.contains("Target: alpha"))

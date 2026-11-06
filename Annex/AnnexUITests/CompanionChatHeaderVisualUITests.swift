@@ -6,7 +6,7 @@ import XCTest
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
-        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags)
+        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags, attempts: 1)
         XCTAssertTrue(app.buttons["companion-chat-header"].waitForExistence(timeout: 10))
         return app
     }
@@ -41,7 +41,7 @@ import XCTest
         capture(app, "dark Working native top keyboard down")
         focus(app)
         capture(app, "dark Working keyboard up")
-        waitAndTap(app.buttons["companion-chat-header"], until: element(app, "companion-chat-details"))
+        waitAndTap(app.buttons["companion-chat-header"], until: element(app, "companion-chat-details"), attempts: 1)
         capture(app, "dark Working expanded keyboard up")
     }
 
@@ -50,11 +50,11 @@ import XCTest
                           "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
         focus(app)
         let details = element(app, "companion-chat-details")
-        waitAndTap(app.buttons["companion-chat-header"], until: details)
+        waitAndTap(app.buttons["companion-chat-header"], until: details, attempts: 1)
         XCTAssertTrue(details.isHittable)
         XCTAssertTrue(app.buttons["companion-context-usage"].isHittable)
         capture(app, "light AX Large long name expanded keyboard up")
-        waitAndTap(app.buttons["companion-chat-header"], untilGone: details)
+        waitAndTap(app.buttons["companion-chat-header"], untilGone: details, attempts: 1)
         capture(app, "light AX Large long name collapsed keyboard up")
     }
 
@@ -63,15 +63,15 @@ import XCTest
         XCTAssertFalse(app.staticTexts["companion-chat-activity"].exists)
         capture(app, "idle fallback")
         for version in 1...2 {
-            waitAndTap(app.buttons["header-fixture-menu"], until: app.buttons["header-fixture-image"])
-            waitAndTap(app.buttons["header-fixture-image"], untilGone: app.buttons["header-fixture-image"])
+            waitAndTap(app.buttons["header-fixture-menu"], until: app.buttons["header-fixture-image"], attempts: 1)
+            waitAndTap(app.buttons["header-fixture-image"], untilGone: app.buttons["header-fixture-image"], attempts: 1)
             XCTAssertTrue(waitFor(app.buttons["header-fixture-menu"],
                                   NSPredicate(format: "value == %@", "Synthetic profile image version \(version)"), timeout: 5))
             capture(app, "idle synthetic custom image version \(version)")
         }
-        waitAndTap(app.buttons["companion-context-usage"], until: element(app, "companion-context-reading-note"))
+        waitAndTap(app.buttons["companion-context-usage"], until: element(app, "companion-context-reading-note"), attempts: 1)
         capture(app, "context editor with desktop quota route")
-        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"])
+        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"], attempts: 1)
         XCTAssertTrue(element(app, "plan-limits-preview-studio-claude-code").waitForExistence(timeout: 10))
         capture(app, "desktop plan limits")
     }

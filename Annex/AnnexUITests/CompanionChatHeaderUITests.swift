@@ -90,17 +90,17 @@ import XCTest
     }
 
     func testReviewHasOneIdentityPrincipalWithPositionDisclosureAndUsage() {
-        let app = launchApp(["--companion-preview"])
+        let app = launchApp(["--companion-preview"], attempts: 1)
         let open = app.buttons["companion-open-review"].firstMatch
         let title = app.buttons["review-title"]
-        waitAndTap(open, until: title)
+        waitAndTap(open, until: title, attempts: 1)
         XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", "Maple, 1 of 3"), timeout: 5))
         XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1,
                        "The selected conversation alone owns Review's principal")
         XCTAssertFalse(app.navigationBars.descendants(matching: .any).matching(identifier: "companion-chat-header").firstMatch.exists)
         let details = element(app, "companion-chat-details")
-        waitAndTap(title, until: details)
-        waitAndTap(title, untilGone: details)
+        waitAndTap(title, until: details, attempts: 1)
+        waitAndTap(title, untilGone: details, attempts: 1)
 
         // Match Review's existing gesture; usable-region changes need runtime evidence before adjustment.
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.24))
@@ -109,7 +109,7 @@ import XCTest
         XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", "Cedar, 2 of 3"), timeout: 5))
         XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1)
         let usage = app.navigationBars.buttons["companion-context-settings"]
-        waitAndTap(usage, until: element(app, "companion-context-reading-note"))
-        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"])
+        waitAndTap(usage, until: element(app, "companion-context-reading-note"), attempts: 1)
+        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"], attempts: 1)
     }
 }

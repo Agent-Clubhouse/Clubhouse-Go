@@ -6,16 +6,17 @@ import XCTest
     }
 
     func testIdleControlsStayCollapsedBeforeAndAfterTyping() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window"], attempts: 1)
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         assertRow(app, working: false, state: "idle empty unfocused")
         let controls = app.buttons["companion-level-menu"]
-        waitAndTap(controls, until: app.buttons["companion-permissions-menu"])
+        waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
         XCTAssertTrue(app.buttons["companion-model-menu"].exists)
         XCTAssertTrue(app.buttons["companion-effort-menu"].exists)
         // Dismiss the menu through the field; then type through the actual editor.
         composer.tap()
+        XCTAssertTrue(app.buttons["companion-permissions-menu"].waitForNonExistence(timeout: 5), "The first field tap dismisses the menu before the distinct focus tap")
         composer.tap()
         composer.typeText("Keep this draft")
         XCTAssertEqual(composer.value as? String, "Keep this draft")
@@ -33,11 +34,11 @@ import XCTest
 
     private func workingRow(largestText: Bool) {
         let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images"]
-                            + (largestText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []))
+                            + (largestText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []), attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         let composer = element(app, "companion-composer")
-        waitAndTap(river, until: composer)
+        waitAndTap(river, until: composer, attempts: 1)
         XCTAssertFalse(app.buttons["companion-send"].isEnabled, "An empty draft cannot steer")
         assertRow(app, working: true, state: "working empty unfocused", stacked: largestText)
         if largestText {
@@ -45,7 +46,7 @@ import XCTest
         } else {
             XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned")
         }
-        waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"))
+        waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"), attempts: 1)
         XCTAssertTrue(app.buttons["companion-send"].isEnabled, "An image-only draft can steer")
         assertRow(app, working: true, state: "working image-only unfocused", stacked: largestText)
         composer.tap()
@@ -62,7 +63,7 @@ import XCTest
         }
         XCTAssertFalse(app.staticTexts["Your direction will be sent to the running agent."].exists)
         let interrupt = app.buttons["companion-interrupt"]
-        waitAndTap(interrupt, until: app.buttons["Interrupt turn"])
+        waitAndTap(interrupt, until: app.buttons["Interrupt turn"], attempts: 1)
         XCTAssertTrue(app.staticTexts["Interrupt this turn?"].exists)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists,
                        "Preview errors should not appear while confirmation is open")
@@ -88,7 +89,7 @@ import XCTest
         let trigger = app.buttons["companion-review-approval"]
         XCTAssertEqual(trigger.label, "Review approval: Run xcodebuild, 1 of 2")
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(trigger, until: close)
+        waitAndTap(trigger, until: close, attempts: 1)
         let title = app.staticTexts.matching(NSPredicate(format: "label == %@", "Run xcodebuild")).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.label.contains("Run xcodebuild"))
