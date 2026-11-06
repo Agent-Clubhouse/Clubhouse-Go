@@ -152,7 +152,7 @@ struct CompanionConversationComposer: View {
                         .frame(minHeight: composerRowHeight)
                         .focused($composerFocused)
                         .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
-                        .accessibilityHint("Runs on your desktop. Return sends the message. Shift Return inserts a new line. Command Return also sends.")
+                        .accessibilityHint("Runs on your desktop. With a hardware keyboard, Return sends the message, Shift Return inserts a new line, and Command Return also sends.")
                         .accessibilityIdentifier("companion-composer")
                         // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                         // accessibility modifiers so the hook doesn't appear as a second composer element.

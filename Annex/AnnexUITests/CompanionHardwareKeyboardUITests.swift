@@ -4,6 +4,18 @@ import XCTest
 /// This checks simulator event delivery, not a physical keyboard or iPhone Mirroring session.
 @MainActor
 final class CompanionHardwareKeyboardUITests: ReliableUITestCase {
+    func testCommandReturnStillSendsThroughPreviewGuard() {
+        let app = launchApp(["--companion-preview"])
+        let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        XCTAssertTrue(scrollTo(river, in: app))
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        waitAndTap(river, until: composer)
+        composer.tap()
+        composer.typeText("Command Return preview")
+        composer.typeKey(.return, modifierFlags: .command)
+        XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 5))
+    }
+
     func testHardwareReturnSelectsSlashThenSendsAndShiftReturnKeepsNewline() {
         let app = launchApp(["--companion-preview"])
         let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
