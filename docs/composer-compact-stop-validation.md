@@ -192,3 +192,40 @@ accessibility UI. These cases are added but UNRUN until allocated. Native
 sheet navigation, editor identity and keyboard return remain separate runtime
 limits. Frontend parsing of all seven changed Swift files and diff checks pass;
 there are no timeout/retry configuration changes or new local runtime runs.
+
+## Synthetic fixture ownership and teardown
+
+The two test-only empty `nonisolated deinit` declarations have a concrete
+ownership rationale, not a safety claim derived from exclusion from an app
+binary gate:
+
+- `ReviewFixture` owns a MainActor `CompanionStore` and the concrete
+  `ReviewServiceSpy`, plus target/selection values and a sequence counter. Its
+  Store constructor has no persistence or UI owner, never starts the listener,
+  and uses synthetic approval/draft values. The sheet value is not mounted and
+  owns only that Store and a Binding back to the fixture. All four construction
+  sites immediately register MainActor `defer { fixture.tearDown() }` before
+  throwing assertions. Teardown closes presentation, tears down the concrete
+  spy and calls `store.stop()` on MainActor. The pending-task case explicitly
+  tears down and awaits its response task before returning. Destruction then
+  only releases the reviewed UI-free Store/spy references and value fields;
+  it neither dispatches work nor invokes actor-owned callbacks.
+- `ReviewServiceSpy` is **not** String-only: it owns a callback capturing an
+  `XCTestExpectation`, and may own a `CheckedContinuation` retaining a suspended
+  response task. Its explicit MainActor teardown clears the callback, turns
+  off future response holds, removes the stored continuation and resumes it
+  once. A late-starting task therefore cannot install a fresh hold after
+  teardown. The pending case drains that task and checks callback/continuation
+  release. No callback or continuation is invoked by deinit. Remaining stored
+  fields are String/Bool/target response values; the spy owns no UIKit,
+  hosting-controller, timer, delegate or network resource. Cleanup is
+  idempotent, so the explicit pre-drain cleanup and deferred cleanup are safe.
+
+This is an ownership review of these concrete captures/call sites. New owners
+or callback captures require review; frontend parsing does not prove teardown
+or runtime behavior. The tests remain unrun until allocated.
+
+The same-ID cross-target test now also populates a real second target in the
+synthetic Store, rejects the first target's old callback, and dispatches through
+the second target's actual sheet method once. This positive control shows that
+the negative selection check does not merely reject an unavailable target.

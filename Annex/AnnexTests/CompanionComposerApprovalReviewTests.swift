@@ -9,6 +9,7 @@ import ClubhouseTransport
     func testOpenReviewTracksQueueResolutionAndRemovalWithoutDispatch() async throws {
         let first = request("first"), second = request("second"), earlier = request("earlier")
         let fixture = ReviewFixture([first, second], selected: second.id)
+        defer { fixture.tearDown() }
         let sheet = fixture.sheet
         let oldOption = try XCTUnwrap(second.options.first)
         let queuedAction = { await sheet.respond(to: second.id, option: oldOption) }
@@ -38,6 +39,7 @@ import ClubhouseTransport
     func testOldCallbackCannotRemapChangedOptionsOrFollowNewSelection() async throws {
         let first = request("first"), second = request("second")
         let fixture = ReviewFixture([first, second], selected: first.id)
+        defer { fixture.tearDown() }
         let sheet = fixture.sheet
         let originalOption = try XCTUnwrap(first.options.first)
         let queuedAction = { await sheet.respond(to: first.id, option: originalOption) }
@@ -52,15 +54,26 @@ import ClubhouseTransport
         await queuedAction()
         fixture.selection = .init(target: fixture.target, approvalID: second.id)
         await queuedAction()
-        fixture.selection = .init(target: CompanionPreviewService.dispatcherTarget, approvalID: first.id)
+        let secondTarget = CompanionPreviewService.dispatcherTarget
+        fixture.publish([first], for: secondTarget)
+        fixture.selection = .init(target: secondTarget, approvalID: first.id)
         XCTAssertNil(sheet.currentApproval, "A same-ID request on another target is not this review")
         await queuedAction()
         XCTAssertTrue(fixture.service.commands.isEmpty, "Closed or switched review must reject its old callback")
+        let secondSheet = fixture.sheet(for: secondTarget)
+        XCTAssertEqual(secondSheet.currentApproval, first, "The second target really contains the same request ID")
+        XCTAssertTrue(secondSheet.canRespond)
+        await secondSheet.respond(to: first.id, option: originalOption)
+        XCTAssertEqual(fixture.service.commands, ["respond"], "The legitimately selected second request can dispatch")
+        XCTAssertEqual(fixture.service.responses.first?.target, secondTarget)
+        XCTAssertEqual(fixture.service.responses.first?.approvalID, first.id)
+        XCTAssertEqual(secondSheet.currentApproval?.resolution, .allowed)
     }
 
     func testOneValidDecisionDisablesPendingDuplicatesAndCloseAddsNoCommand() async throws {
         let approval = request("valid")
         let fixture = ReviewFixture([approval], selected: approval.id)
+        defer { fixture.tearDown() }
         let sheet = fixture.sheet
         let option = try XCTUnwrap(approval.options.first)
         let arrived = expectation(description: "One synthetic response reached the service")
@@ -77,14 +90,19 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.service.responses.first?.optionID, option.id)
         sheet.close()
         XCTAssertEqual(fixture.service.commands, ["respond"], "Close does not dispatch or cancel an already submitted decision")
-        fixture.service.finishResponse()
+        // Clean up before awaiting the task even if an assertion/arrival wait failed. Teardown also
+        // disables future holds, so a task that starts late cannot install a new suspended response.
+        fixture.tearDown()
         await sending.value
         XCTAssertEqual(fixture.service.commands, ["respond"])
+        XCTAssertFalse(fixture.service.hasHeldResponse)
+        XCTAssertNil(fixture.service.responseArrived)
     }
 
     func testExistingOfflineExpiryAndErrorRulesRemainAuthoritative() async throws {
         let approval = request("gates")
         let fixture = ReviewFixture([approval], selected: approval.id)
+        defer { fixture.tearDown() }
         let sheet = fixture.sheet
         let option = try XCTUnwrap(approval.options.first)
         var hosts = fixture.store.hosts
@@ -116,6 +134,8 @@ import ClubhouseTransport
 }
 
 @MainActor private final class ReviewFixture {
+    // ARC-only after explicit MainActor tearDown: owns a UI-free Store + the reviewed synthetic spy,
+    // a target/selection and a counter. No started listener or persistence/UI owner; see validation doc.
     nonisolated deinit {}
     let service = ReviewServiceSpy()
     let store: CompanionStore
@@ -125,23 +145,35 @@ import ClubhouseTransport
 
     init(_ approvals: [CompanionApproval], selected: String) {
         store = CompanionStore(service: service)
-        store.apply(.hosts(CompanionPreviewService.hosts(now: .now)))
+        store.apply(.hosts(CompanionPreviewService.hosts(now: .now, dispatcher: true)))
         store.drafts[target] = "Keep every line\n🙂"
         selection = .init(target: target, approvalID: selected)
         publish(approvals)
     }
 
     var sheet: CompanionComposerApprovalReviewSheet {
+        sheet(for: target)
+    }
+
+    func sheet(for target: CompanionTarget) -> CompanionComposerApprovalReviewSheet {
         .init(store: store, target: target, selection: Binding(get: { self.selection }, set: { self.selection = $0 }))
     }
 
-    func publish(_ approvals: [CompanionApproval]) {
+    func publish(_ approvals: [CompanionApproval], for target: CompanionTarget? = nil) {
         sequence += 1
-        store.apply(.timeline(target, items: approvals.map(CompanionTimelineItem.approval), sequence: sequence, reset: true, sessionID: "synthetic-review"))
+        store.apply(.timeline(target ?? self.target, items: approvals.map(CompanionTimelineItem.approval), sequence: sequence, reset: true, sessionID: "synthetic-review"))
+    }
+
+    func tearDown() {
+        selection = nil
+        service.tearDown()
+        store.stop()
     }
 }
 
 @MainActor private final class ReviewServiceSpy: CompanionService {
+    // Not String-only: the callback captures an XCTestExpectation and waiting retains a suspended task.
+    // MainActor tearDown releases/resumes both before ARC-only destruction; no callback runs in deinit.
     nonisolated deinit {}
     struct Response { let approvalID: String; let optionID: String; let target: CompanionTarget }
     var commands: [String] = []
@@ -150,6 +182,7 @@ import ClubhouseTransport
     var refusesResponse = false
     var responseArrived: (() -> Void)?
     private var waiting: CheckedContinuation<Void, Never>?
+    var hasHeldResponse: Bool { waiting != nil }
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { .init(items: [], lastSequence: 0) }
@@ -169,5 +202,11 @@ import ClubhouseTransport
         } else { responseArrived?() }
         if refusesResponse { throw CompanionServiceError.rejected("Synthetic refusal") }
     }
-    func finishResponse() { waiting?.resume(); waiting = nil }
+    func tearDown() {
+        responseArrived = nil
+        holdsResponse = false
+        let continuation = waiting
+        waiting = nil
+        continuation?.resume()
+    }
 }
