@@ -288,17 +288,71 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                        "As the draft grows, Send must stay level with the last line")
     }
 
-    /// Dynamic Type changes the line height but not the send button, so check centring at a large size too.
+    /// Accessibility text gives the draft its own full-width row above the actions.
     func testComposerCentresOneLineAtLargeText() {
         let app = launchApp(["--companion-preview", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
         openRiver(app, maxSwipes: 6)
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let send = app.buttons["companion-send"]
-        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "The placeholder must be centred against the send button")
+        func assertStacked(_ state: String, editing: Bool) -> Bool {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Accessibility stacked composer before geometry: \(state)"
+            shot.lifetime = .keepAlways; add(shot)
+            let navigations = app.navigationBars
+            let keyboards = app.keyboards
+            let inputs = app.otherElements.matching(identifier: "inputView")
+            let assistants = app.otherElements.matching(identifier: "SystemInputAssistantView")
+            let navCount = navigations.count, keyboardCount = keyboards.count
+            let inputCount = inputs.count, assistantCount = assistants.count
+            XCTContext.runActivity(named: "Stacked composer \(state) counts nav=\(navCount) keyboard=\(keyboardCount) input=\(inputCount) assistant=\(assistantCount)") { _ in }
+            XCTAssertEqual(navCount, 1)
+            guard navCount == 1 else { return false }
+            if editing {
+                XCTAssertEqual(keyboardCount, 1); XCTAssertEqual(inputCount, 1)
+                XCTAssertLessThanOrEqual(assistantCount, 1)
+                guard keyboardCount == 1, inputCount == 1, assistantCount <= 1 else { return false }
+            } else {
+                XCTAssertEqual(keyboardCount, 0, "The initial placeholder is inspected before focus")
+                guard keyboardCount == 0 else { return false }
+            }
+            let appFrame = app.frame, navFrame = navigations.element(boundBy: 0).frame
+            let editorFrame = composer.frame, sendFrame = send.frame
+            var inputFrames: [CGRect] = []
+            if editing {
+                inputFrames = [keyboards.element(boundBy: 0).frame, inputs.element(boundBy: 0).frame]
+                if assistantCount == 1 { inputFrames.append(assistants.element(boundBy: 0).frame) }
+            }
+            let frames = [appFrame, navFrame, editorFrame, sendFrame] + inputFrames
+            let finite = frames.allSatisfy { frame in
+                !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+                    && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy { $0.isFinite }
+            }
+            XCTContext.runActivity(named: "Stacked composer \(state) app=\(appFrame) nav=\(navFrame) editor=\(editorFrame) Send=\(sendFrame) fullInput=\(inputFrames) finite=\(finite)") { _ in }
+            XCTAssertTrue(finite)
+            guard finite else { return false }
+            let visibleInputs = inputFrames.map { $0.intersection(appFrame) }
+            XCTAssertTrue(visibleInputs.allSatisfy { !$0.isNull && !$0.isEmpty })
+            guard visibleInputs.allSatisfy({ !$0.isNull && !$0.isEmpty }) else { return false }
+            let bottom = visibleInputs.map(\.minY).min() ?? appFrame.maxY
+            let viewport = CGRect(x: appFrame.minX, y: navFrame.maxY, width: appFrame.width,
+                                  height: max(0, bottom - navFrame.maxY))
+            XCTAssertTrue(appFrame.contains(navFrame))
+            XCTAssertTrue(viewport.contains(editorFrame), "The full readable editor stays above input surfaces")
+            XCTAssertTrue(viewport.contains(sendFrame), "The full action stays above input surfaces")
+            XCTAssertGreaterThanOrEqual(editorFrame.width, appFrame.width * 0.7)
+            XCTAssertLessThanOrEqual(editorFrame.maxY, sendFrame.minY, "Accessibility editor is above its action row")
+            XCTAssertGreaterThanOrEqual(sendFrame.width, 44)
+            XCTAssertGreaterThanOrEqual(sendFrame.height, 44)
+            XCTAssertTrue(composer.isHittable)
+            if editing { XCTAssertTrue(send.isEnabled && send.isHittable) }
+            return true
+        }
+        guard assertStacked("placeholder", editing: false) else { return }
         composer.tap()
         composer.typeText("Hey")
-        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "One line of text must be centred against the send button")
+        XCTAssertEqual(composer.value as? String, "Hey")
+        guard assertStacked("one line", editing: true) else { return }
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Composer at accessibility text size"
         screenshot.lifetime = .keepAlways
