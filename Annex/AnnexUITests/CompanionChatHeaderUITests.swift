@@ -11,6 +11,28 @@ import XCTest
         waitAndTap(row, until: element(app, "companion-composer"))
     }
 
+    /// Evidence only at the existing query phase; no assertion, wait, retry or action selection.
+    private func captureContextBoundary(_ app: XCUIApplication, _ context: XCUIElement, _ phase: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Context boundary — \(phase)"
+        shot.lifetime = .keepAlways
+        add(shot)
+        let exists = context.exists
+        guard exists else {
+            XCTContext.runActivity(named: "Context boundary \(phase): target exists=false; no frame available") { _ in }
+            return
+        }
+        let frame = context.frame
+        let label = context.label
+        let value = context.value
+        let enabled = context.isEnabled
+        let hittable = context.isHittable
+        let appFrame = app.frame
+        let navCount = app.navigationBars.count
+        let navFrame = navCount == 1 ? String(describing: app.navigationBars.element(boundBy: 0).frame) : "unavailable"
+        XCTContext.runActivity(named: "Context boundary \(phase): actual Button frame=\(frame), label=\(label), value=\(String(describing: value)), enabled=\(enabled), hittable=\(hittable), app=\(appFrame), navCount=\(navCount), navFrame=\(navFrame)") { _ in }
+    }
+
     func testIdentityDisclosesDetailsAndUsageOpensContextAndDesktopPlanLimits() {
         let app = launchApp(["--companion-preview", "--companion-preview-context-window"])
         openRiver(app)
@@ -24,6 +46,7 @@ import XCTest
         XCTAssertFalse(details.exists, "Status and permission details start collapsed")
         XCTAssertGreaterThanOrEqual(identity.frame.height, 44)
         XCTAssertGreaterThanOrEqual(identity.frame.width, 44)
+        captureContextBoundary(app, context, "known ordinary before original size checks")
         XCTAssertTrue(context.isHittable)
         XCTAssertGreaterThanOrEqual(context.frame.width, 44)
         XCTAssertGreaterThanOrEqual(context.frame.height, 44)
@@ -56,6 +79,7 @@ import XCTest
         let context = app.buttons["companion-context-usage"]
         XCTAssertTrue(status.waitForExistence(timeout: 5))
         XCTAssertTrue(status.label.contains("Permissions:"), status.label)
+        captureContextBoundary(app, context, "AXL before editing")
         XCTAssertTrue(context.isHittable, "The large-text header keeps usage reachable before editing")
         XCTAssertFalse(element(app, "companion-chat-details").exists)
 
@@ -70,6 +94,7 @@ import XCTest
         }
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
         composer.typeText("Header draft")
+        captureContextBoundary(app, context, "AXL after original draft typing")
         XCTAssertTrue(context.isHittable, "Usage remains reachable while editing without an expanded status row")
         XCTAssertTrue(status.label.contains("Permissions:"), status.label)
         let actions = app.buttons["conversation-actions-menu"]
@@ -82,6 +107,7 @@ import XCTest
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         let usage = app.buttons["companion-context-settings"]
+        captureContextBoundary(app, usage, "unknown Dispatcher before original action")
         XCTAssertTrue(usage.isHittable)
         XCTAssertEqual(usage.value as? String, "Context usage unknown")
         waitAndTap(usage, until: element(app, "companion-context-reading-note"))
@@ -109,6 +135,7 @@ import XCTest
         XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", "Cedar, 2 of 3"), timeout: 5))
         XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1)
         let usage = app.navigationBars.buttons["companion-context-settings"]
+        captureContextBoundary(app, usage, "selected Review after original page gesture")
         waitAndTap(usage, until: element(app, "companion-context-reading-note"), attempts: 1)
         waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"], attempts: 1)
     }
