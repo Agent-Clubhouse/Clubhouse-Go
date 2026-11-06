@@ -205,7 +205,9 @@ import XCTest
 
     private func cancelInterruptConfirmation(_ app: XCUIApplication) -> Bool {
         let cancel = app.buttons.matching(identifier: "Cancel")
-        if cancel.count > 0 {
+        let cancelCount = cancel.count
+        XCTContext.runActivity(named: "Native cancellation export — Cancel count=\(cancelCount)") { _ in }
+        if cancelCount > 0 {
             guard cancel.count == 1, cancel.firstMatch.isHittable else {
                 XCTFail("Native Cancel must be unique and hittable"); return false
             }
@@ -213,19 +215,69 @@ import XCTest
         } else {
             let popovers = app.popovers.containing(.staticText, identifier: "Interrupt this turn?")
             let regions = app.otherElements.matching(identifier: "PopoverDismissRegion")
-            guard popovers.count == 1, regions.count == 1,
-                  popovers.firstMatch.buttons["Interrupt turn"].exists,
-                  let viewport = unobscuredViewport(app) else {
+            let popoverCount = popovers.count, regionCount = regions.count
+            XCTContext.runActivity(named: "Native cancellation exports — Cancel=\(cancelCount), expected popovers=\(popoverCount), dismiss regions=\(regionCount)") { _ in }
+            guard popoverCount == 1 else { XCTFail("Native confirmation must expose one expected popover: \(popoverCount)"); return false }
+            guard regionCount == 1 else { XCTFail("Native confirmation must expose one public dismiss region: \(regionCount)"); return false }
+            let presented = popovers.element(boundBy: 0), dismissRegion = regions.element(boundBy: 0)
+            let hasInterrupt = presented.buttons["Interrupt turn"].exists
+            XCTContext.runActivity(named: "Native cancellation expected destructive action exists=\(hasInterrupt)") { _ in }
+            guard hasInterrupt, let viewport = unobscuredViewport(app) else {
                 XCTFail("Native confirmation must expose one expected popover and public dismiss region")
                 return false
             }
-            let region = regions.firstMatch.frame
-            let popover = popovers.firstMatch.frame
-            guard finiteRect(region), finiteRect(popover),
-                  let point = outsidePoint(in: region.intersection(viewport), excluding: popover),
-                  region.contains(point), !popover.contains(point) else {
-                XCTFail("No safe native popover dismissal side is available"); return false
+            let region = dismissRegion.frame, popover = presented.frame
+            let mainWindow = app.windows.firstMatch.frame, appFrame = app.frame
+            let window = mainWindow.intersection(appFrame)
+            let frames = "region=\(region), popover=\(popover), main=\(mainWindow), app=\(appFrame), window=\(window), viewport=\(viewport)"
+            XCTContext.runActivity(named: "Native cancellation frames — \(frames); finite region=\(finiteRect(region)), popover=\(finiteRect(popover)), main=\(finiteRect(mainWindow)), app=\(finiteRect(appFrame)), window=\(finiteRect(window))") { _ in }
+            guard finiteRect(region) else { XCTFail("Native dismiss region must be finite: \(frames)"); return false }
+            guard finiteRect(popover) else { XCTFail("The entire native popover must have finite geometry: \(frames)"); return false }
+            guard finiteRect(mainWindow) else { XCTFail("Native cancellation requires a finite main window: \(frames)"); return false }
+            guard finiteRect(appFrame) else { XCTFail("Native cancellation requires a finite application frame: \(frames)"); return false }
+            guard finiteRect(window) else { XCTFail("Native cancellation requires a finite window intersection: \(frames)"); return false }
+
+            // Diagnostic-only adjunct: selection remains the unchanged >24pt-side/12pt-inset helper.
+            func candidate(in bounds: CGRect, named name: String) -> CGPoint? {
+                let overlap = bounds.intersection(popover)
+                XCTContext.runActivity(named: "Native cancellation \(name) intersection — bounds=\(bounds), finite=\(finiteRect(bounds)), popover overlap=\(overlap), finite=\(finiteRect(overlap))") { _ in }
+                if finiteRect(bounds), finiteRect(overlap) {
+                    let sides = [
+                        CGRect(x: bounds.minX, y: bounds.minY, width: overlap.minX - bounds.minX, height: bounds.height),
+                        CGRect(x: overlap.maxX, y: bounds.minY, width: bounds.maxX - overlap.maxX, height: bounds.height),
+                        CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: overlap.minY - bounds.minY),
+                        CGRect(x: bounds.minX, y: overlap.maxY, width: bounds.width, height: bounds.maxY - overlap.maxY)
+                    ]
+                    for (index, side) in sides.enumerated() {
+                        let interior = side.insetBy(dx: 12, dy: 12)
+                        XCTContext.runActivity(named: "Native cancellation \(name) side\(index) — frame=\(side), finite=\(finiteRect(side)), width>24=\(side.width > 24), height>24=\(side.height > 24), inset12=\(interior), finiteInset=\(finiteRect(interior))") { _ in }
+                    }
+                }
+                let point = outsidePoint(in: bounds, excluding: popover)
+                let predicates = point.map { "finite=\($0.x.isFinite && $0.y.isFinite), inBounds=\(bounds.contains($0)), inRegion=\(region.contains($0)), inWindow=\(window.contains($0)), outsidePopover=\(!popover.contains($0))" } ?? "no point"
+                XCTContext.runActivity(named: "Native cancellation \(name) point — \(String(describing: point)), \(predicates)") { _ in }
+                return point
             }
+
+            let conversationBounds = region.intersection(viewport)
+            let point: CGPoint
+            if let existing = candidate(in: conversationBounds, named: "conversation viewport") {
+                point = existing
+            } else {
+                // The native dismissal surface can overlay input; this is not free conversation space.
+                let hittable = dismissRegion.isHittable
+                let nativeBounds = region.intersection(window)
+                XCTContext.runActivity(named: "Native cancellation presentation boundary — hittable=\(hittable), intersection=\(nativeBounds), finite=\(finiteRect(nativeBounds)), \(frames)") { _ in }
+                guard hittable else { XCTFail("Native dismiss region must be hittable before using its presentation boundary: \(frames)"); return false }
+                guard finiteRect(nativeBounds) else { XCTFail("Native dismiss region/window intersection must be finite: \(frames)"); return false }
+                guard let native = candidate(in: nativeBounds, named: "native presentation") else {
+                    XCTFail("No safe native popover dismissal side is available: \(frames)"); return false
+                }
+                point = native
+            }
+            guard region.contains(point) else { XCTFail("Cancellation point must stay inside the native dismiss region: \(point), \(frames)"); return false }
+            guard window.contains(point) else { XCTFail("Cancellation point must stay inside the actual window: \(point), \(frames)"); return false }
+            guard !popover.contains(point) else { XCTFail("Cancellation point must be outside the entire popover: \(point), \(frames)"); return false }
             tap(point, in: app, named: "Cancel through native dismiss region outside popover \(popover)")
         }
         let closed = waitFor(app, NSPredicate { _, _ in
