@@ -744,11 +744,33 @@ struct CompanionNeedsYouView: View {
 
     var body: some View {
         let items = store.attentionItems()
+        let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
+            ForEach(availability.unavailableHosts) { host in
+                Section {
+                    HStack(spacing: 12) {
+                        if host.isConnecting { ProgressView().accessibilityLabel("Connecting") }
+                        else { Image(systemName: "wifi.slash").foregroundStyle(Color(palette.secondaryLabel)) }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(host.title).font(.headline)
+                            Text(CompanionAttentionAvailability.UnavailableHost.detail)
+                                .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                        }
+                        Spacer(minLength: 8)
+                        if let hostID = host.retryHostID {
+                            Button("Retry") { Task { await store.reconnect(hostID: hostID) } }
+                                .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                                .accessibilityLabel("Retry \(host.name)")
+                                .accessibilityIdentifier("needs-you-retry-\(hostID)")
+                        }
+                    }
+                    .listRowBackground(CompanionCardBackground())
+                    .accessibilityIdentifier("needs-you-unavailable-\(host.id)")
+                }
+            }
             if items.isEmpty {
-                let working = store.allAgents.filter { $0.status == .working }.count
-                ContentUnavailableView("All caught up", systemImage: "checkmark.circle",
-                                       description: Text(working == 0 ? "Nothing is waiting on you." : "\(working) agents are working. They'll show up here when they need you."))
+                ContentUnavailableView(availability.emptyTitle, systemImage: availability.unavailableHosts.isEmpty ? "checkmark.circle" : "wifi.slash",
+                                       description: Text(availability.emptyDetail))
                     .listRowBackground(Color.clear)
             }
             ForEach(items) { item in
