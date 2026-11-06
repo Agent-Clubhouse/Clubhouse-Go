@@ -141,6 +141,48 @@ import XCTest
         return viewport.frame
     }
 
+    /// The unchanged SwiftUI Label exports one image and one text node in retained evidence.
+    /// Verify that exact composite under the unique product card; never choose an arbitrary match.
+    private func permissionsFrame(_ app: XCUIApplication, label: String) throws -> CGRect {
+        let id = "companion-header-level"
+        let card = try unique(app, "companion-chat-details")
+        let all = app.descendants(matching: .any).matching(identifier: id)
+        let images = app.images.matching(identifier: id), texts = app.staticTexts.matching(identifier: id)
+        let cardImages = card.images.matching(identifier: id), cardTexts = card.staticTexts.matching(identifier: id)
+        let counts = [all.count, images.count, texts.count, cardImages.count, cardTexts.count]
+        let countDescription = "globalAny/Image/Text/cardImage/cardText=\(counts)"
+        func evidence(_ reason: String) {
+            // Public evidence only, never parsed for selection. Cap output; SDK retrieval itself
+            // is not caller-bounded and remains under the existing test allowance.
+            let details = "\(reason)\n\(countDescription)\nMatches:\n\(all.debugDescription)\nCard ancestry:\n\(card.debugDescription)\nApplication:\n\(app.debugDescription)"
+            let bytes = Array(details.utf8)
+            let capped = bytes.count <= 65536 ? details
+                : String(decoding: bytes.prefix(65480), as: UTF8.self) + "\n[truncated]"
+            let attachment = XCTAttachment(string: capped)
+            attachment.name = "Header permissions composite public evidence"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        XCTContext.runActivity(named: "Permissions composite cardinality — \(countDescription)") { _ in }
+        let shape = counts == [2, 1, 1, 1, 1]
+        if !shape { evidence("Invalid permissions role/card ancestry shape") }
+        XCTAssertTrue(shape, "Permissions require exactly one Image and one StaticText globally and under the unique card: \(countDescription)")
+        guard shape else { throw HeaderGeometryFailure.invalid }
+        let image = cardImages.element(boundBy: 0), text = cardTexts.element(boundBy: 0)
+        let imageLabel = image.label, textLabel = text.label
+        let imageFrame = image.frame, textFrame = text.frame
+        let union = imageFrame.union(textFrame)
+        let diagnostic = "Image type=\(image.elementType), label=\(imageLabel), frame=\(imageFrame); Text type=\(text.elementType), label=\(textLabel), frame=\(textFrame); union=\(union)"
+        XCTContext.runActivity(named: "Permissions composite geometry — \(diagnostic)") { _ in }
+        let valid = imageLabel == label && textLabel == label && finite(imageFrame) && finite(textFrame) && finite(union)
+        if !valid { evidence(diagnostic) }
+        XCTAssertEqual(imageLabel, label)
+        XCTAssertEqual(textLabel, label)
+        XCTAssertTrue(finite(imageFrame) && finite(textFrame) && finite(union), diagnostic)
+        guard valid else { throw HeaderGeometryFailure.invalid }
+        return union
+    }
+
     /// Traverse only the bounded details scroll. Track coverage of each full metadata label,
     /// allowing a multiline title taller than the viewport to be read over multiple positions.
     /// Sixteen is a finite navigation budget, never a repeated tap or focus/launch rescue.
@@ -174,9 +216,14 @@ import XCTest
             XCTAssertTrue(finite(visible))
             guard finite(visible) else { throw HeaderGeometryFailure.invalid }
             for (id, label) in expected {
-                let leaf = try unique(app, id)
-                XCTAssertEqual(leaf.label, label)
-                let frame = leaf.frame
+                let frame: CGRect
+                if id == "companion-header-level" {
+                    frame = try permissionsFrame(app, label: label)
+                } else {
+                    let leaf = try unique(app, id)
+                    XCTAssertEqual(leaf.label, label)
+                    frame = leaf.frame
+                }
                 XCTAssertTrue(finite(frame), id)
                 guard finite(frame) else { throw HeaderGeometryFailure.invalid }
                 if let height = heights[id] { XCTAssertEqual(frame.height, height, "Metadata must not shrink while navigating") }
