@@ -119,19 +119,25 @@ import XCTest
         }
         _ = try unique(app, "companion-chat-details") // Both natural and scroll paths expose one card root.
         let viewport = try unique(app, "companion-chat-details-viewport")
+        XCTAssertEqual(viewport.label, "Synthetic header details viewport")
         XCTAssertTrue(finite(viewport.frame) && region.content.contains(viewport.frame), "Details viewport \(viewport.frame), region \(region.content)")
         XCTAssertLessThanOrEqual(viewport.frame.maxY, composerTop, "Disclosure must not cover any composer control")
-        // DEBUG header fixture exposes the reporting boundary's frame and inset safe frame.
-        // This checks the actual safeAreaBar/proposal behavior rather than assuming it from source.
+        // Three rectangles: original raw frame, diagnostic inset-derived frame, used frame.
+        // Inherited insets may yield zero diagnostic height; they are not subtracted twice.
         let values = (viewport.value as? String ?? "").split(separator: ",").compactMap { Double($0) }
-        XCTAssertEqual(values.count, 8, "Missing actual residual geometry witness")
-        guard values.count == 8 else { throw HeaderGeometryFailure.invalid }
+        XCTAssertEqual(values.count, 12, "Missing raw/inset-derived/used residual geometry witness")
+        guard values.count == 12 else { throw HeaderGeometryFailure.invalid }
         let reported = CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
-        let residual = CGRect(x: values[4], y: values[5], width: values[6], height: values[7])
-        XCTAssertTrue(finite(reported) && finite(residual) && reported.contains(residual))
-        XCTAssertTrue(region.content.contains(residual), "Residual must exclude navigation and all input occlusion: \(residual), \(region.content)")
-        XCTAssertLessThanOrEqual(residual.maxY, composerTop, "Measured boundary must already reserve the bottom bar")
-        XCTAssertTrue(residual.contains(viewport.frame), "Disclosure \(viewport.frame) must stay in measured residual \(residual)")
+        let insetDerived = CGRect(x: values[4], y: values[5], width: values[6], height: values[7])
+        let used = CGRect(x: values[8], y: values[9], width: values[10], height: values[11])
+        XCTContext.runActivity(named: "Header residual raw \(reported), inset-derived \(insetDerived), used \(used)") { _ in }
+        XCTAssertTrue(values.allSatisfy(\.isFinite), "All diagnostic coordinates must remain finite")
+        XCTAssertGreaterThanOrEqual(insetDerived.width, 0)
+        XCTAssertGreaterThanOrEqual(insetDerived.height, 0)
+        XCTAssertTrue(finite(reported) && finite(used) && reported.contains(used))
+        XCTAssertTrue(region.content.contains(used), "Used residual must exclude navigation and all input occlusion: \(used), \(region.content)")
+        XCTAssertLessThanOrEqual(used.maxY, composerTop, "Used boundary must already reserve the bottom bar")
+        XCTAssertTrue(used.contains(viewport.frame), "Disclosure \(viewport.frame) must stay in used residual \(used)")
         return viewport.frame
     }
 

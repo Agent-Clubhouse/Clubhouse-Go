@@ -34,16 +34,17 @@ struct CompanionConversationIdentityButton: View {
 }
 
 /// Value-only geometry at the boundary after the bottom bar and before the top bar.
-/// The proxy can express a reservation in its frame or its insets; only this boundary's
-/// reported insets are removed. No screen, keyboard or composer-height estimates enter layout.
+/// This boundary's frame already reflects the bottom reservation. Inherited insets are
+/// diagnostic only: subtracting them again can erase the actual residual region.
 struct CompanionConversationHeaderRegion {
     let frame: CGRect
-    let safeFrame: CGRect
+    let insetDerivedFrame: CGRect
+    var usedFrame: CGRect { frame }
 
     init(geometry: GeometryProxy) {
         frame = geometry.frame(in: .global)
         let insets = geometry.safeAreaInsets
-        safeFrame = CGRect(x: frame.minX + insets.leading, y: frame.minY + insets.top,
+        insetDerivedFrame = CGRect(x: frame.minX + insets.leading, y: frame.minY + insets.top,
                            width: max(0, frame.width - insets.leading - insets.trailing),
                            height: max(0, frame.height - insets.top - insets.bottom))
     }
@@ -111,14 +112,22 @@ struct CompanionConversationDetailsViewport: View {
         }
         .clipped()
         .padding(.horizontal, 16).padding(.bottom, 6)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("companion-chat-details-viewport")
         #if DEBUG
-        // Read-only fixture witness of the actual boundary, not a layout input or State update.
-        .accessibilityValue(CompanionConversationHeaderFixture.isEnabled
-            ? [region.frame.minX, region.frame.minY, region.frame.width, region.frame.height,
-               region.safeFrame.minX, region.safeFrame.minY, region.safeFrame.width, region.safeFrame.height]
-                .map { String(Double($0)) }.joined(separator: ",") : "")
+        .background {
+            if CompanionConversationHeaderFixture.isEnabled {
+                // A separate passive fixture element reports the padded viewport allocation.
+                // Applying contain/ID to the outer view can reuse the product card's element.
+                Rectangle().fill(.clear)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Synthetic header details viewport")
+                    .accessibilityIdentifier("companion-chat-details-viewport")
+                    .accessibilityValue(
+                        [region.frame, region.insetDerivedFrame, region.usedFrame]
+                            .flatMap { [$0.minX, $0.minY, $0.width, $0.height] }
+                            .map { String(Double($0)) }.joined(separator: ","))
+                    .allowsHitTesting(false)
+            }
+        }
         #endif
     }
 }

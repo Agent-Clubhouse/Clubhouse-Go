@@ -113,7 +113,7 @@ struct CompanionConversationView: View {
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) {
             CompanionConversationHeaderBarLayout(
-                residualHeight: headerRegion.safeFrame.height,
+                residualHeight: headerRegion.usedFrame.height,
                 showsDetails: showHeaderDetails
             ) {
                 // Both slots are stable, including the empty disclosure/banner cases.
