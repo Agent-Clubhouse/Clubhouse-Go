@@ -6,6 +6,7 @@ import Testing
 /// Desktop-generated sender cases through snapshot decoding, chat projection and identity resolution.
 /// The fixture's image bytes are a transport stub. Substitute a valid raster in memory
 /// so image precedence still exercises the store, without changing the desktop fixture.
+/// Keep its recorded emoji-over-image expectation explicit; Go intentionally renders that input's image.
 @MainActor struct AnnexContractSenderIdentityTests {
     @Test func initialsAndPaletteMatchTheDesktopFixture() throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
@@ -21,7 +22,7 @@ import Testing
         }
     }
 
-    @Test func initialsContrastAndFoxRowRenderingMatchTheDesktopFixture() throws {
+    @Test func initialsContrastAndFoxProfileImageOverrideUseRecordedIdentity() throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
         let colors = fixture["colors"].arrayValue
         #expect(colors.count == 8)
@@ -36,21 +37,21 @@ import Testing
         let raw = try #require(fixture["catalog"]?["agents"]?["proj_app"].arrayValue.first { $0["id"]?.string == id })
         var agent = CompanionAgent(id: .init(hostID: "fixture", projectID: "proj_app", agentID: id),
                                    name: try #require(raw["name"]?.string), subtitle: "", status: .idle)
-        #expect(fixture["catalog"]?["agentIcons"]?[id]?.string != nil)
+        try assertRecordedDesktopCoexistence(fixture, agentID: id)
         let bytes = try #require(CompanionIdentityColor.data(fromDataURL: Self.validIconURL))
         let icon = CompanionIconReference.inline(host: "fixture", kind: .agent, id: id, data: bytes)
         CompanionLiveService.applyIdentity(raw, icon: icon, to: &agent)
-        #expect(agent.emoji == "🦊" && agent.icon == icon, "The fox wins even with an image present")
+        #expect(agent.emoji == "🦊" && agent.icon == icon, "Both recorded identity fields survive; Go draws the profile image")
         let frame = try #require(fixture["frames"].arrayValue.first { $0["payload"]?["event"]?["data"]?["messageId"]?.string == expected["messageId"]?.string })
         var projector = CompanionChatProjector()
         projector.apply(try #require(frame["payload"]?["event"]))
         guard case .message(let message)? = projector.items.first,
               case .others(let renderedParts) = message.display else { Issue.record("Missing fox sender row"); return }
         #expect(renderedParts.count == 1)
-        try assertPart(#require(renderedParts.first), expected: part, message: message, resolver: .init(agents: [agent]))
+        try assertPart(#require(renderedParts.first), expected: part, message: message, resolver: .init(agents: [agent]), fixture: fixture)
     }
 
-    @Test func senderFacesMatchTheDesktopFixture() async throws {
+    @Test func senderIdentityAndGoFacesRespectRecordedDesktopInputs() async throws {
         let fixture = try ContractFixtures.json("sender-identity.json")
         let harness = try await LiveServiceHarness.start(configure: { transport in
             await transport.setFeature("dispatcher", .object([
@@ -122,16 +123,36 @@ import Testing
                 #expect(contributions.allSatisfy { $0["from"]?.string == "others" }, "\(id)")
                 #expect(parts.count == expectedParts.count, "\(id)")
                 for (part, expectedPart) in zip(parts, expectedParts) {
-                    try assertPart(part, expected: expectedPart, message: message, resolver: resolver)
+                    try assertPart(part, expected: expectedPart, message: message, resolver: resolver, fixture: fixture)
                 }
             }
         }
     }
 
     private static let validIconURL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+    private static let validIconVersion = "b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640"
+
+    /// Assert the pinned desktop expectation and its coexistence input independently of Go's resolved face/icon.
+    private func assertRecordedDesktopCoexistence(_ fixture: AnnexJSON, agentID: String) throws {
+        let source = try ContractFixtures.json("SOURCE.json")
+        #expect(source["repository"]?.string == "Agent-Clubhouse/Clubhouse")
+        #expect(source["commit"]?.string == "4b3b4f59e67adcbe9df477b5f091ae1d9fb81953")
+        #expect(source["path"]?.string == "test/fixtures/annex-mobile")
+        let recorded = try #require(fixture["expected"].arrayValue.first { $0["messageId"]?.string == "emoji_over_image" })
+        let part = try #require(recorded["parts"].arrayValue.first)
+        #expect(part["agentId"]?.string == agentID && agentID == "durable_chat")
+        #expect(part["avatar"] == .object(["type": .string("emoji"), "emoji": .string("🦊"), "background": .string("#6366f120")]),
+                "The canonical desktop fixture still records emoji over image; do not rewrite it to Go's requested order")
+        let raw = try #require(fixture["catalog"]?["agents"]?["proj_app"].arrayValue.first { $0["id"]?.string == agentID })
+        #expect(raw["emoji"]?.string == "🦊" && raw["icon"]?.string == "durable_chat.png")
+        let catalogIcon = try #require(fixture["catalog"]?["agentIcons"]?[agentID]?.string)
+        #expect(!catalogIcon.isEmpty, "The recorded input must independently include a profile image")
+        let substitutedBytes = try #require(CompanionIdentityColor.data(fromDataURL: Self.validIconURL))
+        #expect(CompanionIconReference.digest(substitutedBytes) == Self.validIconVersion)
+    }
 
     private func assertPart(_ part: CompanionRoutedMessagePart, expected: AnnexJSON, message: CompanionMessage,
-                            resolver: CompanionSenderResolver) throws {
+                            resolver: CompanionSenderResolver, fixture: AnnexJSON) throws {
         let current = resolver.resolve(part.sender)
         #expect(current?.id == expected["agentId"]?.string, "\(message.id)")
         let name = current?.name ?? part.sender?.name
@@ -148,10 +169,19 @@ import Testing
             #expect(identity.face == .quick, "\(message.id)")
         case "image":
             #expect(identity.face == .icon, "\(message.id)")
-            #expect(identity.icon?.version == CompanionIdentityColor.data(fromDataURL: Self.validIconURL).map(CompanionIconReference.digest), "\(message.id)")
+            #expect(identity.icon?.version == Self.validIconVersion, "\(message.id)")
         case "emoji":
-            #expect(identity.face == .emoji(try #require(spec["emoji"]?.string)), "\(message.id)")
+            let emoji = try #require(spec["emoji"]?.string)
             #expect(CompanionIdentityColor.agentRGB(identity.color).hex + "20" == spec["background"]?.string, "\(message.id)")
+            if message.id == "emoji_over_image" {
+                let agentID = try #require(expected["agentId"]?.string)
+                try assertRecordedDesktopCoexistence(fixture, agentID: agentID)
+                #expect(identity.emoji == emoji && identity.icon?.id == agentID && identity.icon?.kind == .agent)
+                #expect(identity.icon?.version == Self.validIconVersion, "A missing/incorrect decoded image must fail, not select another expectation")
+                #expect(identity.face == .icon, "Go intentionally prefers the saved profile image for this documented coexistence input")
+            } else {
+                #expect(identity.face == .emoji(emoji), "\(message.id)")
+            }
         case "initials":
             #expect(identity.face == .initials(try #require(spec["initials"]?.string)), "\(message.id)")
             #expect(CompanionIdentityColor.agentRGB(identity.color).hex == spec["background"]?.string, "\(message.id)")
