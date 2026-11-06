@@ -1,5 +1,38 @@
 {
   "classes": {
+    "CompanionRecoveryFixtureService": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
+      "reason": "DEBUG-only concrete synthetic service. Owns a Bool teardown admission fence, String/target/Int/enum dictionaries and Sendable CheckedContinuation runtime handles, like the reviewed manual clock. It stores no user callback, UIView, controller, UIImage, transport or arbitrary protocol owner. beginTeardown closes all future holds before resuming pending requests on MainActor; deinit performs no resumption, cancellation or UI work. All service responses are value CompanionHistory or fixed String errors.",
+      "surface": {
+        "bases": ["CompanionService"],
+        "nestedValueProperties": {},
+        "properties": {
+          "historyCalls": "[ CompanionTarget : Int ]",
+          "isTearingDown": "Bool",
+          "modes": "[ CompanionTarget : ResultMode ]",
+          "pending": "[ CompanionTarget : [ CheckedContinuation < CompanionHistory , Error > ] ]",
+          "reconnectCalls": "[ String : Int ]"
+        },
+        "storageMacros": ["@ Observable"]
+      }
+    },
+    "CompanionRecoveryFixtureScene": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
+      "reason": "DEBUG-only scene owns the reviewed concrete RecoveryFixtureService, reviewed UI-free CompanionStore constructed with that service, and Bool/CompanionTarget values. Constructor captures no UI object or callback. UIKit hosting/window objects belong only to test method locals; this owner has no teardown work.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "isActive": "Bool",
+          "service": "CompanionRecoveryFixtureService",
+          "store": "CompanionStore",
+          "target": "CompanionTarget"
+        },
+        "storageMacros": ["@ Observable"]
+      }
+    },
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
@@ -748,6 +781,16 @@
           "expression": "CompanionStore ( service : service )",
           "producers": {
             "service": "CompanionPreviewService ( showsDispatcher : true )"
+          }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : service )",
+          "producers": {
+            "service": "CompanionRecoveryFixtureService ( )"
           }
         }
       ]
