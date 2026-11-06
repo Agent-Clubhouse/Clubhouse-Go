@@ -117,13 +117,14 @@ struct CompanionConversationView: View {
                 showsDetails: showHeaderDetails
             ) {
                 // Both slots are stable, including the empty disclosure/banner cases.
-                Group {
+                VStack(spacing: 0) {
                     if showHeaderDetails {
                         CompanionConversationDetailsViewport(agent: agent, contextName: contextName, region: headerRegion)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                otherAgentBanner.frame(maxWidth: .infinity)
+                VStack(spacing: 0) { otherAgentBanner }
+                    .frame(maxWidth: .infinity)
             }
         }
         }

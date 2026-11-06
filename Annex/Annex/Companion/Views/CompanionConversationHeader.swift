@@ -55,7 +55,11 @@ struct CompanionConversationHeaderBarLayout: Layout {
     let residualHeight: CGFloat
     let showsDetails: Bool
 
-    private func sizes(width: CGFloat, subviews: Subviews) -> (details: CGSize, banner: CGSize) {
+    private func sizes(width: CGFloat, subviews: Subviews) -> (details: CGSize, banner: CGSize)? {
+        guard subviews.count == 2 else {
+            assertionFailure("Header bar requires its two concrete disclosure/banner containers")
+            return nil
+        }
         let banner = subviews[1].sizeThatFits(.init(width: width, height: nil))
         guard showsDetails else { return (.init(width: width, height: 0), banner) }
         let ideal = subviews[0].sizeThatFits(.init(width: width, height: nil))
@@ -72,12 +76,12 @@ struct CompanionConversationHeaderBarLayout: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-        let result = sizes(width: width, subviews: subviews)
+        guard let result = sizes(width: width, subviews: subviews) else { return .zero }
         return .init(width: width, height: result.details.height + result.banner.height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = sizes(width: bounds.width, subviews: subviews)
+        guard let result = sizes(width: bounds.width, subviews: subviews) else { return }
         subviews[0].place(at: bounds.origin, anchor: .topLeading,
                           proposal: .init(width: bounds.width, height: result.details.height))
         subviews[1].place(at: .init(x: bounds.minX, y: bounds.minY + result.details.height), anchor: .topLeading,
@@ -101,6 +105,7 @@ struct CompanionConversationDetailsViewport: View {
         ViewThatFits(in: .vertical) {
             card
             ScrollView(.vertical) { card }
+                .scrollDismissesKeyboard(.never)
                 .scrollBounceBehavior(.basedOnSize)
                 .accessibilityIdentifier("companion-chat-details-scroll")
         }

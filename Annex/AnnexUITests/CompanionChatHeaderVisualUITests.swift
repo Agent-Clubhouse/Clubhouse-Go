@@ -106,6 +106,7 @@ import XCTest
             XCTAssertFalse(element(app, "companion-chat-details-viewport").exists)
             return nil
         }
+        _ = try unique(app, "companion-chat-details") // Both natural and scroll paths expose one card root.
         let viewport = try unique(app, "companion-chat-details-viewport")
         XCTAssertTrue(finite(viewport.frame) && region.content.contains(viewport.frame), "Details viewport \(viewport.frame), region \(region.content)")
         XCTAssertLessThanOrEqual(viewport.frame.maxY, composerTop, "Disclosure must not cover any composer control")
