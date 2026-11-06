@@ -12,6 +12,10 @@ synchronizing (catalog catch-up), and maps transport retrying to failed. Failed
 alone therefore does not prove an active reconnect. `CompanionStore.load` sets
 `isLoading` and clears `error` at the start, clears resync on success, and sets
 `error` plus `requiresResync` on failure. Resync also remains set during recovery.
+Offline describes this client's disconnected connection, including suspension;
+it does not establish desktop availability. Refresh/resync explanations refer to
+conversation actions/messages. An error alone without loading/resync does not
+establish that sending is blocked.
 
 The presentation must classify these inputs in this order:
 

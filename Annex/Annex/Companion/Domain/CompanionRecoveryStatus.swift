@@ -84,18 +84,18 @@ struct CompanionRecoveryStatus: Equatable, Sendable {
     var explanation: String {
         let summary: String = switch phase {
         case .hidden: "Your desktop connection and conversation are up to date."
-        case .connecting: "Connecting securely to your desktop. Connection recovery must finish before sending commands."
-        case .reconnecting: "Trying to reconnect to your desktop. Connection recovery must finish before sending commands."
-        case .synchronizing: "Synchronizing updates from your desktop. Connection recovery must finish before sending commands."
-        case .refreshing: "Loading the latest conversation from your desktop. The refresh must finish before sending commands."
-        case .offline: "Your desktop is offline. Retry the connection to continue."
+        case .connecting: "Connecting securely to your desktop. Conversation actions are unavailable while the connection recovers."
+        case .reconnecting: "Trying to reconnect to your desktop. Conversation actions are unavailable while the connection recovers."
+        case .synchronizing: "Synchronizing updates from your desktop. Conversation actions are unavailable while the connection recovers."
+        case .refreshing: "Loading the latest conversation from your desktop. Conversation actions are unavailable while the refresh is in progress."
+        case .offline: "Not connected to your desktop. Retry the connection to continue."
         case .connectionFailed: "The desktop connection has a problem. Retry the connection to continue."
-        case .refreshFailed: "The conversation could not be loaded. Refresh the conversation before sending commands."
-        case .refreshRequired: "The conversation may be out of date. Refresh it before sending commands."
+        case .refreshFailed: "The conversation could not be loaded. Refresh to load the latest conversation."
+        case .refreshRequired: "The conversation may be out of date. Refresh it before sending messages or taking conversation actions."
         }
         var paragraphs = [summary]
-        if requiresResync && phase != .refreshRequired && phase != .refreshFailed {
-            paragraphs.append("The conversation also needs a refresh before sending commands.")
+        if requiresResync && phase != .refreshRequired {
+            paragraphs.append("The conversation needs a refresh before sending messages or taking conversation actions.")
         }
         if let connectionError { paragraphs.append("Connection error: \(connectionError)") }
         if let conversationError { paragraphs.append("Conversation error: \(conversationError)") }

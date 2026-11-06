@@ -74,6 +74,32 @@ struct CompanionRecoveryStatusTests {
         }
     }
 
+    @Test func disconnectedClientDoesNotProveDesktopIsOffline() {
+        let status = CompanionRecoveryStatus(connection: .offline, isLoading: false, requiresResync: false, error: nil)
+        #expect(status.explanation.hasPrefix("Not connected to your desktop."))
+        #expect(!status.explanation.contains("desktop is offline"))
+        #expect(status.retryAction == .reconnect)
+    }
+
+    @Test func recoveryBlockingCopyIsScopedToConversationActions() {
+        for connection in connections {
+            let status = CompanionRecoveryStatus(connection: connection, isLoading: true, requiresResync: true, error: nil)
+            #expect(status.explanation.contains("before sending messages or taking conversation actions"))
+            #expect(!status.explanation.contains("commands"))
+        }
+    }
+
+    @Test func connectedErrorAloneDoesNotClaimSendingIsBlocked() {
+        let status = CompanionRecoveryStatus(connection: .connected, isLoading: false, requiresResync: false,
+                                             error: "History could not be read")
+        #expect(status.phase == .refreshFailed)
+        #expect(status.explanation.contains("The conversation could not be loaded."))
+        #expect(status.explanation.contains("History could not be read"))
+        #expect(!status.explanation.contains("before sending"))
+        #expect(!status.explanation.contains("unavailable"))
+        #expect(status.retryAction == .refreshConversation)
+    }
+
     @Test func connectedHistoryFailureDoesNotClaimMissedUpdatesOrReconnect() {
         let status = CompanionRecoveryStatus(connection: .connected, isLoading: false, requiresResync: true,
                                              error: "Could not read history")
@@ -82,6 +108,7 @@ struct CompanionRecoveryStatusTests {
         #expect(!status.isInProgress)
         #expect(!status.explanation.contains("missed"))
         #expect(!status.explanation.contains("reconnect"))
+        #expect(status.explanation.contains("before sending messages or taking conversation actions"))
     }
 
     @Test func staleConnectedConversationNeedsExplicitRefreshWithoutInventedFailure() {
