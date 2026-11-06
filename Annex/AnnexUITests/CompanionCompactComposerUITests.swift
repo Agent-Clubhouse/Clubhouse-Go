@@ -105,9 +105,10 @@ import XCTest
         let window = mainWindow.intersection(app.frame)
         let navigation = app.navigationBars.firstMatch
         guard finiteRect(mainWindow), finiteRect(app.frame), finiteRect(window),
-              navigation.exists, finiteRect(navigation.frame), window.intersects(navigation.frame),
+              app.navigationBars.count == 1, navigation.exists,
+              finiteRect(navigation.frame), window.intersects(navigation.frame),
               app.tabBars.count <= 1, app.keyboards.count <= 1, !requiresKeyboard || app.keyboards.count == 1 else {
-            XCTFail("A finite main window/navigation and unambiguous keyboard are required")
+            XCTFail("A finite main window, exactly one navigation bar and unambiguous keyboard are required")
             return nil
         }
         var bottom = window.maxY
@@ -237,8 +238,8 @@ import XCTest
             XCTAssertGreaterThanOrEqual(decision.frame.height, 44)
             XCTAssertGreaterThanOrEqual(decision.frame.minX, app.frame.minX)
             XCTAssertLessThanOrEqual(decision.frame.maxX, app.frame.maxX)
-            XCTAssertGreaterThanOrEqual(decision.frame.minY, app.navigationBars.firstMatch.frame.maxY)
             guard let viewport = unobscuredViewport(app) else { return }
+            XCTAssertGreaterThanOrEqual(decision.frame.minY, app.navigationBars.firstMatch.frame.maxY)
             XCTAssertLessThanOrEqual(decision.frame.maxY, viewport.maxY)
         }
         // Close is presentation-only; source review separately verifies that only explicit decisions dispatch.

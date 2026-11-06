@@ -99,7 +99,9 @@ The retained original working hierarchy exports keys at y451, while
 `inputView` and `SystemInputAssistantView` start at y407. Keys alone would
 permit 44pt of actual occlusion. Local geometry intersects the actual main
 window and app, excludes navigation/tab bars and the union of finite visible
-Keyboard/inputView/SystemInputAssistantView frames. Multiple keyboards or
+Keyboard/inputView/SystemInputAssistantView frames. Exactly one navigation
+bar must be exported before its frame is used; multiple bars fail rather than
+choosing a first match or guessing a containing sheet. Multiple keyboards or
 invalid geometry fail. Both editing-row and approval-decision checks now use
 this complete occlusion boundary. All original 44pt, row alignment, editor
 width, viewport, draft and image assertions remain.
@@ -124,7 +126,9 @@ parsing supplies action geometry.
 The zero-drag path requires the whole target inside the actual clip and
 hittable. Otherwise require finite vertical scrollbar frames that all agree
 exactly. Intersect their vertical interval with the clip/window and use 12pt
-interior endpoints for at most two geometry-directed content drags. Bound
+interior endpoints for at most two geometry-directed upward content drags.
+Only below-viewport items with positive displacement are eligible; above-track
+or other geometry fails with no downward fallback. Bound
 each displacement by the interior gesture height. After every drag, re-query
 item, menu, ancestors and track. Before the existing single checked item tap,
 require the whole target inside both clip and conservative track, and
@@ -148,7 +152,9 @@ unchanged; actual native layout still requires allocated validation.
 
 ## Review selection and source verification
 
-Future minimum selection, subject to parent/Dispatcher allocation:
+Proposed affected-path selection, subject to parent/Dispatcher allocation.
+The parent explicitly nominated the normal Recovery route as the fifth case
+because it shares the changed local fixture helper; no extra run is automatic:
 
 | Exact `ClubhouseGoUITests/` method | Launch invocations | `waitAndTap` invocations on complete success path |
 |---|---:|---:|
@@ -156,7 +162,8 @@ Future minimum selection, subject to parent/Dispatcher allocation:
 | `CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation` | 1 | 3 |
 | `CompanionCompactComposerUITests/testLargestTextWorkingAttachmentRowFits` | 1 | 5 |
 | `CompanionRecoveryIntegrationUITests/testLargeTextKeepsFullErrorsSeparateWarningAndTargetDetailsReachable` | 1 | 13 |
-| Total | 4 | 22 |
+| `CompanionRecoveryIntegrationUITests/testFirstLoadProgressFailureDetailsRetryAndRecovery` | 1 | 6 |
+| Total | 5 | 28 |
 
 Every selected launch and `waitAndTap` call retains explicit attempts1.
 One outside-menu tap replaces the misleading first editor tap. Each working
@@ -167,10 +174,10 @@ finite list/approval navigation remains unchanged. No assertion threshold,
 existing timeout, allowance or original screenshot is relaxed or removed;
 new screenshots retain the dismissed-menu and both native confirmations.
 
-The normal recovery method shares the local fixture helper and therefore is
-an affected path for source review, although the minimum failed-case selection
-above does not repeat that previously passing method automatically. Its exact
-Details reveal helper and all original assertions/captures remain unchanged.
+The normal recovery method shares the local fixture helper and is included
+above by explicit parent nomination. Its exact Details reveal helper and all
+original assertions/captures remain unchanged. The nomination remains source
+preparation; allocation and actual execution are not implied.
 
 Validation here is source parsing, original-assertion/helper comparison and
 whitespace/diff review only. No build, SDK typecheck, test, simulator, app,
@@ -187,3 +194,13 @@ lines are deliberately strengthened: the isolated parent-trigger dismissal
 wait becomes the combined five-second collection/parent/choice witness, and
 approval decision bottom containment uses full input occlusion instead of
 keys alone. No recovery assertion line was removed or replaced.
+
+## Narrow source-review successor
+
+The successor to `1219432eda14691950648a1d7d722a8ca01908cd` changes only local
+navigation-bar uniqueness, below-viewport/upward-only eligibility and this
+nomination documentation. It preserves the actual-clip zero-drag path (which
+need not lie inside the scrollbar track), the strict post-drag clip-plus-track
+containment/hittability checks, original waits/assertions/attempts and media
+qualifications. The normal Recovery case's two fixture calls also permit zero
+to two upward navigations each before their existing single checked item taps.

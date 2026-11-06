@@ -73,19 +73,20 @@ import XCTest
             if navigation == 0, current.clip.contains(target), current.item.isHittable { return true }
             guard let viewport = fixtureMenuTrack(current.menu, clip: current.clip, in: app) else { return false }
             if navigation > 0, current.clip.contains(target), viewport.contains(target), current.item.isHittable { return true }
+            let displacement = target.midY - viewport.midY
             guard navigation < 2, target.minX >= viewport.minX, target.maxX <= viewport.maxX,
-                  target.height <= viewport.height, !viewport.contains(target) else {
-                XCTFail("Fixture item must become wholly visible and hittable within two bounded content drags")
+                  target.height <= viewport.height, target.minY >= viewport.minY,
+                  target.maxY > viewport.maxY, displacement.isFinite, displacement > 0 else {
+                XCTFail("Only a below-viewport fixture item may receive at most two bounded upward content drags")
                 return false
             }
             let interior = viewport.insetBy(dx: 12, dy: 12)
-            let displacement = target.midY - viewport.midY
-            let distance = min(abs(displacement), interior.height - 2)
+            let distance = min(displacement, interior.height - 2)
             guard finiteRect(interior), distance.isFinite, distance > 0 else {
                 XCTFail("Fixture menu displacement must be finite and nonzero"); return false
             }
-            let start = CGPoint(x: interior.midX, y: displacement > 0 ? interior.maxY - 1 : interior.minY + 1)
-            let end = CGPoint(x: start.x, y: start.y + (displacement > 0 ? -distance : distance))
+            let start = CGPoint(x: interior.midX, y: interior.maxY - 1)
+            let end = CGPoint(x: start.x, y: start.y - distance)
             let window = app.windows.firstMatch.frame.intersection(app.frame)
             guard interior.contains(start), interior.contains(end), window.contains(start), window.contains(end) else {
                 XCTFail("Both menu-content gesture endpoints must remain inside the actual viewport")
