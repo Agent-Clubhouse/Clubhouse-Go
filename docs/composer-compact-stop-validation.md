@@ -74,7 +74,8 @@ not authority to contact a live desktop.
 
 ## Validation recorded
 
-- `swiftc -frontend -parse` passed for the composer and dedicated UI test file.
+- `swiftc -frontend -parse` passed for all four changed Swift files: the composer,
+  dedicated UI test class and both authorized compatibility test files.
 - `git diff --check` passed.
 - Build, runtime tests and screenshots remain unexecuted pending serial
   allocation; no simulator, device or live commands were run.
