@@ -129,8 +129,13 @@ or real transport. Two targets share `recovery-one`; the third uses
 `recovery-two`. Its scene retains only that service, the reviewed Store and
 selection/visibility values. The ownership extractor supplied exact storage
 and constructor inputs; only these two reviewed ARC-only entries and this
-concrete Store constructor are added. Hosted cleanup explicitly finishes any
-held continuation; neither new deinit resumes work or touches UIKit.
+concrete Store constructor are added. MainActor teardown sets a Boolean fence
+before finishing held continuations, so late queued loads cannot enter another
+hold. Hosted windows choose a foreground-active scene, capture its key window,
+hide/detach the root and restore the prior key window in defer, then await and
+report pending-request/Store-load drain. Neither new deinit resumes work or
+touches UIKit. A separate teardown case verifies a late held-mode mutation
+cannot reopen admission.
 
 The hosted `CompanionRecoveryIntegrationTests` finds the actual accessibility
 leaf, requires non-nil lookup and `accessibilityActivate() == true`, and checks
@@ -147,6 +152,11 @@ duplicate large transcript panels are absent. The fixture requires both
 `--companion-preview` and `--companion-preview-recovery-fixture`; the default
 preview/live routes are unchanged. It is an actual NavigationStack/conversation
 fixture, excluding RootView/tab and physical-device lifecycle proof.
+Its six retained, unannotated synthetic UI captures show compact progress,
+history failure, full Details, recovered transcript, AX warning/retry, and AX
+full connection/history Details. These are actual fresh app screenshots,
+not the original feedback PNGs. Existence/hit-target assertions are not pixel
+or keyboard evidence; keyboard coverage remains in the combined header matrix.
 
 After the parent allocates the local serial slot, run the combined candidate
 with the exact cleared component and selected header/composer/avatar source:

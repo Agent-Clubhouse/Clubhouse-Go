@@ -18,6 +18,12 @@ import XCTest
         XCTAssertFalse(app.staticTexts["Conversation unavailable"].exists)
         XCTAssertFalse(element(app, "companion-empty-conversation").exists)
     }
+    private func capture(_ app: XCUIApplication, _ state: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Recovery synthetic \(Int(app.frame.width))pt — \(state)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 
     func testFirstLoadProgressFailureDetailsRetryAndRecovery() {
         let app = launch()
@@ -25,9 +31,11 @@ import XCTest
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "Refreshing conversation…")).count, 1)
         XCTAssertFalse(app.buttons["companion-recovery-retry"].exists)
         assertNoLargeRecovery(app)
+        capture(app, "compact first-load progress")
         fixture(app, "fail")
         XCTAssertTrue(app.staticTexts["Conversation refresh failed"].waitForExistence(timeout: 5))
         assertNoLargeRecovery(app)
+        capture(app, "history failure")
         fixture(app, "next-success")
         let details = app.buttons["companion-recovery-details"]
         XCTAssertGreaterThanOrEqual(details.frame.width, 44)
@@ -36,6 +44,7 @@ import XCTest
         let explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Synthetic history failure.\nThe response was incomplete.\nNo real desktop was contacted."))
         XCTAssertTrue(explanation.label.contains("Target: alpha on recovery-one."))
+        capture(app, "full failure Details")
         let retry = app.buttons["companion-recovery-detail-retry"]
         XCTAssertTrue(retry.isHittable)
         XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
@@ -44,6 +53,7 @@ import XCTest
         XCTAssertTrue(details.waitForNonExistence(timeout: 5), "Clean connected history success removes recovery")
         XCTAssertTrue(app.buttons["Read earlier messages in archive"].exists)
         XCTAssertTrue(element(app, "companion-composer").isHittable)
+        capture(app, "recovered transcript")
     }
 
     func testLargeTextKeepsFullErrorsSeparateWarningAndTargetDetailsReachable() {
@@ -59,12 +69,14 @@ import XCTest
         XCTAssertTrue(retry.isHittable)
         XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
         XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
+        capture(app, "AX warning and connection retry")
         retry.tap() // Synthetic reconnect records intent; no invented connection success follows.
         XCTAssertTrue(app.staticTexts["Connection issue"].exists)
         waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"))
         var explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Synthetic connection failure."))
         XCTAssertTrue(explanation.label.contains("Synthetic history failure."))
+        capture(app, "AX full connection and history Details")
         waitAndTap(app.navigationBars.buttons["Done"], untilGone: explanation)
         fixture(app, "progress")
         XCTAssertTrue(app.staticTexts["Reconnecting…"].waitForExistence(timeout: 5))

@@ -16,12 +16,14 @@ import ClubhouseTransport
     var modes: [CompanionTarget: ResultMode] = [:]
     private(set) var historyCalls: [CompanionTarget: Int] = [:]
     private(set) var reconnectCalls: [String: Int] = [:]
+    private(set) var isTearingDown: Bool = false
     @ObservationIgnored private var pending: [CompanionTarget: [CheckedContinuation<CompanionHistory, Error>]] = [:]
     nonisolated deinit {}
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         historyCalls[target, default: 0] += 1
+        guard !isTearingDown else { return Self.history(target) }
         switch modes[target] ?? .success {
         case .success: return Self.history(target)
         case .failure: throw CompanionServiceError.unavailable(Self.historyError + "\nTarget: \(target.agentID) on \(target.hostID).")
@@ -38,7 +40,13 @@ import ClubhouseTransport
             else { request.resume(throwing: CompanionServiceError.unavailable(Self.historyError + "\nTarget: \(target.agentID) on \(target.hostID).")) }
         }
     }
-    func finishAll() { for target in Array(pending.keys) { finish(target, as: .success) } }
+    var pendingHistoryCount: Int { pending.values.reduce(0) { $0 + $1.count } }
+    func beginTeardown() {
+        // Close admission before draining: a queued callback can arrive after the current pending list is emptied.
+        isTearingDown = true
+        modes.removeAll()
+        for target in Array(pending.keys) { finish(target, as: .success) }
+    }
     func reconnect(hostID: String) async { reconnectCalls[hostID, default: 0] += 1 }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { throw CompanionServiceError.unavailable("Synthetic fixture only") }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Synthetic fixture only") }

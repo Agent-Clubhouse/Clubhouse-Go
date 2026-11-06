@@ -3,12 +3,13 @@
     "CompanionRecoveryFixtureService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
-      "reason": "DEBUG-only concrete synthetic service. Owns String/target/Int/enum dictionaries and Sendable CheckedContinuation runtime handles, like the reviewed manual clock. It stores no user callback, UIView, controller, UIImage, transport or arbitrary protocol owner. Continuations are resumed explicitly on MainActor by finish/finishAll; deinit performs no resumption, cancellation or UI work. All service responses are value CompanionHistory or fixed String errors.",
+      "reason": "DEBUG-only concrete synthetic service. Owns a Bool teardown admission fence, String/target/Int/enum dictionaries and Sendable CheckedContinuation runtime handles, like the reviewed manual clock. It stores no user callback, UIView, controller, UIImage, transport or arbitrary protocol owner. beginTeardown closes all future holds before resuming pending requests on MainActor; deinit performs no resumption, cancellation or UI work. All service responses are value CompanionHistory or fixed String errors.",
       "surface": {
         "bases": ["CompanionService"],
         "nestedValueProperties": {},
         "properties": {
           "historyCalls": "[ CompanionTarget : Int ]",
+          "isTearingDown": "Bool",
           "modes": "[ CompanionTarget : ResultMode ]",
           "pending": "[ CompanionTarget : [ CheckedContinuation < CompanionHistory , Error > ] ]",
           "reconnectCalls": "[ String : Int ]"
