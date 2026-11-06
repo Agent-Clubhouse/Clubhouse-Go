@@ -324,7 +324,14 @@ import XCTest
         let dismiss = app.buttons["companion-dismiss-keyboard"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
         XCTAssertEqual(dismiss.label, "Dismiss Keyboard")
-        let interrupt = app.buttons["Interrupt"]
+        screenshot(app, "Assistive composer row before geometry assertions")
+        let interrupts = app.buttons.matching(identifier: "companion-interrupt")
+        let interruptCount = interrupts.count
+        XCTContext.runActivity(named: "Assistive canonical Interrupt count: \(interruptCount)") { _ in }
+        XCTAssertEqual(interruptCount, 1, "The assistive row must expose one canonical Interrupt Button")
+        guard interruptCount == 1 else { return }
+        let interrupt = interrupts.element(boundBy: 0)
+        XCTAssertEqual(interrupt.label, "Interrupt")
         let attach = app.buttons["companion-attach"]
         let send = app.buttons["companion-send"]
         for control in [interrupt, attach, send, dismiss] {
@@ -335,7 +342,12 @@ import XCTest
         XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44)
         XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Retain a useful text-entry width with every control visible")
         print("ASSISTIVE_COMPOSER window=\(app.frame) field=\(composer.frame) interrupt=\(interrupt.frame) send=\(send.frame) dismiss=\(dismiss.frame)")
-        XCTAssertLessThanOrEqual(interrupt.frame.maxX, composer.frame.minX)
+        let editorFrame = composer.frame, interruptFrame = interrupt.frame, sendFrame = send.frame
+        let interruptSendGap = sendFrame.minX - interruptFrame.maxX
+        XCTContext.runActivity(named: "Assistive trailing actions — editor \(editorFrame), Interrupt \(interruptFrame), Send \(sendFrame), gap \(interruptSendGap)") { _ in }
+        XCTAssertLessThanOrEqual(editorFrame.maxX, interruptFrame.minX)
+        XCTAssertLessThanOrEqual(interruptFrame.maxX, sendFrame.minX)
+        XCTAssertLessThanOrEqual(interruptSendGap, 16)
         XCTAssertLessThanOrEqual(composer.frame.maxX, send.frame.minX)
         XCTAssertLessThanOrEqual(send.frame.maxX, dismiss.frame.minX)
         XCTContext.runActivity(named: "Assistive row: window \(app.frame), input \(composer.frame), interrupt \(interrupt.frame), attach \(attach.frame), send \(send.frame), dismiss \(dismiss.frame)") { _ in }
