@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 final class CompanionWakeSheetUITests: ReliableUITestCase {
     private var app: XCUIApplication?
+    private var measuresFocus: Bool { ProcessInfo.processInfo.environment["CLUBHOUSE_WAKE_FOCUS_MEASUREMENTS"] == "1" }
 
     override func tearDown() {
         if let app, app.state == .runningForeground {
@@ -53,6 +54,20 @@ final class CompanionWakeSheetUITests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10))
     }
 
+    /// A separate, explicitly selected control. Failed direct-entry tests never call this as a rescue.
+    func testMeasuredTappedEntryControl() throws {
+        guard measuresFocus else { throw XCTSkip("Opt-in synthetic Wake lifecycle measurements only") }
+        let app = launchProject()
+        let message = openWake(in: app)
+        record(app, "Measured tap control before tap")
+        message.tap()
+        message.typeText("Measured tap control")
+        assertValue("Measured tap control", of: message)
+        record(app, "Measured tap control after entry")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(message.waitForNonExistence(timeout: 5))
+    }
+
     private func launchProject() -> XCUIApplication {
         continueAfterFailure = false
         executionTimeAllowance = 240
@@ -60,6 +75,7 @@ final class CompanionWakeSheetUITests: ReliableUITestCase {
         let app = XCUIApplication()
         self.app = app
         app.launchArguments = ["--companion-preview"]
+        if measuresFocus { app.launchArguments.append("--wake-focus-measurements") }
         app.launch()
         let header = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         XCTAssertTrue(scrollUntilExists(header, in: app))

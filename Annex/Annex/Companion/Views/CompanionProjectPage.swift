@@ -1,4 +1,9 @@
 import SwiftUI
+#if DEBUG && targetEnvironment(simulator)
+import Combine
+import UIKit
+import os
+#endif
 
 /// One project, opened from its header on Home: New agent and Wake with a message, the quick agents that
 /// finished and wait to be read, the project's agents, and its Changes. The desktop's project start page
@@ -243,6 +248,10 @@ struct CompanionWakeSheet: View {
     @State private var message = ""
     @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
+    #if DEBUG && targetEnvironment(simulator)
+    @State private var focusMeasurements = CompanionWakeFocusMeasurements.makeIfEnabled()
+    @Environment(\.scenePhase) private var scenePhase
+    #endif
 
     private var sleeping: [CompanionAgent] { store.sleepingAgents(in: project) }
     private var chosen: CompanionAgent? { sleeping.first { $0.id == selection } }
@@ -264,6 +273,14 @@ struct CompanionWakeSheet: View {
                     TextField("What should \(chosen?.name ?? "it") do?", text: $message, axis: .vertical)
                         .lineLimit(4...10)
                         .focused($focused)
+                        #if DEBUG && targetEnvironment(simulator)
+                        .background {
+                            if let focusMeasurements {
+                                CompanionWakeFocusMeasurementHost(controller: focusMeasurements)
+                                    .allowsHitTesting(false).accessibilityHidden(true)
+                            }
+                        }
+                        #endif
                         .accessibilityIdentifier("wake-message")
                 } footer: {
                     Text("It wakes and starts with this message. Its chat opens so you can follow along.")
@@ -290,8 +307,209 @@ struct CompanionWakeSheet: View {
             .interactiveDismissDisabled(!message.isEmpty)
             .onAppear {
                 if selection == nil { selection = sleeping.first?.id }
+                #if DEBUG && targetEnvironment(simulator)
+                focusMeasurements?.record("swiftui-appear", focused: focused)
+                #endif
             }
         }
         .presentationDetents([.medium, .large])
+        #if DEBUG && targetEnvironment(simulator)
+        .onChange(of: focused, initial: true) { _, value in
+            focusMeasurements?.record("focus-binding", focused: value)
+        }
+        .onChange(of: scenePhase, initial: true) { _, value in
+            focusMeasurements?.record("swiftui-scene-\(value)", focused: focused)
+        }
+        .onDisappear { focusMeasurements?.record("swiftui-disappear", focused: focused) }
+        #endif
     }
 }
+
+#if DEBUG && targetEnvironment(simulator)
+/// Synthetic opt-in observation only. No focus setters, delegates, swizzling, gestures, polling or text reads.
+private struct CompanionWakeFocusMeasurementHost: UIViewControllerRepresentable {
+    let controller: CompanionWakeFocusMeasurements
+    func makeUIViewController(context: Context) -> CompanionWakeFocusMeasurements { controller }
+    func updateUIViewController(_ controller: CompanionWakeFocusMeasurements, context: Context) {}
+    static func dismantleUIViewController(_ controller: CompanionWakeFocusMeasurements, coordinator: ()) {
+        controller.finish()
+    }
+}
+
+/// Retains MainActor teardown: UIViewController owns UIKit state and Combine cancellation resources.
+@MainActor private final class CompanionWakeFocusMeasurements: UIViewController {
+    private static let logger = Logger(subsystem: "com.Agent-Clubhouse.Go.wake-focus", category: "measurements")
+    private var subscriptions = Set<AnyCancellable>()
+    private var started: TimeInterval?
+    private var sequence = 0
+    private var layouts = 0
+    private var lastFocus: Bool?
+    private var finished = false
+
+    static func makeIfEnabled() -> CompanionWakeFocusMeasurements? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("--companion-preview"), arguments.contains("--wake-focus-measurements") else { return nil }
+        return CompanionWakeFocusMeasurements()
+    }
+
+    override func loadView() {
+        let anchor = CompanionWakeFocusMeasurementAnchor()
+        anchor.measurements = self
+        anchor.isUserInteractionEnabled = false
+        anchor.accessibilityElementsHidden = true
+        view = anchor
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let names: [Notification.Name] = [
+            UITextField.textDidBeginEditingNotification, UITextField.textDidEndEditingNotification,
+            UITextView.textDidBeginEditingNotification, UITextView.textDidEndEditingNotification,
+            UIResponder.keyboardWillShowNotification, UIResponder.keyboardDidShowNotification,
+            UIResponder.keyboardWillHideNotification, UIResponder.keyboardDidHideNotification,
+            UIWindow.didBecomeKeyNotification, UIWindow.didResignKeyNotification,
+            UIScene.didActivateNotification, UIScene.willDeactivateNotification
+        ]
+        for name in names {
+            NotificationCenter.default.publisher(for: name).sink { [weak self] notification in
+                MainActor.assumeIsolated { self?.record(notification.name.rawValue, notification: notification) }
+            }.store(in: &subscriptions)
+        }
+        record("controller-loaded")
+    }
+
+    override func viewWillAppear(_ animated: Bool) { super.viewWillAppear(animated); record("controller-will-appear") }
+    override func viewIsAppearing(_ animated: Bool) { super.viewIsAppearing(animated); record("controller-is-appearing") }
+    override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); record("controller-did-appear") }
+    override func viewWillDisappear(_ animated: Bool) { super.viewWillDisappear(animated); record("controller-will-disappear") }
+    override func viewDidDisappear(_ animated: Bool) { super.viewDidDisappear(animated); record("controller-did-disappear") }
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // Layout is noisy; retain four boundaries without changing layout or scheduling another pass.
+        if layouts < 4 { layouts += 1; record("controller-layout-\(layouts)") }
+    }
+
+    func finish() {
+        record("dismantle")
+        finished = true
+        subscriptions.removeAll()
+    }
+
+    func record(_ event: String, focused: Bool? = nil, notification: Notification? = nil) {
+        guard !finished else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        if started == nil { started = now }
+        if let focused { lastFocus = focused }
+        // Event-driven only: no timer or work is scheduled to extend the 20-second/96-snapshot budget.
+        guard sequence < 96, now - (started ?? now) <= 20 else {
+            finished = true
+            subscriptions.removeAll()
+            print("[wake-focus] trace-limit")
+            Self.logger.notice("trace-limit")
+            return
+        }
+        sequence += 1
+        var payload: [String: Any] = [
+            "sequence": sequence, "seconds": now - (started ?? now), "uptime": now, "event": event,
+            "focusBinding": lastFocus.map { $0 as Any } ?? NSNull(),
+            "animationsEnabled": UIView.areAnimationsEnabled,
+            "applicationState": UIApplication.shared.applicationState.rawValue,
+            "anchorWindow": token(viewIfLoaded?.window)
+        ]
+        if let object = notification?.object as AnyObject? { payload["notificationObject"] = token(object) }
+        if let frame = notification?.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue {
+            payload["keyboardEndFrame"] = rect(frame.cgRectValue)
+        }
+        let allScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scenes = allScenes.prefix(4)
+        payload["sceneScanTruncated"] = allScenes.count > scenes.count
+        payload["scenes"] = scenes.map { ["id": token($0), "activationState": $0.activationState.rawValue] as [String: Any] }
+        let allWindows = scenes.flatMap(\.windows)
+        let windows = allWindows.prefix(8)
+        payload["windowScanTruncated"] = allWindows.count > windows.count
+        payload["windows"] = windows.map { window in
+            ["id": token(window), "scene": token(window.windowScene), "key": window.isKeyWindow,
+             "hidden": window.isHidden, "level": window.windowLevel.rawValue,
+             "presented": controllers(from: window.rootViewController, presented: true)] as [String: Any]
+        }
+        payload["anchorParents"] = controllers(from: parent, presented: false)
+        var budget = 1024
+        var inputs: [[String: Any]] = []
+        var responders: [[String: Any]] = []
+        for window in windows {
+            var pending: [UIView] = [window]
+            while budget > 0, let candidate = pending.popLast() {
+                budget -= 1
+                if candidate.isFirstResponder, responders.count < 8 {
+                    responders.append(["id": token(candidate), "class": String(describing: type(of: candidate)), "window": token(candidate.window)])
+                }
+                if (candidate is UITextField || candidate is UITextView), inputs.count < 8 {
+                    var value: [String: Any] = [
+                        "id": token(candidate), "class": String(describing: type(of: candidate)),
+                        "window": token(candidate.window), "firstResponder": candidate.isFirstResponder,
+                        "canBecomeFirstResponder": candidate.canBecomeFirstResponder,
+                        "hidden": candidate.isHidden, "alpha": candidate.alpha,
+                        "interactive": candidate.isUserInteractionEnabled,
+                        "frameInWindow": rect(candidate.convert(candidate.bounds, to: window))
+                    ]
+                    var ancestors: [[String: Any]] = []
+                    var ancestor: UIView? = candidate
+                    for _ in 0..<16 {
+                        guard let current = ancestor else { break }
+                        ancestors.append(["id": token(current), "class": String(describing: type(of: current)),
+                                          "wakeIdentifier": current.accessibilityIdentifier == "wake-message", "hidden": current.isHidden])
+                        ancestor = current.superview
+                    }
+                    value["ancestors"] = ancestors
+                    if let field = candidate as? UITextField {
+                        value["enabled"] = field.isEnabled
+                        value["editing"] = field.isEditing
+                        value["hasMarkedText"] = field.markedTextRange != nil
+                    }
+                    if let field = candidate as? UITextView {
+                        value["editable"] = field.isEditable
+                        value["selectable"] = field.isSelectable
+                        value["hasMarkedText"] = field.markedTextRange != nil
+                    }
+                    inputs.append(value)
+                }
+                pending.append(contentsOf: candidate.subviews)
+            }
+        }
+        payload["nativeInputs"] = inputs
+        payload["firstResponders"] = responders
+        payload["viewScanTruncated"] = budget == 0
+        payload["nativeInputLimitReached"] = inputs.count == 8
+        payload["responderLimitReached"] = responders.count == 8
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let line = String(data: data, encoding: .utf8) else { return }
+        print("[wake-focus] \(line)")
+        Self.logger.notice("\(line, privacy: .public)")
+    }
+
+    private func controllers(from root: UIViewController?, presented: Bool) -> [[String: Any]] {
+        var controller = root
+        var values: [[String: Any]] = []
+        for _ in 0..<12 {
+            guard let current = controller else { break }
+            values.append(["id": token(current), "class": String(describing: type(of: current)),
+                           "window": token(current.viewIfLoaded?.window), "presenting": token(current.presentingViewController),
+                           "beingPresented": current.isBeingPresented, "beingDismissed": current.isBeingDismissed,
+                           "firstResponder": current.isFirstResponder,
+                           "transitionAnimated": current.transitionCoordinator?.isAnimated ?? false,
+                           "transitionInteractive": current.transitionCoordinator?.isInteractive ?? false])
+            controller = presented ? current.presentedViewController : current.parent
+        }
+        return values
+    }
+    private func token(_ object: AnyObject?) -> String { object.map { String(describing: ObjectIdentifier($0)) } ?? "none" }
+    private func rect(_ value: CGRect) -> [CGFloat] { [value.minX, value.minY, value.width, value.height] }
+}
+
+/// Retains MainActor UIView teardown; the reverse link is weak and cannot keep the controller alive.
+@MainActor private final class CompanionWakeFocusMeasurementAnchor: UIView {
+    weak var measurements: CompanionWakeFocusMeasurements?
+    override func didMoveToWindow() { super.didMoveToWindow(); measurements?.record("anchor-window") }
+    override func didMoveToSuperview() { super.didMoveToSuperview(); measurements?.record("anchor-superview") }
+}
+#endif

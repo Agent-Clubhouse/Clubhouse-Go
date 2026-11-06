@@ -150,6 +150,16 @@
       "source": "Annex/Annex/Companion/Views/CompanionQRPairing.swift",
       "reason": "DataScanner delegate owns an injected callback; possible UI captures."
     },
+    "CompanionWakeFocusMeasurements": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionProjectPage.swift",
+      "reason": "Opt-in DEBUG simulator observer: UIViewController owns UIKit view state and Combine notification subscriptions; cancellation resources and UIKit superclass require MainActor teardown. Notification callbacks capture self weakly; no focus mutation or text content is retained."
+    },
+    "CompanionWakeFocusMeasurementAnchor": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionProjectPage.swift",
+      "reason": "Opt-in DEBUG simulator UIView lifecycle anchor retains UIKit superclass teardown affinity. Its reverse reference to the measurement controller is weak; no gesture recognizer, delegate or focus setter is installed."
+    },
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",

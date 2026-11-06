@@ -29,6 +29,8 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |
+| `CompanionWakeFocusMeasurements` | main_actor | Opt-in DEBUG simulator observer controller owns UIKit view state and Combine subscriptions/cancellation resources. Notification callbacks capture it weakly. Keep UIKit teardown on MainActor; no focus mutation or text content is retained. |
+| `CompanionWakeFocusMeasurementAnchor` | main_actor | Opt-in DEBUG simulator UIView owns UIKit superclass state with a weak reverse reference to the measurement controller. No gesture, delegate or focus setter is installed. |
 | `CompanionComposerMemory` | arc_only | Only an optional UTF-16 offset bookmark, a COW draft snapshot for exact remount validation, and numeric slash bookmarks. The snapshot is released on remount. TextSelection and focus State stay in the composer view; the lazy lifetime factory captures nothing. |
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
