@@ -269,6 +269,8 @@ struct CompanionWakeSheet: View {
                     Text("It wakes and starts with this message. Its chat opens so you can follow along.")
                 }
             }
+            // Let the focus system choose the field when the sheet enters its hierarchy (#246).
+            .defaultFocus($focused, true)
             .companionBackground()
             .scrollContentBackground(.hidden)
             .navigationTitle("Wake with a message")
@@ -288,7 +290,6 @@ struct CompanionWakeSheet: View {
             .interactiveDismissDisabled(!message.isEmpty)
             .onAppear {
                 if selection == nil { selection = sleeping.first?.id }
-                focused = true
             }
         }
         .presentationDetents([.medium, .large])
