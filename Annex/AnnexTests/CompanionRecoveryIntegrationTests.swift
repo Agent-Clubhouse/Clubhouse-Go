@@ -8,6 +8,8 @@ import UIKit
     private let alpha = CompanionRecoveryFixtureService.alpha
     private let beta = CompanionRecoveryFixtureService.beta
     private let gamma = CompanionRecoveryFixtureService.gamma
+    private var prerequisiteObservation: [String: String] = [:]
+    private struct PrerequisiteFailure: Error { let reason: String }
 
     private func withHost(_ scene: CompanionRecoveryFixtureScene, body: (UIWindow) async throws -> Void) async throws {
         try await waitUntil("A foreground-active scene must host the synthetic window") {
@@ -19,6 +21,7 @@ import UIKit
         window.frame = screen.screen.bounds
         window.rootViewController = UIHostingController(rootView: CompanionRecoveryFixtureConversation(scene: scene))
         window.makeKeyAndVisible()
+        prerequisiteObservation = [:]
         func run() async throws {
             defer {
                 scene.service.beginTeardown()
@@ -26,7 +29,12 @@ import UIKit
                 scene.store.stop()
                 originalKeyWindow?.makeKey()
             }
-            try await body(window)
+            do { try await body(window) }
+            catch {
+                CompanionRecoveryFailureEvidence.capture(window: window, scene: scene, reason: String(describing: error),
+                                                         prerequisite: prerequisiteObservation)
+                throw error
+            }
         }
         var bodyError: Error?
         do { try await run() } catch { bodyError = error }
@@ -45,9 +53,15 @@ import UIKit
         if let bodyError { throw bodyError }
     }
     private func waitUntil(_ description: String, _ predicate: () -> Bool) async throws {
+        prerequisiteObservation = [:]
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(predicate(), description)
+        let satisfied = predicate()
+        prerequisiteObservation["description"] = description
+        prerequisiteObservation["satisfied"] = String(satisfied)
+        XCTAssertTrue(satisfied, description)
+        // Freeze the original failed observation before evidence collection; never re-query/activate after it.
+        if !satisfied { throw PrerequisiteFailure(reason: description) }
     }
     /// Public accessibility activation invokes the actual SwiftUI callback, without a production dispatch seam.
     private func element(_ id: String, in root: NSObject) -> NSObject? {
@@ -74,7 +88,9 @@ import UIKit
     }
     private func activate(_ id: String, in window: UIWindow) throws {
         let action = try XCTUnwrap(element(id, in: window), "The real recovery callback must be accessible: \(id)")
-        XCTAssertTrue(action.accessibilityActivate(), "The actual SwiftUI action must handle accessibility activation")
+        let activated = action.accessibilityActivate()
+        XCTAssertTrue(activated, "The actual SwiftUI action must handle accessibility activation")
+        if !activated { throw PrerequisiteFailure(reason: "Actual accessibility activation returned false: \(id)") }
     }
     func testFirstLoadHasOneRequestAndRecoveryDoesNotChangeStoreGating() async throws {
         let scene = CompanionRecoveryFixtureScene()
@@ -103,8 +119,13 @@ import UIKit
         await scene.store.load(alpha, force: true)
         try await withHost(scene) { window in
             try await waitUntil("Initial normal view hook finishes before counting the explicit retry") {
-                scene.service.historyCalls[self.alpha] == 3 && !scene.store.conversation(for: self.alpha).isLoading
-                    && self.element("companion-recovery-retry", in: window) != nil
+                let calls = scene.service.historyCalls[self.alpha] ?? 0
+                let loading = scene.store.conversation(for: self.alpha).isLoading
+                // Preserve the original conjunction/short-circuited leaf lookup; record which term was observed.
+                let leaf = calls == 3 && !loading ? self.element("companion-recovery-retry", in: window) != nil : nil
+                self.prerequisiteObservation = ["expectedCalls": "3", "actualCalls": String(calls),
+                    "loading": String(loading), "leaf": leaf.map { String($0) } ?? "not evaluated (short circuit)"]
+                return calls == 3 && !loading && leaf == true
             }
             let alphaBefore = scene.service.historyCalls[alpha] ?? 0
             let betaBefore = scene.service.historyCalls[beta] ?? 0

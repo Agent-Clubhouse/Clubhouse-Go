@@ -184,3 +184,48 @@ Keep #318's identity/disclosure/footer/usage changes. Both add a PreviewRoot
 fixture guard: combine the distinct recovery/header fixture branches before
 the unchanged normal preview. Combine both additive ownership capture entries;
 do not replace the existing policy or either fixture's concrete review.
+
+## First combined failure and bounded evidence proposal
+
+Parent candidate `1701db0a788cca1658ecc10ec3cc42a81e5b9606` passed the 11
+domain cases and Debug build. Its single hosted batch passed 12 of 15 cases;
+the three failures were the initial Details/retry prerequisites in
+`testDetailsDismissOnTargetSwitchAndRetriesStayWithTheirHost`,
+`testQueuedRefreshRemainsBoundToOldAgentOnSameHost`, and
+`testRetainedInactivePageDismissesDetailsWithoutResettingReadingOrDraft`.
+Each had one run and failed after its existing five-second predicate. No
+recovery callback or target-switch assertion was reached in those cases.
+The native UI batch was not run. The result contained no matching hosted
+attachments, so it does not distinguish missing/covered product UI from a
+limitation in the hosted public accessibility lookup. Source review alone
+does not establish the cause.
+
+The diagnostic successor changes tests only. Polling deadline, final predicate
+evaluation, existing leaf search and single activation remain intact. A failed
+prerequisite or activation now throws immediately; a failed unwrap already
+throws. The hosted wrapper captures evidence before its existing teardown,
+then rethrows without another predicate/control lookup or action. The queued
+prerequisite records request count, loading and leaf result separately while
+preserving its original short circuit (a skipped leaf is explicitly labeled).
+
+Each failed hosted body produces at most one evidence event: an unannotated
+original synthetic window PNG, a target/model/service/window ledger, and a
+public AX inventory. Rendering uses `afterScreenUpdates: false`, with no
+layout, refocus, activation, waits or private APIs. The PNG is taken before
+the AX scan and capped at 12 million pixels. Window enumeration is capped at
+8; controller traversal at 12 nodes/depth 6/8 children; AX traversal at 256
+nodes/depth 12/64 children per edge, 160 characters per string and 65,536
+encoded record bytes. Each JSON attachment is capped at 73,728 bytes and
+reports truncation. The AX inventory records protocol/direct public IDs and
+geometry independently of the unchanged lookup. Any leaf it finds is a
+**post-failure observation**, never a recovered test outcome. Capture may
+affect subsequent presentation timing; the failed outcome is already fixed.
+These attachments contain canned synthetic fixture content only.
+
+Proposed next allocation: parent merges the exact diagnostic successor into
+a new source candidate, preserving frozen `1701db0a`. Run only the three
+named hosted cases once, without repetition, retry or delay changes, on the
+same simulator/configuration. Export their original attachments and individual
+outcomes before selecting a fix or allocating native UI validation. This is
+a diagnostic proposal, not an executed run or runtime acceptance; hosted
+activation remains distinct from native touch/VoiceOver reachability.
