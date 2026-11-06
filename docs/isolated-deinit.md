@@ -30,6 +30,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |
 | `CompanionComposerMemory` | arc_only | Only an optional UTF-16 offset bookmark, a COW draft snapshot for exact remount validation, and numeric slash bookmarks. The snapshot is released on remount. TextSelection and focus State stay in the composer view; the lazy lifetime factory captures nothing. |
+| `CompanionComposerReturnInput` | arc_only | Only an optional pair of COW String values recording the native Shift Return edit. It retains no UIKit input, callback, selection handle or other owner and performs no teardown work. |
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |
 | `CompanionFeedbackMenuCapture.Anchor` | main_actor | UIView state, owned gesture recognizer, weak control collection and KVO observations require UIKit teardown affinity. |
