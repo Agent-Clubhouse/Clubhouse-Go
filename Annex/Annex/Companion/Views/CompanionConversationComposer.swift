@@ -209,6 +209,9 @@ struct CompanionConversationComposer: View {
                  : "\(agent.name) will decide for itself what needs your approval.")
         }
         .onAppear {
+            #if DEBUG
+            CompanionComposerFocusProbe.record?(.appeared, target, composerFocused)
+            #endif
             slashHighlight = memory.slashHighlight
             slashDismissedAt = memory.slashDismissedAt
             // A restore/send/external clear can change text while this subtree is unmounted.
@@ -220,14 +223,30 @@ struct CompanionConversationComposer: View {
             memory.selectionDraft = nil
         }
         .onDisappear {
+            #if DEBUG
+            CompanionComposerFocusProbe.record?(.disappeared, target, composerFocused)
+            #endif
             memory.selection = CompanionComposerSelection.capture(selectedRange, in: draft.wrappedValue)
             memory.selectionDraft = memory.selection == nil ? nil : draft.wrappedValue
             memory.slashHighlight = slashHighlight
             memory.slashDismissedAt = slashDismissedAt
             composerFocused = false
         }
-        .onChange(of: focusRequests) { _, _ in composerFocused = true }
+        #if DEBUG
+        .onChange(of: composerFocused) { _, focused in
+            CompanionComposerFocusProbe.record?(.focusChanged, target, focused)
+        }
+        #endif
+        .onChange(of: focusRequests) { _, _ in
+            #if DEBUG
+            CompanionComposerFocusProbe.record?(.focusRequested, target, composerFocused)
+            #endif
+            composerFocused = true
+        }
         .onChange(of: dismissals) { _, _ in
+            #if DEBUG
+            CompanionComposerFocusProbe.record?(.dismissalRequested, target, composerFocused)
+            #endif
             // The parent has already cleared focus. Use the caret independently to keep this word closed.
             if let token = caretSlashToken, let commands = agent.slashCommands,
                !CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token).isEmpty {
@@ -275,6 +294,9 @@ struct CompanionConversationComposer: View {
     }
 
     private func dismissKeyboard() {
+        #if DEBUG
+        CompanionComposerFocusProbe.record?(.keyboardDismissed, target, composerFocused)
+        #endif
         // Keep this word closed on refocus, just like a transcript tap. Input state remains in this subtree.
         if let token = caretSlashToken, let commands = agent.slashCommands,
            !CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token).isEmpty {
