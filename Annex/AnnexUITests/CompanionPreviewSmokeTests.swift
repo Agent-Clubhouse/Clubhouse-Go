@@ -32,6 +32,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     func testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal() {
         let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard"])
         openRiver(app)
+        let transcriptBeforeDialog = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
+        let navigationBeforeDialog = app.navigationBars["River"].frame
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["agent-sleep"])
         XCTAssertTrue(app.buttons["Interrupt turn"].exists)
         let confirmation = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Sleep agent", "agent-sleep")).firstMatch
@@ -40,8 +42,20 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let dialog = XCTAttachment(screenshot: app.screenshot())
         dialog.name = "Sleep confirmation names agent and machine"; dialog.lifetime = .keepAlways; add(dialog)
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
-        else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap() }
+        else {
+            // iOS can dismiss this popover and deliver the outside tap to the underlying control.
+            // Use the blank transcript gutter, not the navigation bar's Back button.
+            let transcript = transcriptBeforeDialog
+            let point = CGPoint(x: transcript.minX + 4, y: transcript.midY)
+            XCTAssertTrue(transcript.contains(point))
+            XCTAssertFalse(navigationBeforeDialog.contains(point))
+            XCTAssertFalse(confirmation.frame.contains(point))
+            XCTContext.runActivity(named: "Dismiss Sleep outside the popup at transcript gutter \(point)") { _ in
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+            }
+        }
         XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["River"].exists, "Cancelling Sleep must leave the conversation open")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["Agent settings"])
         waitAndTap(app.buttons["Agent settings"], until: app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch)
         let provider = app.buttons["agent-settings-orchestrator"]
