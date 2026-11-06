@@ -24,6 +24,8 @@ An empty nonisolated deinit can release fields on the thread performing the last
 
 | Class | Policy | Owned fields / decision |
 |---|---|---|
+| `CompanionRecoveryFixtureService` | arc_only | DEBUG-only target/enum/Int dictionaries and Sendable checked-continuation runtime handles, with no user callback, UI or transport owner. Explicit MainActor finish/finishAll resumes requests; deinit does no work. |
+| `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only reviewed concrete synthetic service, Store constructed with that service, Bool and value target. No callback, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |

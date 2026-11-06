@@ -112,3 +112,65 @@ hosted tests, simulator UI actions and screenshots wait for the parent's queue.
 Record the final cleared component SHA, integrated candidate SHA, commands,
 runtime/model/viewport and individual outcomes; do not infer acceptance from
 the old report or standalone component tests.
+
+## Implemented source and queued commands
+
+The exact component dependency is preserved as an ancestor through merge
+`b6bfa0be`; caller delta `fb204921` changes only ConversationView and this plan.
+Its recovery identity includes target and selected/visible state; each callback
+captures its presented target. The integration does not alter Store, shared
+services, transport, composer captions, settings/provider/sleep warnings, or
+operation-error handling.
+
+`CompanionRecoveryFixture.swift` adds a dedicated DEBUG service and scene.
+The service records requests and holds history with explicit checked
+continuations; `finish` supplies a canned success/failure, with no polling timer
+or real transport. Two targets share `recovery-one`; the third uses
+`recovery-two`. Its scene retains only that service, the reviewed Store and
+selection/visibility values. The ownership extractor supplied exact storage
+and constructor inputs; only these two reviewed ARC-only entries and this
+concrete Store constructor are added. Hosted cleanup explicitly finishes any
+held continuation; neither new deinit resumes work or touches UIKit.
+
+The hosted `CompanionRecoveryIntegrationTests` finds the actual accessibility
+leaf, requires non-nil lookup and `accessibilityActivate() == true`, and checks
+service effects from that callback. It separates existing automatic view-load
+requests from explicit retries. Target-switch cases cover Details dismissal,
+an issued row retry, an issued Details retry, different-host reconnect and
+same-host/different-agent history. This public accessibility activation is
+**not** proof of native touch or VoiceOver traversal.
+
+`CompanionRecoveryIntegrationUITests` uses real taps for progress → failure →
+Details retry → recovered, full multiline errors, 44-point buttons, independent
+operation warnings and another host's target Details. It also checks the
+duplicate large transcript panels are absent. The fixture requires both
+`--companion-preview` and `--companion-preview-recovery-fixture`; the default
+preview/live routes are unchanged. It is an actual NavigationStack/conversation
+fixture, excluding RootView/tab and physical-device lifecycle proof.
+
+After the parent allocates the local serial slot, run the combined candidate
+with the exact cleared component and selected header/composer/avatar source:
+
+```sh
+xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
+  -destination 'platform=iOS Simulator,id=<parent-owned-simulator-UDID>' \
+  -derivedDataPath build/recovery-integration/DerivedData \
+  -resultBundlePath build/recovery-integration/RecoveryIntegration.xcresult \
+  -only-testing:ClubhouseGoTests/CompanionRecoveryIntegrationTests \
+  -only-testing:ClubhouseGoUITests/CompanionRecoveryIntegrationUITests \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+A matching build-for-testing artifact may use `test-without-building`. Existing
+component domain/hosted tests remain separate. Full build/tests, native UI,
+policy-binary validation, Review integration and combined screenshot acceptance
+are pending; only source parsing, ownership-source extraction and diff checks
+have run locally.
+
+Overlap for the parent combining #318: both branches touch ConversationView's
+opening content stack, but recovery replaces only `connectionBanner`, its
+visibility/derived status, timeline recovery panels and `hasTimelineHeader`.
+Keep #318's identity/disclosure/footer/usage changes. Both add a PreviewRoot
+fixture guard: combine the distinct recovery/header fixture branches before
+the unchanged normal preview. Combine both additive ownership capture entries;
+do not replace the existing policy or either fixture's concrete review.
