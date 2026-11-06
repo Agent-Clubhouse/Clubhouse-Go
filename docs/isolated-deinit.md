@@ -48,6 +48,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionMarkdown.Box` | arc_only | Immutable markdown document value; NSObject cache wrapper has no UI fields. |
 | `CompanionMessageSlices.Box` | arc_only | Immutable array of message-slice values; NSObject cache wrapper has no UI fields. |
 | `CompanionPartExpansion` | arc_only | Optional Bool and Observation registrar only. |
+| `CompanionProviderFlow` | main_actor | Injected service and permission callback are not constrained to UI-free owners. Preserve synthesized actor teardown. Production callback captures Store weakly and a value target; remaining fields hold receipt/identifier/Boolean values. |
 | `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; UIDevice is read during init, not retained. |
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
 | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
@@ -102,3 +103,5 @@ The reading-restore retry adds only a value session (UUID generation, fixed nume
 The opt-in DEBUG reading-restore UI fixture has a capture-free lifetime factory producing Store with the already reviewed, UI-free PreviewService. Its forced-refusal callback and numeric polling task exist only in this synthetic route, and the task clears the callback on cancellation. It creates no Runtime, feedback client, socket or saved pairing.
 
 The phone Sleep controls add only two `Set<CompanionTarget>` values to Store for requests and status refreshes. Targets contain String identifiers; neither set retains callbacks or UI objects. Store keeps its existing ARC-only teardown policy.
+
+The guided provider flow adds a String command-ID dictionary and a flow dictionary to Store. Each flow retains its own MainActor destruction for its injected protocol/callback owners; the production permission callback captures Store weakly, avoiding a cycle. Store performs no new teardown work. No nonisolated deinit is added to the flow, and no UI-affinity rule is waived.

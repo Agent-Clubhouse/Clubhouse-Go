@@ -32,6 +32,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     func testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal() {
         let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard"])
         openRiver(app)
+        let transcriptBeforeDialog = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
+        let navigationBeforeDialog = app.navigationBars["River"].frame
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["agent-sleep"])
         XCTAssertTrue(app.buttons["Interrupt turn"].exists)
         let confirmation = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Sleep agent", "agent-sleep")).firstMatch
@@ -40,8 +42,20 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let dialog = XCTAttachment(screenshot: app.screenshot())
         dialog.name = "Sleep confirmation names agent and machine"; dialog.lifetime = .keepAlways; add(dialog)
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
-        else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap() }
+        else {
+            // iOS can dismiss this popover and deliver the outside tap to the underlying control.
+            // Use the blank transcript gutter, not the navigation bar's Back button.
+            let transcript = transcriptBeforeDialog
+            let point = CGPoint(x: transcript.minX + 4, y: transcript.midY)
+            XCTAssertTrue(transcript.contains(point))
+            XCTAssertFalse(navigationBeforeDialog.contains(point))
+            XCTAssertFalse(confirmation.frame.contains(point))
+            XCTContext.runActivity(named: "Dismiss Sleep outside the popup at transcript gutter \(point)") { _ in
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+            }
+        }
         XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["River"].exists, "Cancelling Sleep must leave the conversation open")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["Agent settings"])
         waitAndTap(app.buttons["Agent settings"], until: app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch)
         let provider = app.buttons["agent-settings-orchestrator"]
@@ -73,6 +87,79 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "MCP off switches and explanation"; attachment.lifetime = .keepAlways; add(attachment)
         XCTAssertTrue(footer.exists)
+    }
+
+    func testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume() {
+        checkGuidedProviderFlow(largeText: false)
+    }
+
+    func testGuidedProviderFlowAtLargeText() {
+        checkGuidedProviderFlow(largeText: true)
+    }
+
+    private func checkGuidedProviderFlow(largeText: Bool) {
+        var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control"]
+        if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        let app = launchApp(arguments)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        let current = app.buttons["provider-choice-claude-code"]
+        waitAndTap(link, until: current)
+        XCTAssertFalse(app.buttons["provider-save"].exists, "Opening the flow must not preview or save a provider")
+        let unavailable = app.buttons["provider-choice-codex"]
+        XCTAssertTrue(scrollUntilExists(unavailable, in: app))
+        XCTAssertFalse(unavailable.isEnabled)
+        tapVisibleProviderControl(current, in: app, up: false)
+        XCTAssertTrue(app.navigationBars["Provider"].exists)
+        XCTAssertTrue(waitFor(current, NSPredicate(format: "selected == true"), timeout: 5))
+        let save = app.buttons["provider-save"]
+        XCTAssertTrue(scrollUntilExists(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertFalse(app.buttons["Resume"].exists, "Same-provider resume hint must not offer Resume")
+        XCTAssertFalse(app.buttons["provider-start-new"].exists)
+        let alternative = app.buttons["provider-choice-codex-cli"]
+        tapVisibleProviderControl(alternative, in: app, up: false)
+        XCTAssertTrue(app.navigationBars["Provider"].exists, "Choosing a provider must stay on the Provider page")
+        XCTAssertTrue(waitFor(alternative, NSPredicate(format: "selected == true"), timeout: 5), "Codex CLI must be selected before looking for Save")
+        XCTAssertTrue(scrollTo(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(save.isEnabled)
+        let preview = XCTAttachment(screenshot: app.screenshot())
+        preview.name = largeText ? "Guided provider preview at large text" : "Guided provider preview"; preview.lifetime = .keepAlways; add(preview)
+        tapVisibleProviderControl(save, in: app)
+        let refusal = app.staticTexts["provider-flow-error"]
+        XCTAssertTrue(scrollUntilExists(refusal, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(refusal.label.contains("Preview only"))
+        XCTAssertFalse(app.buttons["provider-start-new"].exists, "Refused Save never enables Start")
+        XCTAssertFalse(app.buttons["Resume"].exists)
+    }
+
+    /// A partially obscured Form row can be reported hittable and tap Back instead.
+    /// Reveal the entire control below this sheet's navigation bar, then tap once at its checked center.
+    private func tapVisibleProviderControl(_ control: XCUIElement, in app: XCUIApplication, up: Bool = true) {
+        let navigation = app.navigationBars["Provider"]
+        XCTAssertTrue(navigation.exists)
+        XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+        for _ in 0..<4 {
+            let top = navigation.frame.maxY + 12
+            let bottom = app.frame.maxY - 34
+            let frame = control.frame
+            if frame.minY >= top && frame.maxY <= bottom { break }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dy: CGFloat = frame.minY < top ? 120 : -120
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+        }
+        let frame = control.frame
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        XCTAssertTrue(control.exists && control.isHittable)
+        XCTAssertGreaterThanOrEqual(frame.minY, navigation.frame.maxY + 12)
+        XCTAssertLessThanOrEqual(frame.maxY, app.frame.maxY - 34)
+        XCTAssertFalse(navigation.frame.contains(point))
+        XCTContext.runActivity(named: "Tap visible provider control at \(point), frame \(frame), navigation \(navigation.frame)") { _ in
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Visible \(control.identifier) before one checked tap"; shot.lifetime = .keepAlways; add(shot)
+            control.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        }
     }
 
     func testAgentSettingsShowsDispatcherWithOrchestrationOff() {
@@ -233,9 +320,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(transcript.waitForExistence(timeout: 5))
             let approval = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch
             let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
-            let top = transcript.frame.minY + 12
-            let bottom = min(composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
-            let viewport = CGRect(x: transcript.frame.minX, y: top, width: transcript.frame.width, height: bottom - top)
+            func usableViewport() -> CGRect {
+                let bounds = transcript.frame.intersection(app.frame)
+                let top = bounds.minY + 12
+                var bottom = min(bounds.maxY, composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
+                let latest = app.buttons["Latest"]
+                if latest.exists { bottom = min(bottom, latest.frame.minY - 12) }
+                return CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bottom - top))
+            }
+            var viewport = usableViewport()
             XCTAssertGreaterThan(viewport.height, 100)
             // Stop following the live bottom with a real reading gesture; updates keep streaming.
             // Waiting for the total link count to settle can prevent every tap as new runs arrive.
@@ -244,10 +337,24 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
             // Existing links precede appended runs. Reveal one instead of chasing the newest index.
             let candidate = links.firstMatch
-            XCTAssertTrue(bringTranscriptRowIntoView(candidate, in: app), "A real log link must be visible in the transcript")
+            // The generic helper's fixed screen band can accept a link above this viewport.
+            // Use the same current unobscured region for revealing and checking the whole link.
+            for _ in 0..<40 {
+                checkTimeLeft("bringing the streaming log inside its usable viewport")
+                viewport = usableViewport()
+                XCTAssertGreaterThan(viewport.height, 100)
+                if candidate.exists && viewport.contains(candidate.frame) && candidate.isHittable { break }
+                let above = candidate.exists && candidate.frame.minY < viewport.minY
+                let start = app.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: viewport.midX, dy: viewport.midY))
+                let distance = viewport.height * 0.3 * (above ? 1 : -1)
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)))
+            }
+            viewport = usableViewport()
+            XCTAssertTrue(candidate.exists, "A real log link must be visible in the transcript")
             XCTAssertTrue(candidate.isHittable)
             let frame = candidate.frame
-            XCTAssertTrue(viewport.contains(frame))
+            XCTAssertTrue(viewport.contains(frame), "Log \(frame) must fit within the current unobscured transcript \(viewport)")
             let point = CGPoint(x: frame.midX, y: frame.midY)
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "Visible log before one checked tap"

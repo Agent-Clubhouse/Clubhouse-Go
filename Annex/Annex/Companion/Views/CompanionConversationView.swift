@@ -70,6 +70,10 @@ struct CompanionConversationView: View {
             contextHeader
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             if !connection.canOperate || conversation.requiresResync { connectionBanner }
+            if store.hasPendingProviderAction(target) {
+                Text("A provider action is awaiting confirmation. Open Agent settings to check its result.")
+                    .font(.subheadline).padding(.horizontal)
+            }
             if store.sleepRequests.contains(target), !(agent.isDispatcher && store.host(for: target)?.dispatcher?.mcpOff != nil) {
                 HStack {
                     CompanionSleepAction(store: store, target: target)

@@ -90,6 +90,20 @@ import Testing
         try await harness.waitUntil { harness.host?.dispatcher?.enabled == value["enabled"].boolValue && harness.host?.dispatcher?.mcpOff?.running == (value["offReason"]?.string == "mcp_off" ? value["running"].boolValue : nil) }
     }
 
+    @Test func advertisedProviderControlCannotBypassMCPOffDispatcherRestrictions() async throws {
+        let harness = try await start(); defer { harness.stop() }
+        await harness.transport.setFeature("providerControl", CompanionProviderFlowTests.capability)
+        await harness.transport.addCommands(["agent.providerPreview", "agent.providerChange"])
+        try await applyFixture("mcpOffStopped", via: .capabilities, to: harness)
+        #expect(harness.host?.canControlProvider == true)
+        let flow = harness.store.providerFlow(for: target)
+        await flow.select("codex-cli")
+        do { _ = try await harness.service.providerPreview(target, provider: "codex-cli"); Issue.record("MCP-off preview must refuse") } catch {}
+        do { try await harness.service.startNewProvider(target, provider: "codex-cli", clientCommandID: "off-start"); Issue.record("MCP-off start must refuse") } catch {}
+        #expect(await harness.transport.executed.isEmpty)
+        #expect(!harness.store.canEditSettings(target) && !harness.store.canWake(target))
+    }
+
     @Test func recordedStatesAgreeAcrossAllSurfacesAndRoutesDecode() throws {
         for state in ["mcpOffRunning", "mcpOffStopped", "switchedOff", "classicLayout"] {
             let snapshot = try fixture(state, source: .snapshot)

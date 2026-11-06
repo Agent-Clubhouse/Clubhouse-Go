@@ -79,6 +79,7 @@ import ClubhouseTransport
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") { hosts[0].canControlProvider = true }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
                let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
                let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.sleepingTarget }) {
@@ -470,6 +471,26 @@ import ClubhouseTransport
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult { throw previewError }
+    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws { throw previewError }
+    func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") {
+            let same = provider == "claude-code"
+            return try AnnexJSON.object([
+                "agentId": .string(target.agentID), "savedProvider": .string("claude-code"), "activeProvider": .null,
+                "provider": .string(provider), "state": .string("sleeping"), "expectedState": .string("preview-only"),
+                "available": .bool(true), "availabilityMeaning": .string("local_cli_only"), "instructions": .string("equivalent"),
+                "instructionScope": .string("native_primary_only"), "targetRuntime": .string("chat"), "blocked": .null,
+                "canSave": .bool(true), "historyRetained": .bool(true), "contextTransferred": .bool(false),
+                "nextStart": .string(same ? "resume_requires_validation" : "new_session"),
+                "settingsReset": .array(same ? [] : ["model", "effort", "contextWindow", "routing", "resumePointer"].map(AnnexJSON.string)),
+            ]).decode(AnnexProviderPreview.self)
+        }
+        #endif
+        throw previewError
+    }
     /// River's composer controls, matching its session: every level is live, and model and effort changes apply from the next message.
     /// River's `/` menu: the CLI's own commands (start only), a skill and a custom command.
     static let slashCommands: [CompanionSlashCommand] = [

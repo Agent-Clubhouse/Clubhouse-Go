@@ -210,9 +210,12 @@ struct CompanionAgentSettingsForm: View {
     private var refreshKey: String {
         let sleeping = agent?.isSleepingOnDesktop
         let lifecycle = sleeping == true ? "asleep" : sleeping == false ? "awake" : "unknown"
-        return [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? "",
-         agent?.orchestration.map { "\($0)" } ?? "", agent?.parentAgentID ?? "",
-         lifecycle].joined(separator: "|")
+        var values: [String] = [agent?.status.rawValue ?? "", agent?.name ?? "", lifecycle]
+        values.append(store.host(for: target)?.connection.label ?? "")
+        values.append(agent?.orchestration.map { "\($0)" } ?? "")
+        values.append(agent?.parentAgentID ?? "")
+        values.append(agent?.orchestrator ?? "")
+        return values.joined(separator: "|")
     }
 
     var body: some View {
@@ -372,6 +375,15 @@ struct CompanionAgentSettingsForm: View {
         }
 
         Section {
+            if store.host(for: target)?.canControlProvider == true || store.hasPendingProviderAction(target) {
+                NavigationLink {
+                    CompanionGuidedProviderScreen(store: store, target: target, settings: settings)
+                } label: {
+                    LabeledContent(store.hasPendingProviderAction(target) ? "Check provider action" : "Runs on", value: settings.orchestratorName)
+                }
+                .disabled(saving)
+                .accessibilityIdentifier("agent-settings-provider-flow")
+            } else {
             Menu {
                 ForEach(orchestratorChoices(settings), id: \.id) { choice in
                     Button {
@@ -391,6 +403,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-orchestrator")
+            }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
                 ForEach(models) { Text($0.label).tag($0.id) }
