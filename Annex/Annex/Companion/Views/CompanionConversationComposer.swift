@@ -307,9 +307,9 @@ struct CompanionConversationComposer: View {
 
     private var assistiveRow: Bool { composerFocused && showsKeyboardDismissButton }
 
-    /// A large-text draft gets its own full-width line above the actions. AnyLayout retains the field subtree.
+    /// Large text and focused assistive editing put the draft above the actions. AnyLayout retains the field subtree.
     private var inputRowLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize
+        dynamicTypeSize.isAccessibilitySize || assistiveRow
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
             : AnyLayout(HStackLayout(alignment: .bottom, spacing: 6))
     }

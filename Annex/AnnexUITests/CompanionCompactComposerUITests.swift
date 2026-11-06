@@ -58,7 +58,7 @@ import XCTest
         XCTAssertEqual(composer.value as? String, direction)
         XCTAssertTrue(app.buttons["companion-send"].isEnabled)
         XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].exists)
-        assertRow(app, working: true, state: "working typed focused", stacked: largestText)
+        assertRow(app, working: true, state: "working typed focused", stacked: largestText, ordinaryAssistiveEditing: !largestText)
         assertEnabledEditingRow(app, working: true)
         if largestText {
             reviewApprovalWithoutAnswering(app, editing: true)
@@ -389,6 +389,7 @@ import XCTest
     }
 
     private func assertRow(_ app: XCUIApplication, working: Bool, state: String, stacked: Bool = false,
+                           ordinaryAssistiveEditing: Bool = false,
                            file: StaticString = #filePath, line: UInt = #line) {
         // Capture the unmodified screen before geometry checks so a failure retains its actual row.
         let shot = XCTAttachment(screenshot: app.screenshot())
@@ -421,6 +422,9 @@ import XCTest
                 XCTAssertTrue(review.isHittable, state, file: file, line: line)
                 XCTAssertGreaterThanOrEqual(review.frame.width, 44, state, file: file, line: line)
                 XCTAssertGreaterThanOrEqual(review.frame.height, 44, state, file: file, line: line)
+            } else if ordinaryAssistiveEditing {
+                XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Focused assistive draft retains useful width: \(state)", file: file, line: line)
+                XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, state, file: file, line: line)
             } else {
                 XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
             }
