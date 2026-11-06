@@ -194,7 +194,7 @@ struct CompanionConversationComposer: View {
                                 .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
                                 .tint(Color(palette.warning))
                                 .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
-                                .frame(minWidth: 44, minHeight: 44)
+                                .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
                                 .contentShape(.circle)
                                 .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
                                 .accessibilityLabel("Interrupt")
@@ -210,7 +210,7 @@ struct CompanionConversationComposer: View {
                             }
                             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
                             // Keep the regular-size glass circle inside the field, with a full-size interaction target.
-                            .frame(minWidth: 44, minHeight: 44)
+                            .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
                             .contentShape(.circle)
                             .disabled(!store.canSend(target) || !hasMessage)
                             .keyboardShortcut(.return, modifiers: .command)
