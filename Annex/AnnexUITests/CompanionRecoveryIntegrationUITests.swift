@@ -117,57 +117,84 @@ import XCTest
         let gammaID = "recovery-fixture-select-gamma"
         for navigation in 0...2 {
             let gamma = app.buttons.matching(identifier: gammaID)
-            guard gamma.count <= 1 else { XCTFail("Gamma must never have duplicate exported buttons"); return false }
-            let target: CGRect, clip: CGRect, viewport: CGRect, reference: String
-            if gamma.count == 1 {
-                guard let current = fixtureMenuGeometry(gammaID, in: app),
-                      let track = fixtureMenuTrack(current.menu, clip: current.clip, in: app) else { return false }
-                target = current.item.frame; clip = current.clip; viewport = track; reference = gammaID
+            let gammaCount = gamma.count
+            XCTContext.runActivity(named: "Gamma export after \(navigation)/2 drags — count=\(gammaCount)") { _ in }
+            guard gammaCount <= 1 else { XCTFail("Gamma must never have duplicate exported buttons: \(gammaCount)"); return false }
+            let target: CGRect, clip: CGRect, menu: XCUIElement, reference: String
+            if gammaCount == 1 {
+                guard let current = fixtureMenuGeometry(gammaID, in: app) else { return false }
+                target = current.item.frame; clip = current.clip; menu = current.menu; reference = gammaID
                 guard finiteRect(target) else { XCTFail("Gamma must have a finite nonempty frame"); return false }
-                if clip.contains(target), viewport.contains(target), current.item.isHittable { return true }
+                let contained = clip.contains(target)
+                XCTContext.runActivity(named: "Gamma visibility after \(navigation)/2 drags — frame=\(target), clip=\(clip), wholeTargetInClip=\(contained)") { _ in }
+                if contained {
+                    // The track is a gesture corridor, not the enclosing content clip.
+                    let hittable = current.item.isHittable
+                    XCTContext.runActivity(named: "Clip-contained Gamma — frame=\(target), clip=\(clip), hittable=\(hittable)") { _ in }
+                    guard hittable else {
+                        XCTFail("Clip-contained Gamma must be hittable without another drag: frame=\(target), clip=\(clip), drags=\(navigation)")
+                        return false
+                    }
+                    return true
+                }
             } else {
                 // Alpha then Beta precede Gamma in the unchanged DEBUG fixture's declared menu order.
-                var witnesses: [(id: String, frame: CGRect, clip: CGRect, viewport: CGRect)] = []
+                var witnesses: [(id: String, frame: CGRect, clip: CGRect, menu: XCUIElement)] = []
                 for id in ["recovery-fixture-select-alpha", "recovery-fixture-select-beta"] {
                     let matches = app.buttons.matching(identifier: id)
-                    guard matches.count <= 1 else { XCTFail("An ordered Gamma witness must be unique: \(id)"); return false }
-                    if matches.count == 1 {
-                        guard let current = fixtureMenuGeometry(id, in: app),
-                              let track = fixtureMenuTrack(current.menu, clip: current.clip, in: app) else { return false }
+                    let count = matches.count
+                    XCTContext.runActivity(named: "Missing Gamma witness export — \(id), count=\(count)") { _ in }
+                    guard count <= 1 else { XCTFail("An ordered Gamma witness must be unique: \(id), count=\(count)"); return false }
+                    if count == 1 {
+                        guard let current = fixtureMenuGeometry(id, in: app) else { return false }
                         let frame = current.item.frame
                         guard finiteRect(frame) else { XCTFail("Gamma witness has invalid geometry: \(id)"); return false }
-                        witnesses.append((id, frame, current.clip, track))
+                        XCTContext.runActivity(named: "Missing Gamma witness geometry — \(id), frame=\(frame), clip=\(current.clip)") { _ in }
+                        witnesses.append((id, frame, current.clip, current.menu))
                     }
                 }
                 guard !witnesses.isEmpty else { XCTFail("Missing Gamma requires an actual exported Alpha/Beta witness"); return false }
                 if witnesses.count == 2 {
-                    guard witnesses[0].clip == witnesses[1].clip, witnesses[0].viewport == witnesses[1].viewport,
+                    guard witnesses[0].clip == witnesses[1].clip,
                           witnesses[0].frame.maxY <= witnesses[1].frame.minY else {
-                        XCTFail("Ordered Gamma witnesses must agree on one menu viewport and Alpha-before-Beta geometry")
+                        XCTFail("Ordered Gamma witnesses must agree on one menu clip and Alpha-before-Beta geometry: \(witnesses.map { "\($0.id): \($0.frame), clip=\($0.clip)" })")
                         return false
                     }
                 }
                 // Choose the last declared witness only after every available export has passed uniqueness/order checks.
                 let below = witnesses.filter {
-                    $0.frame.minX >= $0.viewport.minX && $0.frame.maxX <= $0.viewport.maxX
-                        && $0.frame.height <= $0.viewport.height && $0.frame.minY >= $0.viewport.minY
-                        && $0.frame.maxY > $0.viewport.maxY
+                    $0.frame.minX >= $0.clip.minX && $0.frame.maxX <= $0.clip.maxX
+                        && $0.frame.height <= $0.clip.height && $0.frame.minY >= $0.clip.minY
+                        && $0.frame.maxY > $0.clip.maxY
                 }
                 guard let witness = below.last else {
-                    XCTFail("Missing Gamma has no exported ordered witness below the actual track; no blind scroll is allowed")
+                    XCTFail("Missing Gamma has no exported ordered witness below the actual clip; no blind scroll is allowed")
                     return false
                 }
-                target = witness.frame; clip = witness.clip; viewport = witness.viewport; reference = witness.id
+                target = witness.frame; clip = witness.clip; menu = witness.menu; reference = witness.id
             }
-            let displacement = target.midY - viewport.midY
-            guard navigation < 2, target.minX >= viewport.minX, target.maxX <= viewport.maxX,
-                  target.height <= viewport.height, target.minY >= viewport.minY,
-                  target.maxY > viewport.maxY, displacement.isFinite, displacement > 0 else {
-                XCTFail("Gamma must export and become wholly visible/hittable within two upward content drags")
+            let horizontal = target.minX >= clip.minX && target.maxX <= clip.maxX
+            let fitsHeight = target.height <= clip.height
+            let below = target.minY >= clip.minY && target.maxY > clip.maxY
+            let displacement = target.midY - clip.midY
+            let remaining = navigation < 2
+            let geometry = "reference=\(reference), frame=\(target), clip=\(clip), horizontal=\(horizontal), fitsHeight=\(fitsHeight), belowClip=\(below), displacement=\(displacement), drags=\(navigation)/2"
+            XCTContext.runActivity(named: "Gamma upward navigation predicates — \(geometry)") { _ in }
+            guard horizontal else { XCTFail("Gamma navigation requires horizontal clip containment: \(geometry)"); return false }
+            guard fitsHeight else { XCTFail("Gamma reference must fit the clip height: \(geometry)"); return false }
+            guard below else { XCTFail("Only a demonstrably below-clip Gamma/reference may be navigated: \(geometry)"); return false }
+            guard displacement.isFinite, displacement > 0 else {
+                XCTFail("Gamma navigation requires positive finite upward displacement: \(geometry)"); return false
+            }
+            guard remaining else {
+                XCTFail("Gamma must export and become wholly visible/hittable within two upward content drags: \(geometry)")
                 return false
             }
+            // Only navigation needs a track; its sole role is constraining safe gesture endpoints.
+            guard let viewport = fixtureMenuTrack(menu, clip: clip, in: app) else { return false }
             let interior = viewport.insetBy(dx: 12, dy: 12)
             let distance = min(displacement, interior.height - 2)
+            XCTContext.runActivity(named: "Gamma drag corridor — clip=\(clip), track=\(viewport), interior=\(interior), distance=\(distance)") { _ in }
             guard finiteRect(interior), distance.isFinite, distance > 0 else {
                 XCTFail("Gamma menu displacement must be finite and nonzero"); return false
             }
@@ -175,7 +202,7 @@ import XCTest
             let end = CGPoint(x: start.x, y: start.y - distance)
             let window = app.windows.firstMatch.frame.intersection(app.frame)
             guard interior.contains(start), interior.contains(end), window.contains(start), window.contains(end) else {
-                XCTFail("Gamma content drag endpoints must remain inside the actual menu viewport")
+                XCTFail("Gamma content drag endpoints must remain inside the actual menu viewport: start=\(start), end=\(end), interior=\(interior), window=\(window)")
                 return false
             }
             let origin = app.coordinate(withNormalizedOffset: .zero)

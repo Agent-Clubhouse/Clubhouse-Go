@@ -100,20 +100,39 @@ import XCTest
     }
 
     /// Keys alone omit the predictive/accessory row. All exported visible input surfaces constrain the bottom.
-    private func unobscuredViewport(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect? {
+    private func unobscuredViewport(_ app: XCUIApplication, requiresKeyboard: Bool = false,
+                                    approvalReview: Bool = false) -> CGRect? {
         let mainWindow = app.windows.firstMatch.frame
-        let window = mainWindow.intersection(app.frame)
-        let navigation = app.navigationBars.firstMatch
-        guard finiteRect(mainWindow), finiteRect(app.frame), finiteRect(window),
-              app.navigationBars.count == 1, navigation.exists,
-              finiteRect(navigation.frame), window.intersects(navigation.frame),
-              app.tabBars.count <= 1, app.keyboards.count <= 1, !requiresKeyboard || app.keyboards.count == 1 else {
-            XCTFail("A finite main window, exactly one navigation bar and unambiguous keyboard are required")
-            return nil
-        }
+        let appFrame = app.frame
+        let window = mainWindow.intersection(appFrame)
+        // Only approval review selects its own presentation bar. Conversation callers stay globally unique.
+        let bars = approvalReview
+            ? app.navigationBars.matching(identifier: "Review approval")
+                .containing(.button, identifier: "companion-approval-review-close")
+            : app.navigationBars
+        let navigationCount = bars.count, globalNavigationCount = app.navigationBars.count
+        let tabCount = app.tabBars.count, keyboardCount = app.keyboards.count
+        let context = "approvalReview=\(approvalReview), main=\(mainWindow), app=\(appFrame), window=\(window), navigation=\(navigationCount)/global\(globalNavigationCount), tabs=\(tabCount), keyboards=\(keyboardCount), requiresKeyboard=\(requiresKeyboard)"
+        XCTContext.runActivity(named: "Compact viewport inputs — \(context)") { _ in }
+        guard finiteRect(mainWindow) else { XCTFail("Main window must be finite: \(context)"); return nil }
+        guard finiteRect(appFrame) else { XCTFail("Application frame must be finite: \(context)"); return nil }
+        guard finiteRect(window) else { XCTFail("Main window intersection must be finite: \(context)"); return nil }
+        guard navigationCount == 1 else { XCTFail("Exactly one applicable navigation bar is required: \(context)"); return nil }
+        let navigation = bars.element(boundBy: 0)
+        let navigationExists = navigation.exists
+        guard navigationExists else { XCTFail("Selected navigation bar must exist: \(context)"); return nil }
+        let navigationFrame = navigation.frame
+        XCTContext.runActivity(named: "Compact viewport navigation — exists=\(navigationExists), frame=\(navigationFrame), \(context)") { _ in }
+        guard finiteRect(navigationFrame) else { XCTFail("Navigation frame must be finite: \(navigationFrame), \(context)"); return nil }
+        guard window.intersects(navigationFrame) else { XCTFail("Navigation must intersect the window: \(navigationFrame), \(context)"); return nil }
+        guard tabCount <= 1 else { XCTFail("Tab bar must be unambiguous: \(context)"); return nil }
+        guard keyboardCount <= 1 else { XCTFail("Keyboard must be unambiguous: \(context)"); return nil }
+        guard !requiresKeyboard || keyboardCount == 1 else { XCTFail("Editing requires one keyboard: \(context)"); return nil }
         var bottom = window.maxY
         if app.tabBars.firstMatch.exists {
-            let tab = app.tabBars.firstMatch.frame.intersection(window)
+            let tabFrame = app.tabBars.firstMatch.frame
+            let tab = tabFrame.intersection(window)
+            XCTContext.runActivity(named: "Compact viewport tab — frame=\(tabFrame), visible=\(tab)") { _ in }
             guard finiteRect(tab) else { XCTFail("The visible tab bar must have a finite frame"); return nil }
             bottom = min(bottom, tab.minY)
         }
@@ -121,13 +140,15 @@ import XCTest
             + app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["inputView", "SystemInputAssistantView"])).allElementsBoundByIndex
         for surface in inputSurfaces {
             let frame = surface.frame
+            XCTContext.runActivity(named: "Compact viewport input surface — \(frame)") { _ in }
             guard finiteRect(frame) else { XCTFail("An exported input surface has invalid geometry"); return nil }
             let visible = frame.intersection(window)
             if finiteRect(visible) { bottom = min(bottom, visible.minY) }
         }
-        let top = max(window.minY, navigation.frame.maxY)
+        let top = max(window.minY, navigationFrame.maxY)
         let viewport = CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
-        guard finiteRect(viewport) else { XCTFail("The navigation-to-input viewport must be nonempty"); return nil }
+        XCTContext.runActivity(named: "Compact viewport result — \(viewport), navigation=\(navigationFrame), bottom=\(bottom)") { _ in }
+        guard finiteRect(viewport) else { XCTFail("The navigation-to-input viewport must be nonempty: \(viewport), \(context)"); return nil }
         return viewport
     }
 
@@ -238,8 +259,8 @@ import XCTest
             XCTAssertGreaterThanOrEqual(decision.frame.height, 44)
             XCTAssertGreaterThanOrEqual(decision.frame.minX, app.frame.minX)
             XCTAssertLessThanOrEqual(decision.frame.maxX, app.frame.maxX)
-            guard let viewport = unobscuredViewport(app) else { return }
-            XCTAssertGreaterThanOrEqual(decision.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+            guard let viewport = unobscuredViewport(app, approvalReview: true) else { return }
+            XCTAssertGreaterThanOrEqual(decision.frame.minY, viewport.minY)
             XCTAssertLessThanOrEqual(decision.frame.maxY, viewport.maxY)
         }
         // Close is presentation-only; source review separately verifies that only explicit decisions dispatch.
