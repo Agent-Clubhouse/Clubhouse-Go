@@ -207,8 +207,9 @@ struct CompanionConversationView: View {
                 Task { await store.load(target, force: true) }
             }
         }
-        .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
+        .alert("Interrupt this turn?", isPresented: $confirmCancel) {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
+            Button("Cancel", role: .cancel) {}
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
         }
