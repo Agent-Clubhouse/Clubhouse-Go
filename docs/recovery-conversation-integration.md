@@ -247,8 +247,9 @@ unproven; no product change follows from these artifacts alone.
 The earlier proposal to run an unchanged native method "once" meant one test
 invocation, but overlooked the shared helpers' three launch/gesture attempts.
 `CompanionRecoveryXCUIDiagnosticTests` is a new, dedicated single-route case:
-one explicit launch attempt and one attempt for each of its six gestures
-(two fixture menu selections, Details, Details retry). Existing shared
+one explicit launch attempt and one attempt for each of its six route gestures
+(two fixture menu selections, Details, Details retry), plus the single bounded
+content-navigation gesture described below when needed. Existing shared
 helpers and native methods are unchanged. All original normal-route
 assertions, 10/5-second waits and 240-second allowance remain; the shared
 single-attempt gesture helper still has its original final two-second wait.
@@ -290,3 +291,41 @@ and real tap reachability for progress → failure → Details retry → recover
 It does not establish VoiceOver traversal, two-target service request counts,
 the unresolved hosted discovery mechanism, or broad visual acceptance.
 This nomination has not been built or run locally.
+
+## Medium-sheet navigation correction after native failure
+
+Parent ran exact `063fc7480e23943f8e0b6667b59ab7b8f833d696`: Debug passed;
+the diagnostic method ran once and failed at `retry.isHittable` after
+14.324402 seconds. Original screenshot/public hierarchy are indexed by blob
+`6a93f0f9fc4a3bc9d3fc23d95edd5ae17fbd69b5`. Native row Details was exported
+at 44 by 44 points and tapped once; explanation/full-error/target checks
+passed. Retry was exported at y 685.7–728.9, below the 667-point screen in
+the medium scroll sheet. The test had not navigated its content before
+asserting immediate hittability. No retry tap or recovered assertion ran.
+This supports a missing test-navigation step, without proving a product
+export defect or resolving any of the three hosted discovery/routing failures.
+
+The diagnostic-only correction selects a unique ScrollView containing the
+retry identifier and the unique `Connection and recovery` navigation bar.
+Its usable viewport intersects the main window and scroll frame, excludes
+the navigation bar, and insets gesture endpoints by 12 points. If the target
+is fully contained, no gesture runs. Otherwise it permits only a target below
+that viewport, with a positive displacement from target center to viewport
+center that fits within the viewport height. The start sits one point inside
+the inset viewport's lower boundary; end is displaced upward by that measured
+amount. Both endpoints must lie within the viewport and app frame before
+one 0.05-second content drag. Unexpected above/invalid geometry fails without
+an action; a contained but occluded target still fails the original hit test.
+No grabber/detent action, blind target tap, swipe loop, font cap, new wait,
+timeout increase or retry is introduced.
+
+After that one gesture, both current scroll/window/nav viewport and target
+frame are re-read and the whole target must be contained. The original
+isHittable and strict width/height ≥44 assertions, full-error checks, single
+Details retry tap and recovered-state checks remain. The first-failure hook,
+existing native methods, shared helpers and product source are unchanged.
+The captured scaled-sheet retry height was also 43.2 points: that is not
+rounded or tolerated. A remaining size or hit-test failure must remain a
+failure with its original evidence. The same single-method/default-once
+serial invocation above is nominated only after parent source review and
+allocation; the corrected source has not been built or run locally.

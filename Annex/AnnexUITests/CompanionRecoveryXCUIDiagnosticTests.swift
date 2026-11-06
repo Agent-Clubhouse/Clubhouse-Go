@@ -60,6 +60,62 @@ import Foundation
         XCTAssertFalse(element(app, "companion-empty-conversation").exists)
     }
 
+    /// One geometry-directed content drag for an exported control below the medium sheet's visible content.
+    private func revealDetailsRetry(_ retry: XCUIElement, in app: XCUIApplication) -> Bool {
+        let scrolls = app.scrollViews.containing(.button, identifier: "companion-recovery-detail-retry")
+        let bars = app.navigationBars.matching(identifier: "Connection and recovery")
+        guard scrolls.count == 1, bars.count == 1 else {
+            XCTFail("Recovery Details must have one containing scroll view and one sheet navigation bar")
+            return false
+        }
+        let scroll = scrolls.firstMatch, bar = bars.firstMatch
+        func viewport() -> CGRect? {
+            let visible = scroll.frame.intersection(app.windows.firstMatch.frame)
+            let navigation = bar.frame
+            let top = max(visible.minY, navigation.maxY)
+            guard !visible.isNull, !visible.isInfinite, visible.width > 24,
+                  top.isFinite, visible.maxY.isFinite, visible.maxY - top > 24 else {
+                XCTFail("Recovery sheet must expose a finite content viewport below its navigation bar")
+                return nil
+            }
+            return CGRect(x: visible.minX, y: top, width: visible.width, height: visible.maxY - top)
+                .insetBy(dx: 12, dy: 12)
+        }
+        guard let before = viewport() else { return false }
+        let target = retry.frame
+        guard target.minX.isFinite, target.minY.isFinite, target.maxX.isFinite, target.maxY.isFinite,
+              target.width > 0, target.height > 0 else {
+            XCTFail("The exported retry must have a finite nonempty frame")
+            return false
+        }
+        if !before.contains(target) {
+            let displacement = target.midY - before.midY
+            let start = CGPoint(x: before.midX, y: before.maxY - 1)
+            let end = CGPoint(x: start.x, y: start.y - displacement)
+            let appFrame = app.frame
+            guard target.minX >= before.minX, target.maxX <= before.maxX,
+                  target.minY >= before.minY, target.maxY > before.maxY,
+                  displacement > 0, displacement <= before.height,
+                  before.contains(start), before.contains(end),
+                  appFrame.contains(start), appFrame.contains(end) else {
+                XCTFail("Only a below-viewport retry reachable by one bounded upward content drag may be navigated to")
+                return false
+            }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let from = origin.withOffset(CGVector(dx: start.x - appFrame.minX, dy: start.y - appFrame.minY))
+            let to = origin.withOffset(CGVector(dx: end.x - appFrame.minX, dy: end.y - appFrame.minY))
+            XCTContext.runActivity(named: "Recovery Details content drag: viewport \(before), retry \(target), \(start) → \(end)") { _ in
+                from.press(forDuration: 0.05, thenDragTo: to)
+            }
+        }
+        // The gesture may change the sheet detent. Re-read both the viewport/nav and the target, without a wait/loop.
+        guard let after = viewport() else { return false }
+        let revealed = retry.frame
+        let contained = after.contains(revealed)
+        XCTAssertTrue(contained, "The whole retry must be inside the current sheet content viewport: \(revealed), viewport \(after)")
+        return contained
+    }
+
     func testSingleAttemptProgressFailureDetailsRetryAndRecovery() {
         continueAfterFailure = false
         // Same bundle/process handle is available even if launchApp reports its first issue before returning.
@@ -82,6 +138,7 @@ import Foundation
         XCTAssertTrue(explanation.label.contains("Synthetic history failure.\nThe response was incomplete.\nNo real desktop was contacted."))
         XCTAssertTrue(explanation.label.contains("Target: alpha on recovery-one."))
         let retry = app.buttons["companion-recovery-detail-retry"]
+        guard revealDetailsRetry(retry, in: app) else { return }
         XCTAssertTrue(retry.isHittable)
         XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
         XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
