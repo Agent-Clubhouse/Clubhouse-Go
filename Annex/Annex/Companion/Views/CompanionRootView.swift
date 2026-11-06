@@ -746,6 +746,27 @@ struct CompanionNeedsYouView: View {
         let items = store.attentionItems()
         let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
+            if items.isEmpty {
+                ContentUnavailableView(availability.emptyTitle, systemImage: availability.emptySystemImage,
+                                       description: Text(availability.emptyDetail))
+                    .listRowBackground(Color.clear)
+            }
+            ForEach(items) { item in
+                Section {
+                    CompanionAttentionCard(item: item, store: store, decisions: decisions, multipleHosts: store.hosts.count > 1)
+                        .listRowBackground(CompanionCardBackground())
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            if let option = swipeOption(item, kind: .allowOnce) {
+                                Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if let option = swipeOption(item, kind: .rejectOnce) {
+                                Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
+                            }
+                        }
+                }
+            }
             ForEach(availability.unavailableHosts) { host in
                 Section {
                     HStack(spacing: 12) {
@@ -766,27 +787,6 @@ struct CompanionNeedsYouView: View {
                     }
                     .listRowBackground(CompanionCardBackground())
                     .accessibilityIdentifier("needs-you-unavailable-\(host.id)")
-                }
-            }
-            if items.isEmpty {
-                ContentUnavailableView(availability.emptyTitle, systemImage: availability.unavailableHosts.isEmpty ? "checkmark.circle" : "wifi.slash",
-                                       description: Text(availability.emptyDetail))
-                    .listRowBackground(Color.clear)
-            }
-            ForEach(items) { item in
-                Section {
-                    CompanionAttentionCard(item: item, store: store, decisions: decisions, multipleHosts: store.hosts.count > 1)
-                        .listRowBackground(CompanionCardBackground())
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            if let option = swipeOption(item, kind: .allowOnce) {
-                                Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))
-                            }
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            if let option = swipeOption(item, kind: .rejectOnce) {
-                                Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
-                            }
-                        }
                 }
             }
         }

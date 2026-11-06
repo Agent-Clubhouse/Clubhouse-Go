@@ -14,6 +14,7 @@ struct CompanionAttentionAvailability {
     var unavailableHosts: [UnavailableHost]
     var emptyTitle: String
     var emptyDetail: String
+    var emptySystemImage: String
 
     init(hosts: [CompanionHost]) {
         unavailableHosts = hosts.filter { !$0.connection.canOperate }.map { host in
@@ -27,14 +28,18 @@ struct CompanionAttentionAvailability {
         if hosts.isEmpty {
             emptyTitle = "No desktops paired"
             emptyDetail = "Pair a desktop to see what needs you."
+            emptySystemImage = "desktopcomputer"
         } else if !unavailableHosts.isEmpty {
             emptyTitle = "No requests to show"
             emptyDetail = "Pending items may be missing while a desktop is unavailable."
+            emptySystemImage = "wifi.slash"
         } else if hosts.contains(where: { !$0.hasLoadedCatalog }) {
             emptyTitle = "No requests to show"
             emptyDetail = "Desktop information is still loading. Pending items may be missing."
+            emptySystemImage = "arrow.triangle.2.circlepath"
         } else {
             emptyTitle = "All caught up"
+            emptySystemImage = "checkmark.circle"
             let working = hosts.flatMap(\.allAgents).filter { $0.status == .working }.count
             emptyDetail = working == 0 ? "Nothing is waiting on you." : "\(working) agents are working. They'll show up here when they need you."
         }

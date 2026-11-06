@@ -99,15 +99,18 @@ import Testing
         #expect(store(hosts).attentionItems(now: now).isEmpty)
         let ready = CompanionAttentionAvailability(hosts: hosts)
         #expect(ready.emptyTitle == "All caught up" && ready.emptyDetail == "Nothing is waiting on you.")
+        #expect(ready.emptySystemImage == "checkmark.circle")
         var incomplete = hosts
         incomplete[1].hasLoadedCatalog = false
         let unknown = CompanionAttentionAvailability(hosts: incomplete)
         #expect(unknown.emptyTitle == "No requests to show")
         #expect(unknown.emptyDetail.contains("still loading"))
+        #expect(unknown.emptySystemImage == "arrow.triangle.2.circlepath")
         let unpaired = CompanionAttentionAvailability(hosts: [])
         #expect(unpaired.unavailableHosts.isEmpty)
         #expect(unpaired.emptyTitle == "No desktops paired")
         #expect(unpaired.emptyDetail == "Pair a desktop to see what needs you.")
+        #expect(unpaired.emptySystemImage == "desktopcomputer")
     }
 
     @Test func quietReachableDesktopDoesNotHideUnknownPendingItemsOnTheOtherDesktop() {
@@ -118,5 +121,6 @@ import Testing
         #expect(availability.unavailableHosts.map(\.id) == ["b"])
         #expect(availability.emptyTitle == "No requests to show")
         #expect(availability.emptyDetail.contains("may be missing"))
+        #expect(availability.emptySystemImage == "wifi.slash")
     }
 }
