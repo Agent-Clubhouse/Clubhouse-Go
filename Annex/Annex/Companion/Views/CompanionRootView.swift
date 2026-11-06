@@ -741,15 +741,21 @@ struct CompanionNeedsYouView: View {
     @Bindable var store: CompanionStore
     var decisions: CompanionDecisionQueue
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let items = store.attentionItems()
+        let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
             if items.isEmpty {
-                let working = store.allAgents.filter { $0.status == .working }.count
-                ContentUnavailableView("All caught up", systemImage: "checkmark.circle",
-                                       description: Text(working == 0 ? "Nothing is waiting on you." : "\(working) agents are working. They'll show up here when they need you."))
-                    .listRowBackground(Color.clear)
+                ContentUnavailableView {
+                    Label {
+                        Text(availability.emptyTitle)
+                            .lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.center)
+                    } icon: { Image(systemName: availability.emptySystemImage) }
+                } description: { Text(availability.emptyDetail) }
+                .listRowBackground(Color.clear)
             }
             ForEach(items) { item in
                 Section {
@@ -765,6 +771,11 @@ struct CompanionNeedsYouView: View {
                                 Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
                             }
                         }
+                }
+            }
+            ForEach(availability.unavailableHosts) { host in
+                Section {
+                    unavailableNotice(host).listRowBackground(CompanionCardBackground())
                 }
             }
         }
@@ -784,6 +795,50 @@ struct CompanionNeedsYouView: View {
         }
         .task(id: items.map(\.id)) {
             for item in items where !store.conversation(for: item.agent.id).isLoaded { await store.load(item.agent.id) }
+        }
+    }
+
+    @ViewBuilder private func unavailableNotice(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                unavailableText(host)
+                HStack {
+                    connectionSymbol(host)
+                    Spacer(minLength: 8)
+                    retry(host)
+                }
+            }
+        } else {
+            HStack(spacing: 12) {
+                connectionSymbol(host)
+                unavailableText(host)
+                Spacer(minLength: 8)
+                retry(host)
+            }
+        }
+    }
+
+    private func unavailableText(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(host.title).font(.headline).fixedSize(horizontal: false, vertical: true)
+            Text(CompanionAttentionAvailability.UnavailableHost.detail)
+                .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private func connectionSymbol(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
+        if host.isConnecting { ProgressView().accessibilityLabel("Connecting") }
+        else { Image(systemName: "wifi.slash").foregroundStyle(Color(palette.secondaryLabel)) }
+    }
+
+    @ViewBuilder private func retry(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
+        if let hostID = host.retryHostID {
+            Button("Retry") { Task { await store.reconnect(hostID: hostID) } }
+                .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                .accessibilityLabel("Retry \(host.name)")
+                .accessibilityIdentifier("needs-you-retry-\(hostID)")
         }
     }
 
