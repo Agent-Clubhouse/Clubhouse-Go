@@ -7,7 +7,19 @@ import UIKit
 @MainActor final class CompanionProfileImageRenderingTests: XCTestCase {
     func testCustomImageWinsEmojiAndReplacementVersionRepaintsTheSameFace() async throws {
         let host = "profile-image-test-" + UUID().uuidString
-        addTeardownBlock { await CompanionIconStore.shared.remove(host: host) }
+        do {
+            try await checkProfileImageRendering(host: host)
+        } catch {
+            await CompanionIconStore.shared.remove(host: host)
+            throw error
+        }
+        await CompanionIconStore.shared.remove(host: host)
+    }
+
+    private func checkProfileImageRendering(host: String) async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }, "Requires a foreground-active hosted test scene")
+        let originalKeyWindow = scene.windows.first(where: \.isKeyWindow)
         let first = try await icon(.red, host: host)
 
         func face(_ reference: CompanionIconReference) -> some View {
@@ -17,11 +29,16 @@ import UIKit
                 .ignoresSafeArea()
         }
 
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 64, height: 64))
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
         let hosting = UIHostingController(rootView: face(first))
         window.rootViewController = hosting
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            originalKeyWindow?.makeKey()
+        }
         window.makeKeyAndVisible()
-        defer { window.isHidden = true }
         try await expectPixel(in: hosting.view, rgb: [255, 0, 0])
 
         // Ingest new bytes under the same host/kind/id, as a new snapshot version would do.
@@ -31,8 +48,9 @@ import UIKit
         hosting.rootView = face(replacement)
         try await expectPixel(in: hosting.view, rgb: [0, 0, 255])
 
-        // A selected but unavailable image keeps the existing solid-colour initials fallback.
-        let missing = CompanionIconReference(host: host, kind: .agent, id: first.id, version: "missing")
+        // A valid SHA-256 version with no cached bytes or fetcher keeps the initials fallback.
+        let absentVersion = CompanionIconReference.digest(Data("absent synthetic profile image".utf8))
+        let missing = CompanionIconReference(host: host, kind: .agent, id: first.id, version: absentVersion)
         let unavailable = await CompanionIconStore.shared.image(for: missing, points: 48)
         XCTAssertNil(unavailable)
         hosting.rootView = face(missing)
