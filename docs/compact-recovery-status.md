@@ -84,14 +84,14 @@ Focused issue: [#322](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/322
 Related issues reviewed: #125 (composer spinner), #150 (host wording), and #205
 (first snapshot stall). These do not own the standalone recovery presentation.
 
-## Validation commands
+## Proposed bounded validation batch (not allocated)
 
 ```sh
 swift test --jobs 4 --filter CompanionRecoveryStatusTests
 xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   -destination 'platform=iOS Simulator,id=<allocated simulator>' \
   -derivedDataPath '<worktree>/.codex/reconnect-status-evidence/DerivedData' \
-  -jobs 4 -parallel-testing-enabled NO -test-iterations 1 \
+  -jobs 4 -parallel-testing-enabled NO \
   CODE_SIGNING_ALLOWED=NO -only-testing:ClubhouseGoTests/CompanionRecoveryStatusViewTests test
 git diff --check
 ```
@@ -100,5 +100,9 @@ The package target automatically includes the new Domain file. The app and hoste
 tests use Xcode synchronized groups, so no project-file changes are needed.
 There is no dedicated repository lint command; source parsing and whitespace
 validation accompany the compiler/test checks.
-The bounded allocation is filtered Domain tests and exactly five hosted tests,
-once without retries; it does not authorize a full-suite follow-on.
+This proposed bounded batch is filtered Domain tests and exactly five hosted
+tests, using default single execution with no retry flags. It is not an
+allocation; the parent must grant the heavy slot before execution. Omit
+`-test-iterations 1`, which Xcode rejects in this environment. Inspect the
+effective scheme/xctestrun settings and actual test starts afterward to confirm
+single execution. No full-suite follow-on is proposed or authorized.
