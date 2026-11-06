@@ -264,11 +264,12 @@ struct CompanionConversationView: View {
     private var connectionBanner: some View {
         // A retained page's presented action belongs to that page, even if selection changes before its Task runs.
         let presentedTarget = target
+        let presentedStore = store
         return CompanionRecoveryStatusView(status: recoveryStatus) { action in
             Task {
                 switch action {
-                case .reconnect: await store.reconnect(hostID: presentedTarget.hostID)
-                case .refreshConversation: await store.load(presentedTarget, force: true)
+                case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
+                case .refreshConversation: await presentedStore.load(presentedTarget, force: true)
                 }
             }
         }
