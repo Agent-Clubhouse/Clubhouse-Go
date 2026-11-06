@@ -115,7 +115,7 @@ struct CompanionProjectBadge: View {
     }
 }
 
-/// Quick bolt, emoji wash, cached image, or initials on the agent colour; always circular.
+/// Quick bolt, saved profile image, emoji wash, or initials on the agent colour; always circular.
 struct CompanionIdentityFace: View {
     let name: String
     var color: String?
