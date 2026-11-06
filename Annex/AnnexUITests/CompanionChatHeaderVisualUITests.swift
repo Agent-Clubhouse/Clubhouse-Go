@@ -30,7 +30,176 @@ import XCTest
         composer.typeText("Synthetic header draft")
     }
 
-    func testDarkWorkingKeyboardDownAndUp() {
+    private func unique(_ app: XCUIApplication, _ id: String) throws -> XCUIElement {
+        let matches = app.descendants(matching: .any).matching(identifier: id)
+        XCTAssertEqual(matches.count, 1, "Exactly one exported \(id)")
+        guard matches.count == 1 else { throw HeaderGeometryFailure.invalid }
+        return matches.firstMatch
+    }
+
+    private enum HeaderGeometryFailure: Error { case invalid }
+
+    private func finite(_ frame: CGRect) -> Bool {
+        !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+            && [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy(\.isFinite)
+    }
+
+    /// Keyboard keys alone omit the system assistant row. Include every on-screen public
+    /// inputView/assistant frame conservatively; an invalid/disjoint occluder fails this test.
+    private func editingRegion(_ app: XCUIApplication) throws -> (content: CGRect, navigation: CGRect) {
+        XCTAssertEqual(app.keyboards.count, 1)
+        XCTAssertEqual(app.navigationBars.count, 1)
+        guard app.keyboards.count == 1, app.navigationBars.count == 1 else { throw HeaderGeometryFailure.invalid }
+        let window = app.frame, navigation = app.navigationBars.firstMatch.frame
+        let keyboard = app.keyboards.firstMatch.frame.intersection(window)
+        XCTAssertTrue(finite(window) && finite(navigation) && finite(keyboard))
+        guard finite(window), finite(navigation), finite(keyboard) else { throw HeaderGeometryFailure.invalid }
+        var bottom = keyboard.minY
+        for id in ["inputView", "SystemInputAssistantView"] {
+            for candidate in app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex {
+                let frame = candidate.frame
+                XCTAssertTrue(finite(frame), "Invalid \(id): \(frame)")
+                guard finite(frame) else { throw HeaderGeometryFailure.invalid }
+                let occlusion = frame.intersection(window)
+                if occlusion.isNull || occlusion.isEmpty { continue }
+                // Assistant and input container must join/overlap the actual keyboard, not
+                // be an unrelated exported object elsewhere in the application.
+                let joined = occlusion.maxY >= keyboard.minY && occlusion.minY <= keyboard.maxY
+                    && occlusion.maxX > keyboard.minX && occlusion.minX < keyboard.maxX
+                XCTAssertTrue(joined, "Ambiguous keyboard accessory: \(id), \(occlusion), keyboard \(keyboard)")
+                guard joined else { throw HeaderGeometryFailure.invalid }
+                bottom = min(bottom, occlusion.minY)
+            }
+        }
+        let top = max(window.minY, navigation.maxY)
+        let content = CGRect(x: window.minX, y: top, width: window.width, height: bottom - top)
+        XCTAssertTrue(finite(content), "No positive nav-to-full-input region: \(content)")
+        guard finite(content) else { throw HeaderGeometryFailure.invalid }
+        return (content, navigation)
+    }
+
+    /// This is geometry/focus evidence for this synthetic state, not VoiceOver traversal proof.
+    private func assertEditingViewport(_ app: XCUIApplication, expanded: Bool, largeText: Bool) throws -> CGRect? {
+        let region = try editingRegion(app)
+        let editor = try unique(app, "companion-composer")
+        XCTAssertEqual(editor.value as? String, "Synthetic header draft")
+        XCTAssertTrue(editor.debugDescription.contains("Keyboard Focused"), "Expansion/navigation must not end field focus")
+        XCTAssertTrue(editor.isEnabled && editor.isHittable)
+        XCTAssertTrue(finite(editor.frame) && region.content.contains(editor.frame), "Editor \(editor.frame), region \(region.content)")
+        XCTAssertGreaterThanOrEqual(editor.frame.width, largeText ? app.frame.width * 0.7 : 44)
+        let buttons = ["companion-level-menu", "companion-attach", "companion-interrupt", "companion-send"]
+        var composerTop = editor.frame.minY
+        for id in buttons {
+            let button = try unique(app, id)
+            XCTAssertTrue(button.isEnabled && button.isHittable, id)
+            XCTAssertGreaterThanOrEqual(button.frame.width, 44, id)
+            XCTAssertGreaterThanOrEqual(button.frame.height, 44, id)
+            XCTAssertTrue(region.content.contains(button.frame), "\(id): \(button.frame), region \(region.content)")
+            composerTop = min(composerTop, button.frame.minY)
+        }
+        for id in ["companion-chat-header", "companion-context-usage"] {
+            let button = try unique(app, id)
+            XCTAssertTrue(button.isEnabled && button.isHittable, id)
+            XCTAssertTrue(region.navigation.contains(button.frame), "\(id) must stay in navigation: \(button.frame), \(region.navigation)")
+        }
+        guard expanded else {
+            XCTAssertFalse(element(app, "companion-chat-details-viewport").exists)
+            return nil
+        }
+        let viewport = try unique(app, "companion-chat-details-viewport")
+        XCTAssertTrue(finite(viewport.frame) && region.content.contains(viewport.frame), "Details viewport \(viewport.frame), region \(region.content)")
+        XCTAssertLessThanOrEqual(viewport.frame.maxY, composerTop, "Disclosure must not cover any composer control")
+        // DEBUG header fixture exposes the reporting boundary's frame and inset safe frame.
+        // This checks the actual safeAreaBar/proposal behavior rather than assuming it from source.
+        let values = (viewport.value as? String ?? "").split(separator: ",").compactMap { Double($0) }
+        XCTAssertEqual(values.count, 8, "Missing actual residual geometry witness")
+        guard values.count == 8 else { throw HeaderGeometryFailure.invalid }
+        let reported = CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
+        let residual = CGRect(x: values[4], y: values[5], width: values[6], height: values[7])
+        XCTAssertTrue(finite(reported) && finite(residual) && reported.contains(residual))
+        XCTAssertTrue(region.content.contains(residual), "Residual must exclude navigation and all input occlusion: \(residual), \(region.content)")
+        XCTAssertLessThanOrEqual(residual.maxY, composerTop, "Measured boundary must already reserve the bottom bar")
+        XCTAssertTrue(residual.contains(viewport.frame), "Disclosure \(viewport.frame) must stay in measured residual \(residual)")
+        return viewport.frame
+    }
+
+    /// Traverse only the bounded details scroll. Track coverage of each full metadata label,
+    /// allowing a multiline title taller than the viewport to be read over multiple positions.
+    /// Sixteen is a finite navigation budget, never a repeated tap or focus/launch rescue.
+    private func inspectMetadata(_ app: XCUIApplication, longName: Bool) throws {
+        let expected = [
+            ("companion-chat-details-name", longName ? "Alexandria — release coordination and simulator validation" : "Header worker"),
+            ("companion-chat-host-tag", "Studio Mac / Header fixture"),
+            ("companion-chat-details-status", "Working"),
+            ("free-agent-badge", "Free Agent Mode: all permissions bypassed"),
+            ("companion-header-level", "Permissions: Auto-accept edits"),
+            ("companion-chat-details-model", "Opus")
+        ]
+        var coverage: [String: [(CGFloat, CGFloat)]] = [:]
+        var heights: [String: CGFloat] = [:]
+        func complete(_ id: String) -> Bool {
+            guard let height = heights[id], let spans = coverage[id]?.sorted(by: { $0.0 < $1.0 }), !spans.isEmpty else { return false }
+            var end: CGFloat = 0
+            for span in spans {
+                if span.0 > end { return false }
+                end = max(end, span.1)
+            }
+            return end >= height
+        }
+        for step in 0...16 {
+            guard let viewport = try assertEditingViewport(app, expanded: true, largeText: longName) else { throw HeaderGeometryFailure.invalid }
+            // The viewport includes bottom6 padding; the native scroll frame is the content clip.
+            let scrolls = app.scrollViews.matching(identifier: "companion-chat-details-scroll")
+            XCTAssertLessThanOrEqual(scrolls.count, 1)
+            guard scrolls.count <= 1 else { throw HeaderGeometryFailure.invalid }
+            let visible = scrolls.count == 1 ? viewport.intersection(scrolls.firstMatch.frame) : viewport
+            XCTAssertTrue(finite(visible))
+            guard finite(visible) else { throw HeaderGeometryFailure.invalid }
+            for (id, label) in expected {
+                let leaf = try unique(app, id)
+                XCTAssertEqual(leaf.label, label)
+                let frame = leaf.frame
+                XCTAssertTrue(finite(frame), id)
+                guard finite(frame) else { throw HeaderGeometryFailure.invalid }
+                if let height = heights[id] { XCTAssertEqual(frame.height, height, "Metadata must not shrink while navigating") }
+                heights[id] = frame.height
+                let slice = frame.intersection(visible)
+                if !slice.isNull && !slice.isEmpty && frame.minX >= visible.minX && frame.maxX <= visible.maxX {
+                    coverage[id, default: []].append((max(0, slice.minY - frame.minY), min(frame.height, slice.maxY - frame.minY)))
+                }
+            }
+            if expected.allSatisfy({ complete($0.0) }) {
+                // Natural fit has no gratuitous empty cap; scrolling content has a separate viewport.
+                if scrolls.count == 0 {
+                    let card = try unique(app, "companion-chat-details")
+                    XCTAssertEqual(viewport.height, card.frame.height + 6, accuracy: 1)
+                }
+                return
+            }
+            guard step < 16, scrolls.count == 1 else {
+                XCTFail("Full metadata was not traversable in the bounded details viewport: \(coverage)")
+                throw HeaderGeometryFailure.invalid
+            }
+            let gesture = visible.insetBy(dx: 8, dy: 8)
+            guard finite(gesture), gesture.height > 2 else {
+                XCTFail("Details viewport has no usable bounded gesture region")
+                throw HeaderGeometryFailure.invalid
+            }
+            let start = CGPoint(x: gesture.midX, y: gesture.maxY - 1)
+            let end = CGPoint(x: gesture.midX, y: gesture.minY + 1)
+            XCTAssertTrue(visible.contains(start) && visible.contains(end) && app.frame.contains(start) && app.frame.contains(end))
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let from = origin.withOffset(CGVector(dx: start.x - app.frame.minX, dy: start.y - app.frame.minY))
+            let to = origin.withOffset(CGVector(dx: end.x - app.frame.minX, dy: end.y - app.frame.minY))
+            XCTContext.runActivity(named: "Header details navigation \(step + 1): \(visible), \(start) → \(end)") { _ in
+                from.press(forDuration: 0.05, thenDragTo: to)
+            }
+            capture(app, "metadata navigation \(step + 1), long name \(longName)")
+            // No wait, focus gesture, or generic scroll helper repairs a failed post-navigation state.
+        }
+    }
+
+    func testDarkWorkingKeyboardDownAndUp() throws {
         let app = launch()
         XCTAssertTrue(app.staticTexts["companion-chat-activity"].exists)
         XCTAssertFalse(element(app, "companion-chat-details").exists)
@@ -41,21 +210,30 @@ import XCTest
         capture(app, "dark Working native top keyboard down")
         focus(app)
         capture(app, "dark Working keyboard up")
+        _ = try assertEditingViewport(app, expanded: false, largeText: false)
         waitAndTap(app.buttons["companion-chat-header"], until: element(app, "companion-chat-details"), attempts: 1)
         capture(app, "dark Working expanded keyboard up")
+        try inspectMetadata(app, longName: false)
+        waitAndTap(app.buttons["companion-chat-header"], untilGone: element(app, "companion-chat-details"), attempts: 1)
+        capture(app, "dark Working collapsed again keyboard up")
+        _ = try assertEditingViewport(app, expanded: false, largeText: false)
     }
 
-    func testLightLongNameAccessibilityExpandedWithKeyboard() {
+    func testLightLongNameAccessibilityExpandedWithKeyboard() throws {
         let app = launch(["--companion-header-light", "--companion-header-long-name",
                           "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
         focus(app)
+        capture(app, "light AX Large long name collapsed before expansion keyboard up")
+        _ = try assertEditingViewport(app, expanded: false, largeText: true)
         let details = element(app, "companion-chat-details")
         waitAndTap(app.buttons["companion-chat-header"], until: details, attempts: 1)
+        capture(app, "light AX Large long name expanded keyboard up")
         XCTAssertTrue(details.isHittable)
         XCTAssertTrue(app.buttons["companion-context-usage"].isHittable)
-        capture(app, "light AX Large long name expanded keyboard up")
+        try inspectMetadata(app, longName: true)
         waitAndTap(app.buttons["companion-chat-header"], untilGone: details, attempts: 1)
         capture(app, "light AX Large long name collapsed keyboard up")
+        _ = try assertEditingViewport(app, expanded: false, largeText: true)
     }
 
     func testIdleFallbackCustomImageVersionAndContextQuota() {

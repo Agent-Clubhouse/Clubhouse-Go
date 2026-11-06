@@ -1,0 +1,36 @@
+# Header disclosure within the remaining viewport
+
+Source candidate based on `015a31943d50a7b61bcad93a46a541ea5c5b62cc`; runtime and visual acceptance are pending. This addresses the original expanded AX Large long-name screenshot, not the separate composer/menu failures. Original image blob `ef9fa9a49a3fd4de91dd5164d32a6b1b3a372c6e` (SHA-256 `a4036e1b3cc761816404d6197e1b04606f6cdd0144f3331ef012446da28ac00d`) shows details behind navigation and editor/actions obscured by the keyboard assistant. The original test passed because it checked hittability without bounding these surfaces.
+
+## Layout boundary
+
+The bottom `safeAreaBar` retains its existing activity/composer closure outside an unconditional `GeometryReader`. The top bar is inside the reader. Navigation/toolbar, sheets, tasks, connection handlers and confirmation remain outside. No field or transcript identity is reset on disclosure changes; no focus/draft/selection writes, height State, preference feedback, observer or timer is added.
+
+`CompanionConversationHeaderRegion` computes the global safe rectangle from that reader's frame and its reported safe-area insets. No independent keyboard/navigation/composer estimate is subtracted. Apple's `GeometryProxy.safeAreaInsets` describes the container's insets; the SDK declares `safeAreaBar`, but its implementation is not in this repository. A DEBUG-only accessibility value, enabled only in the dual-guarded synthetic header fixture, exposes the reporting frame and inset safe rectangle without State or layout feedback. The test reads that exact witness and requires it to exclude navigation, all input occlusion and the bottom composer, and to contain the disclosure. Release has no diagnostic value. Actual layout must still verify this boundary represents the bottom bar's reservation, whether the framework reflects it in the proposed frame, insets, or both. Source inspection alone cannot prove the future rectangle.
+
+The top-bar Layout measures the independent other-agent banner at the actual width, including its existing padding. Let R be the residual safe height, W the measured banner height, and N the ideal complete disclosure height including bottom6 padding. When R-W is at least50, the disclosure proposal is `min(N, max(50, (R-W)/3))`. The50 is a44pt *disclosure reading/gesture viewport* plus its existing6pt padding; it is neither a composer estimate nor a font/text cap. A third of the remainder is a preferred allocation, not a universal safety proof. Measurement does not depend on the top bar's own reservation.
+
+When less than50 remains, this change preserves natural content instead of silently hiding or returning a zero-height viewport. This boundary is explicitly unsupported by the cap and must fail containment validation; it does not establish simultaneous readability for arbitrary approval/sleep/activity content. A further layout/fallback would need separate review if encountered.
+
+`ViewThatFits` uses the entire fixed-vertical-size card at its natural height when it fits; otherwise it exposes a vertical ScrollView containing the same full card, clipped within the proposal with size-based bouncing. Both paths retain all strings/fonts/Dynamic Type/glass and expose one card. The bounded viewport and scroll have distinct identifiers; a scrolling card's content frame may legitimately exceed its viewport. Existing badge identifiers and accessible labels remain unchanged. No automatic collapse, metadata removal or font limit is introduced.
+
+## Two affected native cases
+
+Only these existing methods gain checks; their original captures, waits, launch attempts1, initial focus setup, and assertions remain:
+
+- `ClubhouseGoUITests/CompanionChatHeaderVisualUITests/testDarkWorkingKeyboardDownAndUp`
+- `ClubhouseGoUITests/CompanionChatHeaderVisualUITests/testLightLongNameAccessibilityExpandedWithKeyboard`
+
+Each captures the expanded original before geometry checks. The dark case additionally collapses once after metadata inspection; both check collapsed geometry/draft/focus before expansion and after collapse. Idle custom-image/context/plan-limit method remains byte-for-byte unchanged.
+
+The local test requires one actual keyboard and navigation bar. It conservatively unions on-screen public `inputView`, `SystemInputAssistantView` and Keyboard frames, rejects invalid/disjoint geometry and uses the earliest obstruction. Original working evidence had assistant y407 while keys began y451; keys alone miss44pt. Public XCUI does not expose a general hidden flag, so on-screen accessory frames are included even if their container is not itself hittable.
+
+The test checks viewport/editor/config/Attach/Stop/Send entirely within app width and navigation-to-full-input bounds, disclosure ending above every composer control, actionable controls enabled/hittable and44pt minima, nonempty editor frame and existing large-text width floor. Navigation identity/context are checked within the actual navigation bar. The original typed draft and actual Keyboard Focused marker must survive every navigation and collapse, with no new focus tap or wait to repair them.
+
+All six expected metadata labels must be unique, exact and unchanged: full principal, host/project, Working, Free Agent, permissions and model. A finite maximum16 upward content drags is scoped to the unique details ScrollView, with endpoints inside its current clipped viewport. Frame-intersection coverage is accumulated across positions, including an oversized title's top and bottom; labels must retain their height. This is bounded navigation, not a repeated control tap. Each drag retains an original full-app screenshot before post-navigation geometry/focus assertions. A natural-fit card must not acquire empty cap space. Original pixels still require human/model review for clipping/glass/readability; AX geometry is not sufficient by itself.
+
+## Validation and limits
+
+Source parse and diff checks are lightweight only. Independent review is required before nominating a frozen head for one jobs4 Debug build, the existing exact-binary deinit gate and only these two UI methods on the owned SE3/iOS26/375pt configuration, serial/default once/no retry flags. No allocation, typecheck, build, simulator or runtime result is implied here.
+
+Fast-mode inheritance and the existing initial Keyboard → Show Keyboard route remain, so this does not prove production focus/animation timing. Method/launch/helper attempts1 is not a claim that XCTest never retries low-level event synthesis. This fixture has no independent other-agent banner or pinned approval after its timeline replacement; source measurement preserves them, but these two cases do not validate every bottom/banner combination, retained Review/root behavior or VoiceOver navigation. Original015 failures, native808/431 proof and earlier hosted-discovery failures remain separate.

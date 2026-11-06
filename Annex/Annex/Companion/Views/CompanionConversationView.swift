@@ -77,6 +77,10 @@ struct CompanionConversationView: View {
 
     private var content: some View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
+        // The bottom bar reserves its real size before this boundary observes the safe region.
+        // This boundary stays mounted while disclosure/focus/status changes.
+        GeometryReader { geometry in
+        let headerRegion = CompanionConversationHeaderRegion(geometry: geometry)
         VStack(spacing: 0) {
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             connectionBanner
@@ -106,6 +110,23 @@ struct CompanionConversationView: View {
             }
         }
         .companionBackground()
+        // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
+        .safeAreaBar(edge: .top, spacing: 0) {
+            CompanionConversationHeaderBarLayout(
+                residualHeight: headerRegion.safeFrame.height,
+                showsDetails: showHeaderDetails
+            ) {
+                // Both slots are stable, including the empty disclosure/banner cases.
+                Group {
+                    if showHeaderDetails {
+                        CompanionConversationDetailsViewport(agent: agent, contextName: contextName, region: headerRegion)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                otherAgentBanner.frame(maxWidth: .infinity)
+            }
+        }
+        }
         .navigationTitle(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -142,16 +163,6 @@ struct CompanionConversationView: View {
                     } label: { Label("Conversation actions", systemImage: "ellipsis") }
                     .accessibilityIdentifier("conversation-actions-menu")
                 }
-            }
-        }
-        // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                if showHeaderDetails {
-                    CompanionConversationDetailsCard(agent: agent, contextName: contextName)
-                        .padding(.horizontal, 16).padding(.bottom, 6)
-                }
-                otherAgentBanner
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
