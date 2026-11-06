@@ -21,7 +21,7 @@ import UIKit
             var agent = try XCTUnwrap(host.dispatcher?.liveAgent)
             agent.color = "rose"
             agent.emoji = appearance == "Emoji" ? "🧭" : nil
-            agent.icon = appearance == "Colour" ? nil : reference
+            agent.icon = appearance == "Image" ? reference : nil
             host.dispatcher?.agent = agent
             let message = CompanionMessage(id: "dispatcher-appearance", role: .user, text: "Update from the Dispatcher.", source: "mcp",
                                            routed: [.init(sender: .init(agentID: agent.id.agentID, name: "Dispatcher"), text: "Update from the Dispatcher.")])
