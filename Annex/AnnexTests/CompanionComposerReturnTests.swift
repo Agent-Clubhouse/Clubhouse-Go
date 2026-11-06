@@ -41,7 +41,7 @@ import UIKit
     }
 
     private func findInput(in view: UIView) -> UITextView? {
-        (view as? UITextView) ?? view.subviews.lazy.compactMap { findInput(in: $0) }.first
+        (view as? UITextView) ?? view.subviews.lazy.compactMap { self.findInput(in: $0) }.first
     }
 
     private func settle() async throws { try await Task.sleep(for: .milliseconds(80)) }
@@ -81,9 +81,10 @@ import UIKit
         return command
     }
 
-    private func invoke(_ command: UIKeyCommand, on input: UITextView) {
-        XCTAssertTrue(input.canPerformAction(command.action, withSender: command))
-        XCTAssertTrue(UIApplication.shared.sendAction(command.action, to: input, from: command, for: nil),
+    private func invoke(_ command: UIKeyCommand, on input: UITextView) throws {
+        let action = try XCTUnwrap(command.action)
+        XCTAssertTrue(input.canPerformAction(action, withSender: command))
+        XCTAssertTrue(UIApplication.shared.sendAction(action, to: input, from: command, for: nil),
                       "Invoke the actual registered UIKit command action")
     }
 
@@ -91,8 +92,8 @@ import UIKit
         let f = try await fixture("Send once")
         defer { f.close() }
         let enter = try command(f.input)
-        invoke(enter, on: f.input)
-        invoke(enter, on: f.input)
+        try invoke(enter, on: f.input)
+        try invoke(enter, on: f.input)
         try await settle()
         XCTAssertEqual(f.service.sent.map(\.text), ["Send once"])
         XCTAssertEqual(f.service.sent.first?.target, f.target)
@@ -101,7 +102,7 @@ import UIKit
         XCTAssertTrue(f.store.pendingCommands.contains(f.target))
         f.input.insertText("Next draft")
         try await settle()
-        invoke(enter, on: f.input)
+        try invoke(enter, on: f.input)
         try await settle()
         XCTAssertEqual(f.service.sent.count, 1)
         XCTAssertEqual(f.store.drafts[f.target], "Next draft")
@@ -113,7 +114,7 @@ import UIKit
     func testReturnPicksNamedSlashCompletionBeforeSendingButBareAndCompleteCommandsSend() async throws {
         let partial = try await fixture("/rev")
         defer { partial.close() }
-        invoke(try command(partial.input), on: partial.input)
+        try invoke(command(partial.input), on: partial.input)
         try await settle()
         XCTAssertEqual(partial.store.drafts[partial.target], "/review ")
         XCTAssertEqual(partial.input.text, "/review ")
@@ -123,7 +124,7 @@ import UIKit
         for text in ["/", "/review"] {
             let f = try await fixture(text)
             defer { f.close() }
-            invoke(try command(f.input), on: f.input)
+            try invoke(command(f.input), on: f.input)
             try await settle()
             XCTAssertEqual(f.service.sent.map(\.text), [text], "Existing returnPicks only completes a started partial name")
         }
@@ -133,7 +134,7 @@ import UIKit
         let f = try await fixture("/rev")
         defer { f.close() }
         let newline = try command(f.input, modifiers: .shift)
-        invoke(newline, on: f.input)
+        try invoke(newline, on: f.input)
         try await settle()
         XCTAssertEqual(f.store.drafts[f.target], "/rev\n", "Shift Return must bypass the binding's slash-return completion")
         XCTAssertEqual(f.input.text, "/rev\n")
@@ -143,7 +144,7 @@ import UIKit
         f.store.drafts[f.target] = "🙂 select me"
         try await settle()
         f.input.selectedRange = NSRange(location: 3, length: 7)
-        invoke(newline, on: f.input)
+        try invoke(newline, on: f.input)
         try await settle()
         XCTAssertEqual(f.store.drafts[f.target], "🙂 \nme")
         XCTAssertEqual(f.input.selectedRange, NSRange(location: 4, length: 0))
@@ -182,7 +183,7 @@ import UIKit
             if condition == "empty" { XCTAssertTrue(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
             else { XCTAssertFalse(f.store.canSend(f.target), "Fixture must actually disable sending: \(condition)") }
             // Use the cached native command: safety must be checked at dispatch, even before a view update.
-            invoke(enter, on: f.input)
+            try invoke(enter, on: f.input)
             try await settle()
             XCTAssertTrue(f.service.sent.isEmpty, condition)
             XCTAssertEqual(f.store.drafts[f.target], draft, condition)
@@ -198,9 +199,10 @@ import UIKit
         XCTAssertNotNil(f.input.markedTextRange, "Exercise UIKit's real marked-text state")
         let markedDraft = f.input.text
         for command in [enter, newline] {
-            XCTAssertFalse(f.input.canPerformAction(command.action, withSender: command))
+            let action = try XCTUnwrap(command.action)
+            XCTAssertFalse(f.input.canPerformAction(action, withSender: command))
             XCTAssertFalse((f.input.keyCommands ?? []).contains { $0.action == command.action })
-            _ = UIApplication.shared.sendAction(command.action, to: f.input, from: command, for: nil)
+            _ = UIApplication.shared.sendAction(action, to: f.input, from: command, for: nil)
             XCTAssertNotNil(f.input.markedTextRange, "A cached action must not confirm composition")
             XCTAssertEqual(f.input.text, markedDraft)
         }
@@ -213,8 +215,9 @@ import UIKit
             if editable { f.input.resignFirstResponder() }
             let before = f.input.text
             for command in [enter, newline] {
-                XCTAssertFalse(f.input.canPerformAction(command.action, withSender: command))
-                _ = UIApplication.shared.sendAction(command.action, to: f.input, from: command, for: nil)
+                let action = try XCTUnwrap(command.action)
+                XCTAssertFalse(f.input.canPerformAction(action, withSender: command))
+                _ = UIApplication.shared.sendAction(action, to: f.input, from: command, for: nil)
                 XCTAssertEqual(f.input.text, before)
             }
         }
@@ -235,7 +238,7 @@ import UIKit
         let input = try XCTUnwrap(findInput(in: f.window))
         XCTAssertTrue(input.becomeFirstResponder())
         XCTAssertFalse((input.keyCommands ?? []).contains { $0.action == enter.action || $0.action == newline.action })
-        XCTAssertFalse(input.canPerformAction(enter.action, withSender: enter))
-        XCTAssertFalse(input.canPerformAction(newline.action, withSender: newline))
+        XCTAssertFalse(input.canPerformAction(try XCTUnwrap(enter.action), withSender: enter))
+        XCTAssertFalse(input.canPerformAction(try XCTUnwrap(newline.action), withSender: newline))
     }
 }
