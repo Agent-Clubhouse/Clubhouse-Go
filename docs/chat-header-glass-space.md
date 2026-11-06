@@ -126,6 +126,13 @@ in `CompanionSlashCommandUITests`, reading viewport/marker geometry in
 so tests must intersect actual transcript/composer/bar frames for usable space.
 The identity button replaces no existing scroll view or reading anchor.
 
+Review passes optional page-position metadata into the selected conversation's
+identity control. That one principal includes its position subtitle and keeps
+the existing exact `review-title` accessibility label. The Review parent owns
+only the empty-state title; Done, filters, paging and settings are unchanged.
+The dedicated Review-header case checks one principal, position after paging,
+disclosure and the context-to-desktop-plan-limits route.
+
 Validation is serialized by the parent. Source parse and whitespace/diff checks
 can run independently; builds, tests, and simulator actions wait for its slot.
 Source parse and diff checks pass. Full build/tests and combined visual

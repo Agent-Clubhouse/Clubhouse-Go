@@ -88,4 +88,28 @@ import XCTest
         XCTAssertEqual(element(app, "companion-context-reading-note").label, "Context usage unknown")
         waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"])
     }
+
+    func testReviewHasOneIdentityPrincipalWithPositionDisclosureAndUsage() {
+        let app = launchApp(["--companion-preview"])
+        let open = app.buttons["companion-open-review"].firstMatch
+        let title = app.buttons["review-title"]
+        waitAndTap(open, until: title)
+        XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", "Maple, 1 of 3"), timeout: 5))
+        XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1,
+                       "The selected conversation alone owns Review's principal")
+        XCTAssertFalse(app.navigationBars.descendants(matching: .any).matching(identifier: "companion-chat-header").firstMatch.exists)
+        let details = element(app, "companion-chat-details")
+        waitAndTap(title, until: details)
+        waitAndTap(title, untilGone: details)
+
+        // Match Review's existing gesture; usable-region changes need runtime evidence before adjustment.
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.24))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.24))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", "Cedar, 2 of 3"), timeout: 5))
+        XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1)
+        let usage = app.navigationBars.buttons["companion-context-settings"]
+        waitAndTap(usage, until: element(app, "companion-context-reading-note"))
+        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"])
+    }
 }

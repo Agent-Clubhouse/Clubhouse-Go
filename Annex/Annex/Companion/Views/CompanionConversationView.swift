@@ -8,6 +8,8 @@ struct CompanionConversationView: View {
     var showsActions = true
     /// A parent-managed tab supplies visibility; navigation destinations use their normal appear/disappear lifecycle.
     var isVisible: Bool? = nil
+    /// Review's selected page owns the same identity control, with its place in the pager.
+    var reviewPosition: String? = nil
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -102,7 +104,7 @@ struct CompanionConversationView: View {
             if showsActions {
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
-                                                        accessibilityLabel: headerAccessibilityLabel)
+                                                        accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition)
                 }
                 ToolbarItem(placement: .topBarTrailing) { contextButton }
                 ToolbarItem(placement: .topBarTrailing) {

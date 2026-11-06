@@ -5,13 +5,19 @@ struct CompanionConversationIdentityButton: View {
     let agent: CompanionAgent
     @Binding var isExpanded: Bool
     let accessibilityLabel: String
+    var reviewPosition: String? = nil
 
     var body: some View {
         Button { isExpanded.toggle() } label: {
             HStack(spacing: 6) {
                 CompanionAgentAvatar(agent: agent, size: 28)
-                Text(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
-                    .font(.headline).lineLimit(1).truncationMode(.tail)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
+                        .font(.headline).lineLimit(1).truncationMode(.tail)
+                    if let reviewPosition {
+                        Text(reviewPosition).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                }
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption2)
             }
             .padding(.horizontal, 8)
@@ -20,10 +26,10 @@ struct CompanionConversationIdentityButton: View {
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel(reviewPosition.map { "\(agent.name), \($0)" } ?? accessibilityLabel)
         .accessibilityValue(isExpanded ? "Details expanded" : "Details collapsed")
         .accessibilityHint("Shows or hides conversation details")
-        .accessibilityIdentifier("companion-chat-header")
+        .accessibilityIdentifier(reviewPosition == nil ? "companion-chat-header" : "review-title")
     }
 }
 
