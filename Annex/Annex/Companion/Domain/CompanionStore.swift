@@ -58,7 +58,7 @@ import Observation
     @ObservationIgnored private var uploadedAttachmentIDs: [String: String] = [:]
     /// Sessions that refused images (`images_not_supported`), by agent. A new session may take them.
     private var imagesRefused: [CompanionTarget: String] = [:]
-    /// Each agent's content roots, from its latest chat snapshot.
+    /// Each agent's current conversation content hints, from its latest chat snapshot. Archives own theirs.
     private var contentRoots: [CompanionTarget: CompanionContentRoots] = [:]
     @ObservationIgnored private let clock: AnnexClock
     @ObservationIgnored private var remoteImages: [String: CompanionImageBytes] = [:]
@@ -165,7 +165,8 @@ import Observation
         do { try await service.wake(target, resume: choice.resume, clientCommandID: UUID().uuidString); await load(target, force: true) }
         catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
     }
-    func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+    /// An archive supplies its own snapshot hints; it never updates or inherits the live conversation's policy.
+    func content(_ reference: CompanionContentReference, target: CompanionTarget, contentRoots archiveRoots: CompanionContentRoots? = nil) async throws -> CompanionContent {
         if case .localImage(let id) = reference {
             // The phone's own copy of an image it sent: no desktop setting or connection needed.
             guard let image = messageImage(id: id, target: target), let local = image.local else {
@@ -177,13 +178,17 @@ import Observation
         guard host.richContentAvailable else {
             throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
         }
-        if !reference.isOffered(roots: contentRoots(for: target)) {
-            throw CompanionServiceError.unavailable("This file is outside the agent's folders, so \(host.name) won't share it.")
+        if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
+            throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
         }
         return try await service.content(reference, target: target)
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
-    func contentRoots(for target: CompanionTarget) -> CompanionContentRoots { contentRoots[target] ?? .init() }
+    func contentRoots(for target: CompanionTarget) -> CompanionContentRoots {
+        // A removed conversation cannot leave its old hints active when the host or agent returns.
+        guard conversations[target]?.isLoaded == true else { return .init() }
+        return contentRoots[target] ?? .init()
+    }
     func canSend(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), let off = host(for: target)?.dispatcher?.mcpOff, !off.allows("chat.send") { return false }
         guard canOperate(target), !pendingCommands.contains(target), let agent = agent(for: target) else { return false }

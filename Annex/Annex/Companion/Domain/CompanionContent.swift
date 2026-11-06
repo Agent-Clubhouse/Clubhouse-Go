@@ -22,14 +22,14 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         for match in regex.matches(in: bounded as String, range: NSRange(location: 0, length: bounded.length)).prefix(40) {
             let range = match.range(at: match.range(at: 1).location == NSNotFound ? 2 : 1)
             let value = bounded.substring(with: range)
-            guard !value.contains("://"), isInsideAgentFolders(value) || isAbsolute(value),
-                  !value.contains("\0"), (value.contains("/") || !URL(fileURLWithPath: value).pathExtension.isEmpty), seen.insert(value).inserted else { continue }
+            guard isValidFilePath(value), isInsideAgentFolders(value) || isAbsolute(value),
+                  (value.contains("/") || !URL(fileURLWithPath: value).pathExtension.isEmpty), seen.insert(value).inserted else { continue }
             result.append(.file(value))
         }
         return result
     }
-    /// The desktop serves files only from the agent's own folders. Relative paths resolve inside them;
-    /// absolute and drive paths need `CompanionContentRoots` to cover them, and home paths (`~/x.png`) are never offered.
+    /// A relative-path candidate, resolved by the desktop against the agent's base folder.
+    /// Absolute paths need the snapshot's roots or any-path hint; home paths are not discovered.
     static func isInsideAgentFolders(_ path: String) -> Bool {
         guard let first = path.first, first != "/", first != "\\", first != "~" else { return false }
         let drive = path.prefix(3)
@@ -41,6 +41,26 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         if path.hasPrefix("/") || path.hasPrefix("\\") { return true }
         let drive = path.prefix(3)
         return drive.count == 3 && drive.first!.isLetter && drive.dropFirst().first == ":" && ["/", "\\"].contains(drive.last!)
+    }
+    /// Lexical guards only, never a phone filesystem lookup. Discovery has no host platform;
+    /// eligibility and direct fetches additionally apply the POSIX `/net` automount refusal.
+    static func isValidFilePath(_ path: String, windows: Bool? = nil) -> Bool {
+        guard !path.isEmpty, path.utf16.count <= 1024, !path.contains("\0"),
+              path.first != "~", !path.contains("://") else { return false }
+        // UNC shares and device prefixes (`\\?\`, `\\.\`), including mixed separators.
+        let start = path.prefix(2)
+        guard !(start.count == 2 && start.allSatisfy { $0 == "/" || $0 == "\\" }) else { return false }
+        if windows == false, path.hasPrefix("/") {
+            if path == "/net" || path.hasPrefix("/net/") { return false }
+            // Reject `/net` even behind lexical dot segments; the desktop resolves them before IO.
+            var parts: [Substring] = []
+            for part in path.split(separator: "/") {
+                if part == "." { continue }
+                if part == ".." { _ = parts.popLast() } else { parts.append(part) }
+            }
+            if parts.first == "net" { return false }
+        }
+        return true
     }
     /// What a timeline item could open on the desktop, once each, in a stable order.
     static func references(in item: CompanionTimelineItem) -> [Self] {
@@ -59,13 +79,14 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         }
     }
     /// Without the desktop's Rich chat content setting every fetch fails, so no link is offered.
-    /// Absolute paths are offered only inside the agent's content roots.
+    /// Absolute paths need the snapshot's any-path hint or legacy content roots.
     static func offered(_ references: [Self], richContentAvailable: Bool, roots: CompanionContentRoots = .init()) -> [Self] {
         richContentAvailable ? references.filter { $0.isOffered(roots: roots) } : []
     }
     func isOffered(roots: CompanionContentRoots) -> Bool {
         guard case .file(let path) = self else { return true }
-        return Self.isInsideAgentFolders(path) || roots.covers(path)
+        guard Self.isValidFilePath(path, windows: roots.windows) else { return false }
+        return Self.isInsideAgentFolders(path) || (roots.anyPath && Self.isAbsolute(path)) || roots.covers(path)
     }
     static let richContentOffHint = "Turn on Rich chat content in the desktop's Experimental settings to preview images and files on your phone."
     /// With Rich chat content off, one hint replaces every link: under the latest row that would have had some.
@@ -78,16 +99,18 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
     }
 }
 
-/// The folders the desktop serves `/content?path=` from for one agent (`contentRoots` in its chat snapshot).
-/// Only a hint: the desktop still resolves each path, symlinks included, and may refuse it.
+/// One chat snapshot's content eligibility hints, for either a current or archived conversation.
+/// The desktop still resolves and authorizes every path, symlinks included, and may refuse it.
 struct CompanionContentRoots: Equatable, Sendable {
     var paths: [String] = []
     /// A Windows desktop (`ptyHost.platform == "win32"`): `/` and `\` are both separators and case doesn't matter.
     var windows = false
+    /// Only literal `contentAnyPath: true` bypasses legacy root membership, never the other content gates.
+    var anyPath = false
 
     /// True for a root itself or a path below one, comparing whole segments so `/a/proj` doesn't cover `/a/project`.
     func covers(_ path: String) -> Bool {
-        guard CompanionContentReference.isAbsolute(path), !path.contains("\0") else { return false }
+        guard CompanionContentReference.isAbsolute(path), CompanionContentReference.isValidFilePath(path, windows: windows) else { return false }
         let path = normalized(path)
         guard !path.split(separator: separator).contains("..") else { return false }
         return paths.contains { root in

@@ -661,7 +661,7 @@ struct CompanionHistory: Sendable {
     var hasEarlierMessages = false
     var lastSequence: Int?
     var sessionID: String?
-    /// The agent's `contentRoots` from the chat snapshot; empty from older desktops.
+    /// This chat snapshot's `contentRoots` and strict `contentAnyPath` hint; conservative defaults on omission.
     var contentRoots = CompanionContentRoots()
     /// What the agent can do now that its chat is read (such as Wake), as the next hosts update will also say.
     /// The store applies it at once, so an action right after loading doesn't depend on when that update lands.

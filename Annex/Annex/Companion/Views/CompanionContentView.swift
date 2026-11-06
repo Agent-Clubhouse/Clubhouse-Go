@@ -6,7 +6,7 @@ import WebKit
 /// Opens desktop previews for a conversation or archived session.
 struct CompanionContentPresenter {
     var richContentAvailable: Bool
-    /// Where absolute paths may be linked: the agent's `contentRoots`.
+    /// The displayed conversation's own snapshot hints, including negotiated any-path support.
     var contentRoots = CompanionContentRoots()
     var open: @MainActor (CompanionContentReference) -> Void
     /// The bytes for an image in a user message, for its inline thumbnail.
@@ -27,23 +27,25 @@ extension EnvironmentValues {
 extension View {
     /// Presents previews from here, once, rather than from timeline rows. Streaming updates re-create
     /// and fold rows, and a sheet owned by a row closed or got stuck with it (#134).
-    func companionContentPreviews(store: CompanionStore, target: CompanionTarget) -> some View {
-        modifier(CompanionContentPreviews(store: store, target: target))
+    func companionContentPreviews(store: CompanionStore, target: CompanionTarget, contentRoots: CompanionContentRoots? = nil) -> some View {
+        modifier(CompanionContentPreviews(store: store, target: target, archiveRoots: contentRoots))
     }
 }
 
 private struct CompanionContentPreviews: ViewModifier {
     let store: CompanionStore
     let target: CompanionTarget
+    /// Nil for live content; an archive always supplies a value, even before its first page.
+    let archiveRoots: CompanionContentRoots?
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
         content
             .companionMarkdownBlockPreviews()
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
-                                                             contentRoots: store.contentRoots(for: target), open: { selected = $0 },
+                                                             contentRoots: archiveRoots ?? store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))
             .sheet(item: $selected) { reference in
-                CompanionContentView(reference: reference, store: store, target: target) { selected = nil }
+                CompanionContentView(reference: reference, store: store, target: target, archiveRoots: archiveRoots) { selected = nil }
                     .interactiveDismissDisabled(false)
             }
     }
@@ -85,6 +87,7 @@ private struct CompanionContentView: View {
     let reference: CompanionContentReference
     let store: CompanionStore
     let target: CompanionTarget
+    let archiveRoots: CompanionContentRoots?
     let close: () -> Void
     @State private var content: CompanionContent?
     @State private var image: UIImage?
@@ -115,11 +118,11 @@ private struct CompanionContentView: View {
                                     Label("Share preview", systemImage: "square.and.arrow.up")
                                 }
                             }.buttonStyle(.bordered)
-                        } else if content.mimeType == "image/svg+xml", let bytes = content.bytes {
+                        } else if content.kind != "pdf", content.mimeType == "image/svg+xml", let bytes = content.bytes {
                             // SVG is an image resource, never an executable document.
                             CompanionSVGImage(bytes: bytes).frame(height: 360)
                             Text("SVG preview • scripts and external resources are blocked").font(.caption).foregroundStyle(.secondary)
-                        } else if let text = content.text {
+                        } else if content.kind != "pdf", let text = content.text {
                             Text(text).font(.callout.monospaced()).textSelection(.enabled)
                             if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
                             Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
@@ -147,7 +150,7 @@ private struct CompanionContentView: View {
         loading = true; error = nil; content = nil; image = nil; clearPlayback()
         defer { loading = false }
         do {
-            let value = try await store.content(reference, target: target)
+            let value = try await store.content(reference, target: target, contentRoots: archiveRoots)
             guard !Task.isCancelled, loadID == id else { return }
             content = value
             if value.kind == "image", value.mimeType != "image/svg+xml", let bytes = value.bytes {
