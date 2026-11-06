@@ -226,9 +226,15 @@ struct CompanionConversationView: View {
 
     private var contextButton: some View {
         Button { showContextSettings = true } label: {
-            if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
-            else { Image(systemName: "chart.pie").font(.caption) }
+            HStack(spacing: 0) {
+                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
+                else { Image(systemName: "chart.pie").font(.caption) }
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
+        .buttonStyle(.plain)
         .frame(minWidth: 44, minHeight: 44)
         .accessibilityLabel("Context and plan limits")
         .accessibilityValue(agent.contextUsage?.percent.map { "Latest reported context: \($0)% full" } ?? "Context usage unknown")
