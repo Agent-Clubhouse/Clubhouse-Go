@@ -786,7 +786,6 @@ struct CompanionNeedsYouView: View {
                         }
                     }
                     .listRowBackground(CompanionCardBackground())
-                    .accessibilityIdentifier("needs-you-unavailable-\(host.id)")
                 }
             }
         }

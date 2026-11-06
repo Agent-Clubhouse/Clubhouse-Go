@@ -9,9 +9,6 @@ import XCTest
         waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"], timeout: 15)
         return app
     }
-    private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch
-    }
 
     func testOfflineNoticeKeepsReachableRequestAndScopedRetry() {
         let app = open("one-offline")
@@ -50,8 +47,8 @@ import XCTest
         let app = open("progress")
         XCTAssertTrue(app.staticTexts["Looking for Studio Mac…"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Connecting to Travel MacBook…"].exists)
-        XCTAssertFalse(app.buttons["needs-you-retry-preview-studio"].exists)
-        XCTAssertFalse(app.buttons["needs-you-retry-preview-laptop"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Retry")).count, 0,
+                       "No Retry is offered while either desktop is already connecting, regardless of inherited identifiers")
         XCTAssertFalse(app.staticTexts["Cached offline request"].exists)
         XCTAssertFalse(app.staticTexts["All caught up"].exists)
         attach(app, "Needs you while desktops reconnect")
@@ -61,8 +58,8 @@ import XCTest
         let app = open("online-empty")
         XCTAssertTrue(app.staticTexts["All caught up"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["Nothing is waiting on you."].exists)
-        XCTAssertFalse(element(app, "needs-you-unavailable-preview-studio").exists)
-        XCTAssertFalse(element(app, "needs-you-unavailable-preview-laptop").exists)
+        XCTAssertFalse(app.staticTexts["Pending items are unknown until this desktop is ready."].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Retry")).count, 0)
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
