@@ -58,3 +58,22 @@ Issue #272 concerns framework Unicode caret corruption under programmatic
 focus; this correction does not touch that path. Preserve #312's composer
 probe when rebasing. Do not cherry-pick held Return PR #310. Header/tabbar
 consistency remains parent-owned.
+
+Focused feedback issue: #315 (open issues and #272 checked first).
+
+Source review found two existing tests requiring a parent-owned adaptation to
+the newly permanent nested settings menus:
+`CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval` and
+opt-in `CompanionLiveE2ETests/test4ModelAndLevelSwitch`. They expect direct
+permission/model/effort chips; they must open Chat controls, then each nested
+menu. The live case should poll the compact control's accessibility value for
+the selected model rather than a chip hidden inside a closed menu. These
+shared tests are outside this helper's initial ownership; no live run is needed
+to update that navigation.
+
+## Validation recorded
+
+- `swiftc -frontend -parse` passed for the composer and dedicated UI test file.
+- `git diff --check` passed.
+- Build, runtime tests and screenshots remain unexecuted pending serial
+  allocation; no simulator, device or live commands were run.
