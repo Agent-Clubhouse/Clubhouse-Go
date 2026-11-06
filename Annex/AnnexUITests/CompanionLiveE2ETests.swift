@@ -370,15 +370,17 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         send(app, "hello")
         XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "A first turn reports the session's model")
 
+        let controls = element(app, "companion-level-menu")
+        XCTAssertTrue(controls.waitForExistence(timeout: 15), "The desktop offers chat controls")
         let model = element(app, "companion-model-menu")
-        XCTAssertTrue(model.waitForExistence(timeout: 15), "The desktop offers model switching")
+        waitAndTap(controls, until: model, timeout: 15, "The desktop offers model switching")
         let haiku = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Haiku'")).firstMatch
         waitAndTap(model, until: haiku, timeout: 10, "The session's models are offered")
         haiku.tap()
-        XCTAssertTrue(waitFor(model, NSPredicate(format: "label CONTAINS 'Haiku'"), timeout: 30), "The chip shows the new model: \(model.label)")
+        XCTAssertTrue(waitFor(controls, NSPredicate(format: "value CONTAINS 'Haiku'"), timeout: 30), "Chat controls show the new model: \(controls.value ?? "")")
 
-        let level = element(app, "companion-level-menu")
-        XCTAssertTrue(level.waitForExistence(timeout: 10), "The desktop offers level switching")
+        let level = element(app, "companion-permissions-menu")
+        waitAndTap(controls, until: level, timeout: 10, "The desktop offers level switching")
         let plan = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Plan'")).firstMatch
         waitAndTap(level, until: plan, timeout: 10, "The live levels are offered")
         plan.tap()
@@ -388,6 +390,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
         // Back to Ask first, so later tests still get permission prompts.
         let ask = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Ask first'")).firstMatch
+        waitAndTap(controls, until: level, timeout: 10)
         waitAndTap(level, until: ask, timeout: 10)
         ask.tap()
         XCTAssertTrue(waitFor(header, NSPredicate(format: "label CONTAINS 'Ask first'"), timeout: 30))
