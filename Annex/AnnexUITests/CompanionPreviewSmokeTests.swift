@@ -706,8 +706,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // Level: the ladder, with the driver's names, and a confirmation before Full access.
         let level = any.matching(identifier: "companion-level-menu").firstMatch
         XCTAssertTrue(level.waitForExistence(timeout: 5))
+        let permissions = any.matching(identifier: "companion-permissions-menu").firstMatch
+        waitAndTap(level, until: permissions, timeout: 5)
         let fullAccess = item("Full access")
-        waitAndTap(level, until: fullAccess, timeout: 5, "Every live level is offered")
+        waitAndTap(permissions, until: fullAccess, timeout: 5, "Every live level is offered")
         for label in ["Plan", "Ask first", "Auto-accept edits", "Auto"] { XCTAssertTrue(item(label).exists, label) }
         XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'bypassPermissions'")).firstMatch.exists, "The driver's own name is the subtitle")
         let levelShot = XCTAttachment(screenshot: app.screenshot())
@@ -722,6 +724,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Model: the session's models, and when a change applies.
         let model = any.matching(identifier: "companion-model-menu").firstMatch
+        waitAndTap(level, until: model, timeout: 5)
         XCTAssertTrue(model.exists)
         XCTAssertTrue(model.label.contains("Opus"), "The chip names the model: \(model.label)")
         let mini = item("Haiku")
@@ -737,6 +740,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Effort: sentence case, with Default when the provider has one.
         let effort = any.matching(identifier: "companion-effort-menu").firstMatch
+        waitAndTap(level, until: effort, timeout: 5)
         XCTAssertTrue(effort.exists)
         XCTAssertTrue(effort.label.contains("High effort"), "The chip names the effort: \(effort.label)")
         let extraHigh = item("Extra high")
