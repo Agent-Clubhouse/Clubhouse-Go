@@ -160,7 +160,35 @@ No physical-device or live commands/tests were run.
 No full accessibility usability claim follows from a 44pt AX frame. The
 predecessor clips large approval decisions and squeezes the field in the actual
 AXXXL frame. The adaptive successor needs allocated combined approval + image
-+ multiline draft + keyboard screenshots and action checks. The old large
+plus multiline draft + keyboard screenshots and action checks. The old large
 header may still consume space; its separately owned compact replacement must
 also be assessed in the parent's final combined matrix. This work does not
 modify or rebase the header, or overwrite the newly merged #312 focus probes.
+
+## Adaptive source-review follow-up
+
+The new Review and Dismiss buttons now put the actual 44pt frame/content shape
+inside their labels. The sheet has no ScrollView container identifier that
+could mask descendant identities; UI selectors use the title/queue StaticText
+leaves, decision Button leaves and explicit Close button.
+
+`CompanionComposerApprovalReviewSheet` is an internal View in the same composer
+file, sharing its actual projection, Close and async response methods with
+dedicated synthetic tests. Review selection contains both target and request
+ID. The real card callback captures the original request ID and full option,
+then its Task checks that live selection still matches the original target
+and request and resolves the current approval immediately before calling the
+existing `store.respond`. It does not remap an option by ID or alter shared
+store permission gates. A stale callback cannot select another request/target
+or reuse a resolved/removed request through a captured pending value.
+
+`CompanionComposerApprovalReviewTests` adds bounded, network-free cases for
+queue changes while the review binding stays open; resolved/removed requests;
+same-ID changed options; Close before queued action; switched requests/targets;
+one valid dispatch; pending duplicate disablement; and existing offline,
+expiry/refusal/error behavior. It exercises the actual sheet methods with
+synthetic store events and a service spy, without mounting or driving native
+accessibility UI. These cases are added but UNRUN until allocated. Native
+sheet navigation, editor identity and keyboard return remain separate runtime
+limits. Frontend parsing of all seven changed Swift files and diff checks pass;
+there are no timeout/retry configuration changes or new local runtime runs.

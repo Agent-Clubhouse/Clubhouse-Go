@@ -25,7 +25,7 @@ struct CompanionConversationComposer: View {
     let dismissals: Int
     @State private var showRefreshing = false
     @State private var pendingLevel: CompanionPermissionLevel?
-    @State private var approvalReviewID: String?
+    @State private var approvalReviewSelection: CompanionComposerApprovalReviewSelection?
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -106,14 +106,14 @@ struct CompanionConversationComposer: View {
     @ViewBuilder private var approvalReviewButton: some View {
         if let approval = store.pinnedApproval(for: target) {
             let position = CompanionChatActivity.queuePosition(of: approval, in: conversation.items)
-            Button { approvalReviewID = approval.id } label: {
+            Button { approvalReviewSelection = .init(target: target, approvalID: approval.id) } label: {
                 Image(systemName: "hand.raised.fill").font(.system(size: 20))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.circle)
             }
             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
             .tint(Color(palette.warning))
             .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(.circle)
             .overlay(alignment: .topTrailing) {
                 // A distinct pending badge, so the cue does not rely on warning color alone.
                 Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12))
@@ -127,43 +127,6 @@ struct CompanionConversationComposer: View {
         }
     }
 
-    private var approvalReviewSheet: some View {
-        NavigationStack {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if let approval = conversation.items.lazy.compactMap({ item -> CompanionApproval? in
-                            if case .approval(let approval) = item, approval.id == approvalReviewID { return approval }
-                            return nil
-                        }).first {
-                            // Reuse the live request's wording, status, expiry and confirmation rules.
-                            CompanionApprovalCard(approval: approval,
-                                queuePosition: CompanionChatActivity.queuePosition(of: approval, in: conversation.items, at: context.date),
-                                canRespond: canRespond, persistentApprovals: store.canAnswerPersistentApprovals(target),
-                                respond: { option in Task { await store.respond(approval, option: option, target: target) } })
-                        } else {
-                            Text("This approval is no longer available.")
-                        }
-                        if let error = store.operationErrors[target] {
-                            Label(error, systemImage: "exclamationmark.circle")
-                                .foregroundStyle(Color(palette.warning))
-                        }
-                    }
-                    .padding()
-                }
-                .accessibilityIdentifier("companion-approval-review")
-            }
-            .navigationTitle("Review approval")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Close") { approvalReviewID = nil }
-                        .accessibilityIdentifier("companion-approval-review-close")
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -281,8 +244,8 @@ struct CompanionConversationComposer: View {
                  ? "\(agent.name) will edit files and run commands without asking you first."
                  : "\(agent.name) will decide for itself what needs your approval.")
         }
-        .sheet(isPresented: Binding(get: { approvalReviewID != nil }, set: { if !$0 { approvalReviewID = nil } })) {
-            approvalReviewSheet
+        .sheet(isPresented: Binding(get: { approvalReviewSelection != nil }, set: { if !$0 { approvalReviewSelection = nil } })) {
+            CompanionComposerApprovalReviewSheet(store: store, target: target, selection: $approvalReviewSelection)
         }
         .onAppear {
             slashHighlight = memory.slashHighlight
@@ -337,9 +300,9 @@ struct CompanionConversationComposer: View {
         if composerFocused && showsKeyboardDismissButton {
             Button(action: dismissKeyboard) {
                 Image(systemName: "keyboard.chevron.compact.down").font(.system(size: 20))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss Keyboard")
             .accessibilityIdentifier("companion-dismiss-keyboard")
@@ -514,5 +477,80 @@ struct CompanionConversationComposer: View {
         }
         if agent.status == .working { return steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…" }
         return agent.slashCommands == nil ? "Message \(agent.name)…" : "Message \(agent.name)… / for commands"
+    }
+}
+
+
+struct CompanionComposerApprovalReviewSelection: Equatable {
+    let target: CompanionTarget
+    let approvalID: String
+}
+
+/// Review presentation and actions always resolve the selected request against the current conversation.
+/// Kept separate so synthetic event tests exercise the same methods used by the actual sheet buttons.
+struct CompanionComposerApprovalReviewSheet: View {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    @Binding var selection: CompanionComposerApprovalReviewSelection?
+    @Environment(\.companionPalette) private var palette
+
+    var currentApproval: CompanionApproval? {
+        guard let selection, selection.target == target else { return nil }
+        return store.conversation(for: target).items.lazy.compactMap { item -> CompanionApproval? in
+            if case .approval(let approval) = item, approval.id == selection.approvalID { return approval }
+            return nil
+        }.first
+    }
+
+    func queuePosition(at date: Date) -> String? {
+        guard let approval = currentApproval else { return nil }
+        return CompanionChatActivity.queuePosition(of: approval, in: store.conversation(for: target).items, at: date)
+    }
+
+    var canRespond: Bool {
+        store.canOperate(target) && store.agent(for: target)?.capabilities.contains(.approve) == true
+            && !store.pendingCommands.contains(target)
+    }
+
+    func close() { selection = nil }
+
+    /// Called inside the UI callback's Task. Do not resolve before enqueueing or remap an old option by ID.
+    func respond(to originalRequestID: String, option originalOption: CompanionApprovalOption) async {
+        guard selection?.target == target, selection?.approvalID == originalRequestID, let approval = currentApproval else { return }
+        await store.respond(approval, option: originalOption, target: target)
+    }
+
+    var body: some View {
+        NavigationStack {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let approval = currentApproval {
+                            let originalRequestID = approval.id
+                            CompanionApprovalCard(approval: approval, queuePosition: queuePosition(at: context.date),
+                                canRespond: canRespond, persistentApprovals: store.canAnswerPersistentApprovals(target),
+                                respond: { option in Task { await respond(to: originalRequestID, option: option) } })
+                        } else {
+                            Text("This approval is no longer available.")
+                                .accessibilityIdentifier("companion-approval-review-unavailable")
+                        }
+                        if let error = store.operationErrors[target] {
+                            Label(error, systemImage: "exclamationmark.circle")
+                                .foregroundStyle(Color(palette.warning))
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Review approval")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close", action: close)
+                        .accessibilityIdentifier("companion-approval-review-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
     }
 }

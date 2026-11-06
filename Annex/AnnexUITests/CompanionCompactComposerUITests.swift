@@ -89,15 +89,14 @@ import XCTest
         XCTAssertEqual(trigger.label, "Review approval: Run xcodebuild, 1 of 2")
         let close = app.buttons["companion-approval-review-close"]
         waitAndTap(trigger, until: close)
-        let review = app.scrollViews["companion-approval-review"]
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
-        let title = review.descendants(matching: .any).matching(identifier: "companion-approval-title").firstMatch
+        let title = app.staticTexts.matching(NSPredicate(format: "label == %@", "Run xcodebuild")).firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.label.contains("Run xcodebuild"))
-        let position = review.descendants(matching: .any).matching(identifier: "companion-approval-position").firstMatch
+        let position = app.staticTexts.matching(NSPredicate(format: "label == %@", "Request 1 of 2")).firstMatch
         XCTAssertEqual(position.label, "Request 1 of 2")
-        XCTAssertTrue(review.staticTexts["Build the iOS application to verify the updated conversation layout."].exists)
+        XCTAssertTrue(app.staticTexts["Build the iOS application to verify the updated conversation layout."].exists)
         for label in ["Allow once", "Deny"] {
-            let decision = review.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+            let decision = app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
             XCTAssertTrue(scrollTo(decision, in: app, maxSwipes: 8))
             let shot = XCTAttachment(screenshot: app.screenshot())
             shot.name = "Approval review \(label), editing=\(editing)"; shot.lifetime = .keepAlways; add(shot)
