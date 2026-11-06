@@ -119,23 +119,11 @@ struct CompanionConversationComposer: View {
                 .accessibilityElement(children: .contain)
             }
             CompanionAttachmentStrip(store: store, target: target)
-            if !usesCompactControls { chatControls(compact: false) }
             if !slashMatches.isEmpty {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
-            HStack(alignment: .bottom, spacing: usesCompactControls ? 4 : 8) {
-                if usesCompactControls { chatControls(compact: true).frame(height: composerRowHeight) }
-                if agent.status == .working {
-                    Button { confirmCancel = true } label: {
-                        Image(systemName: "stop.fill").font(.headline)
-                    }
-                    .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.circle)
-                    .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
-                    .accessibilityLabel("Interrupt")
-                    .frame(height: composerRowHeight)
-                }
+            HStack(alignment: .bottom, spacing: 4) {
+                chatControls.frame(height: composerRowHeight)
                 HStack(alignment: .bottom, spacing: 6) {
                     if let limits = attachmentLimits {
                         CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, assistiveRow ? 2 : 8).frame(height: composerRowHeight)
@@ -149,13 +137,29 @@ struct CompanionConversationComposer: View {
                         // One line is centred in the row; longer drafts grow upward with Send on the last line.
                         .frame(minHeight: composerRowHeight)
                         .focused($composerFocused)
-                        .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
+                        .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
                         .accessibilityHint("Runs on your desktop. Command Return sends the message.")
                         .accessibilityIdentifier("companion-composer")
                         // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                         // accessibility modifiers so the hook doesn't appear as a second composer element.
                         .background(composerInputHook.accessibilityHidden(true))
                         .onKeyPress(keys: [.upArrow, .downArrow, .tab, .escape], phases: .down, action: slashKey)
+                    if agent.status == .working {
+                        // Interrupt remains a separate confirmed action beside Send, never a replacement for it.
+                        Button { confirmCancel = true } label: {
+                            Image(systemName: "stop.fill").font(.headline)
+                        }
+                        .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                        .tint(Color(palette.warning))
+                        .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(.circle)
+                        .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
+                        .accessibilityLabel("Interrupt")
+                        .accessibilityHint("Asks before interrupting the current turn. Keeps your draft.")
+                        .accessibilityIdentifier("companion-interrupt")
+                        .frame(height: composerRowHeight)
+                    }
                     Button {
                         Task { await store.sendDraft(to: target) }
                     } label: {
@@ -168,8 +172,8 @@ struct CompanionConversationComposer: View {
                     .contentShape(.circle)
                     .disabled(!store.canSend(target) || !hasMessage)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
-                    .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : "")
+                    .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
+                    .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
                     .accessibilityIdentifier("companion-send")
                     .padding(.horizontal, assistiveRow ? 2 : 6)
                     .frame(height: composerRowHeight)
@@ -247,14 +251,13 @@ struct CompanionConversationComposer: View {
 
     private var assistiveRow: Bool { composerFocused && showsKeyboardDismissButton }
 
-    private var usesCompactControls: Bool { composerFocused || dynamicTypeSize.isAccessibilitySize }
-
-    @ViewBuilder private func chatControls(compact: Bool) -> some View {
+    /// Keep configuration collapsed while reading as well as editing, independent of the running turn.
+    @ViewBuilder private var chatControls: some View {
         if let controls = agent.chatControls, !isAsleep {
             CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
                 setLevel: { level in Task { await store.setLevel(level, target: target) } },
                 setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } },
-                compact: compact, requestLevel: { pendingLevel = $0 })
+                compact: true, requestLevel: { pendingLevel = $0 })
                 .equatable()
         }
     }
@@ -396,7 +399,15 @@ struct CompanionConversationComposer: View {
     }
 
     private var defaultCaption: String? {
-        agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : nil
+        // Steer is already named in the field and Send's hint; queue-only delivery still needs explaining.
+        agent.status == .working && !agent.capabilities.contains(.steer) ? "Your message will wait for the next turn." : nil
+    }
+
+    private var sendOutcomeHint: String {
+        if agent.status == .working {
+            return agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn."
+        }
+        return "Sends your message to \(agent.name)."
     }
 
     /// The desktop's "Message {name}…". Mid-turn, the desktop's send actions name what happens: Steer or Queue.

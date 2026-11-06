@@ -31,7 +31,7 @@ import XCTest
     }
 
     private func workingRow(largestText: Bool) {
-        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard"]
+        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images"]
                             + (largestText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []))
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
@@ -39,6 +39,10 @@ import XCTest
         waitAndTap(river, until: composer)
         XCTAssertFalse(app.buttons["companion-send"].isEnabled, "An empty draft cannot steer")
         assertRow(app, working: true, state: "working empty unfocused")
+        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned")
+        waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"))
+        XCTAssertTrue(app.buttons["companion-send"].isEnabled, "An image-only draft can steer")
+        assertRow(app, working: true, state: "working image-only unfocused")
         composer.tap()
         composer.typeText("Keep this direction")
         XCTAssertEqual(composer.value as? String, "Keep this direction")
@@ -74,7 +78,11 @@ import XCTest
         XCTAssertLessThan(controls.frame.maxX, send.frame.minX, state, file: file, line: line)
         if working {
             let interrupt = app.buttons["companion-interrupt"]
+            let attach = app.buttons["companion-attach"]
             let composer = element(app, "companion-composer")
+            XCTAssertTrue(attach.isHittable, state, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(attach.frame.width, 44, state, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(composer.frame.width, 44, "The editor retains usable width: \(state)", file: file, line: line)
             XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
             XCTAssertLessThanOrEqual(interrupt.frame.maxX, send.frame.minX, state, file: file, line: line)
             XCTAssertLessThanOrEqual(send.frame.minX - interrupt.frame.maxX, 16, state, file: file, line: line)

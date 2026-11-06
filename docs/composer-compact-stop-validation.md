@@ -12,6 +12,8 @@ worktree's ignored `build/composer-layout-reference/`; no images are committed.
 status. Losing focus expands model/effort controls for both working and idle
 agents. Independently, working status places Interrupt left of the input and
 adds a steering/queue caption. Thus status alone does not explain the pictures.
+The screenshots do not prove the field's focus state; compact rendering follows
+the focus/accessibility branch, rather than Done status itself.
 
 Change only `CompanionConversationComposer.swift` and dedicated tests/docs:
 
@@ -30,7 +32,7 @@ Change only `CompanionConversationComposer.swift` and dedicated tests/docs:
 
 - Idle Dispatcher: empty and typed draft, keyboard down/up, compact settings
   left of field and same row as Send; permissions/model/effort reachable.
-- Working River with attachments and assistive dismissal: empty and typed
+- Working River with attachments and assistive dismissal: empty, image-only and typed
   draft, separate Interrupt and Send, adjacent trailing positions, 44pt targets,
   Interrupt opens confirmation without sending or losing the draft.
 - Largest accessibility text: the same working attachment/dismissal row fits
