@@ -34,19 +34,21 @@ import XCTest
         XCTAssertGreaterThan(empty.frame.height, 60, "The full AccessibilityL title must wrap, rather than truncate or shrink to one line on the narrow iPhone")
         attach(app, "Needs you unavailable empty state — AccessibilityL")
         let studioTitle = app.staticTexts["Studio Mac is offline"]
-        XCTAssertTrue(scrollUntilExists(studioTitle, in: app) && scrollTo(studioTitle, in: app))
+        XCTAssertTrue(revealNoticeElement(studioTitle, in: app))
         XCTAssertEqual(studioTitle.label, "Studio Mac is offline")
         XCTAssertGreaterThan(studioTitle.frame.width, app.frame.width * 0.65, "Accessibility text must use the card width, not a narrow column beside Retry")
+        attach(app, "Needs you first unavailable title — AccessibilityL")
         let studio = app.buttons["needs-you-retry-preview-studio"]
-        XCTAssertTrue(scrollUntilExists(studio, in: app) && scrollTo(studio, in: app))
+        XCTAssertTrue(revealNoticeElement(studio, in: app))
         XCTAssertEqual(studio.label, "Retry Studio Mac")
         attach(app, "Needs you first unavailable desktop — AccessibilityL")
         let laptopTitle = app.staticTexts["Travel MacBook has a connection issue"]
-        XCTAssertTrue(scrollUntilExists(laptopTitle, in: app) && scrollTo(laptopTitle, in: app))
+        XCTAssertTrue(revealNoticeElement(laptopTitle, in: app))
         XCTAssertEqual(laptopTitle.label, "Travel MacBook has a connection issue")
         XCTAssertGreaterThan(laptopTitle.frame.width, app.frame.width * 0.65)
+        attach(app, "Needs you second unavailable title — AccessibilityL")
         let laptop = app.buttons["needs-you-retry-preview-laptop"]
-        XCTAssertTrue(scrollUntilExists(laptop, in: app) && scrollTo(laptop, in: app))
+        XCTAssertTrue(revealNoticeElement(laptop, in: app))
         XCTAssertEqual(laptop.label, "Retry Travel MacBook")
         XCTAssertFalse(app.staticTexts["Cached offline request"].exists)
         XCTAssertFalse(app.staticTexts["All caught up"].exists)
@@ -70,6 +72,42 @@ import XCTest
         XCTAssertTrue(app.staticTexts["Nothing is waiting on you."].exists)
         XCTAssertFalse(app.staticTexts["Pending items are unknown until this desktop is ready."].exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Retry")).count, 0)
+    }
+
+    /// A whole-app fling passed Studio and then kept moving away from it in the retained 375pt recording.
+    /// Recheck the current bars and target after each short drag, allowing recovery in either direction.
+    private func revealNoticeElement(_ target: XCUIElement, in app: XCUIApplication) -> Bool {
+        let list = app.collectionViews.firstMatch
+        let navigation = app.navigationBars["Needs you"]
+        let tabs = app.tabBars.firstMatch
+        for gesture in 0...6 {
+            checkTimeLeft("revealing a Needs you notice")
+            let listFrame = list.frame
+            let top = max(listFrame.minY, navigation.frame.maxY) + 12
+            let bottom = min(listFrame.maxY, tabs.frame.minY) - 12
+            let usable = CGRect(x: listFrame.minX + 8, y: top, width: listFrame.width - 16, height: bottom - top)
+            guard usable.width > 0, usable.height > 0 else { break }
+            let frame = target.exists ? target.frame : nil
+            if let frame, usable.contains(frame) {
+                if target.isHittable { return true }
+                // A fully visible but inaccessible element needs investigation, not more scrolling.
+                break
+            }
+            guard gesture < 6 else { break }
+            let above = frame.map { $0.minY < usable.minY } ?? false
+            let distance = min(140, usable.height * 0.35)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
+                CGVector(dx: usable.midX, dy: usable.midY + (above ? -distance / 2 : distance / 2)))
+            let end = start.withOffset(CGVector(dx: 0, dy: above ? distance : -distance))
+            start.press(forDuration: 0.05, thenDragTo: end,
+                        withVelocity: XCUIGestureVelocity(rawValue: 200), thenHoldForDuration: 0.15)
+        }
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Needs you reveal failure — accessibility hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        attach(app, "Needs you reveal failure")
+        return false
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
