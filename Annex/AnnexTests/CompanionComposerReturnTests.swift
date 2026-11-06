@@ -69,6 +69,12 @@ import UIKit
         let input = try XCTUnwrap(findInput(in: window))
         XCTAssertTrue(input.becomeFirstResponder())
         try await settle()
+        // Programmatic focus can place the caret inside prefilled text. Hardware commands use the real native
+        // selection, so make this fixture's insertion point explicit rather than assuming focus moves it to end.
+        let insertionPoint = NSRange(location: draft.utf16.count, length: 0)
+        input.selectedRange = insertionPoint
+        try await settle()
+        XCTAssertEqual(input.selectedRange, insertionPoint)
         XCTAssertTrue(input.pasteDelegate is CompanionComposerPasteHook.Coordinator)
         return Fixture(service: service, store: store, target: target, window: window, input: input)
     }
