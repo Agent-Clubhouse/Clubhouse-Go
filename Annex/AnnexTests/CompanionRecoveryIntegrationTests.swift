@@ -74,7 +74,9 @@ import UIKit
         let presented = try XCTUnwrap(root.presentedViewController)
         let targetBefore = scene.target, activeBefore = scene.isActive
         let observationsBefore = scene.recoveryDetailsSeedObservationCount
-        XCTAssertTrue(scene.initiallyShowsRecoveryDetails)
+        let originalSeed = scene.initiallyShowsRecoveryDetails
+        XCTAssertTrue(originalSeed)
+        if !originalSeed { throw PrerequisiteFailure(reason: "The stable-input control requires an original true seed") }
         scene.initiallyShowsRecoveryDetails = false
         try await waitUntil("The fixture observes the false input in an actual SwiftUI update") {
             scene.observedRecoveryDetailsSeed == false && scene.recoveryDetailsSeedObservationCount > observationsBefore
@@ -85,7 +87,10 @@ import UIKit
         let retained = window.rootViewController === root && root.presentedViewController === presented
             && !presented.isBeingDismissed && presented.viewIfLoaded?.window === window
         XCTAssertTrue(retained, "Changing only the initial input must retain the same actually presented controller")
-        if !retained { throw PrerequisiteFailure(reason: "The initial seed controlled presentation after a witnessed update") }
+        let controlSucceeded = originalSeed && scene.observedRecoveryDetailsSeed == false
+            && scene.recoveryDetailsSeedObservationCount == observationsBefore + 1
+            && scene.target == targetBefore && scene.isActive == activeBefore && retained
+        if !controlSucceeded { throw PrerequisiteFailure(reason: "The stable-input control failed after a witnessed update") }
         return presented
     }
     func testFirstLoadHasOneRequestAndRecoveryDoesNotChangeStoreGating() async throws {

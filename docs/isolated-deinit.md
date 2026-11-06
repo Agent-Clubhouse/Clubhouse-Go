@@ -25,7 +25,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | Class | Policy | Owned fields / decision |
 |---|---|---|
 | `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked-continuation runtime handles, with no user callback, UI or transport owner. MainActor beginTeardown disables future holds before resuming pending requests; deinit does no work. |
-| `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only reviewed concrete synthetic service, Store constructed with that service, Bool and value target. No callback, UIKit host/window or teardown action. |
+| `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only reviewed concrete synthetic service, Store constructed with that service, Bool and value target. The initial-details seed (`Bool`), passive observed seed (`Bool?`) and update count (`Int`) add only values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |

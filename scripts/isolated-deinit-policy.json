@@ -713,12 +713,15 @@
     "CompanionRecoveryFixtureScene": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
-      "reason": "DEBUG-only scene owns the reviewed concrete RecoveryFixtureService, reviewed UI-free CompanionStore constructed with that service, and Bool/CompanionTarget values. Constructor captures no UI object or callback. UIKit hosting/window objects belong only to test method locals; this owner has no teardown work.",
+      "reason": "DEBUG-only scene owns the reviewed concrete RecoveryFixtureService, reviewed UI-free CompanionStore constructed with that service, and Bool/Bool?/Int/CompanionTarget values. The initial-details seed and passive observed-seed/update-count witnesses add only values, with no callback, UI owner or task storage. Constructor captures no UI object or callback. UIKit hosting/window objects belong only to test method locals; this owner has no teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "initiallyShowsRecoveryDetails": "Bool",
           "isActive": "Bool",
+          "observedRecoveryDetailsSeed": "Bool ?",
+          "recoveryDetailsSeedObservationCount": "Int",
           "service": "CompanionRecoveryFixtureService",
           "store": "CompanionStore",
           "target": "CompanionTarget"
