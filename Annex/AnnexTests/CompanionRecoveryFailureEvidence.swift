@@ -53,12 +53,12 @@ import UIKit
     }
 
     private static func windowInfo(_ window: UIWindow) -> [String: Any] {
-        ["class": String(describing: type(of: window)), "frame": NSStringFromCGRect(window.frame),
-         "bounds": NSStringFromCGRect(window.bounds), "key": window.isKeyWindow, "hidden": window.isHidden,
+        ["class": String(describing: type(of: window)), "frame": NSCoder.string(for: window.frame),
+         "bounds": NSCoder.string(for: window.bounds), "key": window.isKeyWindow, "hidden": window.isHidden,
          "alpha": window.alpha, "level": window.windowLevel.rawValue,
-         "safeArea": NSStringFromUIEdgeInsets(window.safeAreaInsets),
+         "safeArea": NSCoder.string(for: window.safeAreaInsets),
          "sceneActivation": window.windowScene.map { String(describing: $0.activationState) } ?? "<nil>",
-         "sceneBounds": window.windowScene.map { NSStringFromCGRect($0.coordinateSpace.bounds) } ?? "<nil>",
+         "sceneBounds": window.windowScene.map { NSCoder.string(for: $0.coordinateSpace.bounds) } ?? "<nil>",
          "root": window.rootViewController.map { String(describing: type(of: $0)) } ?? "<nil>"]
     }
     private static func controllers(_ root: UIViewController?) -> [String: Any] {
@@ -69,7 +69,7 @@ import UIKit
             guard depth <= 6, records.count < 12 else { truncated = true; return }
             records.append(["class": String(describing: type(of: controller)), "depth": depth,
                 "viewLoaded": controller.isViewLoaded,
-                "frame": controller.viewIfLoaded.map { NSStringFromCGRect($0.frame) } ?? "<unloaded>",
+                "frame": controller.viewIfLoaded.map { NSCoder.string(for: $0.frame) } ?? "<unloaded>",
                 "attachedToWindow": controller.viewIfLoaded?.window != nil,
                 "presented": controller.presentedViewController.map { String(describing: type(of: $0)) } ?? "<nil>"])
             visit(controller.presentedViewController, depth: depth + 1)
@@ -106,8 +106,8 @@ import UIKit
                 "respondsToIdentifier": object.responds(to: NSSelectorFromString("accessibilityIdentifier")),
                 "label": bounded(object.accessibilityLabel), "value": bounded(object.accessibilityValue),
                 "isElement": object.isAccessibilityElement, "modal": object.accessibilityViewIsModal,
-                "axFrame": NSStringFromCGRect(object.accessibilityFrame),
-                "viewFrame": (object as? UIView).map { NSStringFromCGRect($0.frame) } ?? "<not UIView>",
+                "axFrame": NSCoder.string(for: object.accessibilityFrame),
+                "viewFrame": (object as? UIView).map { NSCoder.string(for: $0.frame) } ?? "<not UIView>",
                 "viewHidden": (object as? UIView)?.isHidden ?? false,
                 "declaredElements": elements.count, "containerCount": count]
             guard let data = try? JSONSerialization.data(withJSONObject: record), textBytes + data.count <= 65_536 else {
