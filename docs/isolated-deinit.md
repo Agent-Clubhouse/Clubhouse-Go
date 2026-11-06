@@ -25,7 +25,7 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | Class | Policy | Owned fields / decision |
 |---|---|---|
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
-| `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary; no UI fields. |
+| `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary. The `windows` Bool is a plain desktop-platform flag for content path matching, with no owner, callback or teardown change; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |

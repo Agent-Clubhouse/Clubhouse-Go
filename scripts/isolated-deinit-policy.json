@@ -253,7 +253,7 @@
     "CompanionArchiveReader": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift",
-      "reason": "Sendable transport reference and value target/session/event dictionary; no UI fields.",
+      "reason": "Sendable transport reference and value target/session/event dictionary. The windows Bool is a plain desktop-platform flag for content path matching; it adds no owner, callback or teardown work. No UI fields.",
       "surface": {
         "bases": [
           "CompanionArchiveReading"
@@ -264,7 +264,8 @@
           "readOnly": "Bool",
           "sessionID": "String",
           "target": "CompanionTarget",
-          "transport": "any AnnexTransporting"
+          "transport": "any AnnexTransporting",
+          "windows": "Bool"
         },
         "storageMacros": []
       }
