@@ -255,13 +255,20 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     private static let hardwareReturnAction = NSSelectorFromString("companionComposerHardwareReturn:")
     private static let hardwareNewlineAction = NSSelectorFromString("companionComposerHardwareNewline:")
 
-    /// Guard advertisement, action validation and dispatch: a cached command must never confirm marked text,
-    /// send from an unfocused input, or edit a disabled field. Send eligibility remains the store's responsibility.
-    private static func returnCoordinator(for textView: UITextView) -> CompanionComposerPasteHook.Coordinator? {
-        guard textView.isFirstResponder, textView.isEditable, textView.isUserInteractionEnabled,
+    /// Discovery can happen before focus. Advertise the registered input's commands independently of focus;
+    /// marked composition and noneditable inputs still keep UIKit's normal commands.
+    private static func configuredReturnCoordinator(for textView: UITextView) -> CompanionComposerPasteHook.Coordinator? {
+        guard textView.isEditable, textView.isUserInteractionEnabled,
               textView.markedTextRange == nil, let coordinator = coordinator(for: textView),
               coordinator.hardwareReturn != nil, coordinator.returnInput != nil else { return nil }
         return coordinator
+    }
+
+    /// Action validation and dispatch require focus as well: a cached command must never send from an
+    /// unfocused input or confirm composition. Send eligibility remains the store's responsibility.
+    private static func returnCoordinator(for textView: UITextView) -> CompanionComposerPasteHook.Coordinator? {
+        guard textView.isFirstResponder else { return nil }
+        return configuredReturnCoordinator(for: textView)
     }
 
     private static func patchHardwareReturn(_ type: AnyClass) {
@@ -286,11 +293,11 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         let block: @convention(block) (AnyObject) -> NSArray? = { object in
             let existing = original(object, selector)
             return MainActor.assumeIsolated {
-                guard let textView = object as? UITextView, returnCoordinator(for: textView) != nil else { return existing }
+                guard let textView = object as? UITextView, configuredReturnCoordinator(for: textView) != nil else { return existing }
                 let send = UIKeyCommand(input: "\r", modifierFlags: [], action: hardwareReturnAction)
                 let newline = UIKeyCommand(input: "\r", modifierFlags: .shift, action: hardwareNewlineAction)
-                // UIKit text input normally owns Return. Give these chords priority only for this registered,
-                // editing composer, and remove exact duplicates without affecting Command/Option/Control Return.
+                // UIKit text input normally owns Return. Give these chords priority for this registered input;
+                // activation still requires focus. Remove exact duplicates without affecting other modifiers.
                 send.wantsPriorityOverSystemBehavior = true
                 newline.wantsPriorityOverSystemBehavior = true
                 let remaining = (existing as? [UIKeyCommand] ?? []).filter {

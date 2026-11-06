@@ -7,6 +7,10 @@ Focused hosted suite: `ClubhouseGoTests/CompanionComposerReturnTests`.
 
 - Invoke the actual advertised `UIKeyCommand` responder action on the hosted `CompanionConversationComposer`.
   Expect one synthetic service request, no inserted newline, retained focus/input, and store pending protection.
+  Resolve its target through UIKit, then dispatch with no explicit target from the application's first responder.
+- Commands are discoverable on the configured native input before focus, but cannot activate before focus.
+  Reuse that discovered command after focus to exercise responder-chain routing. This avoids depending on getter
+  discovery timing; it does not establish why any external keyboard synthesizer fails to deliver a key.
 - Return completes a named slash prefix first. Bare `/` and fully spelled commands submit (existing `returnPicks`
   does not select these). Shift Return inserts a native newline even in a slash prefix and replaces selections.
 - Direct native multiline insertion remains text; software Return retains existing slash completion.

@@ -46,7 +46,7 @@ import UIKit
 
     private func settle() async throws { try await Task.sleep(for: .milliseconds(80)) }
 
-    private func fixture(_ draft: String = "Draft", capabilities: CompanionCapabilities? = nil) async throws -> Fixture {
+    private func fixture(_ draft: String = "Draft", capabilities: CompanionCapabilities? = nil, focus: Bool = true) async throws -> Fixture {
         let service = Service(), target = CompanionPreviewService.target
         let store = CompanionStore(service: service)
         var hosts = CompanionPreviewService.hosts(now: .now)
@@ -67,14 +67,16 @@ import UIKit
         try await settle()
         window.layoutIfNeeded()
         let input = try XCTUnwrap(findInput(in: window))
-        XCTAssertTrue(input.becomeFirstResponder())
-        try await settle()
-        // Programmatic focus can place the caret inside prefilled text. Hardware commands use the real native
-        // selection, so make this fixture's insertion point explicit rather than assuming focus moves it to end.
-        let insertionPoint = NSRange(location: draft.utf16.count, length: 0)
-        input.selectedRange = insertionPoint
-        try await settle()
-        XCTAssertEqual(input.selectedRange, insertionPoint)
+        if focus {
+            XCTAssertTrue(input.becomeFirstResponder())
+            try await settle()
+            // Programmatic focus can place the caret inside prefilled text. Hardware commands use the real native
+            // selection, so make this fixture's insertion point explicit rather than assuming focus moves it to end.
+            let insertionPoint = NSRange(location: draft.utf16.count, length: 0)
+            input.selectedRange = insertionPoint
+            try await settle()
+            XCTAssertEqual(input.selectedRange, insertionPoint)
+        }
         XCTAssertTrue(input.pasteDelegate is CompanionComposerPasteHook.Coordinator)
         return Fixture(service: service, store: store, target: target, window: window, input: input)
     }
@@ -89,9 +91,33 @@ import UIKit
 
     private func invoke(_ command: UIKeyCommand, on input: UITextView) throws {
         let action = try XCTUnwrap(command.action)
+        XCTAssertTrue(input.isFirstResponder)
         XCTAssertTrue(input.canPerformAction(action, withSender: command))
-        XCTAssertTrue(UIApplication.shared.sendAction(action, to: input, from: command, for: nil),
-                      "Invoke the actual registered UIKit command action")
+        XCTAssertTrue((input.target(forAction: action, withSender: command) as? UITextView) === input,
+                      "UIKit's responder search must resolve the native command to this input")
+        XCTAssertTrue(UIApplication.shared.sendAction(action, to: nil, from: command, for: nil),
+                      "Route the actual command from the application's first responder, without an explicit target")
+    }
+
+    func testCommandsAreDiscoverableBeforeFocusButActivationRequiresTheFirstResponder() async throws {
+        let f = try await fixture("Discover before focus", focus: false)
+        defer { f.close() }
+        XCTAssertFalse(f.input.isFirstResponder)
+        let enter = try command(f.input), newline = try command(f.input, modifiers: .shift)
+        for command in [enter, newline] {
+            let action = try XCTUnwrap(command.action)
+            XCTAssertFalse(f.input.canPerformAction(action, withSender: command))
+            _ = UIApplication.shared.sendAction(action, to: f.input, from: command, for: nil)
+        }
+        try await settle()
+        XCTAssertTrue(f.service.sent.isEmpty)
+        XCTAssertEqual(f.input.text, "Discover before focus")
+        XCTAssertTrue(f.input.becomeFirstResponder())
+        try await settle()
+        try invoke(enter, on: f.input)
+        try await settle()
+        XCTAssertEqual(f.service.sent.map(\.text), ["Discover before focus"],
+                       "A command discovered before focus must activate through the responder chain after focus")
     }
 
     func testReturnSendsOnceAndPendingReturnKeepsNewerTypingAndInputIdentity() async throws {
