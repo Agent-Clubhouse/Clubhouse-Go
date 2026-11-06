@@ -33,6 +33,73 @@ import XCTest
         XCTContext.runActivity(named: "Context boundary \(phase): actual Button frame=\(frame), label=\(label), value=\(String(describing: value)), enabled=\(enabled), hittable=\(hittable), app=\(appFrame), navCount=\(navCount), navFrame=\(navFrame)") { _ in }
     }
 
+    /// Passive post-entry evidence. Counts and frames are sequential, not a native snapshot transaction.
+    private func captureContextReport(_ app: XCUIApplication, _ phase: String) {
+        let started = ProcessInfo.processInfo.systemUptime
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Context report — \(phase)"
+        shot.lifetime = .keepAlways
+        add(shot)
+        func log(_ message: String) {
+            XCTContext.runActivity(named: "Context report \(phase): \(message); uptime=\(ProcessInfo.processInfo.systemUptime)") { _ in }
+        }
+        func observe(_ name: String, _ query: XCUIElementQuery) {
+            let queryStarted = ProcessInfo.processInfo.systemUptime
+            let count = query.count
+            log("\(name) count=\(count), queryStarted=\(queryStarted)")
+            guard count == 1 else {
+                log("\(name) attributes unavailable: cardinality is not one")
+                return
+            }
+            let target = query.element(boundBy: 0)
+            let exists = target.exists
+            guard exists else {
+                log("\(name) attributes unavailable: target disappeared after count")
+                return
+            }
+            let frame = target.frame
+            let label = target.label
+            let finitePositive = [frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite }
+                && frame.width > 0 && frame.height > 0
+            log("\(name) exists=\(exists), frame=\(frame), finitePositive=\(finitePositive), label=\(label); attributes are sequential")
+        }
+        log("started=\(started), screenshotFinished=\(ProcessInfo.processInfo.systemUptime), appFrame=\(app.frame)")
+        observe("report Any", app.descendants(matching: .any).matching(identifier: "companion-context-report"))
+        observe("report StaticText", app.staticTexts.matching(identifier: "companion-context-report"))
+        observe("settings picker Button", app.buttons.matching(identifier: "agent-settings-context-window"))
+        observe("navigation bars", app.navigationBars)
+        observe("windows", app.windows)
+        observe("reading note Any", app.descendants(matching: .any).matching(identifier: "companion-context-reading-note"))
+        observe("plan limits Any", app.descendants(matching: .any).matching(identifier: "companion-context-plan-limits"))
+        let collections = app.collectionViews.containing(.button, identifier: "agent-settings-context-window")
+        let collectionCount = collections.count
+        log("picker-containing CollectionView count=\(collectionCount)")
+        if collectionCount == 1 {
+            let collection = collections.element(boundBy: 0)
+            if collection.exists {
+                let frame = collection.frame
+                let finitePositive = [frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite }
+                    && frame.width > 0 && frame.height > 0
+                log("picker-containing CollectionView frame=\(frame), finitePositive=\(finitePositive); raw frame is not a proven usable clip")
+                observe("collection picker Button", collection.buttons.matching(identifier: "agent-settings-context-window"))
+                observe("collection report Any", collection.descendants(matching: .any).matching(identifier: "companion-context-report"))
+                observe("collection report StaticText", collection.staticTexts.matching(identifier: "companion-context-report"))
+            } else {
+                log("picker-containing CollectionView attributes unavailable: disappeared after count")
+            }
+        } else {
+            log("picker-containing CollectionView attributes unavailable: cardinality is not one")
+        }
+        let hierarchyStarted = ProcessInfo.processInfo.systemUptime
+        let hierarchy = Data(app.debugDescription.utf8)
+        let retained = Data(hierarchy.prefix(65_536))
+        let tree = XCTAttachment(data: retained, uniformTypeIdentifier: "public.plain-text")
+        tree.name = "Context report hierarchy — \(phase)"
+        tree.lifetime = .keepAlways
+        add(tree)
+        log("hierarchyStarted=\(hierarchyStarted), fullUTF8Bytes=\(hierarchy.count), retainedUTF8Bytes=\(retained.count), truncated=\(hierarchy.count > retained.count); started=\(started), finished=\(ProcessInfo.processInfo.systemUptime)")
+    }
+
     func testIdentityDisclosesDetailsAndUsageOpensContextAndDesktopPlanLimits() {
         let app = launchApp(["--companion-preview", "--companion-preview-context-window"])
         openRiver(app)
@@ -61,6 +128,7 @@ import XCTest
         XCTAssertEqual(context.frame.minY, before.minY, accuracy: 1, "Reading older messages keeps the header pinned")
         XCTAssertTrue(context.isHittable)
         waitAndTap(context, until: app.buttons["agent-settings-context-window"])
+        captureContextReport(app, "ordinary after original context target wait")
         XCTAssertTrue(element(app, "companion-context-report").exists, "Context still opens its reported details")
         XCTAssertEqual(element(app, "companion-context-reading-note").label, "Latest reported context usage")
         let limits = app.buttons["companion-context-plan-limits"]
@@ -100,6 +168,7 @@ import XCTest
         let actions = app.buttons["conversation-actions-menu"]
         waitAndTap(actions, until: app.buttons["companion-context-settings-menu"])
         waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["agent-settings-context-window"])
+        captureContextReport(app, "AXL after original context target wait")
         XCTAssertTrue(element(app, "companion-context-report").exists, "Context stays available through conversation actions")
     }
 
