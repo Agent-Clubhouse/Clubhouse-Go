@@ -26,18 +26,34 @@ import Observation
 @MainActor final class CompanionChatHeaderIdentityTests: XCTestCase {
     func testHeaderRendersCustomImageUpdatesAndAbsentImageFallback() async throws {
         let hostID = "header-identity-\(UUID().uuidString)"
+        do {
+            try await checkHeaderIdentity(hostID: hostID)
+        } catch {
+            await CompanionIconStore.shared.remove(host: hostID)
+            throw error
+        }
+        await CompanionIconStore.shared.remove(host: hostID)
+    }
+
+    private func checkHeaderIdentity(hostID: String) async throws {
         var agent = CompanionAgent(id: .init(hostID: hostID, projectID: "fixture", agentID: "header"),
                                    name: "Header fixture", subtitle: "", status: .idle, model: nil,
                                    capabilities: [])
         agent.color = "indigo"
         let fixture = HeaderIdentityFixture(agent: agent)
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let originalKeyWindow = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: 320, height: 88)
         let controller = UIHostingController(rootView: HeaderIdentityFixtureView(fixture: fixture))
         window.rootViewController = controller
-        window.isHidden = false
-        defer { window.isHidden = true; window.rootViewController = nil }
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            originalKeyWindow?.makeKey()
+        }
 
         func pixels() throws -> (magenta: Int, green: Int, indigo: Int) {
             window.layoutIfNeeded(); controller.view.layoutIfNeeded()
@@ -93,6 +109,5 @@ import Observation
 
         fixture.agent.icon = nil
         try await waitForPixels { $0.magenta == 0 && $0.green == 0 && $0.indigo > 100 }
-        await CompanionIconStore.shared.remove(host: hostID)
     }
 }
