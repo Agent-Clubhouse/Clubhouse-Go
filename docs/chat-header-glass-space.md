@@ -89,6 +89,12 @@ with locally generated synthetic custom images: absent icon fallback, custom
 image, new image version for the same identity, and return to absent fallback.
 No unrelated images are fetched and no screenshot artifacts are attached.
 The separate canonical avatar owner handles shared emoji/image precedence.
+The test-only observable `HeaderIdentityFixture` owns one `CompanionAgent`
+Sendable value and no callback, UI object or teardown action; its empty
+nonisolated deinit is safe for that reviewed storage. The production ownership
+gate scans `Annex/Annex` and the app binary, excluding `AnnexTests`, so this
+fixture needs no shared policy entry or ownership-table change. No production
+class or reviewed constructor/capture surface is added by this header.
 
 Authorized shared test edit: only context label/value expectations in
 `CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop` change;
