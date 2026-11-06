@@ -43,12 +43,38 @@ The wire does not distinguish a human's cropped upload from an agent-selected fi
 or reveal how the file's artwork was created. Go does not infer those origins from
 filenames, hashes or providers: either selected file is the agent's profile image.
 
+## Recorded desktop fixture and intentional Go difference
+
+The canonical [`sender-identity.json`](https://github.com/Agent-Clubhouse/Clubhouse/blob/4b3b4f59e67adcbe9df477b5f091ae1d9fb81953/test/fixtures/annex-mobile/sender-identity.json)
+is pinned by `Tests/Fixtures/AnnexContract/SOURCE.json` to desktop commit
+**4b3b4f59e67adcbe9df477b5f091ae1d9fb81953**. Its `emoji_over_image` name, input
+catalog and recorded desktop expectation stay unchanged: `durable_chat` has both
+`durable_chat.png` and 🦊, and the desktop's recorded face is the fox on
+`#6366f120`. The contract tests explicitly assert that expectation and provenance.
+
+For that specific documented input, Go expects `.icon` because of Mason's custom
+profile-image priority. Before asserting Go's rendering, the tests independently
+require the original catalog image and both raw identity fields. They substitute
+the same valid synthetic raster in memory and require its known SHA-256 version,
+`b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640`, on the resolved
+identity. A lost decoded icon or a wrong version fails those checks. Expected
+rendering never branches on the actual resolved icon/face, and all other recorded
+desktop face checks remain in place.
+
+The synthetic Dispatcher sequence retains an emoji-only positive control, then
+checks coexistence → image-only → image removed, including the expected byte
+version, current row/sender identity, resolver invalidation and REST refresh
+preservation at each step. It changes no canonical fixture bytes.
+
 ## Test plan and boundaries
 
 - Domain `CompanionAgentFaceTests`: image and emoji coexistence selects the image;
   quick still wins over both; emoji alone, empty emoji and no image keep their
   fallbacks; routed sender uses the same resolver and changes identity when an
   image version changes or an image is removed.
+- Contract tests preserve transport/identity fields and the recorded desktop
+  expectation, with the single documented Go coexistence override above. The
+  Dispatcher sequence separately verifies emoji-only rendering and image removal.
 - Hosted `CompanionProfileImageRenderingTests`: synthetic red and blue PNGs use
   the real bounded cache and `CompanionIdentityFace`; sample pixels to prove the
   image beats a coexisting emoji and a replacement version repaints the same face.
@@ -59,8 +85,27 @@ filenames, hashes or providers: either selected file is the agent's profile imag
   The cache, version-keyed SwiftUI task and image-failure initials remain unchanged.
 - Project icon rendering stays independent and unchanged.
 
-Only Swift source parsing and `git diff --check` are permitted before the
-orchestrator allocates the serial validation slot tracked by #316. Package tests
-(`swift test --filter CompanionAgentFaceTests` then the full package suite), app
-Debug/Release builds, hosted avatar tests and repository validation remain pending
-that slot. Source parsing alone is not evidence of passing type checks or tests.
+## Validation evidence and remaining checks
+
+At exact `4f7e4aeb6f46360976f0ed8734b52bd5b3078477`, the six filtered AgentFace
+test functions passed, as did a Debug build and the two hosted avatar cases once
+each. The direct shared-face test verified real image precedence, version change
+and fallback. The older Dispatcher smoke's Image attachment nevertheless showed
+initials in both consumers; its dimension-only assertion was insufficient. That
+original evidence stays separate, and its fallback's cause remains unproven.
+
+At exact `6f0f7c22c6b0caf565750007769efa570038c342`, one four-job Debug build and
+the same two hosted cases passed serially, once each, without retries. The
+strengthened Dispatcher assertions measured 710.22 square points of cyan profile
+pixels in the row and 436.89 in the sender; inspection confirmed the image in
+both. The owned simulator was deleted and the build/test processes drained.
+
+The ordinary exact-6f [CI package job](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/42169721688/job/127734522625)
+then failed three legacy emoji-over-image expectations: the two sender fixture
+consumers and the Dispatcher appearance sequence. Its failure log is preserved;
+the new AgentFace suite passed. The tests/docs correction above addresses those
+expectations without changing production code or desktop fixtures. Its validation
+is limited to Swift source parsing and `git diff --check` until a new serial slot
+is allocated. Package tests, build/type checks and hosted checks have not been
+repeated for the correction; earlier-head passes do not validate it. Combined
+header proof and remaining full validation stay with the orchestrator.
