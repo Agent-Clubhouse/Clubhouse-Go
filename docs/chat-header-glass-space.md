@@ -138,3 +138,54 @@ can run independently; builds, tests, and simulator actions wait for its slot.
 Source parse and diff checks pass. Full build/tests and combined visual
 acceptance remain pending the parent's queue; old captures are not acceptance
 evidence for this draft.
+
+## Runnable synthetic visual matrix
+
+`CompanionConversationHeaderFixture` is compiled only in DEBUG and selected
+only inside the preview route when **both** `--companion-preview` and
+`--companion-preview-header-fixture` are present. All values are canned; there
+is no arbitrary host/name/image input or live desktop mutation. It seeds one
+preview agent, a long readable transcript, context and the existing synthetic
+quota service. A fixture-only photo menu switches locally generated solid
+magenta and green profile images through the canonical versioned icon cache.
+The usual preview remains unchanged when the new flag is absent.
+
+| Representative case | Exact extra launch arguments | UI sequence |
+|---|---|---|
+| Dark Working, standard text | none | Capture collapsed keyboard down; focus/type; capture keyboard up; disclose and capture expanded keyboard up. |
+| Light Working, long name, Accessibility Large, **375pt viewport** | `--companion-header-light --companion-header-long-name -UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL` | Focus/type; disclose; capture full screen; collapse and capture again. Long name is “Alexandria — release coordination and simulator validation.” |
+| Dark idle, fallback/custom/new version and usage routes | `--companion-header-idle` | Capture fallback, use fixture photo menu twice (magenta then green), capture each version, tap usage and capture context editor, navigate to desktop plan limits. |
+
+These three cases are implemented in `CompanionChatHeaderVisualUITests`.
+Attachment names include the actual viewport width; running the long-name
+case at another width does **not** satisfy the requested 375pt acceptance.
+The methods exercise the real navigation stack, conversation, disclosure,
+composer, keyboard and sheets. This fixture does **not** contain RootView or
+tabs; parent integration smoke must separately cover tab expansion/minimizing,
+review, banners, and the combined composer/avatar candidate.
+
+After the parent grants the local serial slot, select the reviewed combined
+candidate (header plus composer/canonical-avatar dependencies), record its
+exact HEAD, and use a parent-owned simulator whose portrait viewport is 375pt.
+Do not select an installed phone or a pre-existing live pairing. For example,
+from that candidate's worktree, substituting the owned simulator's UDID:
+
+```sh
+mkdir -p build/chat-header-validation
+git rev-parse HEAD > build/chat-header-validation/candidate-head.txt
+xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
+  -destination 'platform=iOS Simulator,id=<owned-375pt-iPhone-UDID>' \
+  -derivedDataPath build/chat-header-validation/DerivedData \
+  -resultBundlePath build/chat-header-validation/HeaderMatrix.xcresult \
+  -only-testing:ClubhouseGoUITests/CompanionChatHeaderVisualUITests \
+  CODE_SIGNING_ALLOWED=NO test
+```
+
+For cached `build-for-testing`, the parent may use its matching arm64 test
+configuration and `test-without-building` instead. Record simulator model,
+runtime and actual width with the candidate head. The test helper adds
+`--ui-testing-fast` and portrait orientation; dark/light and canned status/name
+are controlled by the fixed flags above. The app commands in this route use
+the preview service and cannot contact a desktop. Generated screenshots and
+results stay in ignored local build output for parent inspection; original
+feedback images are never attachments or committed artifacts.

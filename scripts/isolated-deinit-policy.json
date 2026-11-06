@@ -752,6 +752,14 @@
         }
       ]
     },
+    "Annex/Annex/Companion/Views/CompanionConversationHeaderFixture.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsContextWindow : true , showsAutoQuota : true ) )",
+          "producers": {}
+        }
+      ]
+    },
     "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": {
       "constructor:CompanionStore": [
         {
