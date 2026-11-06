@@ -203,7 +203,100 @@ import XCTest
         return true
     }
 
+    /// One native content drag only when actual alert geometry proves Cancel overflows below its action clip.
+    private func revealCancelIfNeeded(_ app: XCUIApplication) -> Bool {
+        func geometry(_ phase: String, requiresScroll: Bool) -> (cancel: XCUIElement, target: CGRect, alert: CGRect, app: CGRect, window: CGRect, clip: CGRect?)? {
+            let expected = app.alerts.containing(.staticText, identifier: "Interrupt this turn?")
+            let total = app.alerts.count, matching = expected.count
+            XCTContext.runActivity(named: "Cancel reveal \(phase) alert counts — global=\(total), expected=\(matching)") { _ in }
+            guard total == 1, matching == 1 else {
+                XCTFail("Cancel reveal requires one actual expected alert: global=\(total), expected=\(matching)"); return nil
+            }
+            let alert = expected.element(boundBy: 0)
+            let cancels = alert.buttons.matching(identifier: "Cancel")
+            let count = cancels.count
+            XCTContext.runActivity(named: "Cancel reveal \(phase) scoped Cancel count=\(count)") { _ in }
+            guard count == 1 else { XCTFail("Cancel reveal requires one scoped Cancel: \(count)"); return nil }
+            let cancel = cancels.element(boundBy: 0)
+            let label = cancel.label, target = cancel.frame, alertFrame = alert.frame
+            let mainWindow = app.windows.firstMatch.frame, appFrame = app.frame
+            let window = mainWindow.intersection(appFrame)
+            let frames = "Cancel=\(target), alert=\(alertFrame), main=\(mainWindow), app=\(appFrame), window=\(window)"
+            let finiteTarget = finiteRect(target), finiteAlert = finiteRect(alertFrame), finiteMain = finiteRect(mainWindow)
+            let finiteApp = finiteRect(appFrame), finiteWindow = finiteRect(window)
+            XCTContext.runActivity(named: "Cancel reveal \(phase) geometry — label=\(label), finiteTarget=\(finiteTarget), finiteAlert=\(finiteAlert), finiteMain=\(finiteMain), finiteApp=\(finiteApp), finiteWindow=\(finiteWindow), \(frames)") { _ in }
+            guard label == "Cancel", finiteTarget, finiteAlert, finiteMain, finiteApp, finiteWindow else {
+                XCTFail("Cancel reveal needs exact label and finite actual frames: \(label), \(frames)"); return nil
+            }
+            var clip: CGRect?
+            if requiresScroll {
+                // Title and actions can have different native ScrollViews. Never choose a global first scroll.
+                let scrolls = alert.scrollViews.containing(.button, identifier: "Cancel")
+                let scrollCount = scrolls.count
+                XCTContext.runActivity(named: "Cancel reveal \(phase) containing action ScrollView count=\(scrollCount)") { _ in }
+                guard scrollCount == 1 else { XCTFail("Cancel reveal requires one actual Cancel-containing action scroll: \(scrollCount)"); return nil }
+                let scrollFrame = scrolls.element(boundBy: 0).frame
+                let visible = scrollFrame.intersection(alertFrame).intersection(window)
+                let finiteScroll = finiteRect(scrollFrame), finiteClip = finiteRect(visible)
+                XCTContext.runActivity(named: "Cancel reveal \(phase) actual clip — scroll=\(scrollFrame), finiteScroll=\(finiteScroll), clip=\(visible), finiteClip=\(finiteClip), \(frames)") { _ in }
+                guard finiteScroll, finiteClip else { XCTFail("Cancel reveal has no proven finite action clip: scroll=\(scrollFrame), clip=\(visible), \(frames)"); return nil }
+                clip = visible
+            }
+            return (cancel, target, alertFrame, appFrame, window, clip)
+        }
+
+        guard let initial = geometry("initial", requiresScroll: false) else { return false }
+        let insideAlert = initial.alert.contains(initial.target), insideWindow = initial.window.contains(initial.target)
+        XCTContext.runActivity(named: "Cancel reveal zero-gesture predicates — insideAlert=\(insideAlert), insideWindow=\(insideWindow)") { _ in }
+        if insideAlert && insideWindow { return true } // No action-scroll prerequisite on the original contained route.
+
+        guard let before = geometry("before navigation", requiresScroll: true), let clip = before.clip else { return false }
+        let target = before.target
+        let horizontal = target.minX >= clip.minX && target.maxX <= clip.maxX
+        let fitsHeight = target.height <= clip.height
+        let below = target.minY >= clip.minY && target.maxY > clip.maxY
+        let displacement = target.midY - clip.midY
+        XCTContext.runActivity(named: "Cancel reveal navigation predicates — target=\(target), clip=\(clip), horizontal=\(horizontal), fitsHeight=\(fitsHeight), below=\(below), displacement=\(displacement)") { _ in }
+        guard horizontal, fitsHeight, below, displacement.isFinite, displacement > 0 else {
+            XCTFail("Only a real below-clip Cancel fitting the whole actual clip may receive one upward content drag: target=\(target), clip=\(clip), displacement=\(displacement)")
+            return false
+        }
+        let interior = clip.insetBy(dx: 12, dy: 12)
+        let start = CGPoint(x: interior.midX, y: interior.maxY - 1)
+        let end = CGPoint(x: start.x, y: start.y - displacement)
+        let budgetFits = finiteRect(interior) && displacement <= interior.height - 2
+        let endpointsInside = interior.contains(start) && interior.contains(end) && clip.contains(start) && clip.contains(end)
+            && before.alert.contains(start) && before.alert.contains(end) && before.window.contains(start) && before.window.contains(end)
+        let distance = hypot(start.x - end.x, start.y - end.y)
+        let velocity = distance / 1.0 // Nominal one-second traversal, not a delivered-timing guarantee.
+        XCTContext.runActivity(named: "Cancel reveal one-drag budget — interior=\(interior), fits=\(budgetFits), endpointsInside=\(endpointsInside), \(start) → \(end), distance=\(distance), velocity=\(velocity)") { _ in }
+        guard budgetFits, endpointsInside, velocity.isFinite, velocity > 0 else {
+            XCTFail("Cancel reveal displacement must fit one actual inset12 content gesture: clip=\(clip), interior=\(interior), \(start) → \(end)")
+            return false
+        }
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        let from = origin.withOffset(CGVector(dx: start.x - before.app.minX, dy: start.y - before.app.minY))
+        let to = origin.withOffset(CGVector(dx: end.x - before.app.minX, dy: end.y - before.app.minY))
+        XCTContext.runActivity(named: "Interrupt Cancel one upward content drag — clip=\(clip), target=\(target), \(start) → \(end), velocity=\(velocity), terminal contact hold=0.2") { _ in
+            from.press(forDuration: 0.05, thenDragTo: to,
+                       withVelocity: XCUIGestureVelocity(rawValue: velocity), thenHoldForDuration: 0.2)
+        }
+        capture(app, "Interrupt Cancel after one bounded content navigation")
+        // Capture before any later query/assertion can fail; then read the current native tree afresh.
+        guard let after = geometry("after navigation", requiresScroll: true), let afterClip = after.clip else { return false }
+        let inClip = afterClip.contains(after.target), inAlert = after.alert.contains(after.target), inWindow = after.window.contains(after.target)
+        let widthOK = after.target.width >= 44, heightOK = after.target.height >= 44
+        let enabled = after.cancel.isEnabled, hittable = after.cancel.isHittable
+        XCTContext.runActivity(named: "Cancel reveal final predicates — target=\(after.target), clip=\(afterClip), inClip=\(inClip), inAlert=\(inAlert), inWindow=\(inWindow), width44=\(widthOK), height44=\(heightOK), enabled=\(enabled), hittable=\(hittable)") { _ in }
+        guard inClip, inAlert, inWindow, widthOK, heightOK, enabled, hittable else {
+            XCTFail("One content drag must reveal the whole actionable Cancel inside its actual clip/alert/window; no second gesture or tap rescue")
+            return false
+        }
+        return true
+    }
+
     private func cancelInterruptConfirmation(_ app: XCUIApplication) -> Bool {
+        guard revealCancelIfNeeded(app) else { return false }
         let expected = app.alerts.containing(.staticText, identifier: "Interrupt this turn?")
         let totalAlerts = app.alerts.count, expectedCount = expected.count
         XCTContext.runActivity(named: "Interrupt alert cardinality — global=\(totalAlerts), expected=\(expectedCount)") { _ in }
