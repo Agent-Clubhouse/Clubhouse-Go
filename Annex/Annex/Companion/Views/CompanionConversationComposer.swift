@@ -185,39 +185,41 @@ struct CompanionConversationComposer: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        if agent.status == .working {
-                            // Interrupt remains a separate confirmed action beside Send, never a replacement for it.
-                            Button { confirmCancel = true } label: {
-                                Image(systemName: "stop.fill").font(.system(size: 18, weight: .semibold))
+                        HStack(alignment: .bottom, spacing: dynamicTypeSize.isAccessibilitySize ? 0 : 6) {
+                            if agent.status == .working {
+                                // Interrupt remains a separate confirmed action beside Send, never a replacement for it.
+                                Button { confirmCancel = true } label: {
+                                    Image(systemName: "stop.fill").font(.system(size: 18, weight: .semibold))
+                                }
+                                .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                                .tint(Color(palette.warning))
+                                .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
+                                .frame(minWidth: 44, minHeight: 44)
+                                .contentShape(.circle)
+                                .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
+                                .accessibilityLabel("Interrupt")
+                                .accessibilityHint("Asks before interrupting the current turn. Keeps your draft.")
+                                .accessibilityIdentifier("companion-interrupt")
+                                .frame(height: actionRowHeight)
+                            }
+                            Button {
+                                Task { await store.sendDraft(to: target) }
+                            } label: {
+                                Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
+                                    .font(.system(size: 20, weight: .bold))
                             }
                             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                            .tint(Color(palette.warning))
-                            .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
+                            // Keep the regular-size glass circle inside the field, with a full-size interaction target.
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(.circle)
-                            .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
-                            .accessibilityLabel("Interrupt")
-                            .accessibilityHint("Asks before interrupting the current turn. Keeps your draft.")
-                            .accessibilityIdentifier("companion-interrupt")
+                            .disabled(!store.canSend(target) || !hasMessage)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
+                            .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
+                            .accessibilityIdentifier("companion-send")
+                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : (assistiveRow ? 2 : 6))
                             .frame(height: actionRowHeight)
                         }
-                        Button {
-                            Task { await store.sendDraft(to: target) }
-                        } label: {
-                            Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
-                                .font(.system(size: 20, weight: .bold))
-                        }
-                        .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                        // Keep the regular-size glass circle inside the field, with a full-size interaction target.
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(.circle)
-                        .disabled(!store.canSend(target) || !hasMessage)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
-                        .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
-                        .accessibilityIdentifier("companion-send")
-                        .padding(.horizontal, assistiveRow ? 2 : 6)
-                        .frame(height: actionRowHeight)
                         if dynamicTypeSize.isAccessibilitySize { keyboardDismissButton }
                     }
                 }
