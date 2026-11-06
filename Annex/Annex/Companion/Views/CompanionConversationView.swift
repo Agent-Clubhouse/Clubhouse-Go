@@ -10,6 +10,10 @@ struct CompanionConversationView: View {
     var isVisible: Bool? = nil
     /// Review's selected page owns the same identity control, with its place in the pager.
     var reviewPosition: String? = nil
+    #if DEBUG
+    /// Initial value only for the recovery component's private State; normal callers leave it false.
+    var initiallyShowsRecoveryDetails = false
+    #endif
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -242,11 +246,12 @@ struct CompanionConversationView: View {
         return "\(host.name) / \(host.placeName(for: target) ?? "Project")"
     }
 
-    private var connectionBanner: some View {
+    /// The production callback, also invoked directly by hosted routing tests. No presentation state is exposed.
+    var recoveryRetryAction: (CompanionRecoveryStatus.RetryAction) -> Void {
         // A retained page's presented action belongs to that page, even if selection changes before its Task runs.
         let presentedTarget = target
         let presentedStore = store
-        return CompanionRecoveryStatusView(status: recoveryStatus) { action in
+        return { action in
             Task {
                 switch action {
                 case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
@@ -254,8 +259,18 @@ struct CompanionConversationView: View {
                 }
             }
         }
+    }
+
+    private var connectionBanner: some View {
+        let presentedTarget = target
+        #if DEBUG
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, initiallyShowsDetails: initiallyShowsRecoveryDetails,
+                                                 onRetry: recoveryRetryAction)
+        #else
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, onRetry: recoveryRetryAction)
+        #endif
         // Reset only recovery presentation when a retained page becomes inactive; never reset transcript identity.
-        .id(CompanionRecoveryPresentationID(target: presentedTarget, isActive: showsActions && isVisible != false))
+        return banner.id(CompanionRecoveryPresentationID(target: presentedTarget, isActive: showsActions && isVisible != false))
     }
 
     /// While the app is open there are no system banners, so another agent that needs you shows here.

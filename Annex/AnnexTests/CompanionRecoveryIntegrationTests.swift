@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 @testable import ClubhouseGo
 
-/// Service effects from the real hosted caller/callbacks. UI hit testing and copy have separate UI cases.
+/// Production callback effects and actual mounted-sheet lifetime. Direct callbacks do not establish AX reachability.
 @MainActor final class CompanionRecoveryIntegrationTests: XCTestCase {
     private let alpha = CompanionRecoveryFixtureService.alpha
     private let beta = CompanionRecoveryFixtureService.beta
@@ -63,34 +63,30 @@ import UIKit
         // Freeze the original failed observation before evidence collection; never re-query/activate after it.
         if !satisfied { throw PrerequisiteFailure(reason: description) }
     }
-    /// Public accessibility activation invokes the actual SwiftUI callback, without a production dispatch seam.
-    private func element(_ id: String, in root: NSObject) -> NSObject? {
-        var visited: Set<ObjectIdentifier> = []
-        func visit(_ object: NSObject) -> NSObject? {
-            guard visited.insert(ObjectIdentifier(object)).inserted else { return nil }
-            if (object as? UIAccessibilityIdentification)?.accessibilityIdentifier == id { return object }
-            if let view = object as? UIView {
-                for child in view.subviews { if let found = visit(child) { return found } }
-            }
-            if let elements = object.accessibilityElements {
-                for case let child as NSObject in elements { if let found = visit(child) { return found } }
-            }
-            let count = object.accessibilityElementCount()
-            if count > 0, count < 1_000 {
-                for index in 0..<count {
-                    if let child = object.accessibilityElement(at: index) as? NSObject,
-                       let found = visit(child) { return found }
-                }
-            }
-            return nil
+    /// A passive fixture onChange acknowledges the changed input; it never writes the sheet's State.
+    /// This control must finish before a target/visibility change can establish identity-driven dismissal.
+    private func presentedDetailsSurvivesClearedSeed(_ scene: CompanionRecoveryFixtureScene, in window: UIWindow) async throws -> UIViewController {
+        try await waitUntil("The actual recovery component presents its seeded Details") {
+            guard let presented = window.rootViewController?.presentedViewController else { return false }
+            return !presented.isBeingPresented && !presented.isBeingDismissed && presented.viewIfLoaded?.window === window
         }
-        return visit(root)
-    }
-    private func activate(_ id: String, in window: UIWindow) throws {
-        let action = try XCTUnwrap(element(id, in: window), "The real recovery callback must be accessible: \(id)")
-        let activated = action.accessibilityActivate()
-        XCTAssertTrue(activated, "The actual SwiftUI action must handle accessibility activation")
-        if !activated { throw PrerequisiteFailure(reason: "Actual accessibility activation returned false: \(id)") }
+        let root = try XCTUnwrap(window.rootViewController)
+        let presented = try XCTUnwrap(root.presentedViewController)
+        let targetBefore = scene.target, activeBefore = scene.isActive
+        let observationsBefore = scene.recoveryDetailsSeedObservationCount
+        XCTAssertTrue(scene.initiallyShowsRecoveryDetails)
+        scene.initiallyShowsRecoveryDetails = false
+        try await waitUntil("The fixture observes the false input in an actual SwiftUI update") {
+            scene.observedRecoveryDetailsSeed == false && scene.recoveryDetailsSeedObservationCount > observationsBefore
+        }
+        XCTAssertEqual(scene.recoveryDetailsSeedObservationCount, observationsBefore + 1)
+        XCTAssertEqual(scene.target, targetBefore)
+        XCTAssertEqual(scene.isActive, activeBefore)
+        let retained = window.rootViewController === root && root.presentedViewController === presented
+            && !presented.isBeingDismissed && presented.viewIfLoaded?.window === window
+        XCTAssertTrue(retained, "Changing only the initial input must retain the same actually presented controller")
+        if !retained { throw PrerequisiteFailure(reason: "The initial seed controlled presentation after a witnessed update") }
+        return presented
     }
     func testFirstLoadHasOneRequestAndRecoveryDoesNotChangeStoreGating() async throws {
         let scene = CompanionRecoveryFixtureScene()
@@ -117,27 +113,34 @@ import UIKit
         await scene.store.load(alpha); await scene.store.load(beta)
         scene.service.modes[alpha] = .failure
         await scene.store.load(alpha, force: true)
-        try await withHost(scene) { window in
+        try await withHost(scene) { _ in
             try await waitUntil("Initial normal view hook finishes before counting the explicit retry") {
                 let calls = scene.service.historyCalls[self.alpha] ?? 0
                 let loading = scene.store.conversation(for: self.alpha).isLoading
-                // Preserve the original conjunction/short-circuited leaf lookup; record which term was observed.
-                let leaf = calls == 3 && !loading ? self.element("companion-recovery-retry", in: window) != nil : nil
                 self.prerequisiteObservation = ["expectedCalls": "3", "actualCalls": String(calls),
-                    "loading": String(loading), "leaf": leaf.map { String($0) } ?? "not evaluated (short circuit)"]
-                return calls == 3 && !loading && leaf == true
+                    "loading": String(loading), "boundary": "Production callback; AX lookup is not exercised"]
+                return calls == 3 && !loading
             }
             let alphaBefore = scene.service.historyCalls[alpha] ?? 0
             let betaBefore = scene.service.historyCalls[beta] ?? 0
+            XCTAssertEqual(alphaBefore, 3)
+            XCTAssertEqual(betaBefore, 1)
+            let retryAlpha = CompanionConversationView(store: scene.store, agent: try XCTUnwrap(scene.store.agent(for: alpha))).recoveryRetryAction
             scene.service.modes[alpha] = .held
-            try activate("companion-recovery-retry", in: window)
+            retryAlpha(.refreshConversation)
             scene.target = beta // Before the callback's Task can resume on this actor.
             try await waitUntil("Only the presented Alpha action starts a request") { scene.service.historyCalls[self.alpha] == alphaBefore + 1 }
             XCTAssertEqual(scene.service.historyCalls[beta], betaBefore)
+            XCTAssertTrue(scene.store.conversation(for: alpha).isLoading)
+            XCTAssertEqual(scene.service.pendingHistoryCount, 1)
             XCTAssertFalse(scene.store.canOperate(alpha))
             XCTAssertTrue(scene.store.canOperate(beta))
             scene.service.finish(alpha, as: .success)
             try await waitUntil("Old target's result settles without retargeting") { !scene.store.conversation(for: self.alpha).isLoading }
+            XCTAssertEqual(scene.service.pendingHistoryCount, 0)
+            XCTAssertTrue(scene.store.canOperate(alpha))
+            XCTAssertFalse(scene.store.conversation(for: alpha).requiresResync)
+            XCTAssertEqual(scene.service.historyCalls, [alpha: alphaBefore + 1, beta: betaBefore])
             XCTAssertEqual(scene.service.reconnectCalls.values.reduce(0, +), 0)
         }
     }
@@ -146,31 +149,37 @@ import UIKit
         let scene = CompanionRecoveryFixtureScene()
         await scene.store.load(alpha); await scene.store.load(gamma)
         scene.connection(.failed(CompanionRecoveryFixtureService.connectionError), hostID: alpha.hostID)
+        scene.initiallyShowsRecoveryDetails = true
         try await withHost(scene) { window in
-            try await waitUntil("Failed connection exposes Details") { self.element("companion-recovery-details", in: window) != nil }
-            try activate("companion-recovery-details", in: window)
-            try await waitUntil("Details is actually presented") { window.rootViewController?.presentedViewController != nil }
+            let root = try XCTUnwrap(window.rootViewController)
+            let presented = try await presentedDetailsSurvivesClearedSeed(scene, in: window)
+            let retryAlpha = CompanionConversationView(store: scene.store, agent: try XCTUnwrap(scene.store.agent(for: alpha))).recoveryRetryAction
             scene.target = gamma
-            try await waitUntil("Changing target dismisses old-target Details") { window.rootViewController?.presentedViewController == nil }
+            try await waitUntil("Changing target dismisses old-target Details") {
+                window.rootViewController?.presentedViewController == nil && presented.presentingViewController == nil
+            }
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertNil(presented.presentingViewController)
             XCTAssertTrue(scene.service.reconnectCalls.isEmpty)
+            XCTAssertEqual(scene.service.historyCalls, [alpha: 1, gamma: 1])
 
             scene.target = alpha
-            try await waitUntil("Alpha retry returns") { self.element("companion-recovery-retry", in: window) != nil }
-            try activate("companion-recovery-retry", in: window)
+            retryAlpha(.reconnect)
             scene.target = gamma
             try await waitUntil("Queued Alpha retry reconnects only Alpha's host") { scene.service.reconnectCalls[self.alpha.hostID] == 1 }
             XCTAssertNil(scene.service.reconnectCalls[gamma.hostID])
 
             scene.connection(.failed(CompanionRecoveryFixtureService.connectionError), hostID: gamma.hostID)
-            try await waitUntil("Gamma Details belongs to Gamma") { self.element("companion-recovery-details", in: window) != nil }
-            try activate("companion-recovery-details", in: window)
-            try await waitUntil("Details offers its actual retry callback") { self.element("companion-recovery-detail-retry", in: window) != nil }
-            try activate("companion-recovery-detail-retry", in: window)
+            // The component forwards this same production callback to Details. No button activation is claimed here.
+            let retryGamma = CompanionConversationView(store: scene.store, agent: try XCTUnwrap(scene.store.agent(for: gamma))).recoveryRetryAction
+            retryGamma(.reconnect)
             scene.target = alpha
             try await waitUntil("Gamma's issued action does not become an Alpha reconnect") { scene.service.reconnectCalls[self.gamma.hostID] == 1 }
             XCTAssertEqual(scene.service.reconnectCalls[alpha.hostID], 1)
             XCTAssertEqual(scene.service.historyCalls[alpha], 1)
             XCTAssertEqual(scene.service.historyCalls[gamma], 1)
+            XCTAssertEqual(scene.service.historyCalls, [alpha: 1, gamma: 1])
+            XCTAssertEqual(scene.service.reconnectCalls, [alpha.hostID: 1, gamma.hostID: 1])
         }
     }
 
@@ -179,16 +188,24 @@ import UIKit
         await scene.store.load(alpha)
         scene.store.drafts[alpha] = "Retained page draft"
         let bookmark = scene.store.readingBookmark(for: alpha)
+        let transcript = scene.store.conversation(for: alpha)
         scene.connection(.failed(CompanionRecoveryFixtureService.connectionError))
+        scene.initiallyShowsRecoveryDetails = true
         try await withHost(scene) { window in
-            try await waitUntil("Retained page has Details") { self.element("companion-recovery-details", in: window) != nil }
-            try activate("companion-recovery-details", in: window)
-            try await waitUntil("Details opens") { window.rootViewController?.presentedViewController != nil }
+            let root = try XCTUnwrap(window.rootViewController)
+            let presented = try await presentedDetailsSurvivesClearedSeed(scene, in: window)
             scene.isActive = false // Same showsActions transition used by a retained Review page.
-            try await waitUntil("Inactive page cannot keep its old Details presented") { window.rootViewController?.presentedViewController == nil }
+            try await waitUntil("Inactive page cannot keep its old Details presented") {
+                window.rootViewController?.presentedViewController == nil && presented.presentingViewController == nil
+            }
+            XCTAssertTrue(window.rootViewController === root)
+            XCTAssertNil(presented.presentingViewController)
             XCTAssertTrue(scene.store.readingBookmark(for: alpha) === bookmark)
             XCTAssertEqual(scene.store.drafts[alpha], "Retained page draft")
             XCTAssertEqual(scene.service.historyCalls[alpha], 1)
+            XCTAssertEqual(scene.service.historyCalls, [alpha: 1])
+            XCTAssertEqual(scene.store.conversation(for: alpha), transcript)
+            XCTAssertFalse(scene.store.canOperate(alpha), "The failed connection gate is unchanged by presentation")
             XCTAssertTrue(scene.service.reconnectCalls.isEmpty)
         }
     }

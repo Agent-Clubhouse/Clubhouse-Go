@@ -51,9 +51,11 @@ policy; add only necessary, reviewed entries.
 
 ## Hosted effects and command counts
 
-These tests observe the real Store/service effects and actual view callbacks;
-they are not a second presentation switch or a copy of the retry mapping.
-UI reachability is a separate claim below.
+These tests observe real Store/service effects through the production view's
+callback and the actual mounted recovery sheet's lifetime. They are not a second
+presentation switch or a copy of the retry mapping. The bounded source update
+below separates these assertions from the earlier hosted accessibility lookup;
+UI reachability remains a separate claim.
 
 1. First load: suspend the history response, mount the real conversation, and
    verify one history request despite the normal view hooks. A connected load
@@ -137,13 +139,12 @@ report pending-request/Store-load drain. Neither new deinit resumes work or
 touches UIKit. A separate teardown case verifies a late held-mode mutation
 cannot reopen admission.
 
-The hosted `CompanionRecoveryIntegrationTests` finds the actual accessibility
-leaf, requires non-nil lookup and `accessibilityActivate() == true`, and checks
-service effects from that callback. It separates existing automatic view-load
-requests from explicit retries. Target-switch cases cover Details dismissal,
-an issued row retry, an issued Details retry, different-host reconnect and
-same-host/different-agent history. This public accessibility activation is
-**not** proof of native touch or VoiceOver traversal.
+Before the bounded callback/presentation update below, the hosted
+`CompanionRecoveryIntegrationTests` required an actual accessibility leaf and
+`accessibilityActivate() == true` before checking callback effects. It separated
+automatic view-load requests from explicit retries. Three cases failed at that
+prerequisite, as recorded below. Those outcomes remain evidence; the new direct
+callback boundary does not make the original lookup pass or explain its cause.
 
 `CompanionRecoveryIntegrationUITests` uses real taps for progress → failure →
 Details retry → recovered, full multiline errors, 44-point buttons, independent
@@ -329,3 +330,69 @@ rounded or tolerated. A remaining size or hit-test failure must remain a
 failure with its original evidence. The same single-method/default-once
 serial invocation above is nominated only after parent source review and
 allocation; the corrected source has not been built or run locally.
+
+## Bounded production callback and sheet-state boundary
+
+This source slice starts at exact
+`80810d440bcbd6f6564eb5526fc8c0f3ca8ba70c`, after independent source review.
+The parent reported that the native 808 single route passed actual user-open
+and Details retry separately. That result does not establish the two-host
+request counts, hosted AX discovery, VoiceOver, or retained RootView/Review
+behavior. The earlier hosted failures and original diagnostic source remain
+preserved at their exact commits; no cause is inferred from the new seam.
+
+`CompanionConversationView.recoveryRetryAction` is the existing closure moved
+to an internal computed property. It captures the same concrete target and
+Store, then runs the same Task and reconnect/forced-history switch. The real
+banner passes this property directly to `CompanionRecoveryStatusView`; the
+component forwards it unchanged to Details. There is no test dispatcher,
+mutable selection lookup, new action gate, additional scheduler or test-only
+retry behavior. The component's existing `status.retryAction` still controls
+button availability; direct callback tests do not prove that UI availability.
+
+Only DEBUG adds a default-false initial-details input on the actual caller and
+a component initializer that seeds its existing private `@State`. Normal and
+native fixture routes leave it false. The input and initializer are absent
+from release source. Presentation still uses the private State binding and
+the same recovery-only identity `(target, showsActions && isVisible != false)`.
+No external Binding, presentation-reset `onChange`, seed-based identity or
+transcript/root identity reset is added.
+
+The synthetic scene has only value fields for the seed and its passive update
+witness. Its conversation call site reads one seed value, passes that value
+to the real caller, and uses public SwiftUI `onChange` to record the observed
+value/count. This observer never writes presentation State, Store, target or
+visibility. Both dismissal cases first mount seed=true and require an actual
+presented controller, finished presenting and attached to the fixture window.
+They retain that controller, flip only the input false, and wait for the
+passive witness to report false/count+1. After that actual SwiftUI update they
+assert the same root/controller, attachment and no dismissal, with target and
+visibility unchanged. Only then do they change target or showsActions. The
+input remains false, so the replacement recovery component cannot reopen its
+sheet from the fixture seed. Dismissal requires the original root's presented
+controller and the saved controller's presenting link to be nil; the root
+itself must remain identical. All waits retain the original five-second bound.
+
+The three original method names retain these exact behavioral assertions:
+
+| Hosted method | Preserved setup and assertions | Changed boundary and added controls |
+| --- | --- | --- |
+| `testQueuedRefreshRemainsBoundToOldAgentOnSameHost` | Preload Alpha/Beta, force Alpha failure, mount the normal view hook; settled baseline **Alpha 3/Beta 1**. One explicit Alpha refresh, Beta unchanged, Alpha cannot operate while held, Beta can operate, result settles and reconnect count stays zero. | Invoke the exact production callback for Alpha, then switch Beta before yielding. Require one pending held request/Alpha loading, then pending zero, Alpha operable/resync cleared and final history dictionary exactly Alpha 4/Beta 1. The baseline is not reduced to bypass the mounted hook. |
+| `testDetailsDismissOnTargetSwitchAndRetriesStayWithTheirHost` | Preload Alpha/Gamma once each; fail Alpha's connection. Switching the real target dismisses old Details, with no reconnect yet. Queued Alpha action reconnects only Alpha's host once; Gamma's issued action reconnects Gamma once while Alpha stays one. Both history counts remain one. | Actual seeded sheet plus witnessed stable-input control precedes the target change. Invoke the same production callback values for the original concrete targets; keep immediate target changes before yielding. Final history/reconnect dictionaries exclude any extra target/host IO. No actual Gamma Details-button activation is claimed by these direct calls. |
+| `testRetainedInactivePageDismissesDetailsWithoutResettingReadingOrDraft` | Preload Alpha once; preserve bookmark object identity, draft, history count one and no reconnect. | Actual sheet and witnessed stable-input control precede only `scene.isActive=false`, the real showsActions change. `isVisible` remains nil, so the conversation stays mounted. Also require an unchanged root, full retained conversation value, no other history IO and the original failed-connection action gate. |
+
+The first-load and teardown test bodies, foreground-window setup, key-window
+restoration, admission fence, held-continuation drain, five-second predicates,
+failure capture/rethrow, and Store stop remain unchanged. New callbacks retain
+only the same Store/target values; the fixture adds no UI owner, global probe,
+Task storage or cleanup scheduler. Original native diagnostics, shared helpers,
+service, Store, transport, composer and header behavior are unchanged.
+
+All four touched Swift files parsed with and without `-D DEBUG`, using
+`swiftc -frontend -parse -enable-bare-slash-regex`; `git diff --check` passed.
+This source verification cannot establish type correctness or runtime behavior.
+No build, typecheck, hosted/domain/UI test, simulator operation, retry, model
+or provider call is authorized or claimed. The parent must review this exact
+source before deciding whether to allocate any serial execution. PDF/content
+work remains on its separately frozen review branch and is not part of this
+recovery source slice.

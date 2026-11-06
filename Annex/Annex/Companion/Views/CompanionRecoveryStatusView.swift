@@ -7,6 +7,16 @@ struct CompanionRecoveryStatusView: View {
     @State private var showsDetails = false
     @Environment(\.companionPalette) private var palette
 
+    #if DEBUG
+    /// Seed once when this component identity is created. Later input changes never control presentation.
+    init(status: CompanionRecoveryStatus, initiallyShowsDetails: Bool = false,
+         onRetry: @escaping (CompanionRecoveryStatus.RetryAction) -> Void) {
+        self.status = status
+        self.onRetry = onRetry
+        _showsDetails = State(initialValue: initiallyShowsDetails)
+    }
+    #endif
+
     var body: some View {
         if status.isVisible {
             ViewThatFits(in: .horizontal) {

@@ -76,6 +76,10 @@ import ClubhouseTransport
     let store: CompanionStore
     var target: CompanionTarget = CompanionRecoveryFixtureService.alpha
     var isActive: Bool = true
+    var initiallyShowsRecoveryDetails = false
+    /// Passive fixture witnesses; neither value controls the component's private presentation State.
+    var observedRecoveryDetailsSeed: Bool?
+    var recoveryDetailsSeedObservationCount = 0
     nonisolated deinit {}
 
     init() {
@@ -100,7 +104,13 @@ struct CompanionRecoveryFixtureConversation: View {
         NavigationStack {
             Group {
                 if let agent = scene.store.agent(for: scene.target) {
-                    CompanionConversationView(store: scene.store, agent: agent, showsActions: scene.isActive)
+                    let seed = scene.initiallyShowsRecoveryDetails
+                    CompanionConversationView(store: scene.store, agent: agent, showsActions: scene.isActive,
+                                              initiallyShowsRecoveryDetails: seed)
+                        .onChange(of: seed) { _, observed in
+                            scene.observedRecoveryDetailsSeed = observed
+                            scene.recoveryDetailsSeedObservationCount += 1
+                        }
                 }
             }
             .toolbar { if showsControls { ToolbarItem(placement: .topBarLeading) { controls } } }
