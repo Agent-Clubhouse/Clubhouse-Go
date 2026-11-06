@@ -229,3 +229,63 @@ same simulator/configuration. Export their original attachments and individual
 outcomes before selecting a fix or allocating native UI validation. This is
 a diagnostic proposal, not an executed run or runtime acceptance; hosted
 activation remains distinct from native touch/VoiceOver reachability.
+
+## Native single-attempt diagnostic nomination
+
+Exact combined source `0f7d8821a77e6aeaeca24f93f1daa3e9d066414b` passed
+Debug compilation; all three selected hosted methods failed once before
+activation. The nine original captures are indexed by git blob
+`d36d9bcf10dc8faaa6976aae3053704fc93ff032`. All three PNGs show the
+recovery row and its action controls. The queued ledger records calls 3,
+loading false, leaf false; both Details ledgers record connectionFailed and
+visible true. The depth-12 inventories contain only backing subviews with
+nil direct/protocol identifiers and no declared/container AX children. They
+do not establish a protocol/direct-ID mismatch or explain the original
+lookup, which has no depth limit. Native export and callback routing remain
+unproven; no product change follows from these artifacts alone.
+
+The earlier proposal to run an unchanged native method "once" meant one test
+invocation, but overlooked the shared helpers' three launch/gesture attempts.
+`CompanionRecoveryXCUIDiagnosticTests` is a new, dedicated single-route case:
+one explicit launch attempt and one attempt for each of its six gestures
+(two fixture menu selections, Details, Details retry). Existing shared
+helpers and native methods are unchanged. All original normal-route
+assertions, 10/5-second waits and 240-second allowance remain; the shared
+single-attempt gesture helper still has its original final two-second wait.
+There is no expected-failure launch loop at attempts 1. Successful-state
+screenshots are omitted in this diagnostic; it retains at most two evidence
+attachments on the first issue, rather than claiming a visual matrix.
+
+The local XCTest recording hook defers forwarding the exact original issue
+once, without rewriting it or changing continueAfterFailure=false. On a
+synchronous main-thread callback it uses runtime-checked MainActor entry,
+latches before capture, and retains the original app screenshot followed by
+public app.debugDescription. Recursive issues cannot start another capture.
+Unexpected non-main callbacks or unavailable app handles report incomplete
+capture and retain the original failure without dispatching or waiting.
+Hierarchy output is capped at 65,536 UTF-8 bytes including a truncation
+marker. The public SDK's hierarchy retrieval has no caller-supplied size or
+duration bound; the test's existing allowance still applies. Screenshot and
+hierarchy collection occur after failure and can change presentation timing;
+neither can rescue a failure or justify a later test lookup/action. No hook
+tap, refocus, private API or explicit wait is added.
+
+After source review and explicit allocation, parent should select exactly
+one invocation (test iterations 1, repetition/retry disabled) on the same
+375-point/iOS 26.0 simulator configuration:
+
+```sh
+xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
+  -destination 'platform=iOS Simulator,id=<parent-owned-simulator-UDID>' \
+  -derivedDataPath build/recovery-xcui-diagnostic/DerivedData \
+  -resultBundlePath build/recovery-xcui-diagnostic/SingleRoute.xcresult \
+  -only-testing:ClubhouseGoUITests/CompanionRecoveryXCUIDiagnosticTests/testSingleAttemptProgressFailureDetailsRetryAndRecovery \
+  -test-iterations 1 CODE_SIGNING_ALLOWED=NO test
+```
+
+Parent records the exact new combined head before execution, preserving both
+failed combined candidates. This route can establish native exported control
+and real tap reachability for progress → failure → Details retry → recovered.
+It does not establish VoiceOver traversal, two-target service request counts,
+the unresolved hosted discovery mechanism, or broad visual acceptance.
+This nomination has not been built or run locally.
