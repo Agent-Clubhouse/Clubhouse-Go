@@ -1,5 +1,51 @@
 import Foundation
 
+/// What Needs you cannot currently know. Cached requests from these desktops stay out of the action list.
+struct CompanionAttentionAvailability {
+    struct UnavailableHost: Identifiable, Equatable {
+        var id: String
+        var name: String
+        var title: String
+        var isConnecting: Bool
+        var retryHostID: String? { isConnecting ? nil : id }
+        static let detail = "Pending items are unknown until this desktop is ready."
+    }
+
+    var unavailableHosts: [UnavailableHost]
+    var emptyTitle: String
+    var emptyDetail: String
+    var emptySystemImage: String
+
+    init(hosts: [CompanionHost]) {
+        unavailableHosts = hosts.filter { !$0.connection.canOperate }.map { host in
+            let isConnecting: Bool
+            switch host.connection {
+            case .connecting, .reconnecting, .synchronizing: isConnecting = true
+            default: isConnecting = false
+            }
+            return .init(id: host.id, name: host.name, title: host.connection.sentence(hostName: host.name), isConnecting: isConnecting)
+        }
+        if hosts.isEmpty {
+            emptyTitle = "No desktops paired"
+            emptyDetail = "Pair a desktop to see what needs you."
+            emptySystemImage = "desktopcomputer"
+        } else if !unavailableHosts.isEmpty {
+            emptyTitle = "No requests to show"
+            emptyDetail = "Pending items may be missing while a desktop is unavailable."
+            emptySystemImage = "wifi.slash"
+        } else if hosts.contains(where: { !$0.hasLoadedCatalog }) {
+            emptyTitle = "No requests to show"
+            emptyDetail = "Desktop information is still loading. Pending items may be missing."
+            emptySystemImage = "arrow.triangle.2.circlepath"
+        } else {
+            emptyTitle = "All caught up"
+            emptySystemImage = "checkmark.circle"
+            let working = hosts.flatMap(\.allAgents).filter { $0.status == .working }.count
+            emptyDetail = working == 0 ? "Nothing is waiting on you." : "\(working) agents are working. They'll show up here when they need you."
+        }
+    }
+}
+
 /// One entry in Needs you: something an agent is waiting on, across every paired desktop.
 struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     enum Kind: Sendable, Equatable {

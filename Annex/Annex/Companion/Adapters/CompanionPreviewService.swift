@@ -79,6 +79,30 @@ import ClubhouseTransport
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
             }
             #if DEBUG
+            // Synthetic Needs you states; no desktop connection or commands are made by this preview service.
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-needs-you") {
+                let scenario = ProcessInfo.processInfo.environment["COMPANION_NEEDS_YOU_SCENARIO"] ?? "one-offline"
+                for index in hosts.indices {
+                    hosts[index].hasLoadedCatalog = true
+                    if scenario == "online-empty" || scenario == "all-unavailable" || scenario == "progress" {
+                        for project in hosts[index].projects.indices {
+                            for agent in hosts[index].projects[project].agents.indices {
+                                hosts[index].projects[project].agents[agent].status = .idle
+                            }
+                        }
+                    }
+                }
+                switch scenario {
+                case "online-empty": hosts[1].connection = .connected
+                case "all-unavailable": hosts[0].connection = .offline; hosts[1].connection = .failed("Preview connection lost")
+                case "progress": hosts[0].connection = .reconnecting; hosts[1].connection = .synchronizing
+                default: break
+                }
+                if !hosts[1].connection.canOperate {
+                    hosts[1].projects[0].agents[0].status = .approval
+                    hosts[1].projects[0].agents[0].name = "Cached offline request"
+                }
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") { hosts[0].canControlProvider = true }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
                let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
