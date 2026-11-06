@@ -1,9 +1,10 @@
 # Compact recovery integration plan
 
-Status: source-only plan. The recovery component's final copy review is pending;
-do not wire an earlier component revision or claim runtime validation. Header
-source is on PR #318; the standalone recovery presentation is on PR #323.
-The local shared Mac remains reserved by the parent.
+Status: source implementation authorized against exactly
+`d22b69bd6240b07fc223e988bb500c012e61b8ad` from PR #323, merged as an explicit
+dependency. Caller wiring is a separate commit on the main-based recovery
+integration branch. Header source remains separate on PR #318. Runtime/landing
+acceptance is pending; the local shared Mac remains reserved by the parent.
 
 ## Narrow caller change after clearance
 
