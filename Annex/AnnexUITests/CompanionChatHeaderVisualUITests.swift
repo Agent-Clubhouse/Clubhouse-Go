@@ -197,14 +197,19 @@ import XCTest
         ]
         var coverage: [String: [(CGFloat, CGFloat)]] = [:]
         var heights: [String: CGFloat] = [:]
-        func complete(_ id: String) -> Bool {
-            guard let height = heights[id], let spans = coverage[id]?.sorted(by: { $0.0 < $1.0 }), !spans.isEmpty else { return false }
+        var previousNameMinY: CGFloat?
+        func coveredPrefix(_ id: String) -> CGFloat {
+            guard let spans = coverage[id]?.sorted(by: { $0.0 < $1.0 }) else { return 0 }
             var end: CGFloat = 0
             for span in spans {
-                if span.0 > end { return false }
+                if span.0 > end { break }
                 end = max(end, span.1)
             }
-            return end >= height
+            return end
+        }
+        func complete(_ id: String) -> Bool {
+            guard let height = heights[id] else { return false }
+            return coveredPrefix(id) >= height
         }
         for step in 0...16 {
             guard let viewport = try assertEditingViewport(app, expanded: true, largeText: longName) else { throw HeaderGeometryFailure.invalid }
@@ -215,6 +220,7 @@ import XCTest
             let visible = scrolls.count == 1 ? viewport.intersection(scrolls.firstMatch.frame) : viewport
             XCTAssertTrue(finite(visible))
             guard finite(visible) else { throw HeaderGeometryFailure.invalid }
+            var frames: [String: CGRect] = [:]
             for (id, label) in expected {
                 let frame: CGRect
                 if id == "companion-header-level" {
@@ -228,11 +234,18 @@ import XCTest
                 guard finite(frame) else { throw HeaderGeometryFailure.invalid }
                 if let height = heights[id] { XCTAssertEqual(frame.height, height, "Metadata must not shrink while navigating") }
                 heights[id] = frame.height
+                frames[id] = frame
                 let slice = frame.intersection(visible)
                 if !slice.isNull && !slice.isEmpty && frame.minX >= visible.minX && frame.maxX <= visible.maxX {
                     coverage[id, default: []].append((max(0, slice.minY - frame.minY), min(frame.height, slice.maxY - frame.minY)))
                 }
             }
+            guard let nameFrame = frames["companion-chat-details-name"] else { throw HeaderGeometryFailure.invalid }
+            let displacement = previousNameMinY.map { $0 - nameFrame.minY }
+            let evidence = expected.map { id, _ in
+                "\(id): frame=\(String(describing: frames[id])), spans=\(coverage[id] ?? []), prefix=\(coveredPrefix(id))"
+            }.joined(separator: "; ")
+            XCTContext.runActivity(named: "Header metadata sample \(step): clip=\(visible), upward displacement=\(String(describing: displacement)); \(evidence)") { _ in }
             if expected.allSatisfy({ complete($0.0) }) {
                 // Natural fit has no gratuitous empty cap; scrolling content has a separate viewport.
                 if scrolls.count == 0 {
@@ -240,6 +253,17 @@ import XCTest
                     XCTAssertEqual(viewport.height, card.frame.height + 6, accuracy: 1)
                 }
                 return
+            }
+            for (id, _) in expected where !complete(id) {
+                guard let frame = frames[id] else { throw HeaderGeometryFailure.invalid }
+                guard frame.minY + coveredPrefix(id) >= visible.minY else {
+                    XCTFail("Upward metadata navigation skipped an unseen span: \(id), clip=\(visible); \(evidence)")
+                    throw HeaderGeometryFailure.invalid
+                }
+            }
+            if let previousNameMinY, nameFrame.minY >= previousNameMinY {
+                XCTFail("Metadata navigation made no forward progress: previous name y=\(previousNameMinY), current=\(nameFrame.minY); \(evidence)")
+                throw HeaderGeometryFailure.invalid
             }
             guard step < 16, scrolls.count == 1 else {
                 XCTFail("Full metadata was not traversable in the bounded details viewport: \(coverage)")
@@ -253,11 +277,16 @@ import XCTest
             let start = CGPoint(x: gesture.midX, y: gesture.maxY - 1)
             let end = CGPoint(x: gesture.midX, y: gesture.minY + 1)
             XCTAssertTrue(visible.contains(start) && visible.contains(end) && app.frame.contains(start) && app.frame.contains(end))
+            let distance = hypot(start.x - end.x, start.y - end.y)
+            let velocity = distance / 1.0 // Requested one-second traversal; delivered timing is runtime evidence.
+            guard velocity.isFinite, velocity > 0 else { throw HeaderGeometryFailure.invalid }
             let origin = app.coordinate(withNormalizedOffset: .zero)
             let from = origin.withOffset(CGVector(dx: start.x - app.frame.minX, dy: start.y - app.frame.minY))
             let to = origin.withOffset(CGVector(dx: end.x - app.frame.minX, dy: end.y - app.frame.minY))
-            XCTContext.runActivity(named: "Header details navigation \(step + 1): \(visible), \(start) → \(end)") { _ in
-                from.press(forDuration: 0.05, thenDragTo: to)
+            previousNameMinY = nameFrame.minY
+            XCTContext.runActivity(named: "Header details navigation \(step + 1): \(visible), \(start) → \(end), velocity=\(velocity), terminal contact hold=0.2") { _ in
+                from.press(forDuration: 0.05, thenDragTo: to,
+                           withVelocity: XCUIGestureVelocity(rawValue: velocity), thenHoldForDuration: 0.2)
             }
             capture(app, "metadata navigation \(step + 1), long name \(longName)")
             // No wait, focus gesture, or generic scroll helper repairs a failed post-navigation state.
