@@ -8,8 +8,101 @@ import XCTest
     private func fixture(_ app: XCUIApplication, _ action: String) {
         let button = app.buttons["recovery-fixture-\(action)"]
         waitAndTap(app.buttons["recovery-fixture-menu"], until: button, attempts: 1)
+        guard revealFixtureItem("recovery-fixture-\(action)", in: app) else { return }
         waitAndTap(button, untilGone: button, attempts: 1)
     }
+    private func finiteRect(_ frame: CGRect) -> Bool {
+        !frame.isNull && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite
+            && frame.maxX.isFinite && frame.maxY.isFinite && frame.width > 0 && frame.height > 0
+    }
+
+    /// Public menu ancestry supplies the clip; the collection's exported content frame can exceed it.
+    private func fixtureMenuGeometry(_ id: String, in app: XCUIApplication) -> (item: XCUIElement, menu: XCUIElement, clip: CGRect)? {
+        let items = app.buttons.matching(identifier: id)
+        let menus = app.collectionViews.containing(.button, identifier: id)
+        let mainWindow = app.windows.firstMatch.frame
+        let window = mainWindow.intersection(app.frame)
+        guard items.count == 1, menus.count == 1, app.collectionViews.count == 1,
+              finiteRect(mainWindow), finiteRect(app.frame), finiteRect(window) else {
+            XCTFail("A fixture action must have one item, one native menu and a finite main window")
+            return nil
+        }
+        let menu = menus.firstMatch
+        let menuFrame = menu.frame
+        guard finiteRect(menuFrame) else { XCTFail("The native menu must have finite geometry"); return nil }
+        // There is exactly one collection globally, so containing that type and this exact item identifies its ancestors.
+        let ancestors = app.otherElements.containing(.collectionView, identifier: nil).containing(.button, identifier: id)
+        let frames = ancestors.allElementsBoundByIndex.map(\.frame)
+        guard !frames.isEmpty, frames.allSatisfy({ finiteRect($0) && window.contains($0) }) else {
+            XCTFail("Every exported enclosing menu frame must be finite and inside the actual window")
+            return nil
+        }
+        let smallest = frames.filter { candidate in frames.allSatisfy { $0.contains(candidate) } }
+        guard let clip = smallest.first, smallest.allSatisfy({ $0 == clip }), clip != window,
+              clip.minX <= menuFrame.minX, clip.maxX >= menuFrame.maxX else {
+            XCTFail("Menu clipping ancestry must have one smallest frame; only equal duplicates are accepted")
+            return nil
+        }
+        return (items.firstMatch, menu, clip)
+    }
+
+    /// Scrollbar duplicates in the native AX tree may agree; divergent or missing tracks are never guessed.
+    private func fixtureMenuTrack(_ menu: XCUIElement, clip: CGRect, in app: XCUIApplication) -> CGRect? {
+        let bars = menu.descendants(matching: .other).matching(NSPredicate(format: "label BEGINSWITH %@", "Vertical scroll bar,"))
+        let frames = bars.allElementsBoundByIndex.map(\.frame)
+        guard let track = frames.first, finiteRect(track), clip.contains(track), frames.allSatisfy({ finiteRect($0) && $0 == track }) else {
+            XCTFail("Native menu navigation requires one finite consensus vertical track")
+            return nil
+        }
+        let interval = CGRect(x: clip.minX, y: track.minY, width: clip.width, height: track.height)
+        let viewport = interval.intersection(clip).intersection(app.windows.firstMatch.frame).intersection(app.frame)
+        guard finiteRect(viewport), viewport.width > 24, viewport.height > 26 else {
+            XCTFail("Native menu navigation requires a nonempty conservative track viewport")
+            return nil
+        }
+        return viewport
+    }
+
+    /// Zero to two content drags, followed by exactly the existing single checked item tap.
+    private func revealFixtureItem(_ id: String, in app: XCUIApplication) -> Bool {
+        for navigation in 0...2 {
+            guard let current = fixtureMenuGeometry(id, in: app) else { return false }
+            let target = current.item.frame
+            guard finiteRect(target) else { XCTFail("Fixture item must have a finite nonempty frame"); return false }
+            // The first visible row starts above the scrollbar track. Its actual clipping ancestor is authoritative.
+            if navigation == 0, current.clip.contains(target), current.item.isHittable { return true }
+            guard let viewport = fixtureMenuTrack(current.menu, clip: current.clip, in: app) else { return false }
+            if navigation > 0, current.clip.contains(target), viewport.contains(target), current.item.isHittable { return true }
+            guard navigation < 2, target.minX >= viewport.minX, target.maxX <= viewport.maxX,
+                  target.height <= viewport.height, !viewport.contains(target) else {
+                XCTFail("Fixture item must become wholly visible and hittable within two bounded content drags")
+                return false
+            }
+            let interior = viewport.insetBy(dx: 12, dy: 12)
+            let displacement = target.midY - viewport.midY
+            let distance = min(abs(displacement), interior.height - 2)
+            guard finiteRect(interior), distance.isFinite, distance > 0 else {
+                XCTFail("Fixture menu displacement must be finite and nonzero"); return false
+            }
+            let start = CGPoint(x: interior.midX, y: displacement > 0 ? interior.maxY - 1 : interior.minY + 1)
+            let end = CGPoint(x: start.x, y: start.y + (displacement > 0 ? -distance : distance))
+            let window = app.windows.firstMatch.frame.intersection(app.frame)
+            guard interior.contains(start), interior.contains(end), window.contains(start), window.contains(end) else {
+                XCTFail("Both menu-content gesture endpoints must remain inside the actual viewport")
+                return false
+            }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let from = origin.withOffset(CGVector(dx: start.x - app.frame.minX, dy: start.y - app.frame.minY))
+            let to = origin.withOffset(CGVector(dx: end.x - app.frame.minX, dy: end.y - app.frame.minY))
+            XCTContext.runActivity(named: "Fixture menu content drag \(navigation + 1)/2: clip \(current.clip), track \(viewport), item \(target), \(start) → \(end)") { _ in
+                from.press(forDuration: 0.05, thenDragTo: to)
+            }
+            // Re-query ancestry, track, item frame and hittability on the next bounded iteration; no wait or tap retry.
+        }
+        XCTFail("Fixture item was not resolved by bounded native menu navigation")
+        return false
+    }
+
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         launchApp(["--companion-preview", "--companion-preview-recovery-fixture"] + extra, attempts: 1)
     }

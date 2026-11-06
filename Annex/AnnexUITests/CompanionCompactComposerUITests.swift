@@ -14,10 +14,13 @@ import XCTest
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
         XCTAssertTrue(app.buttons["companion-model-menu"].exists)
         XCTAssertTrue(app.buttons["companion-effort-menu"].exists)
-        // Dismiss the menu through the field; then type through the actual editor.
+        // A menu can cover the editor: dismiss outside the whole native menu before one focus action.
+        guard dismissChatControls(app) else { return }
         composer.tap()
-        XCTAssertTrue(app.buttons["companion-permissions-menu"].waitForNonExistence(timeout: 5), "The first field tap dismisses the menu before the distinct focus tap")
-        composer.tap()
+        guard composer.debugDescription.contains("Keyboard Focused"), app.keyboards.count == 1 else {
+            XCTFail("The single editor tap must establish actual keyboard focus before typing")
+            return
+        }
         composer.typeText("Keep this draft")
         XCTAssertEqual(composer.value as? String, "Keep this draft")
         assertRow(app, working: false, state: "idle typed focused")
@@ -67,8 +70,12 @@ import XCTest
         XCTAssertTrue(app.staticTexts["Interrupt this turn?"].exists)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists,
                        "Preview errors should not appear while confirmation is open")
-        app.buttons["Cancel"].tap()
+        let imageCount = app.descendants(matching: .any).matching(identifier: "companion-attachment-thumbnail").count
+        capture(app, "Interrupt confirmation before native cancellation")
+        guard cancelInterruptConfirmation(app) else { return }
         XCTAssertEqual(composer.value as? String, direction)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "companion-attachment-thumbnail").count, imageCount)
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
         // The dialog can end editing. Refocus so this always exercises the real dismiss action.
         composer.tap()
         assertEnabledEditingRow(app, working: true)
@@ -80,6 +87,130 @@ import XCTest
         XCTAssertFalse(composer.debugDescription.contains("Keyboard Focused"))
         XCTAssertTrue(element(app, "companion-attachment-thumbnail").exists, "Dismissal keeps the image draft")
         assertRow(app, working: true, state: "working typed unfocused", stacked: largestText)
+    }
+
+    private func capture(_ app: XCUIApplication, _ state: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "Compact composer \(state)"; shot.lifetime = .keepAlways; add(shot)
+    }
+
+    private func finiteRect(_ frame: CGRect) -> Bool {
+        !frame.isNull && !frame.isInfinite && frame.minX.isFinite && frame.minY.isFinite
+            && frame.maxX.isFinite && frame.maxY.isFinite && frame.width > 0 && frame.height > 0
+    }
+
+    /// Keys alone omit the predictive/accessory row. All exported visible input surfaces constrain the bottom.
+    private func unobscuredViewport(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect? {
+        let mainWindow = app.windows.firstMatch.frame
+        let window = mainWindow.intersection(app.frame)
+        let navigation = app.navigationBars.firstMatch
+        guard finiteRect(mainWindow), finiteRect(app.frame), finiteRect(window),
+              navigation.exists, finiteRect(navigation.frame), window.intersects(navigation.frame),
+              app.tabBars.count <= 1, app.keyboards.count <= 1, !requiresKeyboard || app.keyboards.count == 1 else {
+            XCTFail("A finite main window/navigation and unambiguous keyboard are required")
+            return nil
+        }
+        var bottom = window.maxY
+        if app.tabBars.firstMatch.exists {
+            let tab = app.tabBars.firstMatch.frame.intersection(window)
+            guard finiteRect(tab) else { XCTFail("The visible tab bar must have a finite frame"); return nil }
+            bottom = min(bottom, tab.minY)
+        }
+        let inputSurfaces = app.keyboards.allElementsBoundByIndex
+            + app.otherElements.matching(NSPredicate(format: "identifier IN %@", ["inputView", "SystemInputAssistantView"])).allElementsBoundByIndex
+        for surface in inputSurfaces {
+            let frame = surface.frame
+            guard finiteRect(frame) else { XCTFail("An exported input surface has invalid geometry"); return nil }
+            let visible = frame.intersection(window)
+            if finiteRect(visible) { bottom = min(bottom, visible.minY) }
+        }
+        let top = max(window.minY, navigation.frame.maxY)
+        let viewport = CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
+        guard finiteRect(viewport) else { XCTFail("The navigation-to-input viewport must be nonempty"); return nil }
+        return viewport
+    }
+
+    /// One point on a proved side of an exclusion, never a guessed editor/menu coordinate.
+    private func outsidePoint(in bounds: CGRect, excluding exclusion: CGRect) -> CGPoint? {
+        guard finiteRect(bounds), finiteRect(exclusion) else { return nil }
+        let overlap = bounds.intersection(exclusion)
+        guard finiteRect(overlap) else { return nil }
+        let sides = [
+            CGRect(x: bounds.minX, y: bounds.minY, width: overlap.minX - bounds.minX, height: bounds.height),
+            CGRect(x: overlap.maxX, y: bounds.minY, width: bounds.maxX - overlap.maxX, height: bounds.height),
+            CGRect(x: bounds.minX, y: bounds.minY, width: bounds.width, height: overlap.minY - bounds.minY),
+            CGRect(x: bounds.minX, y: overlap.maxY, width: bounds.width, height: bounds.maxY - overlap.maxY)
+        ].filter { finiteRect($0) && $0.width > 24 && $0.height > 24 }
+        guard let side = sides.max(by: { $0.width * $0.height < $1.width * $1.height }) else { return nil }
+        let interior = side.insetBy(dx: 12, dy: 12)
+        let point = CGPoint(x: interior.midX, y: interior.midY)
+        guard finiteRect(interior), bounds.contains(point), !exclusion.contains(point) else { return nil }
+        return point
+    }
+
+    private func tap(_ point: CGPoint, in app: XCUIApplication, named name: String) {
+        XCTContext.runActivity(named: "\(name): \(point)") { _ in
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: point.x - app.frame.minX, dy: point.y - app.frame.minY)).tap()
+        }
+    }
+
+    private func dismissChatControls(_ app: XCUIApplication) -> Bool {
+        let menus = app.collectionViews.containing(.button, identifier: "companion-permissions-menu")
+        guard menus.count == 1, app.collectionViews.count == 1,
+              let viewport = unobscuredViewport(app) else {
+            XCTFail("Chat controls must expose exactly one native menu before dismissal")
+            return false
+        }
+        let menuFrame = menus.firstMatch.frame
+        guard finiteRect(menuFrame) else { XCTFail("The native menu must have a finite frame"); return false }
+        let menu = menuFrame.intersection(app.windows.firstMatch.frame)
+        guard let point = outsidePoint(in: viewport, excluding: menu) else {
+            XCTFail("No finite outside-menu side is available for a single dismissal tap")
+            return false
+        }
+        tap(point, in: app, named: "Dismiss chat controls outside native menu \(menu)")
+        let ids = ["companion-permissions-menu", "companion-model-menu", "companion-effort-menu"]
+            + ["full_access", "auto", "auto_edit", "ask", "plan"].map { "companion-level-\($0)" }
+        let closed = waitFor(app, NSPredicate { _, _ in
+            app.collectionViews.count == 0 && app.buttons.matching(NSPredicate(format: "identifier IN %@", ids)).count == 0
+        }, timeout: 5)
+        XCTAssertTrue(closed, "The native collection, parent triggers and every permission choice must disappear before focus")
+        guard closed else { return false }
+        capture(app, "idle menu dismissed before single focus tap")
+        return true
+    }
+
+    private func cancelInterruptConfirmation(_ app: XCUIApplication) -> Bool {
+        let cancel = app.buttons.matching(identifier: "Cancel")
+        if cancel.count > 0 {
+            guard cancel.count == 1, cancel.firstMatch.isHittable else {
+                XCTFail("Native Cancel must be unique and hittable"); return false
+            }
+            cancel.firstMatch.tap()
+        } else {
+            let popovers = app.popovers.containing(.staticText, identifier: "Interrupt this turn?")
+            let regions = app.otherElements.matching(identifier: "PopoverDismissRegion")
+            guard popovers.count == 1, regions.count == 1,
+                  popovers.firstMatch.buttons["Interrupt turn"].exists,
+                  let viewport = unobscuredViewport(app) else {
+                XCTFail("Native confirmation must expose one expected popover and public dismiss region")
+                return false
+            }
+            let region = regions.firstMatch.frame
+            let popover = popovers.firstMatch.frame
+            guard finiteRect(region), finiteRect(popover),
+                  let point = outsidePoint(in: region.intersection(viewport), excluding: popover),
+                  region.contains(point), !popover.contains(point) else {
+                XCTFail("No safe native popover dismissal side is available"); return false
+            }
+            tap(point, in: app, named: "Cancel through native dismiss region outside popover \(popover)")
+        }
+        let closed = waitFor(app, NSPredicate { _, _ in
+            !app.staticTexts["Interrupt this turn?"].exists && !app.buttons["Interrupt turn"].exists
+        }, timeout: 5)
+        XCTAssertTrue(closed, "Native cancellation must remove confirmation title and destructive action before draft checks")
+        return closed
     }
 
     private func reviewApprovalWithoutAnswering(_ app: XCUIApplication, editing: Bool) {
@@ -107,8 +238,8 @@ import XCTest
             XCTAssertGreaterThanOrEqual(decision.frame.minX, app.frame.minX)
             XCTAssertLessThanOrEqual(decision.frame.maxX, app.frame.maxX)
             XCTAssertGreaterThanOrEqual(decision.frame.minY, app.navigationBars.firstMatch.frame.maxY)
-            let bottom = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
-            XCTAssertLessThanOrEqual(decision.frame.maxY, bottom)
+            guard let viewport = unobscuredViewport(app) else { return }
+            XCTAssertLessThanOrEqual(decision.frame.maxY, viewport.maxY)
         }
         // Close is presentation-only; source review separately verifies that only explicit decisions dispatch.
         close.tap()
@@ -172,9 +303,9 @@ import XCTest
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), file: file, line: line)
         let header = element(app, "companion-chat-header")
-        let top = max(app.frame.minY, app.navigationBars.firstMatch.frame.maxY, header.exists ? header.frame.maxY : app.frame.minY)
-        let bottom = min(app.frame.maxY, keyboard.frame.minY)
-        let unobscured = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
+        guard let viewport = unobscuredViewport(app, requiresKeyboard: true) else { return }
+        let top = max(viewport.minY, header.exists ? header.frame.maxY : viewport.minY)
+        let unobscured = CGRect(x: viewport.minX, y: top, width: viewport.width, height: max(0, viewport.maxY - top))
         XCTAssertGreaterThan(unobscured.height, 0, file: file, line: line)
         var targets = [app.buttons["companion-level-menu"], app.buttons["companion-send"], element(app, "companion-composer")]
         if working {
