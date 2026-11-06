@@ -114,7 +114,7 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
     @Test func pathsOutsideTheAgentsFoldersAreRefusedWithAReason() async {
         let (store, service) = store(rich: true)
         let error = await message { _ = try await store.content(.file("/tmp/apple-shot/apple.png"), target: target) }
-        #expect(error?.contains("outside the agent's folders") == true)
+        #expect(error?.contains("This conversation can't preview that file") == true)
         #expect(service.fetched.isEmpty)
     }
 
@@ -136,7 +136,7 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite @MainActor struct CompanionContentErrorMessageTests {
     @Test func desktopRefusalsBecomeSpecificMessages() {
         let missingFile = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .file("a.txt"), hostName: "Studio Mac")
-        #expect(missingFile.contains("Studio Mac") && missingFile.contains("agent's folders"))
+        #expect(missingFile.contains("Studio Mac") && missingFile.contains("can't read it"))
         let missingImage = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .image(mediaRef), hostName: "Studio Mac")
         #expect(missingImage.contains("image") && missingImage.contains("Studio Mac"))
         let agentGone = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "agent_not_found"), reference: .file("a.txt"), hostName: "Studio Mac")

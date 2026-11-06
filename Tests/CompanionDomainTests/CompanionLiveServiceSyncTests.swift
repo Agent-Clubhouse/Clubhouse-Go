@@ -324,7 +324,7 @@ import Testing
             await harness.transport.setRead("chatContent", value)
             return await serviceErrorText { _ = try await harness.service.content(.file("a.bin"), target: harness.target) }
         }
-        #expect(await preview(.object(["kind": .string("hologram"), "name": .string("a.bin")])) == unreadable)
+        #expect(await preview(.object(["kind": .string("hologram"), "name": .string("a.bin")])) == nil, "Unknown kinds keep a generic file preview")
         #expect(await preview(.object(["kind": .string("other")])) == unreadable)
         #expect(await preview(.object(["kind": .string("other"), "name": .string("a.bin"), "base64": .string("not base64!")])) == unreadable)
         #expect(await preview(.object(["kind": .string("other"), "name": .string("a.bin"),
@@ -349,7 +349,7 @@ import Testing
         #expect(await refused(.rejected(status: 404, code: "agent_not_found"), .file("a.txt")) == "This agent is no longer on Fixture.")
         #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image is no longer available on Fixture.")
         #expect(await refused(.rejected(status: 404, code: nil), .file("a.txt"))
-                == "Fixture couldn't share this file. It may have moved, or be outside the agent's folders.")
+                == "Fixture couldn't share this file. It may have moved, or this desktop can't read it.")
         #expect(await refused(.responseTooLarge, .file("a.txt")) == "This file is too large to preview on your phone. Open it on Fixture.")
         #expect(await refused(.rateLimited(code: nil, retryAfterSeconds: 3), .file("a.txt")) == "The desktop is busy. Try again in a moment.")
     }
