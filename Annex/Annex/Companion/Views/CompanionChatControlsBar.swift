@@ -25,7 +25,7 @@ struct CompanionChatControlsBar: View, Equatable {
                     if let label = controls.modelLabel { modelMenu(label) }
                     if controls.showsEffortChip { effortMenu }
                 } label: {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: "slider.horizontal.3").font(.system(size: 20))
                 }
                 .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
                 .frame(minWidth: 44, minHeight: 44)

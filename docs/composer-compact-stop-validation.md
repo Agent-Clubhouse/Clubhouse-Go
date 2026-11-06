@@ -32,6 +32,29 @@ the 36pt icon frame inside a minimum 44×44 label/content shape shared by the
 picker and preview button. Cache, upload, picker and attachment state behavior
 are unchanged.
 
+The parent then reviewed actual full normal/AXXXL video frames and authorized
+an adaptive successor: at accessibility sizes the retained editor has its own
+full-width line above a 44pt action rail. `AnyLayout` changes layout by text
+size only; the field is declared once and its binding, selection, native hook
+and focus callbacks stay intact. While editing, one large-text line is visible
+and the native field scrolls to its caret, retaining the entire multiline draft
+and its normal Dynamic Type font. The 76pt attachment strip stays present.
+Icon-only glyphs are bounded inside full targets; textual labels are not capped.
+One authorized line bounds the compact slider Image in
+`CompanionChatControlsBar.swift`, without affecting menu text.
+
+At accessibility sizes the direct pinned approval row becomes a prominent
+warning hand in that rail, with a visible pending exclamation badge. Its full
+accessible name identifies “Review approval”, the actual title and current
+queue position. Opening it changes only sheet presentation state. A scrollable
+sheet reuses `CompanionApprovalCard` with the current live request, exact
+wording/options, expiry/resolution state, capability/connection/pending gates
+and existing persistent-permission confirmation rules. Operation errors remain
+visible there; Close only clears presentation state. Ordinary-size direct
+Deny/Allow once actions remain unchanged. This progressive disclosure was
+explicitly chosen by the parent to avoid oversized approval buttons consuming
+the narrow keyboard region.
+
 ## Dedicated cases and serial validation plan
 
 `CompanionCompactComposerUITests` covers:
@@ -43,6 +66,15 @@ are unchanged.
   Interrupt opens confirmation without sending or losing the draft.
 - Largest accessibility text: the same working attachment/dismissal row fits
   the window and retains reachable settings, Interrupt and Send.
+
+The adaptive successor adds pending trigger title/queue naming, discover/open/
+full-action reachability/Close checks without pressing an approval decision,
+text+image draft retention, keyboard context after closing review, and a
+multiline draft. Geometry checks require the editor above the action rail at
+accessibility sizes, at least 70% of window width, with enabled targets fully
+inside the region below the actual navigation/header and above the keyboard.
+Screenshots precede row assertions and capture full approval actions after
+scrolling. No timeout or retry policy was changed.
 
 Before serial allocation: Swift frontend parse of changed Swift files and
 `git diff --check` only. No build, simulator, physical-device or live commands.
@@ -116,10 +148,19 @@ dismissal for hittability and full unobscured app/keyboard bounds. It invokes
 dismissal and checks keyboard/focus exit with text and image draft retained.
 Existing empty Send semantics, test timeouts and retry policy remain intact.
 
-Successor validation is source-only: `swiftc -frontend -parse` passed for all
-five changed Swift files and `git diff --check` passed. No successor runtime
+The target/test successor at `95e1e599` and the subsequent adaptive successor
+have source-only validation: `swiftc -frontend -parse` passed for all six changed
+Swift files and `git diff --check` passed. No successor runtime
 execution is authorized until allocated. Native editor identity through status
 changes remains source-reviewed only. Missing preview errors are UI evidence,
 not a transport spy: the reviewed Interrupt action only opens confirmation;
 the unchanged parent dialog calls the store command only on explicit confirm.
 No physical-device or live commands/tests were run.
+
+No full accessibility usability claim follows from a 44pt AX frame. The
+predecessor clips large approval decisions and squeezes the field in the actual
+AXXXL frame. The adaptive successor needs allocated combined approval + image
++ multiline draft + keyboard screenshots and action checks. The old large
+header may still consume space; its separately owned compact replacement must
+also be assessed in the parent's final combined matrix. This work does not
+modify or rebase the header, or overwrite the newly merged #312 focus probes.

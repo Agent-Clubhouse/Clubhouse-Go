@@ -47,7 +47,7 @@ struct CompanionAttachButton: View {
 
     private var icon: some View {
         Group {
-            if processing { ProgressView() } else { Image(systemName: "photo.badge.plus").font(.title3) }
+            if processing { ProgressView() } else { Image(systemName: "photo.badge.plus").font(.system(size: 22)) }
         }
         .frame(width: 36, height: 36)
         // Both PhotosPicker and the preview button use this label as their interaction region.

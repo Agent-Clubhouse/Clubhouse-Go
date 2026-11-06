@@ -39,18 +39,27 @@ import XCTest
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer)
         XCTAssertFalse(app.buttons["companion-send"].isEnabled, "An empty draft cannot steer")
-        assertRow(app, working: true, state: "working empty unfocused")
-        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned")
+        assertRow(app, working: true, state: "working empty unfocused", stacked: largestText)
+        if largestText {
+            reviewApprovalWithoutAnswering(app, editing: false)
+        } else {
+            XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned")
+        }
         waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"))
         XCTAssertTrue(app.buttons["companion-send"].isEnabled, "An image-only draft can steer")
-        assertRow(app, working: true, state: "working image-only unfocused")
+        assertRow(app, working: true, state: "working image-only unfocused", stacked: largestText)
         composer.tap()
-        composer.typeText("Keep this direction")
-        XCTAssertEqual(composer.value as? String, "Keep this direction")
+        let direction = largestText ? "Keep this direction\nAnd this detail" : "Keep this direction"
+        composer.typeText(direction)
+        XCTAssertEqual(composer.value as? String, direction)
         XCTAssertTrue(app.buttons["companion-send"].isEnabled)
         XCTAssertTrue(app.buttons["companion-dismiss-keyboard"].exists)
-        assertRow(app, working: true, state: "working typed focused")
+        assertRow(app, working: true, state: "working typed focused", stacked: largestText)
         assertEnabledEditingRow(app, working: true)
+        if largestText {
+            reviewApprovalWithoutAnswering(app, editing: true)
+            assertEnabledEditingRow(app, working: true)
+        }
         XCTAssertFalse(app.staticTexts["Your direction will be sent to the running agent."].exists)
         let interrupt = app.buttons["companion-interrupt"]
         waitAndTap(interrupt, until: app.buttons["Interrupt turn"])
@@ -58,7 +67,7 @@ import XCTest
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists,
                        "Preview errors should not appear while confirmation is open")
         app.buttons["Cancel"].tap()
-        XCTAssertEqual(composer.value as? String, "Keep this direction")
+        XCTAssertEqual(composer.value as? String, direction)
         // The dialog can end editing. Refocus so this always exercises the real dismiss action.
         composer.tap()
         assertEnabledEditingRow(app, working: true)
@@ -66,13 +75,54 @@ import XCTest
         dismiss.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         XCTAssertTrue(dismiss.waitForNonExistence(timeout: 5), "The assistive action leaves editing")
-        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "Keep this direction"), timeout: 5))
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", direction), timeout: 5))
         XCTAssertFalse(composer.debugDescription.contains("Keyboard Focused"))
         XCTAssertTrue(element(app, "companion-attachment-thumbnail").exists, "Dismissal keeps the image draft")
-        assertRow(app, working: true, state: "working typed unfocused")
+        assertRow(app, working: true, state: "working typed unfocused", stacked: largestText)
     }
 
-    private func assertRow(_ app: XCUIApplication, working: Bool, state: String,
+    private func reviewApprovalWithoutAnswering(_ app: XCUIApplication, editing: Bool) {
+        let composer = element(app, "companion-composer")
+        let originalDraft = composer.value as? String
+        let imageCount = app.descendants(matching: .any).matching(identifier: "companion-attachment-thumbnail").count
+        let trigger = app.buttons["companion-review-approval"]
+        XCTAssertEqual(trigger.label, "Review approval: Run xcodebuild, 1 of 2")
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(trigger, until: close)
+        let review = app.scrollViews["companion-approval-review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        let title = review.descendants(matching: .any).matching(identifier: "companion-approval-title").firstMatch
+        XCTAssertTrue(title.label.contains("Run xcodebuild"))
+        let position = review.descendants(matching: .any).matching(identifier: "companion-approval-position").firstMatch
+        XCTAssertEqual(position.label, "Request 1 of 2")
+        XCTAssertTrue(review.staticTexts["Build the iOS application to verify the updated conversation layout."].exists)
+        for label in ["Allow once", "Deny"] {
+            let decision = review.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+            XCTAssertTrue(scrollTo(decision, in: app, maxSwipes: 8))
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "Approval review \(label), editing=\(editing)"; shot.lifetime = .keepAlways; add(shot)
+            XCTAssertTrue(decision.isEnabled && decision.isHittable, label)
+            XCTAssertGreaterThanOrEqual(decision.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(decision.frame.height, 44)
+            XCTAssertGreaterThanOrEqual(decision.frame.minX, app.frame.minX)
+            XCTAssertLessThanOrEqual(decision.frame.maxX, app.frame.maxX)
+            XCTAssertGreaterThanOrEqual(decision.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+            let bottom = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            XCTAssertLessThanOrEqual(decision.frame.maxY, bottom)
+        }
+        // Close is presentation-only; source review separately verifies that only explicit decisions dispatch.
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(composer.value as? String, originalDraft)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "companion-attachment-thumbnail").count, imageCount)
+        XCTAssertEqual(trigger.label, "Review approval: Run xcodebuild, 1 of 2", "The approval remains pending after closing review")
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
+        if editing {
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Closing review retains the keyboard editing context")
+        }
+    }
+
+    private func assertRow(_ app: XCUIApplication, working: Bool, state: String, stacked: Bool = false,
                            file: StaticString = #filePath, line: UInt = #line) {
         // Capture the unmodified screen before geometry checks so a failure retains its actual row.
         let shot = XCTAttachment(screenshot: app.screenshot())
@@ -98,7 +148,16 @@ import XCTest
             XCTAssertGreaterThanOrEqual(attach.frame.width, 44, state, file: file, line: line)
             XCTAssertGreaterThanOrEqual(attach.frame.height, 44, state, file: file, line: line)
             XCTAssertGreaterThanOrEqual(composer.frame.width, 44, "The editor retains usable width: \(state)", file: file, line: line)
-            XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
+            if stacked {
+                XCTAssertGreaterThanOrEqual(composer.frame.width, app.frame.width * 0.7, "Large-text draft keeps readable width", file: file, line: line)
+                XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, state, file: file, line: line)
+                let review = app.buttons["companion-review-approval"]
+                XCTAssertTrue(review.isHittable, state, file: file, line: line)
+                XCTAssertGreaterThanOrEqual(review.frame.width, 44, state, file: file, line: line)
+                XCTAssertGreaterThanOrEqual(review.frame.height, 44, state, file: file, line: line)
+            } else {
+                XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
+            }
             XCTAssertLessThanOrEqual(interrupt.frame.maxX, send.frame.minX, state, file: file, line: line)
             XCTAssertLessThanOrEqual(send.frame.minX - interrupt.frame.maxX, 16, state, file: file, line: line)
             XCTAssertTrue(interrupt.isHittable, state, file: file, line: line)
@@ -112,7 +171,8 @@ import XCTest
                                          file: StaticString = #filePath, line: UInt = #line) {
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), file: file, line: line)
-        let top = max(app.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        let header = element(app, "companion-chat-header")
+        let top = max(app.frame.minY, app.navigationBars.firstMatch.frame.maxY, header.exists ? header.frame.maxY : app.frame.minY)
         let bottom = min(app.frame.maxY, keyboard.frame.minY)
         let unobscured = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
         XCTAssertGreaterThan(unobscured.height, 0, file: file, line: line)
@@ -122,6 +182,8 @@ import XCTest
             XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44, file: file, line: line)
             XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44, file: file, line: line)
             targets += [app.buttons["companion-interrupt"], app.buttons["companion-attach"], dismiss]
+            let review = app.buttons["companion-review-approval"]
+            if review.exists { targets.append(review) }
         }
         for target in targets {
             XCTAssertTrue(target.isEnabled && target.isHittable, target.identifier, file: file, line: line)
