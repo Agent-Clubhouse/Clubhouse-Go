@@ -77,11 +77,9 @@ struct CompanionConversationView: View {
 
     private var content: some View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
-        // The bottom bar reserves its real size before this boundary observes the safe region.
-        // This boundary stays mounted while disclosure/focus/status changes.
-        GeometryReader { geometry in
-        let headerRegion = CompanionConversationHeaderRegion(geometry: geometry)
-        VStack(spacing: 0) {
+        // Build the transcript outside the geometry callback: native editor layout can reevaluate
+        // that callback without changing conversation data. Header measurement still uses its live geometry.
+        let conversationContent = VStack(spacing: 0) {
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             connectionBanner
             if store.hasPendingProviderAction(target) {
@@ -110,6 +108,11 @@ struct CompanionConversationView: View {
             }
         }
         .companionBackground()
+        // The bottom bar reserves its real size before this boundary observes the safe region.
+        // This boundary stays mounted while disclosure/focus/status changes.
+        return GeometryReader { geometry in
+        let headerRegion = CompanionConversationHeaderRegion(geometry: geometry)
+        conversationContent
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) {
             CompanionConversationHeaderBarLayout(
