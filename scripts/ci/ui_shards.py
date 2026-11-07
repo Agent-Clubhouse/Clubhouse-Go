@@ -22,6 +22,7 @@ SHARDS = [
         # Mixed-run worst observed attempts: ~31 minutes, including content-preview retries.
         "name": "UI tests (preview)",
         "tests": [
+            "CompanionChatHeaderVisualUITests",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetLinksToAgentSettings",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetForAnAgentWithoutSession",
@@ -50,6 +51,8 @@ SHARDS = [
         # including retries. Separate them from reading/input's projected 28–31.
         "name": "UI tests (dispatcher, auto quota)",
         "tests": [
+            "CompanionRecoveryIntegrationUITests",
+            "CompanionRecoveryXCUIDiagnosticTests",
             "CompanionDispatcherUITests",
             "CompanionAutoQuotaUITests",
         ],
@@ -58,6 +61,7 @@ SHARDS = [
         # ~28 minutes in main; ~36 using each method's slowest observed attempt total.
         "name": "UI tests (reading, input)",
         "tests": [
+            "CompanionReadingRestoreUITests",
             "CompanionReadingUITests",
             "CompanionMarkdownBlockUITests",
             "CompanionSlashCommandUITests",
@@ -74,13 +78,25 @@ SHARDS = [
         # The CLI settings retry moves here; content-preview retries share the preview lane.
         "name": "UI tests (agents, keyboard)",
         "tests": [
+            "CompanionCompactComposerUITests",
             "CompanionAgentTreeUITests",
             "CompanionKeyboardDismissalUITests",
             "CompanionPreviewSmokeTests/testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection",
         ],
     },
     {
-        # Remaining preview/diagnostics and new UI classes: ~31 mixed-worst minutes.
+        # Run42323580352 recorded 872.735s of completed attempts in these three
+        # classes before the catchall hit its55-minute limit; unfinished work is additional.
+        # Separate the existing classes without changing methods, deadlines or retries.
+        "name": "UI tests (feedback, shake)",
+        "tests": [
+            "FeedbackDiagnosticsWireUITests",
+            "FramebriarShakeDiagnosticsUITests",
+            "FramebriarShakeUITests",
+        ],
+    },
+    {
+        # Remaining preview/diagnostics and new UI classes. Header/composer and restore/recovery run above.
         # Live-test guards and all existing skip behavior remain as before.
         "name": "UI tests (other)",
         "tests": None,

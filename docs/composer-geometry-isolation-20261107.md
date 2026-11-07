@@ -1,0 +1,11 @@
+# Composer isolation correction
+
+Parent: 956599cb938df7cae4aad72ae1ac2b1a416b1831 (#328). Ordinary CI 42323580352 on iPhone 17 / iOS 26.5 (23F77) failed CompanionComposerIsolationTests.testNativeEditsDoNotRebuildTheTranscriptButStreamingStillDoes at its unchanged timeline count == 0 predicate: 11, 10, 10 across three inherited attempts. No outer-body count failure was reported. The two other hosted composer isolation methods passed. These remain failed-parent evidence, not acceptance of this correction.
+
+The header integration placed transcript construction inside GeometryReader's content callback. That callback can be evaluated during geometry/layout updates independently of the enclosing view body. This matches the observed body-versus-timeline distinction but does not, from source alone, establish which individual native update triggered each evaluation.
+
+The correction constructs the existing conversation VStack and its background once when the enclosing content value is built, then captures that value in the same GeometryReader. The header region and top safe-area bar still use the current geometry inside that callback. The bottom safe-area bar remains outside it and reserves space first. No extra view wrapper, type erasure, equality suppression, state/cache, owner, or observation bypass is added. Conversation/stream changes still rebuild the enclosing content normally. The existing structure, IDs, modifiers, header calculations, layout proposals, rows, gestures, focus/draft actions, and controls remain in the same order.
+
+All tests, probes, zero thresholds, streaming-positive assertion, input identity/focus checks, policy and capture maps remain byte-identical. No sleep, settling change, retry or test exclusion. DEBUG/release frontend parsing and diff checks pass; SDK/runtime success remains unproven.
+
+Affected validation: exact-head Debug and existing ownership gate, then the existing three hosted ComposerIsolation methods once. The strict zero-edit/positive-stream predicate is mandatory. Ordinary exact-head iOS 26.5 CI remains necessary, including header disclosure/keyboard and reading/scroll flows because the geometry closure boundary changed. Reuse qualified unchanged parent evidence only as such; no blanket parent or retry acceptance.

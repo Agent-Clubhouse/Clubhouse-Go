@@ -143,6 +143,19 @@ enum CompanionAssistantNavigation {
     var restoreOffset: Double?
     var restoration: CompanionReadingRestoration?
     var preserveBookmarkUntilUserAction = false
+    #if DEBUG
+    nonisolated static let recordsGeometry: Bool = ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing")
+    private var debugSequence: Int = 0
+    var debugGeometry: (sequence: Int, at: TimeInterval, content: CGSize, rawY: Double, top: Double, bottom: Double, container: CGSize, visible: CGRect)?
+    var debugPreference: (sequence: Int, at: TimeInterval, size: CGSize?)?
+    var debugContentGlobal: (sequence: Int, at: TimeInterval, frame: CGRect)?
+    var debugScrollGlobal: (sequence: Int, at: TimeInterval, frame: CGRect)?
+    /// One bounded latest sample per owner. Ordering is not an atomic layout-pass guarantee.
+    func debugStamp() -> (Int, TimeInterval) {
+        debugSequence += 1
+        return (debugSequence, ProcessInfo.processInfo.systemUptime)
+    }
+    #endif
 
     func finishRestoration(_ outcome: CompanionReadingRestoration.Outcome, now: TimeInterval = ProcessInfo.processInfo.systemUptime) {
         guard var value = restoration, value.outcome == nil else {
@@ -175,6 +188,13 @@ enum CompanionAssistantNavigation {
         restoreOffset = nil
         restoration = nil
         preserveBookmarkUntilUserAction = false
+        #if DEBUG
+        debugSequence = 0
+        debugGeometry = nil
+        debugPreference = nil
+        debugContentGlobal = nil
+        debugScrollGlobal = nil
+        #endif
     }
 }
 
@@ -191,6 +211,25 @@ struct CompanionReadingRestoration {
     private(set) var offset: Double?
     private(set) var attempts = 0
     var outcome: Outcome?
+    #if DEBUG
+    /// The last recorded branch and the operands it read.
+    /// A deadline leaves these unchanged; they are not the complete history or final exhaustion cause.
+    enum Hold: String { case noMetrics, heights, noTarget, scroll, attempts }
+    struct Operands {
+        var offset: Double, maximum: Double, content: Double, frameContent: Double
+        var rawOffset: Double, topInset: Double, bottomInset: Double, container: Double
+    }
+    private(set) var lastHold: Hold?
+    private(set) var lastOperands: Operands?
+    private mutating func hold(_ hold: Hold, _ metrics: CompanionScrollMetrics?, _ frameContentHeight: Double?) {
+        lastHold = hold
+        let recordsGeometry = CompanionReadingViewport.recordsGeometry
+        lastOperands = .init(offset: metrics?.normalizedOffset ?? -1, maximum: metrics?.maximumOffset ?? -1,
+                             content: metrics?.contentHeight ?? -1, frameContent: frameContentHeight ?? -1,
+                             rawOffset: recordsGeometry ? (metrics?.offset ?? -1) : -1, topInset: recordsGeometry ? (metrics?.topInset ?? -1) : -1,
+                             bottomInset: recordsGeometry ? (metrics?.bottomInset ?? -1) : -1, container: recordsGeometry ? (metrics?.containerHeight ?? -1) : -1)
+    }
+    #endif
 
     mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
                        metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?) -> Step {
@@ -198,12 +237,30 @@ struct CompanionReadingRestoration {
         guard self.revision == revision else { return .finish(.generation) }
         guard !followsLatest else { return .finish(.navigation) }
         guard now - startedAt < Self.maximumDuration else { return .finish(.exhausted) }
-        guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else { return .wait }
+        guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else {
+            #if DEBUG
+            hold(metrics == nil ? .noMetrics : .heights, metrics, frameContentHeight)
+            #endif
+            return .wait
+        }
         if offset == nil { offset = proposedOffset }
-        guard let offset else { return .wait }
+        guard let offset else {
+            #if DEBUG
+            hold(.noTarget, metrics, frameContentHeight)
+            #endif
+            return .wait
+        }
         if abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 { return .finish(.arrived) }
-        guard attempts < Self.maximumAttempts else { return .finish(.exhausted) }
+        guard attempts < Self.maximumAttempts else {
+            #if DEBUG
+            hold(.attempts, metrics, frameContentHeight)
+            #endif
+            return .finish(.exhausted)
+        }
         attempts += 1
+        #if DEBUG
+        hold(.scroll, metrics, frameContentHeight)
+        #endif
         return .scroll(offset)
     }
 }

@@ -8,6 +8,12 @@ struct CompanionConversationView: View {
     var showsActions = true
     /// A parent-managed tab supplies visibility; navigation destinations use their normal appear/disappear lifecycle.
     var isVisible: Bool? = nil
+    /// Review's selected page owns the same identity control, with its place in the pager.
+    var reviewPosition: String? = nil
+    #if DEBUG
+    /// Initial value only for the recovery component's private State; normal callers leave it false.
+    var initiallyShowsRecoveryDetails = false
+    #endif
     @State private var followLatest = true
     @State private var atLatest = true
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
@@ -15,6 +21,7 @@ struct CompanionConversationView: View {
     @State private var confirmSleep = false
     @State private var showArchive = false
     @State private var showContextSettings = false
+    @State private var showHeaderDetails = false
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -44,6 +51,10 @@ struct CompanionConversationView: View {
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
+    private var recoveryStatus: CompanionRecoveryStatus {
+        .init(connection: connection, isLoading: conversation.isLoading,
+              requiresResync: conversation.requiresResync, error: conversation.error)
+    }
     private var canRespond: Bool { store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target) }
     /// A running terminal agent's own PTY takes the chat's place, when the desktop lets the phone attach to it.
     private var showsAgentTerminal: Bool { agent.runsInTerminal && store.terminalAvailability(.agentPTY(target)).isAvailable }
@@ -66,10 +77,11 @@ struct CompanionConversationView: View {
 
     private var content: some View {
         CompanionChatPerformance.measureBody(target: target, messageCount: conversation.items.count) {
-        VStack(spacing: 0) {
-            contextHeader
+        // Build the transcript outside the geometry callback: native editor layout can reevaluate
+        // that callback without changing conversation data. Header measurement still uses its live geometry.
+        let conversationContent = VStack(spacing: 0) {
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
-            if !connection.canOperate || conversation.requiresResync { connectionBanner }
+            connectionBanner
             if store.hasPendingProviderAction(target) {
                 Text("A provider action is awaiting confirmation. Open Agent settings to check its result.")
                     .font(.subheadline).padding(.horizontal)
@@ -96,18 +108,44 @@ struct CompanionConversationView: View {
             }
         }
         .companionBackground()
+        // The bottom bar reserves its real size before this boundary observes the safe region.
+        // This boundary stays mounted while disclosure/focus/status changes.
+        return GeometryReader { geometry in
+        let headerRegion = CompanionConversationHeaderRegion(geometry: geometry)
+        conversationContent
+        // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
+        .safeAreaBar(edge: .top, spacing: 0) {
+            CompanionConversationHeaderBarLayout(
+                residualHeight: headerRegion.usedFrame.height,
+                showsDetails: showHeaderDetails
+            ) {
+                // Both slots are stable, including the empty disclosure/banner cases.
+                VStack(spacing: 0) {
+                    if showHeaderDetails {
+                        CompanionConversationDetailsViewport(agent: agent, contextName: contextName, region: headerRegion)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                VStack(spacing: 0) { otherAgentBanner }
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        }
         .navigationTitle(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
+                ToolbarItem(placement: .principal) {
+                    CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
+                                                        accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition)
+                }
+                ToolbarItem(placement: .topBarTrailing) { contextButton }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                         Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                        if dynamicTypeSize.isAccessibilitySize, agent.contextUsage != nil || agent.chatControls?.context != nil {
-                            Button("Context", systemImage: "chart.pie") { showContextSettings = true }
-                                .accessibilityIdentifier("companion-context-settings-menu")
-                        }
+                        Button("Context and plan limits", systemImage: "chart.pie") { showContextSettings = true }
+                            .accessibilityIdentifier("companion-context-settings-menu")
                         if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                         CompanionSleepAction(store: store, target: target) { confirmSleep = true }
                         CompanionTerminalMenuItem(scope: .agentShell(target))
@@ -131,15 +169,18 @@ struct CompanionConversationView: View {
                 }
             }
         }
-        // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
-        .safeAreaBar(edge: .top, spacing: 0) { otherAgentBanner }
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-                CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
-                    focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+                VStack(spacing: 0) {
+                    activityLine
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                    CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
+                        focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+                }
             }
         }
-        .sheet(isPresented: $showContextSettings) { CompanionAgentSettingsSheet(store: store, target: target, focusContext: true) }
+        .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
         .task(id: scenePhase == .active && showsActions) {
@@ -169,8 +210,9 @@ struct CompanionConversationView: View {
                 Task { await store.load(target, force: true) }
             }
         }
-        .confirmationDialog("Interrupt this turn?", isPresented: $confirmCancel, titleVisibility: .visible) {
+        .alert("Interrupt this turn?", isPresented: $confirmCancel) {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
+            Button("Cancel", role: .cancel) {}
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
         }
@@ -178,75 +220,44 @@ struct CompanionConversationView: View {
 
     private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
 
-    private var contextHeader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if compactAccessibilityHeader {
-                statusAndPermissions.frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { statusAndPermissions; Spacer(minLength: 0); contextButton }
-                    VStack(alignment: .leading, spacing: 0) {
-                        statusAndPermissions
-                        contextButton
-                    }
-                }
-                activityLine
-            }
-        }
-        .padding(.horizontal, 20).padding(.vertical, 2)
-    }
-
-    private var statusAndPermissions: some View {
-        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 8))
-        return HStack(spacing: 8) {
-            if store.hosts.count > 1, let host = store.host(for: target) {
-                CompanionHostTag(name: host.name)
-                    .lineLimit(1).truncationMode(.tail)
-                    .frame(maxWidth: 120, alignment: .leading)
-                    .layoutPriority(-1)
-                    .accessibilityIdentifier("companion-chat-host-tag")
-            }
-            layout {
-                if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
-                if agent.freeAgentMode { CompanionFreeAgentBadge() }
-                if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
-            }
-            .layoutPriority(1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(headerAccessibilityLabel)
-        .accessibilityIdentifier("companion-chat-header")
-    }
-
     private var headerAccessibilityLabel: String {
-        [contextName, agent.status.label,
+        [agent.name, contextName, agent.status.label,
          agent.freeAgentMode ? "Free Agent Mode: all permissions bypassed" : nil,
          agent.chatControls.map { "Permissions: \($0.currentLevel.label)" }]
             .compactMap { $0 }.joined(separator: ", ")
     }
 
-    @ViewBuilder private var contextButton: some View {
-        if agent.contextUsage != nil || agent.chatControls?.context != nil {
-            Button { showContextSettings = true } label: {
+    private var contextButton: some View {
+        Button { showContextSettings = true } label: {
+            HStack(spacing: 0) {
                 if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
-                else { Label("Context", systemImage: "chart.pie").font(.caption) }
+                else { Image(systemName: "chart.pie").font(.caption) }
             }
-            .buttonStyle(.plain)
             .frame(minWidth: 44, minHeight: 44)
-            .accessibilityLabel(agent.contextUsage?.percent.map { "Context \($0)% full" } ?? "Context report")
-            .accessibilityHint("Opens Agent settings at context")
-            .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
+            .contentShape(Rectangle())
+            .glassEffect(.regular.interactive(), in: .capsule)
         }
+        .buttonStyle(.plain)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel("Context and plan limits")
+        .accessibilityValue(agent.contextUsage?.percent.map { "Latest reported context: \($0)% full" } ?? "Context usage unknown")
+        .accessibilityHint("Opens context settings and plan limits by desktop")
+        .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
     }
 
-    /// Only active work earns a second status line. Idle context usage fits beside status and permissions.
+    /// A slim worker/activity footer stays above the composer; idle chats reserve no footer line.
     private var activityLine: some View {
         let ticking = agent.status == .working && agent.turnStartedAt != nil
         return TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
             if let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date) {
-                Text(activity).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .accessibilityIdentifier("companion-chat-activity")
+                HStack(spacing: 4) {
+                    Text(agent.name).lineLimit(1).truncationMode(.tail).layoutPriority(-1)
+                    Text("·")
+                    Text(activity)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .accessibilityIdentifier("companion-chat-activity")
+                }
+                .font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
             }
         }
     }
@@ -257,25 +268,31 @@ struct CompanionConversationView: View {
         return "\(host.name) / \(host.placeName(for: target) ?? "Project")"
     }
 
-    private var connectionBanner: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: conversation.requiresResync ? "arrow.trianglehead.2.clockwise.rotate.90" : "wifi.exclamationmark")
-            VStack(alignment: .leading, spacing: 4) {
-                Text(conversation.requiresResync ? "Conversation needs a refresh" : connection.label).font(.subheadline.weight(.semibold))
-                Text(conversation.requiresResync ? "Some updates were missed. Refresh before sending another command." : connection.detail).font(.caption)
-                Button(conversation.requiresResync ? "Refresh conversation" : "Retry") {
-                    Task {
-                        if conversation.requiresResync { await store.load(target, force: true) }
-                        else { await store.reconnect(hostID: target.hostID) }
-                    }
+    /// The production callback, also invoked directly by hosted routing tests. No presentation state is exposed.
+    var recoveryRetryAction: (CompanionRecoveryStatus.RetryAction) -> Void {
+        // A retained page's presented action belongs to that page, even if selection changes before its Task runs.
+        let presentedTarget = target
+        let presentedStore = store
+        return { action in
+            Task {
+                switch action {
+                case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
+                case .refreshConversation: await presentedStore.load(presentedTarget, force: true)
                 }
-                .font(.subheadline.weight(.semibold)).padding(.top, 2)
             }
-            Spacer(minLength: 0)
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .padding(.horizontal, 16).padding(.bottom, 8)
+    }
+
+    private var connectionBanner: some View {
+        let presentedTarget = target
+        #if DEBUG
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, initiallyShowsDetails: initiallyShowsRecoveryDetails,
+                                                 onRetry: recoveryRetryAction)
+        #else
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, onRetry: recoveryRetryAction)
+        #endif
+        // Reset only recovery presentation when a retained page becomes inactive; never reset transcript identity.
+        return banner.id(CompanionRecoveryPresentationID(target: presentedTarget, isActive: showsActions && isVisible != false))
     }
 
     /// While the app is open there are no system banners, so another agent that needs you shows here.
@@ -362,6 +379,15 @@ struct CompanionConversationView: View {
                             value: ["__content": CGRect(origin: .zero, size: geometry.size)])
                     }
                 }
+                #if DEBUG
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    CompanionReadingViewport.recordsGeometry ? proxy.frame(in: .global) : .null
+                } action: { frame in
+                    guard CompanionReadingViewport.recordsGeometry else { return }
+                    let stamp = readingViewport.debugStamp()
+                    readingViewport.debugContentGlobal = (stamp.0, stamp.1, frame)
+                }
+                #endif
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
@@ -378,6 +404,15 @@ struct CompanionConversationView: View {
             .onScrollPhaseChange { old, phase, context in
                 readingScrollPhaseChanged(from: old, to: phase, metrics: Self.metrics(context.geometry))
             }
+            #if DEBUG
+            .onGeometryChange(for: CGRect.self) { proxy in
+                CompanionReadingViewport.recordsGeometry ? proxy.frame(in: .global) : .null
+            } action: { frame in
+                guard CompanionReadingViewport.recordsGeometry else { return }
+                let stamp = readingViewport.debugStamp()
+                readingViewport.debugScrollGlobal = (stamp.0, stamp.1, frame)
+            }
+            #endif
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
                     guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
@@ -386,6 +421,13 @@ struct CompanionConversationView: View {
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    #if DEBUG
+                    if CompanionReadingViewport.recordsGeometry {
+                        let stamp = readingViewport.debugStamp()
+                        readingViewport.debugGeometry = (stamp.0, stamp.1, new.contentSize, Double(new.contentOffset.y),
+                            Double(new.contentInsets.top), Double(new.contentInsets.bottom), new.containerSize, new.visibleRect)
+                    }
+                    #endif
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
@@ -413,6 +455,12 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    #if DEBUG
+                    if CompanionReadingViewport.recordsGeometry {
+                        let stamp = readingViewport.debugStamp()
+                        readingViewport.debugPreference = (stamp.0, stamp.1, rects["__content"]?.size)
+                    }
+                    #endif
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
                     guard !readingViewport.preserveBookmarkUntilUserAction,
@@ -434,6 +482,7 @@ struct CompanionConversationView: View {
                 }
             }
             .background { CompanionReadingTouchObserver { cancelReadingRestoration(.touch) }.allowsHitTesting(false).accessibilityHidden(true) }
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")
@@ -518,28 +567,19 @@ struct CompanionConversationView: View {
         }
     }
 
-    /// Loading, errors, the archive link and the empty state, above the conversation's entries.
+    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
     @ViewBuilder private var timelineHeader: some View {
-        // Refreshes of a transcript already on screen show in the composer instead.
-        if conversation.isLoading && conversation.items.isEmpty { ProgressView("Loading conversation…").frame(maxWidth: .infinity).padding() }
-        if let error = conversation.error {
-            ContentUnavailableView {
-                Label("Conversation unavailable", systemImage: "bubble.left.and.exclamationmark.bubble.right")
-            } description: { Text(error) } actions: {
-                Button("Try again") { Task { await store.load(target, force: true) } }
-            }
-        }
         if conversation.hasEarlierMessages {
             Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                 .font(.caption).frame(maxWidth: .infinity)
         }
-        if conversation.items.isEmpty && !conversation.isLoading && conversation.error == nil {
+        if conversation.items.isEmpty && !recoveryStatus.isVisible {
             ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
                 .accessibilityIdentifier("companion-empty-conversation")
         }
     }
-    /// Loading and the empty state show only without entries, so they never sit above one.
-    private var hasTimelineHeader: Bool { conversation.error != nil || conversation.hasEarlierMessages }
+    /// The settled empty state has no entries below it; only the archive link precedes actual entries.
+    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
 
     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
         .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
@@ -791,6 +831,11 @@ struct CompanionContextRing: View {
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
     }
+}
+
+private struct CompanionRecoveryPresentationID: Hashable {
+    let target: CompanionTarget
+    let isActive: Bool
 }
 
 private struct CompanionReadingFrames: PreferenceKey {

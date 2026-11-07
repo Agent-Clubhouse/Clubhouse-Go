@@ -188,7 +188,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
-    # Six balanced lanes leave setup/retry headroom inside the existing job budget.
+    # Seven lanes separate feedback/shake from the catchall within the existing job budget.
     # Keep per-test hang deadlines and retry reporting unchanged; see ui_shards.py.
     timeout-minutes: 55
     strategy:

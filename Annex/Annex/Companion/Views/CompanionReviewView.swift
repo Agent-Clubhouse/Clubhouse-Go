@@ -44,7 +44,6 @@ struct CompanionReviewView: View {
     @State private var selection: CompanionTarget?
     @State private var settingsTarget: CompanionTarget?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.companionPalette) private var palette
 
     init(store: CompanionStore, launch: CompanionReviewLaunch, theme: @escaping (CompanionTarget) -> CompanionDesktopTheme,
          onOpen: @escaping (CompanionTarget) -> Void) {
@@ -58,7 +57,6 @@ struct CompanionReviewView: View {
         let all = store.reviewEntries
         let entries = CompanionReviewModel.visible(all, filters: filters)
         let ids = entries.map(\.id)
-        let current = entries.first { $0.id == selection }
         NavigationStack {
             Group {
                 if entries.isEmpty {
@@ -69,7 +67,8 @@ struct CompanionReviewView: View {
                     ScrollView(.horizontal) {
                         LazyHStack(spacing: 0) {
                             ForEach(entries) { entry in
-                                CompanionConversationView(store: store, agent: entry.agent, showsActions: entry.id == selection)
+                                CompanionConversationView(store: store, agent: entry.agent, showsActions: entry.id == selection,
+                                                          reviewPosition: CompanionReviewModel.position(of: entry.id, in: ids))
                                     .companionTheme(theme(entry.id))
                                     .scrollEdgeEffectHidden(false)
                                     .containerRelativeFrame(.horizontal)
@@ -91,16 +90,11 @@ struct CompanionReviewView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }.accessibilityIdentifier("review-done")
                 }
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 0) {
-                        Text(current?.agent.name ?? "Review").font(.headline).lineLimit(1)
-                        if let position = CompanionReviewModel.position(of: selection, in: ids) {
-                            Text(position).font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
-                        }
+                if entries.isEmpty {
+                    ToolbarItem(placement: .principal) {
+                        Text("Review").font(.headline)
+                            .accessibilityIdentifier("review-title")
                     }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(current.map { "\($0.agent.name), \(CompanionReviewModel.position(of: $0.id, in: ids) ?? "")" } ?? "Review")
-                    .accessibilityIdentifier("review-title")
                 }
             }
         }
