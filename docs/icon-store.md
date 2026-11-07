@@ -3,8 +3,9 @@
 Icons are best-effort presentation data. Models and sender resolvers retain small
 host/kind/id/version references, rather than base64 or image bytes. Visible avatar
 tasks load images asynchronously; view bodies never read disk. Quick agents keep the
-bolt, agent emoji precedes images, agent faces are circular, and project faces square.
+bolt, saved agent profile images precede emoji, agent faces are circular, and project faces square.
 The Dispatcher uses its entry in the agent reference map.
+See [agent avatar provenance and validation](agent-avatar-identity.md) for the profile-image source contract.
 
 ## Snapshot and fetch behavior
 

@@ -30,11 +30,34 @@ struct CompanionAgentFaceTests {
         #expect(CompanionAgentFace.emojiWashOpacity == Double(0x20) / 255)
     }
 
-    @Test func quickThenEmojiThenImageThenInitials() {
+    @Test func quickThenCustomProfileImageThenEmojiThenInitials() {
         #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", hasIcon: true, isQuick: true) == .quick)
-        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", hasIcon: true) == .emoji("🌿"))
+        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿", hasIcon: true) == .icon)
         #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "", hasIcon: true) == .icon)
+        #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "🌿") == .emoji("🌿"))
         #expect(CompanionAgentFace.content(name: "bold-gazelle", emoji: "") == .initials("BG"))
+        #expect(CompanionAgentFace.content(name: "bold-gazelle") == .initials("BG"))
+    }
+
+    @Test func senderUsesCanonicalProfileImageAndTracksReplacementAndRemoval() throws {
+        var agent = CompanionAgent(id: .init(hostID: "h", projectID: "p", agentID: "a"), name: "bold-gazelle", subtitle: "", status: .sleeping)
+        agent.emoji = "🌿"
+        agent.icon = .init(host: "h", kind: .agent, id: "a", version: "first")
+        let sender = CompanionRoutedMessagePart.Sender(agentID: "a", name: "Old name")
+        let original = try #require(CompanionSenderResolver(agents: [agent]).avatarIdentity(for: sender))
+        #expect(original.face == .icon)
+        #expect(original.face == CompanionAgentFace.content(name: agent.name, emoji: agent.emoji, hasIcon: agent.icon != nil))
+
+        agent.icon = .init(host: "h", kind: .agent, id: "a", version: "replacement")
+        let replacement = try #require(CompanionSenderResolver(agents: [agent]).avatarIdentity(for: sender))
+        #expect(replacement.face == .icon)
+        #expect(replacement.icon?.version == "replacement")
+        #expect(replacement != original, "A new image version must invalidate the sender identity")
+
+        agent.icon = nil
+        #expect(CompanionSenderResolver(agents: [agent]).avatarIdentity(for: sender)?.face == .emoji("🌿"))
+        agent.emoji = nil
+        #expect(CompanionSenderResolver(agents: [agent]).avatarIdentity(for: sender)?.face == .initials("BG"))
     }
 
     @Test func quickSenderKeepsItsKindAndGoneSenderUsesDurableInitials() throws {

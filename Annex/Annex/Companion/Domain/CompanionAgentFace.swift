@@ -1,6 +1,7 @@
 import Foundation
 
-/// Desktop AgentAvatar's content order. Selecting an emoji or quick face never decodes an icon.
+/// Saved profile images win over emoji, including when desktop crop-save leaves both set.
+/// Snapshot agent icons are profile images, never provider glyphs. Quick faces never decode one.
 enum CompanionAgentFace: Equatable, Sendable {
     case quick
     case emoji(String)
@@ -11,8 +12,8 @@ enum CompanionAgentFace: Equatable, Sendable {
 
     static func content(name: String, emoji: String? = nil, hasIcon: Bool = false, isQuick: Bool = false) -> Self {
         if isQuick { return .quick }
-        if let emoji, !emoji.isEmpty { return .emoji(emoji) }
         if hasIcon { return .icon }
+        if let emoji, !emoji.isEmpty { return .emoji(emoji) }
         return .initials(initials(name))
     }
 
