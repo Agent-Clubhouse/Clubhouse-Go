@@ -1,12 +1,13 @@
 import SwiftUI
 import AVKit
 import ImageIO
+import PDFKit
 import WebKit
 
 /// Opens desktop previews for a conversation or archived session.
 struct CompanionContentPresenter {
     var richContentAvailable: Bool
-    /// Where absolute paths may be linked: the agent's `contentRoots`.
+    /// The displayed conversation's own snapshot hints, including negotiated any-path support.
     var contentRoots = CompanionContentRoots()
     var open: @MainActor (CompanionContentReference) -> Void
     /// The bytes for an image in a user message, for its inline thumbnail.
@@ -27,23 +28,25 @@ extension EnvironmentValues {
 extension View {
     /// Presents previews from here, once, rather than from timeline rows. Streaming updates re-create
     /// and fold rows, and a sheet owned by a row closed or got stuck with it (#134).
-    func companionContentPreviews(store: CompanionStore, target: CompanionTarget) -> some View {
-        modifier(CompanionContentPreviews(store: store, target: target))
+    func companionContentPreviews(store: CompanionStore, target: CompanionTarget, contentRoots: CompanionContentRoots? = nil) -> some View {
+        modifier(CompanionContentPreviews(store: store, target: target, archiveRoots: contentRoots))
     }
 }
 
 private struct CompanionContentPreviews: ViewModifier {
     let store: CompanionStore
     let target: CompanionTarget
+    /// Nil for live content; an archive always supplies a value, even before its first page.
+    let archiveRoots: CompanionContentRoots?
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
         content
             .companionMarkdownBlockPreviews()
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
-                                                             contentRoots: store.contentRoots(for: target), open: { selected = $0 },
+                                                             contentRoots: archiveRoots ?? store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))
             .sheet(item: $selected) { reference in
-                CompanionContentView(reference: reference, store: store, target: target) { selected = nil }
+                CompanionContentView(reference: reference, store: store, target: target, archiveRoots: archiveRoots) { selected = nil }
                     .interactiveDismissDisabled(false)
             }
     }
@@ -85,9 +88,11 @@ private struct CompanionContentView: View {
     let reference: CompanionContentReference
     let store: CompanionStore
     let target: CompanionTarget
+    let archiveRoots: CompanionContentRoots?
     let close: () -> Void
     @State private var content: CompanionContent?
     @State private var image: UIImage?
+    @State private var pdf: PDFDocument?
     @State private var error: String?
     @State private var player: AVPlayer?
     @State private var temporaryFile: URL?
@@ -115,11 +120,15 @@ private struct CompanionContentView: View {
                                     Label("Share preview", systemImage: "square.and.arrow.up")
                                 }
                             }.buttonStyle(.bordered)
-                        } else if content.mimeType == "image/svg+xml", let bytes = content.bytes {
+                        } else if let pdf {
+                            CompanionPDFPreview(document: pdf).containerRelativeFrame(.vertical) { length, _ in length * 0.8 }
+                                .accessibilityIdentifier("companion-pdf-preview")
+                            Text("PDF preview").font(.caption).foregroundStyle(.secondary)
+                        } else if content.kind != "pdf", content.mimeType == "image/svg+xml", let bytes = content.bytes {
                             // SVG is an image resource, never an executable document.
                             CompanionSVGImage(bytes: bytes).frame(height: 360)
                             Text("SVG preview • scripts and external resources are blocked").font(.caption).foregroundStyle(.secondary)
-                        } else if let text = content.text {
+                        } else if content.kind != "pdf", let text = content.text {
                             Text(text).font(.callout.monospaced()).textSelection(.enabled)
                             if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
                             Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
@@ -137,17 +146,17 @@ private struct CompanionContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }
             .task { await load() }
-            .onDisappear { loadID = UUID(); clearPlayback() }
+            .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
         }
     }
 
     private func load() async {
         guard !loading else { return }
         let id = UUID(); loadID = id
-        loading = true; error = nil; content = nil; image = nil; clearPlayback()
+        loading = true; error = nil; content = nil; image = nil; pdf = nil; clearPlayback()
         defer { loading = false }
         do {
-            let value = try await store.content(reference, target: target)
+            let value = try await store.content(reference, target: target, contentRoots: archiveRoots)
             guard !Task.isCancelled, loadID == id else { return }
             content = value
             if value.kind == "image", value.mimeType != "image/svg+xml", let bytes = value.bytes {
@@ -162,6 +171,8 @@ private struct CompanionContentView: View {
                         kCGImageSourceCreateThumbnailWithTransform: true
                       ] as CFDictionary) else { throw CompanionServiceError.unavailable("The image cannot be decoded safely.") }
                 image = UIImage(cgImage: bitmap)
+            } else if value.kind == "pdf" {
+                pdf = try CompanionPDFPreview.document(for: value)
             } else if ["audio", "video"].contains(value.kind), let bytes = value.bytes,
                       let mime = value.mimeType {
                 let extensions = ["video/mp4": "mp4", "video/webm": "webm", "video/ogg": "ogv", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac", "audio/wav": "wav", "audio/ogg": "ogg", "audio/flac": "flac"]
@@ -181,6 +192,50 @@ private struct CompanionContentView: View {
         player?.pause(); player?.replaceCurrentItem(with: nil); player = nil
         if let temporaryFile { try? FileManager.default.removeItem(at: temporaryFile) }
         temporaryFile = nil
+    }
+}
+
+/// A desktop PDF shown from its bounded bytes in memory: no temporary file, share item or document URL.
+/// Uses PDFKit's native scrolling, zoom and text selection. URL-link and remote-document delegate
+/// actions are intercepted separately; this is not a claim about every PDF or system-menu action.
+struct CompanionPDFPreview: UIViewRepresentable {
+    let document: PDFDocument
+
+    /// Nil when this response has no PDF to open: another kind, metadata only, or over the phone limit.
+    static func document(for content: CompanionContent) throws -> PDFDocument? {
+        guard let bytes = content.pdfBytes else { return nil }
+        guard let document = PDFDocument(data: bytes) else { throw CompanionServiceError.unavailable("This PDF can't be opened on this iPhone. Open it on your desktop.") }
+        // A locked document's properties can't be read until it's unlocked; the phone never asks for its password.
+        guard !document.isLocked else { throw CompanionServiceError.unavailable("This PDF is password-protected. Open it on your desktop.") }
+        guard document.pageCount > 0 else { throw CompanionServiceError.unavailable("This PDF has no pages to preview.") }
+        return document
+    }
+
+    func makeCoordinator() -> LinkGuard { LinkGuard() }
+    func makeUIView(context: Context) -> PDFView {
+        let view = PDFView()
+        view.displayMode = .singlePageContinuous
+        view.displayDirection = .vertical
+        view.autoScales = true
+        // PDFView holds its delegate weakly; SwiftUI keeps the coordinator until dismantleUIView.
+        view.delegate = context.coordinator
+        view.document = document
+        return view
+    }
+    func updateUIView(_ view: PDFView, context: Context) {
+        if view.document !== document { view.document = document }
+    }
+    /// Nothing stays tappable once the guard can go: the document leaves before the delegate does.
+    static func dismantleUIView(_ view: PDFView, coordinator: LinkGuard) {
+        view.document = nil
+        view.delegate = nil
+    }
+
+    final class LinkGuard: NSObject, PDFViewDelegate {
+        /// PDFKit URL-link callback: do not request a system URL open.
+        nonisolated func pdfViewWillClick(onLink sender: PDFView, with url: URL) {}
+        /// Links to another PDF: replaces the default beep. There's no other file to open.
+        nonisolated func pdfViewOpenPDF(_ sender: PDFView, forRemoteGoToAction action: PDFActionRemoteGoTo) {}
     }
 }
 

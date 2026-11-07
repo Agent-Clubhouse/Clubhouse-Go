@@ -91,6 +91,17 @@ private func queueTransport(_ io: QueueIO, clock: AnnexClock = .live) async thro
     #expect(await io.lastQuery() == ["offset": "40", "limit": "1"])
 }
 
+@Test func chatContentPreservesDesktopHomePathThroughSingleQueryEncoding() async throws {
+    let io = QueueIO([ok("{}"), ok("{}")])
+    let transport = try await queueTransport(io)
+    for path in ["~/scratch/a #é%20.txt", "~\\scratch\\a.txt"] {
+        _ = try await transport.read(.chatContent(agentID: "scratch-agent", mediaRef: nil, filePath: path))
+        #expect(await io.lastQuery() == ["path": path])
+        #expect(await io.requests.last?.url?.path == "/api/v1/mobile/agents/scratch-agent/content")
+        #expect(await io.requests.last?.url?.fragment == nil)
+    }
+}
+
 @Test func capabilityDowngradesAreRefusedAndNeverEnableCommands() async throws {
     let downgrades = [
         failureCapabilities.replacingOccurrences(of: #""version":1"#, with: #""version":2"#),

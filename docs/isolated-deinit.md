@@ -27,10 +27,11 @@ An empty nonisolated deinit can release fields on the thread performing the last
 | `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked-continuation runtime handles, with no user callback, UI or transport owner. MainActor beginTeardown disables future holds before resuming pending requests; deinit does no work. |
 | `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only reviewed concrete synthetic service, Store constructed with that service, Bool and value target. The initial-details seed (`Bool`), passive observed seed (`Bool?`) and update count (`Int`) add only values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
-| `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary; no UI fields. |
+| `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary. The `windows` Bool is a plain desktop-platform flag for content path matching, with no owner, callback or teardown change; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
 | `CompanionCodeScanner.Coordinator` | main_actor | DataScanner delegate owns an injected callback; possible UI captures. |
+| `CompanionPDFPreview.LinkGuard` | main_actor | Stateless PDFViewDelegate; its link and remote go-to callbacks do nothing. PDFView holds it weakly, SwiftUI from makeCoordinator to dismantleUIView, which removes the document first. New delegate owner, not ARC-only reviewed; retains isolated teardown. |
 | `CompanionComposerMemory` | arc_only | Only an optional UTF-16 offset bookmark, a COW draft snapshot for exact remount validation, and numeric slash bookmarks. The snapshot is released on remount. TextSelection and focus State stay in the composer view; the lazy lifetime factory captures nothing. |
 | `CompanionComposerPasteHook.Coordinator` | main_actor | Owns UITextPasteItem array and injected main-actor callback; preserve isolation. |
 | `CompanionComposerPasteHook.HookView` | main_actor | UIView superclass owns main-only UIKit state, even though explicit references are weak. |

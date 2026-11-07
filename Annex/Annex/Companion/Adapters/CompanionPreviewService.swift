@@ -353,6 +353,11 @@ import ClubhouseTransport
             .init(sender: .init(agentID: "quick-willow", name: "Old willow"), text: "Quick helper update.")
         ]))
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        #if DEBUG && canImport(UIKit)
+        if CompanionContentAcceptanceFixture.enabled, target == Self.target {
+            return CompanionContentAcceptanceFixture.history
+        }
+        #endif
         if showsEmptyConversation { return .init(items: []) }
         if showsKeyboardInteractions {
             return .init(items: [
@@ -490,6 +495,12 @@ import ClubhouseTransport
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         guard case .file(let path) = reference else { throw previewError }
+        #if DEBUG && canImport(UIKit)
+        if CompanionContentAcceptanceFixture.enabled {
+            guard target == Self.target else { throw previewError }
+            return try CompanionContentAcceptanceFixture.content(path: path)
+        }
+        #endif
         try await Task.sleep(for: .milliseconds(300))
         let name = (path as NSString).lastPathComponent
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")

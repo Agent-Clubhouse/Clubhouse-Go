@@ -11,6 +11,7 @@ struct CompanionSessionSummary: Identifiable, Hashable, Sendable {
 struct CompanionArchivePage: Sendable {
     var items: [CompanionTimelineItem]
     var nextBeforeSequence: Int64?
+    var contentRoots = CompanionContentRoots()
 }
 
 @MainActor protocol CompanionArchiveReading: AnyObject {
@@ -23,6 +24,8 @@ struct CompanionArchivePage: Sendable {
     private(set) var isLoading = false
     private(set) var isLoaded = false
     private(set) var nextBeforeSequence: Int64?
+    /// Independent of the live conversation. Each successful page replaces these hints, including omissions.
+    private(set) var contentRoots = CompanionContentRoots()
     private(set) var error: String?
     private let reader: any CompanionArchiveReading
 
@@ -36,6 +39,7 @@ struct CompanionArchivePage: Sendable {
             let page = try await reader.load(before: nextBeforeSequence)
             items = page.items
             nextBeforeSequence = page.nextBeforeSequence
+            contentRoots = page.contentRoots
             isLoaded = true
         } catch { self.error = error.localizedDescription }
     }

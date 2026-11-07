@@ -10,11 +10,12 @@ import ClubhouseTransport
     private let transport: any AnnexTransporting
     private let target: CompanionTarget
     private let sessionID: String
+    private let windows: Bool
     private var eventsBySequence: [Int64: AnnexJSON] = [:]
     private var readOnly = false
 
-    init(transport: any AnnexTransporting, target: CompanionTarget, sessionID: String) {
-        self.transport = transport; self.target = target; self.sessionID = sessionID
+    init(transport: any AnnexTransporting, target: CompanionTarget, sessionID: String, windows: Bool = false) {
+        self.transport = transport; self.target = target; self.sessionID = sessionID; self.windows = windows
     }
 
     func load(before: Int64?) async throws -> CompanionArchivePage {
@@ -42,6 +43,7 @@ import ClubhouseTransport
         let next = snapshot["nextBeforeSeq"]?.integer
         // A non-advancing cursor must never trap the user in an endless load loop.
         let cursor = next.flatMap { value in value > 0 && (before == nil || value < before!) ? value : nil }
-        return .init(items: projection.items, nextBeforeSequence: cursor)
+        return .init(items: projection.items, nextBeforeSequence: cursor,
+                     contentRoots: CompanionLiveService.contentRoots(from: snapshot, windows: windows))
     }
 }
