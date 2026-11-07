@@ -99,7 +99,7 @@ import XCTest
     }
 
     private func ordinaryWorkingDraft(softWrap: Bool) {
-        let app = launchApp(["--companion-preview"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer"], attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
@@ -107,6 +107,9 @@ import XCTest
         XCTAssertEqual(editors.count, 1)
         let composer = editors.element(boundBy: 0)
         XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Keep ordinary pending approval in the capacity case")
+        XCTAssertTrue(app.buttons["companion-interrupt"].exists, "The fixture must be Working before typing")
+        XCTAssertEqual(composer.label, "Steering message")
+        XCTAssertEqual(app.buttons["companion-send"].label, "Send steering message")
         XCTAssertFalse(app.buttons["companion-send"].isEnabled)
         composer.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
