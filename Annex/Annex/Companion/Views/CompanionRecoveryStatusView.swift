@@ -109,6 +109,7 @@ struct CompanionRecoveryStatusDetails: View {
                                 .frame(minWidth: 44, minHeight: 44)
                                 .contentShape(Rectangle())
                         }
+                        .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
                         .accessibilityIdentifier("companion-recovery-detail-retry")
                     }
                 }
