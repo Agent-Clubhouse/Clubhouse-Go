@@ -191,6 +191,19 @@ struct CompanionReadingRestoration {
     private(set) var offset: Double?
     private(set) var attempts = 0
     var outcome: Outcome?
+    #if DEBUG
+    /// The last recorded branch and the operands it read.
+    /// A deadline leaves these unchanged; they are not the complete history or final exhaustion cause.
+    enum Hold: String { case noMetrics, heights, noTarget, scroll, attempts }
+    struct Operands { var offset: Double, maximum: Double, content: Double, frameContent: Double }
+    private(set) var lastHold: Hold?
+    private(set) var lastOperands: Operands?
+    private mutating func hold(_ hold: Hold, _ metrics: CompanionScrollMetrics?, _ frameContentHeight: Double?) {
+        lastHold = hold
+        lastOperands = .init(offset: metrics?.normalizedOffset ?? -1, maximum: metrics?.maximumOffset ?? -1,
+                             content: metrics?.contentHeight ?? -1, frameContent: frameContentHeight ?? -1)
+    }
+    #endif
 
     mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
                        metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?) -> Step {
@@ -198,12 +211,30 @@ struct CompanionReadingRestoration {
         guard self.revision == revision else { return .finish(.generation) }
         guard !followsLatest else { return .finish(.navigation) }
         guard now - startedAt < Self.maximumDuration else { return .finish(.exhausted) }
-        guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else { return .wait }
+        guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else {
+            #if DEBUG
+            hold(metrics == nil ? .noMetrics : .heights, metrics, frameContentHeight)
+            #endif
+            return .wait
+        }
         if offset == nil { offset = proposedOffset }
-        guard let offset else { return .wait }
+        guard let offset else {
+            #if DEBUG
+            hold(.noTarget, metrics, frameContentHeight)
+            #endif
+            return .wait
+        }
         if abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 { return .finish(.arrived) }
-        guard attempts < Self.maximumAttempts else { return .finish(.exhausted) }
+        guard attempts < Self.maximumAttempts else {
+            #if DEBUG
+            hold(.attempts, metrics, frameContentHeight)
+            #endif
+            return .finish(.exhausted)
+        }
         attempts += 1
+        #if DEBUG
+        hold(.scroll, metrics, frameContentHeight)
+        #endif
         return .scroll(offset)
     }
 }
