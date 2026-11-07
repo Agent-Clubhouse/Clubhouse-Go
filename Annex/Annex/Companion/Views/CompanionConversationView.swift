@@ -379,6 +379,15 @@ struct CompanionConversationView: View {
                             value: ["__content": CGRect(origin: .zero, size: geometry.size)])
                     }
                 }
+                #if DEBUG
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    CompanionReadingViewport.recordsGeometry ? proxy.frame(in: .global) : .null
+                } action: { frame in
+                    guard CompanionReadingViewport.recordsGeometry else { return }
+                    let stamp = readingViewport.debugStamp()
+                    readingViewport.debugContentGlobal = (stamp.0, stamp.1, frame)
+                }
+                #endif
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
@@ -395,6 +404,15 @@ struct CompanionConversationView: View {
             .onScrollPhaseChange { old, phase, context in
                 readingScrollPhaseChanged(from: old, to: phase, metrics: Self.metrics(context.geometry))
             }
+            #if DEBUG
+            .onGeometryChange(for: CGRect.self) { proxy in
+                CompanionReadingViewport.recordsGeometry ? proxy.frame(in: .global) : .null
+            } action: { frame in
+                guard CompanionReadingViewport.recordsGeometry else { return }
+                let stamp = readingViewport.debugStamp()
+                readingViewport.debugScrollGlobal = (stamp.0, stamp.1, frame)
+            }
+            #endif
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
                 AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
                     guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
@@ -403,6 +421,13 @@ struct CompanionConversationView: View {
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    #if DEBUG
+                    if CompanionReadingViewport.recordsGeometry {
+                        let stamp = readingViewport.debugStamp()
+                        readingViewport.debugGeometry = (stamp.0, stamp.1, new.contentSize, Double(new.contentOffset.y),
+                            Double(new.contentInsets.top), Double(new.contentInsets.bottom), new.containerSize, new.visibleRect)
+                    }
+                    #endif
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
@@ -430,6 +455,12 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    #if DEBUG
+                    if CompanionReadingViewport.recordsGeometry {
+                        let stamp = readingViewport.debugStamp()
+                        readingViewport.debugPreference = (stamp.0, stamp.1, rects["__content"]?.size)
+                    }
+                    #endif
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
                     guard !readingViewport.preserveBookmarkUntilUserAction,

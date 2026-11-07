@@ -51,7 +51,21 @@ struct CompanionReadingRestoreFixture: View {
                     diagnostic = "attempts=\(restoration.attempts) target=\(restoration.offset ?? -1) hold=\(restoration.lastHold?.rawValue ?? "none")"
                     if let operands = restoration.lastOperands {
                         diagnostic += " holdOffset=\(operands.offset) holdMax=\(operands.maximum) holdContent=\(operands.content) holdFrameContent=\(operands.frameContent)"
+                        diagnostic += " holdRaw=\(operands.rawOffset) holdTop=\(operands.topInset) holdBottom=\(operands.bottomInset) holdModelContainer=\(operands.container)"
                     }
+                }
+                // These latest owner samples are sequential and may be newer than lastHold.
+                if let g = viewport.debugGeometry {
+                    diagnostic += " nowGeometry(seq=\(g.sequence),at=\(g.at),content=\(g.content),rawY=\(g.rawY),top=\(g.top),bottom=\(g.bottom),container=\(g.container),visible=\(g.visible))"
+                }
+                if let p = viewport.debugPreference {
+                    diagnostic += " nowPreference(seq=\(p.sequence),at=\(p.at),size=\(String(describing: p.size)))"
+                }
+                if let c = viewport.debugContentGlobal {
+                    diagnostic += " nowContentGlobal(seq=\(c.sequence),at=\(c.at),frame=\(c.frame))"
+                }
+                if let v = viewport.debugScrollGlobal {
+                    diagnostic += " nowScrollGlobal(seq=\(v.sequence),at=\(v.at),frame=\(v.frame))"
                 }
                 if next != sample { sample = next }
                 if diagnostic != restoreDiagnostic { restoreDiagnostic = diagnostic }

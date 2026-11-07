@@ -535,11 +535,16 @@
     "CompanionReadingViewport": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
-      "reason": "Gesture/scroll metrics and frame ranges plus a bounded restoration value (UUIDs, Doubles, Int, closed outcome); no task, UI object or callback ownership.",
+      "reason": "Gesture/scroll metrics and frame ranges plus a bounded restoration value (UUIDs, Doubles, Int, closed outcome); no task, UI object or callback ownership. Opt-in DEBUG observation adds only bounded numeric/CoreGraphics value tuples and a sequence counter; no task, callback, UI object or teardown action.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "debugContentGlobal": "( sequence : Int , at : TimeInterval , frame : CGRect ) ?",
+          "debugGeometry": "( sequence : Int , at : TimeInterval , content : CGSize , rawY : Double , top : Double , bottom : Double , container : CGSize , visible : CGRect ) ?",
+          "debugPreference": "( sequence : Int , at : TimeInterval , size : CGSize ? ) ?",
+          "debugScrollGlobal": "( sequence : Int , at : TimeInterval , frame : CGRect ) ?",
+          "debugSequence": "Int",
           "frameContentHeight": "Double ?",
           "frames": "[ String : ClosedRange < Double > ]",
           "gesture": "CompanionReadingGesture",
