@@ -123,7 +123,32 @@ import XCTest
         XCTAssertTrue(app.buttons["View River, needs you"].isHittable, "The compact other-agent notice stays actionable")
         // The artificial preview banner had only 10pt in the baseline. Real chat must keep at least one readable band.
         XCTAssertGreaterThanOrEqual(readable, hidePreviewBanner ? 44 : 10, "Largest text must improve on the matching baseline")
-        XCTAssertFalse(app.buttons["companion-context-usage"].exists, "The ring yields its header row while editing")
+        let contextButtons = app.buttons.matching(identifier: "companion-context-usage")
+        let navigationBars = app.navigationBars
+        let navigationCount = navigationBars.count
+        let globalContextCount = contextButtons.count
+        XCTContext.runActivity(named: "Largest-text context counts — global Button \(globalContextCount), navigation \(navigationCount)") { _ in }
+        XCTAssertEqual(globalContextCount, 1, "Editing retains one actual context usage Button")
+        XCTAssertEqual(navigationCount, 1, "The visible conversation must expose one navigation bar")
+        guard globalContextCount == 1, navigationCount == 1 else { return }
+        let navigation = navigationBars.element(boundBy: 0)
+        let scopedContextButtons = navigation.buttons.matching(identifier: "companion-context-usage")
+        let scopedContextCount = scopedContextButtons.count
+        XCTContext.runActivity(named: "Largest-text context count in navigation: \(scopedContextCount)") { _ in }
+        XCTAssertEqual(scopedContextCount, 1, "The retained context Button belongs to navigation")
+        guard scopedContextCount == 1 else { return }
+        let context = scopedContextButtons.element(boundBy: 0)
+        XCTAssertEqual(context.label, "Context and plan limits")
+        XCTAssertTrue(context.isEnabled && context.isHittable, "Editing keeps context enabled and reachable")
+        let contextFrame = context.frame, navigationFrame = navigation.frame
+        let finiteGeometry = [contextFrame, navigationFrame].allSatisfy { frame in
+            !frame.isNull && !frame.isInfinite && frame.width > 0 && frame.height > 0
+                && [frame.minX, frame.minY, frame.maxX, frame.maxY, frame.width, frame.height].allSatisfy { $0.isFinite }
+        }
+        XCTContext.runActivity(named: "Largest-text retained context — Button \(contextFrame), navigation \(navigationFrame), finite \(finiteGeometry)") { _ in }
+        XCTAssertTrue(finiteGeometry, "Context and navigation require finite nonempty rectangles")
+        guard finiteGeometry else { return }
+        XCTAssertTrue(navigationFrame.contains(contextFrame), "The whole context Button must remain in navigation while editing")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["companion-context-settings-menu"])
         let picker = app.buttons["agent-settings-context-window"]
         waitAndTap(app.buttons["companion-context-settings-menu"], until: picker)

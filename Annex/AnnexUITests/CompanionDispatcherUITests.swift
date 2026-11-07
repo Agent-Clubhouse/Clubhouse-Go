@@ -14,12 +14,158 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     private func dismissKeyboard(_ app: XCUIApplication) {
-        guard app.keyboards.firstMatch.exists else { return }
-        let window = app.windows.firstMatch.frame
-        let header = element(app, "companion-chat-header").frame
-        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.width * 0.5, dy: header.maxY + 35))
+        func note(_ text: String) {
+            XCTContext.runActivity(named: "Dispatcher keyboard drag — \(text)") { _ in }
+        }
+        func finite(_ frame: CGRect) -> Bool {
+            !frame.isNull && !frame.isInfinite
+                && [frame.minX, frame.minY, frame.maxX, frame.maxY, frame.width, frame.height].allSatisfy { $0.isFinite }
+                && frame.width > 0 && frame.height > 0
+        }
+        func reject(_ reason: String) {
+            note("FAIL: \(reason)")
+            screenshot(app, "Dispatcher keyboard drag unsupported geometry")
+            let attachment = XCTAttachment(data: Data(app.debugDescription.utf8.prefix(65_536)),
+                                           uniformTypeIdentifier: "public.plain-text")
+            attachment.name = "Dispatcher keyboard drag public hierarchy (capped; later retrieval)"
+            attachment.lifetime = .keepAlways; add(attachment)
+            XCTFail(reason)
+        }
+        let keyboards = app.keyboards
+        let keyboardCount = keyboards.count
+        note("keyboard count=\(keyboardCount)")
+        if keyboardCount == 0 { return }
+
+        let allWindows = app.windows
+        let windows = allWindows
+            .containing(.navigationBar, identifier: "Dispatcher")
+            .containing(.other, identifier: "companion-transcript")
+            .containing(.scrollView, identifier: "companion-transcript")
+            .containing(.other, identifier: "companion-composer-region")
+        let navigationBars = app.navigationBars
+        let dispatcherBars = navigationBars.matching(identifier: "Dispatcher")
+        let transcriptID = "companion-transcript"
+        let allTranscripts = app.descendants(matching: .any).matching(identifier: transcriptID)
+        let reducedTranscripts = app.otherElements.matching(identifier: transcriptID)
+        let nativeTranscripts = app.scrollViews.matching(identifier: transcriptID)
+        let composerID = "companion-composer-region"
+        let composers = app.descendants(matching: .any).matching(identifier: composerID)
+        let composerOthers = app.otherElements.matching(identifier: composerID)
+        let inputViews = app.otherElements.matching(identifier: "inputView")
+        let assistants = app.otherElements.matching(identifier: "SystemInputAssistantView")
+        let tabs = app.tabBars
+        let windowCount = allWindows.count, contentWindowCount = windows.count
+        let navigationCount = navigationBars.count, dispatcherCount = dispatcherBars.count
+        let transcriptCount = allTranscripts.count, reducedCount = reducedTranscripts.count, nativeCount = nativeTranscripts.count
+        let composerCount = composers.count, composerOtherCount = composerOthers.count
+        let inputCount = inputViews.count, assistantCount = assistants.count, tabCount = tabs.count
+        note("counts window(diagnostic)=\(windowCount) contentWindow=\(contentWindowCount) nav=\(navigationCount) Dispatcher=\(dispatcherCount) transcriptAny/Other/ScrollView=\(transcriptCount)/\(reducedCount)/\(nativeCount) composerRegionAny/Other=\(composerCount)/\(composerOtherCount) inputView=\(inputCount) assistant=\(assistantCount) tab=\(tabCount)")
+        guard keyboardCount == 1, contentWindowCount == 1, navigationCount == 1, dispatcherCount == 1,
+              transcriptCount == 2, reducedCount == 1, nativeCount == 1, composerCount == 1, composerOtherCount == 1,
+              inputCount == 1, assistantCount <= 1, tabCount <= 1 else {
+            reject("Expected unique content-owning Dispatcher window/nav/composer/input and empirical transcript Other/ScrollView pair")
+            return
+        }
+        // Chained containing queries require common Window ownership; no label or frame chooses a Window.
+        let contentWindow = windows.element(boundBy: 0)
+        let localNavigationCount = contentWindow.navigationBars.count
+        let localDispatcherCount = contentWindow.navigationBars.matching(identifier: "Dispatcher").count
+        let localTranscriptCount = contentWindow.descendants(matching: .any).matching(identifier: transcriptID).count
+        let localReducedCount = contentWindow.otherElements.matching(identifier: transcriptID).count
+        let localNativeCount = contentWindow.scrollViews.matching(identifier: transcriptID).count
+        let localComposerCount = contentWindow.descendants(matching: .any).matching(identifier: composerID).count
+        let localComposerOtherCount = contentWindow.otherElements.matching(identifier: composerID).count
+        note("contentWindow local nav/Dispatcher=\(localNavigationCount)/\(localDispatcherCount) transcriptAny/Other/ScrollView=\(localTranscriptCount)/\(localReducedCount)/\(localNativeCount) composerRegionAny/Other=\(localComposerCount)/\(localComposerOtherCount)")
+        guard localNavigationCount == navigationCount, localDispatcherCount == dispatcherCount,
+              localTranscriptCount == transcriptCount, localReducedCount == reducedCount, localNativeCount == nativeCount,
+              localComposerCount == composerCount, localComposerOtherCount == composerOtherCount else {
+            reject("Content Window must own the same unique global Dispatcher nav/transcript/composer exports before frame use")
+            return
+        }
+        // The pair is a checked native export shape, not a source-guaranteed AX role/ancestor contract.
+        let keyboard = keyboards.element(boundBy: 0)
+        let navigation = dispatcherBars.element(boundBy: 0)
+        let reduced = reducedTranscripts.element(boundBy: 0)
+        let native = nativeTranscripts.element(boundBy: 0)
+        let composer = composers.element(boundBy: 0)
+        let input = inputViews.element(boundBy: 0)
+        let appFrame = app.frame, windowFrame = contentWindow.frame
+        let navigationFrame = navigation.frame, reducedFrame = reduced.frame, nativeFrame = native.frame
+        let composerFrame = composer.frame, keyboardFrame = keyboard.frame, inputFrame = input.frame
+        let assistantFrame: CGRect? = assistantCount == 1 ? assistants.element(boundBy: 0).frame : nil
+        let tabFrame: CGRect? = tabCount == 1 ? tabs.element(boundBy: 0).frame : nil
+        let exists = [keyboard.exists, navigation.exists, reduced.exists, native.exists, composer.exists, input.exists]
+        let frames = [appFrame, windowFrame, navigationFrame, reducedFrame, nativeFrame, composerFrame, keyboardFrame, inputFrame]
+        let finiteFrames = frames.map(finite)
+        let finiteAssistant = assistantFrame.map(finite) ?? true
+        let finiteTab = tabFrame.map(finite) ?? true
+        note("frames app=\(appFrame) window=\(windowFrame) nav=\(navigationFrame) transcriptOther=\(reducedFrame) transcriptScrollView=\(nativeFrame) composerRegion=\(composerFrame) keyboard=\(keyboardFrame) inputView=\(inputFrame) assistant=\(String(describing: assistantFrame)) tab=\(String(describing: tabFrame)) exists=\(exists) finite=\(finiteFrames) finiteAssistant=\(finiteAssistant) finiteTab=\(finiteTab)")
+        guard exists.allSatisfy({ $0 }), finiteFrames.allSatisfy({ $0 }), finiteAssistant, finiteTab else {
+            reject("Every required actual export and optional exported frame must exist with finite positive geometry")
+            return
+        }
+        let window = windowFrame.intersection(appFrame)
+        let composerVisible = composerFrame.intersection(window)
+        let keyboardVisible = keyboardFrame.intersection(window)
+        let inputVisible = inputFrame.intersection(window)
+        let assistantVisible = assistantFrame.map { $0.intersection(window) }
+        let tabVisible = tabFrame.map { $0.intersection(window) }
+        let validWindow = finite(window), navigationInside = window.contains(navigationFrame)
+        let reducedInsideNative = nativeFrame.contains(reducedFrame)
+        let visibleComposer = finite(composerVisible), visibleKeyboard = finite(keyboardVisible), visibleInput = finite(inputVisible)
+        let connectedInput = visibleKeyboard && visibleInput && finite(keyboardVisible.intersection(inputVisible))
+        let connectedAssistant = assistantVisible.map { !finite($0) || finite($0.intersection(inputVisible)) } ?? true
+        let visibleTab = tabVisible.map(finite) ?? true
+        note("visible window=\(window) composer=\(composerVisible) keyboard=\(keyboardVisible) input=\(inputVisible) assistant=\(String(describing: assistantVisible)) tab=\(String(describing: tabVisible)) validWindow=\(validWindow) navigationInside=\(navigationInside) reducedInsideNative=\(reducedInsideNative) visibleComposer=\(visibleComposer) visibleKeyboard=\(visibleKeyboard) visibleInput=\(visibleInput) connectedInput=\(connectedInput) connectedAssistant=\(connectedAssistant) visibleTab=\(visibleTab)")
+        guard validWindow, navigationInside, reducedInsideNative, visibleComposer, visibleKeyboard, visibleInput,
+              connectedInput, connectedAssistant, visibleTab else {
+            reject("Actual transcript pair/window/chrome/composer/full-input intersections must be consistent")
+            return
+        }
+        // Include the whole exported input region, not just the key rectangle below its assistant.
+        var bottom = min(window.maxY, min(composerVisible.minY, min(keyboardVisible.minY, inputVisible.minY)))
+        if let assistantVisible, finite(assistantVisible) { bottom = min(bottom, assistantVisible.minY) }
+        if let tabVisible { bottom = min(bottom, tabVisible.minY) }
+        let top = max(window.minY, navigationFrame.maxY)
+        let navToBottom = CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
+        let clip = reducedFrame.intersection(nativeFrame).intersection(window).intersection(navToBottom)
+        let interior = clip.insetBy(dx: 12, dy: 12)
+        let validClip = finite(navToBottom) && finite(clip) && finite(interior)
+        note("navToBottom=\(navToBottom) actualClip=\(clip) inset12Interior=\(interior) validClip=\(validClip)")
+        guard validClip else {
+            reject("Actual reduced transcript must leave a finite positive unobscured inset12 start region")
+            return
+        }
+        let startPoint = CGPoint(x: interior.midX, y: interior.midY)
+        // Preserve the original app-normalized endpoint and the original down-drag semantics.
+        let endPoint = CGPoint(x: appFrame.minX + appFrame.width * 0.5, y: appFrame.minY + appFrame.height * 0.95)
+        let pointsFinite = [startPoint.x, startPoint.y, endPoint.x, endPoint.y].allSatisfy { $0.isFinite }
+        let insideBoth = reducedFrame.contains(startPoint) && nativeFrame.contains(startPoint)
+        let insideClip = interior.contains(startPoint) && clip.contains(startPoint)
+        let insideWindow = window.contains(startPoint) && window.contains(endPoint)
+        let belowNavigation = startPoint.y > navigationFrame.maxY
+        let aboveComposer = startPoint.y < composerVisible.minY
+        let outsideInput = !keyboardVisible.contains(startPoint) && !inputVisible.contains(startPoint)
+            && !(assistantVisible.map { finite($0) && $0.contains(startPoint) } ?? false)
+        let outsideTab = !(tabVisible.map { $0.contains(startPoint) } ?? false)
+        let downward = endPoint.y > startPoint.y
+        note("start=\(startPoint) endNormalized(.5,.95)=\(endPoint) pointsFinite=\(pointsFinite) insideBothTranscripts=\(insideBoth) insideClip=\(insideClip) insideWindow=\(insideWindow) belowNav=\(belowNavigation) aboveComposer=\(aboveComposer) outsideFullInput=\(outsideInput) outsideTab=\(outsideTab) downward=\(downward)")
+        guard pointsFinite, insideBoth, insideClip, insideWindow, belowNavigation, aboveComposer, outsideInput, outsideTab, downward else {
+            reject("One genuine downward drag requires a proved unobscured transcript start and unchanged in-window endpoint")
+            return
+        }
+        let fields = app.descendants(matching: .any).matching(identifier: "companion-composer")
+        let fieldCount = fields.count
+        note("diagnostic-only editor count=\(fieldCount)")
+        if fieldCount == 1 {
+            note("diagnostic-only editor frame=\(fields.element(boundBy: 0).frame)")
+        }
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: startPoint.x - appFrame.minX, dy: startPoint.y - appFrame.minY))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
+        screenshot(app, "Dispatcher measured transcript keyboard drag original before")
         start.press(forDuration: 0.05, thenDragTo: end)
+        screenshot(app, "Dispatcher measured transcript keyboard drag original after")
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Drag in the transcript dismisses the keyboard")
     }
 

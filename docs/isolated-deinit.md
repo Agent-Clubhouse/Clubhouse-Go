@@ -24,6 +24,8 @@ An empty nonisolated deinit can release fields on the thread performing the last
 
 | Class | Policy | Owned fields / decision |
 |---|---|---|
+| `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked-continuation runtime handles, with no user callback, UI or transport owner. MainActor beginTeardown disables future holds before resuming pending requests; deinit does no work. |
+| `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only reviewed concrete synthetic service, Store constructed with that service, Bool and value target. The initial-details seed (`Bool`), passive observed seed (`Bool?`) and update count (`Int`) add only values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary. The `windows` Bool is a plain desktop-platform flag for content path matching, with no owner, callback or teardown change; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
@@ -106,3 +108,5 @@ The opt-in DEBUG reading-restore UI fixture has a capture-free lifetime factory 
 The phone Sleep controls add only two `Set<CompanionTarget>` values to Store for requests and status refreshes. Targets contain String identifiers; neither set retains callbacks or UI objects. Store keeps its existing ARC-only teardown policy.
 
 The guided provider flow adds a String command-ID dictionary and a flow dictionary to Store. Each flow retains its own MainActor destruction for its injected protocol/callback owners; the production permission callback captures Store weakly, avoiding a cycle. Store performs no new teardown work. No nonisolated deinit is added to the flow, and no UI-affinity rule is waived.
+
+The DEBUG header UI fixture adds one reviewed Store constructor with the concrete PreviewService and two constant Boolean flags. PreviewService owns only its existing value/task/continuation state and has reviewed ARC-only teardown; neither Boolean introduces a callback or UI owner. The fixture's UIKit image renderer is method-local; Store retains only the resulting versioned icon reference, not a UIImage or renderer. Its state also holds only Bool/Int values. The dedicated route requires both `--companion-preview` and `--companion-preview-header-fixture`, constructs no live transport or saved pairing, and changes no production class storage or teardown policy. Only this constructor capture site is added to the policy.

@@ -35,6 +35,14 @@ struct CompanionPreviewRoot: View {
         ? CompanionFeedbackPresenter(model: FramebriarShakePreview.fixtureModel(enrolled: true).0) : nil
     @State private var showSettings = false
     var body: some View {
+        if CompanionConversationHeaderFixture.isEnabled {
+            CompanionConversationHeaderFixture()
+        } else if CompanionRecoveryFixture.isEnabled {
+            CompanionRecoveryFixture()
+        } else { normalPreview }
+    }
+
+    private var normalPreview: some View {
         CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: { showSettings = true },
                           isPreview: !ProcessInfo.processInfo.arguments.contains("--companion-preview-hide-banner"))
             .sheet(isPresented: $showSettings) {
