@@ -9,7 +9,15 @@ Status: source implementation authorized, including the in-memory PDF preview be
 - Existing Annex fixtures retain their bytes and `SOURCE.json` pin, `4b3b4f59e67adcbe9df477b5f091ae1d9fb81953`. Current, sleeping and paged chat snapshots already contain `contentAnyPath: true`.
 - Cases assembled in `CompanionContentParityTests.swift` are synthetic, except explicitly identified unchanged contract snapshots. No synthetic content response is represented as a desktop recording.
 
-Reuse the current rich-content opt-in, connection check, pinned transport and server authorization. The additive snapshot hint changes absolute-path link eligibility; it grants no commands or local filesystem access. Keep relative path discovery, explicit taps, media references, and the phone's own image-copy exception. Do not add home-path or `file://` discovery, prefetch, provider work, or new permissions.
+Reuse the current rich-content opt-in, connection check, pinned transport and server authorization. The additive snapshot hint changes absolute-path link eligibility; it grants no commands or local filesystem access. Keep relative path discovery, explicit taps, media references, and the phone's own image-copy exception. The November 7 file-view clarification also admits desktop-home references as described below. Do not add `file://` discovery, prefetch, provider work, or new permissions.
+
+### Direct scratch previews
+
+The user requested direct in-app viewing of agent scratch and out-of-root files, without repeated project-path prompts or an external-open fallback. Ordinary absolute scratch paths already use `contentAnyPath: true`. Home-relative `~/...` and `~\...` references now use the same negotiated eligibility, while the original raw path is forwarded unchanged. The desktop owner verified `cleanCandidate` at desktop main `0e882979` expands these forms using desktop `os.homedir`; relative paths use the desktop agent cwd. Go does not expand the phone's home or add a confirmation protocol.
+
+Discovery, the Store eligibility gate, and direct-service lexical checks accept these home forms consistently. Missing/false any-path still withholds home chips and Store reads. Each archived conversation keeps its own snapshot hint; this is not archive-entry extraction or containment permission. NUL/length/type/byte limits, peer/target authorization, the rich-content opt-in, and UNC/device/network refusals remain. Generic URI refusal remains pending a separate corrected desktop local-file-URL contract; `~other/...` and bare `~` are not added.
+
+New synthetic tests cover home discovery, negotiation and archive isolation, raw service forwarding, and a single query-encoding round trip for spaces, Unicode, `#`, `%20`, and backslashes. These tests are proposed until run on the successor. Real in-app scratch text/image/PDF viewing remains delivery validation, not proof supplied by URL construction or the separate frozen PDF hosted run.
 
 ## Acceptance matrix
 
@@ -18,6 +26,7 @@ Reuse the current rich-content opt-in, connection check, pinned transport and se
 | Rich capability absent/false/malformed, any-path true | No desktop links or content read | Existing rich gating tests; synthetic host-off store case |
 | Any-path absent/false/null/wrong type | Default false; relative candidates and whole-segment roots fallback | Strict decoding and legacy path cases |
 | Literal true, including empty roots | Supported absolute paths outside roots become eligible in chip and fetch gates | POSIX and Windows synthetic cases |
+| Literal true and `~/...` or `~\...` | Discover and forward raw path; desktop expands its own home | Home policy, Store, service and transport cases |
 | New snapshot true to false/absent, or false to true | Replace policy; never OR it with previous state | Store reload and obsolete-load cases |
 | Different targets/hosts | No shared policy | Synthetic store cases |
 | NUL, empty, over 1024 UTF-16 units, UNC/device/network paths | Refused before content route read; no phone path lookup | Candidate and direct-service cases |

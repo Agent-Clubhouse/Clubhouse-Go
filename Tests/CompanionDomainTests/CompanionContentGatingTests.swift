@@ -23,9 +23,9 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite struct CompanionContentLinkFilteringTests {
     @Test func absoluteAndHomePathsAreNotOffered() {
         let text = "`/tmp/apple-shot.kqtP/apple.png` `~/Desktop/notes.md` `C:\\Users\\me\\a.txt` `C:/Users/me/b.txt` `src/app.swift` [log](build/test.log) `./README.md`"
-        // Absolute paths are candidates for the agent's content roots; home paths never are.
+        // Both are discovered, but neither is offered without the appropriate snapshot hint.
         let files = CompanionContentReference.files(in: text)
-        #expect(files == [.file("/tmp/apple-shot.kqtP/apple.png"), .file("C:\\Users\\me\\a.txt"), .file("C:/Users/me/b.txt"),
+        #expect(files == [.file("/tmp/apple-shot.kqtP/apple.png"), .file("~/Desktop/notes.md"), .file("C:\\Users\\me\\a.txt"), .file("C:/Users/me/b.txt"),
                           .file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
         #expect(CompanionContentReference.offered(files, richContentAvailable: true) == [.file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
     }

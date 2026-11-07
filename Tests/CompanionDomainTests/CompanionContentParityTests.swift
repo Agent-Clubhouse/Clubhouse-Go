@@ -26,7 +26,7 @@ import Testing
     @Test func anyPathKeepsExplicitCandidateGuardsAndDiscoveryScope() {
         let paths = ["", "a\0.txt", String(repeating: "x", count: 1025), "//server/share/a.txt", "\\\\server\\share\\a.txt",
                      "/\\server/share/a.txt", "\\/server/share/a.txt", "\\\\?\\C:\\a.txt", "\\\\.\\pipe\\a.txt",
-                     "https://example.test/a.pdf", "smb://server/a.pdf", "file:///tmp/a.pdf", "~/a.pdf"]
+                     "https://example.test/a.pdf", "smb://server/a.pdf", "file:///tmp/a.pdf", "~someone/a.pdf", "~"]
         for windows in [false, true] {
             let roots = CompanionContentRoots(windows: windows, anyPath: true)
             for path in paths { #expect(!CompanionContentReference.file(path).isOffered(roots: roots)) }
@@ -39,10 +39,26 @@ import Testing
             #expect(!CompanionContentReference.file(path).isOffered(roots: posix))
         }
         let text = "`/tmp/a.pdf` `C:\\outside\\a.pdf` `~/a.pdf` [file](file:///tmp/a.pdf) [web](https://example.test/a.pdf)"
-        #expect(CompanionContentReference.files(in: text) == [.file("/tmp/a.pdf"), .file("C:\\outside\\a.pdf")])
+        #expect(CompanionContentReference.files(in: text) == [.file("/tmp/a.pdf"), .file("C:\\outside\\a.pdf"), .file("~/a.pdf")])
         #expect(CompanionContentReference.file("C:\\outside\\a.pdf").isOffered(roots: .init(windows: true, anyPath: true)))
         #expect(CompanionContentReference.file("c:/proj/a.txt").isOffered(roots: .init(paths: ["C:\\Proj"], windows: true)))
         #expect(!CompanionContentReference.file("/A/Proj/a.txt").isOffered(roots: .init(paths: ["/a/proj"])))
+    }
+
+    @Test func desktopHomeScratchFilesAreDiscoveredButRequireAnyPath() {
+        let paths = ["~/.clubhouse/scratch/report.pdf", "~\\scratch\\report", "~/scratch/a #é%20.txt"]
+        let text = paths.map { "`\($0)`" }.joined(separator: " ")
+        let references = paths.map { CompanionContentReference.file($0) }
+        #expect(CompanionContentReference.files(in: text) == references)
+        for windows in [false, true] {
+            #expect(CompanionContentReference.offered(references, richContentAvailable: true,
+                roots: .init(windows: windows, anyPath: true)) == references)
+            #expect(CompanionContentReference.offered(references, richContentAvailable: true,
+                roots: .init(paths: ["/"], windows: windows)).isEmpty)
+            #expect(CompanionContentReference.offered(references, richContentAvailable: false,
+                roots: .init(windows: windows, anyPath: true)).isEmpty)
+        }
+        #expect(!CompanionContentReference.isHomeRelative("~another/file.txt"))
     }
 
     @Test func unchangedContractPagesAlreadyReportAnyPath() throws {
@@ -86,6 +102,30 @@ import Testing
                 .init(id: .init(hostID: id, projectID: "p", agentID: $0), name: $0, subtitle: "", status: .working)
             })
         ], richContentAvailable: rich)
+    }
+
+    @Test func homePathUsesOwnSnapshotAndPreservesRawReference() async throws {
+        let service = ContentParityService(), store = CompanionStore(service: service)
+        store.apply(.hosts([host("studio")]))
+        let reference = CompanionContentReference.file("~/.clubhouse/scratch/a #é.pdf")
+        await store.load(target)
+        await #expect(throws: CompanionServiceError.self) { try await store.content(reference, target: target) }
+        service.policies[target] = .init(anyPath: true)
+        await store.load(target, force: true)
+        _ = try await store.content(reference, target: target)
+        await #expect(throws: CompanionServiceError.self) {
+            try await store.content(reference, target: target, contentRoots: .init())
+        }
+        service.policies[target] = .init()
+        await store.load(target, force: true)
+        _ = try await store.content(reference, target: target, contentRoots: .init(anyPath: true))
+        for gates in [host("studio", rich: false), host("studio", connection: .offline)] {
+            store.apply(.hosts([gates]))
+            await #expect(throws: CompanionServiceError.self) {
+                try await store.content(reference, target: target, contentRoots: .init(anyPath: true))
+            }
+        }
+        #expect(service.fetched == [reference, reference])
     }
 
     @Test func newerPolicyReplacesOlderPolicyAndDoesNotLeakAcrossTargetsOrHosts() async throws {
@@ -235,10 +275,26 @@ import Testing
         let h = try await harness()
         defer { h.stop() }
         for path in ["", "x\0.txt", String(repeating: "x", count: 1025), "//host/share/a.txt", "\\\\?\\C:\\a.txt",
-                     "/net/host/a.txt", "https://example.test/a.txt", "file:///tmp/a.txt", "~/a.txt"] {
+                     "/net/host/a.txt", "https://example.test/a.txt", "file:///tmp/a.txt", "~other/a.txt"] {
             await #expect(throws: CompanionServiceError.self) { try await h.service.content(.file(path), target: h.target) }
         }
         #expect(await !h.transport.readRoutes.contains { $0.name == "chatContent" })
+    }
+
+    @Test func directServiceForwardsDesktopHomePathWithoutExpansion() async throws {
+        let h = try await harness()
+        defer { h.stop() }
+        await h.transport.setRead("chatContent", .object(["kind": .string("text"), "name": .string("scratch.txt"), "text": .string("Scratch preview")]))
+        for path in ["~/scratch/a #é%20.txt", "~\\scratch\\a.txt"] {
+            let result = try await h.service.content(.file(path), target: h.target)
+            #expect(result.text == "Scratch preview")
+            let routes = await h.transport.readRoutes
+            guard let route = routes.last else {
+                Issue.record("Expected a content route")
+                return
+            }
+            #expect(route.name == "chatContent" && route.mediaRef == nil && route.filePath == path)
+        }
     }
 
     @Test func coldArchiveUsesItsOwnSnapshotAndOmissionRevokesOnlyArchivePolicy() async throws {
