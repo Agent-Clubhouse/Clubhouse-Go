@@ -908,6 +908,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         openRiver(app)
         for path in ["~/.clubhouse/scratch/home.txt", "/tmp/clubhouse-preview/scratch.txt"] {
             let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", path))
+            XCTAssertTrue(links.element.waitForExistence(timeout: 10), "The negotiated scratch reference must load")
             XCTAssertEqual(links.count, 1, "The negotiated scratch reference must be offered once")
             guard links.count == 1 else { return }
             let link = links.element(boundBy: 0)
@@ -928,11 +929,12 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
     }
 
-    func testHomePDFSheetDismissesReopensAndHandlesExportedURLLink() {
+    func testHomePDFSheetDismissesReopensAndStaysForegroundAfterExportedURLTap() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)
         openRiver(app)
         let references = app.buttons.matching(identifier: "companion-content-link")
             .matching(NSPredicate(format: "label == %@", "~/.clubhouse/scratch/acceptance.pdf"))
+        XCTAssertTrue(references.element.waitForExistence(timeout: 10), "The negotiated PDF reference must load")
         XCTAssertEqual(references.count, 1)
         guard references.count == 1 else { return }
         for opening in 1...2 {
@@ -965,7 +967,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 XCTAssertTrue(link.isHittable)
                 link.tap()
                 XCTAssertEqual(app.state, .runningForeground)
-                XCTAssertFalse(app.wait(for: .runningBackground, timeout: 2), "No background transition observed in this bounded interval")
+                XCTAssertFalse(app.wait(for: .runningBackground, timeout: 2), "No runningBackground state observed in this bounded interval")
+                XCTAssertEqual(app.state, .runningForeground)
                 XCTAssertTrue(preview.exists && title.exists)
                 contentAcceptanceCapture(app, name: "PDF after native URL tap")
             }
