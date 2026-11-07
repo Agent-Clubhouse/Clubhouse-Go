@@ -93,12 +93,10 @@ import XCTest
             let button = try unique(app, id)
             XCTAssertTrue(button.isEnabled && button.isHittable, id)
             let frame = button.frame
-            let width = NativeGeometryRepresentation.Axis(origin: frame.minX, extent: frame.width)
-            let height = NativeGeometryRepresentation.Axis(origin: frame.minY, extent: frame.height)
-            let measured = "\(id), frame=\(frame), width=\(width?.evidence ?? "invalid"), height=\(height?.evidence ?? "invalid")"
-            XCTContext.runActivity(named: "Header target representation — \(measured)") { _ in }
-            XCTAssertTrue(width?.meets(44) == true, measured)
-            XCTAssertTrue(height?.meets(44) == true, measured)
+            let measured = "\(id), \(NativeGeometryEvidence.describe(frame))"
+            XCTContext.runActivity(named: "Header strict target operands — \(measured)") { _ in }
+            XCTAssertGreaterThanOrEqual(frame.width, 44, measured)
+            XCTAssertGreaterThanOrEqual(frame.height, 44, measured)
             XCTAssertTrue(region.content.contains(button.frame), "\(id): \(button.frame), region \(region.content)")
             composerTop = min(composerTop, button.frame.minY)
         }
@@ -200,10 +198,23 @@ import XCTest
             ("companion-header-level", "Permissions: Auto-accept edits"),
             ("companion-chat-details-model", "Opus")
         ]
-        var coverage: [String: NativeGeometryRepresentation.Coverage] = [:]
+        var coverage: [String: [(CGFloat, CGFloat)]] = [:]
+        var heights: [String: CGFloat] = [:]
+        var previousMetadataFrames: [String: CGRect] = [:]
         var previousNameMinY: CGFloat?
-        func coveredPrefix(_ id: String) -> CGFloat { coverage[id]?.prefix ?? 0 }
-        func complete(_ id: String) -> Bool { coverage[id]?.complete ?? false }
+        func coveredPrefix(_ id: String) -> CGFloat {
+            guard let spans = coverage[id]?.sorted(by: { $0.0 < $1.0 }) else { return 0 }
+            var end: CGFloat = 0
+            for span in spans {
+                if span.0 > end { break }
+                end = max(end, span.1)
+            }
+            return end
+        }
+        func complete(_ id: String) -> Bool {
+            guard let height = heights[id] else { return false }
+            return coveredPrefix(id) >= height
+        }
         for step in 0...16 {
             guard let viewport = try assertEditingViewport(app, expanded: true, largeText: longName) else { throw HeaderGeometryFailure.invalid }
             // The viewport includes bottom6 padding; the native scroll frame is the content clip.
@@ -225,26 +236,26 @@ import XCTest
                 }
                 XCTAssertTrue(finite(frame), id)
                 guard finite(frame) else { throw HeaderGeometryFailure.invalid }
-                guard let axis = NativeGeometryRepresentation.Axis(origin: frame.minY, extent: frame.height) else {
-                    XCTFail("Metadata has invalid or ill-conditioned geometry: \(id), frame=\(frame)")
-                    throw HeaderGeometryFailure.invalid
+                let prior = previousMetadataFrames[id].map { NativeGeometryEvidence.describe($0) } ?? "none"
+                let measured = "\(id), previous={\(prior)}, current={\(NativeGeometryEvidence.describe(frame))}, clip=\(visible)"
+                XCTContext.runActivity(named: "Metadata strict equality operands — \(measured)") { _ in }
+                if let height = heights[id] {
+                    // No old coverage survives a resize, even if a caller changes continueAfterFailure.
+                    if frame.height != height { coverage[id] = [] }
+                    XCTAssertEqual(frame.height, height, "Metadata must not shrink while navigating: \(measured)")
                 }
-                let prior = coverage[id]?.reference
-                let slice = frame.intersection(visible)
-                let visibleSlice = !slice.isNull && !slice.isEmpty && frame.minX >= visible.minX && frame.maxX <= visible.maxX
-                let lower: CGFloat? = visibleSlice ? max(0, slice.minY - frame.minY) : nil
-                let upper: CGFloat? = visibleSlice ? (slice.maxY == frame.maxY ? axis.extent : min(axis.extent, slice.maxY - frame.minY)) : nil
-                let unchanged = coverage[id, default: .init()].observe(axis, lower: lower, upper: upper)
-                let measured = "\(id), prior=\(prior?.evidence ?? "none"), current=\(axis.evidence), frame=\(frame), slice=\(slice), unchanged=\(unchanged)"
-                XCTContext.runActivity(named: "Metadata representation — \(measured)") { _ in }
-                XCTAssertTrue(unchanged, "Metadata resized; old coverage invalidated: \(measured)")
-                guard unchanged else { throw HeaderGeometryFailure.invalid }
+                previousMetadataFrames[id] = frame
+                heights[id] = frame.height
                 frames[id] = frame
+                let slice = frame.intersection(visible)
+                if !slice.isNull && !slice.isEmpty && frame.minX >= visible.minX && frame.maxX <= visible.maxX {
+                    coverage[id, default: []].append((max(0, slice.minY - frame.minY), min(frame.height, slice.maxY - frame.minY)))
+                }
             }
             guard let nameFrame = frames["companion-chat-details-name"] else { throw HeaderGeometryFailure.invalid }
             let displacement = previousNameMinY.map { $0 - nameFrame.minY }
             let evidence = expected.map { id, _ in
-                "\(id): frame=\(String(describing: frames[id])), spans=\(coverage[id]?.spans ?? []), prefix=\(coveredPrefix(id))"
+                "\(id): frame=\(String(describing: frames[id])), spans=\(coverage[id] ?? []), prefix=\(coveredPrefix(id))"
             }.joined(separator: "; ")
             XCTContext.runActivity(named: "Header metadata sample \(step): clip=\(visible), upward displacement=\(String(describing: displacement)); \(evidence)") { _ in }
             if expected.allSatisfy({ complete($0.0) }) {
