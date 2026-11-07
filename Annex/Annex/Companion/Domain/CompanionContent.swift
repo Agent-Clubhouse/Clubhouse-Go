@@ -136,4 +136,10 @@ struct CompanionContent: Sendable {
     var text: String?
     var truncated = false
     var tooLarge = false
+
+    /// Bytes the phone may give PDFKit: only a desktop `pdf` payload within the phone limit, never one picked by MIME or another kind.
+    var pdfBytes: Data? {
+        guard kind == "pdf", !tooLarge, let bytes, bytes.count <= 8 * 1024 * 1024 else { return nil }
+        return bytes
+    }
 }

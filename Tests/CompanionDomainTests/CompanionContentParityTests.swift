@@ -179,13 +179,14 @@ import Testing
         #expect(pdf.kind == "pdf" && pdf.bytes == data && pdf.mimeType == "application/pdf" && pdf.text == nil)
         await h.transport.setRead("chatContent", .object(["kind": .string("pdf"), "name": .string("large.pdf"), "tooLarge": .bool(true)]))
         let large = try await h.service.content(.file("large.pdf"), target: h.target)
-        #expect(large.kind == "pdf" && large.tooLarge && large.bytes == nil)
+        #expect(large.kind == "pdf" && large.tooLarge && large.bytes == nil && large.pdfBytes == nil)
+        #expect(pdf.pdfBytes == data)
         for kind in ["hologram", "other"] {
             await h.transport.setRead("chatContent", .object(["kind": .string(kind), "name": .string("future.bin"),
                 "mimeType": .string("image/svg+xml"), "text": .string("not a text preview"),
                 "base64": .string(data.base64EncodedString()), "truncated": .bool(true)]))
             let content = try await h.service.content(.file("future.bin"), target: h.target)
-            #expect(content.kind == "other" && content.name == "future.bin")
+            #expect(content.kind == "other" && content.name == "future.bin" && content.pdfBytes == nil)
             if kind == "other" {
                 #expect(content.bytes == data && content.text != nil && content.mimeType == "image/svg+xml" && content.truncated)
             } else {
@@ -200,6 +201,20 @@ import Testing
         for response in malformed {
             await h.transport.setRead("chatContent", response)
             await #expect(throws: CompanionServiceError.self) { try await h.service.content(.file("a.bin"), target: h.target) }
+        }
+    }
+
+    @Test func onlyABoundedPDFKindReachesPDFKit() {
+        // Synthetic header bytes; whether PDFKit can open them is the hosted app tests' concern.
+        let data = Data("%PDF-1.7\nsynthetic".utf8)
+        #expect(CompanionContent(kind: "pdf", name: "a.pdf", bytes: data).pdfBytes == data)
+        #expect(CompanionContent(kind: "pdf", name: "a.pdf", bytes: data, tooLarge: true).pdfBytes == nil)
+        #expect(CompanionContent(kind: "pdf", name: "a.pdf").pdfBytes == nil)
+        let limit = Data(count: 8 * 1024 * 1024)
+        #expect(CompanionContent(kind: "pdf", name: "a.pdf", bytes: limit).pdfBytes?.count == limit.count)
+        #expect(CompanionContent(kind: "pdf", name: "a.pdf", bytes: limit + Data([0])).pdfBytes == nil)
+        for kind in ["other", "text", "image", "video", "audio"] {
+            #expect(CompanionContent(kind: kind, name: "a.pdf", mimeType: "application/pdf", bytes: data).pdfBytes == nil)
         }
     }
 
