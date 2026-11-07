@@ -151,7 +151,8 @@ import XCTest
         XCTAssertEqual(approval.buttons.allElementsBoundByIndex.map { [$0.label, String($0.isEnabled)] }, approvalActions)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
         XCTAssertEqual(composer.value as? String, draft)
-        // The dismissal itself taps the unique editor. Do not tap it twice and summon its edit menu.
+        // The dismissal is anchored inside the editor; its native recipient is not inferred.
+        // Require retained focus instead of a second tap that can summon the edit menu.
         XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"))
         assertOrdinaryDraft(app, draft: draft, state: "after Options and editor dismissal")
         waitAndTap(app.buttons["companion-interrupt"], until: app.buttons["Interrupt turn"], attempts: 1)
@@ -301,11 +302,19 @@ import XCTest
             return false
         }
         let editor = editors.element, menu = menus.element
+        let editorExists = editor.exists, menuExists = menu.exists
+        guard editorExists, menuExists else {
+            XCTFail("Editor/menu disappeared before dismissal geometry"); return false
+        }
         let editorFrame = editor.frame, menuFrame = menu.frame
-        guard editor.exists, editor.isHittable, finiteRect(editorFrame), finiteRect(menuFrame),
+        let editorHittable = editor.isHittable
+        XCTContext.runActivity(named: "Long-draft dismissal state — editorExists=\(editorExists), menuExists=\(menuExists), editorHittable=\(editorHittable), editor=\(editorFrame), menu=\(menuFrame), viewport=\(viewport)") { _ in }
+        // This is an outside-menu dismissal, not an element tap on the covered editor.
+        // Hittability is observed, not required: a modal surface may intercept the point.
+        guard finiteRect(editorFrame), finiteRect(menuFrame),
               let point = outsidePoint(in: editorFrame.intersection(viewport), excluding: menuFrame),
               editorFrame.contains(point), !menuFrame.contains(point) else {
-            XCTFail("No supported current editor interior outside the native menu")
+            XCTFail("No finite current editor interior outside the native menu")
             return false
         }
         // Include disabled controls too; current positive public bounds are exclusions, not hit-test proof.
@@ -330,8 +339,8 @@ import XCTest
             }
         }
         // Sequential rechecks reduce stale-anchor risk; they cannot freeze native geometry atomically.
-        guard editors.count == 1, menus.count == 1, editor.frame == editorFrame,
-              menu.frame == menuFrame, editor.isHittable else {
+        guard editors.count == 1, menus.count == 1, app.collectionViews.count == 1,
+              editor.exists, menu.exists, editor.frame == editorFrame, menu.frame == menuFrame else {
             XCTFail("Editor/menu changed before the one dismissal action"); return false
         }
         tap(point, in: app, named: "Dismiss long-draft menu inside current editor \(editorFrame), excluding \(menuFrame)")
