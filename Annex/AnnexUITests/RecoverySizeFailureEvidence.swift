@@ -6,6 +6,7 @@ import XCTest
         guard frame.width < 44 || frame.height < 44 else { return }
         let started = ProcessInfo.processInfo.systemUptime
         var fields = ["originalButtonFrame=\(frame)", "startUptime=\(started)"]
+        XCTContext.runActivity(named: "Retry original strict-size reading — frame=\(frame), uptime=\(started)") { _ in }
         func surface(_ name: String, _ query: XCUIElementQuery) {
             let count = query.count
             fields.append("\(name).count=\(count)")
