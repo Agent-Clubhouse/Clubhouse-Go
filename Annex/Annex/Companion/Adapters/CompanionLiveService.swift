@@ -187,7 +187,8 @@ import ClubhouseTransport
     }
 
     func archive(for target: CompanionTarget, sessionID: String) throws -> any CompanionArchiveReading {
-        CompanionArchiveReader(transport: try transport(for: target.hostID), target: target, sessionID: sessionID)
+        CompanionArchiveReader(transport: try transport(for: target.hostID), target: target, sessionID: sessionID,
+                               windows: windowsHosts.contains(target.hostID))
     }
 
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
@@ -279,16 +280,23 @@ import ClubhouseTransport
         case .image(let ref):
             guard CompanionContentReference.validMediaReference(ref) else { throw AnnexTransportError.invalidEndpoint }
             route = .chatContent(agentID: target.agentID, mediaRef: ref, filePath: nil)
-        case .file(let path): route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+        case .file(let path):
+            guard CompanionContentReference.isValidFilePath(path, windows: windowsHosts.contains(target.hostID)) else { throw AnnexTransportError.invalidEndpoint }
+            route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
         case .localImage: throw AnnexTransportError.invalidEndpoint
             }
             let value = try await transport(for: target.hostID).read(route)
-            guard let kind = value["kind"]?.string, ["image", "text", "video", "audio", "other"].contains(kind),
+            guard let kind = value["kind"]?.string,
                   let name = value["name"]?.string else { throw AnnexTransportError.malformedResponse }
             let encoded = value["base64"]?.string
             guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
             let bytes = encoded.flatMap { Data(base64Encoded: $0) }
             guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
+            // Future kinds stay named file chips, never active content selected by their MIME or payload.
+            // Known `other` retains its existing semantics; malformed envelopes and caps still reject above.
+            guard ["image", "text", "video", "audio", "pdf", "other"].contains(kind) else {
+                return .init(kind: "other", name: name, tooLarge: value["tooLarge"].boolValue)
+            }
             return .init(kind: kind, name: name, mimeType: value["mimeType"]?.string, bytes: bytes,
                          text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
     }
@@ -301,7 +309,7 @@ import ClubhouseTransport
         // The desktop answers an invalid reference like a missing one (404 content_unavailable), so the phone does too.
         case .rejected(404, _, _), .invalidEndpoint:
             if case .file = reference {} else { return "This image is no longer available on \(hostName)." }
-            return "\(hostName) couldn't share this file. It may have moved, or be outside the agent's folders."
+            return "\(hostName) couldn't share this file. It may have moved, or this desktop can't read it."
         case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
         case .malformedResponse: return "\(hostName) sent a preview this phone can't read. Updating the desktop may help."
         default: return readableError(error)
@@ -1198,9 +1206,10 @@ import ClubhouseTransport
         agent.slashCommands = projection.flatMap { slashCommands($0, target: target) }
         return agent
     }
-    /// The chat snapshot's `contentRoots` (desktop #2460). Older desktops omit it, which leaves relative paths only.
+    /// Each snapshot replaces the content hints. Missing or malformed any-path is false, including in archives.
     nonisolated static func contentRoots(from snapshot: AnnexJSON, windows: Bool) -> CompanionContentRoots {
-        .init(paths: snapshot["contentRoots"].arrayValue.prefix(16).compactMap { $0.string.flatMap { $0.isEmpty ? nil : $0 } }, windows: windows)
+        .init(paths: snapshot["contentRoots"].arrayValue.prefix(16).compactMap { $0.string.flatMap { $0.isEmpty ? nil : $0 } },
+              windows: windows, anyPath: snapshot["contentAnyPath"].boolValue)
     }
     /// A project's name and identity. The desktop's `displayName` overrides its `name`.
     nonisolated static func project(_ value: AnnexJSON, id: String, agents: [CompanionAgent], icon: CompanionIconReference?) -> CompanionProject {

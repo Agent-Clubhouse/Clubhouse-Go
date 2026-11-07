@@ -150,6 +150,11 @@
       "source": "Annex/Annex/Companion/Views/CompanionQRPairing.swift",
       "reason": "DataScanner delegate owns an injected callback; possible UI captures."
     },
+    "CompanionPDFPreview.LinkGuard": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionContentView.swift",
+      "reason": "Stateless PDFViewDelegate whose nonisolated callbacks do nothing. PDFView holds it weakly; SwiftUI owns it from makeCoordinator until dismantleUIView, which removes the document before the delegate. No stored fields, captures or teardown work, but it is a new UIKit-delegate owner with no ARC-only review; retain synthesized MainActor teardown."
+    },
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
@@ -253,7 +258,7 @@
     "CompanionArchiveReader": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift",
-      "reason": "Sendable transport reference and value target/session/event dictionary; no UI fields.",
+      "reason": "Sendable transport reference and value target/session/event dictionary. The windows Bool is a plain desktop-platform flag for content path matching; it adds no owner, callback or teardown work. No UI fields.",
       "surface": {
         "bases": [
           "CompanionArchiveReading"
@@ -264,7 +269,8 @@
           "readOnly": "Bool",
           "sessionID": "String",
           "target": "CompanionTarget",
-          "transport": "any AnnexTransporting"
+          "transport": "any AnnexTransporting",
+          "windows": "Bool"
         },
         "storageMacros": []
       }
