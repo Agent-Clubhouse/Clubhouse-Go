@@ -271,11 +271,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         let send = app.buttons["companion-send"]
-        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "The placeholder must be centred against the send button")
+        XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, "The placeholder stays above the action row")
+        XCTAssertGreaterThanOrEqual(composer.frame.width, app.frame.width * 0.7, "The ordinary editor keeps the full text row")
         composer.tap()
         composer.typeText("Hey")
         let oneLine = composer.frame.height
-        XCTAssertEqual(composer.frame.midY, send.frame.midY, accuracy: 0.5, "One line of text must be centred against the send button")
+        XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, "One line stays above the action row")
+        XCTAssertEqual(composer.value as? String, "Hey")
         // Two words at a time: fewer round trips, and still far short of a whole line, so it stops at two lines.
         for _ in 0..<10 where composer.frame.height <= oneLine + 1 {
             composer.typeText(" steady steady")
@@ -283,9 +285,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let twoLines = composer.frame.height
         XCTAssertGreaterThan(twoLines, oneLine + 1, "Composer must grow when the draft wraps")
         XCTAssertEqual(oneLine, twoLines / 2, accuracy: 0.5, "A single line must use the same line height as wrapped lines")
-        // The field's padding, not the row, sets the bottom of a long draft, so allow the ~1pt difference.
-        XCTAssertEqual(composer.frame.maxY - send.frame.maxY, (oneLine - send.frame.height) / 2, accuracy: 1.5,
-                       "As the draft grows, Send must stay level with the last line")
+        XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, "Wrapped text stays above the action row")
+        XCTAssertGreaterThanOrEqual(composer.frame.width, app.frame.width * 0.7, "Wrapping does not reserve a control column")
     }
 
     /// Accessibility text gives the draft its own full-width row above the actions.

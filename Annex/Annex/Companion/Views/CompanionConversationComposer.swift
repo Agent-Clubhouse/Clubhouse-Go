@@ -150,12 +150,8 @@ struct CompanionConversationComposer: View {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
             HStack(alignment: .bottom, spacing: 4) {
-                if !dynamicTypeSize.isAccessibilitySize { chatControls.frame(height: actionRowHeight) }
                 inputRowLayout {
                     HStack(alignment: .bottom, spacing: 6) {
-                        if !dynamicTypeSize.isAccessibilitySize, let limits = attachmentLimits {
-                            CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, assistiveRow ? 2 : 8).frame(height: composerRowHeight)
-                        }
                         TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
                             // Leave room for attachments and actions above a narrow keyboard. The native field
                             // scrolls to the caret; every line remains in the draft at its normal text size.
@@ -163,8 +159,8 @@ struct CompanionConversationComposer: View {
                             // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                             // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                             .fixedSize(horizontal: false, vertical: true)
-                            .padding(.vertical, 12).padding(.leading, attachmentLimits == nil || dynamicTypeSize.isAccessibilitySize ? 16 : 2)
-                            // One line is centred in the row; longer drafts grow upward with Send on the last line.
+                            .padding(.vertical, 12).padding(.horizontal, 16)
+                            // The draft keeps the full text row as it grows; actions stay in their own row below.
                             .frame(minHeight: composerRowHeight)
                             .focused($composerFocused)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
@@ -179,12 +175,12 @@ struct CompanionConversationComposer: View {
                     HStack(alignment: .bottom, spacing: 6) {
                         if dynamicTypeSize.isAccessibilitySize {
                             approvalReviewButton.frame(height: actionRowHeight)
-                            chatControls.frame(height: actionRowHeight)
-                            if let limits = attachmentLimits {
-                                CompanionAttachButton(store: store, target: target, limits: limits).frame(height: actionRowHeight)
-                            }
-                            Spacer(minLength: 0)
                         }
+                        chatControls.frame(height: actionRowHeight)
+                        if let limits = attachmentLimits {
+                            CompanionAttachButton(store: store, target: target, limits: limits).frame(height: actionRowHeight)
+                        }
+                        Spacer(minLength: 0)
                         HStack(alignment: .bottom, spacing: dynamicTypeSize.isAccessibilitySize ? 0 : 6) {
                             if agent.status == .working {
                                 // Interrupt remains a separate confirmed action beside Send, never a replacement for it.
@@ -217,10 +213,10 @@ struct CompanionConversationComposer: View {
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
                             .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
                             .accessibilityIdentifier("companion-send")
-                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : (assistiveRow ? 2 : 6))
+                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : 6)
                             .frame(height: actionRowHeight)
                         }
-                        if dynamicTypeSize.isAccessibilitySize { keyboardDismissButton }
+                        keyboardDismissButton
                     }
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
@@ -229,11 +225,10 @@ struct CompanionConversationComposer: View {
                     Task { _ = await pasteImages(providers) }
                     return true
                 }
-                if !dynamicTypeSize.isAccessibilitySize { keyboardDismissButton }
             }
             composerCaption
         }
-        .padding(.horizontal, assistiveRow ? 12 : 16).padding(.vertical, 10)
+        .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -305,13 +300,10 @@ struct CompanionConversationComposer: View {
         }
     }
 
-    private var assistiveRow: Bool { composerFocused && showsKeyboardDismissButton }
-
-    /// Large text and focused assistive editing put the draft above the actions. AnyLayout retains the field subtree.
+    /// Keep the full-width draft above one action row at every text size and focus state.
+    /// Retain the field subtree; typing does not select a different layout or control placement.
     private var inputRowLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize || assistiveRow
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-            : AnyLayout(HStackLayout(alignment: .bottom, spacing: 6))
+        AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
     }
 
     /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.

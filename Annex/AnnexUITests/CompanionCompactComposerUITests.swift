@@ -89,6 +89,78 @@ import XCTest
         assertRow(app, working: true, state: "working typed unfocused", stacked: largestText)
     }
 
+    // Report 3277d430: ordinary Working editing must not select the assistive-only layout.
+    func testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit() {
+        ordinaryWorkingDraft(softWrap: false)
+    }
+
+    func testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit() {
+        ordinaryWorkingDraft(softWrap: true)
+    }
+
+    private func ordinaryWorkingDraft(softWrap: Bool) {
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
+        waitAndTap(river, until: editors.firstMatch, attempts: 1)
+        XCTAssertEqual(editors.count, 1)
+        let composer = editors.element(boundBy: 0)
+        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Keep ordinary pending approval in the capacity case")
+        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"))
+        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists, "This case requires ordinary editing, not assistive layout")
+        var draft = "Line 1"
+        composer.typeText(draft)
+        let oneLine = composer.frame.height
+        if softWrap {
+            // A fixed finite string, not a retry loop or geometry-driven typing rescue.
+            let suffix = String(repeating: " steady detail", count: 12)
+            composer.typeText(suffix); draft += suffix
+            XCTAssertGreaterThan(composer.frame.height, oneLine, "The ordinary draft must actually wrap")
+            assertOrdinaryDraft(app, draft: draft, state: "soft wrapped")
+        } else {
+            for count in 1...8 {
+                checkTimeLeft("measuring ordinary draft with \(count) explicit lines")
+                if count > 1 {
+                    let next = "\nLine \(count)"
+                    composer.typeText(next); draft += next
+                }
+                assertOrdinaryDraft(app, draft: draft, state: "\(count) explicit lines")
+            }
+        }
+        // Opening Options must retain the entire long draft; it must not select a second field.
+        waitAndTap(app.buttons["companion-level-menu"], until: app.buttons["companion-permissions-menu"], attempts: 1)
+        XCTAssertTrue(app.buttons["companion-model-menu"].exists)
+        guard dismissChatControls(app) else { return }
+        XCTAssertEqual(composer.value as? String, draft)
+        composer.tap()
+        assertOrdinaryDraft(app, draft: draft, state: "after Options and refocus")
+        waitAndTap(app.buttons["companion-interrupt"], until: app.buttons["Interrupt turn"], attempts: 1)
+        XCTAssertTrue(app.staticTexts["Interrupt this turn?"].exists)
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
+        capture(app, "ordinary long draft confirmation before Cancel")
+        guard cancelInterruptConfirmation(app) else { return }
+        XCTAssertEqual(composer.value as? String, draft)
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
+        composer.tap()
+        assertOrdinaryDraft(app, draft: draft, state: "after Cancel and refocus")
+    }
+
+    private func assertOrdinaryDraft(_ app: XCUIApplication, draft: String, state: String) {
+        capture(app, "ordinary full-width \(state)")
+        let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
+        XCTAssertEqual(editors.count, 1)
+        let composer = editors.element(boundBy: 0)
+        XCTAssertEqual(composer.value as? String, draft)
+        XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"))
+        XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists)
+        assertEnabledEditingRow(app, working: true, requiresDismiss: false)
+        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval must not disappear to make space")
+    }
+
     private func capture(_ app: XCUIApplication, _ state: String) {
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Compact composer \(state)"; shot.lifetime = .keepAlways; add(shot)
@@ -425,11 +497,12 @@ import XCTest
                 XCTAssertTrue(review.isHittable, state, file: file, line: line)
                 XCTAssertGreaterThanOrEqual(review.frame.width, 44, state, file: file, line: line)
                 XCTAssertGreaterThanOrEqual(review.frame.height, 44, state, file: file, line: line)
-            } else if ordinaryAssistiveEditing {
-                XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Focused assistive draft retains useful width: \(state)", file: file, line: line)
-                XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, state, file: file, line: line)
             } else {
-                XCTAssertGreaterThanOrEqual(interrupt.frame.minX, composer.frame.maxX - 2, state, file: file, line: line)
+                if ordinaryAssistiveEditing {
+                    XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Focused assistive draft retains useful width: \(state)", file: file, line: line)
+                }
+                XCTAssertGreaterThanOrEqual(composer.frame.width, app.frame.width * 0.7, "Ordinary draft keeps the full text row", file: file, line: line)
+                XCTAssertLessThanOrEqual(composer.frame.maxY, send.frame.minY, state, file: file, line: line)
             }
             let interruptFrame = interrupt.frame, sendFrame = send.frame
             let gap = sendFrame.minX - interruptFrame.maxX
@@ -444,7 +517,7 @@ import XCTest
     }
 
     /// Only typed, enabled states require actionable Send; empty drafts intentionally keep it disabled.
-    private func assertEnabledEditingRow(_ app: XCUIApplication, working: Bool,
+    private func assertEnabledEditingRow(_ app: XCUIApplication, working: Bool, requiresDismiss: Bool = true,
                                          file: StaticString = #filePath, line: UInt = #line) {
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), file: file, line: line)
@@ -455,12 +528,53 @@ import XCTest
         XCTAssertGreaterThan(unobscured.height, 0, file: file, line: line)
         var targets = [app.buttons["companion-level-menu"], app.buttons["companion-send"], element(app, "companion-composer")]
         if working {
-            let dismiss = app.buttons["companion-dismiss-keyboard"]
-            XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44, file: file, line: line)
-            XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44, file: file, line: line)
-            targets += [app.buttons["companion-interrupt"], app.buttons["companion-attach"], dismiss]
+            targets += [app.buttons["companion-interrupt"], app.buttons["companion-attach"]]
+            if requiresDismiss {
+                let dismiss = app.buttons["companion-dismiss-keyboard"]
+                XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44, file: file, line: line)
+                XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44, file: file, line: line)
+                targets.append(dismiss)
+            } else {
+                XCTAssertFalse(app.buttons["companion-dismiss-keyboard"].exists, file: file, line: line)
+            }
             let review = app.buttons["companion-review-approval"]
             if review.exists { targets.append(review) }
+        }
+        let regions = app.descendants(matching: .any).matching(identifier: "companion-composer-region")
+        XCTAssertEqual(regions.count, 1, file: file, line: line)
+        let region = regions.element(boundBy: 0).frame
+        XCTAssertTrue(finiteRect(region) && unobscured.contains(region), "Whole composer including approval and attachments must fit: \(region), \(unobscured)", file: file, line: line)
+        let editor = element(app, "companion-composer").frame
+        // Two explicit 16-point insets: outside the glass and inside the text row. No control column is reserved.
+        XCTAssertGreaterThanOrEqual(editor.width, app.frame.width * 0.7, file: file, line: line)
+        XCTAssertLessThanOrEqual(editor.minX, region.minX + 32, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(editor.maxX, region.maxX - 32, file: file, line: line)
+        let actions = targets.filter { $0.identifier != "companion-composer" }
+        let frames = actions.map { ($0.identifier, $0.frame) }
+        XCTContext.runActivity(named: "Full action-row capacity — region=\(region), editor=\(editor), frames=\(frames)") { _ in }
+        for (_, frame) in frames {
+            XCTAssertTrue(finiteRect(frame), file: file, line: line)
+            XCTAssertTrue(region.contains(frame), "Every action stays inside the composer region", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(frame.width, 44, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(frame.height, 44, file: file, line: line)
+            XCTAssertLessThanOrEqual(editor.maxY, frame.minY, "Every action stays below the text row", file: file, line: line)
+        }
+        let ordered = frames.sorted { $0.1.minX < $1.1.minX }
+        for (left, right) in zip(ordered, ordered.dropFirst()) {
+            XCTAssertLessThanOrEqual(left.1.maxX, right.1.minX, "Action targets must not overlap: \(left), \(right)", file: file, line: line)
+        }
+        if working {
+            let controls = app.buttons["companion-level-menu"].frame, attach = app.buttons["companion-attach"].frame
+            let stop = app.buttons["companion-interrupt"].frame, send = app.buttons["companion-send"].frame
+            XCTAssertLessThanOrEqual(controls.maxX, attach.minX, file: file, line: line)
+            XCTAssertLessThanOrEqual(attach.maxX, stop.minX, file: file, line: line)
+            XCTAssertLessThanOrEqual(stop.maxX, send.minX, file: file, line: line)
+            XCTAssertLessThanOrEqual(send.minX - stop.maxX, 16, file: file, line: line)
+            if requiresDismiss {
+                XCTAssertLessThanOrEqual(send.maxX, app.buttons["companion-dismiss-keyboard"].frame.minX, file: file, line: line)
+            }
+            let review = app.buttons["companion-review-approval"]
+            if review.exists { XCTAssertLessThanOrEqual(review.frame.maxX, controls.minX, file: file, line: line) }
         }
         for target in targets {
             XCTAssertTrue(target.isEnabled && target.isHittable, target.identifier, file: file, line: line)
