@@ -186,6 +186,35 @@ import XCTest
         return union
     }
 
+    /// Diagnostic exports only: unavailable shapes do not select an action or replace a gate.
+    private func recordTranscriptAroundFirstDarkDrag(_ app: XCUIApplication, phase: String) {
+        let started = ProcessInfo.processInfo.systemUptime
+        var record = "unavailable"
+        defer {
+            let ended = ProcessInfo.processInfo.systemUptime
+            XCTContext.runActivity(named: "Header first dark drag transcript — \(phase), uptime=\(started)...\(ended), \(record)") { _ in }
+        }
+        let containers = app.scrollViews.matching(identifier: "companion-transcript")
+        let predicate = NSPredicate(format: "label BEGINSWITH %@", "Reading marker 1.")
+        let globalMarkers = app.staticTexts.matching(predicate)
+        let containerCount = containers.count, globalCount = globalMarkers.count
+        record = "unavailable; containerCount=\(containerCount), globalMarkerCount=\(globalCount)"
+        guard containerCount == 1, globalCount == 1 else { return }
+        let container = containers.element(boundBy: 0)
+        guard container.exists else { record += "; container disappeared"; return }
+        let ownedMarkers = container.staticTexts.matching(predicate)
+        let ownedCount = ownedMarkers.count
+        record += ", ownedMarkerCount=\(ownedCount)"
+        guard ownedCount == 1 else { return }
+        let marker = ownedMarkers.element(boundBy: 0)
+        guard marker.exists else { record += "; marker disappeared"; return }
+        let containerFrame = container.frame, markerFrame = marker.frame
+        record += "; container={\(NativeGeometryEvidence.describe(containerFrame))}, marker={\(NativeGeometryEvidence.describe(markerFrame))}"
+        guard finite(containerFrame), finite(markerFrame) else { record += "; invalid frame"; return }
+        record = record.replacingOccurrences(of: "unavailable;", with: "available;")
+        record += "; derived markerMinYMinusContainerMinY=\(markerFrame.minY - containerFrame.minY)"
+    }
+
     /// Traverse only the bounded details scroll. Track coverage of each full metadata label,
     /// allowing a multiline title taller than the viewport to be read over multiple positions.
     /// Sixteen is a finite navigation budget, never a repeated tap or focus/launch rescue.
@@ -296,11 +325,13 @@ import XCTest
             let from = origin.withOffset(CGVector(dx: start.x - app.frame.minX, dy: start.y - app.frame.minY))
             let to = origin.withOffset(CGVector(dx: end.x - app.frame.minX, dy: end.y - app.frame.minY))
             previousNameMinY = nameFrame.minY
+            if !longName && step == 0 { recordTranscriptAroundFirstDarkDrag(app, phase: "before original drag") }
             XCTContext.runActivity(named: "Header details navigation \(step + 1): \(visible), \(start) → \(end), velocity=\(velocity), terminal contact hold=0.2") { _ in
                 from.press(forDuration: 0.05, thenDragTo: to,
                            withVelocity: XCUIGestureVelocity(rawValue: velocity), thenHoldForDuration: 0.2)
             }
             capture(app, "metadata navigation \(step + 1), long name \(longName)")
+            if !longName && step == 0 { recordTranscriptAroundFirstDarkDrag(app, phase: "after original capture") }
             // No wait, focus gesture, or generic scroll helper repairs a failed post-navigation state.
         }
     }

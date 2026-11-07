@@ -1,0 +1,11 @@
+# First dark-header drag: bounded transcript observation
+
+Applied source observation against 266c37338ce5267949b05fe2df68bf4a0ca9f48e (reviewed redistribution over published 400e). Only the first original drag in the ordinary dark metadata route receives two diagnostic observations. No product code, assertions, gestures, waits, launch attempts, retry policy or coverage algorithm changes.
+
+Each observation records monotonic start/end time, public container/global-marker/owned-marker cardinalities and, only for unique existing exports, raw container and marker frames. The marker uses the existing Reading marker 1. prefix. Missing, ambiguous, disappearing or nonfinite exports remain unavailable. Queries are sequential, not atomic; native query failures remain normal failures. No hierarchy parsing, fallback selection or added screenshot. The original screenshot stays immediately after the unchanged drag; the second observation follows it.
+
+A container frame alone does not measure scroll movement. The marker frame relative to the container is only a derived export. A change may support transcript movement, with independent layout/animation changes still possible; it does not prove the native gesture recipient. No change proves neither delivery nor non-delivery. This observation does not repair the dark failure or predict a pass. Query time is not caller-bounded and can perturb scheduling or consume the existing allowance.
+
+Strict minimum44, exact metadata-size equality, interval coverage and containment checks remain unchanged. Candidate arithmetic models do not establish Apple's AX pipeline or error bounds. A local onGeometryChange witness would substantiate layout size only, not native exported/hit size. Screenshots can support appearance but do not independently certify these exact numeric/hit contracts. No independent measurement currently substantiates the failed strict native minimum/containment contracts; this remains an explicit blocker. No lattice/tolerance policy is introduced.
+
+Source reversal removes only the new helper and two conditional calls to reconstruct the entire parent Header file byte-for-byte. No SDK/build/runtime claim. Ordinary integrated-head CI is proposed after review; current runs are untouched.
