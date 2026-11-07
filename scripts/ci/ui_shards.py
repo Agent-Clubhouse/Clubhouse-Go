@@ -80,7 +80,18 @@ SHARDS = [
         ],
     },
     {
-        # Remaining preview/diagnostics and new UI classes: ~31 mixed-worst minutes.
+        # Run42323580352 recorded 872.735s of completed attempts in these three
+        # classes before the catchall hit its55-minute limit; unfinished work is additional.
+        # Separate the existing classes without changing methods, deadlines or retries.
+        "name": "UI tests (feedback, shake)",
+        "tests": [
+            "FeedbackDiagnosticsWireUITests",
+            "FramebriarShakeDiagnosticsUITests",
+            "FramebriarShakeUITests",
+        ],
+    },
+    {
+        # Remaining preview/diagnostics and new UI classes. Feedback/shake run above.
         # Live-test guards and all existing skip behavior remain as before.
         "name": "UI tests (other)",
         "tests": None,
