@@ -313,8 +313,10 @@ import XCTest
         guard revealDetailsRetry(retry, in: app) else { return }
         capture(app, "full failure Details after content navigation")
         XCTAssertTrue(retry.isHittable)
-        XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
+        let retryFrame = retry.frame
+        RecoverySizeFailureEvidence.record(app, retry: retry, frame: retryFrame)
+        XCTAssertGreaterThanOrEqual(retryFrame.width, 44)
+        XCTAssertGreaterThanOrEqual(retryFrame.height, 44)
         waitAndTap(retry, untilGone: explanation, attempts: 1)
         XCTAssertTrue(details.waitForNonExistence(timeout: 5), "Clean connected history success removes recovery")
         XCTAssertTrue(app.buttons["Read earlier messages in archive"].exists)

@@ -400,8 +400,13 @@ import XCTest
         let buttons = [controls, send] + (working ? [app.buttons["companion-interrupt"]] : [])
         for button in buttons {
             XCTAssertTrue(button.exists, state, file: file, line: line)
-            XCTAssertGreaterThanOrEqual(button.frame.width, 44, state, file: file, line: line)
-            XCTAssertGreaterThanOrEqual(button.frame.height, 44, state, file: file, line: line)
+            let frame = button.frame
+            let width = NativeGeometryRepresentation.Axis(origin: frame.minX, extent: frame.width)
+            let height = NativeGeometryRepresentation.Axis(origin: frame.minY, extent: frame.height)
+            let measured = "\(state), id=\(button.identifier), frame=\(frame), width=\(width?.evidence ?? "invalid"), height=\(height?.evidence ?? "invalid")"
+            XCTContext.runActivity(named: "Compact target representation — \(measured)") { _ in }
+            XCTAssertTrue(width?.meets(44) == true, measured, file: file, line: line)
+            XCTAssertTrue(height?.meets(44) == true, measured, file: file, line: line)
             XCTAssertGreaterThanOrEqual(button.frame.minX, app.frame.minX, state, file: file, line: line)
             XCTAssertLessThanOrEqual(button.frame.maxX, app.frame.maxX, state, file: file, line: line)
             XCTAssertEqual(button.frame.midY, send.frame.midY, accuracy: 3, state, file: file, line: line)

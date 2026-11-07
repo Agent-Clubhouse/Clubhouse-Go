@@ -140,8 +140,10 @@ import Foundation
         let retry = app.buttons["companion-recovery-detail-retry"]
         guard revealDetailsRetry(retry, in: app) else { return }
         XCTAssertTrue(retry.isHittable)
-        XCTAssertGreaterThanOrEqual(retry.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(retry.frame.height, 44)
+        let retryFrame = retry.frame
+        RecoverySizeFailureEvidence.record(app, retry: retry, frame: retryFrame)
+        XCTAssertGreaterThanOrEqual(retryFrame.width, 44)
+        XCTAssertGreaterThanOrEqual(retryFrame.height, 44)
         waitAndTap(retry, untilGone: explanation, timeout: 5, attempts: 1)
         XCTAssertTrue(details.waitForNonExistence(timeout: 5), "Clean connected history success removes recovery")
         XCTAssertTrue(app.buttons["Read earlier messages in archive"].exists)
