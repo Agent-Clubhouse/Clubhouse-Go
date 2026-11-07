@@ -5,6 +5,8 @@ import ClubhouseTransport
 
 /// Wire shapes for create options and agent settings (`docs/mobile-control-v1.md` → Durable agents).
 /// A setting the desktop leaves out reads as `never`, so the phone never offers an edit it can't make.
+/// `personas`, `persona` and `clubhouseMode` are not read: the desktop retired them (Clubhouse #2901) and keeps the keys
+/// only for older phones. An older desktop that still offers them is ignored, as the current desktop line has moved on.
 extension CompanionAgentOptions {
     init(json: AnnexJSON?) {
         orchestrators = json?["orchestrators"].arrayValue.compactMap { value -> CompanionOrchestratorOption? in
@@ -17,10 +19,6 @@ extension CompanionAgentOptions {
                          badge: value["badge"]?.string, available: value["available"]?.boolOrNil ?? true,
                          unavailableReason: value["unavailableReason"]?.string, permissions: value["permissions"].boolValue,
                          chat: value["chat"].boolValue, models: models)
-        } ?? []
-        personas = json?["personas"].arrayValue.compactMap { value -> CompanionPersonaOption? in
-            guard let id = value["id"]?.string else { return nil }
-            return .init(id: id, name: value["name"]?.string ?? id, source: value["source"]?.string ?? "")
         } ?? []
         colors = json?["colors"].arrayValue.compactMap { value -> CompanionColorOption? in
             guard let id = value["id"]?.string else { return nil }
@@ -73,9 +71,6 @@ extension CompanionAgentSettings {
         contextWindowReset = CompanionContextWindowReset(json: json["contextWindowReset"])
         runtime = .init(value: string("runtime") ?? "default", editable: editable("runtime"))
         resolvedRuntime = settings["runtime"]?["resolved"]?.string ?? "chat"
-        persona = .init(value: string("persona"), editable: editable("persona"))
-        clubhouseMode = .init(value: settings["clubhouseMode"]?["value"]?.boolOrNil, editable: editable("clubhouseMode"))
-        clubhouseModeProjectEnabled = settings["clubhouseMode"]?["projectEnabled"].boolValue ?? false
         // `never` on desktops that keep it for themselves; `sleeping` when the CLI has permission support and the phone may set it.
         // The Dispatcher takes it at any time, applied on its next start, as its desktop settings page does.
         let freeAgentEditable: CompanionSettingEditable = switch editable("freeAgentMode") {
@@ -230,8 +225,8 @@ extension AnnexAgentUpdate {
         case nil: nil
         }
         self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
-                  model: change.model, contextWindow: clearable(change.contextWindow), runtime: change.runtime.flatMap(Runtime.init(rawValue:)), persona: clearable(change.persona),
-                  clubhouseMode: change.clubhouseMode, freeAgentMode: change.freeAgentMode, idleSleep: idle,
+                  model: change.model, contextWindow: clearable(change.contextWindow), runtime: change.runtime.flatMap(Runtime.init(rawValue:)),
+                  freeAgentMode: change.freeAgentMode, idleSleep: idle,
                   orchestration: change.orchestration.map(AnnexOrchestrationPatch.init))
     }
 }

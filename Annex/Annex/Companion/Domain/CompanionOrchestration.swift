@@ -4,9 +4,10 @@ import Foundation
 // (`helper-model.ts`, `OrchestrationFields.tsx`). Shapes follow `docs/mobile-control-v1.md` → Orchestration.
 
 /// Whether an agent may start and manage helper agents, what access its helpers get, how much you're asked,
-/// and how many helpers it may run at once. Each field comes from the agent, its persona, or the default.
+/// and how many helpers it may run at once. Each field comes from the agent or the default.
 nonisolated struct CompanionOrchestration: Sendable, Equatable {
     /// Where a field's value comes from. Only `agent` is set on the agent itself, so only it can be cleared.
+    /// `persona` only comes from older desktops: personas were retired (Clubhouse #2901).
     enum Source: String, Sendable, Equatable { case agent, persona, `default` }
 
     /// "Let this agent orchestrate".
@@ -23,7 +24,8 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var crossProjectHelpers = false
     /// "Connect to Dispatcher": the Dispatcher may message this agent and get its reports.
     var connectToDispatcher = false
-    /// Clubhouse MCP is required for orchestration; older desktops omit this and keep today's behavior.
+    /// Always true on current desktops, where the Clubhouse MCP always runs (Clubhouse #2901). Older desktops could
+    /// send false, which still disables the switches that need it; desktops that omit it keep today's behavior.
     var mcpEnabled = true
     /// A compatibility bridge can report to its parent without authority to orchestrate.
     var mcpReportOnly = false
@@ -88,7 +90,7 @@ nonisolated struct CompanionOrchestration: Sendable, Equatable {
     var maxHelpersRange: ClosedRange<Int> { 1...max(1, maxHelpersCap, maxHelpers) }
 }
 
-/// The orchestration fields a phone changes, sending only what changed. `clear` goes back to the persona's value or the default.
+/// The orchestration fields a phone changes, sending only what changed. `clear` goes back to the default.
 nonisolated struct CompanionOrchestrationChange: Sendable, Equatable {
     enum Field<Value: Sendable & Equatable>: Sendable, Equatable { case set(Value), clear }
     var orchestrate: Field<Bool>?

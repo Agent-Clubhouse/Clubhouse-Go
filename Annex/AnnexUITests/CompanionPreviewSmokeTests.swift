@@ -72,23 +72,6 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertFalse(provider.isEnabled, "A refused stop cannot unlock the provider")
     }
 
-    func testAgentSettingsKeepsMcpOffSwitchesVisibleAndDisabled() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-mcp-off"])
-        openAgentSettings(app)
-        for id in ["agent-settings-orchestrate", "agent-settings-orchestrate-cross-project", "agent-settings-orchestrate-dispatcher"] {
-            let toggle = app.switches[id]
-            scrollTo(toggle, in: app)
-            XCTAssertTrue(toggle.exists, id)
-            XCTAssertFalse(toggle.isEnabled, id)
-        }
-        // The last switch can be visible while the lazy Form footer is still below the viewport.
-        let footer = app.staticTexts["These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."]
-        XCTAssertTrue(scrollTo(footer, in: app), "The MCP-off explanation must be reachable and readable")
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "MCP off switches and explanation"; attachment.lifetime = .keepAlways; add(attachment)
-        XCTAssertTrue(footer.exists)
-    }
-
     func testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume() {
         checkGuidedProviderFlow(largeText: false)
     }

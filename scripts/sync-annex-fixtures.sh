@@ -9,6 +9,8 @@
 # The desktop (Agent-Clubhouse/Clubhouse) writes them with `npm run fixtures:annex-mobile` from its real
 # annex-server code; see its docs/mobile-control-v1.md#contract-fixtures. SOURCE.json records the commit.
 # The contract tests (AnnexContract*Tests) decode every file, so a sync that changes them may need code changes.
+# Fixtures the desktop has retired but the phone still handles from older desktops are pinned separately in
+# Tests/Fixtures/AnnexContractLegacy/ (see its SOURCE.json); this script never touches them.
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"

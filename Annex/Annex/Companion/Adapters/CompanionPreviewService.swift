@@ -30,7 +30,6 @@ import ClubhouseTransport
     /// UI tests turn on the desktop's Dispatcher, pinned above the projects, and its relayed task in River's chat (`--companion-preview-dispatcher`).
     private let showsDispatcher: Bool
     private let showsMultipleDispatchers: Bool
-    private let mcpEnabled: Bool
     private let showsHelperIdentity: Bool
     private let showsHelperTree: Bool
     private let showsQuestions: Bool
@@ -39,7 +38,7 @@ import ClubhouseTransport
     private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
     init(streamsUpdates: Bool = false, showsHelperRequests: Bool = false, showsTerminalAgent: Bool = false, showsLongBlocks: Bool = false,
-         showsLongReply: Bool = false, showsDispatcher: Bool = false, showsMultipleDispatchers: Bool = false, mcpEnabled: Bool = true, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
+         showsLongReply: Bool = false, showsDispatcher: Bool = false, showsMultipleDispatchers: Bool = false, showsHelperIdentity: Bool = false, showsHelperTree: Bool = false,
          showsQuestions: Bool = false, showsContextWindow: Bool = false, showsReadingScenario: Bool = false, showsEmptyConversation: Bool = false, showsKeyboardInteractions: Bool = false, showsHelperPresets: Bool = false, showsAutoQuota: Bool = false) {
         self.showsQuestions = showsQuestions
         self.showsAutoQuota = showsAutoQuota
@@ -50,7 +49,6 @@ import ClubhouseTransport
         self.showsEmptyConversation = showsEmptyConversation
         self.showsKeyboardInteractions = showsKeyboardInteractions
         self.showsHelperIdentity = showsHelperIdentity
-        self.mcpEnabled = mcpEnabled
         self.showsDispatcher = showsDispatcher
         self.showsMultipleDispatchers = showsMultipleDispatchers
         self.streamsUpdates = streamsUpdates
@@ -109,18 +107,6 @@ import ClubhouseTransport
                let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.sleepingTarget }) {
                 hosts[0].projects[project].agents[agent].orchestration = Self.reportOnlyPolicy
                 hosts[0].projects[project].agents[agent].parentAgentID = Self.target.agentID
-            }
-            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-mcp-off") {
-                let running = !ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-stopped")
-                var dispatcher = Self.dispatcher(now: Date())
-                dispatcher.enabled = false; dispatcher.flagOn = false
-                dispatcher.mcpOff = CompanionDispatcherMCPOff(json: .object([
-                    "offReason": .string("mcp_off"), "running": .bool(running), "status": .string(running ? "running" : "sleeping"),
-                    "commandsWhileOff": .array(running ? [.string("chat.interrupt"), .string("agent.stop"), .string("chat.permission")] : []),
-                ]))
-                dispatcher.agent?.status = running ? .working : .sleeping
-                dispatcher.agent?.capabilities = running ? [.cancel, .approve] : []
-                hosts[0].dispatcher = dispatcher
             }
             // Exercise the narrowest composer with Interrupt, Attach, Send and the assistive dismiss button.
             if ProcessInfo.processInfo.arguments.contains("--companion-preview"),
@@ -246,7 +232,7 @@ import ClubhouseTransport
         }
         if autoQuota {
             hosts[0].helperRouting = Self.autoQuotaCapability
-            hosts[0].helperRoutingLabels = Self.autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true).labels
+            hosts[0].helperRoutingLabels = Self.autoQuotaPage(projectID: nil, agentID: nil).labels
             hosts[0].helperRequests[0].requestedRouting = .init(provider: "auto", difficulty: "hard")
             var warned = hosts[0].helperRequests[0]
             warned.id = "hstart_warning"
@@ -575,7 +561,7 @@ import ClubhouseTransport
             "version": .integer(1), "path": .string("/api/v1/mobile/helper-routing"),
             "modes": .array([.string("explicit"), .string("preset")]), "scopes": .array([.string("app")]), "quota": .bool(false),
             "commands": .array([.string("helperRouting.update")]), "difficulties": .array([.string("easy"), .string("medium"), .string("hard")]),
-            "reasons": .array([.string("explicit_request"), .string("persona_pinned"), .string("preset_on_cli")]),
+            "reasons": .array([.string("explicit_request"), .string("preset_on_cli")]),
             "fallbacks": .array([.string("none"), .string("builtin_preset"), .string("model_unverified")]),
             "cellStates": .array([.string("valid"), .string("unverified"), .string("stale")])])
             .decode(AnnexCapabilities.HelperRouting.self)
@@ -601,7 +587,7 @@ import ClubhouseTransport
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         guard showsHelperPresets else { throw previewError }
         if showsAutoQuota && hostID == "preview-work" { return Self.planLimitsPage }
-        return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID, mcpEnabled: mcpEnabled) : Self.helperPresets
+        return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID) : Self.helperPresets
     }
     func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting { throw previewError }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
@@ -623,8 +609,8 @@ import ClubhouseTransport
         }
         let name = sleeping ? "Juniper" : "River"
         var policy = sleeping ? Self.juniperOrchestration : CompanionOrchestration(sources: ["crossProjectHelpers": .default, "connectToDispatcher": .default])
-        policy.mcpEnabled = mcpEnabled
-        if !mcpEnabled { policy.orchestrate = false; policy.crossProjectHelpers = false; policy.connectToDispatcher = false }
+        // The Auto provider sample keeps Juniper's own Auto switch on while it doesn't orchestrate, as `autoQuotaPage` says.
+        if sleeping && showsAutoQuota { policy.orchestrate = false }
         var result = CompanionAgentSettings(state: sleeping ? "sleeping" : "running", sleeping: sleeping,
                      name: .init(value: name, editable: .sleeping), color: .init(value: sleeping ? "violet" : "indigo", editable: .sleeping),
                      emoji: .init(value: nil, editable: .sleeping),
@@ -632,8 +618,6 @@ import ClubhouseTransport
                      model: .init(value: routed ? "gpt-6.1-sol" : "opus", editable: .sleeping),
                      contextWindow: showsContextWindow ? Self.previewContext(editable: .sleeping) : nil,
                      runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
-                     persona: .init(value: nil, editable: .sleeping),
-                     clubhouseMode: .init(value: nil, editable: .never),
                      freeAgentMode: .init(value: false, editable: .sleeping),
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: options, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
@@ -643,13 +627,12 @@ import ClubhouseTransport
         if showsAutoQuota {
             result.routing = sleeping ? Self.autoQuotaSavedDecision : nil
             result.orchestration?.autoHelpers = sleeping ? true : nil
-            result.orchestration?.autoHelpersEffective = !sleeping && mcpEnabled
+            result.orchestration?.autoHelpersEffective = !sleeping
         }
         #if DEBUG
         if sleeping, ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only") {
             result.orchestration = Self.reportOnlyPolicy
             result.parentAgentID = Self.target.agentID
-            result.clubhouseMode = .init(value: true, editable: .sleeping)
         }
         #endif
         return result
@@ -659,7 +642,6 @@ import ClubhouseTransport
         state: "running", sleeping: false, name: .init(value: CompanionDispatcher.name, editable: .never), color: .init(value: "cyan", editable: .never),
         emoji: .init(value: nil, editable: .never), orchestrator: .init(value: "claude-code", editable: .always), resolvedOrchestrator: "claude-code",
         model: .init(value: "opus", editable: .always), runtime: .init(value: "chat", editable: .always), resolvedRuntime: "chat",
-        persona: .init(value: nil, editable: .never), clubhouseMode: .init(value: nil, editable: .never),
         freeAgentMode: .init(value: true, editable: .always), idleSleep: .init(value: .never, editable: .always),
         options: agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
     /// Juniper orchestrates, asking before each helper starts; River doesn't.
@@ -685,7 +667,6 @@ import ClubhouseTransport
             .init(id: "codex", displayName: "Codex", shortName: "CX", available: false, unavailableReason: "Not installed on this desktop", permissions: false, chat: false,
                   models: [.init(id: "default", label: "Default")]),
         ],
-        personas: [.init(id: "qa", name: "QA", source: "builtin"), .init(id: "reviewer", name: "Reviewer", source: "project")],
         colors: [("indigo", "Indigo", "#6366f1"), ("emerald", "Emerald", "#10b981"), ("amber", "Amber", "#f59e0b"), ("rose", "Rose", "#f43f5e"),
                  ("cyan", "Cyan", "#06b6d4"), ("violet", "Violet", "#8b5cf6"), ("orange", "Orange", "#f97316"), ("teal", "Teal", "#14b8a6")]
             .map { CompanionColorOption(id: $0.0, label: $0.1, hex: $0.2) })

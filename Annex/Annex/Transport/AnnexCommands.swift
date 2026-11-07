@@ -163,7 +163,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
 }
 
 /// An agent's orchestration policy fields to change (`orchestration` v1): only the keys set are sent.
-/// `clear` sends `null`, putting the field back to the persona's value or the default. `agent.create` takes no `null`.
+/// `clear` sends `null`, putting the field back to the default. `agent.create` takes no `null`.
 nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     public enum Field<Value: Sendable & Equatable>: Sendable, Equatable { case set(Value), clear }
     public var orchestrate: Field<Bool>?
@@ -186,7 +186,7 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
         self.orchestrate = orchestrate; self.access = access; self.control = control; self.maxHelpers = maxHelpers
         self.crossProjectHelpers = crossProjectHelpers; self.connectToDispatcher = connectToDispatcher
     }
-    /// Every field back to the persona's value or the default.
+    /// Every field back to the default.
     public static var clearAll: AnnexOrchestrationPatch { var patch = AnnexOrchestrationPatch(); patch.clearsAll = true; return patch }
     public var isEmpty: Bool { json == .object([:]) }
     var json: AnnexJSON {
@@ -212,6 +212,7 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
 
 /// `agent.create`: a durable agent, as the desktop's New agent page makes one. Send `freeAgentMode` only to a desktop
 /// that advertises `permissions.freeAgentMode`; older ones refuse the field (403 `free_agent_mode_not_allowed`).
+/// There is no persona: personas were retired on the desktop (Clubhouse #2901), which refuses one (409 `managed_agent`).
 nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var projectID: String
     public var name: String
@@ -219,7 +220,6 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var color: String
     public var orchestrator: String?
     public var model: String?
-    public var persona: String?
     /// Skip every permission prompt. Omitted follows the project's agent defaults.
     public var freeAgentMode: Bool?
     public var useWorktree: Bool?
@@ -229,18 +229,17 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var folderName: String?
     /// Only to a desktop that advertises `orchestration` v1. Cleared fields are left out.
     public var orchestration: AnnexOrchestrationPatch?
-    public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil, persona: String? = nil,
+    public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil,
                 freeAgentMode: Bool? = nil, useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil,
                 folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil) {
         self.projectID = projectID; self.name = name; self.color = color; self.orchestrator = orchestrator; self.model = model
-        self.persona = persona; self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
+        self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
         self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName; self.orchestration = orchestration
     }
     var fields: [String: AnnexJSON] {
         var v: [String: AnnexJSON] = ["projectId": .string(projectID), "name": .string(name), "color": .string(color)]
         if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         if let model { v["model"] = .string(model) }
-        if let persona { v["persona"] = .string(persona) }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let useWorktree { v["useWorktree"] = .bool(useWorktree) }
         if let mcpIDs { v["mcpIds"] = .array(mcpIDs.map(AnnexJSON.string)) }
@@ -253,6 +252,7 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
 }
 
 /// `agent.update`: only the settings that changed. `freeAgentMode` needs a desktop that advertises `permissions.freeAgentMode`.
+/// Persona and Clubhouse Mode are never sent: the desktop retired both (Clubhouse #2901) and refuses them (409 `managed_agent`).
 nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// A value that can also be cleared, sent as `null`.
     public enum Clearable: Sendable, Equatable {
@@ -281,19 +281,16 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// Launch-only provider/model context override; null resets to the desktop's default.
     public var contextWindow: Clearable?
     public var runtime: Runtime?
-    /// Clearing it means the project default.
-    public var persona: Clearable?
-    public var clubhouseMode: Bool?
     /// A spawn setting: the desktop refuses it while the agent is awake (409 `agent_running`).
     public var freeAgentMode: Bool?
     public var idleSleep: IdleSleep?
     /// Changes any time, even while the agent runs. Needs a desktop that advertises `orchestration` v1.
     public var orchestration: AnnexOrchestrationPatch?
     public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil, contextWindow: Clearable? = nil,
-                runtime: Runtime? = nil, persona: Clearable? = nil, clubhouseMode: Bool? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil,
+                runtime: Runtime? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil,
                 orchestration: AnnexOrchestrationPatch? = nil) {
         self.agentID = agentID; self.name = name; self.color = color; self.emoji = emoji; self.orchestrator = orchestrator
-        self.model = model; self.contextWindow = contextWindow; self.runtime = runtime; self.persona = persona; self.clubhouseMode = clubhouseMode
+        self.model = model; self.contextWindow = contextWindow; self.runtime = runtime
         self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep; self.orchestration = orchestration
     }
     /// True when it changes nothing; the desktop needs at least one setting.
@@ -307,8 +304,6 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
         if let model { v["model"] = .string(model) }
         if let contextWindow { v["contextWindow"] = contextWindow.json }
         if let runtime { v["runtime"] = .string(runtime.rawValue) }
-        if let persona { v["persona"] = persona.json }
-        if let clubhouseMode { v["clubhouseMode"] = .bool(clubhouseMode) }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let idleSleep { v["idleSleep"] = idleSleep.json }
         if let orchestration, !orchestration.isEmpty { v["orchestration"] = orchestration.json }
@@ -437,9 +432,10 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public struct Dispatcher: Decodable, Sendable, Equatable {
         public static let defaultProjectID = "__dispatcher__"
         public let version: Int
-        /// The experimental flag and the app setting are both on.
+        /// The Dispatcher's switch is on (and, on older desktops, the experimental flag too).
         public let enabled: Bool
-        /// The experimental flag alone. Turning the Dispatcher on needs it.
+        /// Always true on current desktops, where the flag graduated and the Clubhouse MCP always runs (Clubhouse #2901).
+        /// Older desktops sent false for the experimental flag being off or the Clubhouse MCP being off at app level.
         public let flagOn: Bool
         /// The desktop runs its New layout, which turning the Dispatcher on also needs. Older drafts don't say: assumed on.
         public let newLayout: Bool

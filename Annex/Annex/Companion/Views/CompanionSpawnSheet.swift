@@ -208,11 +208,10 @@ struct CompanionSpawnSheet: View {
         var color = "indigo"
         var orchestrator = ""
         var model = "default"
-        var persona = ""
         var useWorktree = true
         var mcpIDs: Set<String> = []
         var freeAgentMode = false
-        /// Off leaves it to the persona or the default, so only on is sent.
+        /// Off leaves it to the default, so only on is sent.
         var orchestrate = false
 
         mutating func reset(to options: CompanionCreateOptions) {
@@ -221,7 +220,6 @@ struct CompanionSpawnSheet: View {
             color = options.defaultColor
             orchestrator = options.defaultOrchestrator ?? options.options.orchestrators.first?.id ?? ""
             model = options.defaultModel
-            persona = ""
             useWorktree = options.isGitRepo && options.defaultUseWorktree
             mcpIDs = Set(options.mcpDefaults)
             freeAgentMode = false
@@ -341,21 +339,14 @@ struct CompanionSpawnSheet: View {
                 Text("The model list follows the CLI.")
             }
         }
-        Section {
-            Picker("Persona", selection: $durable.persona) {
-                Text("Project default").tag("")
-                ForEach(options.options.personas) { Text($0.name).tag($0.id) }
-            }
-            .accessibilityIdentifier("new-agent-persona")
-            if offersOrchestration {
+        if offersOrchestration {
+            Section {
                 Toggle("Orchestrate", isOn: $durable.orchestrate)
                     .accessibilityIdentifier("new-agent-orchestrate")
-            }
-        } footer: {
-            if offersOrchestration {
+            } footer: {
                 Text(durable.orchestrate
                      ? "Gives the agent the tools to start, message and dispose of helper agents. Change how in its settings."
-                     : "Off follows the persona. Turn it on to give the agent the tools to start, message and dispose of helper agents.")
+                     : "Turn it on to give the agent the tools to start, message and dispose of helper agents.")
             }
         }
         if options.isGitRepo {
@@ -410,7 +401,6 @@ struct CompanionSpawnSheet: View {
             let request = CompanionCreateRequest(
                 project: project, name: durable.trimmedName, color: durable.color,
                 orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
-                persona: nonempty(durable.persona),
                 freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
                 useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),

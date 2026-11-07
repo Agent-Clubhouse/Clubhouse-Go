@@ -1,23 +1,26 @@
+import CryptoKit
 import Foundation
 import Testing
 @testable import ClubhouseTransport
 @testable import CompanionDomain
 
 /// Recorded desktop off states/routes, with local variants only for unrecorded compatibility and race cases.
+/// Current desktops never send the MCP-off states: the Clubhouse MCP always runs (Clubhouse #2901). These use the
+/// recordings pinned in `Fixtures/AnnexContractLegacy`, so the phone keeps handling an older desktop that sends them.
 @MainActor @Suite(.serialized) struct AnnexContractDispatcherMCPOffTests {
     enum Source: String, CaseIterable { case snapshot, change, capabilities }
     private let target = CompanionTarget(hostID: LiveServiceHarness.hostID, projectID: "__dispatcher__", agentID: "durable_dispatcher")
 
     private func fixture(_ state: String, source: Source) throws -> AnnexJSON {
         if state == "mcpOffRunning", source == .snapshot {
-            return try #require(ContractFixtures.json("snapshot-dispatcher-mcp-off-running.json")["value"])
+            return try #require(ContractFixtures.legacy("snapshot-dispatcher-mcp-off-running.json")["value"])
         }
         let key = source == .change ? "dispatcher:changed" : source.rawValue
-        return try #require(ContractFixtures.json("dispatcher-off-states.json")["states"]?[state]?[key])
+        return try #require(ContractFixtures.legacy("dispatcher-off-states.json")["states"]?[state]?[key])
     }
 
     private func route(_ state: String, _ name: String) throws -> AnnexJSON {
-        try #require(ContractFixtures.cases("dispatcher-off-routes.json").first { $0["state"]?.string == state && $0["name"]?.string == name })
+        try #require(ContractFixtures.legacyCases("dispatcher-off-routes.json").first { $0["state"]?.string == state && $0["name"]?.string == name })
     }
 
     /// Route fixtures record HTTP outcomes; only the fake transport's receipt envelope is synthetic.
@@ -90,6 +93,24 @@ import Testing
         try await harness.waitUntil { harness.host?.dispatcher?.enabled == value["enabled"].boolValue && harness.host?.dispatcher?.mcpOff?.running == (value["offReason"]?.string == "mcp_off" ? value["running"].boolValue : nil) }
     }
 
+    @Test func legacyFixturesMatchTheirPinnedBytes() throws {
+        let source = try ContractFixtures.legacy("SOURCE.json")
+        #expect(source["commit"]?.string == "4b3b4f59e67adcbe9df477b5f091ae1d9fb81953")
+        guard case .object(let hashes)? = source["files"] else { Issue.record("Missing legacy fixture hashes"); return }
+        #expect(hashes.count == 5)
+        for (file, hash) in hashes {
+            let data = try Data(contentsOf: ContractFixtures.legacyDirectory.appending(path: file))
+            #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == hash.string, "\(file) changed from its pinned recording")
+            // The current desktop recordings dropped these; a file it still writes under the same name is newer, not legacy.
+            if !file.hasPrefix("commands/") && !file.hasPrefix("dispatcher-off-") {
+                #expect(try !ContractFixtures.files().contains(file), "\(file) is a current desktop fixture again")
+            }
+        }
+        // The current recordings keep only the switched-off and classic layout states.
+        guard case .object(let current)? = try ContractFixtures.json("dispatcher-off-states.json")["states"] else { Issue.record("Missing current off states"); return }
+        #expect(current.keys.sorted() == ["classicLayout", "switchedOff"])
+    }
+
     @Test func advertisedProviderControlCannotBypassMCPOffDispatcherRestrictions() async throws {
         let harness = try await start(); defer { harness.stop() }
         await harness.transport.setFeature("providerControl", CompanionProviderFlowTests.capability)
@@ -117,8 +138,8 @@ import Testing
             }
             #expect(try fixture(state, source: .change)["agentId"] == .null)
         }
-        #expect(try fixture("mcpOffRunning", source: .snapshot) == ContractFixtures.json("dispatcher-off-states.json")["states"]?["mcpOffRunning"]?["snapshot"])
-        for item in try ContractFixtures.cases("dispatcher-off-routes.json") {
+        #expect(try fixture("mcpOffRunning", source: .snapshot) == ContractFixtures.legacy("dispatcher-off-states.json")["states"]?["mcpOffRunning"]?["snapshot"])
+        for item in try ContractFixtures.legacyCases("dispatcher-off-routes.json") {
             let state = try #require(item["state"]?.string)
             if item["name"]?.string == "read" {
                 #expect(item["response"]?["status"]?.integer == (state.hasPrefix("mcpOff") ? 200 : 404))

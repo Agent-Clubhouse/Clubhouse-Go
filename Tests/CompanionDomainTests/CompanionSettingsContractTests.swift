@@ -82,13 +82,16 @@ import Testing
         }
     }
 
-    @Test func mcpOffFixtureKeepsSourcesAndDisablesEffectivePolicy() throws {
-        let settings = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-mcp-off.json"))
+    /// Only older desktops send `mcpEnabled: false`: the Clubhouse MCP always runs now (Clubhouse #2901).
+    @Test func legacyMCPOffFixtureKeepsSourcesAndDisablesEffectivePolicy() throws {
+        let settings = try CompanionAgentSettings(json: try ContractFixtures.legacyBody("agent-settings-mcp-off.json"))
         let policy = try #require(settings.orchestration)
         #expect(!policy.mcpEnabled && !policy.orchestrate && !policy.crossProjectHelpers && !policy.connectToDispatcher)
         #expect(policy.sources["orchestrate"] == .agent && policy.sources["maxHelpers"] == .agent)
         #expect(settings.changeStartsNewSession)
-        #expect(try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-running.json")).orchestration?.mcpEnabled == true)
+        for name in ["agent-settings.json", "agent-settings-running.json", "agent-settings-helper.json"] {
+            #expect(try CompanionAgentSettings(json: try ContractFixtures.body(name)).orchestration?.mcpEnabled == true, "\(name)")
+        }
     }
 
     @Test func patchesNeverCarryUntouchedOrchestrationFields() throws {
@@ -114,8 +117,10 @@ import Testing
                                 "type": .string("agent.update"), "agentId": .string("a"), "orchestrator": .string("codex-cli")]))
     }
 
-    @Test func mcpOffPrefersTheDesktopSentence() throws {
-        let item = try #require(try ContractFixtures.cases("commands/agent.update.json").first { $0["name"]?.string == "mcp_off" })
+    /// 409 `mcp_off` only comes from older desktops; current ones never return it (Clubhouse #2901).
+    @Test func legacyMCPOffPrefersTheDesktopSentence() throws {
+        #expect(try !ContractFixtures.cases("commands/agent.update.json").contains { $0["name"]?.string == "mcp_off" })
+        let item = try #require(try ContractFixtures.legacyCases("commands/agent.update.json").first { $0["name"]?.string == "mcp_off" })
         let receipt = try #require(item["response"]?["body"]).decode(AnnexCommandReceipt.self)
         #expect(receipt.error?.code == "mcp_off")
         let desktop = try #require(receipt.error?.message)

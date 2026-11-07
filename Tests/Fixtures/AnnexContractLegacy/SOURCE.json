@@ -1,0 +1,13 @@
+{
+  "repository": "Agent-Clubhouse/Clubhouse",
+  "commit": "4b3b4f59e67adcbe9df477b5f091ae1d9fb81953",
+  "path": "test/fixtures/annex-mobile",
+  "reason": "Recorded before the desktop retired its MCP-off states (Clubhouse #2913-#2915, issue #2901). Kept so the phone still handles an older desktop that reports them. scripts/sync-annex-fixtures.sh never touches this folder.",
+  "files": {
+    "agent-settings-mcp-off.json": "20aec9233bb39f7d2327c82e4e0cb75e310b8cc77fa826842c24b0bfbac43e53",
+    "commands/agent.update.json": "b5d35f8aa0cec093d6a96de9b0ab247185b8e508d4719282285f9494b445c113",
+    "dispatcher-off-routes.json": "3f06746f572809ebcc58d85f9456c1c1b81051b7ce484a2f733e0c4033f744dd",
+    "dispatcher-off-states.json": "64e379a65d5b6d77bbd5ba776500822e27b22227e7a6875b17213d845081d057",
+    "snapshot-dispatcher-mcp-off-running.json": "5129fc391a4306b877c52774e5078ddde9a2f446e83cfcc066347e06a2eb3e87"
+  }
+}
