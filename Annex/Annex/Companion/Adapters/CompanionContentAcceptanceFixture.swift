@@ -34,7 +34,8 @@ import UIKit
                         let rectangle = CGRect(x: 24, y: 70, width: 252, height: 44)
                         ("example.invalid/never-fetched" as NSString).draw(in: rectangle,
                             withAttributes: [.font: UIFont.systemFont(ofSize: 12), .foregroundColor: UIColor.blue])
-                        context.setURL(url, for: rectangle)
+                        // PDF link bounds use bottom-left PDF space; drawing uses top-left user space.
+                        context.setURL(url, for: context.cgContext.convertToDeviceSpace(rectangle))
                     }
                 }
             }

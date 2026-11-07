@@ -79,6 +79,34 @@ import PDFKit
         }
     }
 
+    #if DEBUG
+    func testAcceptanceFixtureURLAnnotationCoversItsDrawnText() throws {
+        let response = try CompanionContentAcceptanceFixture.content(path: CompanionContentAcceptanceFixture.homePDF)
+        let document = try XCTUnwrap(CompanionPDFPreview.document(for: response))
+        XCTAssertEqual(document.pageCount, 2)
+        let page = try XCTUnwrap(document.page(at: 0))
+        let links = page.annotations.filter { $0.action is PDFActionURL }
+        XCTAssertEqual(links.count, 1)
+        guard links.count == 1 else { return }
+        let annotation = links[0]
+        let action = try XCTUnwrap(annotation.action as? PDFActionURL)
+        XCTAssertEqual(action.url, web)
+        XCTAssertEqual(annotation.bounds, CGRect(x: 24, y: 286, width: 252, height: 44))
+        let text = try XCTUnwrap(page.string) as NSString
+        let range = text.range(of: "example.invalid/never-fetched")
+        XCTAssertNotEqual(range.location, NSNotFound)
+        guard range.location != NSNotFound else { return }
+        let selection = try XCTUnwrap(page.selection(for: range))
+        XCTAssertEqual(selection.string, "example.invalid/never-fetched")
+        let textBounds = selection.bounds(for: page)
+        XCTAssertTrue([textBounds.minX, textBounds.minY, textBounds.width, textBounds.height].allSatisfy { $0.isFinite })
+        XCTAssertGreaterThan(textBounds.width, 0)
+        XCTAssertGreaterThan(textBounds.height, 0)
+        XCTAssertTrue(annotation.bounds.contains(textBounds), "The actual parsed annotation must cover the drawn URL text")
+        XCTAssertTrue(page.bounds(for: .mediaBox).contains(annotation.bounds))
+    }
+    #endif
+
     func testMalformedEmptyAndLockedPDFsFailWithoutAPasswordPrompt() throws {
         XCTAssertNotNil(failure(Data("%PDF-1.7\nsynthetic".utf8)), "A header alone is not a document")
         XCTAssertNotNil(failure(Data(repeating: 0x41, count: 4096)))
