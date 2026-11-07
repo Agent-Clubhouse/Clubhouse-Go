@@ -901,4 +901,92 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
                       "The message is sent, and a preview says it never reached a desktop")
     }
+
+    /// This fixture crosses actual link discovery, Store policy and the sheet; it does not contact a desktop.
+    func testScratchAndHomeTextOpenInApp() {
+        let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)
+        openRiver(app)
+        for path in ["~/.clubhouse/scratch/home.txt", "/tmp/clubhouse-preview/scratch.txt"] {
+            let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", path))
+            XCTAssertEqual(links.count, 1, "The negotiated scratch reference must be offered once")
+            guard links.count == 1 else { return }
+            let link = links.element(boundBy: 0)
+            XCTAssertTrue(link.isHittable)
+            contentAcceptanceCapture(app, name: "Scratch link before opening \(path)")
+            link.tap()
+            let text = app.staticTexts["Synthetic scratch preview\nRaw path: \(path)"]
+            XCTAssertTrue(text.waitForExistence(timeout: 10), "The raw reference must reach the synthetic service unchanged")
+            contentAcceptanceCapture(app, name: "Scratch text inside sheet \(path)")
+            XCTAssertEqual(app.state, .runningForeground)
+            let done = app.buttons.matching(identifier: "companion-preview-done")
+            XCTAssertEqual(done.count, 1)
+            guard done.count == 1 else { return }
+            XCTAssertTrue(done.element(boundBy: 0).isHittable)
+            done.element(boundBy: 0).tap()
+            XCTAssertTrue(text.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["River"].exists)
+        }
+    }
+
+    func testHomePDFSheetDismissesReopensAndHandlesExportedURLLink() {
+        let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)
+        openRiver(app)
+        let references = app.buttons.matching(identifier: "companion-content-link")
+            .matching(NSPredicate(format: "label == %@", "~/.clubhouse/scratch/acceptance.pdf"))
+        XCTAssertEqual(references.count, 1)
+        guard references.count == 1 else { return }
+        for opening in 1...2 {
+            let reference = references.element(boundBy: 0)
+            XCTAssertTrue(reference.isHittable)
+            reference.tap()
+            let title = app.navigationBars["acceptance.pdf"]
+            XCTAssertTrue(title.waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "PDF sheet opening \(opening)")
+            let previews = app.descendants(matching: .any).matching(identifier: "companion-pdf-preview")
+            XCTAssertEqual(previews.count, 1, "Unsupported or ambiguous native PDF export")
+            guard previews.count == 1 else { return }
+            let preview = previews.element(boundBy: 0)
+            let frame = preview.frame
+            XCTAssertTrue([frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite })
+            XCTAssertGreaterThan(frame.width, 0); XCTAssertGreaterThan(frame.height, 0)
+            XCTAssertTrue(app.frame.contains(frame), "The native PDF view must fit the actual app viewport")
+            XCTAssertGreaterThanOrEqual(frame.minY, title.frame.maxY)
+            XCTAssertTrue(preview.isHittable)
+            if opening == 2 {
+                let links = app.links.matching(NSPredicate(format: "label CONTAINS %@", "example.invalid"))
+                contentAcceptanceCapture(app, name: "Native PDF URL export before tap")
+                XCTAssertEqual(links.count, 1, "Unsupported native link export; no coordinate fallback")
+                guard links.count == 1 else { return }
+                let link = links.element(boundBy: 0)
+                let linkFrame = link.frame
+                XCTAssertTrue([linkFrame.minX, linkFrame.minY, linkFrame.width, linkFrame.height].allSatisfy { $0.isFinite })
+                XCTAssertGreaterThan(linkFrame.width, 0); XCTAssertGreaterThan(linkFrame.height, 0)
+                XCTAssertTrue(frame.contains(linkFrame) && app.frame.contains(linkFrame))
+                XCTAssertTrue(link.isHittable)
+                link.tap()
+                XCTAssertEqual(app.state, .runningForeground)
+                XCTAssertFalse(app.wait(for: .runningBackground, timeout: 2), "No background transition observed in this bounded interval")
+                XCTAssertTrue(preview.exists && title.exists)
+                contentAcceptanceCapture(app, name: "PDF after native URL tap")
+            }
+            let done = app.buttons.matching(identifier: "companion-preview-done")
+            XCTAssertEqual(done.count, 1)
+            guard done.count == 1 else { return }
+            XCTAssertTrue(done.element(boundBy: 0).isHittable)
+            done.element(boundBy: 0).tap()
+            XCTAssertTrue(preview.waitForNonExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["River"].exists)
+            contentAcceptanceCapture(app, name: "PDF sheet dismissed \(opening)")
+        }
+    }
+
+    private func contentAcceptanceCapture(_ app: XCUIApplication, name: String) {
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = name; screenshot.lifetime = .keepAlways; add(screenshot)
+        let raw = Array(app.debugDescription.utf8)
+        let tree = XCTAttachment(string: String(decoding: raw.prefix(65_536), as: UTF8.self))
+        tree.name = "\(name) public hierarchy (\(min(raw.count, 65_536))/\(raw.count) UTF8 bytes)"
+        tree.lifetime = .keepAlways; add(tree)
+        print("content-acceptance appFrame=\(app.frame) rawHierarchyBytes=\(raw.count) truncated=\(raw.count > 65_536)")
+    }
 }
