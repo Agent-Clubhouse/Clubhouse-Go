@@ -35,6 +35,7 @@ import UIKit
         XCTAssertTrue(condition(), "The hosted reading fixture must settle")
     }
     func testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent() async throws {
+        let observationSession = UUID()
         let service = HistoryReadingService()
         let loading = CompanionStore(service: service), target = CompanionPreviewService.target
         let hosts = CompanionPreviewService.hosts(now: .now)
@@ -62,9 +63,16 @@ import UIKit
         window.layoutIfNeeded()
         XCTAssertEqual(loading.conversation(for: target).items.count, 182)
         let followedAfterHistory = bookmark.position.followsLatest
-        let reachedBottom = bookmark.viewport.metrics?.isAtTrueBottom == true
+        // One cached predicate-time sample per invocation, not a native layout pass or callback history.
+        let observation = (sequence: 1, startedAt: ProcessInfo.processInfo.systemUptime,
+            metrics: bookmark.viewport.metrics, frameContent: bookmark.viewport.frameContentHeight,
+            viewportRevision: bookmark.viewport.historyRevision,
+            modelRevision: loading.conversation(for: target).historyRevision,
+            initialized: bookmark.viewport.hasInitialized)
+        let observationFinishedAt = ProcessInfo.processInfo.systemUptime
+        let reachedBottom = observation.metrics?.isAtTrueBottom == true
         XCTAssertTrue(followedAfterHistory, "The reset must not persist a false reading choice")
-        XCTAssertTrue(reachedBottom, "Loaded history re-anchors the follower")
+        XCTAssertTrue(reachedBottom, "Loaded history re-anchors the follower; invocation=\(observationSession) pid=\(ProcessInfo.processInfo.processIdentifier) sequence=\(observation.sequence) captureStart=\(observation.startedAt) captureEnd=\(observationFinishedAt) metrics=\(String(describing: observation.metrics)) frameContent=\(String(describing: observation.frameContent)) viewportRevision=\(String(describing: observation.viewportRevision)) modelRevision=\(observation.modelRevision) initialized=\(observation.initialized) follows=\(followedAfterHistory)")
         // UIKit's raw offset assignment did not establish a paused SwiftUI state on 26.5;
         // why it differs is unknown. Real drags/native taps are covered by the reading UI suite.
         // Here, explicitly restore a saved reading bookmark before testing a full refresh.
