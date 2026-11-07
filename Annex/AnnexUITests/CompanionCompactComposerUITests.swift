@@ -134,13 +134,26 @@ import XCTest
                 assertOrdinaryDraft(app, draft: draft, state: "\(count) explicit lines")
             }
         }
-        // Opening Options must retain the entire long draft; it must not select a second field.
+        // Preserve the actual pending request/queue witness, not just the existence of some approval.
+        let approvals = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: "))
+        XCTAssertEqual(approvals.count, 1)
+        let approval = approvals.element
+        let approvalLabel = approval.label
+        let approvalText = approval.staticTexts.allElementsBoundByIndex.map(\.label)
+        let approvalActions = approval.buttons.allElementsBoundByIndex.map { [$0.label, String($0.isEnabled)] }
+        // Opening Options must retain the entire long draft; it must not dispatch an approval.
         waitAndTap(app.buttons["companion-level-menu"], until: app.buttons["companion-permissions-menu"], attempts: 1)
         XCTAssertTrue(app.buttons["companion-model-menu"].exists)
-        guard dismissChatControls(app) else { return }
+        guard dismissLongDraftControlsIntoEditor(app) else { return }
+        XCTAssertEqual(approvals.count, 1)
+        XCTAssertEqual(approval.label, approvalLabel)
+        XCTAssertEqual(approval.staticTexts.allElementsBoundByIndex.map(\.label), approvalText)
+        XCTAssertEqual(approval.buttons.allElementsBoundByIndex.map { [$0.label, String($0.isEnabled)] }, approvalActions)
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
         XCTAssertEqual(composer.value as? String, draft)
-        composer.tap()
-        assertOrdinaryDraft(app, draft: draft, state: "after Options and refocus")
+        // The dismissal itself taps the unique editor. Do not tap it twice and summon its edit menu.
+        XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"))
+        assertOrdinaryDraft(app, draft: draft, state: "after Options and editor dismissal")
         waitAndTap(app.buttons["companion-interrupt"], until: app.buttons["Interrupt turn"], attempts: 1)
         XCTAssertTrue(app.staticTexts["Interrupt this turn?"].exists)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
@@ -276,6 +289,60 @@ import XCTest
         guard closed else { return false }
         capture(app, "idle menu dismissed before single focus tap")
         return true
+    }
+
+    /// Only the two ordinary long-draft flows use this. A point outside a menu alone may hit an approval.
+    private func dismissLongDraftControlsIntoEditor(_ app: XCUIApplication) -> Bool {
+        let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
+        let menus = app.collectionViews.containing(.button, identifier: "companion-permissions-menu")
+        guard editors.count == 1, menus.count == 1, app.collectionViews.count == 1,
+              let viewport = unobscuredViewport(app, requiresKeyboard: true) else {
+            XCTFail("Long-draft dismissal requires one editor and one actual native menu")
+            return false
+        }
+        let editor = editors.element, menu = menus.element
+        let editorFrame = editor.frame, menuFrame = menu.frame
+        guard editor.exists, editor.isHittable, finiteRect(editorFrame), finiteRect(menuFrame),
+              let point = outsidePoint(in: editorFrame.intersection(viewport), excluding: menuFrame),
+              editorFrame.contains(point), !menuFrame.contains(point) else {
+            XCTFail("No supported current editor interior outside the native menu")
+            return false
+        }
+        // Include disabled controls too; current positive public bounds are exclusions, not hit-test proof.
+        let buttons = app.buttons
+        guard buttons.count <= 128 else { XCTFail("Unsupported control count for editor dismissal"); return false }
+        for button in buttons.allElementsBoundByIndex {
+            let frame = button.frame
+            guard !frame.isNull, !frame.isInfinite, frame.minX.isFinite, frame.minY.isFinite,
+                  frame.width.isFinite, frame.height.isFinite else {
+                XCTFail("Unavailable action frame during editor dismissal"); return false
+            }
+            guard !frame.contains(point) else { XCTFail("Editor dismissal intersects an exported action"); return false }
+        }
+        let inputs = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@", ["inputView", "SystemInputAssistantView"]))
+        guard app.keyboards.count == 1, (1...2).contains(inputs.count) else {
+            XCTFail("Unsupported full input shape for editor dismissal"); return false
+        }
+        for input in app.keyboards.allElementsBoundByIndex + inputs.allElementsBoundByIndex {
+            let frame = input.frame
+            guard finiteRect(frame), !frame.contains(point) else {
+                XCTFail("Editor dismissal intersects or cannot measure a full input surface"); return false
+            }
+        }
+        // Sequential rechecks reduce stale-anchor risk; they cannot freeze native geometry atomically.
+        guard editors.count == 1, menus.count == 1, editor.frame == editorFrame,
+              menu.frame == menuFrame, editor.isHittable else {
+            XCTFail("Editor/menu changed before the one dismissal action"); return false
+        }
+        tap(point, in: app, named: "Dismiss long-draft menu inside current editor \(editorFrame), excluding \(menuFrame)")
+        let ids = ["companion-permissions-menu", "companion-model-menu", "companion-effort-menu"]
+            + ["full_access", "auto", "auto_edit", "ask", "plan"].map { "companion-level-\($0)" }
+        let closed = waitFor(app, NSPredicate { _, _ in
+            app.collectionViews.count == 0 && app.buttons.matching(NSPredicate(format: "identifier IN %@", ids)).count == 0
+        }, timeout: 5)
+        XCTAssertTrue(closed, "The native menu must close after the single editor dismissal")
+        capture(app, "long-draft menu dismissed inside editor")
+        return closed
     }
 
     /// One native content drag only when actual alert geometry proves Cancel overflows below its action clip.
@@ -580,7 +647,13 @@ import XCTest
             if review.exists { XCTAssertLessThanOrEqual(review.frame.maxX, controls.minX, file: file, line: line) }
         }
         for target in targets {
-            XCTAssertTrue(target.isEnabled && target.isHittable, target.identifier, file: file, line: line)
+            if !requiresDismiss {
+                let enabled = target.isEnabled, hittable = target.isHittable
+                XCTContext.runActivity(named: "Ordinary target state — \(target.identifier), enabled=\(enabled), hittable=\(hittable)") { _ in }
+                XCTAssertTrue(enabled && hittable, target.identifier, file: file, line: line)
+            } else {
+                XCTAssertTrue(target.isEnabled && target.isHittable, target.identifier, file: file, line: line)
+            }
             let frame = target.frame
             let details = "\(target.identifier): \(frame), unobscured: \(unobscured)"
             XCTAssertGreaterThanOrEqual(frame.minX, unobscured.minX, details, file: file, line: line)
