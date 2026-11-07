@@ -649,6 +649,19 @@
         "storageMacros": []
       }
     },
+    "CompanionComposerReturnInput": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
+      "reason": "Only an optional tuple of two COW String values for an exact native Shift Return edit. No retained UIKit object, callback, selection handle, protocol owner or teardown work; its method's text-view parameter is never stored.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "newlineEdit": "( old : String , new : String ) ?"
+        },
+        "storageMacros": []
+      }
+    },
     "CompanionComposerMemory": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionConversationComposer.swift",

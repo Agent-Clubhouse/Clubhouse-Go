@@ -2,16 +2,42 @@ import SwiftUI
 import UIKit
 import ObjectiveC
 
+/// Plain editing state shared with the binding. Remember the exact native Shift Return edit so a deferred
+/// SwiftUI binding update also bypasses slash completion; an unrelated edit cannot inherit the exemption.
+@MainActor final class CompanionComposerReturnInput {
+    nonisolated deinit {}
+    private var newlineEdit: (old: String, new: String)?
+
+    func insertNewline(in textView: UITextView) {
+        let old = textView.text ?? ""
+        let selection = textView.selectedRange
+        let text = old as NSString
+        guard selection.location != NSNotFound, NSMaxRange(selection) <= text.length else { return }
+        newlineEdit = (old, text.replacingCharacters(in: selection, with: "\n"))
+        textView.insertText("\n")
+    }
+
+    func consumesNewline(old: String, new: String) -> Bool {
+        guard old != new else { return false }
+        defer { newlineEdit = nil }
+        return newlineEdit?.old == old && newlineEdit?.new == new
+    }
+}
+
 /// Lets the composer take pasted images. SwiftUI's vertical `TextField` is a `UITextView`, which offers Paste only
 /// for text unless it edits rich text, so this finds the one it sits behind and registers it: Paste is then offered
 /// for images too, and image items go to `handle` while text pastes as before. The same stable native input also
-/// exposes keyboard dismissal to accessibility while editing. Other text views are untouched.
+/// exposes hardware Return commands and keyboard dismissal to accessibility while editing. Other text views are untouched.
 struct CompanionComposerPasteHook: UIViewRepresentable {
     let handle: @MainActor ([NSItemProvider]) async -> [Bool]
     /// Nil outside editing, so Escape retains UIKit's standard navigation behavior.
     var dismissKeyboard: (@MainActor () -> Void)? = nil
+    var hardwareReturn: (@MainActor () -> Void)? = nil
+    var returnInput: CompanionComposerReturnInput? = nil
 
-    func makeCoordinator() -> Coordinator { Coordinator(handle: handle, dismissKeyboard: dismissKeyboard) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(handle: handle, dismissKeyboard: dismissKeyboard, hardwareReturn: hardwareReturn, returnInput: returnInput)
+    }
 
     func makeUIView(context: Context) -> HookView {
         let view = HookView()
@@ -22,6 +48,8 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     func updateUIView(_ view: HookView, context: Context) {
         context.coordinator.handle = handle
         context.coordinator.dismissKeyboard = dismissKeyboard
+        context.coordinator.hardwareReturn = hardwareReturn
+        context.coordinator.returnInput = returnInput
         view.attach()
     }
 
@@ -30,11 +58,16 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     @MainActor final class Coordinator: NSObject, UITextPasteDelegate {
         var handle: @MainActor ([NSItemProvider]) async -> [Bool]
         var dismissKeyboard: (@MainActor () -> Void)?
+        var hardwareReturn: (@MainActor () -> Void)?
+        var returnInput: CompanionComposerReturnInput?
         private var pending: [UITextPasteItem] = []
 
-        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?) {
+        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?,
+             hardwareReturn: (@MainActor () -> Void)? = nil, returnInput: CompanionComposerReturnInput? = nil) {
             self.handle = handle
             self.dismissKeyboard = dismissKeyboard
+            self.hardwareReturn = hardwareReturn
+            self.returnInput = returnInput
         }
 
         /// UIKit asks about every item of one drop in a row, so they are handled together on the next turn.
@@ -135,6 +168,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         patchCanPerformAction(type)
         patchPaste(type)
         patchAccessibilityEscape(type)
+        patchHardwareReturn(type)
         patchTypingProbe(type)
     }
 
@@ -157,6 +191,12 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         guard let method = class_getInstanceMethod(type, selector) else { return }
         let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
         let block: @convention(block) (AnyObject, Selector, Any?) -> Bool = { object, action, sender in
+            if action == hardwareReturnAction || action == hardwareNewlineAction {
+                return MainActor.assumeIsolated {
+                    guard let textView = object as? UITextView else { return false }
+                    return returnCoordinator(for: textView) != nil
+                }
+            }
             if let textView = object as? UITextView, MainActor.assumeIsolated({ coordinator(for: textView) != nil }) {
                 if formatting.contains(action) { return false }
                 // Only detection such as `hasImages` works on another app's pasteboard before the person pastes.
@@ -208,6 +248,63 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
                 return true
             }
             return handled || original(object, selector)
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+
+    private static let hardwareReturnAction = NSSelectorFromString("companionComposerHardwareReturn:")
+    private static let hardwareNewlineAction = NSSelectorFromString("companionComposerHardwareNewline:")
+
+    /// Discovery can happen before focus. Advertise the registered input's commands independently of focus;
+    /// marked composition and noneditable inputs still keep UIKit's normal commands.
+    private static func configuredReturnCoordinator(for textView: UITextView) -> CompanionComposerPasteHook.Coordinator? {
+        guard textView.isEditable, textView.isUserInteractionEnabled,
+              textView.markedTextRange == nil, let coordinator = coordinator(for: textView),
+              coordinator.hardwareReturn != nil, coordinator.returnInput != nil else { return nil }
+        return coordinator
+    }
+
+    /// Action validation and dispatch require focus as well: a cached command must never send from an
+    /// unfocused input or confirm composition. Send eligibility remains the store's responsibility.
+    private static func returnCoordinator(for textView: UITextView) -> CompanionComposerPasteHook.Coordinator? {
+        guard textView.isFirstResponder else { return nil }
+        return configuredReturnCoordinator(for: textView)
+    }
+
+    private static func patchHardwareReturn(_ type: AnyClass) {
+        // Only two exact hardware chords. Software Return, insertText, paste and the existing SwiftUI
+        // Command Return shortcut keep their own paths; no newline interception or delegate replacement.
+        for (action, modifiers) in [(hardwareReturnAction, UIKeyModifierFlags()), (hardwareNewlineAction, .shift)] {
+            let block: @convention(block) (AnyObject, Any?) -> Void = { object, sender in
+                MainActor.assumeIsolated {
+                    guard let textView = object as? UITextView, let command = sender as? UIKeyCommand,
+                          command.input == "\r", command.modifierFlags == modifiers,
+                          let coordinator = returnCoordinator(for: textView) else { return }
+                    if modifiers == .shift { coordinator.returnInput?.insertNewline(in: textView) }
+                    else { coordinator.hardwareReturn?() }
+                }
+            }
+            class_addMethod(type, action, imp_implementationWithBlock(block), "v@:@")
+        }
+        typealias Function = @convention(c) (AnyObject, Selector) -> NSArray?
+        let selector = #selector(getter: UIResponder.keyCommands)
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+        let block: @convention(block) (AnyObject) -> NSArray? = { object in
+            let existing = original(object, selector)
+            return MainActor.assumeIsolated {
+                guard let textView = object as? UITextView, configuredReturnCoordinator(for: textView) != nil else { return existing }
+                let send = UIKeyCommand(input: "\r", modifierFlags: [], action: hardwareReturnAction)
+                let newline = UIKeyCommand(input: "\r", modifierFlags: .shift, action: hardwareNewlineAction)
+                // UIKit text input normally owns Return. Give these chords priority for this registered input;
+                // activation still requires focus. Remove exact duplicates without affecting other modifiers.
+                send.wantsPriorityOverSystemBehavior = true
+                newline.wantsPriorityOverSystemBehavior = true
+                let remaining = (existing as? [UIKeyCommand] ?? []).filter {
+                    !($0.input == "\r" && ($0.modifierFlags.isEmpty || $0.modifierFlags == .shift))
+                }
+                return ([send, newline] + remaining) as NSArray
+            }
         }
         replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
     }

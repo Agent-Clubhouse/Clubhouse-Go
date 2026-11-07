@@ -19,6 +19,7 @@ struct CompanionConversationComposer: View {
     let focusRequests: Int
     @FocusState private var composerFocused: Bool
     @State private var composerSelection: TextSelection?
+    @State private var returnInput = CompanionComposerReturnInput()
     @State private var slashHighlight = 0
     @State private var slashDismissedAt: Int?
     @Binding var confirmCancel: Bool
@@ -56,7 +57,8 @@ struct CompanionConversationComposer: View {
                 print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
             }
             #endif
-            if composerFocused, let commands = agent.slashCommands,
+            let hardwareNewline = returnInput.consumesNewline(old: draft.wrappedValue, new: text)
+            if !hardwareNewline, composerFocused, let commands = agent.slashCommands,
                let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
                                                              highlighted: slashHighlight, dismissedAt: slashDismissedAt) {
                 // On the next turn: a value changed while the text view reports its own edit doesn't reach it.
@@ -150,7 +152,7 @@ struct CompanionConversationComposer: View {
                         .frame(minHeight: composerRowHeight)
                         .focused($composerFocused)
                         .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
-                        .accessibilityHint("Runs on your desktop. Command Return sends the message.")
+                        .accessibilityHint("Runs on your desktop. With a hardware keyboard, Return sends the message, Shift Return inserts a new line, and Command Return also sends.")
                         .accessibilityIdentifier("companion-composer")
                         // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                         // accessibility modifiers so the hook doesn't appear as a second composer element.
@@ -282,7 +284,22 @@ struct CompanionConversationComposer: View {
         let dismissal: (@MainActor () -> Void)?
         if composerFocused { dismissal = { @MainActor in self.dismissKeyboard() } }
         else { dismissal = nil }
-        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal)
+        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal,
+                                          hardwareReturn: hardwareReturn, returnInput: returnInput)
+    }
+
+    /// Hardware Return follows the desktop's named-completion precedence, then the exact same guarded send
+    /// path as touch Send and Command Return. Bare `/` and a fully typed command are ready to submit.
+    private func hardwareReturn() {
+        let matches = slashMatches
+        if let token = slashToken, !matches.isEmpty {
+            let command = matches[min(slashHighlight, matches.count - 1)]
+            if CompanionSlashMenu.returnPicks(token, highlighted: command) {
+                pickSlashCommand(command)
+                return
+            }
+        }
+        Task { await store.sendDraft(to: target) }
     }
 
     private var showsKeyboardDismissButton: Bool {
@@ -359,8 +376,8 @@ struct CompanionConversationComposer: View {
         return true
     }
 
-    /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes. Return reaches the
-    /// text view as a newline, which `composerText` turns into a pick. Without a menu these keys work as usual.
+    /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes. The native
+    /// hook handles hardware Return; software Return still reaches `composerText` as a newline for a pick.
     private func slashKey(_ press: KeyPress) -> KeyPress.Result {
         let matches = slashMatches
         guard !matches.isEmpty else { return .ignored }
