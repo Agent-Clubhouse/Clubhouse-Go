@@ -204,7 +204,7 @@ struct CompanionAgentSettingsForm: View {
     @State private var confirmOrchestratorChange = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
-    /// The Dispatcher has only the settings the desktop lets you change: no identity, persona, Clubhouse mode or orchestration.
+    /// The Dispatcher has only the settings the desktop lets you change: no identity or orchestration.
     private var isDispatcher: Bool { store.isDispatcher(target) }
     /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
@@ -418,16 +418,6 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.runtime.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-runtime")
-            if !isDispatcher {
-            Picker("Persona", selection: Binding(get: { settings.persona.value ?? "" },
-                                                 set: { if $0 != (settings.persona.value ?? "") { save(.init(persona: $0.isEmpty ? .clear : .set($0))) } })) {
-                Text("Project default").tag("")
-                ForEach(settings.options.personas) { Text($0.name).tag($0.id) }
-                if let current = settings.persona.value, !settings.options.personas.contains(where: { $0.id == current }) { Text(current).tag(current) }
-            }
-            .disabled(!settings.persona.canEdit(sleeping: sleeping) || saving)
-            .accessibilityIdentifier("agent-settings-persona")
-            }
         } header: { Text("Runtime") } footer: {
             Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
             Text("Sign-in and remaining quota aren't reported by this provider list.")
@@ -448,15 +438,6 @@ struct CompanionAgentSettingsForm: View {
         }
 
         Section {
-            if isDispatcher {
-                // It lives outside every project, so there's no project mode to follow.
-            } else if settings.clubhouseMode.editable != .never, let value = settings.clubhouseMode.value {
-                Toggle("Clubhouse mode for this agent", isOn: Binding(get: { value }, set: { save(.init(clubhouseMode: $0)) }))
-                    .disabled(!settings.clubhouseMode.canEdit(sleeping: sleeping) || saving)
-                    .accessibilityIdentifier("agent-settings-clubhouse-mode")
-            } else {
-                LabeledContent("Clubhouse mode", value: clubhouseModeSummary(settings))
-            }
             if canSetFreeAgentMode {
                 Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { settings.freeAgentMode.value },
                                                                      set: { if $0 { confirmFreeAgentMode = true } else { save(.init(freeAgentMode: false)) } }))
@@ -621,14 +602,6 @@ struct CompanionAgentSettingsForm: View {
         var parts = [settings.resolvedRuntime == "terminal" ? "Terminal" : "Chat", settings.orchestratorName, settings.modelLabel]
         if settings.idleSleepApplies { parts.append(settings.autoSleepSummary) }
         return parts.joined(separator: " · ")
-    }
-
-    private func clubhouseModeSummary(_ settings: CompanionAgentSettings) -> String {
-        switch settings.clubhouseMode.value {
-        case nil: "Project isn't in Clubhouse mode"
-        case true?: "On"
-        case false?: "Off, keeps its own settings"
-        }
     }
 
     private func orchestratorChoices(_ settings: CompanionAgentSettings) -> [(id: String, label: String, available: Bool)] {

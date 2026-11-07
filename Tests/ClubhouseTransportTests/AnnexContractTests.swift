@@ -66,6 +66,9 @@ import Testing
         for type in Self.commandTypes {
             for item in try AnnexContract.cases("commands/\(type).json") where item["response"]?["body"]?["status"]?.string == "completed" {
                 let request = try #require(item["request"])
+                // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
+                // no-op for older phones, but this phone never sends either field.
+                if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
                 var expected = request
@@ -242,7 +245,7 @@ import Testing
             return .spawn(projectID: p, prompt: prompt, model: s("model"), orchestrator: s("orchestrator"))
         case "agent.create":
             guard let p = s("projectId"), let name = s("name"), let color = s("color") else { return nil }
-            return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"), persona: s("persona"),
+            return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"),
                                  freeAgentMode: b("freeAgentMode"), useWorktree: b("useWorktree"), mcpIDs: strings("mcpIds"),
                                  branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName"),
                                  orchestration: orchestration(r["orchestration"])))
@@ -257,8 +260,8 @@ import Testing
             }
             return .update(.init(agentID: a, name: s("name"), color: s("color"), emoji: clearable("emoji"), orchestrator: s("orchestrator"), model: s("model"),
                                  contextWindow: clearable("contextWindow"),
-                                 runtime: s("runtime").flatMap(AnnexAgentUpdate.Runtime.init(rawValue:)), persona: clearable("persona"),
-                                 clubhouseMode: b("clubhouseMode"), freeAgentMode: b("freeAgentMode"), idleSleep: idle,
+                                 runtime: s("runtime").flatMap(AnnexAgentUpdate.Runtime.init(rawValue:)),
+                                 freeAgentMode: b("freeAgentMode"), idleSleep: idle,
                                  orchestration: orchestration(r["orchestration"])))
         case "project.setPinned": return s("projectId").flatMap { p in b("pinned").map { .setProjectPinned(projectID: p, pinned: $0) } }
         case "project.setInactive": return s("projectId").flatMap { p in b("inactive").map { .setProjectInactive(projectID: p, inactive: $0) } }
@@ -287,6 +290,9 @@ import Testing
                      autoHelpers: field("autoHelpers") { if case .bool(let v) = $0 { v } else { nil } })
     }
 
+    /// `agent.update` and `agent.create` fields the desktop retired and the phone no longer sends.
+    static let retiredUpdateFields = ["persona", "clubhouseMode"]
+
     /// One of every command with every optional field the phone can send.
     static func maximalCommands() -> [AnnexCommand] {
         let kinds: [AnnexCommand.Kind] = [
@@ -300,10 +306,10 @@ import Testing
             .providerPreview(agentID: "a", provider: "o"),
             .providerChange(agentID: "a", provider: "o", expectedState: "opaque"),
             .spawn(projectID: "p", prompt: "p", model: "m", orchestrator: "o"),
-            .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", persona: "p", freeAgentMode: true, useWorktree: true,
+            .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", freeAgentMode: true, useWorktree: true,
                           mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f", orchestration: .init(orchestrate: .set(true)))),
-            .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", contextWindow: .clear, runtime: .chat, persona: .set("p"),
-                          clubhouseMode: true, freeAgentMode: true, idleSleep: .minutes(30), orchestration: .init(maxHelpers: .clear))),
+            .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", contextWindow: .clear, runtime: .chat,
+                          freeAgentMode: true, idleSleep: .minutes(30), orchestration: .init(maxHelpers: .clear))),
             .setProjectPinned(projectID: "p", pinned: true),
             .setProjectInactive(projectID: "p", inactive: true),
             .dismissFinishedQuick(projectID: "p", agentID: "a"),

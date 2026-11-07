@@ -55,7 +55,8 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         let orchestrate = app.switches["new-agent-orchestrate"]
         scrollUntilExists(orchestrate, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(orchestrate.exists, "A desktop with orchestration offers it on create")
-        XCTAssertEqual(orchestrate.value as? String, "0", "Off by default, following the persona")
+        XCTAssertEqual(orchestrate.value as? String, "0", "Off by default")
+        XCTAssertFalse(element(app, "new-agent-persona").exists, "Personas were retired on the desktop")
         let worktree = app.switches["new-agent-worktree"]
         scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
@@ -138,7 +139,10 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         let freeAgent = element(app, "agent-settings-free-agent-mode")
         scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.isEnabled, "A sleeping agent's Free Agent Mode can change")
-        XCTAssertTrue(app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."].exists)
+        // With no Clubhouse mode row above it, the toggle can reach the screen before its lazy footer loads.
+        let help = app.staticTexts["Skips every permission prompt. Off unless you trust this agent with the project."]
+        XCTAssertTrue(scrollTo(help, in: app, maxSwipes: 3), "The desktop's help text")
+        XCTAssertTrue(scrollTo(freeAgent, in: app, up: false, maxSwipes: 2))
         freeAgent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         let confirm = app.buttons["Turn on Free Agent Mode"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Turning it on asks first")

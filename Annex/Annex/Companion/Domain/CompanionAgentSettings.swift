@@ -124,12 +124,6 @@ nonisolated struct CompanionOrchestratorOption: Identifiable, Sendable, Equatabl
     var warning: String? { available ? nil : (unavailableReason ?? "CLI not found. The agent may fail to start.") }
 }
 
-nonisolated struct CompanionPersonaOption: Identifiable, Sendable, Equatable {
-    var id: String
-    var name: String
-    var source: String
-}
-
 nonisolated struct CompanionColorOption: Identifiable, Sendable, Equatable {
     var id: String
     var label: String
@@ -151,7 +145,6 @@ nonisolated struct CompanionMCPOption: Identifiable, Sendable, Equatable {
 /// What both the New agent form and the settings sheet pick from.
 nonisolated struct CompanionAgentOptions: Sendable, Equatable {
     var orchestrators: [CompanionOrchestratorOption] = []
-    var personas: [CompanionPersonaOption] = []
     var colors: [CompanionColorOption] = []
     func orchestrator(_ id: String?) -> CompanionOrchestratorOption? { orchestrators.first { $0.id == id } }
     /// The models for a CLI, keeping a saved custom model in the list.
@@ -245,11 +238,6 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// `default`, `chat` or `terminal`; `resolvedRuntime` is `chat` or `terminal`.
     var runtime: CompanionSetting<String>
     var resolvedRuntime: String
-    /// Nil means the project default.
-    var persona: CompanionSetting<String?>
-    /// Nil when the project isn't in Clubhouse mode.
-    var clubhouseMode: CompanionSetting<Bool?>
-    var clubhouseModeProjectEnabled = false
     var freeAgentMode: CompanionSetting<Bool>
     var idleSleep: CompanionSetting<CompanionIdleSleep>
     /// Only chat agents idle-sleep; the value is kept either way.
@@ -269,15 +257,11 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var hasLockedSettings: Bool {
         [name.isLocked(sleeping: sleeping), color.isLocked(sleeping: sleeping), emoji.isLocked(sleeping: sleeping),
          orchestrator.isLocked(sleeping: sleeping), model.isLocked(sleeping: sleeping), runtime.isLocked(sleeping: sleeping),
-         persona.isLocked(sleeping: sleeping), clubhouseMode.isLocked(sleeping: sleeping), freeAgentMode.isLocked(sleeping: sleeping),
+         freeAgentMode.isLocked(sleeping: sleeping),
          contextWindow?.isLocked(sleeping: sleeping) ?? false].contains(true)
     }
     /// The Settings card's Auto-sleep summary.
     var autoSleepSummary: String { idleSleep.value.summary(appMinutes: appIdleMinutes) }
-    var personaName: String {
-        guard let id = persona.value else { return "Project default" }
-        return options.personas.first { $0.id == id }?.name ?? id
-    }
     var orchestratorName: String {
         let id = orchestrator.value ?? resolvedOrchestrator
         return options.orchestrator(id)?.displayName ?? id
@@ -316,8 +300,6 @@ nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     var model: String?
     var contextWindow: Clearable?
     var runtime: String?
-    var persona: Clearable?
-    var clubhouseMode: Bool?
     /// Only to desktops that take it (`permissions.freeAgentMode`).
     var freeAgentMode: Bool?
     var idleSleep: CompanionIdleSleep?
@@ -333,12 +315,11 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var color: String
     var orchestrator: String?
     var model: String?
-    var persona: String?
     /// Nil leaves it to the project's agent defaults. Only sent to desktops that take it.
     var freeAgentMode: Bool? = nil
     var useWorktree: Bool?
     var mcpIDs: [String]?
-    /// Nil leaves it to the persona or the default. Only sent to desktops that take it (`orchestration` v1).
+    /// Nil leaves it to the default. Only sent to desktops that take it (`orchestration` v1).
     var orchestrate: Bool? = nil
     var clientCommandID: String
 }
@@ -416,9 +397,7 @@ enum CompanionAgentCommandError {
         case "agent_creating": return "This agent is still being set up. Try again when it's ready."
         case "orchestrator_unavailable": return "That CLI isn't enabled for this project on the desktop."
         case "runtime_unavailable": return "Chat isn't available for this agent's CLI."
-        case "clubhouse_mode_unavailable": return "This project isn't in Clubhouse mode."
         case "not_git_repo": return "This project isn't a git repository, so the agent can't have its own worktree."
-        case "unknown_persona": return "That persona is no longer on the desktop. Choose another."
         case "unknown_mcp": return "One of those MCP servers is no longer in the project's catalog."
         case "agent_not_found": return "This agent is no longer on the desktop."
         case "project_not_found": return "This project is no longer on the desktop."

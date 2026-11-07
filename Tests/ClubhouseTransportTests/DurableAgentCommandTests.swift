@@ -44,20 +44,20 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     #expect(keys(minimal) == envelope.union(["projectId", "name", "color"]))
 
     let full = try decoded(.create(.init(projectID: "p1", name: "brave-otter", color: "teal", orchestrator: "claude-code", model: "opus",
-                                         persona: "qa", useWorktree: false, mcpIDs: ["ado", "github"], branchName: "b", branchFrom: "main", folderName: "f")))
-    #expect(keys(full) == envelope.union(["projectId", "name", "color", "orchestrator", "model", "persona", "useWorktree", "mcpIds", "branchName", "branchFrom", "folderName"]))
+                                         useWorktree: false, mcpIDs: ["ado", "github"], branchName: "b", branchFrom: "main", folderName: "f")))
+    #expect(keys(full) == envelope.union(["projectId", "name", "color", "orchestrator", "model", "useWorktree", "mcpIds", "branchName", "branchFrom", "folderName"]))
     #expect(full["useWorktree"] == .bool(false))
     #expect(full["mcpIds"] == .array([.string("ado"), .string("github")]))
     #expect(full["projectId"]?.string == "p1" && full["color"]?.string == "teal")
 }
 
 @Test func updateEncodesChangesAndClearsWithNull() throws {
-    let value = try decoded(.update(.init(agentID: "a1", emoji: .clear, model: "default", runtime: .terminal, persona: .clear, clubhouseMode: false, idleSleep: .minutes(30))))
+    let value = try decoded(.update(.init(agentID: "a1", emoji: .clear, model: "default", runtime: .terminal, idleSleep: .minutes(30))))
     #expect(value["type"]?.string == "agent.update")
-    #expect(keys(value) == envelope.union(["agentId", "emoji", "model", "runtime", "persona", "clubhouseMode", "idleSleep"]))
-    #expect(value["emoji"] == .null && value["persona"] == .null)
+    // Persona and Clubhouse Mode were retired on the desktop (Clubhouse #2901); the phone never sends them.
+    #expect(keys(value) == envelope.union(["agentId", "emoji", "model", "runtime", "idleSleep"]))
+    #expect(value["emoji"] == .null)
     #expect(value["runtime"]?.string == "terminal" && value["model"]?.string == "default")
-    #expect(value["clubhouseMode"] == .bool(false))
     #expect(value["idleSleep"] == .integer(30))
     #expect(try decoded(.update(.init(agentID: "a1", idleSleep: .inherit)))["idleSleep"]?.string == "inherit")
     #expect(try decoded(.update(.init(agentID: "a1", idleSleep: .never)))["idleSleep"]?.string == "never")
@@ -72,8 +72,8 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
 /// Free Agent Mode is only sent when given: older desktops refuse the field (403 `free_agent_mode_not_allowed`).
 @Test func freeAgentModeIsSentOnlyWhenGiven() throws {
     let commands: [AnnexCommand.Kind] = [
-        .create(.init(projectID: "p", name: "n", color: "indigo", orchestrator: "o", model: "m", persona: "p", useWorktree: true, mcpIDs: [], branchName: "b", branchFrom: "f", folderName: "d")),
-        .update(.init(agentID: "a", name: "n", color: "rose", emoji: .set("x"), orchestrator: "o", model: "m", runtime: .chat, persona: .set("p"), clubhouseMode: true, idleSleep: .never)),
+        .create(.init(projectID: "p", name: "n", color: "indigo", orchestrator: "o", model: "m", useWorktree: true, mcpIDs: [], branchName: "b", branchFrom: "f", folderName: "d")),
+        .update(.init(agentID: "a", name: "n", color: "rose", emoji: .set("x"), orchestrator: "o", model: "m", runtime: .chat, idleSleep: .never)),
     ]
     for kind in commands {
         let data = try AnnexCommand(commandID: "c", epoch: "e", kind: kind).encoded()

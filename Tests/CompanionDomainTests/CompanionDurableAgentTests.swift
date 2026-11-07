@@ -7,6 +7,8 @@ import Testing
 
 private func json(_ text: String) throws -> AnnexJSON { try JSONDecoder().decode(AnnexJSON.self, from: Data(text.utf8)) }
 
+// These keep an older desktop's personas and editable persona: decoding tolerates them, and the phone ignores them
+// because the desktop retired both (Clubhouse #2901).
 private let optionsJSON = #"""
 {"version":1,"epoch":"e","projectId":"p1",
  "orchestrators":[
@@ -56,7 +58,6 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
         #expect(long.models(for: "x", keeping: "m7").map(\.id) == many.map(\.id))
         #expect(long.models(for: "x", keeping: "retired").count == 61 && long.models(for: "x", keeping: "retired").last?.label == "retired")
         #expect(long.models(for: "x").count > CompanionAgentOptions.menuModelLimit)
-        #expect(options.options.personas == [.init(id: "qa", name: "QA", source: "builtin")])
         #expect(options.options.colors.first?.rgb == CompanionRGB(red: 0x63 / 255.0, green: 0x66 / 255.0, blue: 0xf1 / 255.0))
         #expect(options.mcpCatalog.map(\.id) == ["ado", "gh"] && options.mcpDefaults == ["ado"])
         #expect(options.isGitRepo && options.suggestedName == "brave-otter")
@@ -72,9 +73,8 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
         #expect(settings.state == "sleeping" && settings.sleeping)
         #expect(settings.name == .init(value: "brave-otter", editable: .sleeping))
         #expect(settings.emoji.value == nil && settings.orchestrator.value == nil && settings.resolvedOrchestrator == "claude-code")
-        #expect(settings.orchestratorName == "Claude Code" && settings.modelLabel == "Opus" && settings.personaName == "QA")
+        #expect(settings.orchestratorName == "Claude Code" && settings.modelLabel == "Opus")
         #expect(settings.runtime.value == "default" && settings.resolvedRuntime == "chat")
-        #expect(settings.clubhouseMode == .init(value: nil, editable: .never) && !settings.clubhouseModeProjectEnabled)
         #expect(settings.freeAgentMode == .init(value: true, editable: .never))
         #expect(settings.idleSleep == .init(value: .inherit, editable: .always))
         #expect(settings.idleSleepMinutes == [15, 30, 60, 240] && settings.appIdleMinutes == 30)
@@ -192,9 +192,9 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
     }
 
     @Test func settingsChangeConvertsToAnUpdate() {
-        let update = AnnexAgentUpdate(agentID: "a", change: .init(emoji: .clear, model: "default", runtime: "terminal", persona: .set("qa"), idleSleep: .minutes(15)))
-        #expect(update == AnnexAgentUpdate(agentID: "a", emoji: .clear, model: "default", runtime: .terminal, persona: .set("qa"), idleSleep: .minutes(15)))
-        #expect(CompanionSettingsChange().isEmpty && !CompanionSettingsChange(clubhouseMode: false).isEmpty)
+        let update = AnnexAgentUpdate(agentID: "a", change: .init(emoji: .clear, model: "default", runtime: "terminal", idleSleep: .minutes(15)))
+        #expect(update == AnnexAgentUpdate(agentID: "a", emoji: .clear, model: "default", runtime: .terminal, idleSleep: .minutes(15)))
+        #expect(CompanionSettingsChange().isEmpty && !CompanionSettingsChange(freeAgentMode: false).isEmpty)
     }
 }
 

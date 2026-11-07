@@ -37,7 +37,7 @@ import Testing
         #expect(stale.state == "stale" && stale.staleReason == "model_unavailable" && stale.fallback == "builtin_preset")
         #expect(try page("staleNothingValid").providers["codex-cli"]?.cells["hard"]?.effective == nil)
         #expect(try page("staleEffort").providers["codex-cli"]?.cells["hard"]?.custom?.effort == "ultra")
-        for (name, reason) in [("dispatcher", "dispatcher_locked"), ("mcpOff", "mcp_off"), ("orchestrationOff", "orchestration_off")] {
+        for (name, reason) in [("dispatcher", "dispatcher_locked"), ("orchestrationOff", "orchestration_off")] {
             #expect(try page(name).agent == .init(usable: false, reason: reason))
         }
         #expect(try page("agent").agent == .init(usable: true))

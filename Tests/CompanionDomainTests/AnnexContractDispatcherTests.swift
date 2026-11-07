@@ -23,7 +23,8 @@ import Testing
         let caps = try ContractFixtures.body("capabilities.json").decode(AnnexCapabilities.self)
         #expect(caps.supportsDispatcher && caps.supportsDispatcherToggle)
         #expect(caps.dispatcher?.projectID == CompanionDispatcher.defaultProjectID && caps.dispatcher?.newLayout == true)
-        #expect(caps.dispatcher?.enabled == false && caps.dispatcher?.flagOn == false, "The fixture desktop has it off")
+        #expect(caps.dispatcher?.enabled == false, "The fixture desktop has it off")
+        #expect(caps.dispatcher?.flagOn == true, "The flag graduated and the Clubhouse MCP always runs (Clubhouse #2901)")
         #expect(try ContractFixtures.json("snapshot.json")["frame"]?["payload"]?["dispatcher"] == .null, "Off: the snapshot's dispatcher is null")
     }
 
@@ -127,7 +128,8 @@ import Testing
         #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: nil) == CompanionDispatcher.flagOffNote)
     }
 
-    @Test func dispatcherFlagOffUsesTheDesktopsPlainMessage() {
+    /// Only older desktops send `dispatcher_flag_off`: current ones graduated the flag (Clubhouse #2901).
+    @Test func legacyDispatcherFlagOffUsesTheDesktopsPlainMessage() {
         let message = "MCP is off. This session is still running."
         #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: message) == message)
         #expect(CompanionAgentCommandError.message(code: "dispatcher_flag_off", message: nil) == CompanionDispatcher.flagOffNote)
@@ -137,7 +139,6 @@ import Testing
     @Test func dispatcherSettingsOfferOnlyWhatTheDesktopAllows() throws {
         let settings = try CompanionAgentSettings(json: try ContractFixtures.body("agent-settings-dispatcher.json"))
         #expect(settings.name.editable == .never && settings.color.editable == .never && settings.emoji.editable == .never)
-        #expect(settings.persona.editable == .never && settings.clubhouseMode.editable == .never)
         #expect(settings.model.editable == .always && settings.orchestrator.editable == .always && settings.idleSleep.editable == .always)
         #expect(settings.orchestration == nil, "Its orchestration is locked")
         #expect(settings.freeAgentMode.editable == .always && !settings.hasLockedSettings, "Nothing waits for it to sleep")

@@ -35,7 +35,8 @@ struct CompanionHelperAutoSection: View {
             if let reason = policy.reasonText(labels: screen.settings?.labels ?? [:]) {
                 Text(reason).accessibilityIdentifier("helper-auto-reason")
             }
-            ForEach(["app", "project", "persona", "agent"], id: \.self) { id in
+            // No persona row: personas were retired (Clubhouse #2901), so that scope never says anything.
+            ForEach(["app", "project", "agent"], id: \.self) { id in
                 if let scope = policy.scopes[id] {
                     LabeledContent(id.capitalized, value: valueText(scope.value, scope: id))
                         .accessibilityIdentifier("helper-auto-scope-\(id)")

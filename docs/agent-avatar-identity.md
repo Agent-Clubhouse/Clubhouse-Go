@@ -45,9 +45,9 @@ filenames, hashes or providers: either selected file is the agent's profile imag
 
 ## Recorded desktop fixture and intentional Go difference
 
-The canonical [`sender-identity.json`](https://github.com/Agent-Clubhouse/Clubhouse/blob/4b3b4f59e67adcbe9df477b5f091ae1d9fb81953/test/fixtures/annex-mobile/sender-identity.json)
+The canonical [`sender-identity.json`](https://github.com/Agent-Clubhouse/Clubhouse/blob/e1e0c6bf6d6237dcd7c1a3406a6d56031a4463b2/test/fixtures/annex-mobile/sender-identity.json)
 is pinned by `Tests/Fixtures/AnnexContract/SOURCE.json` to desktop commit
-**4b3b4f59e67adcbe9df477b5f091ae1d9fb81953**. Its `emoji_over_image` name, input
+**e1e0c6bf6d6237dcd7c1a3406a6d56031a4463b2** (unchanged since 4b3b4f5). Its `emoji_over_image` name, input
 catalog and recorded desktop expectation stay unchanged: `durable_chat` has both
 `durable_chat.png` and 🦊, and the desktop's recorded face is the fox on
 `#6366f120`. The contract tests explicitly assert that expectation and provenance.

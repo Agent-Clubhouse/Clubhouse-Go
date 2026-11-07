@@ -18,6 +18,14 @@ enum ContractFixtures {
     }
     static func cases(_ name: String) throws -> [AnnexJSON] { (try json(name)["cases"]).arrayValue }
     static func files() throws -> [String] { (try json("index.json")["files"]).arrayValue.compactMap(\.string) }
+    /// Fixtures the desktop has since retired, pinned in `Fixtures/AnnexContractLegacy` (see its SOURCE.json) so the
+    /// phone keeps handling older desktops that still send those shapes. The sync script never touches them.
+    static let legacyDirectory = directory.deletingLastPathComponent().appending(path: "AnnexContractLegacy", directoryHint: .isDirectory)
+    static func legacy(_ name: String) throws -> AnnexJSON {
+        try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: legacyDirectory.appending(path: name)))
+    }
+    static func legacyBody(_ name: String) throws -> AnnexJSON { try legacy(name)["response"]?["body"] ?? .null }
+    static func legacyCases(_ name: String) throws -> [AnnexJSON] { (try legacy(name)["cases"]).arrayValue }
     /// Event types repeat (five user_message fixtures). Pick the intended delivery by its stable message id.
     static func chatEvent(_ messageID: String) throws -> AnnexJSON {
         let events = try json("chat-events.json")["frames"].arrayValue.compactMap { $0["payload"]?["event"] }
@@ -303,7 +311,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         try await service.setLevel(.fullAccess, target: chat, clientCommandID: "c10")
         let spawned = try await service.spawn(.init(project: project, prompt: "Fix the flaky test", provider: "claude-code", model: "sonnet", clientCommandID: "c11"))
         #expect(spawned.agentTarget?.agentID == "quick_new")
-        let created = try await service.create(.init(project: project, name: "quiet-wren", color: "emerald", orchestrator: nil, model: nil, persona: nil,
+        let created = try await service.create(.init(project: project, name: "quiet-wren", color: "emerald", orchestrator: nil, model: nil,
                                                      useWorktree: nil, mcpIDs: nil, clientCommandID: "c12"))
         #expect(created.target.agentID == "durable_created" && created.isCreating)
         let saved = try await service.updateSettings(.init(idleSleep: .never), target: chat, clientCommandID: "c13")
@@ -341,7 +349,9 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         let claude = options.options.orchestrators[0], codex = options.options.orchestrators[1]
         #expect(claude.badge == "Beta" && claude.available && claude.permissions && claude.chat && claude.models.map(\.id) == ["default", "opus", "sonnet"])
         #expect(!codex.available && codex.unavailableReason == "Codex CLI not found" && !codex.permissions && !codex.chat)
-        #expect(options.options.personas.map(\.id) == ["qa", "architect"] && options.options.colors.count == 8)
+        #expect(options.options.colors.count == 8)
+        // Personas were retired (Clubhouse #2901): the desktop keeps the key, always empty, and the phone doesn't read it.
+        #expect(try ContractFixtures.body("create-options.json")["personas"] == .array([]))
         #expect(options.mcpCatalog.map(\.id) == ["github", "ado"] && options.mcpDefaults == ["github"])
         #expect(options.isGitRepo && options.suggestedName == "brave-otter" && options.defaultOrchestrator == "claude-code")
         #expect(options.defaultColor == "indigo" && options.defaultModel == "default" && options.defaultUseWorktree && options.freeAgentModeAllowed)
@@ -352,7 +362,10 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(settings.state == "sleeping" && settings.sleeping && settings.name.value == "brave-otter" && settings.name.editable == .sleeping)
         #expect(settings.idleSleep.value == .minutes(60) && settings.idleSleep.editable == .always && settings.idleSleepApplies)
         #expect(settings.resolvedOrchestrator == "claude-code" && settings.resolvedRuntime == "chat")
-        #expect(settings.clubhouseMode.value == nil && settings.clubhouseMode.editable == .never)
+        // Persona and Clubhouse Mode were retired (Clubhouse #2901): kept on the wire as never-editable nulls, not read.
+        let wire = try ContractFixtures.body("agent-settings.json")["settings"]
+        #expect(wire?["persona"] == .object(["value": .null, "editable": .string("never")]))
+        #expect(wire?["clubhouseMode"] == .object(["value": .null, "projectEnabled": .bool(false), "editable": .string("never")]))
         #expect(settings.freeAgentMode.editable == .sleeping && settings.idleSleepMinutes == [15, 30, 60, 240] && settings.appIdleMinutes == 30)
         #expect(settings.options.orchestrators.count == 2)
         let workspace = try #require(settings.workspace)

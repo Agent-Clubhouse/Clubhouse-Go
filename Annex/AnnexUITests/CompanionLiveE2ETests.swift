@@ -25,7 +25,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try super.setUpWithError()
         try XCTSkipUnless(env["CLUBHOUSE_RUN_LIVE_E2E"] == "1" && env["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil,
                           "Run through scripts/e2e-live.sh, which launches the desktop fixture")
-        // Also run before retries/--only: a failed test may have left the desktop's global MCP gate off.
+        // Also run before retries/--only: a failed test may have left the Dispatcher on.
         try resetDispatcherGates()
     }
 
@@ -39,7 +39,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     private func resetDispatcherGates() throws {
         let state = try XCTUnwrap(try dispatcherFixture("resetGates") as? [String: Any])
-        XCTAssertEqual(state["mcpEnabled"] as? Bool, true)
+        // The Clubhouse MCP always runs and the Dispatcher flag graduated (Clubhouse #2901): only its switch gates it.
         XCTAssertEqual(state["dispatcherFlag"] as? Bool, true)
         XCTAssertEqual(state["dispatcherEnabled"] as? Bool, false)
     }
@@ -205,7 +205,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                     let body = response["body"] as? [String: Any]
                     let error = body?["error"] as? [String: Any]
                     let rawCode = error?["code"] as? String ?? body?["code"] as? String
-                    let knownCodes: Set<String> = ["mcp_off", "dispatcher_off", "dispatcher_flag_off", "dispatcher_locked",
+                    let knownCodes: Set<String> = ["dispatcher_off", "dispatcher_locked", "managed_agent",
                         "orchestration_has_helpers", "orchestration_refused", "agent_not_found", "agent_running",
                         "agent_creating", "invalid_command", "not_found", "authorization_revoked", "too_large"]
                     let code = rawCode.flatMap { knownCodes.contains($0) ? $0 : nil } ?? "unknown"
@@ -616,7 +616,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertFalse(row.exists)
         let toggle = dispatcherSwitch(app)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
-        XCTAssertTrue(toggle.isEnabled, "The fixture must seed both the experimental flag and New layout")
+        XCTAssertTrue(toggle.isEnabled, "The fixture must seed the New layout")
         setSwitch(toggle, on: true, in: app)
         let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
@@ -677,11 +677,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 5), "Dispatcher exposes \(field)")
             XCTAssertTrue(control.isEnabled, "Dispatcher \(field) is editable even while awake")
         }
-        for field in ["name", "emoji", "persona", "orchestrate"] {
+        for field in ["name", "emoji", "orchestrate"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
         }
         XCTAssertFalse(element(app, "agent-color-blue").exists, "The Dispatcher's color is locked")
-        XCTAssertFalse(app.switches["Clubhouse mode for this agent"].exists, "The Dispatcher has no project mode")
         let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
         XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])
@@ -689,7 +688,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["orchestrator", "model", "runtime", "freeAgentMode", "idleSleep"] {
             XCTAssertEqual((settings[field] as? [String: Any])?["editable"] as? String, "always", field)
         }
-        for field in ["name", "color", "emoji", "persona", "clubhouseMode"] {
+        for field in ["name", "color", "emoji"] {
             XCTAssertEqual((settings[field] as? [String: Any])?["editable"] as? String, "never", field)
         }
         screenshot(app, "Real Dispatcher settings while awake")
@@ -828,47 +827,19 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(((try dispatcherFixture("policy") as? [String: Any])?["policy"] as? [String: Any])?["orchestrate"] as? Bool, false)
         setSwitch(orchestrate, on: true, in: app)
         waitAndTap(app.buttons["Done"], untilGone: orchestrate)
-        // MCP-off is authoritative on the settings route and on screen, even though the overrides stay stored.
-        try dispatcherFixture("mcpEnabled", ["enabled": false])
-        let disabled = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": echoID]) as? [String: Any])
-        let disabledBody = try XCTUnwrap(disabled["body"] as? [String: Any])
-        XCTAssertEqual((disabledBody["orchestration"] as? [String: Any])?["mcpEnabled"] as? Bool, false)
-        longPressUntilMenu(revealAgent(app, echoID), shows: settingsAction)
-        waitAndTap(settingsAction, until: element(app, "agent-settings-name"), timeout: 15)
-        for field in ["agent-settings-orchestrate", "agent-settings-orchestrate-cross-project", "agent-settings-orchestrate-dispatcher"] {
-            let control = app.switches[field]
-            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 6), field)
-            scrollTo(control, in: app)
-            XCTAssertFalse(control.isEnabled, "MCP off disables \(field)")
-            XCTAssertEqual(control.value as? String, "0", "MCP off resolves \(field) to false")
-        }
-        let mcpHelp = app.staticTexts["These settings need Clubhouse MCP. Turn on Clubhouse MCP on the desktop."]
-        XCTAssertTrue(scrollUntilExists(mcpHelp, in: app, maxSwipes: 3), "The phone explains how to restore orchestration")
-        screenshot(app, "MCP off disables orchestration and Dispatcher switches")
-        waitAndTap(app.buttons["Done"], untilGone: orchestrate)
-        for field in ["orchestrate", "connectToDispatcher", "crossProjectHelpers"] {
-            let refused = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID,
-                "orchestration": [field: true]]]) as? [String: Any])
-            XCTAssertEqual(refused["status"] as? Int, 409)
-            XCTAssertTrue(String(describing: refused["body"]).contains("mcp_off"))
-        }
-        try dispatcherFixture("mcpEnabled", ["enabled": true])
+        // The Clubhouse MCP always runs (Clubhouse #2901): the settings route never reports it off.
+        let settings = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": echoID]) as? [String: Any])
+        let settingsBody = try XCTUnwrap(settings["body"] as? [String: Any])
+        XCTAssertEqual((settingsBody["orchestration"] as? [String: Any])?["mcpEnabled"] as? Bool, true)
         // Dispatcher off rejects writes even if an older settings sheet still offered Connect.
         try dispatcherFixture("setEnabled", ["enabled": false])
         let refusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID, "orchestration": ["connectToDispatcher": true]]]) as? [String: Any])
         XCTAssertEqual(refusal["status"] as? Int, 409)
         XCTAssertTrue(String(describing: refusal["body"]).contains("dispatcher_off"))
-        try dispatcherFixture("flag", ["enabled": false])
-        let flagRefusal = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.setEnabled", "enabled": true]]) as? [String: Any])
-        XCTAssertEqual(flagRefusal["status"] as? Int, 409)
-        XCTAssertTrue(String(describing: flagRefusal["body"]).contains("dispatcher_flag_off"))
+        // The flag graduated: with the Dispatcher off, only its own switch stands between the phone and turning it on.
         let toggle = dispatcherSwitch(app)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
-        XCTAssertFalse(toggle.isEnabled, "The phone cannot turn on the desktop's experimental flag")
-        let note = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'dispatcher-enabled-note-'")).firstMatch
-        XCTAssertTrue(note.label.contains("Experimental"), note.label)
-        try dispatcherFixture("flag", ["enabled": true])
-        XCTAssertTrue(toggle.wait(for: \.isEnabled, toEqual: true, timeout: 20))
+        XCTAssertTrue(toggle.wait(for: \.isEnabled, toEqual: true, timeout: 20), "No experimental flag or MCP setting gates the switch")
         waitAndTap(app.buttons["Done"], untilGone: toggle)
     }
 
@@ -906,8 +877,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertFalse(element(app, "agent-settings-error").exists)
         screenshot(app, "Dispatcher settings saved on real desktop")
         waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
-        for fields: [String: Any] in [["name": "renamed"], ["color": "blue"], ["emoji": "X"], ["persona": "default"],
-                                      ["clubhouseMode": true], ["orchestration": ["orchestrate": true]]] {
+        // Persona and Clubhouse Mode were retired (Clubhouse #2901); the phone never sends them, so they aren't checked here.
+        for fields: [String: Any] in [["name": "renamed"], ["color": "blue"], ["emoji": "X"], ["orchestration": ["orchestrate": true]]] {
             var command = fields
             command["type"] = "agent.update"; command["agentId"] = id
             let result = try XCTUnwrap(try dispatcherFixture("command", ["fields": command]) as? [String: Any])

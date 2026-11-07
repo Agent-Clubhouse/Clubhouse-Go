@@ -79,7 +79,7 @@ import XCTest
         XCTAssertFalse(app.staticTexts["Healthy"].exists)
         capture(app, "Unknown stale quota (preview)")
     }
-    func testProjectOffAndPersonaOffPreserveSavedAgentOn() {
+    func testProjectOffAndNotOrchestratingPreserveSavedAgentOn() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota"])
         openPresets(app)
         project(app, "website")
@@ -92,26 +92,28 @@ import XCTest
         agent(app, "juniper")
         XCTAssertTrue(element(app, "helper-auto-scope-agent").label.contains("On"))
         XCTAssertTrue(element(app, "helper-auto-effective").label.contains("Off"))
-        XCTAssertEqual(element(app, "helper-auto-reason").label, "This agent’s persona turned it off")
+        XCTAssertEqual(element(app, "helper-auto-reason").label, "This agent doesn’t orchestrate")
+        XCTAssertFalse(element(app, "helper-auto-scope-persona").exists, "Personas were retired")
         XCTAssertTrue(app.buttons["helper-auto-change-inherit"].isEnabled)
-        capture(app, "Persona off with agent on (preview)")
+        capture(app, "Not orchestrating with agent on (preview)")
     }
-    func testReportOnlyKeepsClubhouseModeAndAllowsAutoOffAndClear() {
+    func testReportOnlyBlocksOrchestrationAndAllowsAutoOffAndClear() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-report-only"])
         let row = element(app, "agent-preview-studio-juniper")
         XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app))
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(row, shows: settings)
         waitAndTap(settings, until: element(app, "agent-settings-summary"))
-        let clubhouseMode = element(app, "agent-settings-clubhouse-mode")
-        XCTAssertTrue(scrollUntilExists(clubhouseMode, in: app) && scrollTo(clubhouseMode, in: app))
-        XCTAssertTrue(clubhouseMode.isEnabled, "Its own editable policy still governs Clubhouse mode")
         let reportOnly = element(app, "agent-settings-report-only")
         XCTAssertTrue(scrollUntilExists(reportOnly, in: app) && scrollTo(reportOnly, in: app))
-        XCTAssertFalse(element(app, "agent-settings-orchestrate").isEnabled)
-        XCTAssertFalse(element(app, "agent-settings-orchestrate-cross-project").isEnabled)
+        // The switches sit below the report-only note; the lazy Form loads them only once they're near the screen.
+        let orchestrate = element(app, "agent-settings-orchestrate")
+        let crossProject = element(app, "agent-settings-orchestrate-cross-project")
+        XCTAssertTrue(scrollUntilExists(crossProject, in: app, maxSwipes: 3) && scrollTo(orchestrate, in: app, up: false, maxSwipes: 2))
+        XCTAssertFalse(orchestrate.isEnabled)
+        XCTAssertFalse(crossProject.isEnabled)
         XCTAssertFalse(element(app, "agent-settings-orchestrate-dispatcher").exists)
-        capture(app, "Report-only helper retains Clubhouse mode but cannot enable orchestration")
+        capture(app, "Report-only helper cannot enable orchestration")
         let auto = element(app, "agent-settings-helper-auto")
         XCTAssertTrue(scrollUntilExists(auto, in: app, up: false) && scrollTo(auto, in: app, up: false))
         waitAndTap(auto, until: element(app, "helper-auto-scope-agent"))
@@ -119,18 +121,6 @@ import XCTest
         XCTAssertTrue(app.buttons["helper-auto-change-off"].isEnabled)
         XCTAssertTrue(app.buttons["helper-auto-change-inherit"].isEnabled)
         capture(app, "Report-only helper keeps Auto provider off and clear available")
-    }
-
-    func testMCPOffAllowsOffAndClearButDisablesOn() {
-        let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-mcp-off"])
-        openPresets(app)
-        project(app, "clubhouse")
-        agent(app, "juniper")
-        XCTAssertEqual(element(app, "helper-auto-reason").label, "Clubhouse MCP is off for this agent")
-        XCTAssertFalse(app.buttons["helper-auto-change-on"].isEnabled)
-        XCTAssertTrue(app.buttons["helper-auto-change-off"].isEnabled)
-        XCTAssertTrue(app.buttons["helper-auto-change-inherit"].isEnabled)
-        capture(app, "MCP off keeps clear and off editable (preview)")
     }
     func testHeldAndSavedWarningsAreHistoricalInformation() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota"])

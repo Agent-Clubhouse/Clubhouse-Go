@@ -223,7 +223,6 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     args: ['--disable-gpu'],
     experimental: { chat: true, annex: true, dispatcher: true, newChrome: true },
     userDataFiles: {
-      'mcp-settings.json': { enabled: true },
       'orchestrator-settings.json': { enabled: ['claude-code'], autoDetected: true },
       // The stream-json transport is what fake-claude.mjs speaks.
       'chat-runtime-settings.json': { 'claude-code': { mode: 'chat', driver: 'claude_stream_json' } },
@@ -312,16 +311,13 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         try {
           switch (request.op) {
             case 'resetGates': {
-              // This is the disposable fixture's profile only. Restore all gates even when a prior test
-              // aborted while MCP/Dispatcher was disabled, and return authoritative values for XCTest.
+              // This is the disposable fixture's profile only. Turn the Dispatcher off even when a prior test
+              // aborted with it on, and return authoritative values for XCTest. The Clubhouse MCP always runs and
+              // the Dispatcher flag graduated (#2901), so its switch is the only gate left.
               result = await window.evaluate(async () => {
                 const ch = (window as any).clubhouse;
-                await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: true });
-                await ch.settings.save('mcp', { ...await ch.settings.get('mcp'), enabled: true });
-                await ch.dispatcher.setEnabled(false);
-                return { mcpEnabled: (await ch.settings.get('mcp')).enabled,
-                  dispatcherFlag: (await ch.app.getExperimentalSettings()).dispatcher,
-                  dispatcherEnabled: (await ch.dispatcher.get()).enabled };
+                const state = await ch.dispatcher.setEnabled(false);
+                return { dispatcherFlag: state.flagOn, dispatcherEnabled: state.enabled };
               });
               break;
             }
@@ -376,16 +372,6 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
             }, { projectPath: projectDir, agentId: request.agentId ?? agents.echo }); break;
             case 'command': result = await observer!.command(request.fields); break;
             case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings`); break;
-            case 'mcpEnabled': result = await window.evaluate(async enabled => {
-              const ch = (window as any).clubhouse;
-              await ch.settings.save('mcp', { ...await ch.settings.get('mcp'), enabled });
-              return 'ok';
-            }, request.enabled); break;
-            case 'flag': result = await window.evaluate(async on => {
-              const ch = (window as any).clubhouse;
-              await ch.app.saveExperimentalSettings({ ...await ch.app.getExperimentalSettings(), dispatcher: on });
-              return 'ok';
-            }, request.enabled); break;
             case 'mcp': result = await callMcp(request.agentId, request.target, request.tool, request.args ?? {}, fixtureAgentIds, electronApp.process().pid!); break;
             case 'wire': {
               // Replay the actual server buffer, independently of the phone's UI catch-up assertion.

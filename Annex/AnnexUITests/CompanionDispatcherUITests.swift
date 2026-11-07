@@ -64,32 +64,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         waitAndTap(settings, until: enabled, timeout: 10, "Its settings start with Turn on Dispatcher")
         XCTAssertTrue(element(app, "agent-settings-model").waitForExistence(timeout: 10), "Its model can change")
         XCTAssertFalse(element(app, "agent-settings-name").exists, "Its name is the desktop's")
-        XCTAssertFalse(element(app, "agent-settings-persona").exists, "It has no persona")
         XCTAssertFalse(element(app, "agent-settings-orchestrate").exists, "Its orchestration is locked")
         screenshot(app, "Dispatcher settings")
-    }
-
-    func testMCPOffRunningRetainsChatWithRestrictedActions() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-mcp-off"])
-        XCTAssertTrue(element(app, "dispatcher-mcp-off-notice").waitForExistence(timeout: 15))
-        XCTAssertTrue(text(app, containing: "This session is still running").exists)
-        XCTAssertTrue(text(app, containing: "New messages are unavailable").exists)
-        XCTAssertTrue(text(app, containing: "finish the reconnect fix").waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["Sleep"].exists)
-        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
-        XCTAssertFalse(app.buttons["Turn on Dispatcher"].exists)
-        screenshot(app, "MCP off with the running Dispatcher retained")
-    }
-
-    func testMCPOffStoppedRetainsReadOnlyHistory() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-mcp-off", "--companion-preview-dispatcher-stopped"])
-        XCTAssertTrue(element(app, "dispatcher-mcp-off-notice").waitForExistence(timeout: 15))
-        XCTAssertTrue(text(app, containing: "MCP is off on the desktop").exists)
-        XCTAssertTrue(text(app, containing: "finish the reconnect fix").waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["Sleep"].exists)
-        XCTAssertFalse(app.buttons["companion-send"].isEnabled)
-        XCTAssertFalse(app.buttons["Turn on Dispatcher"].exists)
-        screenshot(app, "MCP off with stopped Dispatcher history retained")
     }
 
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
@@ -213,16 +189,6 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15), "Home preference applies on the next launch")
         XCTAssertTrue(tab(app, "Dispatcher").waitForExistence(timeout: 10))
         screenshot(app, "Home start screen preference")
-    }
-
-    func testFlagOffRemovesDispatcherTab() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls"])
-        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
-        app.buttons["Settings"].tap()
-        app.buttons["Report flag off"].tap()
-        app.buttons["Done"].tap()
-        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
-        XCTAssertFalse(tab(app, "Dispatcher").exists)
     }
 
     func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() {

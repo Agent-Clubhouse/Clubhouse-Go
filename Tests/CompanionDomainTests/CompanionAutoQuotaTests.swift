@@ -18,14 +18,17 @@ import Testing
         }
         let dispatcher = try #require(CompanionHelperAuto(json: cases["dispatcherLocked"]))
         #expect(dispatcher.scopes.values.allSatisfy { !$0.editable })
-        let mcp = try #require(CompanionHelperAuto(json: cases["mcpOff"]))
-        #expect(mcp.scopes["agent"]?.editable == true && !mcp.effective)
-        // An own true value must not override the desktop's effective false result.
-        let contradictory: AnnexJSON = .object(["effective": .bool(false), "source": .string("persona"), "reason": .string("persona_off"),
-            "scopes": .object(["agent": .object(["value": .bool(true), "editable": .bool(true)]), "persona": .object(["value": .bool(false), "editable": .bool(false)])])])
+        let notOrchestrating = try #require(CompanionHelperAuto(json: cases["notOrchestrating"]))
+        #expect(notOrchestrating.scopes["agent"]?.editable == true && !notOrchestrating.effective)
+        // Personas were retired (Clubhouse #2901): the scope stays on the wire, never set and never editable.
+        #expect(notOrchestrating.scopes["persona"] == .init(value: .inherit, editable: false, choices: []))
+        #expect(cases["mcpOff"] == nil && labels["autoOff"]?["persona_off"] == nil, "Neither is sent any more")
+        // An own true value must not override the desktop's effective false result (`decideHelperAuto`).
+        let contradictory: AnnexJSON = .object(["effective": .bool(false), "source": .string("agent"), "reason": .string("orchestration_off"),
+            "scopes": .object(["agent": .object(["value": .bool(true), "editable": .bool(true)])])])
         let blocked = try #require(CompanionHelperAuto(json: contradictory))
         #expect(!blocked.effective && blocked.scopes["agent"]?.value == .enabled(true))
-        #expect(blocked.reasonText(labels: labels) == labels["autoOff"]?["persona_off"])
+        #expect(blocked.reasonText(labels: labels) == labels["autoOff"]?["orchestration_off"])
     }
 
     @Test func quotaStatesAndPollingFollowCommittedMixedAndMissingTTLs() throws {
@@ -140,25 +143,26 @@ import Testing
     }
 
     @Test func previewShowsLockedScopesAndHistoricalWarningsWithoutChangingPolicyLocally() async throws {
-        let app = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true)
+        let app = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: nil)
         #expect(app.auto?.effective == true)
         #expect(app.providers["claude-code"]?.quota?.modelWindows.first?.name == "Fable")
         #expect(app.providers["codex-cli"]?.quota?.unknownReason == "stale")
         #expect(app.providers["copilot-cli"]?.quota?.unknownReason == "not_supported")
         #expect(app.nextRefreshDelay == 300)
-        let project = CompanionPreviewService.autoQuotaPage(projectID: "website", agentID: nil, mcpEnabled: true)
+        let project = CompanionPreviewService.autoQuotaPage(projectID: "website", agentID: nil)
         #expect(project.auto?.reason == "project_off")
-        let persona = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: "juniper", mcpEnabled: true)
-        #expect(persona.auto?.reason == "persona_off" && persona.auto?.scopes["agent"]?.value == .enabled(true))
-        let mcp = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: "river", mcpEnabled: false)
-        #expect(mcp.auto?.reason == "mcp_off" && mcp.auto?.scopes["agent"]?.editable == true)
-        let dispatcher = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: CompanionPreviewService.dispatcherTarget.agentID, mcpEnabled: true)
+        let juniper = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: "juniper")
+        #expect(juniper.auto?.reason == "orchestration_off" && juniper.auto?.source == "agent" && juniper.auto?.scopes["agent"]?.value == .enabled(true))
+        #expect(juniper.auto?.scopes["persona"] == nil)
+        let river = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: "river")
+        #expect(river.auto?.effective == true && river.auto?.reason == nil && river.auto?.scopes["agent"]?.editable == true)
+        let dispatcher = CompanionPreviewService.autoQuotaPage(projectID: nil, agentID: CompanionPreviewService.dispatcherTarget.agentID)
         #expect(dispatcher.auto?.scopes.values.allSatisfy { !$0.editable } == true)
         let service = CompanionPreviewService(showsAutoQuota: true)
         #expect(try await service.helperRouting(hostID: "preview-studio", projectID: "clubhouse", agentID: nil).auto?.effective == true)
         let saved = try await service.settings(for: CompanionPreviewService.sleepingTarget)
         #expect(saved.routing?.warning?.message == CompanionPreviewService.previewStartWarning.message)
-        #expect(saved.orchestration?.autoHelpers == true && saved.orchestration?.autoHelpersEffective == false)
+        #expect(saved.orchestration?.autoHelpers == true && saved.orchestration?.autoHelpersEffective == false && saved.orchestration?.orchestrate == false)
         #expect(CompanionPreviewService.autoQuotaCapability?.modes.contains("auto") == true)
     }
 
@@ -180,7 +184,8 @@ import Testing
         #expect(caps.helperRouting?.quotaStates?.contains("unknown") == true)
         #expect(caps.helperRouting?.unknownReasons?.contains("stale") == true)
         #expect(caps.helperRouting?.quotaSources?.contains("session_event") == true)
-        #expect(caps.helperRouting?.autoOffReasons?.contains("persona_off") == true)
+        #expect(caps.helperRouting?.autoOffReasons?.contains("persona_off") == false, "Personas were retired (Clubhouse #2901)")
+        #expect(caps.helperRouting?.autoOffReasons?.contains("mcp_off") == true, "Kept as a code for older saved decisions")
         #expect(caps.helperRouting?.skipped?.contains("cooling_down") == true)
     }
 

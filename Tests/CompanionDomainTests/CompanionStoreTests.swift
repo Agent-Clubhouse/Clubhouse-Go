@@ -202,7 +202,7 @@ import Testing
         if isQuick {
             #expect(await store.spawn(project: .init(hostID: new.hostID, projectID: new.projectID), prompt: "Task", provider: nil, model: nil))
         } else {
-            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, persona: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
+            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
         }
         #expect(store.selection == new)
         await store.load(new)
@@ -223,7 +223,7 @@ import Testing
         if isQuick {
             #expect(await store.spawn(project: .init(hostID: new.hostID, projectID: new.projectID), prompt: "Task", provider: nil, model: nil))
         } else {
-            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, persona: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
+            #expect(await store.create(.init(project: .init(hostID: new.hostID, projectID: new.projectID), name: "New", color: "teal", orchestrator: nil, model: nil, useWorktree: nil, mcpIDs: nil, clientCommandID: "create")))
         }
         var fresh = stale
         fresh.projects[0].agents.append(.init(id: new, name: "New", subtitle: "Task", status: .idle, capabilities: [.chat], isQuick: isQuick))

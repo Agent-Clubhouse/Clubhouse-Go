@@ -12,7 +12,7 @@ extension CompanionPreviewService {
         .init(code: "cooling_down", asOf: Date(timeIntervalSince1970: 1800000000), message: "codex-cli failed to start or hit its limit recently. The helper is started on it anyway, as asked.")
     }
     static var autoQuotaSavedDecision: CompanionHelperRoutingDecision? { .init(json: previewRoutingJSON(savedWarningJSON)) }
-    static func autoQuotaPage(projectID: String?, agentID: String?, mcpEnabled: Bool) -> CompanionHelperRouting {
+    static func autoQuotaPage(projectID: String?, agentID: String?) -> CompanionHelperRouting {
         var page = helperPresets
         if case .object(let labels) = previewRoutingJSON(autoQuotaLabelsJSON) {
             page.labels = labels.compactMapValues { raw in
@@ -32,11 +32,11 @@ extension CompanionPreviewService {
         } else if projectID != nil || agentID != nil {
             scopes["project"] = .init(value: projectID == "website" ? .off : .inherit, editable: true, choices: [.off, .inherit])
             if let agentID {
-                let personaOff = agentID == sleepingTarget.agentID
-                scopes["agent"] = .init(value: personaOff ? .enabled(true) : .inherit, editable: true, choices: [])
-                scopes["persona"] = .init(value: personaOff ? .enabled(false) : .inherit, editable: false, choices: [])
-                page.auto = .init(effective: !personaOff && mcpEnabled, source: !mcpEnabled ? "mcp_off" : personaOff ? "persona" : "app",
-                                  reason: !mcpEnabled ? "mcp_off" : personaOff ? "persona_off" : nil, scopes: scopes)
+                // Juniper keeps its own switch on but doesn't orchestrate, so Auto is off (`decideHelperAuto` on the desktop).
+                let notOrchestrating = agentID == sleepingTarget.agentID
+                scopes["agent"] = .init(value: notOrchestrating ? .enabled(true) : .inherit, editable: true, choices: [])
+                page.auto = .init(effective: !notOrchestrating, source: notOrchestrating ? "agent" : "app",
+                                  reason: notOrchestrating ? "orchestration_off" : nil, scopes: scopes)
             } else {
                 page.auto = .init(effective: projectID != "website", source: projectID == "website" ? "project" : "app",
                                   reason: projectID == "website" ? "project_off" : nil, scopes: scopes)
@@ -53,7 +53,7 @@ extension CompanionPreviewService {
         ]
     }
     static var planLimitsPage: CompanionHelperRouting {
-        var page = autoQuotaPage(projectID: nil, agentID: nil, mcpEnabled: true)
+        var page = autoQuotaPage(projectID: nil, agentID: nil)
         page.providers.removeValue(forKey: "copilot-cli")
         page.providers["claude-code"]?.quota = .init(state: "low", asOf: page.serverTime,
             weekly: .init(usedPercent: 88, resetsAt: page.serverTime?.addingTimeInterval(86_400)),
@@ -68,7 +68,6 @@ extension CompanionPreviewService {
       "autoOffReasons": [
         "not_enabled",
         "project_off",
-        "persona_off",
         "orchestration_off",
         "mcp_off",
         "dispatcher_locked"
@@ -117,8 +116,11 @@ extension CompanionPreviewService {
         "persona_pinned",
         "preset_on_cli",
         "only_candidate",
+        "lower_pressure",
         "lower_load",
+        "fair_rotation",
         "better_quota_tier",
+        "unknown_fallback",
         "sticky",
         "default_order"
       ],
@@ -154,7 +156,6 @@ extension CompanionPreviewService {
         "mcp_off": "Clubhouse MCP is off for this agent",
         "not_enabled": "It isn’t turned on",
         "orchestration_off": "This agent doesn’t orchestrate",
-        "persona_off": "This agent’s persona turned it off",
         "project_off": "This project turned it off"
       },
       "autoSource": {
@@ -163,7 +164,6 @@ extension CompanionPreviewService {
         "default": "Off unless turned on",
         "dispatcher_locked": "Not for the Dispatcher",
         "mcp_off": "Clubhouse MCP is off for this agent",
-        "persona": "Set by this agent’s persona",
         "project": "Set for this project"
       },
       "cell": {
@@ -192,11 +192,14 @@ extension CompanionPreviewService {
         "better_quota_tier": "This provider has more of its limit left",
         "default_order": "No reason to switch",
         "explicit_request": "You or the orchestrator chose this",
+        "fair_rotation": "Its turn among providers with the same usage",
         "lower_load": "Fewer helpers running on this provider",
+        "lower_pressure": "Less of this provider’s weekly limit is used",
         "only_candidate": "The only provider available",
         "persona_pinned": "Set by the persona",
         "preset_on_cli": "From the helper settings for this difficulty",
-        "sticky": "Stayed on the provider chosen last"
+        "sticky": "Stayed on the provider chosen last",
+        "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
       },
       "skipped": {
         "auto_not_supported": "Auto doesn’t support this provider yet",
