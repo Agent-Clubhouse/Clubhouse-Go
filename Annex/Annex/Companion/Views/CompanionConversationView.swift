@@ -183,6 +183,7 @@ struct CompanionConversationView: View {
                     CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
                         focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
                 }
+                .modifier(CompanionOfferedWidth())
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
@@ -805,6 +806,22 @@ struct CompanionContextRing: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
+    }
+}
+
+/// Reports exactly the offered width. The bottom bar's measured width carried floating-point noise
+/// (402.00000000000017), which rounded up a pixel and widened the whole conversation; the transcript then
+/// wrapped at a different width from its scroll content, and reading restoration never saw them agree.
+private struct CompanionOfferedWidth: ViewModifier {
+    func body(content: Content) -> some View { OfferedWidthLayout { content } }
+    private struct OfferedWidthLayout: Layout {
+        func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+            let size = subviews.first?.sizeThatFits(proposal) ?? .zero
+            return CGSize(width: proposal.width ?? size.width, height: size.height)
+        }
+        func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+            subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
+        }
     }
 }
 
