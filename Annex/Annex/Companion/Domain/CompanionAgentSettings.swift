@@ -315,7 +315,7 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var color: String
     var orchestrator: String?
     var model: String?
-    /// Nil leaves it to the project's agent defaults. Only sent to desktops that take it.
+    /// Nil uses the desktop's Default access. False explicitly chooses or keeps a level below Auto.
     var freeAgentMode: Bool? = nil
     var useWorktree: Bool?
     var mcpIDs: [String]?

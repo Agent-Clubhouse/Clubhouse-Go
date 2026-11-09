@@ -372,7 +372,7 @@ struct CompanionSpawnSheet: View {
             }
         } else {
             Section {
-                LabeledContent(CompanionFreeAgentMode.title, value: "Off")
+                LabeledContent("Access", value: "Desktop default")
                     .accessibilityIdentifier("new-agent-free-agent-mode")
             } header: { Text("Permissions") } footer: {
                 Text("Access follows the desktop default. Change it on the desktop.")
@@ -401,6 +401,7 @@ struct CompanionSpawnSheet: View {
             let request = CompanionCreateRequest(
                 project: project, name: durable.trimmedName, color: durable.color,
                 orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
+                // A supported toggle sends false explicitly when off; nil follows Desktop default access.
                 freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
                 useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
