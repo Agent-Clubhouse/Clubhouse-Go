@@ -208,8 +208,9 @@ struct CompanionConversationView: View {
             }
             layout {
                 if !compactAccessibilityHeader { CompanionStatusText(status: agent.status).font(.caption.weight(.semibold)) }
-                if agent.freeAgentMode { CompanionFreeAgentBadge() }
                 if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
+                else if let level = agent.session?.level.flatMap(CompanionPermissionLevel.init(rawValue:)) { CompanionLevelBadge(level: level) }
+                else if agent.freeAgentMode { CompanionElevatedAccessBadge(label: CompanionFreeAgentMode.title) }
             }
             .layoutPriority(1)
         }
@@ -220,8 +221,8 @@ struct CompanionConversationView: View {
 
     private var headerAccessibilityLabel: String {
         [contextName, agent.status.label,
-         agent.freeAgentMode ? "Free Agent Mode: all permissions bypassed" : nil,
-         agent.chatControls.map { "Permissions: \($0.currentLevel.label)" }]
+         (agent.chatControls?.currentLevel.label ?? agent.session?.level.map(CompanionSessionFacts.levelLabel)
+          ?? (agent.freeAgentMode ? CompanionFreeAgentMode.title : nil)).map { "Access: \($0)" }]
             .compactMap { $0 }.joined(separator: ", ")
     }
 

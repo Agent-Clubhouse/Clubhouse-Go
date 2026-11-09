@@ -103,6 +103,46 @@ private let providers = [CompanionProvider(id: "claude-code", name: "Claude Code
         #expect(projection.session.mcpServers?.count == 3)
     }
 
+    @Test func mcpFailureReasonsFollowTheLatestServerStatus() throws {
+        var projection = CompanionChatProjector()
+        func update(_ seq: Int64, _ servers: String) throws {
+            projection.apply(event("session_info", seq: seq, data: ["mcpServers": try json(servers)]))
+        }
+        try update(1, #"[{"name":"github","status":"failed"}]"#)
+        #expect(projection.session.mcpServers?.first?.error == nil)
+        #expect(projection.session.mcpServers?.first?.failureReason == nil)
+        let original = "Connection refused (sanitized by desktop)"
+        try update(2, #"[{"name":"github","status":"failed","error":"Connection refused (sanitized by desktop)"}]"#)
+        #expect(projection.session.mcpServers?.first?.error == original)
+        #expect(projection.session.mcpServers?.first?.failureReason == original)
+        try update(3, #"[{"name":"github","status":"failed","error":"Request timed out"}]"#)
+        #expect(projection.session.mcpServers?.first?.failureReason == "Request timed out")
+        projection.apply(event("session_info", seq: 4, data: [:]))
+        #expect(projection.session.mcpServers?.first?.failureReason == "Request timed out", "Absent server list retains facts")
+        try update(5, #"[{"name":"github","status":"failed"}]"#)
+        #expect(projection.session.mcpServers?.first?.error == nil, "A new report without a reason replaces the old reason")
+        try update(6, #"[{"name":"github","status":"failed","error":"Request timed out"}]"#)
+        try update(7, #"[{"name":"github","status":"connected","error":"Request timed out"}]"#)
+        #expect(projection.session.mcpServers?.first?.status == .connected)
+        #expect(projection.session.mcpServers?.first?.error == nil, "Connected clears even a stale error sent alongside it")
+        #expect(projection.session.mcpServers?.first?.failureReason == nil)
+    }
+
+    @Test func mcpReasonsPreserveOrderingAndUnknownStatuses() throws {
+        var projection = CompanionChatProjector()
+        projection.apply(event("session_info", seq: 1, data: ["mcpServers": try json(#"""
+        [{"name":"unknown","status":"future_status","error":"New status reason"},
+         {"name":"bad","status":"failed","error":"Failed reason"},
+         {"name":"good","status":"connected"},
+         {"name":"bad2","status":"failed","error":"Second reason"}]
+        """#)]))
+        let rows = try #require(CompanionAgentDetails.mcpRows(live: projection.session.mcpServers, configured: ["bad", "configured"]))
+        #expect(rows.map(\.name) == ["good", "bad", "bad2", "unknown", "configured"])
+        #expect(rows.map(\.status) == [.connected, .failed, .failed, .unknown, .configured])
+        #expect(rows.map(\.failureReason) == [nil, "Failed reason", "Second reason", nil, nil])
+        #expect(rows[3].error == "New status reason", "Keep desktop text without displaying it for non-failed statuses")
+    }
+
     @Test func aNewSessionForgetsTheOldFacts() {
         var projection = CompanionChatProjector()
         projection.apply(event("session_started", seq: 1, data: ["cliVersion": .string("1.0"), "capabilities": .object([:])]))
@@ -140,7 +180,7 @@ private let providers = [CompanionProvider(id: "claude-code", name: "Claude Code
         #expect(details.runtime == "Terminal")
         #expect(details.cli == "Claude Code", "No session, so no version")
         #expect(details.effort == nil)
-        #expect(details.access == "Free agent")
+        #expect(details.access == "Auto or Full access")
         #expect(details.freeAgentMode)
         #expect(details.autoSleep == "Doesn't sleep in a terminal")
         #expect(!details.hasWorkspace)
@@ -166,11 +206,33 @@ private let providers = [CompanionProvider(id: "claude-code", name: "Claude Code
         #expect(CompanionAgentDetails(agent: .init(id: target, name: "a", subtitle: "", status: .idle)).cli == nil)
     }
 
+    @Test func liveAccessSupersedesTheSavedBoolean() {
+        for level in CompanionPermissionLevel.allCases {
+            for saved in [false, true] {
+                var agent = CompanionAgent(id: target, name: "a", subtitle: "", status: .idle)
+                agent.freeAgentMode = saved
+                agent.session = .init(level: level.rawValue)
+                let details = CompanionAgentDetails(agent: agent)
+                #expect(details.access == level.label)
+                #expect(details.accessIsElevated == (level >= .auto))
+                #expect(CompanionFreeAgentMode.elevatedLabel(freeAgentMode: saved, level: level) == (level >= .auto ? level.label : nil))
+            }
+        }
+        var agent = CompanionAgent(id: target, name: "a", subtitle: "", status: .idle)
+        agent.freeAgentMode = true
+        agent.session = .init(level: "full_access")
+        agent.chatControls = .init(level: .auto)
+        #expect(CompanionAgentDetails(agent: agent).access == "Auto", "Use the same exact level as the live picker")
+        #expect(CompanionAgentDetails(agent: agent).accessIsElevated)
+        #expect(CompanionFreeAgentMode.elevatedLabel(freeAgentMode: true, level: nil) == "Auto or Full access")
+        #expect(CompanionFreeAgentMode.elevatedLabel(freeAgentMode: false, level: nil) == nil)
+    }
+
     @Test func accessFollowsTheDesktopsSettingsCard() {
         #expect(CompanionAgentDetails.access(level: "full_access", levelNames: [:], freeAgentMode: false, permissions: nil) == "Full access")
         #expect(CompanionAgentDetails.access(level: nil, levelNames: [:], freeAgentMode: true, permissions: false) == "Set by the CLI")
-        #expect(CompanionAgentDetails.access(level: nil, levelNames: [:], freeAgentMode: false, permissions: true) == "Ask before edits")
-        #expect(CompanionAgentDetails.access(level: nil, levelNames: [:], freeAgentMode: true, permissions: nil) == "Free agent")
+        #expect(CompanionAgentDetails.access(level: nil, levelNames: [:], freeAgentMode: false, permissions: true) == "Plan, Ask first or Auto-accept edits")
+        #expect(CompanionAgentDetails.access(level: nil, levelNames: [:], freeAgentMode: true, permissions: nil) == "Auto or Full access")
         #expect(CompanionSessionFacts.levelLabel("plan") == "Plan")
     }
 }

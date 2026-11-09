@@ -300,7 +300,9 @@ struct CompanionChatProjector {
         if case .object(let names)? = data["levelNames"] { session.levelNames = names.compactMapValues(\.string) }
         if case .array(let servers)? = data["mcpServers"] {
             session.mcpServers = servers.compactMap { server in
-                server["name"]?.string.map { CompanionMCPServer(name: $0, status: server["status"]?.string.flatMap(CompanionMCPServer.Status.init(rawValue:)) ?? .unknown) }
+                guard let name = server["name"]?.string else { return nil }
+                let status = server["status"]?.string.flatMap(CompanionMCPServer.Status.init(rawValue:)) ?? .unknown
+                return CompanionMCPServer(name: name, status: status, error: status == .connected ? nil : server["error"]?.string)
             }
         }
     }

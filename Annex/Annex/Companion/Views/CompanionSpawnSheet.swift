@@ -48,7 +48,7 @@ struct CompanionSpawnSheet: View {
                 Button("Create another agent") { store.acknowledgeReviewedCreate() }
             } message: { Text("The earlier agent may already be on your desktop. Continue only after checking its agent list.") }
             .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-                Button("Turn on Free Agent Mode", role: .destructive) { durable.freeAgentMode = true }
+                Button(CompanionFreeAgentMode.confirmAction, role: .destructive) { durable.freeAgentMode = true }
             } message: { Text(CompanionFreeAgentMode.help) }
             .onAppear {
                 project = initialProject
@@ -363,19 +363,23 @@ struct CompanionSpawnSheet: View {
             // As the desktop's New agent page: only for CLIs with permission support.
             let supported = options.options.orchestrator(durable.orchestrator)?.permissions == true
             Section {
-                Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { supported && durable.freeAgentMode },
-                                                                     set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
-                    .disabled(!supported)
-                    .accessibilityIdentifier("new-agent-free-agent-mode")
+                if supported {
+                    Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { durable.freeAgentMode },
+                                                                         set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
+                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                } else {
+                    LabeledContent("Access", value: "Set by the CLI")
+                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                }
             } header: { Text("Permissions") } footer: {
                 Text(supported ? CompanionFreeAgentMode.help : CompanionFreeAgentMode.unsupported)
             }
         } else {
             Section {
-                LabeledContent("Free Agent Mode", value: "Off")
+                LabeledContent("Access", value: "Desktop default")
                     .accessibilityIdentifier("new-agent-free-agent-mode")
             } header: { Text("Permissions") } footer: {
-                Text("The agent asks before it edits. Free Agent Mode can only be turned on at the desktop.")
+                Text("Access follows the desktop default. Change it on the desktop.")
             }
         }
         if !options.mcpCatalog.isEmpty {
@@ -401,6 +405,7 @@ struct CompanionSpawnSheet: View {
             let request = CompanionCreateRequest(
                 project: project, name: durable.trimmedName, color: durable.color,
                 orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
+                // A supported toggle sends false explicitly when off; nil follows Desktop default access.
                 freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
                 useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
@@ -432,7 +437,7 @@ struct CompanionSpawnSheet: View {
         }
     }
 
-    /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
+    /// Whether the desktop accepts the legacy boolean Access control.
     private func offersFreeAgentMode(_ options: CompanionCreateOptions) -> Bool {
         selectedHost?.canSetFreeAgentMode == true && options.freeAgentModeAllowed
     }

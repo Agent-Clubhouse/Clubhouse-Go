@@ -105,7 +105,7 @@ import XCTest
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         let header = element(app, "companion-chat-header")
-        XCTAssertTrue(header.label.contains("Full access") && header.label.contains("Free Agent"), header.label)
+        XCTAssertTrue(header.label.contains("Full access") && !header.label.contains("Auto or Full access") && !header.label.contains("Free Agent"), header.label)
         XCTAssertLessThanOrEqual(header.frame.maxX, app.frame.maxX)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
         XCTAssertTrue(app.buttons["companion-context-usage"].isHittable)
@@ -119,7 +119,7 @@ import XCTest
         shot.lifetime = .keepAlways; add(shot)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
         XCTAssertTrue(app.buttons["companion-send"].exists)
-        XCTAssertTrue(header.label.contains("Full access") && header.label.contains("Free Agent"), "Safety stays visible while editing")
+        XCTAssertTrue(header.label.contains("Full access") && !header.label.contains("Auto or Full access") && !header.label.contains("Free Agent"), "Safety stays visible while editing")
         XCTAssertTrue(app.buttons["View River, needs you"].isHittable, "The compact other-agent notice stays actionable")
         // The artificial preview banner had only 10pt in the baseline. Real chat must keep at least one readable band.
         XCTAssertGreaterThanOrEqual(readable, hidePreviewBanner ? 44 : 10, "Largest text must improve on the matching baseline")

@@ -24,6 +24,9 @@ nonisolated struct CompanionMCPServer: Identifiable, Sendable, Equatable {
     }
     var name: String
     var status: Status
+    /// Sanitized by the desktop; displayed verbatim only for failed servers.
+    var error: String? = nil
+    var failureReason: String? { status == .failed ? error : nil }
     var id: String { name }
     /// Clubhouse injects its own MCP as `clubhouse`; the card calls it Clubhouse.
     var displayName: String { name == "clubhouse" ? "Clubhouse" : name }
@@ -110,6 +113,7 @@ struct CompanionAgentDetails: Equatable {
     /// The permission level, as the Settings card's Access row.
     var access: String?
     var freeAgentMode: Bool
+    var accessIsElevated: Bool
     var autoSleep: String?
     var branch: String?
     var worktree: String?
@@ -134,7 +138,9 @@ struct CompanionAgentDetails: Equatable {
         model = agent.executionMode != nil ? agent.model ?? settings?.modelLabel : settings?.modelLabel ?? agent.model
         effort = session?.effort.map { session?.effortIsDefault == true ? "\($0.capitalized) (default)" : $0.capitalized }
         freeAgentMode = settings?.freeAgentMode.value ?? agent.freeAgentMode
-        access = Self.access(level: session?.level, levelNames: session?.levelNames ?? [:], freeAgentMode: freeAgentMode,
+        let liveLevel = agent.chatControls?.currentLevel.rawValue ?? session?.level
+        accessIsElevated = liveLevel.map { $0 == "auto" || $0 == "full_access" } ?? freeAgentMode
+        access = Self.access(level: liveLevel, levelNames: session?.levelNames ?? [:], freeAgentMode: freeAgentMode,
                              permissions: settings.flatMap { $0.options.orchestrator(orchestrator)?.permissions })
         autoSleep = settings.map { $0.idleSleepApplies ? $0.autoSleepSummary : "Doesn't sleep in a terminal" }
         branch = workspace?.branch ?? agent.branch
@@ -145,13 +151,13 @@ struct CompanionAgentDetails: Equatable {
         hasWorkspace = workspace != nil
     }
 
-    /// The Access row (`accessLabel`): the chat's live level, or what Free Agent Mode gives a terminal agent.
+    /// The exact live Access level when known, otherwise only what the saved boolean establishes.
     /// `permissions` is whether the CLI takes Clubhouse's levels; nil when the phone doesn't know.
     static func access(level: String?, levelNames: [String: String], freeAgentMode: Bool, permissions: Bool?) -> String? {
         if let level { return levelNames[level] ?? CompanionSessionFacts.levelLabel(level) }
         if permissions == false { return "Set by the CLI" }
-        if freeAgentMode { return "Free agent" }
-        return permissions == true ? "Ask before edits" : nil
+        if freeAgentMode { return CompanionFreeAgentMode.title }
+        return permissions == true ? CompanionFreeAgentMode.lowerLevels : nil
     }
 
     /// The card's rows: what the CLI loaded, sorted by status, then names only set in Clubhouse.

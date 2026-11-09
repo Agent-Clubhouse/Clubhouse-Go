@@ -182,10 +182,18 @@ enum CompanionChatControlError {
     }
 }
 
-/// The desktop's Free Agent Mode copy, shared by the New agent form and the settings sheet.
+/// Truthful copy for the legacy boolean Access control; it cannot distinguish Auto from Full access.
 enum CompanionFreeAgentMode {
-    static let title = "Free Agent Mode"
-    static let help = "Skips every permission prompt. Off unless you trust this agent with the project."
-    static let unsupported = "This agent's CLI sets its own permissions, so Free Agent Mode isn't supported."
-    static let confirmTitle = "Turn on Free Agent Mode?"
+    static let title = "Auto or Full access"
+    static let help = "Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."
+    static let unsupported = "This agent's CLI sets its own access, so this control isn't supported."
+    static let confirmTitle = "Enable Auto or Full access?"
+    static let confirmAction = "Enable Auto or Full access"
+    static let lowerLevels = "Plan, Ask first or Auto-accept edits"
+
+    /// A known live level supersedes the coarser saved boolean, including after lowering access.
+    static func elevatedLabel(freeAgentMode: Bool, level: CompanionPermissionLevel?) -> String? {
+        if let level { return level >= .auto ? level.label : nil }
+        return freeAgentMode ? title : nil
+    }
 }

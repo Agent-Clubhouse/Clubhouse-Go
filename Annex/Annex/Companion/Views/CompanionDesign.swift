@@ -221,11 +221,12 @@ private struct CompanionProjectIdentityFace: View {
     private var initials: String { String(name.filter(\.isLetter).prefix(2)).uppercased() }
 }
 
-/// Free Agent Mode skips every permission prompt. Shown in red wherever the agent is, as on the desktop.
-struct CompanionFreeAgentBadge: View {
+/// Elevated Access, with the exact live level when available and the boolean's range otherwise.
+struct CompanionElevatedAccessBadge: View {
+    let label: String
     @Environment(\.companionPalette) private var palette
     var body: some View {
-        Label("Free Agent", systemImage: "exclamationmark.shield.fill")
+        Label(label, systemImage: "exclamationmark.shield.fill")
             .labelStyle(.titleAndIcon)
             .font(.caption2.weight(.bold))
             .foregroundStyle(Color(palette.error))
@@ -233,8 +234,8 @@ struct CompanionFreeAgentBadge: View {
             .background(Color(palette.error).opacity(0.14), in: Capsule())
             .fixedSize()
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Free Agent Mode: all permissions bypassed")
-            .accessibilityIdentifier("free-agent-badge")
+            .accessibilityLabel("Access: \(label)")
+            .accessibilityIdentifier("elevated-access-badge")
     }
 }
 
@@ -260,7 +261,10 @@ struct CompanionAgentListRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(agent.name).font(.body).lineLimit(1)
-                    if agent.freeAgentMode { CompanionFreeAgentBadge() }
+                    if let label = CompanionFreeAgentMode.elevatedLabel(freeAgentMode: agent.freeAgentMode,
+                                                                       level: agent.chatControls?.currentLevel ?? agent.session?.level.flatMap(CompanionPermissionLevel.init(rawValue:))) {
+                        CompanionElevatedAccessBadge(label: label)
+                    }
                     if let hostTag { CompanionHostTag(name: hostTag) }
                 }
                 HStack(spacing: 4) {

@@ -80,13 +80,13 @@ struct CompanionAgentDetailsSheet: View {
             }
 
             Section {
-                row("Permissions", details.access, id: "agent-details-access")
-                LabeledContent("Free Agent Mode") {
-                    Text(details.freeAgentMode ? "On, all bypassed" : "Off")
-                        .foregroundStyle(details.freeAgentMode ? Color(palette.error) : Color(palette.secondaryLabel))
+                if let access = details.access {
+                    LabeledContent("Access") {
+                        Text(access).foregroundStyle(details.accessIsElevated ? Color(palette.error) : Color(palette.secondaryLabel))
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("agent-details-access")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("agent-details-free-agent-mode")
                 row("Auto-sleep", details.autoSleep, id: "agent-details-auto-sleep")
             } header: { Text("Access") }
 
@@ -94,7 +94,13 @@ struct CompanionAgentDetailsSheet: View {
                 if let servers = details.mcpServers, !servers.isEmpty {
                     ForEach(servers) { server in
                         LabeledContent {
-                            Text(server.status.label).foregroundStyle(Color(palette.secondaryLabel))
+                            VStack(alignment: .trailing, spacing: 4) {
+                                Text(server.status.label).foregroundStyle(mcpTint(server.status))
+                                if let reason = server.failureReason {
+                                    Text(reason).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
                         } label: {
                             Label {
                                 Text(server.displayName)
@@ -104,6 +110,7 @@ struct CompanionAgentDetailsSheet: View {
                             }
                         }
                         .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("agent-details-mcp-\(server.id)")
                     }
                 } else {
                     Text(details.status == .sleeping || details.status == .stopped

@@ -666,6 +666,7 @@ import ClubhouseTransport
     /// What River's chat session reported: the CLI version, effort, permission level and the MCP servers it loaded.
     static let riverSession = CompanionSessionFacts(cliVersion: "2.1.4", effort: "high", level: "auto_edit", mcpServers: [
         .init(name: "clubhouse", status: .connected), .init(name: "github", status: .connected), .init(name: "linear", status: .needsAuth),
+        .init(name: "offline", status: .failed, error: "Connection refused (sanitized by desktop)"),
     ])
     static let riverWorkspace = CompanionAgentWorkspace(
         branch: "river/companion", worktreePath: "/Users/preview/Clubhouse/.clubhouse/agents/river", worktree: ".clubhouse/agents/river",

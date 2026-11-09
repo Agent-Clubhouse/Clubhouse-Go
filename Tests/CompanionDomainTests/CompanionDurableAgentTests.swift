@@ -204,11 +204,13 @@ private actor DurableTransport: AnnexTransporting {
     private var continuation: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation?
     let commands: [String]
     let durable: Bool
+    let freeAgentMode: Bool
     private(set) var executed: [AnnexCommand] = []
     private(set) var reads: [String] = []
     var receipt: AnnexJSON = .null
-    init(durable: Bool) {
+    init(durable: Bool, freeAgentMode: Bool = false) {
         self.durable = durable
+        self.freeAgentMode = freeAgentMode
         commands = durable ? ["agent.spawn", "agent.start", "agent.create", "agent.update"] : ["agent.spawn", "agent.start"]
     }
     func setReceipt(_ value: AnnexJSON) { receipt = value }
@@ -225,6 +227,7 @@ private actor DurableTransport: AnnexTransporting {
             var caps: [String: AnnexJSON] = ["version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"), "controlAvailable": .bool(true),
                                              "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
                                              "commands": .array(commands.map(AnnexJSON.string))]
+            if freeAgentMode { caps["permissions"] = .object(["version": .integer(1), "freeAgentMode": .bool(true)]) }
             if durable {
                 caps["createOptions"] = .object(["version": .integer(1), "path": .string("/api/v1/mobile/projects/{projectId}/create-options")])
                 caps["agentSettings"] = .object(["version": .integer(1), "path": .string("/api/v1/mobile/agents/{agentId}/settings")])
@@ -298,6 +301,25 @@ private actor DurableTransport: AnnexTransporting {
         #expect(command.type == "agent.create" && command.commandID == "c1")
         guard case .create(let sent) = command.kind else { Issue.record("Expected agent.create"); return }
         #expect(sent == AnnexAgentCreate(projectID: "p1", name: "brave-otter", color: "teal", orchestrator: "claude-code", useWorktree: true, mcpIDs: ["ado"]))
+    }
+
+    @Test func createSendsExplicitOffAndOmitsDesktopDefaultAccess() async throws {
+        for value: Bool? in [false, nil] {
+            let transport = DurableTransport(durable: true, freeAgentMode: true)
+            await transport.setReceipt(try json(#"{"version":1,"commandId":"c1","epoch":"epoch","status":"completed","result":{"agentId":"durable_1","projectId":"p1","state":"creating"}}"#))
+            let (service, store) = try await setup(transport)
+            defer { store.stop(); service.remove(hostID: hostID) }
+            let request = CompanionCreateRequest(project: project, name: "brave-otter", color: "teal",
+                                                 freeAgentMode: value, clientCommandID: "c1")
+            #expect(await store.create(request))
+            let command = try #require(await transport.executed.first)
+            let payload = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+            if let value {
+                #expect(payload["freeAgentMode"] == .bool(value), "An off toggle sends false, rather than inheriting elevated Default access")
+            } else {
+                #expect(payload["freeAgentMode"] == nil, "Omitted Access follows the desktop default")
+            }
+        }
     }
 
     @Test func createRefusesAnInvalidWorktreeNameWithoutSending() async throws {
