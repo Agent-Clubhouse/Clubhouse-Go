@@ -546,6 +546,7 @@ struct CompanionTool: Identifiable, Sendable, Equatable {
     /// Only structured terminal content supplies this value; output prose never does.
     var exitCode: Int?
     var subagentID: String?
+    var cutEvents: [CompanionEventReference] = []
 
     /// "Read", "Run"…, or nil when the desktop didn't say what kind of tool this is.
     var verb: String? { kind?.verb }
@@ -571,6 +572,8 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
     var options: [CompanionApprovalOption] = []
     /// The pending permission can arrive separately from an in-progress tool update.
     var toolCallID: String? = nil
+    var eventReference: CompanionEventReference?
+    var isIncomplete: Bool { eventReference?.truncation != nil || summary.hasPrefix("Incomplete input:") }
     func isExpired(at date: Date) -> Bool { deadline.map { $0 <= date } ?? false }
 }
 
@@ -711,10 +714,12 @@ struct CompanionCommandReceipt: Sendable {
 enum CompanionServiceError: Error, LocalizedError, Sendable {
     case unavailable(String)
     case rejected(String)
+    /// The desktop requires a fresh, complete review before this request can be allowed.
+    case incompleteRepresentation(String)
     case uncertain(String)
     var errorDescription: String? {
         switch self {
-        case .unavailable(let text), .rejected(let text), .uncertain(let text): text
+        case .unavailable(let text), .rejected(let text), .incompleteRepresentation(let text), .uncertain(let text): text
         }
     }
 }
@@ -750,6 +755,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws
+    func respond(to approvalID: String, optionID: String, reviewedDigest: String?, target: CompanionTarget, clientCommandID: String) async throws
+    func fullEvent(_ reference: CompanionEventReference, target: CompanionTarget) async throws -> AnnexFullEvent
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt
     func reconnect(hostID: String) async
@@ -788,6 +795,14 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
 }
 
 @MainActor extension CompanionService {
+    func fullEvent(_ reference: CompanionEventReference, target: CompanionTarget) async throws -> AnnexFullEvent {
+        throw CompanionServiceError.unavailable("Reconnect to the latest desktop to review this event in full.")
+    }
+    func respond(to approvalID: String, optionID: String, reviewedDigest: String?, target: CompanionTarget, clientCommandID: String) async throws {
+        guard reviewedDigest == nil else { throw CompanionServiceError.rejected("Fetch and review this request again on this device.") }
+        try await respond(to: approvalID, optionID: optionID, target: target, clientCommandID: clientCommandID)
+    }
+
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to confirm Sleep.") }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview { throw CompanionServiceError.unavailable("Update the desktop to preview a provider change.") }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult { throw CompanionServiceError.unavailable("Update the desktop to save a provider change.") }

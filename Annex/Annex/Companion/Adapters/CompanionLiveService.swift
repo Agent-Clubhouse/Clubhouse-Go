@@ -13,6 +13,8 @@ import ClubhouseTransport
     /// A successful read can confirm an older desktop has no mobile capabilities; a failed read cannot.
     private var knownCapabilities: Set<String> = []
     private var projections: [CompanionTarget: CompanionChatProjector] = [:]
+    private var fullReviews: [CompanionTarget: [String: (reference: CompanionEventReference, digest: String, epoch: String)]] = [:]
+    private var reviewGenerations: [String: UUID] = [:]
     private var readOnly: Set<CompanionTarget> = []
     private var eventTasks: [String: Task<Void, Never>] = [:]
     private var eventGenerations: [String: UUID] = [:]
@@ -366,8 +368,55 @@ import ClubhouseTransport
         guard capabilities[target.hostID]?.supportsLevelSwitch == true else { throw CompanionServiceError.unavailable(CompanionChatControlError.updateDesktop) }
         _ = try await execute(.setLevel(agentID: target.agentID, sessionID: try session(for: target), level: level.rawValue), id: clientCommandID, hostID: target.hostID)
     }
+    func fullEvent(_ reference: CompanionEventReference, target: CompanionTarget) async throws -> AnnexFullEvent {
+        guard capabilities[target.hostID]?.supportsFullEvents == true,
+              let epoch = capabilities[target.hostID]?.epoch else {
+            throw CompanionServiceError.unavailable("Reconnect to the latest desktop to review this event in full.")
+        }
+        let generation = reviewGenerations[target.hostID]
+        let result = try await transport(for: target.hostID).fullEvent(agentID: target.agentID, sessionID: reference.sessionID, sequence: reference.sequence)
+        guard reviewGenerations[target.hostID] == generation, capabilities[target.hostID]?.epoch == epoch,
+              result.event["type"] == reference.event["type"] else {
+            throw CompanionServiceError.rejected("The desktop connection changed. Fetch and review this request again.")
+        }
+        if result.event["type"]?.string == "permission_request" {
+            guard let id = result.event["data"]?["requestId"]?.string,
+                  let pending = pendingApproval(id, target: target), pending.eventReference == reference,
+                  pending.resolution == .pending, projections[target]?.sessionID == reference.sessionID,
+                  result.event["data"]?["options"] == reference.event["data"]?["options"] else {
+                throw CompanionServiceError.rejected("This pending request changed. Refresh the conversation and review it again.")
+            }
+            fullReviews[target, default: [:]][id] = (reference, result.digest, epoch)
+        }
+        return result
+    }
+    private func pendingApproval(_ id: String, target: CompanionTarget) -> CompanionApproval? {
+        projections[target]?.items.compactMap { if case .approval(let value) = $0, value.id == id { value } else { nil } }.first
+    }
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
-        _ = try await execute(.permission(agentID: target.agentID, sessionID: try session(for: target), requestID: approvalID, optionID: optionID), id: clientCommandID, hostID: target.hostID)
+        try await respond(to: approvalID, optionID: optionID, reviewedDigest: nil, target: target, clientCommandID: clientCommandID)
+    }
+    func respond(to approvalID: String, optionID: String, reviewedDigest: String?, target: CompanionTarget, clientCommandID: String) async throws {
+        let sessionID = try session(for: target)
+        let pending = pendingApproval(approvalID, target: target)
+        if let reviewedDigest {
+            guard let pending, pending.resolution == .pending,
+                  pending.options.first(where: { $0.id == optionID })?.allows == true,
+                  let review = fullReviews[target]?[approvalID], review.digest == reviewedDigest,
+                  review.reference == pending.eventReference, review.epoch == capabilities[target.hostID]?.epoch,
+                  review.reference.sessionID == sessionID else {
+                throw CompanionServiceError.rejected("This review expired or the request changed. Fetch and review it again on this device.")
+            }
+        } else if let pending, pending.isIncomplete, pending.options.first(where: { $0.id == optionID })?.allows == true {
+            throw CompanionServiceError.rejected("Review the full request before allowing it, or deny it here.")
+        }
+        do {
+            _ = try await execute(.permission(agentID: target.agentID, sessionID: sessionID, requestID: approvalID, optionID: optionID, reviewedDigest: reviewedDigest), id: clientCommandID, hostID: target.hostID)
+        } catch {
+            fullReviews[target]?[approvalID] = nil
+            throw error
+        }
+        fullReviews[target]?[approvalID] = nil
     }
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
         let values = answers.mapValues { answer -> AnnexJSON in
@@ -675,7 +724,12 @@ import ClubhouseTransport
         for id in Array(transports.keys) where !reconnected.contains(id) { await reconnect(hostID: id) }
     }
 
+    private func clearFullReviews(hostID: String) {
+        fullReviews = fullReviews.filter { $0.key.hostID != hostID }
+        reviewGenerations[hostID] = UUID()
+    }
     private func invalidateEvents(hostID: String) {
+        clearFullReviews(hostID: hostID)
         streamDiagnostics.disconnect(hostID: hostID)
         eventGenerations.removeValue(forKey: hostID)
         eventTasks.removeValue(forKey: hostID)?.cancel()
@@ -743,6 +797,9 @@ import ClubhouseTransport
             return receipt
         } catch let error as CompanionServiceError { throw error }
         catch let error as CompanionAttachmentError { throw error }
+        catch AnnexTransportError.rejected(_, "incomplete_representation", let message) {
+            throw CompanionServiceError.incompleteRepresentation(message ?? "Fetch and review this request again before allowing it.")
+        }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
@@ -755,7 +812,7 @@ import ClubhouseTransport
         case .send(let id, _, _, _, _): agentID = id; allowed = off.allows("chat.send")
         case .interrupt(let id, _): agentID = id; allowed = off.allows("chat.interrupt")
         case .stop(let id, _): agentID = id; allowed = off.allows("agent.stop")
-        case .permission(let id, _, _, _): agentID = id; allowed = off.allows("chat.permission")
+        case .permission(let id, _, _, _, _): agentID = id; allowed = off.allows("chat.permission")
         case .question(let id, _, _, _): agentID = id; allowed = off.allows("chat.question")
         case .removeQueued(let id, _, _): agentID = id; allowed = off.allows("chat.queue.remove")
         case .start(let id, _, _, _, _), .setModel(let id, _, _, _), .setLevel(let id, _, _),
@@ -776,6 +833,7 @@ import ClubhouseTransport
         case .completed: return nil
         case .rejected:
             switch receipt.error?.code {
+            case "incomplete_representation": return CompanionServiceError.incompleteRepresentation(rejectionMessage(receipt.error))
             case "attachment_unavailable": return CompanionAttachmentError.attachmentUnavailable
             case "images_not_supported": return CompanionAttachmentError.imagesNotSupported
             case "not_chat" where attachmentCount > 0: return CompanionServiceError.rejected(notChatMessage)
@@ -813,7 +871,7 @@ import ClubhouseTransport
     private func receive(_ event: AnnexTransportEvent, hostID: String) async {
         switch event {
         case .connection(let state):
-            if state != .connected { streamDiagnostics.disconnect(hostID: hostID) }
+            if state != .connected { streamDiagnostics.disconnect(hostID: hostID); clearFullReviews(hostID: hostID) }
             switch state {
             case .connected:
                 // Every socket snapshot emits connected, including broadcasts on the same socket.
@@ -851,6 +909,7 @@ import ClubhouseTransport
             default: break
             }
         case .resyncRequired:
+            clearFullReviews(hostID: hostID)
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
             needsCatchUp.insert(hostID)
@@ -967,6 +1026,7 @@ import ClubhouseTransport
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             if rawCaps != nil {
                 knownCapabilities.insert(hostID)
+                if capabilities[hostID]?.epoch != newCapabilities?.epoch { clearFullReviews(hostID: hostID) }
                 capabilities[hostID] = newCapabilities
                 hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true

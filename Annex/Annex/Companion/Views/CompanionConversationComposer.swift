@@ -90,6 +90,7 @@ struct CompanionConversationComposer: View {
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
                     Button(allow.label) { Task { await store.respond(approval, option: allow, target: target) } }
                         .buttonStyle(.borderedProminent).companionProminentLabel()
+                        .disabled(!store.canApprove(approval, target: target))
                 }
             }
             .buttonBorderShape(.capsule)

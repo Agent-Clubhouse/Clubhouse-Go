@@ -91,6 +91,12 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // MARK: Reads
 
+    func fullEvent(agentID: String, sessionID: String, sequence: Int64) async throws -> AnnexFullEvent {
+        guard let result = reads["fullEvent"] else { throw AnnexTransportError.disconnected }
+        let body = try result.get()
+        return try AnnexFullEvent(data: JSONEncoder().encode(body), agentID: agentID, sessionID: sessionID, sequence: sequence)
+    }
+
     static func key(_ route: AnnexReadRoute) -> String {
         switch route {
         case .capabilities: "capabilities"
@@ -305,6 +311,6 @@ enum ServiceErrorKind: Equatable { case unavailable, rejected, uncertain, other,
 @MainActor func serviceErrorKind(_ body: () async throws -> Void) async -> ServiceErrorKind {
     do { try await body(); return .none }
     catch let error as CompanionServiceError {
-        switch error { case .unavailable: return .unavailable; case .rejected: return .rejected; case .uncertain: return .uncertain }
+        switch error { case .unavailable: return .unavailable; case .rejected, .incompleteRepresentation: return .rejected; case .uncertain: return .uncertain }
     } catch { return .other }
 }

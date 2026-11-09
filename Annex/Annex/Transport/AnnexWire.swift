@@ -121,6 +121,7 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func connect() async throws
     func disconnect() async
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON
+    func fullEvent(agentID: String, sessionID: String, sequence: Int64) async throws -> AnnexFullEvent
     func icon(kind: String, id: String, version: String, ifNoneMatch: String?) async throws -> AnnexHTTPResponse
     func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt
     func revokeSessionPairing() async throws
@@ -133,6 +134,7 @@ nonisolated public protocol AnnexTransporting: Sendable {
 }
 
 nonisolated public extension AnnexTransporting {
+    func fullEvent(agentID: String, sessionID: String, sequence: Int64) async throws -> AnnexFullEvent { throw AnnexTransportError.unsupportedCapability("fullEvents") }
     func icon(kind: String, id: String, version: String, ifNoneMatch: String? = nil) async throws -> AnnexHTTPResponse { throw AnnexTransportError.unsupportedCapability("iconRefs") }
     func revokeSessionPairing() async throws { throw AnnexTransportError.unsupportedCapability("session-revocation") }
     func upload(agentID: String, data: Data, mimeType: String) async throws -> AnnexAttachmentUpload {

@@ -74,6 +74,24 @@ import Foundation
         // The ordinary REST cap remains distinct and larger.
         #expect(try await iconIO.perform(iconSized(73729)).data.count == 73729)
     }
+    // Full-event HTTP has its own cap; ordinary HTTP and WebSockets retain their configured limit.
+    for chunked in [false, true] {
+        let wholeRequest = URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: "2048")] + (chunked ? [.init(name: "chunked", value: "1")] : [])))
+        #expect(try await io.performFullEvent(wholeRequest, maximumBytes: 2048).data.count == 2048)
+        await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.perform(wholeRequest) }
+        await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.performFullEvent(wholeRequest, maximumBytes: 2047) }
+    }
+    let fullIdentity = try await io.performFullEvent(request, maximumBytes: 4096)
+    #expect(try JSONDecoder().decode(AnnexJSON.self, from: fullIdentity.data)["clientCN"]?.string == client.fingerprint)
+    #expect(try await io.performFullEvent(URLRequest(url: endpoint.url(path: ["redirect"])), maximumBytes: 4096).status == 302)
+    await #expect(throws: Error.self) { try await wrongPin.performFullEvent(request, maximumBytes: 4096) }
+    let aboveSocketCap = URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: String(17 * 1024 * 1024))]))
+    #expect(try await io.performFullEvent(aboveSocketCap, maximumBytes: AnnexFullEvent.maximumBytes).data.count == 17 * 1024 * 1024)
+    let cancelled = Task { [request] in try await io.performFullEvent(request, maximumBytes: 4096) }
+    cancelled.cancel()
+    await #expect(throws: CancellationError.self) { try await cancelled.value }
+    let overFullCap = URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: String(AnnexFullEvent.maximumBytes + 1))]))
+    await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.performFullEvent(overFullCap, maximumBytes: Int.max) }
     telemetry.setEnabled(false)
     request.setValue("injected-secret", forHTTPHeaderField: "baggage")
     request.setValue(propagated, forHTTPHeaderField: "traceparent")

@@ -1,0 +1,16 @@
+{
+  "repository": "Agent-Clubhouse/Clubhouse",
+  "path": "test/fixtures/annex-mobile",
+  "commits": {
+    "capabilities.json": "d82360a2fa3c246dd6c472258eb522af631d83ce",
+    "chat-event-tool-call-preview.json": "3c922e8b288b774d249a7a4de69dd1f9dd2a5ae8",
+    "chat-event-tool-output-preview.json": "3c922e8b288b774d249a7a4de69dd1f9dd2a5ae8",
+    "chat-permission-incomplete.json": "3c922e8b288b774d249a7a4de69dd1f9dd2a5ae8"
+  },
+  "sha256": {
+    "capabilities.json": "3b859cf6500e5aec2b046b6f41b1561f18b1cb93ffc2fb03aef74b8c18ff8e08",
+    "chat-event-tool-output-preview.json": "b2e2f781189f8ed614fee80dc1298aea9bf9d47eaf1f0e4605de7f6a61c70023",
+    "chat-event-tool-call-preview.json": "fd5e93aa64c3107ac6a0c18f692b9aa146ead1ec1802b1a3630c81f54a948f2d",
+    "chat-permission-incomplete.json": "2b699ae969438c91567d07ce28fa9d7c37f80230e3993b464cbec97b03e28f9d"
+  }
+}

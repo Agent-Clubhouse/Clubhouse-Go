@@ -845,6 +845,7 @@ struct CompanionNeedsYouView: View {
     private func swipeOption(_ item: CompanionAttentionItem, kind: CompanionApprovalOption.Kind) -> CompanionApprovalOption? {
         guard case .approval(let approval) = item.kind, !decisions.isPending(approval.id),
               store.canOperate(item.agent.id), item.agent.capabilities.contains(.approve) else { return nil }
+        guard kind != .allowOnce || store.canApprove(approval, target: item.agent.id) else { return nil }
         return approval.options.first { $0.kind == kind }
     }
 
@@ -927,10 +928,15 @@ struct CompanionAttentionCard: View {
                         Text(allow.label).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
+                    .disabled(!store.canApprove(approval, target: item.agent.id))
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!canRespond || approval.resolution != .pending)
+            if let reason = store.fullReviewReason(approval, target: item.agent.id) {
+                Text(reason).font(.caption).foregroundStyle(.secondary)
+                NavigationLink(value: item.agent.id) { Text("Review full request in chat") }
+            }
         case .helperRequest(let request):
             CompanionHelperRequestActions(request: request, store: store)
         default:

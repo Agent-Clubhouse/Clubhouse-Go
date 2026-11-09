@@ -48,6 +48,10 @@ import Observation
     private(set) var pendingFinishedRemovals: Set<CompanionTarget> = []
     /// Why the last Dismiss or Clear all didn't reach the desktop.
     var finishedError: String?
+    private var fetchedReviews: [CompanionTarget: [String: CompanionFullReview]] = [:]
+    var fullReviews: [CompanionTarget: [String: CompanionFullReview]] = [:]
+    private var fullFetchFailures: [CompanionTarget: [String: String]] = [:]
+    var fullReviewFailures: [CompanionTarget: [String: String]] = [:]
     @ObservationIgnored private let service: any CompanionService
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
@@ -244,6 +248,7 @@ import Observation
             var history = try await service.history(for: target)
             guard historyGenerations[target] == generation else { return }
             var current = conversation(for: target)
+            if current.sessionID != history.sessionID { clearFullReviews(target) }
             contentRoots[target] = history.contentRoots
             if let capabilities = history.capabilities { setCapabilities(capabilities, for: target) }
             history.items = Self.carryingLocalImages(history.items, from: current.items)
@@ -481,6 +486,7 @@ import Observation
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
         guard canOperate(target), agent(for: target)?.capabilities.contains(.approve) == true,
               !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option),
+              (!option.allows || canApprove(approval, target: target)),
               option.isAnswerable(persistentApprovals: canAnswerPersistentApprovals(target)) else { return }
         var submitted = approval
         submitted.resolution = .submitting
@@ -489,13 +495,19 @@ import Observation
         operationErrors[target] = nil
         defer { pendingCommands.remove(target) }
         do {
-            try await service.respond(to: approval.id, optionID: option.id, target: target, clientCommandID: UUID().uuidString)
+            try await service.respond(to: approval.id, optionID: option.id, reviewedDigest: option.allows && fullReviews[target]?[approval.id]?.reference == approval.eventReference ? fullReviews[target]?[approval.id]?.digest : nil, target: target, clientCommandID: UUID().uuidString)
             guard approvalIsSubmitting(approval.id, target: target) else { return }
             submitted.resolution = option.allows ? .allowed : .denied
             upsert(.approval(submitted), target: target)
         } catch {
+            fullReviews[target]?[approval.id] = nil
+            if option.allows, case CompanionServiceError.incompleteRepresentation = error {
+                fullReviewFailures[target, default: [:]][approval.id] = "Review the full request before allowing it, or review it on the desktop."
+            }
             guard approvalIsSubmitting(approval.id, target: target) else { return }
             if case CompanionServiceError.rejected = error {
+                upsert(.approval(approval), target: target)
+            } else if case CompanionServiceError.incompleteRepresentation = error {
                 upsert(.approval(approval), target: target)
             } else {
                 submitted.resolution = .uncertain
@@ -504,6 +516,54 @@ import Observation
             }
             operationErrors[target] = error.localizedDescription
         }
+    }
+
+    func canApprove(_ approval: CompanionApproval, target: CompanionTarget) -> Bool {
+        guard canOperate(target), approval.resolution == .pending, !approval.isExpired(at: Date()) else { return false }
+        if let reference = approval.eventReference {
+            guard let item = conversation(for: target).items.first(where: { $0.id == "approval:\(approval.id)" }),
+                  case .approval(let current) = item, current.resolution == .pending,
+                  current.eventReference == reference, conversation(for: target).sessionID == reference.sessionID else { return false }
+        }
+        guard fullReviewFailures[target]?[approval.id] == nil else { return false }
+        guard approval.isIncomplete else { return true }
+        return fullReviews[target]?[approval.id]?.reference == approval.eventReference
+            && conversation(for: target).sessionID == approval.eventReference?.sessionID
+    }
+    private func clearFullReviews(_ target: CompanionTarget) {
+        fullReviews[target] = nil; fetchedReviews[target] = nil; fullReviewFailures[target] = nil; fullFetchFailures[target] = nil
+    }
+    func fullReviewReason(_ approval: CompanionApproval, target: CompanionTarget) -> String? {
+        guard approval.resolution == .pending else { return nil }
+        if !canOperate(target) { return "Reconnect and refresh this conversation before answering the request." }
+        if canApprove(approval, target: target) { return nil }
+        return fullReviewFailures[target]?[approval.id] ?? fullFetchFailures[target]?[approval.id] ?? "Incomplete request. Review the full request before allowing it, or deny it here."
+    }
+    func fetchFullEvent(_ reference: CompanionEventReference, target: CompanionTarget) async throws -> AnnexFullEvent {
+        guard canOperate(target) else { throw CompanionServiceError.rejected("Reconnect to the desktop, then review this event again.") }
+        let id = reference.event["type"]?.string == "permission_request" ? reference.event["data"]?["requestId"]?.string : nil
+        if let id { fullReviews[target]?[id] = nil; fetchedReviews[target]?[id] = nil }
+        do {
+            let full = try await service.fullEvent(reference, target: target)
+            guard canOperate(target) else { throw CompanionServiceError.rejected("Reconnect to the desktop, then review this event again.") }
+            if let id { fetchedReviews[target, default: [:]][id] = .init(reference: reference, digest: full.digest) }
+            return full
+        } catch {
+            if let id { fullFetchFailures[target, default: [:]][id] = CompanionFullReview.reason(error) }
+            throw error
+        }
+    }
+    @discardableResult func acknowledgeFullReview(_ full: AnnexFullEvent, reference: CompanionEventReference, target: CompanionTarget) -> Bool {
+        guard canOperate(target), full.agentID == target.agentID, full.sessionID == reference.sessionID, full.sequence == reference.sequence,
+              let id = full.event["data"]?["requestId"]?.string,
+              fetchedReviews[target]?[id]?.digest == full.digest, fetchedReviews[target]?[id]?.reference == reference,
+              let item = conversation(for: target).items.first(where: { $0.id == "approval:\(id)" }),
+              case .approval(let pending) = item, pending.resolution == .pending, pending.eventReference == reference,
+              conversation(for: target).sessionID == reference.sessionID else { return false }
+        fullReviews[target, default: [:]][id] = .init(reference: reference, digest: full.digest)
+        fullReviewFailures[target]?[id] = nil
+        fullFetchFailures[target]?[id] = nil
+        return true
     }
 
     /// Older desktops take one-off decisions only; "Allow always" and the like are chosen there.
@@ -938,6 +998,12 @@ import Observation
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
+            for host in incoming where !host.connection.canOperate {
+                fullReviews = fullReviews.filter { $0.key.hostID != host.id }
+                fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }
+                fullReviewFailures = fullReviewFailures.filter { $0.key.hostID != host.id }
+                fullFetchFailures = fullFetchFailures.filter { $0.key.hostID != host.id }
+            }
             let hosts = incoming.map { host in
                 var host = host
                 if host.dispatcher == nil, !host.connection.canOperate {
@@ -958,6 +1024,7 @@ import Observation
             var runs = finishedRuns
             if runs.observe(hosts, now: Date()) { finishedRuns = runs }
         case .timeline(let target, let incoming, let sequence, let reset, let sessionID):
+            if reset || conversation(for: target).sessionID != sessionID { clearFullReviews(target) }
             if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
             let items = Self.carryingLocalImages(incoming, from: conversation(for: target).items)
             let commandIDs = Set(items.compactMap { item -> String? in
@@ -986,6 +1053,10 @@ import Observation
             conversations[target, default: .init()].lastSequence = sequence
             conversations[target, default: .init()].sessionID = sessionID
         case .resyncRequired(let hostID):
+            fullReviews = fullReviews.filter { $0.key.hostID != hostID }
+            fetchedReviews = fetchedReviews.filter { $0.key.hostID != hostID }
+            fullReviewFailures = fullReviewFailures.filter { $0.key.hostID != hostID }
+            fullFetchFailures = fullFetchFailures.filter { $0.key.hostID != hostID }
             for target in conversations.keys where target.hostID == hostID {
                 conversations[target]?.requiresResync = true
             }
