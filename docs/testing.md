@@ -125,6 +125,8 @@ Dispatcher checks run last and support `--only` and retries. Phone gestures cove
 
 **Not covered: helper approval requests.** The live helper check uses a hands-off policy so `start_helper` creates a real helper directly. It does not exercise an ask-first request, approval or decline. `CompanionPreviewSmokeTests/testNeedsYouAnswersHelperRequestsWithTheDesktopRules` covers that phone flow against the preview desktop.
 
+**Not covered: Clubhouse grant requests (#337).** No live check holds a Clubhouse MCP call for Ask first or makes a `request_grant` ask, so `grant.answer` against a real desktop, the audit record's `mobile` surface, and a lasting Allow appearing on the agent's permissions page are unverified. The contract tests drive the desktop's recorded snapshot, events and every `grant.answer` receipt through the live service and store (`CompanionGrantRequestLiveTests`), and `CompanionGrantRequestUITests` covers Allow once and Decline against the preview desktop.
+
 `--companion-sample-images` replaces the photo picker in this suite, as in preview mode. In DEBUG builds it is honoured when a test invitation is present.
 
 ### Nightly workflow

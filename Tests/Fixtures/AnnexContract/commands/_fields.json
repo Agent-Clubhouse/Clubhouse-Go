@@ -15,6 +15,7 @@
         "model",
         "persona",
         "freeAgentMode",
+        "access",
         "useWorktree",
         "mcpIds",
         "branchName",
@@ -94,6 +95,7 @@
         "persona",
         "clubhouseMode",
         "freeAgentMode",
+        "access",
         "idleSleep",
         "contextWindow",
         "orchestration"
@@ -109,6 +111,7 @@
         "persona",
         "clubhouseMode",
         "freeAgentMode",
+        "access",
         "idleSleep",
         "contextWindow",
         "orchestration"
@@ -213,12 +216,59 @@
         "model"
       ]
     },
+    "dispatcher.clearChat": {
+      "fields": [
+        "expectedState"
+      ],
+      "required": [
+        "expectedState"
+      ]
+    },
+    "dispatcher.forgetEverything": {
+      "fields": [
+        "expectedState"
+      ],
+      "required": [
+        "expectedState"
+      ]
+    },
     "dispatcher.setEnabled": {
       "fields": [
         "enabled"
       ],
       "required": [
         "enabled"
+      ]
+    },
+    "dispatcher.setModels": {
+      "fields": [
+        "byHand",
+        "role",
+        "provider",
+        "model",
+        "effort",
+        "contextWindow"
+      ],
+      "required": []
+    },
+    "dispatcher.update": {
+      "fields": [
+        "behavior",
+        "name",
+        "color",
+        "emoji",
+        "personality"
+      ],
+      "required": []
+    },
+    "grant.answer": {
+      "fields": [
+        "requestId",
+        "answer"
+      ],
+      "required": [
+        "requestId",
+        "answer"
       ]
     },
     "helper.approve": {

@@ -95,6 +95,26 @@ nonisolated struct CompanionHelperRequestConsumed: Error, LocalizedError {
     var errorDescription: String? { message }
 }
 
+/// How a `grant.answer` didn't go through. `gone` means the request no longer waits: drop its row.
+/// `refused` means nothing changed and it still waits, so the user can try again or decline.
+nonisolated enum CompanionGrantRequestError: Error, LocalizedError, Equatable {
+    case gone(String)
+    case refused(String)
+    static let updateDesktop = "Update Clubhouse on your desktop to answer Clubhouse permission requests from your phone."
+    static let goneMessage = "This request has expired or was already answered."
+    var errorDescription: String? { switch self { case .gone(let message), .refused(let message): message } }
+    /// The desktop's refusal codes (`docs/mobile-control-v1.md` → grant.answer). Its message is a sentence; these stand in without one.
+    static func message(code: String, message: String?) -> String {
+        if let message, !message.isEmpty, message != code, message.first?.isUppercase == true { return message }
+        switch code {
+        case "grant_request_not_found": return goneMessage
+        case "grant_answer_not_offered": return "This request doesn't take that answer. Allow or decline it."
+        case "grant_answer_failed": return "Couldn’t save the permission. Try again, or decline it."
+        default: return "The desktop couldn’t take this answer. Try again."
+        }
+    }
+}
+
 /// A page keeps its values after read failures. A stale write replaces them and requires a new human edit.
 @MainActor @Observable final class CompanionHelperPresetsScreen {
     private(set) var settings: CompanionHelperRouting?

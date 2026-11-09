@@ -30,6 +30,14 @@ import Observation
     var helperStartWarning: CompanionHelperStartWarning?
     private var consumedHelperRequests: Set<String> = []
     private(set) var helperRequestErrors: [String: String] = [:]
+    /// Grant requests being answered, and why an answer didn't go through, by `CompanionGrantRequest.slot`.
+    private(set) var grantRequestsInFlight: Set<String> = []
+    private(set) var grantRequestErrors: [String: String] = [:]
+    /// Why a request left before its answer landed (expired, answered elsewhere): shown once.
+    var grantRequestNotice: String?
+    /// An answer whose outcome is unknown, by slot. Sending the same answer again reuses its command id, so the desktop
+    /// replays its receipt instead of answering twice.
+    private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, commandID: String)] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
@@ -651,6 +659,41 @@ import Observation
         } catch {
             helperRequestErrors[request.slot] = error.localizedDescription
         }
+    }
+
+    func canAnswer(_ request: CompanionGrantRequest) -> Bool {
+        guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
+        return host.connection.canOperate && host.canAnswerGrantRequests && !grantRequestsInFlight.contains(request.slot)
+            && host.grantRequests.contains { $0.id == request.id } && !request.isExpired(at: Date())
+    }
+
+    /// Answer a Clubhouse grant request, as the desktop's Needs you does. Only an answer the request lists is sent.
+    func answer(_ request: CompanionGrantRequest, with answer: CompanionGrantRequest.Answer) async {
+        guard canAnswer(request), request.answers.contains(answer) else { return }
+        let attempt = grantAnswerAttempts[request.slot].flatMap { $0.answer == answer ? $0.commandID : nil } ?? UUID().uuidString
+        grantAnswerAttempts[request.slot] = (answer, attempt)
+        grantRequestsInFlight.insert(request.slot)
+        grantRequestErrors[request.slot] = nil
+        defer { grantRequestsInFlight.remove(request.slot) }
+        do {
+            try await service.answerGrantRequest(request, answer: answer, clientCommandID: attempt)
+            grantAnswerAttempts[request.slot] = nil
+            removeGrantRequest(request)
+        } catch CompanionGrantRequestError.gone(let message) {
+            grantAnswerAttempts[request.slot] = nil
+            grantRequestNotice = message
+            removeGrantRequest(request)
+        } catch let error as CompanionServiceError {
+            // Only a lost reply keeps the command id: the same answer again replays the desktop's receipt.
+            if case .uncertain = error {} else { grantAnswerAttempts[request.slot] = nil }
+            grantRequestErrors[request.slot] = error.localizedDescription
+        } catch {
+            grantAnswerAttempts[request.slot] = nil
+            grantRequestErrors[request.slot] = error.localizedDescription
+        }
+    }
+    private func removeGrantRequest(_ request: CompanionGrantRequest) {
+        if let index = hosts.firstIndex(where: { $0.id == request.hostID }) { hosts[index].grantRequests.removeAll { $0.id == request.id } }
     }
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {

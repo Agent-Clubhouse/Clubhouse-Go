@@ -38,6 +38,7 @@ import Testing
             case "slashCommands": #expect(!caps.supportsSlashCommands)
             case "permissions": #expect(!caps.supportsPersistentApprovals && !caps.supportsFreeAgentMode)
             case "helperRequests": #expect(!caps.supportsHelperRequests)
+            case "grantRequests": #expect(!caps.supportsGrantRequests)
             case "projectState": #expect(!caps.supportsProjectState)
             case "finishedQuickAgents": #expect(!caps.supportsFinishedQuickAgents)
             case "controlAvailable": #expect(caps.controlAvailable == nil && !caps.supportsTerminal)
@@ -72,6 +73,7 @@ import Testing
         let more = try decode(extra)
         #expect(more.commands == caps.commands && more.attachments == caps.attachments && more.terminal == caps.terminal)
         #expect(more.supportsAgentCreate && more.supportsHelperRequests && more.supportsFreeAgentMode && more.supportsTerminal)
+        #expect(more.supportsGrantRequests && more.grantRequests == caps.grantRequests)
     }
 
     /// Every fixture cut short is refused by every decoder that reads it: an error, never a crash or a partial value.
