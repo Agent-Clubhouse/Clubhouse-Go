@@ -440,6 +440,11 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         ordinaryButton(app)
         _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
         XCTAssertTrue(app.buttons["Replace screenshot"].exists)
+        // Back navigation is hidden even before any note/edit: leaving a draft is explicit.
+        let navigation = app.navigationBars["Send feedback"]
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.45))
+        edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45)))
+        XCTAssertTrue(navigation.exists, "An untouched draft must not pop around Cancel's cleanup")
         app.buttons["Cancel"].tap()
         let state = app.staticTexts["fixture-settings-capture-state"]
         XCTAssertTrue(scrollTo(state, in: app, up: false, maxSwipes: 6))
@@ -453,8 +458,10 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         revealComposerElement(add, in: app).tap()
         let photos = app.navigationBars["Photos"]
         XCTAssertTrue(photos.waitForExistence(timeout: 20)); photos.buttons["Cancel"].tap()
-        let reason = app.staticTexts["framebriar-screenshot-unavailable"]
+        let reason = app.staticTexts["settings-feedback-screenshot-missing"]
         XCTAssertTrue(reason.exists)
+        XCTAssertTrue(reason.label.contains("Add or replace a screenshot from Photos"))
+        XCTAssertFalse(app.staticTexts["framebriar-screenshot-unavailable"].exists, "A discarded capture is not a capture failure")
         app.buttons["Cancel"].tap(); closeSettings(app)
         let snapshot = try wire(app)
         XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 0)

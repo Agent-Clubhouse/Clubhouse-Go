@@ -169,6 +169,7 @@ private struct CompanionFeedbackCapturedComposer: View {
     @State private var png: Data?
     @State private var prepared = false
     @State private var unavailable: FeedbackScreenshotUnavailable?
+    @State private var missingCapture = false
     var body: some View {
         Group {
             if prepared {
@@ -180,6 +181,14 @@ private struct CompanionFeedbackCapturedComposer: View {
                     prepared = false
                     dismiss()
                 })
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if missingCapture {
+                        Text("Add or replace a screenshot from Photos below, or reopen Settings for a new screen capture.")
+                            .font(.caption).padding(.horizontal).padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+                            .accessibilityIdentifier("settings-feedback-screenshot-missing")
+                    }
+                }
             }
             else { ProgressView("Preparing feedback…") }
         }
@@ -193,7 +202,8 @@ private struct CompanionFeedbackCapturedComposer: View {
             let encoded = await CompanionFeedbackPresenter.encode(image)
             guard !Task.isCancelled else { return }
             png = encoded
-            unavailable = capture?.screenshotUnavailable ?? (encoded == nil ? .failed : nil)
+            unavailable = capture?.screenshotUnavailable ?? (image != nil && encoded == nil ? .failed : nil)
+            missingCapture = encoded == nil && unavailable == nil
             prepared = true
         }
     }
