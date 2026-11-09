@@ -5,6 +5,8 @@ import Security
 /// keys. Legacy trust-all credentials are deliberately not migrated implicitly.
 public actor AnnexTransportRegistry {
     public struct Registration: Sendable {
+        /// Stable across snapshot copies; a replacement transport gets a new identity.
+        public let transportID = UUID()
         public let host: TrustedAnnexHost
         public let alias: String
         public let transport: any AnnexTransporting
@@ -275,46 +277,60 @@ extension AnnexTransportRegistry {
         var journal: [AnnexNetworkRemoval] = []
         for removal in networkStates.values.flatMap(\.removals) + view.removals where !journal.contains(removal) { journal.append(removal) }
         journal.sort { ($0.fingerprint, $0.pairingId ?? "", $0.joinedAt ?? "", $0.removedAt) < ($1.fingerprint, $1.pairingId ?? "", $1.joinedAt ?? "", $1.removedAt) }
-        // Journal reaches surviving Keychain items before any member is deleted.
+        // Resolve each desktop's generation from the whole view before deleting
+        // anything. A later pairing beats an old tombstone, even for the sender.
+        var members: [String: AnnexNetworkMember] = [:]
+        for member in view.members where member.kind == "desktop" {
+            let id = member.fingerprint.lowercased()
+            guard !journal.contains(where: { $0.fingerprint.lowercased() == id && $0.ends(pairingID: member.pairingId, joinedAt: member.joinedAt) }) else { continue }
+            let state = networkStates[id]
+            if let existing = registrations[id] {
+                // Another member cannot upgrade one-to-one trust or replace a pin.
+                guard state != nil else { continue }
+                guard (try? AnnexCertificatePin(sha256: member.certFingerprint)) == existing.host.certificatePin else {
+                    throw AnnexTransportError.identityMismatch
+                }
+            }
+            guard (try? member.trustedHost()) != nil else { continue }
+            let previousID = members[id]?.pairingId ?? state?.member?.pairingId ?? state?.serverPairing?.id
+            let previousJoin = members[id]?.joinedAt ?? state?.member?.joinedAt ?? state?.serverPairing?.joinedAt
+            // Same-id and unstamped records cannot move a known pairing's clock.
+            if let previousJoin, member.pairingId == nil || member.pairingId == previousID ||
+                (previousID != nil && (AnnexNetworkRemoval.date(member.joinedAt) ?? .distantPast) <= (AnnexNetworkRemoval.date(previousJoin) ?? .distantFuture)) {
+                members[id] = member.keepingPairing(id: previousID, joinedAt: previousJoin)
+            } else { members[id] = member }
+        }
+        // Save the winning stamp and journal together before deleting anything.
+        // An interrupted write must not restore the old generation with its tombstone.
         for id in Array(networkStates.keys) {
+            if let member = members[id] {
+                networkStates[id]?.member = member
+                if let pairingID = member.pairingId {
+                    networkStates[id]?.serverPairing = .init(id: pairingID, joinedAt: member.joinedAt)
+                }
+            }
             networkStates[id]?.removals = journal
             try await saveNetworkState(for: id)
             guard networkRevision == revision else { return }
         }
         for id in Array(networkStates.keys) {
             guard let state = networkStates[id] else { continue }
-            let stamp = state.member.map { AnnexNetworkPairing(id: $0.pairingId ?? "", joinedAt: $0.joinedAt) } ?? state.serverPairing
+            let stamp = (members[id] ?? state.member).map { AnnexNetworkPairing(id: $0.pairingId ?? "", joinedAt: $0.joinedAt) } ?? state.serverPairing
             if let stamp, journal.contains(where: { $0.fingerprint.lowercased() == id && $0.ends(pairingID: stamp.id.isEmpty ? nil : stamp.id, joinedAt: stamp.joinedAt) }) {
                 try await removeRegistration(hostID: id)
                 guard networkRevision == revision else { return }
             }
         }
-        guard networkStates[source] != nil else { return }
-        for member in view.members where member.kind == "desktop" {
+        for id in members.keys.sorted() {
             guard networkRevision == revision else { return }
-            let id = member.fingerprint.lowercased()
-            guard !journal.contains(where: { $0.fingerprint.lowercased() == id && $0.ends(pairingID: member.pairingId, joinedAt: member.joinedAt) }) else { continue }
-            if let existing = registrations[id] {
-                // Network data cannot upgrade or replace a one-to-one pairing.
-                guard var state = networkStates[id] else { continue }
-                guard (try? AnnexCertificatePin(sha256: member.certFingerprint)) == existing.host.certificatePin else {
-                    throw AnnexTransportError.identityMismatch
-                }
-                let previousID = state.member?.pairingId ?? state.serverPairing?.id
-                let previousJoin = state.member?.joinedAt ?? state.serverPairing?.joinedAt
-                // The record can move a pairing only with a newly learned id or
-                // a later stamped join. Same-id clock changes never move it.
-                if let previousJoin, member.pairingId == nil || member.pairingId == previousID ||
-                    (previousID != nil && (AnnexNetworkRemoval.date(member.joinedAt) ?? .distantPast) <= (AnnexNetworkRemoval.date(previousJoin) ?? .distantFuture)) {
-                    state.member = member.keepingPairing(id: previousID, joinedAt: previousJoin)
-                } else { state.member = member }
-                if let kept = state.member, let id = kept.pairingId { state.serverPairing = .init(id: id, joinedAt: kept.joinedAt) }
-                networkStates[id] = state
-                try await saveNetworkState(for: id)
-                guard networkRevision == revision else { return }
+            guard let member = members[id] else { continue }
+            if registrations[id] != nil {
                 try await learnRoutes(hostID: id, member.endpoints)
                 continue
             }
+            // A view can finish removing its sender and updating known members,
+            // but that removed sender no longer vouches for new desktop trust.
+            guard networkStates[source] != nil else { continue }
             // Malformed records are ignored individually; never create an
             // unpinned transport, even when an authenticated member supplied it.
             guard let host = try? member.trustedHost() else { continue }

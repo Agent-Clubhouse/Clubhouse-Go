@@ -173,6 +173,51 @@ private func pairedNetwork(joined: Bool = true) async throws -> (AnnexTransportR
     #expect(await store.loadAll().first { $0.host.hostID == b.fingerprint }?.network?.member?.pairingId == "new-pair")
 }
 
+@Test func qa341LaterSourcePairingSurvivesAnOlderRemovalInTheSameView() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let b = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, b]), from: a.fingerprint)
+    let transportID = try #require(await registry.all().first { $0.host.hostID == b.fingerprint }).transportID
+    let repaired = try member(desktopB.get(), pairingID: "new-pair", joinedAt: "2026-11-08T10:01:00.000Z", isSelf: true)
+    try await registry.reconcileNetwork(snapshot([a, repaired], removals: [removal(b.fingerprint)]), from: b.fingerprint)
+    #expect(await registry.transport(for: b.fingerprint) != nil)
+    #expect(await registry.all().first { $0.host.hostID == b.fingerprint }?.transportID == transportID)
+    #expect(await store.loadAll().first { $0.host.hostID == b.fingerprint }?.network?.member?.pairingId == "new-pair")
+    let restored = AnnexTransportRegistry(pairings: store)
+    #expect(try await restored.restoreSaved().count == 2)
+    try await restored.reconcileNetwork(snapshot([a, b]), from: a.fingerprint)
+    #expect(await store.loadAll().first { $0.host.hostID == b.fingerprint }?.network?.member?.pairingId == "new-pair")
+}
+
+@Test func newerMemberWithAnOlderRemovalCannotReplaceAKnownCertificatePin() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let b = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, b]), from: a.fingerprint)
+    let trusted = try #require(await store.loadAll().first { $0.host.hostID == b.fingerprint })
+    let attacker = try AnnexClientIdentity.ephemeral()
+    let forged = AnnexNetworkMember(fingerprint: b.fingerprint, publicKey: b.publicKey, name: b.name, icon: b.icon, color: b.color, kind: b.kind,
+        hosts: ["attacker.invalid"], port: 9443, certFingerprint: attacker.certificateFingerprint,
+        certPem: "-----BEGIN CERTIFICATE-----\n" + attacker.certificateDER.base64EncodedString() + "\n-----END CERTIFICATE-----\n",
+        online: true, isSelf: false, joinedAt: "2026-11-08T10:01:00.000Z", pairingId: "forged-pairing")
+    await #expect(throws: AnnexTransportError.identityMismatch) {
+        try await registry.reconcileNetwork(snapshot([a, forged], removals: [removal(b.fingerprint)]), from: a.fingerprint)
+    }
+    #expect(await store.loadAll().first { $0.host.hostID == b.fingerprint }?.host == trusted.host)
+    #expect(await registry.routes(for: b.fingerprint).allSatisfy { $0.host != "attacker.invalid" })
+}
+
+@Test func removedSourceCannotVouchForAnUnknownDesktopInItsLastView() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let b = try member(desktopB.get())
+    let c = try member(AnnexClientIdentity.ephemeral())
+    try await registry.reconcileNetwork(snapshot([a, b]), from: a.fingerprint)
+    let updatedA = a.keepingPairing(id: "new-a-pair", joinedAt: "2026-11-08T10:01:00.000Z")
+    try await registry.reconcileNetwork(snapshot([updatedA, c], removals: [removal(b.fingerprint)]), from: b.fingerprint)
+    #expect(await registry.all().map(\.host.hostID) == [a.fingerprint])
+    #expect(await store.loadAll().map(\.host.hostID) == [a.fingerprint])
+    #expect(await store.loadAll().first?.network?.member?.pairingId == "new-a-pair")
+}
+
 @Test func removalComparesPairingStampsRatherThanRemovalTimeOrPhoneClock() {
     let r = removal("f")
     #expect(r.ends(pairingID: "desktop-pair", joinedAt: "2099-01-01T00:00:00Z"))

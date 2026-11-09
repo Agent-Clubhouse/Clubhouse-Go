@@ -7,6 +7,7 @@ import ClubhouseTransport
     // Production callbacks capture Runtime weakly; ownership review is enforced by the deinit lint.
     nonisolated deinit {}
     private var transports: [String: any AnnexTransporting] = [:]
+    private var registeredTransportIDs: [String: UUID] = [:]
     private var hosts: [String: CompanionHost] = [:]
     private var capabilities: [String: AnnexCapabilities] = [:]
     /// A successful read can confirm an older desktop has no mobile capabilities; a failed read cannot.
@@ -48,6 +49,9 @@ import ClubhouseTransport
     var onNetwork: ((String, AnnexNetworkSnapshot) async -> Void)?
     var onNetworkRefusal: ((String) async -> Void)?
     var registeredHostIDs: Set<String> { Set(transports.keys) }
+    func hasRegistration(_ registration: AnnexTransportRegistry.Registration) -> Bool {
+        registeredTransportIDs[registration.host.hostID] == registration.transportID
+    }
     /// Addresses a connected desktop reports for itself (home Wi-Fi, Tailscale).
     var onRoutes: ((String, AnnexCapabilities.Routes) -> Void)?
     /// Runs on resume before reconnecting; returns the hosts it already reconnected on a better route.
@@ -75,6 +79,7 @@ import ClubhouseTransport
         }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
+        registeredTransportIDs[id] = registration.transportID
         let endpoint = registration.host.endpoint
         var host = hosts[id] ?? .init(id: id, name: "", endpoint: "", connection: .connecting, projects: [])
         host.name = registration.alias.isEmpty ? endpoint.host : registration.alias
@@ -623,6 +628,7 @@ import ClubhouseTransport
         streamDiagnostics.remove(hostID: hostID)
         invalidateEvents(hostID: hostID)
         transports.removeValue(forKey: hostID)
+        registeredTransportIDs.removeValue(forKey: hostID)
         hosts.removeValue(forKey: hostID)
         capabilities.removeValue(forKey: hostID)
         knownCapabilities.remove(hostID)

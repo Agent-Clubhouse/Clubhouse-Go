@@ -150,6 +150,55 @@ private actor NetworkRuntimeIO: AnnexIO {
 }
 
 extension CompanionNetworkTests {
+    @Test func qa341RuntimeKeepsALaterPairingAndRebindsAReplacementTransport() async throws {
+        let a = try AnnexClientIdentity.ephemeral(), b = try AnnexClientIdentity.ephemeral()
+        func member(_ identity: AnnexClientIdentity, isSelf: Bool) throws -> AnnexNetworkMember {
+            .init(fingerprint: try identity.fingerprint, publicKey: identity.pairingIdentity.publicKeyBase64, name: "Desktop", icon: "computer", color: "indigo", kind: "desktop", hosts: ["127.0.0.1"], port: 7432,
+                  certFingerprint: identity.certificateFingerprint, certPem: "-----BEGIN CERTIFICATE-----\n" + identity.certificateDER.base64EncodedString() + "\n-----END CERTIFICATE-----\n",
+                  online: true, isSelf: isSelf, joinedAt: "2026-11-08T10:00:00.000Z", pairingId: "desktop")
+        }
+        let memberA = try member(a, isSelf: true), memberB = try member(b, isSelf: false)
+        let initial = AnnexNetworkSnapshot(version: 1, joined: true, members: [memberA, memberB], removals: [])
+        let ioA = NetworkRuntimeIO(desktop: a, view: initial), ioB = NetworkRuntimeIO(desktop: b, view: initial)
+        let pairings = MemoryAnnexPairingStore()
+        let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: pairings, pairingIO: { host, _ in host.hostID == memberA.fingerprint ? ioA : ioB })
+        let runtime = CompanionRuntime(registry: registry, persistsDrafts: false)
+        await runtime.start()
+        try await runtime.pair(host: memberA.trustedHost(), pin: "123456", name: "Studio", remember: true)
+        #expect(await eventually { runtime.store.hosts.count == 2 && runtime.store.hosts.allSatisfy { $0.connection == .connected } })
+        let repaired = memberB.keepingPairing(id: "new-desktop", joinedAt: "2026-11-08T10:01:00.000Z")
+        let removal = AnnexNetworkRemoval(fingerprint: memberB.fingerprint, removedAt: "2026-11-08T12:00:00.000Z", pairingId: "desktop", joinedAt: memberB.joinedAt)
+        try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
+        #expect(await eventually { await pairings.loadAll().first { $0.host.hostID == memberB.fingerprint }?.network?.member?.pairingId == "new-desktop" })
+        #expect(await eventually { runtime.store.hosts.first { $0.id == memberB.fingerprint }?.connection == .connected })
+        // Re-pairing can replace a transport without changing its host ID. A
+        // subsequent membership refresh must bind and connect that replacement.
+        let readsBefore = await ioB.identityReads
+        let replacement = try await registry.pair(host: memberB.trustedHost(), pin: "123456", alias: "Phone", persistence: .persistent)
+        #expect(!runtime.service.hasRegistration(replacement))
+        try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
+        #expect(await eventually { runtime.service.hasRegistration(replacement) })
+        #expect(await eventually { await ioB.identityReads > readsBefore })
+        // Also replace the sender from inside its own event callback. Rebinding
+        // cancels that callback's task, but must still connect the new transport.
+        let receiveNetwork = runtime.service.onNetwork
+        let sourceReadsBefore = await ioA.identityReads
+        var replaceSource = true
+        runtime.service.onNetwork = { hostID, view in
+            if hostID == memberA.fingerprint && replaceSource {
+                replaceSource = false
+                do { try await registry.pair(host: memberA.trustedHost(), pin: "123456", alias: "Phone", persistence: .persistent) }
+                catch { Issue.record(error) }
+            }
+            await receiveNetwork?(hostID, view)
+        }
+        try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
+        #expect(await eventually { await ioA.identityReads > sourceReadsBefore })
+        await runtime.service.suspend()
+        runtime.store.stop()
+        await registry.disconnectAll()
+    }
+
     @Test func runtimeConnectsLearnedMembersAndRemovesThemWithoutAnotherPairing() async throws {
         let a = try AnnexClientIdentity.ephemeral()
         let b = try AnnexClientIdentity.ephemeral()

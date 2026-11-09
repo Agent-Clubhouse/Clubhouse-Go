@@ -23,6 +23,7 @@ import ClubhouseTransport
     private var started = false
     private var rediscovering: Set<String> = []
     private var nextRediscovery: [String: Date] = [:]
+    private var syncingNetworkRegistrations = false
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
         #if DEBUG
@@ -89,17 +90,29 @@ import ClubhouseTransport
         } catch { restoreError = CompanionLiveService.readableError(error) }
     }
     private func syncNetworkRegistrations() async {
-        let registrations = await registry.all()
-        let current = Set(registrations.map { $0.host.hostID })
-        for id in service.registeredHostIDs.subtracting(current) {
-            service.remove(hostID: id)
-            restoredHostIDs?.remove(id)
-            sessionHosts.remove(id)
-            if store.selection?.hostID == id { store.selection = nil }
-        }
-        for registration in registrations where !service.registeredHostIDs.contains(registration.host.hostID) {
-            restoredHostIDs?.insert(registration.host.hostID)
-            await service.register(registration)
+        guard !syncingNetworkRegistrations else { return }
+        syncingNetworkRegistrations = true
+        defer { syncingNetworkRegistrations = false }
+        // Re-read after every pass: another membership callback or re-pair may
+        // replace a registration while service.register is suspended.
+        while true {
+            let registrations = await registry.all()
+            let current = Set(registrations.map { $0.host.hostID })
+            let removed = service.registeredHostIDs.subtracting(current)
+            let changed = registrations.filter { !service.hasRegistration($0) }
+            guard !removed.isEmpty || !changed.isEmpty else { return }
+            for id in removed {
+                service.remove(hostID: id)
+                restoredHostIDs?.remove(id)
+                sessionHosts.remove(id)
+                if store.selection?.hostID == id { store.selection = nil }
+            }
+            for registration in changed {
+                restoredHostIDs?.insert(registration.host.hostID)
+                // Rebinding the sender cancels its old event/refresh task. The
+                // replacement must connect outside that cancelled caller task.
+                await Task { [service] in await service.register(registration) }.value
+            }
         }
     }
     /// The desktop at the first of its saved routes that answers with its pinned certificate, so opening
