@@ -43,6 +43,10 @@ struct CompanionNavigation {
 
     var tabs: [CompanionTab] { (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.home, .needsYou, .agents, .search] }
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
+    /// Resolve from the visible desktop's current catalog, rather than a cached desktop label or another chat.
+    func dispatcherTitle(hosts: [CompanionHost]) -> String {
+        hosts.first { $0.id == dispatcherHostID }?.dispatcher?.displayName ?? CompanionDispatcher.name
+    }
     var visibleAgent: CompanionTarget? { paths[tab]?.last?.agent ?? (tab == .dispatcher && (paths[tab] ?? []).isEmpty ? dispatcherTarget : nil) }
     mutating func interact() { awaitingFirstReport = false; pendingDispatcherLink = nil }
 

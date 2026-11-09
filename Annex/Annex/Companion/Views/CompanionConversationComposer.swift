@@ -427,7 +427,7 @@ struct CompanionConversationComposer: View {
         if dynamicTypeSize.isAccessibilitySize {
             return agent.status == .working ? (steers ? "Steer…" : "Queue…") : "Message…"
         }
-        if agent.status == .working { return steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…" }
-        return agent.slashCommands == nil ? "Message \(agent.name)…" : "Message \(agent.name)… / for commands"
+        if agent.status == .working { return steers ? "Steer \(agent.displayName)…" : "Queue a message for \(agent.displayName)…" }
+        return agent.slashCommands == nil ? "Message \(agent.displayName)…" : "Message \(agent.displayName)… / for commands"
     }
 }
