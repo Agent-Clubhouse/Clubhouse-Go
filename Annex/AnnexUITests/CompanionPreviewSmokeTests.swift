@@ -454,6 +454,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // The explored fold sits above the replies: scroll up to it.
         let fold = app.buttons.matching(identifier: "companion-activity-tool:tool-1").firstMatch
         scrollTo(fold, in: app, up: false, maxSwipes: 8)
+        // Hittable can still mean under the floating header; tap only once the fold is in the clear transcript.
+        XCTAssertTrue(scrollIntoClearArea(fold, in: app), "The fold is clear of the header: \(fold.frame), clear \(clearTranscriptArea(in: app))")
         XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
         XCTAssertTrue(fold.label.contains("4 tool calls"), "The fold counts like the desktop: \(fold.label)")
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
