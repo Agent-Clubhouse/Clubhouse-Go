@@ -337,8 +337,24 @@ import ClubhouseTransport
             .init(sender: .init(name: "Maple"), text: "Short helper update."),
             .init(sender: .init(agentID: "quick-willow", name: "Old willow"), text: "Quick helper update.")
         ]))
+    /// Synthetic version of Framebriar 1c74d5b8; no feedback media or private transcript is bundled.
+    static let helperMessageHistory: [CompanionTimelineItem] = [
+        .notice(id: "subagent-preview", text: "subagent · completed"),
+        .tool(.init(id: "helper-read", name: "Read", summary: "Conversation.swift", state: .completed, subagentID: "helper-preview")),
+        .message(.init(id: "helper-report", role: .user, text: "[FROM:Reviewer] The transcript fix is ready for review.", source: "mcp", routed: [
+            .init(sender: .init(agentID: "cedar", name: "Old Cedar"), text: "The transcript fix is ready for review.")
+        ])),
+        .tool(.init(id: "helper-check", name: "Test", summary: "Transcript tests", state: .completed, subagentID: "helper-preview")),
+        .message(.init(id: "helper-status", role: .user, text: "[Clubhouse] A helper has started its task.", source: "mcp", isSteered: true, routed: [
+            .init(fromClubhouse: true, text: "A helper has started its task.")
+        ])),
+        .message(.init(id: "parent-reply", role: .assistant, text: "I’ll review the helper’s changes next."))
+    ]
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         #if DEBUG && canImport(UIKit)
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-messages"), target == Self.target {
+            return .init(items: Self.helperMessageHistory)
+        }
         if CompanionContentAcceptanceFixture.enabled, target == Self.target {
             return CompanionContentAcceptanceFixture.history
         }

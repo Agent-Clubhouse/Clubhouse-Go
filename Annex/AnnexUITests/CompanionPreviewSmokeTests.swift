@@ -217,13 +217,12 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertEqual(avatar.label, label)
             if id == "companion-sender-avatar-sender-preview-3" {
                 let quickFaces = XCTAttachment(screenshot: app.screenshot())
-                quickFaces.name = "Collapsed known and quick sender faces"
+                quickFaces.name = "Inline known and quick sender faces"
                 quickFaces.lifetime = .keepAlways
                 add(quickFaces)
             }
         }
-        XCTAssertFalse(any.matching(identifier: "companion-routed-sender-preview-0").firstMatch.exists, "Avatars remain accessible while routed detail stays collapsed")
-        XCTAssertEqual(app.buttons["companion-activity-routed:relay-1:0"].value as? String, "Collapsed")
+        XCTAssertFalse(app.buttons["companion-activity-routed:relay-1:0"].exists, "Relayed messages never become activity cards")
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Known and gone sender faces"
         attachment.lifetime = .keepAlways

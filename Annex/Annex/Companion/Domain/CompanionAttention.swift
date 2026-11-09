@@ -230,7 +230,7 @@ extension CompanionTool {
 
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
 enum CompanionTimelineFolding {
-    /// Mobile keeps all routine traffic compact. Actionable entries are hard boundaries.
+    /// Routine tools fold together; routed messages remain readable in chronological order.
     static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
         let waitingToolIDs = Set(items.compactMap { item -> String? in
             guard case .approval(let approval) = item,
@@ -272,13 +272,10 @@ enum CompanionTimelineFolding {
                 begin(subagentID: message.subagentID)
                 if run.isEmpty { rows.append(.item(item)) } else { carried.append(message) }
             case .message(let message) where message.role == .user && message.delivery == .confirmed && (message.queueState == nil || message.queueState == .delivered || message.queueState == .removed):
-                begin(subagentID: message.subagentID)
+                flush()
                 if case .others(let parts) = message.display {
-                    for (index, part) in parts.enumerated() {
-                        if canCollapse(part) { append(.routed(message, index)) }
-                        else { flush(); rows.append(.routed(message, index)) }
-                    }
-                } else { flush(); rows.append(.item(item)) }
+                    rows += parts.indices.map { .routed(message, $0) }
+                } else { rows.append(.item(item)) }
             default: flush(); rows.append(.item(item))
             }
         }
@@ -286,7 +283,7 @@ enum CompanionTimelineFolding {
         return rows
     }
 
-    /// Clubhouse notices have no severity field yet; even routine notices stay visible to avoid hiding a failure.
+    /// Only explicit long-message toggles may hide routed text. Clubhouse notices and helper questions stay visible.
     static func canCollapse(_ part: CompanionRoutedMessagePart) -> Bool { !part.fromClubhouse && !part.text.hasPrefix("[QUESTION FROM HELPER:") }
 
     /// "Explored 3 files, 2 searches", or "Exploring…" while one of them runs.

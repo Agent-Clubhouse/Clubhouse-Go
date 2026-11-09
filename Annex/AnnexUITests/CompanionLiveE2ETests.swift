@@ -759,8 +759,6 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("mcp", ["agentId": id, "target": "echo", "tool": "send_message", "args": ["message": deliveryText, "task_id": "phone-live-dispatcher"]])
         waitAndTap(awake, until: composer(app), timeout: 15)
         let delivered = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'companion-routed-' AND label CONTAINS %@", deliveryText)).firstMatch
-        // #217 adds an outer activity fold, independent of the routed part's own long-message fold.
-        revealActivityContent(delivered, in: app, timeout: 30)
         XCTAssertTrue(delivered.waitForExistence(timeout: 30), "Real MCP send_message must render as a structured routed part")
         bringRoutedCaptionIntoView(delivered, in: app)
         XCTAssertTrue(delivered.label.hasPrefix("Dispatcher"), "The routed caption uses the real sender: \(delivered.label)")
@@ -797,16 +795,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let longID = try XCTUnwrap(longEvent["messageId"] as? String)
         XCTAssertEqual((longEvent["routed"] as? [[String: Any]])?.first?["text"] as? String, longText)
         let long = app.buttons["companion-routed-\(longID)-0"]
-        // Open only the enclosing activity; the long part must still start Collapsed below.
-        revealActivityContent(long, in: app, timeout: 30)
-        XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message folds behind its sender caption")
+        XCTAssertTrue(long.waitForExistence(timeout: 30), "A real long MCP message remains an individual message")
         bringRoutedCaptionIntoView(long, in: app)
         let longBodyID = long.identifier.replacingOccurrences(of: "companion-routed-", with: "companion-routed-body-")
         let longBody = element(app, longBodyID)
-        XCTAssertEqual(long.value as? String, "Collapsed")
-        XCTAssertFalse(longBody.exists)
-        long.tap()
-        XCTAssertTrue(waitFor(long, NSPredicate(format: "value BEGINSWITH 'Expanded'"), timeout: 15))
+        XCTAssertTrue((long.value as? String)?.hasPrefix("Expanded") == true, "Helper contents start visible without opening a card")
         XCTAssertTrue(longBody.exists)
         XCTAssertTrue(long.label.hasSuffix(": \(longText)"), "Expanding preserves the complete delivered text")
         screenshot(app, "Real long routed delivery expanded")
