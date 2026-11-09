@@ -32,16 +32,19 @@ struct CompanionPreviewRoot: View {
     /// `--companion-preview-feedback`: an enrolled in-memory feedback client, for the Send feedback menu items.
     @State private var feedback: CompanionFeedbackPresenter? = ProcessInfo.processInfo.arguments.contains("--companion-preview-feedback")
         ? CompanionFeedbackPresenter(model: FramebriarShakePreview.fixtureModel(enrolled: true).0) : nil
-    @State private var showSettings = false
+    @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     var body: some View {
-        CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: { showSettings = true },
+        CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: {
+            $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
+        },
                           isPreview: !ProcessInfo.processInfo.arguments.contains("--companion-preview-hide-banner"))
-            .sheet(isPresented: $showSettings) {
+            .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
                 NavigationStack {
                     Form {
                         CompanionPlanLimitsLink(store: store)
                         CompanionHelperPresetLinks(store: store)
                         CompanionStartScreenPicker(preferences: preferences)
+                        if let feedback { CompanionFeedbackSettings(model: feedback.model, initialCapture: capture) }
                         if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-controls") {
                             Section("Preview desktop reports") {
                                 Button("Report Dispatcher off") { report(enabled: false) }
@@ -52,7 +55,7 @@ struct CompanionPreviewRoot: View {
                         }
                     }
                     .navigationTitle("Settings")
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil } } }
                 }
             }
             .companionFeedbackEntryPoints(feedback)

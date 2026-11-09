@@ -187,7 +187,7 @@ struct CompanionAppRoot: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private func openSettings() {
-        settingsCapture = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
+        $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
     }
 
     init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
@@ -216,14 +216,13 @@ struct CompanionAppRoot: View {
             }
             .onOpenURL { url in
                 guard let link = CompanionPairingLink(url: url) else { return }
-                settingsCapture = nil
+                $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
                 openedLink = link
                 showPairing = true
             }
-            .sheet(item: $settingsCapture) { capture in
-                CompanionSettingsSheet(runtime: runtime, initialCapture: capture, pair: { settingsCapture = nil; showPairing = true })
+            .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
+                CompanionSettingsSheet(runtime: runtime, initialCapture: capture, pair: { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
-                    .onDisappear { capture.screenshot = nil }
             }
             .companionFeedbackShake(runtime.feedbackPresenter, enabled: shakeFeedbackEnabled,
                                     suppressed: showPairing || runtime.restoreError != nil || runtime.isRestoring,

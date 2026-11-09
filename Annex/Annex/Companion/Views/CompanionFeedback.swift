@@ -165,22 +165,35 @@ struct CompanionFeedbackSettings: View {
 private struct CompanionFeedbackCapturedComposer: View {
     let model: FeedbackModel
     let capture: CompanionFeedbackSettingsCapture?
+    @Environment(\.dismiss) private var dismiss
     @State private var png: Data?
     @State private var prepared = false
     @State private var unavailable: FeedbackScreenshotUnavailable?
     var body: some View {
         Group {
-            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable) }
+            if prepared {
+                CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable, onClose: {
+                    // NavigationStack may retain this destination's state after a pop.
+                    // Cancel/Done must release both the original pixels and encoded attachment.
+                    capture?.screenshot = nil
+                    png = nil
+                    prepared = false
+                    dismiss()
+                })
+            }
             else { ProgressView("Preparing feedback…") }
         }
         .navigationTitle("Send feedback")
         .task {
             guard !prepared else { return }
             let image = capture?.screenshot
+            // Transfer ownership before suspension. Settings no longer retains a second copy
+            // through Cancel, and a retained NavigationLink cannot reuse a cancelled screenshot.
+            capture?.screenshot = nil
             let encoded = await CompanionFeedbackPresenter.encode(image)
             guard !Task.isCancelled else { return }
             png = encoded
-            unavailable = capture?.screenshotUnavailable ?? (image != nil && encoded == nil ? .failed : nil)
+            unavailable = capture?.screenshotUnavailable ?? (encoded == nil ? .failed : nil)
             prepared = true
         }
     }
