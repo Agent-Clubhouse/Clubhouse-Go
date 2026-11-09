@@ -427,7 +427,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // Header: what River waits on, and how full its context is.
         let activity = app.staticTexts.matching(identifier: "companion-chat-activity").firstMatch
         XCTAssertTrue(activity.waitForExistence(timeout: 5))
-        XCTAssertEqual(activity.label, "Run xcodebuild", "The activity line names the oldest waiting request")
+        XCTAssertEqual(activity.label, "River, Run xcodebuild", "The activity line names the oldest waiting request")
         let context = app.buttons["companion-context-usage"]
         XCTAssertTrue(context.exists)
         XCTAssertEqual(context.label, "Context and plan limits")

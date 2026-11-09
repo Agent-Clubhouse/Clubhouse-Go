@@ -482,7 +482,7 @@ struct CompanionConversationComposer: View {
         if agent.status == .working {
             return agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn."
         }
-        return "Sends your message to \(agent.name)."
+        return "Sends your message to \(agent.displayName)."
     }
 
     /// The desktop's "Message {name}…". Mid-turn, the desktop's send actions name what happens: Steer or Queue.

@@ -49,6 +49,11 @@ struct CompanionConversationHeaderFixture: View {
             agent.status = arguments.contains("--companion-header-idle") ? .idle : .working
             agent.turnStartedAt = agent.status == .working ? Date().addingTimeInterval(-65) : nil
             agent.freeAgentMode = true
+            if arguments.contains("--companion-header-boolean-access") {
+                // Only the desktop's Auto-or-Full boolean, with no known live level.
+                agent.chatControls = nil
+                agent.session = nil
+            }
             agent.emoji = nil; agent.icon = nil
             host.projects = [.init(id: target.projectID, name: "Header fixture", agents: [agent])]
             host.dispatcher = nil

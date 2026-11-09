@@ -126,11 +126,14 @@ struct CompanionConversationView: View {
             ) {
                 // Both slots are stable, including the empty disclosure/banner cases.
                 VStack(spacing: 0) {
-                    if showHeaderDetails {
+                    // Too short for a usable disclosure (landscape with the keyboard up): keep the choice, show nothing,
+                    // so neither the screen nor VoiceOver has details squeezed behind the bar or composer.
+                    if showHeaderDetails, geometry.size.height >= CompanionConversationHeaderBarLayout.minimumRoomForDetails {
                         CompanionConversationDetailsViewport(agent: agent, contextName: contextName)
                     }
                 }
                 .frame(maxWidth: .infinity)
+                .clipped()
                 VStack(spacing: 0) { otherAgentBanner }
                     .frame(maxWidth: .infinity)
             }
@@ -245,9 +248,7 @@ struct CompanionConversationView: View {
             }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            // Like the identity capsule: an opaque card keeps the reading legible over bright transcript content.
-            .background(Color(palette.card), in: .capsule)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .companionCardGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .frame(minWidth: 44, minHeight: 44)
@@ -263,13 +264,17 @@ struct CompanionConversationView: View {
         return TimelineView(.periodic(from: .now, by: ticking ? 1 : 60)) { context in
             if let activity = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items, now: context.date) {
                 HStack(spacing: 4) {
-                    Text(agent.name).lineLimit(1).truncationMode(.tail).layoutPriority(-1)
+                    Text(agent.displayName).lineLimit(1).truncationMode(.tail).layoutPriority(-1)
                     Text("·")
                     Text(activity)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                        .accessibilityIdentifier("companion-chat-activity")
                 }
                 .font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
+                // One element for VoiceOver: who is working and on what, without the separator.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(agent.displayName), \(activity)")
+                .accessibilityAddTraits(.isStaticText)
+                .accessibilityIdentifier("companion-chat-activity")
             }
         }
     }
@@ -807,7 +812,7 @@ struct CompanionContextRing: View {
                     .rotationEffect(.degrees(-90))
             }
             .frame(width: size, height: size)
-            Text("\(percent)%").font(.caption.monospacedDigit()).foregroundStyle(hot ? Color(palette.error) : Color(palette.secondaryLabel))
+            Text("\(percent)%").font(.caption.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6).foregroundStyle(hot ? Color(palette.error) : Color(palette.secondaryLabel))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")

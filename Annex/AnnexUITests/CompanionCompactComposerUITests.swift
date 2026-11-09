@@ -17,6 +17,8 @@ import XCTest
     /// apiece, which made the eight-line flow run out of time on hosted runners.
     private struct Layout {
         var frames: [String: CGRect] = [:]
+        /// How many elements carry each identifier; the native draft field must stay unique.
+        var counts: [String: Int] = [:]
         var values: [String: String] = [:]
         var enabled: [String: Bool] = [:]
         var window = CGRect.null
@@ -38,6 +40,7 @@ import XCTest
             if node.elementType == .navigationBar, result.navigation.isNull, navigationBar == nil || id == navigationBar {
                 result.navigation = node.frame
             }
+            if !id.isEmpty { result.counts[id, default: 0] += 1 }
             // Prefer the Button when a wrapper shares its identifier.
             if !id.isEmpty, result.frames[id] == nil || node.elementType == .button {
                 result.frames[id] = node.frame
@@ -66,6 +69,7 @@ import XCTest
         capture(app, state)
         let layout = try layout(app)
         if editing { XCTAssertNotNil(layout.keyboardTop, "\(state): keyboard", file: file, line: line) }
+        XCTAssertEqual(layout.counts["companion-composer"], 1, "\(state): one native draft field", file: file, line: line)
         let region = visibleRegion(layout)
         guard let composerRegion = layout["companion-composer-region"], let editor = layout["companion-composer"] else {
             XCTFail("\(state): composer region and editor must be exported", file: file, line: line); return
@@ -319,14 +323,23 @@ import XCTest
             }
         }
         XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "The approval doesn't disappear to make space")
-        let approval = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch
-        let approvalLabel = approval.label
+        // The pinned request itself, not just some approval: its text and each decision's enabled state.
+        let approvals = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: "))
+        XCTAssertEqual(approvals.count, 1)
+        let approval = approvals.firstMatch
+        func pinned() -> [String] {
+            [approval.label] + approval.staticTexts.allElementsBoundByIndex.map(\.label)
+                + approval.buttons.allElementsBoundByIndex.map { "\($0.label): \($0.isEnabled ? "enabled" : "disabled")" }
+        }
+        let pinnedBefore = pinned()
+        XCTAssertTrue(pinnedBefore.contains("Allow once: enabled") && pinnedBefore.contains("Deny: enabled"), "\(pinnedBefore)")
 
         // Opening Options keeps the whole draft and sends nothing.
         waitAndTap(app.buttons["companion-level-menu"], until: app.buttons["companion-permissions-menu"], attempts: 1)
         XCTAssertTrue(app.buttons["companion-model-menu"].exists)
         try dismissChatControls(app, preferring: composer.frame)
-        XCTAssertEqual(approval.label, approvalLabel)
+        XCTAssertEqual(approvals.count, 1)
+        XCTAssertEqual(pinned(), pinnedBefore, "Options leaves the pinned request and its decisions unchanged")
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
         XCTAssertEqual(composer.value as? String, draft)
         XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"), "Dismissing Options inside the draft keeps editing")
@@ -338,6 +351,8 @@ import XCTest
         cancelInterruptConfirmation(app)
         XCTAssertEqual(composer.value as? String, draft)
         XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
+        XCTAssertEqual(approvals.count, 1)
+        XCTAssertEqual(pinned(), pinnedBefore, "Cancelling Interrupt leaves the pinned request and its decisions unchanged")
         if !app.keyboards.firstMatch.exists { focus(composer, in: app) }
         try assertRow(app, working: true, state: "ordinary after Cancel", editing: true)
     }

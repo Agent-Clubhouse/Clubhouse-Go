@@ -6,7 +6,6 @@ struct CompanionConversationIdentityButton: View {
     @Binding var isExpanded: Bool
     let accessibilityLabel: String
     var reviewPosition: String? = nil
-    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         Button { isExpanded.toggle() } label: {
@@ -24,10 +23,7 @@ struct CompanionConversationIdentityButton: View {
             .padding(.horizontal, 8)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            // An opaque theme card under the glass: bare glass took the brightness of the transcript scrolled
-            // beneath it, and the theme's label fell to 1.5:1 on it in dark mode.
-            .background(Color(palette.card), in: .capsule)
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .companionCardGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(reviewPosition.map { "\(agent.displayName), \($0)" } ?? accessibilityLabel)
@@ -37,10 +33,32 @@ struct CompanionConversationIdentityButton: View {
     }
 }
 
+extension View {
+    /// Glass behind the content, over the theme's opaque card. Bare glass took on the brightness of the transcript
+    /// scrolled beneath it (the dark theme's label fell to 1.5:1), and content inside a glass effect is restyled,
+    /// which dimmed avatars and status colours. Here the content is untouched, and the palette keeps its label and
+    /// secondary label at 4.5:1 or better against the card.
+    func companionCardGlass<S: Shape>(_ shape: S, interactive: Bool = false) -> some View {
+        background { CompanionCardGlass(shape: shape, interactive: interactive) }
+    }
+}
+
+private struct CompanionCardGlass<S: Shape>: View {
+    let shape: S
+    let interactive: Bool
+    @Environment(\.companionPalette) private var palette
+    var body: some View {
+        shape.fill(Color(palette.card))
+            .glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+    }
+}
+
 /// Stacks the details disclosure above the other-agent banner. The banner keeps its natural height; the
 /// disclosure takes at most a third of what's left above the composer and scrolls within that.
 /// Nothing measured is stored in State or fed back into the disclosure's own reservation.
 struct CompanionConversationHeaderBarLayout: Layout {
+    /// The details' 50pt minimum (44pt of content plus 6pt padding) and as much again for the transcript.
+    static let minimumRoomForDetails: CGFloat = 100
     /// The height between the top of the screen and the composer, which already reserves its own space.
     let residualHeight: CGFloat
     let showsDetails: Bool
@@ -54,12 +72,14 @@ struct CompanionConversationHeaderBarLayout: Layout {
         guard showsDetails else { return (.init(width: width, height: 0), banner) }
         let ideal = subviews[0].sizeThatFits(.init(width: width, height: nil))
         let remaining = residualHeight - banner.height
-        // Too little room to cap usefully: show the details whole rather than hide them. A scrolling
-        // viewport keeps at least 44pt of content plus its 6pt bottom padding.
-        guard remaining.isFinite, remaining >= 50 else { return (ideal, banner) }
-        let budget = min(ideal.height, max(50, remaining / 3))
+        guard remaining.isFinite else { return (ideal, banner) }
+        // Normally a third of the room above the composer, but never less than 50pt (44pt of content plus the 6pt
+        // bottom padding) while that fits. In a short window, such as landscape with the keyboard up, the details get
+        // only what's left and scroll there; they never cover the navigation bar or the composer.
+        let budget = min(ideal.height, remaining >= 50 ? max(50, remaining / 3) : max(0, remaining))
         let details = subviews[0].sizeThatFits(.init(width: width, height: budget))
-        return (details, banner)
+        // The viewport's padding has a minimum; the slot clips to the budget rather than overflow it.
+        return (.init(width: details.width, height: min(details.height, budget)), banner)
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
@@ -133,10 +153,7 @@ struct CompanionConversationDetailsCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        // Glass alone took the brightness of whatever scrolled behind it, which left secondary text unreadable in
-        // dark mode. The theme's card is opaque, and its secondary label is kept at 4.5:1 against it in every theme.
-        .background(Color(palette.card), in: .rect(cornerRadius: 20))
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .companionCardGlass(RoundedRectangle(cornerRadius: 20))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("companion-chat-details")
     }

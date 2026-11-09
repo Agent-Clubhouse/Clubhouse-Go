@@ -33,7 +33,7 @@ import XCTest
         let activity = app.staticTexts["companion-chat-activity"]
         let context = app.buttons["companion-context-usage"]
         XCTAssertTrue(activity.waitForExistence(timeout: 5))
-        XCTAssertEqual(activity.label, "Run xcodebuild")
+        XCTAssertEqual(activity.label, "River, Run xcodebuild")
         XCTAssertTrue(identity.label.contains("Access: "), identity.label)
         XCTAssertFalse(details.exists, "Status and permission details start collapsed")
         assertMinimumTarget(identity, "identity")
