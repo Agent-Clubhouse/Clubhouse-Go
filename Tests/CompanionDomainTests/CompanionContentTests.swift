@@ -28,7 +28,7 @@ import Testing
 }
 @Test func contentCandidatesNeverTurnRemoteURLsIntoAutomaticLoads() {
     let files = CompanionContentReference.files(in: "`src/a.swift` [image](https://evil.test/x.png) `//evil/share` [file](src/b.txt) `src/a.swift`")
-    #expect(files == [.file("src/a.swift"), .file("src/b.txt")])
+    #expect(files == [.file("src/a.swift"), .link("src/b.txt")])
     #expect(CompanionContentReference.files(in: "`README.md`") == [.file("README.md")])
     #expect(!CompanionContentReference.validMediaReference("../../secret.png"))
     #expect(CompanionContentReference.validMediaReference(String(repeating: "a", count: 64) + ".png"))

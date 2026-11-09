@@ -185,7 +185,9 @@ import Observation
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
         }
-        return try await service.content(reference, target: target)
+        return try await reference.loadLink(roots: archiveRoots ?? contentRoots(for: target)) {
+            try await service.content($0, target: target)
+        }
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots {

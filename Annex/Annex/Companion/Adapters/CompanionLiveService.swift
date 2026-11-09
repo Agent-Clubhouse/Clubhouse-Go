@@ -281,6 +281,12 @@ import ClubhouseTransport
                 throw CompanionServiceError.unavailable("Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files.")
             }
             do { return try await fetchContent(reference, target: target) }
+            catch let error as CompanionContentError { throw error }
+            catch let error as AnnexTransportError {
+                let message = Self.contentErrorMessage(error, reference: reference, hostName: hostName)
+                if case .rejected(404, "content_unavailable", _) = error { throw CompanionContentError.unavailable(message) }
+                throw CompanionServiceError.unavailable(message)
+            }
             catch { throw CompanionServiceError.unavailable(Self.contentErrorMessage(error, reference: reference, hostName: hostName)) }
         }
     }
@@ -294,6 +300,10 @@ import ClubhouseTransport
         case .file(let path):
             guard CompanionContentReference.isValidFilePath(path, windows: windowsHosts.contains(target.hostID)) else { throw AnnexTransportError.invalidEndpoint }
             route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
+        case .link:
+            return try await reference.loadLink(roots: .init(windows: windowsHosts.contains(target.hostID), anyPath: true)) {
+                try await self.content($0, target: target)
+            }
         case .localImage: throw AnnexTransportError.invalidEndpoint
             }
             let value = try await transport(for: target.hostID).read(route)
@@ -319,8 +329,10 @@ import ClubhouseTransport
         case .rejected(404, "agent_not_found", _): return "This agent is no longer on \(hostName)."
         // The desktop answers an invalid reference like a missing one (404 content_unavailable), so the phone does too.
         case .rejected(404, _, _), .invalidEndpoint:
-            if case .file = reference {} else { return "This image is no longer available on \(hostName)." }
-            return "\(hostName) couldn't share this file. It may have moved, or this desktop can't read it."
+            switch reference {
+            case .file, .link: return CompanionContentReference.unavailableLinkMessage(hostName: hostName)
+            case .image, .localImage: return "This image is no longer available on \(hostName)."
+            }
         case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
         case .malformedResponse: return "\(hostName) sent a preview this phone can't read. Updating the desktop may help."
         default: return readableError(error)
