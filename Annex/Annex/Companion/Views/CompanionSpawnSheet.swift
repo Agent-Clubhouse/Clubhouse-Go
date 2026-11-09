@@ -363,10 +363,14 @@ struct CompanionSpawnSheet: View {
             // As the desktop's New agent page: only for CLIs with permission support.
             let supported = options.options.orchestrator(durable.orchestrator)?.permissions == true
             Section {
-                Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { supported && durable.freeAgentMode },
-                                                                     set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
-                    .disabled(!supported)
-                    .accessibilityIdentifier("new-agent-free-agent-mode")
+                if supported {
+                    Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { durable.freeAgentMode },
+                                                                         set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
+                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                } else {
+                    LabeledContent("Access", value: "Set by the CLI")
+                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                }
             } header: { Text("Permissions") } footer: {
                 Text(supported ? CompanionFreeAgentMode.help : CompanionFreeAgentMode.unsupported)
             }

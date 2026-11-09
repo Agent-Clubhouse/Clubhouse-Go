@@ -185,7 +185,7 @@ enum CompanionChatControlError {
 /// Truthful copy for the legacy boolean Access control; it cannot distinguish Auto from Full access.
 enum CompanionFreeAgentMode {
     static let title = "Auto or Full access"
-    static let help = "The desktop chooses Auto or Full access when enabled. Auto decides what needs approval; Full access skips permission prompts."
+    static let help = "Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."
     static let unsupported = "This agent's CLI sets its own access, so this control isn't supported."
     static let confirmTitle = "Enable Auto or Full access?"
     static let confirmAction = "Enable Auto or Full access"

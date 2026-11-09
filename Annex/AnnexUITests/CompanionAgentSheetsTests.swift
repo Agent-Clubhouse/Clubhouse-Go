@@ -65,7 +65,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.isEnabled, "A desktop that takes Free Agent Mode offers it for a CLI with permission support")
         XCTAssertEqual(freeAgent.value as? String, "0", "Off by default")
-        XCTAssertTrue(app.staticTexts["The desktop chooses Auto or Full access when enabled. Auto decides what needs approval; Full access skips permission prompts."].exists, "The desktop's help text")
+        XCTAssertTrue(app.staticTexts["Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."].exists, "The desktop's help text")
 
         // Preview never pretends the desktop created anything. The refusal shows at the top of the form.
         XCTAssertTrue(create.isEnabled)
@@ -105,7 +105,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.exists, "Free Agent Mode is a toggle on a desktop that takes it")
         XCTAssertFalse(freeAgent.isEnabled, "It's a spawn setting, so it waits for the agent to sleep")
-        XCTAssertTrue(app.staticTexts["Sleep the agent to change these. The desktop chooses Auto or Full access when enabled. Auto decides what needs approval; Full access skips permission prompts."].exists)
+        XCTAssertTrue(app.staticTexts["Sleep the agent to change these. Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."].exists)
         screenshot(app, "Awake agent settings")
 
         // Preview edits fail visibly and put the control back.
@@ -140,7 +140,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollTo(freeAgent, in: app, maxSwipes: 4)
         XCTAssertTrue(freeAgent.isEnabled, "A sleeping agent's Free Agent Mode can change")
         // With no Clubhouse mode row above it, the toggle can reach the screen before its lazy footer loads.
-        let help = app.staticTexts["The desktop chooses Auto or Full access when enabled. Auto decides what needs approval; Full access skips permission prompts."]
+        let help = app.staticTexts["Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."]
         XCTAssertTrue(scrollTo(help, in: app, maxSwipes: 3), "The desktop's help text")
         XCTAssertTrue(scrollTo(freeAgent, in: app, up: false, maxSwipes: 2))
         freeAgent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
