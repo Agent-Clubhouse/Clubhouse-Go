@@ -25,6 +25,7 @@ struct CompanionConversationComposer: View {
     let dismissals: Int
     @State private var showRefreshing = false
     @State private var pendingLevel: CompanionPermissionLevel?
+    @State private var approvalReviewSelection: CompanionComposerApprovalReviewSelection?
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -71,9 +72,9 @@ struct CompanionConversationComposer: View {
             draft.wrappedValue = text
         })
     }
-    /// Deny and Allow once for the pending approval stay above the composer until answered.
+    /// Direct decisions stay pinned at ordinary sizes; large text uses the prominent review action below.
     @ViewBuilder private var pinnedApprovalBar: some View {
-        if let approval = store.pinnedApproval(for: target) {
+        if !dynamicTypeSize.isAccessibilitySize, let approval = store.pinnedApproval(for: target) {
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
                     Text(approval.title ?? approval.toolName).lineLimit(1)
@@ -102,6 +103,31 @@ struct CompanionConversationComposer: View {
         }
     }
 
+    /// Keep the pending request prominent without compressing large textual decisions beside the draft.
+    @ViewBuilder private var approvalReviewButton: some View {
+        if let approval = store.pinnedApproval(for: target) {
+            let position = CompanionChatActivity.queuePosition(of: approval, in: conversation.items)
+            Button { approvalReviewSelection = .init(target: target, approvalID: approval.id) } label: {
+                Image(systemName: "hand.raised.fill").font(.system(size: 20))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(.circle)
+            }
+            .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+            .tint(Color(palette.warning))
+            .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
+            .overlay(alignment: .topTrailing) {
+                // A distinct pending badge, so the cue does not rely on warning color alone.
+                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12))
+                    .foregroundStyle(Color(palette.label), Color(palette.card))
+                    .accessibilityHidden(true)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityLabel("Review approval: \(approval.title ?? approval.toolName)\(position.map { ", \($0)" } ?? "")")
+            .accessibilityHint("Opens the complete request and available decisions. Opening does not send a decision.")
+            .accessibilityIdentifier("companion-review-approval")
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             pinnedApprovalBar
@@ -120,60 +146,78 @@ struct CompanionConversationComposer: View {
                 .accessibilityElement(children: .contain)
             }
             CompanionAttachmentStrip(store: store, target: target)
-            if !usesCompactControls { chatControls(compact: false) }
             if !slashMatches.isEmpty {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
             }
-            HStack(alignment: .bottom, spacing: usesCompactControls ? 4 : 8) {
-                if usesCompactControls { chatControls(compact: true).frame(height: composerRowHeight) }
-                if agent.status == .working {
-                    Button { confirmCancel = true } label: {
-                        Image(systemName: "stop.fill").font(.headline)
+            HStack(alignment: .bottom, spacing: 4) {
+                inputRowLayout {
+                    HStack(alignment: .bottom, spacing: 6) {
+                        TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
+                            // Leave room for attachments and actions above a narrow keyboard. The native field
+                            // scrolls to the caret; every line remains in the draft at its normal text size.
+                            .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? (composerFocused ? 1 : 3) : 8))
+                            // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
+                            // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.vertical, 12).padding(.horizontal, 16)
+                            // The draft keeps the full text row as it grows; actions stay in their own row below.
+                            .frame(minHeight: composerRowHeight)
+                            .focused($composerFocused)
+                            .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
+                            .accessibilityHint("Runs on your desktop. Command Return sends the message.")
+                            .accessibilityIdentifier("companion-composer")
+                            // Pasted or dropped images join the attachments; text pastes as usual. Added after the
+                            // accessibility modifiers so the hook doesn't appear as a second composer element.
+                            .background(composerInputHook.accessibilityHidden(true))
+                            .onKeyPress(keys: [.upArrow, .downArrow, .tab, .escape], phases: .down, action: slashKey)
                     }
-                    .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.circle)
-                    .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
-                    .accessibilityLabel("Interrupt")
-                    .frame(height: composerRowHeight)
-                }
-                HStack(alignment: .bottom, spacing: 6) {
-                    if let limits = attachmentLimits {
-                        CompanionAttachButton(store: store, target: target, limits: limits).padding(.leading, assistiveRow ? 2 : 8).frame(height: composerRowHeight)
+                    .frame(maxWidth: .infinity)
+                    HStack(alignment: .bottom, spacing: 6) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            approvalReviewButton.frame(height: actionRowHeight)
+                        }
+                        chatControls.frame(height: actionRowHeight)
+                        if let limits = attachmentLimits {
+                            CompanionAttachButton(store: store, target: target, limits: limits).frame(height: actionRowHeight)
+                        }
+                        Spacer(minLength: 0)
+                        HStack(alignment: .bottom, spacing: dynamicTypeSize.isAccessibilitySize ? 0 : 6) {
+                            if agent.status == .working {
+                                // Interrupt remains a separate confirmed action beside Send, never a replacement for it.
+                                Button { confirmCancel = true } label: {
+                                    Image(systemName: "stop.fill").font(.system(size: 18, weight: .semibold))
+                                }
+                                .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                                .tint(Color(palette.warning))
+                                .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
+                                .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
+                                .contentShape(.circle)
+                                .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel) || store.pendingCommands.contains(target))
+                                .accessibilityLabel("Interrupt")
+                                .accessibilityHint("Asks before interrupting the current turn. Keeps your draft.")
+                                .accessibilityIdentifier("companion-interrupt")
+                                .frame(height: actionRowHeight)
+                            }
+                            Button {
+                                Task { await store.sendDraft(to: target) }
+                            } label: {
+                                Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
+                                    .font(.system(size: 20, weight: .bold))
+                            }
+                            .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                            // Keep the regular-size glass circle inside the field, with a full-size interaction target.
+                            .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
+                            .contentShape(.circle)
+                            .disabled(!store.canSend(target) || !hasMessage)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
+                            .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
+                            .accessibilityIdentifier("companion-send")
+                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : 6)
+                            .frame(height: actionRowHeight)
+                        }
+                        keyboardDismissButton
                     }
-                    TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
-                        .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 8))
-                        // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
-                        // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, 12).padding(.leading, attachmentLimits == nil ? 16 : 2)
-                        // One line is centred in the row; longer drafts grow upward with Send on the last line.
-                        .frame(minHeight: composerRowHeight)
-                        .focused($composerFocused)
-                        .accessibilityLabel(agent.status == .working ? "Steering message" : "Message")
-                        .accessibilityHint("Runs on your desktop. Command Return sends the message.")
-                        .accessibilityIdentifier("companion-composer")
-                        // Pasted or dropped images join the attachments; text pastes as usual. Added after the
-                        // accessibility modifiers so the hook doesn't appear as a second composer element.
-                        .background(composerInputHook.accessibilityHidden(true))
-                        .onKeyPress(keys: [.upArrow, .downArrow, .tab, .escape], phases: .down, action: slashKey)
-                    Button {
-                        Task { await store.sendDraft(to: target) }
-                    } label: {
-                        Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
-                            .font(.headline.weight(.bold))
-                    }
-                    .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                    // Keep the regular-size glass circle inside the field, with a full-size interaction target.
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.circle)
-                    .disabled(!store.canSend(target) || !hasMessage)
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .accessibilityLabel(agent.status == .working ? "Send steering message" : "Send message")
-                    .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : "")
-                    .accessibilityIdentifier("companion-send")
-                    .padding(.horizontal, assistiveRow ? 2 : 6)
-                    .frame(height: composerRowHeight)
                 }
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
                 // Images dragged in on iPad join the attachments like pasted ones.
@@ -181,22 +225,10 @@ struct CompanionConversationComposer: View {
                     Task { _ = await pasteImages(providers) }
                     return true
                 }
-                // A real scan/focus target when assistive technology is running, in the existing row:
-                // no accessory toolbar, and no extra vertical space above the slash menu.
-                if composerFocused && showsKeyboardDismissButton {
-                    Button("Dismiss Keyboard", systemImage: "keyboard.chevron.compact.down", action: dismissKeyboard)
-                        .labelStyle(.iconOnly)
-                        .font(.body)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("companion-dismiss-keyboard")
-                        .frame(height: composerRowHeight)
-                }
             }
             composerCaption
         }
-        .padding(.horizontal, assistiveRow ? 12 : 16).padding(.vertical, 10)
+        .padding(.horizontal, 16).padding(.vertical, 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -208,6 +240,9 @@ struct CompanionConversationComposer: View {
             Text(level == .fullAccess
                  ? "\(agent.name) will edit files and run commands without asking you first."
                  : "\(agent.name) will decide for itself what needs your approval.")
+        }
+        .sheet(isPresented: Binding(get: { approvalReviewSelection != nil }, set: { if !$0 { approvalReviewSelection = nil } })) {
+            CompanionComposerApprovalReviewSheet(store: store, target: target, selection: $approvalReviewSelection)
         }
         .onAppear {
             #if DEBUG
@@ -265,16 +300,36 @@ struct CompanionConversationComposer: View {
         }
     }
 
-    private var assistiveRow: Bool { composerFocused && showsKeyboardDismissButton }
+    /// Keep the full-width draft above one action row at every text size and focus state.
+    /// Retain the field subtree; typing does not select a different layout or control placement.
+    private var inputRowLayout: AnyLayout {
+        AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+    }
 
-    private var usesCompactControls: Bool { composerFocused || dynamicTypeSize.isAccessibilitySize }
+    /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.
+    private var actionRowHeight: CGFloat { dynamicTypeSize.isAccessibilitySize ? 44 : composerRowHeight }
 
-    @ViewBuilder private func chatControls(compact: Bool) -> some View {
+    @ViewBuilder private var keyboardDismissButton: some View {
+        if composerFocused && showsKeyboardDismissButton {
+            Button(action: dismissKeyboard) {
+                Image(systemName: "keyboard.chevron.compact.down").font(.system(size: 20))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss Keyboard")
+            .accessibilityIdentifier("companion-dismiss-keyboard")
+            .frame(height: actionRowHeight)
+        }
+    }
+
+    /// Keep configuration collapsed while reading as well as editing, independent of the running turn.
+    @ViewBuilder private var chatControls: some View {
         if let controls = agent.chatControls, !isAsleep {
             CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
                 setLevel: { level in Task { await store.setLevel(level, target: target) } },
                 setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } },
-                compact: compact, requestLevel: { pendingLevel = $0 })
+                compact: true, requestLevel: { pendingLevel = $0 })
                 .equatable()
         }
     }
@@ -419,7 +474,15 @@ struct CompanionConversationComposer: View {
     }
 
     private var defaultCaption: String? {
-        agent.status == .working ? (agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn.") : nil
+        // Steer is already named in the field and Send's hint; queue-only delivery still needs explaining.
+        agent.status == .working && !agent.capabilities.contains(.steer) ? "Your message will wait for the next turn." : nil
+    }
+
+    private var sendOutcomeHint: String {
+        if agent.status == .working {
+            return agent.capabilities.contains(.steer) ? "Your direction will be sent to the running agent." : "Your message will wait for the next turn."
+        }
+        return "Sends your message to \(agent.name)."
     }
 
     /// The desktop's "Message {name}…". Mid-turn, the desktop's send actions name what happens: Steer or Queue.
@@ -430,5 +493,81 @@ struct CompanionConversationComposer: View {
         }
         if agent.status == .working { return steers ? "Steer \(agent.displayName)…" : "Queue a message for \(agent.displayName)…" }
         return agent.slashCommands == nil ? "Message \(agent.displayName)…" : "Message \(agent.displayName)… / for commands"
+    }
+}
+
+struct CompanionComposerApprovalReviewSelection: Equatable {
+    let target: CompanionTarget
+    let approvalID: String
+}
+
+/// Review presentation and actions always resolve the selected request against the current conversation.
+/// Kept separate so synthetic event tests exercise the same methods used by the actual sheet buttons.
+struct CompanionComposerApprovalReviewSheet: View {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    @Binding var selection: CompanionComposerApprovalReviewSelection?
+    @Environment(\.companionPalette) private var palette
+
+    var currentApproval: CompanionApproval? {
+        guard let selection, selection.target == target else { return nil }
+        return store.conversation(for: target).items.lazy.compactMap { item -> CompanionApproval? in
+            if case .approval(let approval) = item, approval.id == selection.approvalID { return approval }
+            return nil
+        }.first
+    }
+
+    func queuePosition(at date: Date) -> String? {
+        guard let approval = currentApproval else { return nil }
+        return CompanionChatActivity.queuePosition(of: approval, in: store.conversation(for: target).items, at: date)
+    }
+
+    var canRespond: Bool {
+        store.canOperate(target) && store.agent(for: target)?.capabilities.contains(.approve) == true
+            && !store.pendingCommands.contains(target)
+    }
+
+    func close() { selection = nil }
+
+    /// Called inside the UI callback's Task. Do not resolve before enqueueing or remap an old option by ID.
+    func respond(to originalRequestID: String, option originalOption: CompanionApprovalOption) async {
+        guard selection?.target == target, selection?.approvalID == originalRequestID, let approval = currentApproval else { return }
+        await store.respond(approval, option: originalOption, target: target)
+    }
+
+    var body: some View {
+        NavigationStack {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let approval = currentApproval {
+                            let originalRequestID = approval.id
+                            CompanionApprovalCard(approval: approval, queuePosition: queuePosition(at: context.date),
+                                canRespond: canRespond, persistentApprovals: store.canAnswerPersistentApprovals(target),
+                                respond: { option in Task { await respond(to: originalRequestID, option: option) } })
+                        } else {
+                            Text("This approval is no longer available.")
+                                .accessibilityIdentifier("companion-approval-review-unavailable")
+                        }
+                        if let error = store.operationErrors[target] {
+                            Label(error, systemImage: "exclamationmark.circle")
+                                .foregroundStyle(Color(palette.warning))
+                        }
+                    }
+                    .padding()
+                }
+            }
+            // The card's Allow and full-event review use the same store.canApprove gate as the transcript.
+            .companionContentPreviews(store: store, target: target)
+            .navigationTitle("Review approval")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Close", action: close)
+                        .accessibilityIdentifier("companion-approval-review-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
     }
 }

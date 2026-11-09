@@ -25,10 +25,14 @@ import XCTest
     }
     private func transcriptPoint(_ app: XCUIApplication) -> XCUICoordinate {
         let frame = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
-        let top = max(frame.minY, element(app, "companion-chat-header").frame.maxY) + 20
-        let bottom = min(frame.maxY, element(app, "companion-composer").frame.minY) - 20
-        XCTAssertGreaterThan(bottom - top, 30)
-        let point = CGPoint(x: frame.minX + 8, y: top + min(35, (bottom - top) / 2))
+        // Just above the bottom bar, in the timeline's leading padding: clear of the glass header and its banners,
+        // message content and the trailing reading navigation.
+        var bottom = min(frame.maxY, element(app, "companion-composer-region").frame.minY)
+        let activity = app.staticTexts["companion-chat-activity"]
+        if activity.exists { bottom = min(bottom, activity.frame.minY) }
+        let top = max(frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        XCTAssertGreaterThan(bottom - top, 60)
+        let point = CGPoint(x: frame.minX + 8, y: bottom - 30)
         XCTAssertTrue(frame.contains(point))
         XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
         return app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y))
@@ -145,21 +149,28 @@ import XCTest
         let dismiss = app.buttons["companion-dismiss-keyboard"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
         XCTAssertEqual(dismiss.label, "Dismiss Keyboard")
-        let interrupt = app.buttons["Interrupt"]
+        let interrupt = app.buttons["companion-interrupt"]
+        XCTAssertEqual(interrupt.label, "Interrupt")
+        let controls = app.buttons["companion-level-menu"]
         let attach = app.buttons["companion-attach"]
         let send = app.buttons["companion-send"]
-        for control in [interrupt, attach, send, dismiss] {
+        // The whole composer, slash menu included, fits between the navigation bar and the keyboard.
+        let top = app.navigationBars.firstMatch.frame.maxY
+        var bottom = app.keyboards.firstMatch.frame.minY
+        let assistant = element(app, "SystemInputAssistantView")
+        if assistant.exists { bottom = min(bottom, assistant.frame.minY) }
+        let viewport = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
+        XCTAssertTrue(pixelContains(viewport, element(app, "companion-composer-region").frame), "The composer fits above the keyboard")
+        for control in [controls, interrupt, attach, send, dismiss] {
             XCTAssertTrue(control.isHittable, "Every composer control remains reachable: \(control.label)")
-            XCTAssertTrue(app.frame.contains(control.frame))
+            XCTAssertTrue(pixelContains(viewport, control.frame), "\(control.identifier): \(control.frame)")
+            assertMinimumTarget(control, control.identifier)
+            XCTAssertLessThanOrEqual(pixelAligned(composer.frame.maxY), pixelAligned(control.frame.minY), "The editor sits above its action row")
         }
-        XCTAssertGreaterThanOrEqual(dismiss.frame.width, 44)
-        XCTAssertGreaterThanOrEqual(dismiss.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(composer.frame.width, 100, "Retain a useful text-entry width with every control visible")
-        print("ASSISTIVE_COMPOSER window=\(app.frame) field=\(composer.frame) interrupt=\(interrupt.frame) send=\(send.frame) dismiss=\(dismiss.frame)")
-        XCTAssertLessThanOrEqual(interrupt.frame.maxX, composer.frame.minX)
-        XCTAssertLessThanOrEqual(composer.frame.maxX, send.frame.minX)
-        XCTAssertLessThanOrEqual(send.frame.maxX, dismiss.frame.minX)
-        XCTContext.runActivity(named: "Assistive row: window \(app.frame), input \(composer.frame), interrupt \(interrupt.frame), attach \(attach.frame), send \(send.frame), dismiss \(dismiss.frame)") { _ in }
+        XCTAssertGreaterThanOrEqual(composer.frame.width, app.frame.width * 0.7, "The draft keeps the full text row with every control visible")
+        XCTAssertLessThanOrEqual(pixelAligned(interrupt.frame.maxX), pixelAligned(send.frame.minX))
+        XCTAssertLessThanOrEqual(pixelAligned(send.frame.minX - interrupt.frame.maxX), 16, "Interrupt sits beside Send")
+        XCTAssertLessThanOrEqual(pixelAligned(send.frame.maxX), pixelAligned(dismiss.frame.minX))
         screenshot(app, "Assistive composer row with slash menu")
         dismiss.tap()
         assertDismissed(app, draft: "/r")

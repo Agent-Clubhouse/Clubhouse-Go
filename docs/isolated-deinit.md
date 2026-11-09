@@ -24,6 +24,8 @@ An empty nonisolated deinit can release fields on the thread performing the last
 
 | Class | Policy | Owned fields / decision |
 |---|---|---|
+| `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked continuations; no callback, UI or transport owner. beginTeardown closes future holds before resuming pending requests; deinit does no work. |
+| `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only synthetic service, a Store constructed with it, and Bool/Bool?/Int/target values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary. The `windows` Bool is a plain desktop-platform flag for content path matching, with no owner, callback or teardown change; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
@@ -112,3 +114,5 @@ Full-event review (#333) adds only value records to Store and LiveService: Strin
 The #344 preview helper-preset fields were reviewed after the main build gate detected stale ownership metadata: `editedHelperPresets` is an optional Sendable CompanionHelperRouting value graph and `showsAutoQuota` is Bool. Neither introduces callbacks, UI ownership or teardown work; the PreviewService policy surface now records these fields.
 
 Machine-qualified addresses (#339) change two reviewed storage surfaces: Store's `wrongMachines` maps CompanionTarget to a Sendable value struct (Strings and an optional CompanionTarget), and LiveService's `savedCommands` is now keyed by `CompanionCommandKey`, two Strings. Neither adds callbacks, UI ownership or teardown work.
+
+Compact chat (#314/#322) adds two DEBUG-only synthetic owners and two DEBUG constructor sites. `CompanionRecoveryFixtureService` holds value dictionaries, a teardown Bool and Sendable `CheckedContinuation`s; `beginTeardown` closes admission before resuming held requests, and its empty nonisolated deinit does no resumption or UI work. `CompanionRecoveryFixtureScene` owns that service, a Store built from it, and Bool/Int/target values. The header fixture constructs Store with the reviewed PreviewService; its image renderer is method-local and Store keeps only the resulting versioned icon reference. Neither route creates a Runtime, transport or saved pairing.

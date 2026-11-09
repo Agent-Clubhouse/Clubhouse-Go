@@ -266,6 +266,31 @@ class ReliableUITestCase: XCTestCase {
         XCTAssertTrue(target.exists, "Activity must expose its content")
     }
 
+    /// XCUITest frames are converted through floating point, so a laid-out 44pt target can read 43.99999999999997
+    /// and two equal edges can differ in the last bit. Compare at the display's pixel grid, the size actually drawn;
+    /// a shortfall of a pixel or more still fails.
+    func pixelAligned(_ value: CGFloat) -> CGFloat {
+        let scale = max(UIScreen.main.scale, 1)
+        return (value * scale).rounded() / scale
+    }
+
+    func pixelAligned(rect frame: CGRect) -> CGRect {
+        CGRect(x: pixelAligned(frame.minX), y: pixelAligned(frame.minY), width: pixelAligned(frame.width), height: pixelAligned(frame.height))
+    }
+
+    /// Asserts an interaction target is at least `width`×`height` points, at display-pixel precision.
+    func assertMinimumTarget(_ element: XCUIElement, _ name: String, width: CGFloat = 44, height: CGFloat = 44,
+                             file: StaticString = #filePath, line: UInt = #line) {
+        let frame = element.frame
+        XCTAssertGreaterThanOrEqual(pixelAligned(frame.width), width, "\(name) width: \(frame)", file: file, line: line)
+        XCTAssertGreaterThanOrEqual(pixelAligned(frame.height), height, "\(name) height: \(frame)", file: file, line: line)
+    }
+
+    /// Whether `outer` contains `inner` once both are on the display's pixel grid.
+    func pixelContains(_ outer: CGRect, _ inner: CGRect) -> Bool {
+        pixelAligned(rect: outer).contains(pixelAligned(rect: inner))
+    }
+
     /// Waits for `predicate` to hold for `element`, for at most `timeout` seconds.
     func waitFor(_ element: XCUIElement, _ predicate: NSPredicate, timeout: TimeInterval) -> Bool {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
