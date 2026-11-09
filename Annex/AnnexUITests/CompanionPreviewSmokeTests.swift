@@ -935,32 +935,91 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
     }
 
-    func testLocalMarkdownFileMissingAndFolderLinks() {
+    func testLocalLinksAndPathsResolveToFileFolderTruncatedMissingAndNotShared() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance", "--companion-preview-local-links"], attempts: 1)
         openRiver(app)
-        let cases = [
-            ("Some%20Folder/notes.md#intro", "Synthetic local link preview"),
-            ("missing.md", "Not available on the phone: this target may be missing, unreadable, or a folder on Studio Mac. Open it on your desktop to check."),
-            ("Some%20Folder/", "This link names a folder. Folder contents aren't available on this phone. Open the folder on your desktop.")
-        ]
-        for (href, expected) in cases {
+        func open(_ href: String) {
             let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", href)).firstMatch
-            XCTAssertTrue(link.waitForExistence(timeout: 10))
-            XCTAssertTrue(scrollTo(link, in: app, maxSwipes: 3))
+            XCTAssertTrue(link.waitForExistence(timeout: 10), href)
+            XCTAssertTrue(scrollTo(link, in: app, maxSwipes: 3), href)
             link.tap()
-            XCTAssertTrue(app.staticTexts[expected].waitForExistence(timeout: 10))
-            contentAcceptanceCapture(app, name: "Local link result \(href)")
-            XCTAssertEqual(app.state, .runningForeground)
-            if href.hasSuffix("/") {
-                XCTAssertTrue(app.staticTexts["Folder link"].exists)
-                XCTAssertFalse(app.buttons["Copy preview"].exists)
-            }
+        }
+        func close(_ gone: XCUIElement) {
             let done = app.buttons["companion-preview-done"]
             XCTAssertTrue(done.waitForExistence(timeout: 5))
             done.tap()
-            XCTAssertTrue(app.staticTexts[expected].waitForNonExistence(timeout: 5))
+            XCTAssertTrue(gone.waitForNonExistence(timeout: 5))
             XCTAssertTrue(app.navigationBars["River"].exists)
         }
+        func entry(_ name: String) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "companion-folder-entry")
+                .matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        }
+        func back() { app.navigationBars.buttons.element(boundBy: 0).tap() }
+        let preview = app.staticTexts["Synthetic local link preview"]
+
+        open("Some%20Folder/notes.md#intro")
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        contentAcceptanceCapture(app, name: "Local link file")
+        close(preview)
+
+        open("Some%20Folder/")
+        let list = app.descendants(matching: .any).matching(identifier: "companion-folder-list").firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Some Folder"].exists)
+        for name in ["images", "latest.md", "notes.md", "socket"] { XCTAssertTrue(entry(name).exists, name) }
+        XCTAssertTrue(entry("notes.md").label.contains("File"))
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "companion-folder-more").firstMatch.exists)
+        contentAcceptanceCapture(app, name: "Local link folder list")
+        entry("notes.md").tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 10), "A file entry previews")
+        back()
+        XCTAssertTrue(entry("images").waitForExistence(timeout: 5))
+        entry("images").tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-folder-empty").firstMatch.waitForExistence(timeout: 10), "A folder entry drills in")
+        XCTAssertTrue(app.navigationBars["images"].exists)
+        back()
+        XCTAssertTrue(entry("latest.md").waitForExistence(timeout: 5))
+        entry("latest.md").tap()
+        XCTAssertTrue(preview.waitForExistence(timeout: 10), "A symlink resolves on the desktop")
+        back()
+        close(list)
+
+        open("Big%20Folder/")
+        let more = app.descendants(matching: .any).matching(identifier: "companion-folder-more").firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(entry("file-001.txt").waitForExistence(timeout: 10))
+        XCTAssertTrue(scrollUntilExists(more, in: app, maxSwipes: 4))
+        XCTAssertTrue(more.label.contains("More items on the desktop"))
+        contentAcceptanceCapture(app, name: "Local link truncated folder")
+        close(list)
+
+        open("missing.md")
+        let missing = app.descendants(matching: .any).matching(identifier: "companion-link-missing").firstMatch
+        XCTAssertTrue(missing.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Not found on Studio Mac"].exists)
+        XCTAssertFalse(app.buttons["Try again"].exists)
+        contentAcceptanceCapture(app, name: "Local link missing")
+        close(missing)
+
+        open("/Users/river/private/keys.md")
+        let notShared = app.descendants(matching: .any).matching(identifier: "companion-link-not-allowed").firstMatch
+        XCTAssertTrue(notShared.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Not shared with the phone"].exists)
+        contentAcceptanceCapture(app, name: "Local link not shared")
+        close(notShared)
+
+        // Code-span paths resolve the same way as links.
+        open("Some Folder/notes.md")
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        contentAcceptanceCapture(app, name: "Code span file")
+        close(preview)
+        open("Some Folder/")
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(entry("notes.md").exists)
+        contentAcceptanceCapture(app, name: "Code span folder")
+        close(list)
+        XCTAssertEqual(app.state, .runningForeground)
     }
 
     func testHomePDFSheetDismissesReopensAndStaysForegroundAfterExportedURLTap() {

@@ -468,7 +468,7 @@ nonisolated extension AnnexReadRoute {
         case .agents, .agentState: .agents
         case .chat, .chatHistory: .history
         case .chatSessions, .sessions, .transcript: .archive
-        case .chatContent: .media
+        case .chatContent, .chatLink: .media
         case .createOptions: .agentOptions
         case .agentSettings, .helperRouting: .agentSettings
         case .gitStatus, .gitDiff: .changes

@@ -78,7 +78,8 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
     public func sameAddress(as other: AnnexEndpoint) -> Bool { host == other.host && port == other.port }
 
     /// Path components are individually encoded, including slash, percent and query characters. Query values keep a literal "+".
-    public func url(path: [String], query: [URLQueryItem] = [], webSocket: Bool = false) throws -> URL {
+    /// `encodedQuery`, already percent-encoded, replaces `query`.
+    public func url(path: [String], query: [URLQueryItem] = [], encodedQuery: String? = nil, webSocket: Bool = false) throws -> URL {
         var components = URLComponents()
         components.scheme = webSocket ? "wss" : "https"
         components.host = host.contains(":") ? "[\(host)]" : host
@@ -88,11 +89,22 @@ nonisolated public struct AnnexEndpoint: Hashable, Codable, Sendable {
             throw AnnexTransportError.invalidEndpoint
         }
         components.percentEncodedPath = "/" + path.map { $0.addingPercentEncoding(withAllowedCharacters: allowed)! }.joined(separator: "/")
-        components.queryItems = query.isEmpty ? nil : query
-        // URLComponents leaves "+" as is, and the desktop's URLSearchParams reads it as a space.
-        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        if let encodedQuery {
+            components.percentEncodedQuery = encodedQuery
+        } else {
+            components.queryItems = query.isEmpty ? nil : query
+            // URLComponents leaves "+" as is, and the desktop's URLSearchParams reads it as a space.
+            components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        }
         guard let url = components.url else { throw AnnexTransportError.invalidEndpoint }
         return url
+    }
+
+    /// A query value encoded as JavaScript's `encodeURIComponent` does: everything but `A-Z a-z 0-9 - _ . ! ~ * ' ( )`
+    /// is percent-encoded as UTF-8, so `+` is `%2B`, a space `%20`, `/` `%2F` and `%` `%25`.
+    public static func uriComponent(_ value: String) -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
     }
 
     private enum CodingKeys: String, CodingKey { case host, port, route }

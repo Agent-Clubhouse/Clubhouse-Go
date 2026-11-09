@@ -161,9 +161,9 @@ public actor AnnexTransport: AnnexTransporting {
         await oldSocket?.close()
     }
 
-    private func authorizedRequest(path: [String], query: [URLQueryItem] = [], webSocket: Bool = false) async throws -> URLRequest {
+    private func authorizedRequest(path: [String], query: [URLQueryItem] = [], encodedQuery: String? = nil, webSocket: Bool = false) async throws -> URLRequest {
         guard let credential = try await credentials.credential(for: host.hostID) else { throw AnnexTransportError.credentialMissing }
-        var request = URLRequest(url: try host.endpoint.url(path: path, query: query, webSocket: webSocket))
+        var request = URLRequest(url: try host.endpoint.url(path: path, query: query, encodedQuery: encodedQuery, webSocket: webSocket))
         request.setValue("Bearer \(credential.bearerToken)", forHTTPHeaderField: "Authorization")
         if telemetry.isEnabled, let telemetryBinding {
             telemetryBinding.annotate(AnnexTelemetry.current)
@@ -203,7 +203,7 @@ public actor AnnexTransport: AnnexTransporting {
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         return try await telemetry.measure(route.diagnosticOperation) {
             let requestedGeneration = generation
-            let path: [String]; var query: [URLQueryItem] = []
+            let path: [String]; var query: [URLQueryItem] = []; var encodedQuery: String?
             switch route {
             case .identity: path = ["api", "v1", "identity"]
             case .status: path = ["api", "v1", "status"]
@@ -215,6 +215,10 @@ public actor AnnexTransport: AnnexTransporting {
                 path = ["api", "v1", "mobile", "agents", agent, "content"]
                 if let reference { query = [.init(name: "mediaRef", value: reference)] }
                 if let file { query = [.init(name: "path", value: file)] }
+            case .chatLink(let agent, let href):
+                guard !href.isEmpty else { throw AnnexTransportError.invalidEndpoint }
+                path = ["api", "v1", "mobile", "agents", agent, "link"]
+                encodedQuery = "href=" + AnnexEndpoint.uriComponent(href)
             case .chat(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat"]
             case .chatSessions(let agent): path = ["api", "v1", "mobile", "agents", agent, "chat", "sessions"]
             case .chatHistory(let agent, let session, let before, let limit):
@@ -239,7 +243,7 @@ public actor AnnexTransport: AnnexTransporting {
                 path = ["api", "v1", "projects", project, "git", "diff"]
                 query = [.init(name: "file", value: file), .init(name: "staged", value: staged ? "true" : "false")]
             }
-            let request = try await authorizedRequest(path: path, query: query)
+            let request = try await authorizedRequest(path: path, query: query, encodedQuery: encodedQuery)
             guard generation == requestedGeneration else { throw AnnexTransportError.disconnected }
             try Task.checkCancellation()
             let response = try await io.perform(request)

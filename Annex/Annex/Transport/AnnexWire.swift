@@ -96,6 +96,8 @@ nonisolated public enum AnnexTransportEvent: Sendable, Equatable {
 nonisolated public enum AnnexReadRoute: Sendable {
     case identity, status, projects, capabilities, network
     case chatContent(agentID: String, mediaRef: String?, filePath: String?)
+    /// What a chat link names on the desktop (`chatLinks` v1): `href` is the link as the agent wrote it.
+    case chatLink(agentID: String, href: String)
     case chat(agentID: String)
     case chatSessions(agentID: String)
     case chatHistory(agentID: String, sessionID: String?, beforeSeq: Int64?, limit: Int)

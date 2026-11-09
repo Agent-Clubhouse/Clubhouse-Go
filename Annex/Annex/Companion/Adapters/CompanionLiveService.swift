@@ -284,12 +284,44 @@ import ClubhouseTransport
             }
             do { return try await fetchContent(reference, target: target) }
             catch let error as CompanionContentError { throw error }
+            // A link's own answers (missing, not shared, or a route refusal) are already worded.
+            catch let error as CompanionLinkError { throw error }
+            catch let error as CompanionServiceError { throw error }
             catch let error as AnnexTransportError {
                 let message = Self.contentErrorMessage(error, reference: reference, hostName: hostName)
                 if case .rejected(404, "content_unavailable", _) = error { throw CompanionContentError.unavailable(message) }
                 throw CompanionServiceError.unavailable(message)
             }
             catch { throw CompanionServiceError.unavailable(Self.contentErrorMessage(error, reference: reference, hostName: hostName)) }
+        }
+    }
+
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        return try await AnnexTelemetry.shared.measure(.media) {
+            let hostName = hosts[target.hostID]?.name ?? "your desktop"
+            guard hosts[target.hostID]?.richContentAvailable == true else {
+                throw CompanionServiceError.unavailable("Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files.")
+            }
+            guard capabilities[target.hostID]?.supportsChatLinks == true else { throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate) }
+            do {
+                let value = try await transport(for: target.hostID).read(.chatLink(agentID: target.agentID, href: href))
+                return try CompanionLinkTarget(json: value, windows: windowsHosts.contains(target.hostID))
+            } catch {
+                throw CompanionServiceError.unavailable(Self.linkErrorMessage(error, hostName: hostName))
+            }
+        }
+    }
+
+    /// The chat-link route answers a missing or refused target in its body; these are the requests it couldn't take.
+    static func linkErrorMessage(_ error: Error, hostName: String) -> String {
+        switch error as? AnnexTransportError {
+        case .rejected(404, "agent_not_found", _): return "This agent is no longer on \(hostName)."
+        case .rejected(404, "content_unavailable", _):
+            return "Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files."
+        case .rejected(404, "not_found", _): return CompanionContentReference.linksNeedUpdate
+        case .rejected(400, _, _), .invalidEndpoint: return "This link can't be opened from the phone. Open it on \(hostName)."
+        case .malformedResponse: return "\(hostName) sent an answer this phone can't read. Updating the desktop may help."
+        default: return readableError(error)
         }
     }
 
@@ -302,10 +334,10 @@ import ClubhouseTransport
         case .file(let path):
             guard CompanionContentReference.isValidFilePath(path, windows: windowsHosts.contains(target.hostID)) else { throw AnnexTransportError.invalidEndpoint }
             route = .chatContent(agentID: target.agentID, mediaRef: nil, filePath: path)
-        case .link:
-            return try await reference.loadLink(roots: .init(windows: windowsHosts.contains(target.hostID), anyPath: true)) {
-                try await self.content($0, target: target)
-            }
+        case .link(let href):
+            return try await CompanionContentReference.open(link: href, hostName: hosts[target.hostID]?.name ?? "your desktop",
+                                                            resolve: { try await self.resolveLink($0, target: target) },
+                                                            load: { try await self.content($0, target: target) })
         case .localImage: throw AnnexTransportError.invalidEndpoint
             }
             let value = try await transport(for: target.hostID).read(route)
@@ -1042,6 +1074,7 @@ import ClubhouseTransport
                 if capabilities[hostID]?.epoch != newCapabilities?.epoch { clearFullReviews(hostID: hostID) }
                 capabilities[hostID] = newCapabilities
                 hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
+                hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
                 hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
                 hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true

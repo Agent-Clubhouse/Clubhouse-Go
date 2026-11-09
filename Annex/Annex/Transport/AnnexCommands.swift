@@ -413,6 +413,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsLevelSwitch: Bool { commands.contains("chat.setLevel") && (chatControls?.version ?? 0) >= 1 }
     /// The composer's `/` menu: the chat snapshot's `slashCommands` and `commands_available` events (`slashCommands` v1).
     public let slashCommands: Feature?
+    /// What a chat link names, and a folder's listing (`chatLinks` v1). Older desktops only read files through `/content`.
+    public let chatLinks: Feature?
+    public var supportsChatLinks: Bool { (chatLinks?.version ?? 0) >= 1 }
     public var supportsSlashCommands: Bool { commands.contains("chat.send") && (slashCommands?.version ?? 0) >= 1 }
     /// What a paired phone may do with permissions. Older desktops have no block: one-off approvals only, and no Free Agent Mode.
     public struct Permissions: Decodable, Sendable, Equatable {
@@ -542,6 +545,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
         slashCommands = optional(.slashCommands)
+        chatLinks = optional(.chatLinks)
         iconRefs = optional(.iconRefs)
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
@@ -554,7 +558,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
-        case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
+        case iconRefs, projectState, finishedQuickAgents, chatControls, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }
 
