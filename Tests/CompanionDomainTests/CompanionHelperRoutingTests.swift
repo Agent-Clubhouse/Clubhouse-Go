@@ -10,7 +10,8 @@ import Testing
     }
 
     @Test func capabilityOnlyOffersAdvertisedPresets() throws {
-        let raw = try ContractFixtures.body("capabilities.json")
+        let fixture = ContractFixtures.directory.deletingLastPathComponent().appending(path: "AnnexHelperRouting/capabilities.json")
+        let raw = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: fixture))["response"]?["body"] ?? .null
         let caps = try raw.decode(AnnexCapabilities.self)
         #expect(caps.supportsHelperRouting)
         let feature = try #require(caps.helperRouting)
