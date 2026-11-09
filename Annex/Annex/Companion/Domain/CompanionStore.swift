@@ -187,9 +187,19 @@ import Observation
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
         }
-        return try await reference.loadLink(roots: archiveRoots ?? contentRoots(for: target)) {
-            try await service.content($0, target: target)
+        guard case .link(let href) = reference else { return try await service.content(reference, target: target) }
+        return try await linkContent(href, target: target)
+    }
+    /// A chat link, or an entry of a folder the desktop listed, resolved on the desktop first (`chatLinks` v1).
+    /// Entries skip the conversation's path hints: the desktop listed them and still authorizes every read.
+    func linkContent(_ href: String, target: CompanionTarget) async throws -> CompanionContent {
+        guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
+        guard host.richContentAvailable else {
+            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
         }
+        guard host.canResolveLinks else { throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate) }
+        return try await CompanionContentReference.open(link: href, hostName: host.name, resolve: { try await service.resolveLink($0, target: target) },
+                                                        load: { try await service.content($0, target: target) })
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots {

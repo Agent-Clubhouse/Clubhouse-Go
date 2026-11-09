@@ -67,6 +67,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
     var hasLoadedCatalog = false
     var richContentAvailable = false
+    /// The desktop says what a chat link names and lists folders (`chatLinks` v1).
+    var canResolveLinks = false
     var canSpawn = false
     /// The desktop creates durable agents (`agent.create` and create options v1). Older ones offer quick agents only.
     var canCreateDurable = false
@@ -787,6 +789,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func upload(_ image: CompanionImageAttachment, target: CompanionTarget) async throws -> String
     func wake(_ target: CompanionTarget, resume: Bool, clientCommandID: String) async throws
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent
+    /// What a chat link names on the desktop (`chatLinks` v1). `href` is the link as the agent wrote it, or a listed folder entry's path.
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws
@@ -872,6 +876,9 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         throw CompanionServiceError.unavailable("Rich content is unavailable. Enable Rich chat content on your desktop and use a compatible Annex version.")
+    }
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate)
     }
     func removeQueued(_ messageID: String, target: CompanionTarget, clientCommandID: String) async throws -> Bool {
         throw CompanionServiceError.unavailable("This desktop does not support removing queued messages.")

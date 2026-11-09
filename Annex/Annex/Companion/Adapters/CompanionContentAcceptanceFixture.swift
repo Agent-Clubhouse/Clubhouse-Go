@@ -10,20 +10,44 @@ import UIKit
     static let homeText = "~/.clubhouse/scratch/home.txt"
     static let temporaryText = "/tmp/clubhouse-preview/scratch.txt"
     static let homePDF = "~/.clubhouse/scratch/acceptance.pdf"
-    static let linkFile = "Some Folder/notes.md"
     static let linkHref = "Some%20Folder/notes.md#intro"
+    static let folderHref = "Some%20Folder/"
+    static let truncatedHref = "Big%20Folder/"
     static let missingLink = "missing.md"
+    static let notAllowedLink = "/Users/river/private/keys.md"
+    static let folderPath = "/Users/river/clubhouse/Some Folder"
+    static let linkFile = folderPath + "/notes.md"
     static var history: CompanionHistory {
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-local-links") {
             return .init(items: [
                 .message(.init(id: "local-links-acceptance", role: .assistant,
-                              text: "Local links: [file](\(linkHref)), [missing](\(missingLink)), [folder](Some%20Folder/)."))
+                              text: "Local links: [file](\(linkHref)), [missing](\(missingLink)), [folder](\(folderHref)), [big folder](\(truncatedHref)), [private](\(notAllowedLink))."))
             ], contentRoots: .init(anyPath: true))
         }
         return .init(items: [
             .message(.init(id: "content-acceptance", role: .assistant,
                           text: "Synthetic scratch files: `\(homeText)`, `\(temporaryText)`, `\(homePDF)`."))
         ], contentRoots: .init(paths: ["/Users/river/clubhouse"], anyPath: true))
+    }
+    /// The desktop's chat-link answers for the links above and the entries of the folders it lists.
+    static func resolve(_ href: String) -> CompanionLinkTarget {
+        switch href {
+        case linkHref, linkFile, folderPath + "/latest.md":
+            return .file(path: linkFile, name: "notes.md", kind: "text", size: 1234)
+        case folderHref:
+            return .directory(.init(path: folderPath, name: "Some Folder", entries: [
+                .init(name: "images", kind: .directory), .init(name: "latest.md", kind: .symlink),
+                .init(name: "notes.md", kind: .file, size: 1234), .init(name: "socket", kind: .other)
+            ], truncated: false))
+        case folderPath + "/images":
+            return .directory(.init(path: folderPath + "/images", name: "images", entries: [], truncated: false))
+        case truncatedHref:
+            return .directory(.init(path: "/Users/river/clubhouse/Big Folder", name: "Big Folder",
+                                    entries: (1...12).map { .init(name: String(format: "file-%03d.txt", $0), kind: .file, size: $0 * 10) },
+                                    truncated: true))
+        case notAllowedLink: return .notAllowed
+        default: return .missing
+        }
     }
     static func content(path: String) throws -> CompanionContent {
         let name = (path as NSString).lastPathComponent
