@@ -22,6 +22,8 @@ public actor AnnexTransport: AnnexTransporting {
     private var generation = UUID()
     private var state: AnnexConnectionState = .disconnected
     private var capabilities: AnnexCapabilities?
+    private var fullEventReviews: [String: FullEventReview] = [:]
+    private struct FullEventReview { let agent: String; let session: String; let request: String; let epoch: String; let generation: UUID }
     private var cursor = AnnexReplayCursor()
     private var socketUsesIconRefs = false
     private var awaitingFirstSnapshot = false
@@ -149,6 +151,7 @@ public actor AnnexTransport: AnnexTransporting {
         generation = UUID()
         loop?.cancel(); loop = nil
         let oldSocket = socket; socket = nil
+        fullEventReviews.removeAll()
         capabilities = nil
         awaitingFirstSnapshot = false
         snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
@@ -174,6 +177,27 @@ public actor AnnexTransport: AnnexTransporting {
         var request = try await authorizedRequest(path: ["api", "v1", "icons", kind, id], query: [.init(name: "v", value: version)])
         if let ifNoneMatch { request.setValue(ifNoneMatch, forHTTPHeaderField: "If-None-Match") }
         return try await io.perform(request, maximumBytes: 72 * 1024)
+    }
+
+    public func fullEvent(agentID: String, sessionID: String, sequence: Int64) async throws -> AnnexFullEvent {
+        guard let capabilities, capabilities.controlAvailable == true, capabilities.supportsFullEvents,
+              let feature = capabilities.fullEvents else { throw AnnexTransportError.unsupportedCapability("fullEvents") }
+        guard !agentID.isEmpty, !sessionID.isEmpty, sessionID.utf16.count <= 256, sequence > 0 else { throw AnnexTransportError.invalidEndpoint }
+        let current = generation
+        let request = try await authorizedRequest(path: ["api", "v1", "mobile", "agents", agentID, "chat", "events", String(sequence)],
+                                                  query: [.init(name: "sessionId", value: sessionID)])
+        guard current == generation else { throw AnnexTransportError.disconnected }
+        let response = try await io.performFullEvent(request, maximumBytes: feature.maximumBytes)
+        guard current == generation, self.capabilities?.epoch == capabilities.epoch else { throw AnnexTransportError.disconnected }
+        guard (200...299).contains(response.status) else { throw AnnexHTTPValidation.error(response) }
+        guard response.data.count <= min(feature.maximumBytes, AnnexFullEvent.maximumBytes) else { throw AnnexTransportError.responseTooLarge }
+        let full = try AnnexFullEvent(data: response.data, agentID: agentID, sessionID: sessionID, sequence: sequence)
+        if full.event["type"]?.string == "permission_request", let id = full.event["data"]?["requestId"]?.string {
+            // Bounded, device-local and never persisted or shared across transport registrations.
+            if fullEventReviews.count >= 128 { fullEventReviews.removeAll() }
+            fullEventReviews[full.digest] = .init(agent: agentID, session: sessionID, request: id, epoch: capabilities.epoch, generation: current)
+        }
+        return full
     }
 
     public func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
@@ -269,6 +293,12 @@ public actor AnnexTransport: AnnexTransporting {
             guard commands.count < commandCapacity else { throw AnnexTransportError.queueOverflow }
             guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
                 throw AnnexTransportError.unsupportedCapability(command.type)
+            }
+            if case .permission(let agent, let session, let request, _, let digest?) = command.kind {
+                guard capabilities.supportsFullEvents, let review = fullEventReviews[digest], review.agent == agent, review.session == session,
+                      review.request == request, review.epoch == command.epoch, review.generation == generation else {
+                    throw AnnexTransportError.rejected(status: 409, code: "incomplete_representation", message: "Fetch and review this pending request again on this device before allowing it.")
+                }
             }
             // Reserve before the first await so concurrent commands cannot overtake.
             let requestedGeneration = generation
@@ -409,6 +439,7 @@ public actor AnnexTransport: AnnexTransporting {
                 diagnostic.fail(error); diagnostic.end()
                 if current == generation { endTelemetryHello(AnnexDiagnosticFailure.classify(error)) }
                 guard current == generation && !Task.isCancelled else { return }
+                fullEventReviews.removeAll()
                 capabilities = nil
                 let oldSocket = socket; socket = nil; await oldSocket?.close()
                 guard current == generation && !Task.isCancelled else { return }

@@ -21,12 +21,16 @@ nonisolated public protocol AnnexWebSocket: Sendable {
 /// Injection boundary for deterministic protocol tests. Implementations MUST
 /// honor TrustedAnnexHost before sending any credential or application bytes.
 nonisolated public protocol AnnexIO: Sendable {
+    func performFullEvent(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse
     func openWebSocket(_ request: URLRequest) async throws -> any AnnexWebSocket
     func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse
 }
 
 nonisolated public extension AnnexIO {
+    func performFullEvent(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
+        try await perform(request, maximumBytes: min(AnnexFullEvent.maximumBytes, maximumBytes))
+    }
     func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
         let result = try await perform(request)
         guard result.data.count <= maximumBytes else { throw AnnexTransportError.responseTooLarge }
@@ -135,7 +139,12 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         try await perform(request, maximumBytes: maximumResponseBytes)
     }
     public func perform(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
-        let limit = min(maximumResponseBytes, max(1, maximumBytes))
+        try await performBounded(request, limit: min(maximumResponseBytes, max(1, maximumBytes)))
+    }
+    public func performFullEvent(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
+        try await performBounded(request, limit: min(AnnexFullEvent.maximumBytes, max(1, maximumBytes)))
+    }
+    private func performBounded(_ request: URLRequest, limit: Int) async throws -> AnnexHTTPResponse {
         return try await telemetry.measure(.http) {
             try validate(request, scheme: "https")
             var request = request

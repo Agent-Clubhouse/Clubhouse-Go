@@ -158,8 +158,14 @@ struct CompanionChatProjector {
             let name: String = data["title"]?.string ?? data["toolName"]?.string ?? old?.name ?? "Tool activity"
             let exitCode = blocks.reversed().first { $0["type"]?.string == "terminal" && $0["exitCode"]?.integer != nil }?["exitCode"]?.integer.map(Int.init) ?? old?.exitCode
             let combined: String? = data["contentMode"]?.string == "append" ? (old?.output ?? "") + (output ?? "") : output ?? old?.output
+            let cut = CompanionEventReference(event: event)
+            var cutEvents = old?.cutEvents ?? []
+            if cut?.truncation != nil, let cut {
+                // Keep the latest cut input and output separately, without retaining every streaming preview.
+                cutEvents.removeAll { $0.event["type"] == cut.event["type"] }; cutEvents.append(cut)
+            }
             upsert(.tool(.init(id: toolID, name: name, summary: input ?? old?.summary ?? "", output: combined, state: state, images: images,
-                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval, exitCode: exitCode, subagentID: data["subagentId"]?.string ?? old?.subagentID)))
+                               kind: kind, location: location, hasChanges: changes, awaitsApproval: awaitsApproval, exitCode: exitCode, subagentID: data["subagentId"]?.string ?? old?.subagentID, cutEvents: cutEvents)))
         case "permission_request":
             guard let requestID = data["requestId"]?.string else { return }
             let options = data["options"].arrayValue.compactMap { value -> CompanionApprovalOption? in
@@ -182,7 +188,7 @@ struct CompanionChatProjector {
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
                                    title: data["title"]?.string.flatMap { $0.isEmpty ? nil : $0 },
                                    detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options,
-                                   toolCallID: data["toolCallId"]?.string)))
+                                   toolCallID: data["toolCallId"]?.string, eventReference: CompanionEventReference(event: event))))
             status = .approval
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,

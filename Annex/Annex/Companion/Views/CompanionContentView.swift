@@ -39,12 +39,18 @@ private struct CompanionContentPreviews: ViewModifier {
     /// Nil for live content; an archive always supplies a value, even before its first page.
     let archiveRoots: CompanionContentRoots?
     @State private var selected: CompanionContentReference?
+    @State private var fullEvent: CompanionEventReference?
     func body(content: Content) -> some View {
         content
             .companionMarkdownBlockPreviews()
+            .environment(\.companionFullEventPresenter, .init(open: { fullEvent = $0 },
+                canApprove: { store.canApprove($0, target: target) }, reason: { store.fullReviewReason($0, target: target) }))
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
                                                              contentRoots: archiveRoots ?? store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))
+            .sheet(item: $fullEvent) { reference in
+                CompanionFullEventReview(reference: reference, target: target, store: store)
+            }
             .sheet(item: $selected) { reference in
                 CompanionContentView(reference: reference, store: store, target: target, archiveRoots: archiveRoots) { selected = nil }
                     .interactiveDismissDisabled(false)

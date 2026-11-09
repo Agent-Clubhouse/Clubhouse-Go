@@ -7,7 +7,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case send(agentID: String, sessionID: String, text: String, delivery: Delivery = .auto, attachmentIDs: [String] = [])
         case interrupt(agentID: String, sessionID: String)
         case removeQueued(agentID: String, sessionID: String, messageIDs: [String])
-        case permission(agentID: String, sessionID: String, requestID: String, optionID: String)
+        case permission(agentID: String, sessionID: String, requestID: String, optionID: String, reviewedDigest: String? = nil)
         case question(agentID: String, sessionID: String, requestID: String, answers: [String: AnnexJSON])
         case start(agentID: String, message: String? = nil, resume: Bool? = nil, expectedProvider: String? = nil, expectedSessionID: String? = nil)
         case stop(agentID: String, waitForStopped: Bool? = nil)
@@ -99,8 +99,12 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .interrupt(let agent, let session): target(agent, session)
         case .removeQueued(let agent, let session, let ids):
             target(agent, session); v["messageIds"] = .array(ids.map(AnnexJSON.string))
-        case .permission(let agent, let session, let request, let option):
+        case .permission(let agent, let session, let request, let option, let reviewedDigest):
             target(agent, session); v["requestId"] = .string(request); v["optionId"] = .string(option)
+            if let reviewedDigest {
+                guard AnnexFullEvent.isDigest(reviewedDigest) else { throw AnnexTransportError.malformedResponse }
+                v["reviewedDigest"] = .string(reviewedDigest)
+            }
         case .question(let agent, let session, let request, let answers):
             target(agent, session); v["requestId"] = .string(request); v["answers"] = .object(answers)
         case .start(let agent, let message, let resume, let provider, let session):
@@ -334,6 +338,8 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let controlAvailable: Bool?
     public let commands: [String]
     public struct Events: Decodable, Sendable { public let queueState: String? }
+    public let fullEvents: FullEvents?
+    public var supportsFullEvents: Bool { fullEvents?.isSupported == true }
     public let events: Events?
     public var supportsQueueState: Bool { events?.queueState == "queue_state" }
     public struct Idempotency: Decodable, Sendable {
@@ -498,6 +504,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         idempotency = try c.decode(Idempotency.self, forKey: .idempotency)
         func optional<T: Decodable>(_ key: CodingKeys) -> T? { (try? c.decodeIfPresent(T.self, forKey: key)) ?? nil }
         controlAvailable = optional(.controlAvailable)
+        fullEvents = optional(.fullEvents)
         events = optional(.events)
         pairing = optional(.pairing)
         network = optional(.network)
@@ -521,7 +528,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, network, idempotency, routes, createOptions, agentSettings, agentState, providerControl
+        case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }

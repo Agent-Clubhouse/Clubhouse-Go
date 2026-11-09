@@ -74,6 +74,13 @@ import Foundation
         // The ordinary REST cap remains distinct and larger.
         #expect(try await iconIO.perform(iconSized(73729)).data.count == 73729)
     }
+    // Full-event HTTP has its own cap; ordinary HTTP and WebSockets retain their configured limit.
+    let wholeRequest = URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: "2048")]))
+    #expect(try await io.performFullEvent(wholeRequest, maximumBytes: 2048).data.count == 2048)
+    await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.perform(wholeRequest) }
+    await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.performFullEvent(wholeRequest, maximumBytes: 2047) }
+    let overFullCap = URLRequest(url: try endpoint.url(path: ["sized"], query: [.init(name: "bytes", value: String(AnnexFullEvent.maximumBytes + 1))]))
+    await #expect(throws: AnnexTransportError.responseTooLarge) { try await io.performFullEvent(overFullCap, maximumBytes: Int.max) }
     telemetry.setEnabled(false)
     request.setValue("injected-secret", forHTTPHeaderField: "baggage")
     request.setValue(propagated, forHTTPHeaderField: "traceparent")

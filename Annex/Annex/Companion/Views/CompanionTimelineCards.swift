@@ -448,6 +448,7 @@ struct CompanionToolCard: View {
         VStack(alignment: .leading, spacing: 10) {
             if !tool.summary.isEmpty { Text(tool.summary).font(.callout.monospaced()).textSelection(.enabled) }
             output
+            ForEach(tool.cutEvents) { reference in CompanionFullEventButton(reference: reference) }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
     @ViewBuilder private var output: some View {
@@ -645,6 +646,8 @@ struct CompanionApprovalCard: View {
     /// The desktop takes lasting options ("Allow always") from the phone (`permissions.persistentApprovals`).
     var persistentApprovals = false
     let respond: (CompanionApprovalOption) -> Void
+    @Environment(\.companionFullEventPresenter) private var fullEventPresenter
+    private var canAllow: Bool { fullEventPresenter?.canApprove(approval) ?? !approval.isIncomplete }
     @State private var showDetails = false
     @State private var confirming: CompanionApprovalOption?
     @Environment(\.companionPalette) private var palette
@@ -680,6 +683,12 @@ struct CompanionApprovalCard: View {
                             Text(detail).font(.callout.monospaced()).textSelection(.enabled).padding(.vertical, 8)
                         }
                     }.font(.subheadline)
+                }
+                if let reference = approval.eventReference, approval.isIncomplete || fullEventPresenter?.reason(approval) != nil {
+                    CompanionFullEventButton(reference: reference)
+                }
+                if let reason = fullEventPresenter?.reason(approval) ?? (approval.isIncomplete && !canAllow ? "Review the full request before allowing it, or deny it here." : nil) {
+                    Text(reason).font(.caption).foregroundStyle(.secondary)
                 }
                 if let deadline = approval.deadline, !expired, approval.resolution == .pending {
                     HStack(spacing: 4) {
@@ -719,7 +728,7 @@ struct CompanionApprovalCard: View {
         }
         ForEach(approval.options.filter { $0.isOneOff && (!actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce)) }) { option in
             if option.kind == .allowOnce {
-                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel()
+                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel().disabled(!canAllow)
             } else {
                 Button(option.label, systemImage: "xmark", role: .destructive) { respond(option) }.buttonStyle(.bordered)
             }
@@ -744,7 +753,7 @@ struct CompanionApprovalCard: View {
                             if let scope = option.scope { Text(scope).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1) }
                         }
                     }
-                    .buttonStyle(.bordered).font(.subheadline)
+                    .buttonStyle(.bordered).font(.subheadline).disabled(option.allows && !canAllow)
                     .accessibilityIdentifier("companion-approval-option-\(option.id)")
                 }
             }
