@@ -92,9 +92,11 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         /// mode once the field no longer sat inside a glass effect, though the field and window were both dark.
         /// Set from the window's settled style, never by reloading a live keyboard: reloading while the field was
         /// becoming first responder dismissed the keyboard and dropped keystrokes. A switch applies on next focus.
+        /// The field's own style follows too, so the caret, selection and other system colours match the card.
         private static func matchKeyboard(_ textView: UITextView, to style: UIUserInterfaceStyle) {
             let appearance: UIKeyboardAppearance = style == .dark ? .dark : .light
             if textView.keyboardAppearance != appearance { textView.keyboardAppearance = appearance }
+            if textView.overrideUserInterfaceStyle != style { textView.overrideUserInterfaceStyle = style }
         }
 
         /// The nearest text view that overlaps this one, looking a few levels up so it never reaches another screen's field.

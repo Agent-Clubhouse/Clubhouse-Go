@@ -39,11 +39,17 @@ struct CompanionPreviewRoot: View {
         } else if CompanionRecoveryFixture.isEnabled {
             CompanionRecoveryFixture()
         } else {
-            // `--companion-preview-dark`: dark for this launch only. Changing the simulator's appearance from a UI test
-            // doesn't reliably reach the app on every runtime.
-            normalPreview
-                .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("--companion-preview-dark") ? .dark : nil)
+            // `--companion-preview-dark` / `-light`: that appearance for this launch only. Changing the simulator's
+            // appearance from a UI test doesn't reliably reach the app on every runtime.
+            normalPreview.preferredColorScheme(Self.forcedColorScheme)
         }
+    }
+
+    private static var forcedColorScheme: ColorScheme? {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--companion-preview-dark") { return .dark }
+        if arguments.contains("--companion-preview-light") { return .light }
+        return nil
     }
 
     private var normalPreview: some View {

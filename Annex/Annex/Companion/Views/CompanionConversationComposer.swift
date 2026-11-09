@@ -152,7 +152,10 @@ struct CompanionConversationComposer: View {
             HStack(alignment: .bottom, spacing: 4) {
                 inputRowLayout {
                     HStack(alignment: .bottom, spacing: 6) {
-                        TextField(composerPlaceholder, text: composerText, selection: $composerSelection, axis: .vertical)
+                        // The theme's secondary label keeps the prompt at 4.5:1 on the composer card; the system placeholder
+                        // colour followed a light trait on the dark card (1.13:1).
+                        TextField(composerPlaceholder, text: composerText, selection: $composerSelection,
+                                  prompt: Text(composerPlaceholder).foregroundStyle(Color(palette.secondaryLabel)), axis: .vertical)
                             // Leave room for attachments and actions above a narrow keyboard. The native field
                             // scrolls to the caret; every line remains in the draft at its normal text size.
                             .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? (composerFocused ? 1 : 3) : 8))

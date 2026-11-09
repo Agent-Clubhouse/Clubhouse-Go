@@ -300,30 +300,52 @@ import XCTest
         try assertRow(app, working: true, state: "working typed unfocused", reviewButton: largestText)
     }
 
-    /// In system dark mode the draft keeps the dark theme: its typed text stays readable (WCAG AA) on the field, and
-    /// the keyboard is the dark one. A composer glass that adapted to light left white text at about 2:1.
+    /// In dark mode the draft keeps the dark theme: its prompt and typed text stay readable (WCAG AA) on the field,
+    /// and the keyboard is the dark one. A composer glass that adapted to light left white text at about 2:1, and the
+    /// system placeholder colour at 1.13:1.
     func testDarkModeDraftTextAndKeyboardStayDark() {
-        // Dark for this launch; setting the simulator's appearance from a test doesn't reach the app on every runtime.
-        let app = launchApp(["--companion-preview", "--companion-preview-working-composer", "--companion-preview-dark"], attempts: 1)
+        assertDraftReadable(dark: true)
+    }
+
+    /// Light mode keeps the same guarantees for the prompt and typed text.
+    func testLightModeDraftPromptAndTextStayReadable() {
+        assertDraftReadable(dark: false)
+    }
+
+    private func assertDraftReadable(dark: Bool) {
+        let mode = dark ? "dark" : "light"
+        // The appearance is set for this launch; setting the simulator's from a test doesn't reach the app everywhere.
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer", "--companion-preview-\(mode)"], attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer, attempts: 1)
-        // Guard: the conversation's own background must really be dark, so a failed switch fails here, loudly.
+        // Guard: the conversation's own background must really be in this appearance, so a failed switch fails loudly.
         let navigation = app.navigationBars.firstMatch.frame
         let ground = pixels(app, in: CGRect(x: 0, y: navigation.maxY + 4, width: 12, height: 40)).sorted { luminance($0) < luminance($1) }
         guard !ground.isEmpty else { return }
-        XCTAssertLessThan(luminance(ground[ground.count / 2]), 0.2, "The app must launch dark: background \(ground[ground.count / 2])")
+        let groundLuminance = luminance(ground[ground.count / 2])
+        if dark { XCTAssertLessThan(groundLuminance, 0.2, "The app must launch dark: background \(ground[ground.count / 2])") }
+        else { XCTAssertGreaterThan(groundLuminance, 0.5, "The app must launch light: background \(ground[ground.count / 2])") }
+
+        /// The editor's text row: its median is the field, its most distant pixel the glyphs.
+        func assertReadable(_ what: String) {
+            let field = pixels(app, in: composer.frame.insetBy(dx: 4, dy: 4)).sorted { luminance($0) < luminance($1) }
+            guard !field.isEmpty else { return }
+            let background = field[field.count / 2]
+            let text = [field.first!, field.last!].max { contrast($0, background) < contrast($1, background) }!
+            XCTAssertGreaterThanOrEqual(contrast(text, background), 4.5, "\(mode) \(what) \(text) on field \(background)")
+            if dark { XCTAssertLessThan(luminance(background), 0.2, "The dark theme's field stays dark: \(background)") }
+            else { XCTAssertGreaterThan(luminance(background), 0.5, "The light theme's field stays light: \(background)") }
+        }
+        XCTAssertEqual(composer.value as? String ?? "", "", "The empty field shows its prompt")
+        capture(app, "\(mode) mode empty prompt")
+        assertReadable("prompt")
         focus(composer, in: app)
         composer.typeText("Readable draft WWWWWWWW")
-        capture(app, "dark mode typed draft")
-        // The editor's text row: its median is the field, its most distant pixel the glyphs.
-        let field = pixels(app, in: composer.frame.insetBy(dx: 4, dy: 4)).sorted { luminance($0) < luminance($1) }
-        guard !field.isEmpty else { return }
-        let background = field[field.count / 2]
-        let text = [field.first!, field.last!].max { contrast($0, background) < contrast($1, background) }!
-        XCTAssertGreaterThanOrEqual(contrast(text, background), 4.5, "Draft text \(text) on field \(background)")
-        XCTAssertLessThan(luminance(background), 0.2, "The dark theme's field stays dark: \(background)")
+        capture(app, "\(mode) mode typed draft")
+        assertReadable("typed text")
+        guard dark else { return }
         let keyboard = pixels(app, in: app.keyboards.firstMatch.frame).sorted { luminance($0) < luminance($1) }
         guard !keyboard.isEmpty else { return }
         XCTAssertLessThan(luminance(keyboard[keyboard.count / 2]), 0.2, "Dark mode keeps the dark keyboard: \(keyboard[keyboard.count / 2])")
