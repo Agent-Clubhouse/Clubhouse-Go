@@ -127,9 +127,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     func isDispatcher(_ target: CompanionTarget) -> Bool {
         target.hostID == id && dispatcher.map { $0.projectID == target.projectID } == true
     }
-    /// A project's name for a caption, or the Dispatcher agent's name when it has no project.
+    /// A project's name for a caption: the project's, or "Dispatcher" for its agent.
     func placeName(for target: CompanionTarget) -> String? {
-        isDispatcher(target) ? dispatcher?.displayName : projects.first { $0.id == target.projectID }?.name
+        isDispatcher(target) ? CompanionDispatcher.name : projects.first { $0.id == target.projectID }?.name
     }
 }
 

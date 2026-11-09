@@ -49,15 +49,17 @@ import ClubhouseTransport
         #expect(navigation.dispatcherTitle(hosts: [mcpOff]) == "Navi", "MCP-off retains the agent's known identity")
     }
 
-    @Test func agentCaptionsUseTheSameNameAsTheComposer() {
+    @Test func placeCaptionsKeepTheDispatcherRoleAlongsideTheAgentName() {
         let named = host()
         let agent = named.dispatcher!.agent!
         let store = CompanionStore(service: CompanionPreviewService())
         store.hosts = [named]
-        #expect(agent.displayName == agent.name)
-        #expect(named.placeName(for: agent.id) == "Navi")
-        #expect(store.attentionItems().first?.projectName == "Navi")
-        #expect(store.reviewEntries.first?.projectName == "Navi")
+        #expect(agent.displayName == "Navi")
+        #expect(named.placeName(for: agent.id) == "Dispatcher")
+        #expect(store.attentionItems().first?.agent.displayName == "Navi")
+        #expect(store.attentionItems().first?.projectName == "Dispatcher")
+        #expect(store.reviewEntries.first?.agent.displayName == "Navi")
+        #expect(store.reviewEntries.first?.projectName == "Dispatcher")
 
         var unnamed = named
         unnamed.dispatcher?.agent?.name = ""
