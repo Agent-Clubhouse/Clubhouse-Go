@@ -206,6 +206,12 @@ struct CompanionAgentSettingsForm: View {
     private var agent: CompanionAgent? { store.agent(for: target) }
     /// The Dispatcher has only the settings the desktop lets you change: no identity or orchestration.
     private var isDispatcher: Bool { store.isDispatcher(target) }
+    /// Settings > Dispatcher (#338) replaces its raw model and Access rows on desktops that offer it.
+    private var showsDispatcherSettings: Bool { isDispatcher && store.canEditDispatcherSettings(hostID: target.hostID) }
+    /// A raw row Settings > Dispatcher doesn't offer (`notHonored`), hidden to match the desktop.
+    private func hides(_ setting: String, _ settings: CompanionAgentSettings) -> Bool {
+        showsDispatcherSettings && settings.notHonored.contains(setting)
+    }
     /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
     private var refreshKey: String {
         let sleeping = agent?.isSleepingOnDesktop
@@ -269,7 +275,7 @@ struct CompanionAgentSettingsForm: View {
     @ViewBuilder private func contextSection(_ settings: CompanionAgentSettings?) -> some View {
         if settings?.contextWindow != nil || agent?.chatControls?.context != nil || agent?.contextUsage != nil {
             Section("Context") {
-                if let context = settings?.contextWindow { contextWindow(context, sleeping: settings?.sleeping ?? false) }
+                if let settings, let context = settings.contextWindow, !hides("contextWindow", settings) { contextWindow(context, sleeping: settings.sleeping) }
                 if let usage = agent?.contextUsage {
                     LabeledContent("Context used", value: "\(usage.used.formatted()) / \(usage.size.formatted()) tokens")
                 }
@@ -330,6 +336,9 @@ struct CompanionAgentSettingsForm: View {
         }
         if isDispatcher {
             Section { CompanionDispatcherSwitch(store: store, hostID: target.hostID) }
+        }
+        if showsDispatcherSettings {
+            CompanionDispatcherSettingsSections(store: store, hostID: target.hostID, options: settings.options, efforts: agent?.chatControls?.efforts ?? [])
         }
 
         if !isDispatcher {
@@ -405,12 +414,15 @@ struct CompanionAgentSettingsForm: View {
             .accessibilityIdentifier("agent-settings-orchestrator")
             }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
+            if !hides("model", settings) {
             Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
                 ForEach(models) { Text($0.label).tag($0.id) }
             }
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
+            }
+            if !hides("runtime", settings) {
             Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
                 Text("Provider default").tag("default")
                 Text("Chat").tag("chat")
@@ -418,6 +430,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.runtime.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-runtime")
+            }
         } header: { Text("Runtime") } footer: {
             Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
             Text("Sign-in and remaining quota aren't reported by this provider list.")
@@ -437,6 +450,7 @@ struct CompanionAgentSettingsForm: View {
                  : "Only agents running in chat sleep when idle. \(settings.idleSleep.value.source(appMinutes: settings.appIdleMinutes)).")
         }
 
+        if !hides("freeAgentMode", settings) && !hides("access", settings) {
         Section {
             if canSetFreeAgentMode {
                 Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { settings.freeAgentMode.value },
@@ -449,6 +463,7 @@ struct CompanionAgentSettingsForm: View {
             }
         } header: { Text("Access") } footer: {
             Text(freeAgentModeFooter(settings))
+        }
         }
 
         if let orchestration = orchestration(settings) {

@@ -68,6 +68,59 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Dispatcher settings")
     }
 
+    /// Settings > Dispatcher (#338): Behavior replaces its raw model and Access rows, and Clear chat and Forget
+    /// everything each ask on their own before anything happens.
+    func testBehaviorClearChatAndForgetEverything() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-settings"])
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "Dispatcher is the default start screen")
+        let actions = app.navigationBars.buttons["Conversation actions"]
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(actions, until: settings, timeout: 5)
+        let standard = element(app, "dispatcher-behavior-standard")
+        waitAndTap(settings, until: standard, timeout: 10, "Its settings show Behavior")
+        XCTAssertTrue(standard.isSelected, "Standard is its Behavior")
+        XCTAssertFalse(element(app, "agent-settings-model").exists, "Behavior owns its model")
+        XCTAssertFalse(element(app, "agent-settings-runtime").exists, "Settings > Dispatcher doesn't offer its runtime")
+        XCTAssertFalse(element(app, "agent-settings-free-agent-mode").exists, "Settings > Dispatcher doesn't offer Access")
+        screenshot(app, "Dispatcher Behavior")
+
+        let thorough = element(app, "dispatcher-behavior-thorough")
+        XCTAssertTrue(scrollTo(thorough, in: app))
+        thorough.tap()
+        XCTAssertTrue(thorough.wait(for: \.isSelected, toEqual: true, timeout: 5), "Thorough is saved")
+        XCTAssertFalse(standard.isSelected)
+
+        // Clear chat: Cancel does nothing, then confirming clears it.
+        let clear = element(app, "dispatcher-clear-chat")
+        let notice = element(app, "dispatcher-reset-notice")
+        XCTAssertTrue(scrollUntilExists(clear, in: app, maxSwipes: 8) && scrollTo(clear, in: app, maxSwipes: 8), "Clear chat is in its settings")
+        let clearAlert = app.alerts["Clear chat?"]
+        waitAndTap(clear, until: clearAlert, timeout: 5, "Clear chat asks first")
+        XCTAssertTrue(clearAlert.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "The conversation starts over.")).firstMatch.exists,
+                      "It says exactly what goes and what stays")
+        screenshot(app, "Clear chat confirmation")
+        waitAndTap(clearAlert.buttons["Cancel"], untilGone: clearAlert)
+        XCTAssertFalse(notice.waitForExistence(timeout: 1), "Cancel clears nothing")
+        waitAndTap(clear, until: clearAlert, timeout: 5)
+        waitAndTap(clearAlert.buttons["Clear chat"], untilGone: clearAlert)
+        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        XCTAssertEqual(notice.label, "Its conversation started over.")
+
+        // Forget everything is asked separately, with its own words.
+        let forget = element(app, "dispatcher-forget-everything")
+        XCTAssertTrue(scrollTo(forget, in: app))
+        let forgetAlert = app.alerts["Forget everything?"]
+        waitAndTap(forget, until: forgetAlert, timeout: 5, "Forget everything asks first")
+        XCTAssertTrue(forgetAlert.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "This can’t be undone.")).firstMatch.exists)
+        screenshot(app, "Forget everything confirmation")
+        waitAndTap(forgetAlert.buttons["Cancel"], untilGone: forgetAlert)
+        XCTAssertEqual(notice.label, "Its conversation started over.", "Cancel forgets nothing")
+        waitAndTap(forget, until: forgetAlert, timeout: 5)
+        waitAndTap(forgetAlert.buttons["Forget everything"], untilGone: forgetAlert)
+        XCTAssertTrue(notice.wait(for: \.label, toEqual: "Its memory was cleared.", timeout: 5))
+        screenshot(app, "Dispatcher after both resets")
+    }
+
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
         let home = tab(app, "Home")
