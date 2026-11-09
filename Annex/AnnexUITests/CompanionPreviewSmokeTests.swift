@@ -911,6 +911,34 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
     }
 
+    func testLocalMarkdownFileMissingAndFolderLinks() {
+        let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance", "--companion-preview-local-links"], attempts: 1)
+        openRiver(app)
+        let cases = [
+            ("Some%20Folder/notes.md#intro", "Synthetic local link preview"),
+            ("missing.md", "Not available on the phone: this target may be missing, unreadable, or a folder on Studio Mac. Open it on your desktop to check."),
+            ("Some%20Folder/", "This link names a folder. Folder contents aren't available on this phone. Open the folder on your desktop.")
+        ]
+        for (href, expected) in cases {
+            let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", href)).firstMatch
+            XCTAssertTrue(link.waitForExistence(timeout: 10))
+            XCTAssertTrue(scrollTo(link, in: app, maxSwipes: 3))
+            link.tap()
+            XCTAssertTrue(app.staticTexts[expected].waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Local link result \(href)")
+            XCTAssertEqual(app.state, .runningForeground)
+            if href.hasSuffix("/") {
+                XCTAssertTrue(app.staticTexts["Folder link"].exists)
+                XCTAssertFalse(app.buttons["Copy preview"].exists)
+            }
+            let done = app.buttons["companion-preview-done"]
+            XCTAssertTrue(done.waitForExistence(timeout: 5))
+            done.tap()
+            XCTAssertTrue(app.staticTexts[expected].waitForNonExistence(timeout: 5))
+            XCTAssertTrue(app.navigationBars["River"].exists)
+        }
+    }
+
     func testHomePDFSheetDismissesReopensAndStaysForegroundAfterExportedURLTap() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)
         openRiver(app)

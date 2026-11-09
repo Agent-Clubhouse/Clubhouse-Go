@@ -39,7 +39,7 @@ import Testing
             #expect(!CompanionContentReference.file(path).isOffered(roots: posix))
         }
         let text = "`/tmp/a.pdf` `C:\\outside\\a.pdf` `~/a.pdf` [file](file:///tmp/a.pdf) [web](https://example.test/a.pdf)"
-        #expect(CompanionContentReference.files(in: text) == [.file("/tmp/a.pdf"), .file("C:\\outside\\a.pdf"), .file("~/a.pdf")])
+        #expect(CompanionContentReference.files(in: text) == [.file("/tmp/a.pdf"), .file("C:\\outside\\a.pdf"), .file("~/a.pdf"), .link("file:///tmp/a.pdf")])
         #expect(CompanionContentReference.file("C:\\outside\\a.pdf").isOffered(roots: .init(windows: true, anyPath: true)))
         #expect(CompanionContentReference.file("c:/proj/a.txt").isOffered(roots: .init(paths: ["C:\\Proj"], windows: true)))
         #expect(!CompanionContentReference.file("/A/Proj/a.txt").isOffered(roots: .init(paths: ["/a/proj"])))

@@ -40,8 +40,19 @@ private struct CompanionContentPreviews: ViewModifier {
     let archiveRoots: CompanionContentRoots?
     @State private var selected: CompanionContentReference?
     func body(content: Content) -> some View {
+        let roots = archiveRoots ?? store.contentRoots(for: target)
         content
             .companionMarkdownBlockPreviews()
+            .environment(\.openURL, OpenURLAction { url in
+                let reference = CompanionContentReference.link(url.absoluteString)
+                if !CompanionContentReference.linkPaths(url.absoluteString, windows: roots.windows).isEmpty {
+                    if store.richContentAvailable(for: target), reference.isOffered(roots: roots) { selected = reference }
+                    return .handled
+                }
+                // External web/mail links keep their system behavior. Anchors,
+                // network/device paths and other schemes never navigate on iOS.
+                return ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") ? .systemAction : .discarded
+            })
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
                                                              contentRoots: archiveRoots ?? store.contentRoots(for: target), open: { selected = $0 },
                                                              loadImage: { await store.imageData($0, target: target) }))
@@ -109,7 +120,10 @@ private struct CompanionContentView: View {
                         Button("Try again") { Task { await load() } }.frame(maxWidth: .infinity)
                     }
                     if let content {
-                        if content.tooLarge {
+                        if content.kind == "folder" {
+                            ContentUnavailableView("Folder link", systemImage: "folder", description: Text(CompanionContentReference.folderLinkMessage))
+                                .accessibilityIdentifier("companion-folder-link")
+                        } else if content.tooLarge {
                             Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
                         } else if let image {
                             Image(uiImage: image).resizable().scaledToFit()
