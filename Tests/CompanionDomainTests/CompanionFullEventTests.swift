@@ -19,7 +19,7 @@ import Testing
         data["truncated"] = nil
         data["rawInput"] = .object(["content": .string(String(repeating: "y", count: 400_000))])
         event["data"] = .object(data); event["agentId"] = .string("agent")
-        return .object(["version": .integer(1), "agentId": .string("agent"), "sessionId": .string("s1"), "seq": .integer(7), "digest": .string(digest), "event": .object(event)])
+        return .object(["version": .integer(1), "agentId": .string("agent"), "sessionId": .string("s1"), "seq": preview["seq"] ?? .integer(7), "digest": .string(digest), "event": .object(event)])
     }
     private func start() async throws -> Harness {
         let capability = try #require(ContractFixtures.json("capabilities.json")["response"]?["body"])
@@ -36,6 +36,60 @@ import Testing
     }
     private func approval(_ harness: Harness) throws -> CompanionApproval {
         try #require(harness.store.conversation(for: harness.target).items.compactMap { if case .approval(let value) = $0 { value } else { nil } }.first)
+    }
+
+    @Test func aSmallRequestCanStillBeAllowedAfterOneRejectedAllow() async throws {
+        let harness = try await start(); defer { harness.stop() }
+        guard case .object(var event) = preview(sequence: 9), case .object(var data)? = event["data"] else { throw AnnexTransportError.malformedResponse }
+        data["requestId"] = .string("small"); data["truncated"] = nil; event["data"] = .object(data)
+        await harness.transport.setRead("chat", Harness.chatSnapshot(events: [.object(event)]))
+        await harness.store.load(harness.target, force: true)
+        let request = try approval(harness)
+        #expect(request.id == "small" && !request.isIncomplete)
+        #expect(harness.store.canApprove(request, target: harness.target))
+        await harness.transport.enqueue(.rejected(code: "command_busy", message: "Try again"))
+        await harness.store.respond(request, option: request.options[0], target: harness.target)
+        let pending = try approval(harness)
+        #expect(pending.resolution == .pending)
+        #expect(harness.store.canApprove(pending, target: harness.target))
+        #expect(harness.store.fullReviewReason(pending, target: harness.target) == nil)
+        await harness.store.respond(pending, option: pending.options[0], target: harness.target)
+        #expect(await harness.transport.executed.count == 2)
+    }
+
+    @Test func incompleteRepresentationAloneRequiresReviewAndClearsWithConnectionInvalidation() async throws {
+        let harness = try await start(); defer { harness.stop() }
+        guard case .object(var event) = preview(sequence: 9), case .object(var data)? = event["data"] else { throw AnnexTransportError.malformedResponse }
+        data["requestId"] = .string("small"); data["truncated"] = nil; event["data"] = .object(data)
+        await harness.transport.setRead("chat", Harness.chatSnapshot(events: [.object(event)]))
+        await harness.store.load(harness.target, force: true)
+        var request = try approval(harness)
+        await harness.transport.enqueue(.rejected(code: "incomplete_representation", message: "Review again"))
+        await harness.store.respond(request, option: request.options[0], target: harness.target)
+        request = try approval(harness)
+        #expect(request.resolution == .pending)
+        #expect(!harness.store.canApprove(request, target: harness.target))
+        await harness.store.respond(request, option: request.options[0], target: harness.target)
+        #expect(await harness.transport.executed.count == 1)
+        await harness.transport.setRead("fullEvent", try full(.object(event)))
+        let reference = try #require(request.eventReference)
+        let fetched = try await harness.store.fetchFullEvent(reference, target: harness.target)
+        #expect(!harness.store.canApprove(request, target: harness.target))
+        #expect(harness.store.acknowledgeFullReview(fetched, reference: reference, target: harness.target))
+        #expect(harness.store.canApprove(request, target: harness.target))
+        await harness.transport.enqueue(.rejected(code: "incomplete_representation", message: "Changed again"))
+        await harness.store.respond(request, option: request.options[0], target: harness.target)
+        #expect(harness.store.fullReviewFailures[harness.target]?["small"] != nil)
+        harness.store.apply(.resyncRequired(hostID: Harness.hostID))
+        #expect(harness.store.fullReviewFailures[harness.target] == nil)
+        await harness.store.load(harness.target, force: true)
+        await harness.transport.enqueue(.rejected(code: "incomplete_representation", message: "Changed again"))
+        request = try approval(harness)
+        await harness.store.respond(request, option: request.options[0], target: harness.target)
+        #expect(harness.store.fullReviewFailures[harness.target]?["small"] != nil)
+        await harness.transport.emit(.connection(.disconnected))
+        try await harness.waitUntil { harness.host?.connection == .offline }
+        #expect(harness.store.fullReviewFailures[harness.target] == nil)
     }
 
     @Test func canonicalCutPayloadsRetainSequenceSessionTruncationAndReplacementSemantics() throws {

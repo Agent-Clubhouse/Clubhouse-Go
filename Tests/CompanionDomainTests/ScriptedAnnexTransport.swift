@@ -311,6 +311,6 @@ enum ServiceErrorKind: Equatable { case unavailable, rejected, uncertain, other,
 @MainActor func serviceErrorKind(_ body: () async throws -> Void) async -> ServiceErrorKind {
     do { try await body(); return .none }
     catch let error as CompanionServiceError {
-        switch error { case .unavailable: return .unavailable; case .rejected: return .rejected; case .uncertain: return .uncertain }
+        switch error { case .unavailable: return .unavailable; case .rejected, .incompleteRepresentation: return .rejected; case .uncertain: return .uncertain }
     } catch { return .other }
 }

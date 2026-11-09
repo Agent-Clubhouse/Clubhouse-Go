@@ -714,10 +714,12 @@ struct CompanionCommandReceipt: Sendable {
 enum CompanionServiceError: Error, LocalizedError, Sendable {
     case unavailable(String)
     case rejected(String)
+    /// The desktop requires a fresh, complete review before this request can be allowed.
+    case incompleteRepresentation(String)
     case uncertain(String)
     var errorDescription: String? {
         switch self {
-        case .unavailable(let text), .rejected(let text), .uncertain(let text): text
+        case .unavailable(let text), .rejected(let text), .incompleteRepresentation(let text), .uncertain(let text): text
         }
     }
 }

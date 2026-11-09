@@ -785,6 +785,9 @@ import ClubhouseTransport
             return receipt
         } catch let error as CompanionServiceError { throw error }
         catch let error as CompanionAttachmentError { throw error }
+        catch AnnexTransportError.rejected(_, "incomplete_representation", let message) {
+            throw CompanionServiceError.incompleteRepresentation(message ?? "Fetch and review this request again before allowing it.")
+        }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
     }
@@ -818,6 +821,7 @@ import ClubhouseTransport
         case .completed: return nil
         case .rejected:
             switch receipt.error?.code {
+            case "incomplete_representation": return CompanionServiceError.incompleteRepresentation(rejectionMessage(receipt.error))
             case "attachment_unavailable": return CompanionAttachmentError.attachmentUnavailable
             case "images_not_supported": return CompanionAttachmentError.imagesNotSupported
             case "not_chat" where attachmentCount > 0: return CompanionServiceError.rejected(notChatMessage)
