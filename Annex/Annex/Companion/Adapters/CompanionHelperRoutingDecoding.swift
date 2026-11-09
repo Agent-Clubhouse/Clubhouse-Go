@@ -22,14 +22,14 @@ extension CompanionHelperRouting {
                     guard let source = cell["source"]?.string, let state = cell["state"]?.string else { return nil }
                     return Cell(effective: .init(json: cell["effective"]), custom: .init(json: cell["custom"]), builtin: .init(json: cell["builtin"]),
                                 source: source, state: state, staleReason: cell["staleReason"]?.string, fallback: cell["fallback"]?.string,
-                                editable: cell["editable"].boolValue)
+                                editable: cell["editable"].boolValue, follows: cell["follows"]?.string)
                 }
             }
             let models = raw["choices"]?["models"].arrayValue.compactMap { value -> Model? in
-                guard let id = value["id"]?.string, !id.isEmpty, id != "default" else { return nil }
+                guard let id = value["id"]?.string, !id.isEmpty, id != "default", id != "auto" else { return nil }
                 return .init(id: id, label: value["label"]?.string ?? id, efforts: value["efforts"].arrayValue.compactMap(\.string))
             }
-            return Provider(autoEligible: raw["autoEligible"].boolValue, reason: raw["reason"]?.string,
+            return Provider(autoEligible: raw["autoEligible"].boolValue, autoCandidate: raw["autoCandidate"]?.boolOrNil ?? raw["autoEligible"].boolValue, reason: raw["reason"]?.string,
                             choicesSource: raw["choices"]?["source"]?.string, choicesAsOf: raw["choices"]?["asOf"]?.string,
                             models: models ?? [], cells: cells, quota: CompanionHelperQuota(json: raw["quota"]))
         }

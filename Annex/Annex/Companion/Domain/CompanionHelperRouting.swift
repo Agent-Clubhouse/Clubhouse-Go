@@ -25,9 +25,13 @@ nonisolated struct CompanionHelperRouting: Sendable, Equatable {
         var staleReason: String?
         var fallback: String?
         var editable: Bool
+        var follows: String? = nil
+        var inheritanceSummary: String? { follows.map { "Same as \($0.capitalized)" } }
+        var choiceSource: String { custom != nil ? "Custom" : inheritanceSummary ?? "Built-in" }
     }
     struct Provider: Sendable, Equatable {
         var autoEligible: Bool
+        var autoCandidate = true
         var reason: String?
         var choicesSource: String?
         var choicesAsOf: String?
