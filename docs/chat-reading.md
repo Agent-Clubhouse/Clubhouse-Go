@@ -2,16 +2,16 @@
 
 ## Rules and desktop parity (#2664)
 
-The domain folding model groups chronological adjacent routine tool calls and routed parts. Failed tools, nonzero structured terminal exit codes, pending permissions, tool images, own messages, structured questions, notices, and active/uncertain delivery or queue states break runs. A failure/permission update splits a run; resolving it can rejoin it. The first fragment is the stable key. No text search guesses failures. `fromClubhouse` always stays visible, including routine “helper started” notices, until severity is reliable. `[QUESTION FROM HELPER:` parts stay visible too. System/thought rows remain boundaries because Go has no thought discriminator. Finished empty assistant messages are carried uncounted only between countable items; live empty replies stay visible. There was no compaction-specific notice coalescing in Go to preserve.
+The domain folding model groups chronological adjacent routine tool calls. Routed messages break tool runs and remain individual message rows, with their sender and contents visible. Failed tools, nonzero structured terminal exit codes, pending permissions, tool images, own messages, structured questions, notices, and active/uncertain delivery or queue states also break runs. A failure/permission update splits a run; resolving it can rejoin it. The first fragment is the stable key. No text search guesses failures. Finished empty assistant messages are carried uncounted only between countable tools; live empty replies stay visible.
+
+Framebriar **1c74d5b8** reported helper replies hidden behind avatar/count cards. Go now follows desktop main's `MessageBlocks.tsx` `SentPart` separation: each routed part has a small sender face/name and its own visible body. This applies to known, gone and legacy senders because routed metadata does not reliably distinguish helpers from other agents. Long parts start expanded on mobile; the reader can explicitly collapse them with their caption, and that choice survives refresh/navigation. Clubhouse `fromClubhouse` parts remain visible as plain caption text with no bubble or visible steer label; delivery metadata remains available to VoiceOver. Lifecycle notices use a leading caption without the information icon or extra vertical padding. User-authored messages retain their existing presentation.
 
 Named mobile parity exceptions:
 
-- **All routed text:** routine parts collapse regardless of length; desktop shows short single-line parts.
-- **Single-item activity:** one routine item also gets a compact expandable row; desktop groups runs of at least two.
-- **Attachment summary:** routed attachment counts appear in the summary; tool images remain visible outside runs.
-- **Sender faces:** a closed activity summary keeps the first three unique sender avatars, preserving current/gone/quick identities and VoiceOver names; remaining senders have an accessible count/name summary. Desktop closed groups show names only.
+- **Single-item tool activity:** one routine tool also gets a compact expandable row; desktop groups runs of at least two.
+- **Long routed messages:** text starts expanded, while desktop initially collapses long messages. Mobile readers should see the helper's contents without first opening a card.
 
-Running status remains visible in the summary. Opening a run exposes its ordered children, existing sender/avatar metadata, Copy message, tool outputs and content links. Existing per-part folds stay independent; expansion choices survive transcript refresh and navigation in the per-target store. Closed runs create no detail views, content-link scans, slices or Markdown. Failed tool rows always show status and exit code; output up to six nonempty lines starts open, longer output starts folded with its last line visible. A saved user toggle wins.
+Running status remains visible in the tool summary. Opening a run exposes its ordered tools, outputs and content links. Closed tool runs create no detail views, content-link scans, slices or Markdown. Failed tool rows always show status and exit code; output up to six nonempty lines starts open, longer output starts folded with its last line visible. A saved user toggle wins.
 
 Existing wire subagent IDs are preserved through streamed chunks and tool updates. Go labels their inline text as helper activity and splits tool runs at sender changes; it does not implement the desktop full-capability subagent card.
 
@@ -29,7 +29,7 @@ Full history loads and replay snapshots advance a separate history revision; str
 
 ## Live E2E expectation changes
 
-`test9cAgentDispatcherSwitchesAndRealMCPDelivery`: expand the containing activity row before looking for the short real delivery and before checking the long-part fold. `companion-routed-<id>-<index>` and exact open short-part labels remain unchanged. A long routed part retains its independent inner fold. No live test was run during this work.
+`test9cAgentDispatcherSwitchesAndRealMCPDelivery`: routed deliveries are now visible without expanding an activity row. Long parts start expanded and retain their explicit caption toggle. `companion-routed-<id>-<index>` and exact open short-part labels remain unchanged. A long routed part retains its independent inner fold. No live test was run during this work.
 
 ## Incremental projection and local measurements
 

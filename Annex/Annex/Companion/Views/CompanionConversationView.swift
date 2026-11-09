@@ -745,8 +745,9 @@ struct CompanionConversationView: View {
                 Task { await store.answer(question, answers: answers, target: target) }
             }
         case .notice(_, let text):
-            Label(text, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity).padding(.vertical, 8)
+            Text(text).font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("companion-notice-\(item.id)")
         }
     }
 

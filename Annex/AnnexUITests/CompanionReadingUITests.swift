@@ -203,28 +203,30 @@ import XCTest
         screenshot(app, "Failed tool status remains visible with folded output")
     }
 
-    func testCompactActivityBuildsNoHiddenDetailAndNavigationSkipsIt() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+    func testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact() {
+        let app = launchApp(["--companion-preview", "--companion-preview-helper-messages"])
         openRiver(app)
-        let group = app.buttons["companion-activity-routed:relay-1:0"]
-        XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
-        XCTAssertEqual(group.value as? String, "Collapsed")
-        let part = element(app, "companion-routed-relay-1-0")
-        XCTAssertFalse(part.exists, "Closed activity constructs no routed content")
-        XCTAssertTrue(group.label.contains("2 messages") && group.label.contains("Dispatcher"))
-        screenshot(app, "Routine helper traffic collapsed")
-        tapToExpand(group)
-        XCTAssertEqual(part.label, "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.")
-        XCTAssertTrue(bringTranscriptRowIntoView(part, in: app))
-        screenshot(app, "Routine helper traffic expanded with sender boundaries")
-        XCTAssertTrue(bringTranscriptRowIntoView(group, in: app))
-        group.tap()
-        XCTAssertFalse(part.exists)
-        let previous = app.buttons["companion-previous-message"]
-        let next = app.buttons["companion-next-message"]
-        XCTAssertTrue(previous.exists && next.exists, "VoiceOver has named previous/next assistant controls")
-        previous.tap()
-        XCTAssertFalse(part.exists, "Jumping never opens helper traffic")
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = "Compact activity and message navigation"; shot.lifetime = .keepAlways; add(shot)
+        let part = element(app, "companion-routed-helper-report-0")
+        XCTAssertTrue(part.waitForExistence(timeout: 10))
+        XCTAssertEqual(part.label, "Cedar: The transcript fix is ready for review.")
+        XCTAssertFalse(app.buttons["companion-activity-routed:helper-report:0"].exists)
+        XCTAssertFalse(app.buttons["companion-routed-helper-report-0"].exists, "A short reply needs no expansion control")
+        for id in ["helper-read", "helper-check"] {
+            let tools = app.buttons["companion-activity-tool:\(id)"]
+            XCTAssertTrue(tools.exists)
+            XCTAssertEqual(tools.value as? String, "Collapsed")
+            XCTAssertTrue(tools.label.contains("1 tool call"))
+            XCTAssertFalse(tools.label.contains("message"))
+        }
+        let status = element(app, "companion-routed-helper-status-0")
+        XCTAssertEqual(status.label, "Clubhouse: A helper has started its task.")
+        XCTAssertTrue((status.value as? String ?? "").contains("Steered into the running turn"), "Delivery metadata remains accessible")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Steered into the running turn")).firstMatch.exists, "Clubhouse status has no delivery caption clutter")
+        let lifecycle = element(app, "companion-notice-notice:subagent-preview")
+        XCTAssertTrue(lifecycle.exists)
+        XCTAssertLessThan(status.frame.height, 80, "Status text uses a compact caption, without a message bubble")
+        XCTAssertLessThan(lifecycle.frame.height, 30)
+        XCTAssertTrue(app.buttons["companion-previous-message"].exists)
+        screenshot(app, "Inline helper reply with compact Clubhouse statuses")
     }
 }

@@ -23,26 +23,22 @@ import Testing
         let gone = CompanionMessage(id: "gone", role: .user, text: "", source: "mcp", routed: [.init(sender: .init(agentID: "removed", name: "Reviewer"), text: "Done")])
         #expect(CompanionActivityPart.avatars([.routed(gone, 0)], resolver: resolver).first?.identity.name == "Reviewer")
     }
-    @Test func adjacentToolsAndShortRoutedPartsFormOneOrderedRow() {
+    @Test func routedMessagesSeparateToolRunsAndStayInOrder() {
         let rows = CompanionTimelineFolding.rows(for: [tool("a"), routed("b", [short, short]), tool("c", state: .running)])
-        guard case .activity(let parts) = rows.first else { Issue.record("Missing activity"); return }
-        #expect(rows.count == 1)
-        #expect(parts.map(\.id) == ["tool:a", "routed:b:0", "routed:b:1", "tool:c"])
-        #expect(rows[0].id == "activity:tool:a")
-        #expect(CompanionActivityPart.summary(parts) == "2 tool calls · 2 messages · Running…")
+        #expect(rows.map(\.id) == ["activity:tool:a", "routed:b:0", "routed:b:1", "activity:tool:c"])
+        #expect(rows[1...2].allSatisfy { if case .routed = $0 { true } else { false } })
     }
-    @Test func singleRoutedPartCollapsesWithoutPreparingAnyMarkdown() {
+    @Test func longRoutedPartsRemainMessageRows() {
         let rows = CompanionTimelineFolding.rows(for: [routed("b", [.init(sender: .init(name: "Builder"), text: String(repeating: "**long**\n\n", count: 1_000))])])
         let entries = CompanionTimelineEntry.entries(for: rows)
         #expect(entries.count == 1)
-        guard case .row(.activity) = entries.first else { Issue.record("Collapsed Markdown must stay an opaque row, with zero slices"); return }
-        #expect(CompanionContentReference.references(in: rows[0]).isEmpty)
+        guard case .row(.routed) = entries.first else { Issue.record("Relayed text must remain a message"); return }
     }
-    @Test func noticeAndHelperQuestionSplitPartsWithoutLosingOrder() {
+    @Test func noticesAndHelperQuestionsKeepTheirOrderedMessageRows() {
         let notice = CompanionRoutedMessagePart(fromClubhouse: true, text: "Helper started")
         let question = CompanionRoutedMessagePart(sender: .init(name: "Builder"), text: "[QUESTION FROM HELPER:Builder] Which branch?")
         let rows = CompanionTimelineFolding.rows(for: [routed("b", [short, notice, short, question, short])])
-        #expect(rows.map(\.id) == ["activity:routed:b:0", "routed:b:1", "activity:routed:b:2", "routed:b:3", "activity:routed:b:4"])
+        #expect(rows.map(\.id) == (0..<5).map { "routed:b:\($0)" })
         #expect(!CompanionTimelineFolding.canCollapse(notice))
         #expect(!CompanionTimelineFolding.canCollapse(question))
     }
@@ -64,10 +60,11 @@ import Testing
         }
         #expect(CompanionTimelineFolding.rows(for: [tool("a"), tool("b"), tool("c")]).count == 1)
     }
-    @Test func attachmentSummaryCountsOncePerDelivery() {
+    @Test func attachmentsStayOnTheFirstVisiblePartOfADelivery() {
         let rows = CompanionTimelineFolding.rows(for: [routed("b", [short, short], images: [.init(id: "image")])])
-        guard case .activity(let parts) = rows[0] else { Issue.record("Missing run"); return }
-        #expect(CompanionActivityPart.summary(parts) == "2 messages · 1 attachment")
+        #expect(rows.map(\.id) == ["routed:b:0", "routed:b:1"])
+        guard case .routed(let message, let index) = rows[0] else { Issue.record("Missing message"); return }
+        #expect(index == 0 && message.images.count == 1)
     }
     @Test func linkedPendingApprovalKeepsAnOtherwiseRunningToolVisibleAndOpen() {
         for resolution in [CompanionApproval.Resolution.pending, .submitting, .uncertain] {
@@ -99,13 +96,11 @@ import Testing
         let rows = CompanionTimelineFolding.rows(for: tools)
         #expect(rows.map(\.id) == ["activity:tool:0", "activity:tool:1", "activity:tool:3", "activity:tool:4"])
     }
-    @Test func sameSubagentCanContinueARunAfterAnEmbeddedNotice() {
+    @Test func helperMessagesNeverJoinTheirOwnToolRun() {
         let message = CompanionMessage(id: "relay", role: .user, text: "raw", source: "mcp", routed: [short, .init(fromClubhouse: true, text: "Helper started"), short], subagentID: "helper")
         let tool = CompanionTool(id: "tool", name: "Read", summary: "", state: .completed, subagentID: "helper")
         let rows = CompanionTimelineFolding.rows(for: [.message(message), .tool(tool)])
-        #expect(rows.map(\.id) == ["activity:routed:relay:0", "routed:relay:1", "activity:routed:relay:2"])
-        guard case .activity(let parts) = rows.last else { Issue.record("Missing resumed run"); return }
-        #expect(parts.map(\.id) == ["routed:relay:2", "tool:tool"])
+        #expect(rows.map(\.id) == ["routed:relay:0", "routed:relay:1", "routed:relay:2", "activity:tool:tool"])
     }
     @Test func failureOutputPolicyKeepsStatusVisibleAndBoundsLongOutput() {
         let short = CompanionTool(id: "short", name: "Run", summary: "", output: "one\ntwo", state: .failed)

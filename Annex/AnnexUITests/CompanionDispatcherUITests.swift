@@ -76,8 +76,6 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
-        revealActivityContent(element(app, "companion-routed-relay-1-0"), in: app)
-        revealActivityContent(element(app, "companion-routed-relay-1-3"), in: app)
         let expected = [
             "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.",
             "Reviewer: The reconnect tests pass. The PR is ready for review.",
@@ -251,7 +249,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTFail("Sender part must expand")
     }
 
-    func testSenderAvatarAndIndependentFoldsSurviveScrollingRefreshAndNavigation() {
+    func testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], allowance: 360)
         let home = tab(app, "Home")
         XCTAssertTrue(home.waitForExistence(timeout: 15))
@@ -260,7 +258,6 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
         let short = element(app, "companion-routed-sender-preview-2")
-        revealActivityContent(short, in: app)
         bringCaptionIntoView(short, in: app)
         XCTAssertEqual(short.label, "Maple: Short helper update.")
         let shortValue = short.value as? String ?? ""
@@ -269,13 +266,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let first = app.buttons["companion-routed-sender-preview-0"]
         let second = app.buttons["companion-routed-sender-preview-1"]
         bringCaptionIntoView(first, in: app)
-        XCTAssertTrue(first.label.contains("Cedar sent a long message"), "The helper resolves to its live name")
-        XCTAssertEqual(first.value as? String, "Collapsed")
-        XCTAssertTrue(first.label.contains("Mission") && first.label.contains("Steered into the running turn"))
-        XCTAssertTrue(first.label.contains("collapsed"))
+        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "Long helper replies start readable with the live name")
+        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true)
+        first.tap()
+        XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
         XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
         bringCaptionIntoView(second, in: app)
-        XCTAssertEqual(second.value as? String, "Collapsed")
+        XCTAssertTrue((second.value as? String)?.hasPrefix("Expanded") == true)
+        second.tap()
+        XCTAssertTrue(waitFor(second, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
         bringCaptionIntoView(first, in: app)
         expandSender(first)
         XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
@@ -321,7 +320,6 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let header = element(app, "companion-chat-header")
         waitAndTap(river, until: header, timeout: 10)
         let body = element(app, "companion-routed-relay-1-0")
-        revealActivityContent(body, in: app)
         XCTAssertTrue(scrollUntilExists(body, in: app, up: false, maxSwipes: 8), "The relayed task shows in River's chat")
         XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")

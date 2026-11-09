@@ -201,47 +201,60 @@ struct CompanionSentPartView: View {
     var body: some View {
         let collapsible = CompanionTimelineFolding.canCollapse(part) && CompanionMessageRouting.isLongMessage(part.text)
         let open = expansion.isOpen(for: part.text)
-        HStack(alignment: .top, spacing: 8) {
-            if let identity {
-                CompanionIdentityFace(name: identity.name, color: identity.color, emoji: identity.emoji,
-                                      icon: identity.icon, size: 24, isQuick: identity.isQuick)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(name) avatar")
-                    .accessibilityHidden(false)
-                    .accessibilityIdentifier("companion-sender-avatar-\(message.id)-\(index)")
+        if part.fromClubhouse {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) { Text("Clubhouse"); timestamp }
+                Text(part.text).textSelection(.enabled)
             }
-            if collapsible {
-                VStack(alignment: .leading, spacing: 6) {
-                    Button { expansion.open = !open } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(longCaption)
-                            Image(systemName: open ? "chevron.down" : "chevron.right")
-                            timestamp
+            .font(.caption).foregroundStyle(.secondary)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Clubhouse: \(part.text)")
+            .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
+            .accessibilityIdentifier(identifier)
+            .contextMenu { copyMessage }
+        } else {
+            HStack(alignment: .top, spacing: 8) {
+                if let identity {
+                    CompanionIdentityFace(name: identity.name, color: identity.color, emoji: identity.emoji,
+                                          icon: identity.icon, size: 24, isQuick: identity.isQuick)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(name) avatar")
+                        .accessibilityHidden(false)
+                        .accessibilityIdentifier("companion-sender-avatar-\(message.id)-\(index)")
+                }
+                if collapsible {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Button { expansion.open = !open } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text(open ? caption : longCaption)
+                                Image(systemName: open ? "chevron.down" : "chevron.right")
+                                timestamp
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                            .contentShape(Rectangle())
                         }
-                        .font(.caption).foregroundStyle(.secondary)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(open ? "\(name): \(part.text)" : "\(longCaption), collapsed")
+                        .accessibilityValue(open ? (["Expanded"] + accessibilityMetadata).joined(separator: ", ") : "Collapsed")
+                        .accessibilityHint(open ? "Collapse message" : "Expand message")
+                        .accessibilityIdentifier(identifier)
+                        .contextMenu { copyMessage }
+                        if open && !part.text.isEmpty {
+                            bubble.accessibilityIdentifier("companion-routed-body-\(message.id)-\(index)")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(open ? "\(name): \(part.text)" : "\(longCaption), collapsed")
-                    .accessibilityValue(open ? (["Expanded"] + accessibilityMetadata).joined(separator: ", ") : "Collapsed")
-                    .accessibilityHint(open ? "Collapse message" : "Expand message")
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) { Text(caption); timestamp }
+                            .font(.caption).foregroundStyle(.secondary)
+                        if !part.text.isEmpty { bubble }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(name): \(part.text)")
+                    .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
                     .accessibilityIdentifier(identifier)
                     .contextMenu { copyMessage }
-                    if open && !part.text.isEmpty {
-                        bubble.accessibilityIdentifier("companion-routed-body-\(message.id)-\(index)")
-                    }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) { Text(caption); timestamp }
-                        .font(.caption).foregroundStyle(.secondary)
-                    if !part.text.isEmpty { bubble }
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(name): \(part.text)")
-                .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
-                .accessibilityIdentifier(identifier)
-                .contextMenu { copyMessage }
             }
         }
     }

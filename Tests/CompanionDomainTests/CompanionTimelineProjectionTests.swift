@@ -32,12 +32,13 @@ import Testing
         let target = CompanionPreviewService.target
         let items = (0..<5_000).map { CompanionTimelineItem.message(.init(id: "helper-\($0)", role: .user, text: "[FROM:Builder] Update", source: "mcp")) }
         store.apply(.timeline(target, items: items, sequence: 1, reset: true))
-        #expect(store.timelineRows(for: target).count == 1)
+        #expect(store.timelineRows(for: target).count == 5_000)
         let projection = store.timelineProjection(for: target)
         for step in 2...201 {
             store.apply(.upsert(target, .message(.init(id: "reply", role: .assistant, text: "Chunk \(step)", isStreaming: true)), sequence: step))
             let window = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: 150)
-            #expect(window.entries.count == 2)
+            #expect(window.entries.count == 150)
+            #expect(window.entries.last?.id == "message:reply")
         }
         #expect(projection.regroupedItemCount == 5_000, "No source history is inspected or regrouped by 200 chunks")
         #expect(projection.assistantUpdateCount == 200)

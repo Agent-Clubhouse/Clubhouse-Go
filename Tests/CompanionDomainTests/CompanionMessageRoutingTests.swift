@@ -192,9 +192,9 @@ import ClubhouseTransport
         let first = expansion.part(messageID: "m", index: 0)
         let second = expansion.part(messageID: "m", index: 1)
         let long = String(repeating: "x", count: 801)
-        #expect(!first.isOpen(for: long) && !second.isOpen(for: long))
+        #expect(first.isOpen(for: long) && second.isOpen(for: long))
         #expect(first.isOpen(for: "short"))
-        first.open = true
+        second.open = false
         await store.load(target, force: true)
         store.hosts = CompanionPreviewService.hosts(now: Date(), dispatcher: true)
         #expect(store.transcriptExpansion(for: target).part(messageID: "m", index: 0) === first)

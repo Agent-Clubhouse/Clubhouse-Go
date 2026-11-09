@@ -154,5 +154,6 @@ struct CompanionSenderResolver: Sendable, Equatable {
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     var open: Bool?
-    func isOpen(for text: String) -> Bool { open ?? !CompanionMessageRouting.isLongMessage(text) }
+    /// Replies start readable; a deliberate collapse survives scrolling and refreshed snapshots.
+    func isOpen(for text: String) -> Bool { open ?? true }
 }
