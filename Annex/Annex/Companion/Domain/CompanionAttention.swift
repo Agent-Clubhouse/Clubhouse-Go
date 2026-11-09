@@ -59,7 +59,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     }
     var agent: CompanionAgent
     var hostName: String
-    /// The agent's project, or "Dispatcher" for the desktop's Dispatcher, which has none.
+    /// The agent's project, or the Dispatcher agent's own name when it has none.
     var projectName: String
     var kind: Kind
     /// An agent's own wait, or one helper request: an agent can have both.
@@ -329,7 +329,7 @@ extension CompanionStore {
                 items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .helperRequest(request)))
             }
             // The Dispatcher is listed with its own name in place of a project's.
-            let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcher?.liveAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
+            let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcher?.liveAgent.map { [($0.displayName, [$0])] } ?? [])
             for (place, agents) in places {
                 for agent in agents where agent.status.needsYou {
                     let conversation = conversation(for: agent.id)

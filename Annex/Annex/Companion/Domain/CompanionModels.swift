@@ -127,9 +127,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     func isDispatcher(_ target: CompanionTarget) -> Bool {
         target.hostID == id && dispatcher.map { $0.projectID == target.projectID } == true
     }
-    /// A project's name for a caption: the project's, or "Dispatcher" for its agent.
+    /// A project's name for a caption, or the Dispatcher agent's name when it has no project.
     func placeName(for target: CompanionTarget) -> String? {
-        isDispatcher(target) ? CompanionDispatcher.name : projects.first { $0.id == target.projectID }?.name
+        isDispatcher(target) ? dispatcher?.displayName : projects.first { $0.id == target.projectID }?.name
     }
 }
 
@@ -159,6 +159,8 @@ struct CompanionDispatcher: Sendable, Equatable {
     var agent: CompanionAgent?
     /// Its agent while on, or retained under MCP-off.
     var liveAgent: CompanionAgent? { isVisible ? agent : nil }
+    /// Use the same identity as the composer, with a feature-name fallback until its agent is available.
+    var displayName: String { liveAgent?.displayName ?? Self.name }
     /// On, but its agent hasn't arrived yet.
     var isLoading: Bool { enabled && mcpOff == nil && agent == nil }
     /// Why it can't be turned on from here, or nil when it can.
@@ -290,6 +292,10 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var freeAgentMode = false
     /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.
     var isDispatcher = false
+    /// An unnamed Dispatcher keeps its feature label until the desktop supplies its name.
+    var displayName: String {
+        isDispatcher && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? CompanionDispatcher.name : name
+    }
     /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
     var orchestration: CompanionOrchestration?
     /// Durable helper identity; quick-agent parent metadata belongs to a different payload.

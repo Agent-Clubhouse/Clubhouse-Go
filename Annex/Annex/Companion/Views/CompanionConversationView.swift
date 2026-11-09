@@ -96,7 +96,7 @@ struct CompanionConversationView: View {
             }
         }
         .companionBackground()
-        .navigationTitle(agent.isDispatcher ? CompanionDispatcher.name : agent.name)
+        .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {

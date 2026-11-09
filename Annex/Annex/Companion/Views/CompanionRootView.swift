@@ -177,7 +177,7 @@ struct CompanionRootView: View {
                 .accessibilityHidden(!visible)
             }
         }
-        .navigationTitle("Dispatcher")
+        .navigationTitle(navigation.dispatcherTitle(hosts: store.hosts))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

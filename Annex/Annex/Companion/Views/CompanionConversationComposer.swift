@@ -428,6 +428,6 @@ struct CompanionConversationComposer: View {
             return agent.status == .working ? (steers ? "Steer…" : "Queue…") : "Message…"
         }
         if agent.status == .working { return steers ? "Steer \(agent.name)…" : "Queue a message for \(agent.name)…" }
-        return agent.slashCommands == nil ? "Message \(agent.name)…" : "Message \(agent.name)… / for commands"
+        return agent.slashCommands == nil ? "Message \(agent.displayName)…" : "Message \(agent.displayName)… / for commands"
     }
 }
