@@ -192,6 +192,33 @@ import XCTest
         }
     }
 
+    // MARK: Pixels
+
+    private func luminance(_ c: [Int]) -> Double {
+        func channel(_ v: Int) -> Double { let x = Double(v) / 255; return x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4) }
+        return 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2])
+    }
+    private func contrast(_ a: [Int], _ b: [Int]) -> Double {
+        let (la, lb) = (luminance(a), luminance(b))
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+    }
+    /// sRGB pixels of `rect` (points) in a fresh screenshot.
+    private func pixels(_ app: XCUIApplication, in rect: CGRect) -> [[Int]] {
+        guard let image = app.screenshot().image.cgImage else { XCTFail("No screenshot"); return [] }
+        let scale = CGFloat(image.width) / app.frame.width
+        let crop = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale).integral
+        guard let cropped = image.cropping(to: crop) else { XCTFail("Bad crop \(crop)"); return [] }
+        let (width, height) = (cropped.width, cropped.height)
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        bytes.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+            context?.draw(cropped, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        return stride(from: 0, to: bytes.count, by: 4).map { [Int(bytes[$0]), Int(bytes[$0 + 1]), Int(bytes[$0 + 2])] }
+    }
+
     // MARK: Tests
 
     func testIdleControlsStayCollapsedBeforeAndAfterTyping() throws {
@@ -271,6 +298,32 @@ import XCTest
         XCTAssertEqual(composer.value as? String, direction)
         XCTAssertTrue(element(app, "companion-attachment-thumbnail").exists, "Dismissal keeps the image draft")
         try assertRow(app, working: true, state: "working typed unfocused", reviewButton: largestText)
+    }
+
+    /// In system dark mode the draft keeps the dark theme: its typed text stays readable (WCAG AA) on the field, and
+    /// the keyboard is the dark one. A composer glass that adapted to light left white text at about 2:1.
+    func testDarkModeDraftTextAndKeyboardStayDark() {
+        let previous = XCUIDevice.shared.appearance
+        addTeardownBlock { XCUIDevice.shared.appearance = previous }
+        XCUIDevice.shared.appearance = .dark
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer"], attempts: 1)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        let composer = element(app, "companion-composer")
+        waitAndTap(river, until: composer, attempts: 1)
+        focus(composer, in: app)
+        composer.typeText("Readable draft WWWWWWWW")
+        capture(app, "dark mode typed draft")
+        // The editor's text row: its median is the field, its most distant pixel the glyphs.
+        let field = pixels(app, in: composer.frame.insetBy(dx: 4, dy: 4)).sorted { luminance($0) < luminance($1) }
+        guard !field.isEmpty else { return }
+        let background = field[field.count / 2]
+        let text = [field.first!, field.last!].max { contrast($0, background) < contrast($1, background) }!
+        XCTAssertGreaterThanOrEqual(contrast(text, background), 4.5, "Draft text \(text) on field \(background)")
+        XCTAssertLessThan(luminance(background), 0.2, "The dark theme's field stays dark: \(background)")
+        let keyboard = pixels(app, in: app.keyboards.firstMatch.frame).sorted { luminance($0) < luminance($1) }
+        guard !keyboard.isEmpty else { return }
+        XCTAssertLessThan(luminance(keyboard[keyboard.count / 2]), 0.2, "Dark mode keeps the dark keyboard: \(keyboard[keyboard.count / 2])")
     }
 
     // Report 3277d430: ordinary Working editing keeps the draft full width above the action row.

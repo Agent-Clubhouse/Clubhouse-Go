@@ -219,7 +219,9 @@ struct CompanionConversationComposer: View {
                         keyboardDismissButton
                     }
                 }
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                // Glass behind the draft over the theme card, as in the header. Wrapping the whole draft and action row
+                // in glass let it adapt to light in dark mode, taking the field and keyboard with it (text at 2:1).
+                .companionCardGlass(RoundedRectangle(cornerRadius: 24))
                 // Images dragged in on iPad join the attachments like pasted ones.
                 .onDrop(of: CompanionPastedImages.acceptedTypes, isTargeted: nil) { providers in
                     Task { _ = await pasteImages(providers) }

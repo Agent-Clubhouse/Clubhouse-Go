@@ -6,6 +6,8 @@ struct CompanionConversationIdentityButton: View {
     @Binding var isExpanded: Bool
     let accessibilityLabel: String
     var reviewPosition: String? = nil
+    /// Expanded, but there's no room to show the details (landscape with the keyboard up).
+    var detailsLackRoom = false
 
     var body: some View {
         Button { isExpanded.toggle() } label: {
@@ -27,7 +29,7 @@ struct CompanionConversationIdentityButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(reviewPosition.map { "\(agent.displayName), \($0)" } ?? accessibilityLabel)
-        .accessibilityValue(isExpanded ? "Details expanded" : "Details collapsed")
+        .accessibilityValue(isExpanded ? (detailsLackRoom ? "Details hidden, no room while editing" : "Details expanded") : "Details collapsed")
         .accessibilityHint("Shows or hides conversation details")
         .accessibilityIdentifier(reviewPosition == nil ? "companion-chat-header" : "review-title")
     }

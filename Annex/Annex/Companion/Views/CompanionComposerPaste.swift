@@ -68,16 +68,33 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
             super.init(frame: frame)
             isUserInteractionEnabled = false
             isAccessibilityElement = false
+            _ = appearanceRegistration
         }
         required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
         override func didMoveToWindow() { super.didMoveToWindow(); attach() }
+        // A light/dark switch while the chat is open re-matches the keyboard.
+        private lazy var appearanceRegistration: Void = {
+            registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: HookView, _: UITraitCollection) in view.attach() }
+        }()
         override func layoutSubviews() { super.layoutSubviews(); attach() }
 
         func attach() {
             guard let coordinator, window != nil else { return }
             if textView?.window == nil { textView = findTextView() }
-            if let textView { CompanionImagePaste.register(textView, coordinator) }
+            if let textView {
+                CompanionImagePaste.register(textView, coordinator)
+                if let window { Self.matchKeyboard(textView, to: window.traitCollection.userInterfaceStyle) }
+            }
+        }
+
+        /// The keyboard follows the system appearance. Left at .default, iOS 26 brought up the light keyboard in dark
+        /// mode once the field no longer sat inside a glass effect, though the field and window were both dark.
+        /// Set from the window's settled style, never by reloading a live keyboard: reloading while the field was
+        /// becoming first responder dismissed the keyboard and dropped keystrokes. A switch applies on next focus.
+        private static func matchKeyboard(_ textView: UITextView, to style: UIUserInterfaceStyle) {
+            let appearance: UIKeyboardAppearance = style == .dark ? .dark : .light
+            if textView.keyboardAppearance != appearance { textView.keyboardAppearance = appearance }
         }
 
         /// The nearest text view that overlaps this one, looking a few levels up so it never reaches another screen's field.

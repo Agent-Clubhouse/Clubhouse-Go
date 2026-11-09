@@ -205,13 +205,15 @@ import XCTest
         XCTAssertLessThan(room, 100, "This case needs a window too short for the details: \(room)pt")
         let identity = app.buttons["companion-chat-header"]
         identity.tap()
-        XCTAssertTrue(waitFor(identity, NSPredicate(format: "value == %@", "Details expanded"), timeout: 5))
+        XCTAssertTrue(waitFor(identity, NSPredicate(format: "value == %@", "Details hidden, no room while editing"), timeout: 5),
+                      "VoiceOver hears why nothing expanded: \(identity.value ?? "")")
         let details = element(app, "companion-chat-details")
         XCTAssertFalse(details.waitForExistence(timeout: 1), "No details squeezed between the bar and the composer")
         XCTAssertFalse(app.scrollViews["companion-chat-details-scroll"].exists)
         assertEditingLayout(app, largeText: false)
         XCUIDevice.shared.orientation = .portrait
         XCTAssertTrue(details.waitForExistence(timeout: 5), "The kept choice shows the details once there is room")
+        XCTAssertTrue(waitFor(identity, NSPredicate(format: "value == %@", "Details expanded"), timeout: 5))
         let navigation = app.navigationBars.firstMatch.frame
         XCTAssertGreaterThanOrEqual(pixelAligned(details.frame.minY), pixelAligned(navigation.maxY))
         XCTAssertLessThanOrEqual(pixelAligned(details.frame.maxY), pixelAligned(element(app, "companion-composer-region").frame.minY),

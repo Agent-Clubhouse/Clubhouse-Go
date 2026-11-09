@@ -22,6 +22,7 @@ struct CompanionConversationView: View {
     @State private var showArchive = false
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
+    @State private var headerDetailsLackRoom = false
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -139,6 +140,10 @@ struct CompanionConversationView: View {
             }
         }
         }
+        // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
+        .onGeometryChange(for: Bool.self) { $0.size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails } action: {
+            headerDetailsLackRoom = $0
+        }
         .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -146,7 +151,8 @@ struct CompanionConversationView: View {
                 // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
-                                                        accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition)
+                                                        accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
+                                                        detailsLackRoom: headerDetailsLackRoom)
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) { contextButton }
