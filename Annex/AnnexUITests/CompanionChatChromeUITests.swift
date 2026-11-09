@@ -123,7 +123,13 @@ import XCTest
         XCTAssertTrue(app.buttons["View River, needs you"].isHittable, "The compact other-agent notice stays actionable")
         // The artificial preview banner had only 10pt in the baseline. Real chat must keep at least one readable band.
         XCTAssertGreaterThanOrEqual(readable, hidePreviewBanner ? 44 : 10, "Largest text must improve on the matching baseline")
-        XCTAssertFalse(app.buttons["companion-context-usage"].exists, "The ring yields its header row while editing")
+        // Editing keeps the one context Button, whole, in the navigation bar.
+        let navigation = app.navigationBars.firstMatch
+        let context = navigation.buttons["companion-context-usage"]
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-context-usage").count, 1)
+        XCTAssertEqual(context.label, "Context and plan limits")
+        XCTAssertTrue(context.isEnabled && context.isHittable, "Editing keeps context enabled and reachable")
+        XCTAssertTrue(pixelContains(navigation.frame, context.frame), "Context \(context.frame) stays in navigation \(navigation.frame)")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["companion-context-settings-menu"])
         let picker = app.buttons["agent-settings-context-window"]
         waitAndTap(app.buttons["companion-context-settings-menu"], until: picker)

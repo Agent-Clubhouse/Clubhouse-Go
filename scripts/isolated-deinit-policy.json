@@ -714,6 +714,48 @@
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift",
       "reason": "Owns an injected CompanionService protocol and canRequest callback. Production callback captures Store weakly plus a value target, but arbitrary injected owners are not constrained to UI-free teardown; retain synthesized MainActor destruction. Remaining fields are provider receipt/target/String/Bool values, with no cleanup side effects."
+    },
+    "CompanionRecoveryFixtureService": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
+      "reason": "DEBUG-only concrete synthetic service. Owns a Bool teardown admission fence, String/target/Int/enum dictionaries and Sendable CheckedContinuation runtime handles, like the reviewed manual clock. It stores no user callback, UIView, controller, UIImage, transport or arbitrary protocol owner. beginTeardown closes all future holds before resuming pending requests on MainActor; deinit performs no resumption, cancellation or UI work. All service responses are value CompanionHistory or fixed String errors.",
+      "surface": {
+        "bases": [
+          "CompanionService"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "historyCalls": "[ CompanionTarget : Int ]",
+          "isTearingDown": "Bool",
+          "modes": "[ CompanionTarget : ResultMode ]",
+          "pending": "[ CompanionTarget : [ CheckedContinuation < CompanionHistory , Error > ] ]",
+          "reconnectCalls": "[ String : Int ]"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
+    },
+    "CompanionRecoveryFixtureScene": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift",
+      "reason": "DEBUG-only scene owns the reviewed concrete RecoveryFixtureService, reviewed UI-free CompanionStore constructed with that service, and Bool/Bool?/Int/CompanionTarget values. The initial-details seed and passive observed-seed/update-count witnesses add only values, with no callback, UI owner or task storage. Constructor captures no UI object or callback. UIKit hosting/window objects belong only to test method locals; this owner has no teardown work.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "initiallyShowsRecoveryDetails": "Bool",
+          "isActive": "Bool",
+          "observedRecoveryDetailsSeed": "Bool ?",
+          "recoveryDetailsSeedObservationCount": "Int",
+          "service": "CompanionRecoveryFixtureService",
+          "store": "CompanionStore",
+          "target": "CompanionTarget"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     }
   },
   "captureSites": {
@@ -775,6 +817,14 @@
           "producers": {
             "service": "CompanionPreviewService ( showsDispatcher : true )"
           }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationHeaderFixture.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsContextWindow : true , showsAutoQuota : true ) )",
+          "producers": {}
         }
       ]
     },
@@ -853,6 +903,16 @@
         {
           "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
           "producers": {}
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift": {
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : service )",
+          "producers": {
+            "service": "CompanionRecoveryFixtureService ( )"
+          }
         }
       ]
     }

@@ -204,6 +204,51 @@ class ReliableUITestCase: XCTestCase {
         XCTAssertEqual(fold.value as? String, "Expanded", "\(fold) must open", file: file, line: line)
     }
 
+    /// The part of a conversation's transcript nothing floats over: below the navigation bar, the identity (its name
+    /// pill hangs just below the bar) and the preview banner; above the activity footer, composer and keyboard.
+    func clearTranscriptArea(in app: XCUIApplication) -> CGRect {
+        let any = app.descendants(matching: .any)
+        var top = app.navigationBars.firstMatch.frame.maxY
+        for chrome in [any.matching(identifier: "companion-chat-header").firstMatch,
+                       any.matching(NSPredicate(format: "label BEGINSWITH %@", "UI preview")).firstMatch] where chrome.exists {
+            top = max(top, chrome.frame.maxY)
+        }
+        var bottom = app.frame.maxY
+        for chrome in [any.matching(identifier: "companion-composer-region").firstMatch,
+                       app.staticTexts["companion-chat-activity"], app.keyboards.firstMatch] where chrome.exists {
+            bottom = min(bottom, chrome.frame.minY)
+        }
+        return CGRect(x: app.frame.minX, y: top + 8, width: app.frame.width, height: max(0, bottom - top - 16))
+    }
+
+    /// Short held drags until `element` sits in the clear transcript area. The transcript scrolls under the floating
+    /// header, where XCUI still counts an element as hittable but a tap lands on the bar. Taller elements need only
+    /// start inside it. The caller asserts the result.
+    @discardableResult
+    func scrollIntoClearArea(_ element: XCUIElement, in app: XCUIApplication, maxDrags: Int = 12,
+                             file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        func clear() -> Bool {
+            let area = clearTranscriptArea(in: app), frame = element.frame
+            guard element.exists, element.isHittable, frame.minY >= area.minY else { return false }
+            return frame.height > area.height || frame.maxY <= area.maxY
+        }
+        for _ in 0..<maxDrags {
+            checkTimeLeft("moving \(element) clear of the floating chrome", file: file, line: line)
+            if clear() { return true }
+            let area = clearTranscriptArea(in: app)
+            guard area.height > 40 else { return false }
+            // Content above the clear area comes down; content below it goes up. Held, so it doesn't fling past.
+            let above = !element.exists || element.frame.minY < area.minY
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            func point(_ fraction: CGFloat) -> XCUICoordinate {
+                origin.withOffset(CGVector(dx: area.midX - app.frame.minX, dy: area.minY + area.height * fraction - app.frame.minY))
+            }
+            point(above ? 0.3 : 0.7).press(forDuration: 0.05, thenDragTo: point(above ? 0.7 : 0.3),
+                                           withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        return clear()
+    }
+
     /// The plain timeline exposes off-screen frames. Choose direction from geometry instead of assuming it opens
     /// at a particular edge, and keep gestures between the header and composer.
     func bringTranscriptRowIntoView(_ row: XCUIElement, in app: XCUIApplication, maxGestures: Int = 40) -> Bool {
@@ -264,6 +309,31 @@ class ReliableUITestCase: XCTestCase {
             } else { _ = target.waitForExistence(timeout: 1) }
         } while Date() < end
         XCTAssertTrue(target.exists, "Activity must expose its content")
+    }
+
+    /// XCUITest frames are converted through floating point, so a laid-out 44pt target can read 43.99999999999997
+    /// and two equal edges can differ in the last bit. Compare at the display's pixel grid, the size actually drawn;
+    /// a shortfall of a pixel or more still fails.
+    func pixelAligned(_ value: CGFloat) -> CGFloat {
+        let scale = max(UIScreen.main.scale, 1)
+        return (value * scale).rounded() / scale
+    }
+
+    func pixelAligned(rect frame: CGRect) -> CGRect {
+        CGRect(x: pixelAligned(frame.minX), y: pixelAligned(frame.minY), width: pixelAligned(frame.width), height: pixelAligned(frame.height))
+    }
+
+    /// Asserts an interaction target is at least `width`×`height` points, at display-pixel precision.
+    func assertMinimumTarget(_ element: XCUIElement, _ name: String, width: CGFloat = 44, height: CGFloat = 44,
+                             file: StaticString = #filePath, line: UInt = #line) {
+        let frame = element.frame
+        XCTAssertGreaterThanOrEqual(pixelAligned(frame.width), width, "\(name) width: \(frame)", file: file, line: line)
+        XCTAssertGreaterThanOrEqual(pixelAligned(frame.height), height, "\(name) height: \(frame)", file: file, line: line)
+    }
+
+    /// Whether `outer` contains `inner` once both are on the display's pixel grid.
+    func pixelContains(_ outer: CGRect, _ inner: CGRect) -> Bool {
+        pixelAligned(rect: outer).contains(pixelAligned(rect: inner))
     }
 
     /// Waits for `predicate` to hold for `element`, for at most `timeout` seconds.

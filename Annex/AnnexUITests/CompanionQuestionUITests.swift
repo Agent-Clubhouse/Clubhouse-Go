@@ -21,6 +21,7 @@ import XCTest
         }
         let red = app.buttons["Red"]
         XCTAssertTrue(scrollTo(red, in: app))
+        XCTAssertTrue(scrollIntoClearArea(red, in: app), "Red is clear of the floating chrome: \(red.frame)")
         red.tap()
         let submit = app.buttons["send-answers-complete"]
         XCTAssertTrue(scrollTo(submit, in: app))

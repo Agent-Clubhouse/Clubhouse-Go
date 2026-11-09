@@ -15,9 +15,12 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
     private func dismissKeyboard(_ app: XCUIApplication) {
         guard app.keyboards.firstMatch.exists else { return }
-        let window = app.windows.firstMatch.frame
-        let header = element(app, "companion-chat-header").frame
-        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: window.width * 0.5, dy: header.maxY + 35))
+        // The header lives in the navigation bar now: start halfway between it and the composer, in the transcript.
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = element(app, "companion-composer-region").frame.minY
+        XCTAssertGreaterThan(bottom - top, 48, "Some transcript stays visible above the composer")
+        let start = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.5, dy: (top + bottom) / 2 - app.frame.minY))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
         start.press(forDuration: 0.05, thenDragTo: end)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Drag in the transcript dismisses the keyboard")

@@ -34,6 +34,25 @@ struct CompanionPreviewRoot: View {
         ? CompanionFeedbackPresenter(model: FramebriarShakePreview.fixtureModel(enrolled: true).0) : nil
     @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     var body: some View {
+        if CompanionConversationHeaderFixture.isEnabled {
+            CompanionConversationHeaderFixture()
+        } else if CompanionRecoveryFixture.isEnabled {
+            CompanionRecoveryFixture()
+        } else {
+            // `--companion-preview-dark` / `-light`: that appearance for this launch only. Changing the simulator's
+            // appearance from a UI test doesn't reliably reach the app on every runtime.
+            normalPreview.preferredColorScheme(Self.forcedColorScheme)
+        }
+    }
+
+    private static var forcedColorScheme: ColorScheme? {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--companion-preview-dark") { return .dark }
+        if arguments.contains("--companion-preview-light") { return .light }
+        return nil
+    }
+
+    private var normalPreview: some View {
         CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: {
             $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
         },
