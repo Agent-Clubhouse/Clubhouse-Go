@@ -38,7 +38,10 @@ struct ClubhouseGoApp: App {
 
     init() {
         #if DEBUG
-        let testMode = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
+        // Hosting ClubhouseGoTests (XCTest injected; never set in the app UI tests launch): no Keychain feedback
+        // client, telemetry bridge or feedback pump sharing notifications and AnnexTelemetry.shared with the tests (#340).
+        let unitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let testMode = unitTestHost || ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
         _runtimeLifetime = State(initialValue: CompanionStateLifetime {
             // Lazy: previews/probes never reset the install or construct a feedback client.
             if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }

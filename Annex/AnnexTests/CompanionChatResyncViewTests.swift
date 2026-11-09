@@ -59,10 +59,11 @@ import ClubhouseTransport
         window.isHidden = false
         let telemetry = AnnexTelemetry.shared; telemetry.setEnabled(true)
         defer { window.isHidden = true; window.rootViewController = nil; telemetry.setEnabled(false) }
-        func settle() async throws {
+        /// `until` names a read the phase expects. Under load the view can start it after the fixed pause (#340).
+        func settle(until expected: () -> Bool = { true }) async throws {
             try await Task.sleep(for: .milliseconds(400))
             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-            while store.conversation(for: target).isLoading && ContinuousClock.now < deadline {
+            while (store.conversation(for: target).isLoading || !expected()) && ContinuousClock.now < deadline {
                 try await Task.sleep(for: .milliseconds(20))
             }
             XCTAssertFalse(store.conversation(for: target).isLoading, "Synthetic history read must finish")
@@ -83,7 +84,7 @@ import ClubhouseTransport
         store.apply(.resyncRequired(hostID: target.hostID)); store.apply(.hosts(hosts)); try await settle()
         navigation.phase = .active
         hosts[0].connection = .synchronizing; store.apply(.hosts(hosts)); await Task.yield()
-        hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle()
+        hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle { service.reads > before }
         report("foreground-open", before: before)
         XCTAssertEqual(service.reads - before, 1)
         XCTAssertFalse(store.conversation(for: target).requiresResync, store.conversation(for: target).error ?? "No loading error")
@@ -92,7 +93,7 @@ import ClubhouseTransport
         store.apply(.resyncRequired(hostID: target.hostID))
         hosts[0].connection = .synchronizing; store.apply(.hosts(hosts))
         navigation.open = true
-        hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle()
+        hosts[0].connection = .connected; store.apply(.hosts(hosts)); try await settle { service.reads > before }
         report("navigation-and-reconnect", before: before)
         XCTAssertEqual(service.reads - before, 1)
         XCTAssertEqual(store.conversation(for: target).items.count, 5_000)
