@@ -1,6 +1,7 @@
 {
   "version": 1,
   "files": [
+    "agent-address.json",
     "agent-settings-context-window.json",
     "agent-settings-dispatcher.json",
     "agent-settings-errors.json",
@@ -50,6 +51,7 @@
     "create-options-errors.json",
     "create-options.json",
     "dispatcher-changed.json",
+    "dispatcher-group-chat.json",
     "dispatcher-off-routes.json",
     "dispatcher-off-states.json",
     "dispatcher-routes.json",
@@ -62,6 +64,10 @@
     "icon-images.json",
     "icon-refs-cases.json",
     "icon-route.json",
+    "network-changed.json",
+    "network-list.json",
+    "network-members.json",
+    "network-pairing.json",
     "pairing-revoke.json",
     "pairing.json",
     "pty.json",

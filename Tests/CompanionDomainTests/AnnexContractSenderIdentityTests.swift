@@ -136,7 +136,7 @@ import Testing
     private func assertRecordedDesktopCoexistence(_ fixture: AnnexJSON, agentID: String) throws {
         let source = try ContractFixtures.json("SOURCE.json")
         #expect(source["repository"]?.string == "Agent-Clubhouse/Clubhouse")
-        #expect(source["commit"]?.string == "e1e0c6bf6d6237dcd7c1a3406a6d56031a4463b2")
+        #expect(source["commit"]?.string == "0949f98b13e4e2d1d9ec60f22e0e1dc36df5c8f8")
         #expect(source["path"]?.string == "test/fixtures/annex-mobile")
         let recorded = try #require(fixture["expected"].arrayValue.first { $0["messageId"]?.string == "emoji_over_image" })
         let part = try #require(recorded["parts"].arrayValue.first)
