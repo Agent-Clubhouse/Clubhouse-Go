@@ -203,6 +203,9 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
         } catch {
             // URLSession enforces maximumMessageSize before returning a message and
             // sends close 1009. On Darwin its receive error is POSIX EMSGSIZE.
+            if task.closeCode.rawValue == 4401, task.closeReason.flatMap({ String(data: $0, encoding: .utf8) }) == "peer_not_paired" {
+                throw AnnexTransportError.rejected(status: 401, code: "peer_not_paired")
+            }
             let failure = error as NSError
             if failure.domain == NSPOSIXErrorDomain, failure.code == Int(EMSGSIZE) {
                 let diagnostic = telemetry.begin(.websocket)

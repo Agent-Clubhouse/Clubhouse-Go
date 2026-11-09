@@ -94,7 +94,7 @@ nonisolated public enum AnnexTransportEvent: Sendable, Equatable {
 }
 
 nonisolated public enum AnnexReadRoute: Sendable {
-    case identity, status, projects, capabilities
+    case identity, status, projects, capabilities, network
     case chatContent(agentID: String, mediaRef: String?, filePath: String?)
     case chat(agentID: String)
     case chatSessions(agentID: String)

@@ -343,6 +343,8 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     public struct Pairing: Decodable, Sendable { public let sessionRevokePath: String? }
     public let pairing: Pairing?
+    public let network: AnnexNetworkCapability?
+    public var supportsNetwork: Bool { network?.isSupported == true }
     public let idempotency: Idempotency
     /// Every address the desktop answers on, LAN first then Tailscale. A hint: each is pin-checked before use.
     public struct Routes: Decodable, Sendable, Equatable {
@@ -498,6 +500,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         controlAvailable = optional(.controlAvailable)
         events = optional(.events)
         pairing = optional(.pairing)
+        network = optional(.network)
         routes = optional(.routes)
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
@@ -518,7 +521,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, idempotency, routes, createOptions, agentSettings, agentState, providerControl
+        case version, epoch, controlAuth, controlAvailable, commands, events, pairing, network, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }

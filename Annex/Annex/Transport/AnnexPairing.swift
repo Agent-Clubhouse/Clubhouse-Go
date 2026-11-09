@@ -22,6 +22,8 @@ nonisolated public struct AnnexPairingResult: Sendable {
     public let host: TrustedAnnexHost
     public let publicKey: String
     public let alias: String
+    public let pairing: AnnexNetworkPairing?
+    public let serverPairing: AnnexNetworkPairing?
 }
 
 nonisolated public struct AnnexPairingClient: Sendable {
@@ -36,7 +38,7 @@ nonisolated public struct AnnexPairingClient: Sendable {
 
     /// Explicit action after desktop trust verification. PIN and token are only
     /// carried inside pinned TLS. No fallback to the legacy HTTP pairing port.
-    public func pair(pin: String, alias: String, mode: AnnexPairingMode = .session) async throws -> AnnexPairingResult {
+    public func pair(pin: String, alias: String, mode: AnnexPairingMode = .session, selfPairing: AnnexNetworkPairing? = nil) async throws -> AnnexPairingResult {
         return try await AnnexTelemetry.shared.measure(.pairing) {
             guard !pin.isEmpty, pin.count <= 128, !alias.isEmpty, alias.count <= 128 else { throw AnnexTransportError.malformedResponse }
             struct Request: Encodable {
@@ -44,11 +46,13 @@ nonisolated public struct AnnexPairingClient: Sendable {
                 let icon = "smartphone"
                 let color = "indigo"
                 let pairingMode: String
+                let network: Int?
+                let selfPairing: AnnexNetworkPairing?
             }
             var request = URLRequest(url: try host.endpoint.url(path: ["pair"]))
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONEncoder().encode(Request(pin: pin, publicKey: clientIdentity.pairingIdentity.publicKeyBase64, alias: alias, pairingMode: mode.rawValue))
+            request.httpBody = try JSONEncoder().encode(Request(pin: pin, publicKey: clientIdentity.pairingIdentity.publicKeyBase64, alias: alias, pairingMode: mode.rawValue, network: mode == .persistent ? 1 : nil, selfPairing: mode == .persistent ? selfPairing : nil))
             try Task.checkCancellation()
             let response = try await io.perform(request)
             try Task.checkCancellation()
@@ -58,6 +62,9 @@ nonisolated public struct AnnexPairingClient: Sendable {
                 let tlsCertificateFingerprint: String
                 let mobileProtocolVersion: Int
                 let pairingMode: String
+                let network: Int?
+                let pairing: AnnexNetworkPairing?
+                let serverPairing: AnnexNetworkPairing?
             }
             guard let result = try? JSONDecoder().decode(Response.self, from: response.data) else { throw AnnexTransportError.malformedResponse }
             guard result.mobileProtocolVersion == 1, result.pairingMode == mode.rawValue,
@@ -66,9 +73,16 @@ nonisolated public struct AnnexPairingClient: Sendable {
             }
             let actual = try AnnexPairingIdentity.fingerprint(publicKeyBase64: result.publicKey)
             guard result.fingerprint.lowercased() == actual, actual == host.hostID else { throw AnnexTransportError.identityMismatch }
+            if result.network == 1 {
+                guard mode == .persistent, let pairing = result.pairing, let server = result.serverPairing,
+                      !pairing.id.isEmpty, AnnexNetworkRemoval.date(pairing.joinedAt) != nil,
+                      !server.id.isEmpty, AnnexNetworkRemoval.date(server.joinedAt) != nil else {
+                    throw AnnexTransportError.malformedResponse
+                }
+            }
             let credential = try AnnexCredential(bearerToken: result.token)
             try await credentials.save(credential, for: host.hostID)
-            return AnnexPairingResult(host: host, publicKey: result.publicKey, alias: result.alias)
+            return AnnexPairingResult(host: host, publicKey: result.publicKey, alias: result.alias, pairing: result.network == 1 ? result.pairing : nil, serverPairing: result.network == 1 ? result.serverPairing : nil)
 
         }
     }
@@ -77,7 +91,9 @@ nonisolated public struct AnnexPairingClient: Sendable {
 nonisolated enum AnnexHTTPValidation {
     static func error(_ response: AnnexHTTPResponse) -> AnnexTransportError {
         switch response.status {
-        case 401: return .unauthorized
+        case 401:
+            let code = (try? JSONDecoder().decode(AnnexJSON.self, from: response.data))?["error"]?.string
+            return code == "peer_not_paired" ? .rejected(status: 401, code: code) : .unauthorized
         case 403: return .forbidden
         default:
             // Keep a machine code for classification and plain desktop text for the user.

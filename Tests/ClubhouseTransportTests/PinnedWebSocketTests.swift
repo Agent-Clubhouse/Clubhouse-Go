@@ -92,6 +92,19 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     #expect(oversize.allSatisfy { $0["code"]?.integer == 1009 })
 }
 
+@Test(.timeLimit(.minutes(1))) func revokedPeerClose4401PreservesTheExplicitRemovalReason() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let socket = try await io.openWebSocket(fixture.webSocketRequest())
+    _ = try await socket.receive()
+    try await socket.send(Data("close:4401".utf8))
+    await #expect(throws: AnnexTransportError.rejected(status: 401, code: "peer_not_paired")) {
+        try await socket.receive()
+    }
+    await socket.close()
+}
+
 @Test(.timeLimit(.minutes(1))) func serverOverrunClose1013UsesRecoverableURLSessionFailure() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }

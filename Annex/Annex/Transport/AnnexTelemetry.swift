@@ -464,7 +464,7 @@ nonisolated extension AnnexReadRoute {
         case .identity: .identity
         case .status: .status
         case .projects: .projects
-        case .capabilities: .capabilities
+        case .capabilities, .network: .capabilities
         case .agents, .agentState: .agents
         case .chat, .chatHistory: .history
         case .chatSessions, .sessions, .transcript: .archive
