@@ -21,14 +21,42 @@ struct CompanionFullEventDocumentTests {
         #expect(CompanionFullEventDocument.visibleFormatting("a\u{061C}\u{FEFF}b") == "a⟨U+061C⟩⟨U+FEFF⟩b")
     }
 
-    @Test func chunksPreserveLinesIncludingEmptyLinesAndNeverSplitALongLine() throws {
-        let text = "\nshort\n\n" + String(repeating: "long", count: 100) + "\nlast\n"
+    @Test func chunksPreserveOrdinaryLinesIncludingEmptyLines() throws {
+        let text = "\nshort\n\nanother line\nlast\n"
         let chunks = try CompanionFullEventDocument.lineChunks(text, targetSize: 12)
         #expect(chunks.count > 1)
         #expect(chunks.joined(separator: "\n") == text)
-        #expect(chunks.contains(String(repeating: "long", count: 100)))
+        #expect(chunks.contains("another line"))
         let value: AnnexJSON = .object(["path": .string("/work/a")])
         #expect(!value.displayText.contains("\\/"))
+    }
+
+    @Test func crlfTerminalOutputIsChunkedLikeLFOutput() throws {
+        let text = String(repeating: "let value = 1 // windows line\r\n", count: 20_000)
+        let chunks = try CompanionFullEventDocument.lineChunks(text)
+        #expect(chunks.count > 1)
+        #expect((chunks.map { $0.utf8.count }.max() ?? 0) <= 16_384)
+        let normalized = String(repeating: "let value = 1 // windows line\n", count: 20_000)
+        #expect(chunks.joined(separator: "\n") == normalized)
+    }
+
+    @Test(arguments: ["\r", "\u{2028}"])
+    func otherNewlinesProduceBoundedChunks(separator: String) throws {
+        let line = "let value = 1 // another line"
+        let text = String(repeating: line + separator, count: 20_000)
+        let chunks = try CompanionFullEventDocument.lineChunks(text)
+        #expect(chunks.count > 1)
+        #expect(chunks.allSatisfy { $0.utf8.count <= 16_384 })
+        #expect(chunks.joined(separator: "\n") == String(repeating: line + "\n", count: 20_000))
+    }
+
+    @Test func hugeSingleLinesStayWithinTheUTF8BudgetWithoutLosingScalars() throws {
+        for text in [String(repeating: "x", count: 60_000), String(repeating: "界🦊", count: 10_000), "e" + String(repeating: "\u{301}", count: 20_000)] {
+            let chunks = try CompanionFullEventDocument.lineChunks(text)
+            #expect(chunks.count > 1)
+            #expect(chunks.allSatisfy { $0.utf8.count <= 16_384 })
+            #expect(chunks.joined().utf8.elementsEqual(text.utf8))
+        }
     }
 
     @Test func reviewLabelsAndTimeoutsExplainTheNextAction() throws {

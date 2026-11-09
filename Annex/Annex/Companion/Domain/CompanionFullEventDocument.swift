@@ -45,20 +45,32 @@ nonisolated enum CompanionFullEventDocument {
         return result
     }
 
-    /// A single long line stays whole. Every chunk boundary replaces an existing newline,
-    /// so the view never inserts a gap halfway through a command or file line.
+    /// Normalize newline conventions for display and prefer whole-line boundaries.
+    /// Oversized lines split at Unicode scalar boundaries so every Text stays bounded,
+    /// including pathological grapheme clusters. The source event is never changed.
     static func lineChunks(_ text: String, targetSize: Int = 16_384) throws -> [String] {
+        let limit = min(16_384, max(4, targetSize))
         var chunks: [String] = [], current = String()
         var hasLine = false
         var currentBytes = 0
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        func flush() {
+            chunks.append(current); current = ""; currentBytes = 0; hasLine = false
+        }
+        for line in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             try Task.checkCancellation()
             let lineBytes = line.utf8.count
-            if hasLine && currentBytes + lineBytes + 1 > targetSize {
-                chunks.append(current); current = String(line); currentBytes = lineBytes
-            } else {
+            if lineBytes <= limit {
+                if hasLine && currentBytes + lineBytes + 1 > limit { flush() }
                 if hasLine { current += "\n"; currentBytes += 1 }
                 current += line; currentBytes += lineBytes
+            } else {
+                if hasLine { flush() }
+                for scalar in line.unicodeScalars {
+                    let bytes = scalar.utf8.count
+                    if currentBytes + bytes > limit { flush() }
+                    if currentBytes == 0 { try Task.checkCancellation() }
+                    current.unicodeScalars.append(scalar); currentBytes += bytes
+                }
             }
             hasLine = true
         }
