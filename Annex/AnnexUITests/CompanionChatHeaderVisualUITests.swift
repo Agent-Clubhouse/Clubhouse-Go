@@ -76,9 +76,13 @@ import XCTest
         let card = element(app, "companion-chat-details")
         XCTAssertTrue(card.exists)
         let scroll = app.scrollViews["companion-chat-details-scroll"]
-        let clip = scroll.exists ? scroll.frame : card.frame
         let region = editingRegion(app)
-        XCTAssertGreaterThanOrEqual(pixelAligned(clip.minY), pixelAligned(region.navigation.maxY))
+        XCTAssertGreaterThanOrEqual(pixelAligned(card.frame.minY), pixelAligned(region.navigation.maxY), "Details start below the navigation bar")
+        // Like the transcript, the details scroll view extends up under the navigation bar; what's readable is below it.
+        let belowNavigation = CGRect(x: app.frame.minX, y: region.navigation.maxY, width: app.frame.width,
+                                     height: app.frame.maxY - region.navigation.maxY)
+        let clip = (scroll.exists ? scroll.frame : card.frame).intersection(belowNavigation)
+        XCTAssertFalse(clip.isNull || clip.isEmpty, "Details have a visible region: \(clip)")
         XCTAssertLessThanOrEqual(pixelAligned(clip.maxY), pixelAligned(composerTop), "Details must not cover the composer")
         let expected = [
             ("companion-chat-details-name", longName ? "Alexandria — release coordination and simulator validation" : "Header worker"),
@@ -92,13 +96,26 @@ import XCTest
         for (id, label) in expected {
             let leaf = card.descendants(matching: .any).matching(identifier: id).firstMatch
             XCTAssertEqual(leaf.label, label, id)
-            // The details scroll within their cap; each line must be reachable there.
+            // The details scroll within their cap; each line must be reachable there. A line taller than the cap
+            // (a long name at accessibility sizes) is read across scroll positions, so it only needs to be in view.
+            func visible() -> Bool {
+                let frame = leaf.frame
+                let tall = pixelAligned(frame.height) > pixelAligned(clip.height)
+                return leaf.isHittable && (tall ? clip.intersects(frame) : pixelContains(clip, frame))
+            }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            func point(_ fraction: CGFloat) -> XCUICoordinate {
+                origin.withOffset(CGVector(dx: clip.midX - app.frame.minX, dy: clip.minY + clip.height * fraction - app.frame.minY))
+            }
             var swipes = 0
-            while swipes < 4, scroll.exists, !(leaf.isHittable && pixelContains(clip, leaf.frame)) {
-                scroll.swipeUp(velocity: .slow)
+            while swipes < 8, scroll.exists, !visible() {
+                // A short drag inside the visible details toward the line, held at the end so it doesn't fling past.
+                let above = leaf.frame.maxY <= clip.minY
+                point(above ? 0.3 : 0.7).press(forDuration: 0.05, thenDragTo: point(above ? 0.7 : 0.3),
+                                               withVelocity: .slow, thenHoldForDuration: 0.3)
                 swipes += 1
             }
-            XCTAssertTrue(leaf.isHittable, "\(id) is reachable in the details: \(leaf.frame), clip \(clip)")
+            XCTAssertTrue(visible(), "\(id) is reachable in the details: \(leaf.frame), clip \(clip)")
         }
     }
 

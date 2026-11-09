@@ -226,7 +226,9 @@ import XCTest
         XCTAssertFalse(send.isEnabled, "An empty draft cannot steer")
         try assertRow(app, working: true, state: "working empty unfocused", reviewButton: largestText)
         if largestText {
-            XCTAssertFalse(app.buttons["Allow once"].exists, "Large text reviews the approval instead of pinning decisions")
+            // The transcript's card still has its own decisions; only the pinned bar above the composer goes.
+            XCTAssertFalse(app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch.exists,
+                           "Large text reviews the approval instead of pinning decisions")
             reviewApprovalWithoutAnswering(app, editing: false)
         } else {
             XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned")
