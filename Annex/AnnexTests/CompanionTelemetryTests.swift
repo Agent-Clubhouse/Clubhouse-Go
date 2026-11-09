@@ -331,12 +331,14 @@ import SwiftUI
     @Test func newlyQueuedReportWakesDeliveryWithoutWaitingForThePeriodicTick() async throws {
         let network = TelemetryMockTransport()
         let (_, model, bridge, _) = try compose(network)
-        defer { bridge.stop() }
+        // Report delivery only. Each submit's detached telemetry flush (and its backoff timer) fetches a
+        // token with the client busy; one landing during a tick makes that tick skip its flush (#340).
+        bridge.stop()
         await model.setActive(true)
         await model.connect(String(repeating: "i", count: 43))
         let first = try ReviewedFeedback(configuration: config, notes: "fixture")
         #expect(await model.submit(first))
-        #expect(await network.reportBodies.isEmpty) // SDK submit flushes telemetry, not reports
+        #expect(await network.reportBodies.isEmpty) // Submit commits locally; it does not deliver reports
         await CompanionFeedback.deliverNewlyQueued(model: model, previous: 0, current: 1, isBackground: false)
         #expect(await network.reportBodies.count == 1)
         await model.setActive(false)
