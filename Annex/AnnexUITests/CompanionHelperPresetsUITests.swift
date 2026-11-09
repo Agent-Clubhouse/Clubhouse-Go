@@ -59,6 +59,47 @@ import XCTest
         XCTAssertTrue(error.label.contains("Preview only"))
         capture(app, "Helper presets - refused change (preview)")
     }
+    func testFiveLevelsAndResetRestoresInheritance() {
+        let app = launchApp(["--companion-preview", "--companion-preview-helper-presets", "--companion-preview-helper-preset-edits"])
+        openPresets(app)
+        for level in ["minimum", "easy", "medium", "hard", "maximum"] {
+            let row = element(app, "helper-preset-codex-cli-\(level)")
+            XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app), level)
+            XCTAssertTrue(row.label.contains(level.capitalized), row.label)
+            if level == "minimum" { XCTAssertTrue(row.label.contains("Same as Easy"), row.label) }
+            if level == "maximum" { XCTAssertTrue(row.label.contains("Same as Hard"), row.label) }
+        }
+        let minimum = element(app, "helper-preset-codex-cli-minimum")
+        XCTAssertTrue(scrollUntilExists(minimum, in: app, up: false) && scrollTo(minimum, in: app))
+        waitAndTap(minimum, until: app.buttons["helper-preset-save"])
+        XCTAssertTrue(element(app, "helper-preset-inheritance").label == "Same as Easy")
+        XCTAssertFalse(app.buttons["helper-preset-reset"].exists)
+        waitAndTap(app.buttons["helper-preset-save"], until: app.buttons["helper-preset-reset"])
+        XCTAssertTrue(element(app, "helper-preset-saved").exists)
+        XCTAssertFalse(element(app, "helper-preset-inheritance").exists)
+        waitAndTap(app.buttons["helper-preset-reset"], until: element(app, "helper-preset-inheritance"))
+        XCTAssertTrue(element(app, "helper-preset-inheritance").label == "Same as Easy")
+        XCTAssertFalse(element(app, "helper-preset-saved").exists)
+        XCTAssertFalse(app.buttons["helper-preset-reset"].exists)
+        capture(app, "Helper presets - reset inherits Easy (preview)")
+    }
+
+    func testCopilotIsPresetOnlyAndNoEffortModelHasNoPicker() {
+        let app = launchApp(["--companion-preview", "--companion-preview-helper-presets"])
+        openPresets(app)
+        let footer = element(app, "helper-preset-only-copilot-cli")
+        XCTAssertTrue(scrollUntilExists(footer, in: app) && scrollTo(footer, in: app))
+        XCTAssertTrue(footer.label.contains("Preset only. Auto doesn’t choose this provider."), footer.label)
+        let easy = element(app, "helper-preset-copilot-cli-easy")
+        XCTAssertTrue(scrollUntilExists(easy, in: app, up: false) && scrollTo(easy, in: app))
+        XCTAssertTrue(easy.label.contains("claude-haiku-4.5") && !easy.label.contains("effort"), easy.label)
+        waitAndTap(easy, until: app.buttons["helper-preset-model"])
+        XCTAssertTrue(element(app, "helper-preset-no-effort").exists)
+        XCTAssertFalse(app.buttons["helper-preset-effort"].exists)
+        XCTAssertTrue(app.buttons["helper-preset-save"].isEnabled)
+        capture(app, "Helper presets - Copilot with no effort levels (preview)")
+    }
+
     func testHelperSettingsAndHeldStartShowTheirOwnRouting() {
         let app = launchApp(["--companion-preview", "--companion-preview-helper-presets"])
         let row = element(app, "agent-preview-studio-juniper")

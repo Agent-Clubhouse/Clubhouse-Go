@@ -73,6 +73,10 @@ extension AnnexCapabilities {
         public let quota: Bool
         public let commands: [String]
         public let difficulties: [String]
+        public let levels: [String]?
+        public let presetProviders: [String]?
+        public let autoCandidates: [String]?
+        public var presetLevels: [String] { levels ?? difficulties }
         public let reasons: [String]
         public let fallbacks: [String]
         public let cellStates: [String]

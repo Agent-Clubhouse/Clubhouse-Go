@@ -34,6 +34,7 @@ import ClubhouseTransport
     private let showsHelperTree: Bool
     private let showsQuestions: Bool
     private let showsContextWindow: Bool
+    private var editedHelperPresets: CompanionHelperRouting?
     private let showsHelperPresets: Bool
     private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
@@ -223,6 +224,7 @@ import ClubhouseTransport
             hosts[0].helperRoutingRevision = Self.helperPresets.revision
             hosts[0].helperRoutingLabels = Self.helperPresets.labels
             hosts[0].providers.append(.init(id: "codex-cli", name: "Codex CLI"))
+            hosts[0].providers.append(.init(id: "copilot-cli", name: "Copilot"))
             hosts[0].projects[1].agents[1].orchestrator = "codex-cli"
             hosts[0].projects[1].agents[1].model = "gpt-6.1-sol"
             hosts[0].projects[1].agents[1].parentAgentID = Self.target.agentID
@@ -577,6 +579,9 @@ import ClubhouseTransport
             "version": .integer(1), "path": .string("/api/v1/mobile/helper-routing"),
             "modes": .array([.string("explicit"), .string("preset")]), "scopes": .array([.string("app")]), "quota": .bool(false),
             "commands": .array([.string("helperRouting.update")]), "difficulties": .array([.string("easy"), .string("medium"), .string("hard")]),
+            "levels": .array(["minimum", "easy", "medium", "hard", "maximum"].map(AnnexJSON.string)),
+            "presetProviders": .array(["codex-cli", "copilot-cli"].map(AnnexJSON.string)),
+            "autoCandidates": .array(["codex-cli"].map(AnnexJSON.string)),
             "reasons": .array([.string("explicit_request"), .string("preset_on_cli")]),
             "fallbacks": .array([.string("none"), .string("builtin_preset"), .string("model_unverified")]),
             "cellStates": .array([.string("valid"), .string("unverified"), .string("stale")])])
@@ -596,16 +601,46 @@ import ClubhouseTransport
                     .init(id: hard.model, label: "Sol", efforts: ["low", "medium", "high"]),
                     .init(id: medium.model, label: "Terra", efforts: ["low", "medium", "high"]),
                     .init(id: easy.model, label: "Luna", efforts: ["low", "medium", "high"])], cells: [
+                        "minimum": .init(effective: easy, builtin: easy, source: "builtin", state: "valid", editable: true, follows: "easy"),
+                        "maximum": .init(effective: hard, builtin: hard, source: "builtin", state: "valid", editable: true, follows: "hard"),
                         "easy": .init(effective: easy, builtin: easy, source: "builtin", state: "valid", editable: true),
                         "medium": .init(effective: medium, custom: medium, builtin: medium, source: "custom", state: "unverified", fallback: "model_unverified", editable: true),
-                        "hard": .init(effective: hard, custom: .init(model: "gone", effort: "high"), builtin: hard, source: "builtin", state: "stale", staleReason: "model_unavailable", fallback: "builtin_preset", editable: true)])])
+                        "hard": .init(effective: hard, custom: .init(model: "gone", effort: "high"), builtin: hard, source: "builtin", state: "stale", staleReason: "model_unavailable", fallback: "builtin_preset", editable: true)]),
+                "copilot-cli": .init(autoEligible: true, autoCandidate: false, choicesSource: "live", models: [
+                    .init(id: "claude-haiku-4.5", label: "Claude Haiku 4.5", efforts: [])],
+                    cells: Dictionary(uniqueKeysWithValues: ["minimum", "easy", "medium", "hard", "maximum"].map { level in
+                        let selection = CompanionHelperRouting.Selection(model: "claude-haiku-4.5")
+                        return (level, .init(effective: selection, builtin: selection, source: "builtin", state: "valid", editable: true,
+                                             follows: level == "minimum" ? "easy" : level == "maximum" ? "hard" : nil))
+                    }))])
     }
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         guard showsHelperPresets else { throw previewError }
         if showsAutoQuota && hostID == "preview-work" { return Self.planLimitsPage }
-        return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID) : Self.helperPresets
+        return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID) : editedHelperPresets ?? Self.helperPresets
     }
-    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting { throw previewError }
+    func updateHelperRouting(_ update: AnnexHelperRoutingUpdate, hostID: String, clientCommandID: String) async throws -> CompanionHelperRouting {
+        guard !showsAutoQuota, showsHelperPresets,
+              ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-preset-edits") else { throw previewError }
+        var page = editedHelperPresets ?? Self.helperPresets
+        if let reset = update.reset {
+            for id in page.providers.keys where reset.provider == nil || reset.provider == id {
+                for level in page.providers[id]?.cells.keys.sorted() ?? [] where reset.difficulty == nil || reset.difficulty == level {
+                    page.providers[id]?.cells[level] = Self.helperPresets.providers[id]?.cells[level]
+                }
+            }
+        }
+        for edit in update.cells ?? [] {
+            guard var cell = page.providers[edit.provider]?.cells[edit.difficulty] else { continue }
+            cell.custom = .init(model: edit.model, effort: edit.effort)
+            cell.effective = cell.custom; cell.follows = nil; cell.source = "custom"; cell.state = "valid"
+            cell.staleReason = nil; cell.fallback = nil
+            page.providers[edit.provider]?.cells[edit.difficulty] = cell
+        }
+        page.revision += ".edit"
+        editedHelperPresets = page
+        return page
+    }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         if target == Self.dispatcherTarget {
             var settings = Self.dispatcherSettings

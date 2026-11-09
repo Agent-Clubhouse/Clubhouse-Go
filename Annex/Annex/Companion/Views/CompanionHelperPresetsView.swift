@@ -76,11 +76,11 @@ struct CompanionHelperPresetsView: View {
                 }
                 if projectID == nil && agentID == nil && host?.helperRouting?.supportsPresets == true {
                     Section {
-                        Text("Choose the model and effort each difficulty uses on this desktop.").font(.subheadline)
+                        Text("Choose the model and effort each Auto level uses on this desktop.").font(.subheadline)
                         if host?.connection.canOperate != true { Text("Connect to the desktop to change presets.").foregroundStyle(.secondary) }
                     }
-                    ForEach(page.providers.keys.sorted(), id: \.self) { id in
-                        if let provider = page.providers[id], !provider.cells.isEmpty {
+                    ForEach((host?.helperRouting?.presetProviders ?? page.providers.keys.sorted()), id: \.self) { id in
+                        if let provider = page.providers[id], provider.autoEligible, !provider.cells.isEmpty {
                             providerSection(id, provider: provider, page: page)
                         }
                     }
@@ -117,7 +117,7 @@ struct CompanionHelperPresetsView: View {
 
     @ViewBuilder private func providerSection(_ id: String, provider: CompanionHelperRouting.Provider, page: CompanionHelperRouting) -> some View {
         Section {
-            ForEach(host?.helperRouting?.difficulties ?? [], id: \.self) { difficulty in
+            ForEach(host?.helperRouting?.presetLevels ?? [], id: \.self) { difficulty in
                 if let cell = provider.cells[difficulty] {
                     NavigationLink {
                         CompanionHelperPresetEditor(store: store, screen: screen, hostID: hostID, providerID: id, difficulty: difficulty)
@@ -125,7 +125,8 @@ struct CompanionHelperPresetsView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             Text(difficulty.capitalized).font(.headline)
                             Text(cell.effective?.summary ?? "None").font(.subheadline)
-                            Text(cell.custom == nil ? "Built-in" : "Custom").font(.caption).foregroundStyle(.secondary)
+                            Text(cell.choiceSource).font(.caption).foregroundStyle(.secondary)
+                            if cell.custom != nil, let inherited = cell.inheritanceSummary { Text(inherited).font(.caption).foregroundStyle(.secondary) }
                             Text(page.label("cell", cell.state)).font(.caption).foregroundStyle(.secondary)
                             if let fallback = cell.fallback, fallback != "none" { Text(page.label("fallback", fallback)).font(.caption).foregroundStyle(.secondary) }
                         }
@@ -136,7 +137,12 @@ struct CompanionHelperPresetsView: View {
             if provider.cells.values.contains(where: { $0.custom != nil }) {
                 Button("Reset provider presets") { reset(.init(provider: id)) }.disabled(!canEdit)
             }
-        } header: { Text(host?.providers.first { $0.id == id }?.name ?? id) }
+        } header: { Text(providerName(id)) } footer: {
+            if !provider.autoCandidate || host?.helperRouting?.autoCandidates?.contains(id) == false {
+                Text("Preset only. Auto doesn’t choose this provider.")
+                    .accessibilityIdentifier("helper-preset-only-\(id)")
+            }
+        }
     }
     private func providerName(_ id: String) -> String { host?.providers.first { $0.id == id }?.name ?? id }
     @ViewBuilder private var scopeLinks: some View {
@@ -188,6 +194,9 @@ private struct CompanionHelperPresetEditor: View {
             if let cell, let page = screen.settings {
                 Section("Current preset") {
                     LabeledContent("Effective", value: cell.effective?.summary ?? "None")
+                    if let inherited = cell.inheritanceSummary {
+                        Text(inherited).accessibilityIdentifier("helper-preset-inheritance")
+                    }
                     if let custom = cell.custom { LabeledContent("Saved custom", value: custom.summary).accessibilityIdentifier("helper-preset-saved") }
                     Text(page.label("cell", cell.state))
                     if let fallback = cell.fallback, fallback != "none" { Text(page.label("fallback", fallback)) }
@@ -197,11 +206,16 @@ private struct CompanionHelperPresetEditor: View {
                         ForEach(provider?.models ?? []) { model in Text(model.label).tag(model.id) }
                     }
                     .accessibilityIdentifier("helper-preset-model")
-                    Picker("Effort", selection: $effort) {
-                        Text("CLI default").tag(String?.none)
-                        ForEach(offered?.efforts ?? [], id: \.self) { Text($0).tag(Optional($0)) }
+                    if let offered, offered.efforts.isEmpty {
+                        Text("This model has no effort levels.")
+                            .accessibilityIdentifier("helper-preset-no-effort")
+                    } else {
+                        Picker("Effort", selection: $effort) {
+                            Text("CLI default").tag(String?.none)
+                            ForEach(offered?.efforts ?? [], id: \.self) { Text($0).tag(Optional($0)) }
+                        }
+                        .accessibilityIdentifier("helper-preset-effort")
                     }
-                    .accessibilityIdentifier("helper-preset-effort")
                     Button(screen.saving ? "Saving…" : "Save preset") {
                         Task {
                             await screen.save { revision in

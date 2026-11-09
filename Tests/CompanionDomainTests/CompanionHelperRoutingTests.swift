@@ -16,6 +16,9 @@ import Testing
         let feature = try #require(caps.helperRouting)
         #expect(feature.modes.contains("preset") && feature.scopes.contains("app"))
         #expect(feature.difficulties == ["easy", "medium", "hard"])
+        #expect(feature.presetLevels == ["minimum", "easy", "medium", "hard", "maximum"])
+        #expect(feature.presetProviders == ["claude-code", "codex-cli", "copilot-cli"])
+        #expect(feature.autoCandidates == ["claude-code", "codex-cli"])
         var fields = try #require(raw.object)
         fields["helperRouting"] = nil
         #expect(try !AnnexJSON.object(fields).decode(AnnexCapabilities.self).supportsHelperRouting)
@@ -28,7 +31,7 @@ import Testing
         for (name, entry) in try #require(raw.object) where entry["response"]?["status"] == .integer(200) {
             let page = try page(name)
             #expect(!page.revision.isEmpty)
-            #expect(page.providers["copilot-cli"]?.cells.isEmpty == true)
+            #expect(page.providers["copilot-cli"]?.cells.count == 5)
             #expect(page.label("reason", "preset_on_cli") == "From the helper settings for this difficulty")
             #expect(page.label("reason", "future_reason") == page.labels["generic"]?["unknownCode"])
         }
@@ -43,6 +46,65 @@ import Testing
         #expect(try page("agent").agent == .init(usable: true))
         #expect(try page().agent == nil)
         #expect(CompanionHelperRouting.label([:], family: "reason", code: "future") == "Other")
+    }
+
+    @Test func fiveLevelsPreserveInheritanceAndCopilotIsPresetOnly() throws {
+        let page = try page()
+        for id in ["claude-code", "codex-cli", "copilot-cli"] {
+            let provider = try #require(page.providers[id])
+            #expect(provider.autoEligible)
+            #expect(provider.autoCandidate == (id != "copilot-cli"))
+            for (level, follows) in [("minimum", "easy"), ("maximum", "hard")] {
+                let cell = try #require(provider.cells[level])
+                #expect(cell.follows == follows && cell.custom == nil)
+                #expect(cell.effective == provider.cells[follows]?.effective)
+                #expect(cell.choiceSource == "Same as \(follows.capitalized)")
+            }
+            #expect(provider.cells["easy"]?.follows == nil)
+            #expect(provider.cells["easy"]?.choiceSource == "Built-in")
+        }
+        let copilot = try #require(try self.page("copilotNoEffort").providers["copilot-cli"])
+        let haiku = try #require(copilot.models.first { $0.id == "claude-haiku-4.5" })
+        #expect(haiku.efforts.isEmpty)
+        #expect(copilot.cells["easy"]?.effective?.effort == nil)
+        #expect(copilot.cells["easy"]?.effective?.summary == "claude-haiku-4.5")
+    }
+
+    @Test func explicitChoiceAndStaleFallbackRemainDistinctFromInheritanceAndReset() async throws {
+        let inherited = try page()
+        var explicit = inherited
+        var cell = try #require(explicit.providers["codex-cli"]?.cells["minimum"])
+        cell.custom = .init(model: "gpt-6.1-sol", effort: "high")
+        cell.effective = cell.custom; cell.follows = nil; cell.source = "custom"
+        explicit.providers["codex-cli"]?.cells["minimum"] = cell
+        #expect(cell.choiceSource == "Custom" && cell.inheritanceSummary == nil)
+        // A stale explicit choice can fall back to Easy while retaining its saved choice and Reset.
+        cell.follows = "easy"; cell.state = "stale"; cell.effective = inherited.providers["codex-cli"]?.cells["easy"]?.effective
+        #expect(cell.choiceSource == "Custom" && cell.inheritanceSummary == "Same as Easy")
+        #expect(cell.custom != nil)
+        let screen = CompanionHelperPresetsScreen()
+        await screen.load { explicit }
+        await screen.save { revision in
+            let update = AnnexHelperRoutingUpdate(revision: revision, reset: .init(provider: "codex-cli", difficulty: "minimum"))
+            #expect(update.reset?.difficulty == "minimum" && update.cells == nil)
+            return inherited
+        }
+        let reset = try #require(screen.settings?.providers["codex-cli"]?.cells["minimum"])
+        #expect(reset.custom == nil && reset.follows == "easy" && reset.choiceSource == "Same as Easy")
+    }
+
+    @Test func choicesExcludePseudoModelsAndPreserveEmptyEfforts() throws {
+        var body = try #require(ContractFixtures.body("helper-routing.json", "copilotNoEffort").object)
+        var providers = try #require(body["providers"]?.object)
+        var copilot = try #require(providers["copilot-cli"]?.object)
+        var choices = try #require(copilot["choices"]?.object)
+        choices["models"] = .array(choices["models"].arrayValue + ["auto", "default"].map {
+            .object(["id": .string($0), "label": .string($0), "efforts": .array([])])
+        })
+        copilot["choices"] = .object(choices); providers["copilot-cli"] = .object(copilot); body["providers"] = .object(providers)
+        let decoded = try CompanionHelperRouting(json: .object(body))
+        #expect(decoded.providers["copilot-cli"]?.models.contains { ["auto", "default"].contains($0.id) } == false)
+        #expect(decoded.providers["copilot-cli"]?.models.first { $0.id == "claude-haiku-4.5" }?.efforts.isEmpty == true)
     }
 
     @Test func encodesAcceptedUpdatesAndRetainsFreshSettingsInStaleReceipt() throws {
