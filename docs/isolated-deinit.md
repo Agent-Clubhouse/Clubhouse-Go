@@ -112,3 +112,5 @@ Full-event review (#333) adds only value records to Store and LiveService: Strin
 The #344 preview helper-preset fields were reviewed after the main build gate detected stale ownership metadata: `editedHelperPresets` is an optional Sendable CompanionHelperRouting value graph and `showsAutoQuota` is Bool. Neither introduces callbacks, UI ownership or teardown work; the PreviewService policy surface now records these fields.
 
 Machine-qualified addresses (#339) change two reviewed storage surfaces: Store's `wrongMachines` maps CompanionTarget to a Sendable value struct (Strings and an optional CompanionTarget), and LiveService's `savedCommands` is now keyed by `CompanionCommandKey`, two Strings. Neither adds callbacks, UI ownership or teardown work.
+
+The #351 unit-test-host flag adds only an environment-derived Bool to the existing `testMode` producer in AnnexApp's Runtime lifetime factory. It changes which runtime the hosted test process builds, not what the factory captures; the capture-site record was refreshed after review.
