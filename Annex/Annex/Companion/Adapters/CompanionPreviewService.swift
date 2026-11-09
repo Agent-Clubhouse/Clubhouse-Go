@@ -207,7 +207,7 @@ import ClubhouseTransport
                 .init(id: "prototype", name: "Old prototype", agents: [
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
-            ], richContentAvailable: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, canStopAgents: true,
+            ], richContentAvailable: true, canResolveLinks: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, canStopAgents: true,
                canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canSetContextWindow: contextWindow, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
                terminal: .init(projectShell: true, agentShell: true, agentAttach: true),
@@ -507,6 +507,17 @@ import ClubhouseTransport
         try await Task.sleep(for: .milliseconds(300))
         let name = (path as NSString).lastPathComponent
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")
+    }
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        #if DEBUG && canImport(UIKit)
+        if CompanionContentAcceptanceFixture.enabled {
+            guard target == Self.target else { throw previewError }
+            return CompanionContentAcceptanceFixture.resolve(href)
+        }
+        #endif
+        try await Task.sleep(for: .milliseconds(200))
+        let name = ((href.components(separatedBy: "#").first ?? href).removingPercentEncoding ?? href) as NSString
+        return .file(path: "/Users/river/clubhouse/" + (name as String), name: name.lastPathComponent, kind: "text", size: nil)
     }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }

@@ -107,6 +107,28 @@ private struct CompanionContentView: View {
     let target: CompanionTarget
     let archiveRoots: CompanionContentRoots?
     let close: () -> Void
+    var body: some View {
+        NavigationStack {
+            CompanionContentPage(source: .reference(reference), store: store, target: target, archiveRoots: archiveRoots, close: close)
+        }
+    }
+}
+
+/// One page of the preview sheet: the tapped reference, or an entry of a folder the desktop listed.
+private struct CompanionContentPage: View {
+    enum Source: Hashable {
+        case reference(CompanionContentReference)
+        /// A listed entry's desktop path, resolved through the chat-link route again.
+        case entry(String)
+    }
+    let source: Source
+    let store: CompanionStore
+    let target: CompanionTarget
+    let archiveRoots: CompanionContentRoots?
+    let close: () -> Void
+    private var reference: CompanionContentReference {
+        switch source { case .reference(let reference): reference; case .entry(let path): .link(path) }
+    }
     @State private var content: CompanionContent?
     @State private var image: UIImage?
     @State private var pdf: PDFDocument?
@@ -114,69 +136,86 @@ private struct CompanionContentView: View {
     @State private var player: AVPlayer?
     @State private var temporaryFile: URL?
     @State private var loading = false
+    @State private var linkError: CompanionLinkError?
     @State private var loadID = UUID()
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if loading { ProgressView("Loading from your desktop…") }
-                    if let error {
-                        ContentUnavailableView("Preview unavailable", systemImage: "doc.questionmark", description: Text(error))
-                        Button("Try again") { Task { await load() } }.frame(maxWidth: .infinity)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if loading { ProgressView("Loading from your desktop…") }
+                if let linkError {
+                    switch linkError {
+                    case .missing:
+                        ContentUnavailableView(linkError.localizedDescription, systemImage: "questionmark.folder",
+                                               description: Text("Nothing is at this link on your desktop."))
+                            .accessibilityIdentifier("companion-link-missing")
+                    case .notAllowed:
+                        ContentUnavailableView(linkError.localizedDescription, systemImage: "lock",
+                                               description: Text("The desktop doesn't share this location with your phone. Open it on your desktop."))
+                            .accessibilityIdentifier("companion-link-not-allowed")
                     }
-                    if let content {
-                        if content.kind == "folder" {
-                            ContentUnavailableView("Folder link", systemImage: "folder", description: Text(CompanionContentReference.folderLinkMessage))
-                                .accessibilityIdentifier("companion-folder-link")
-                        } else if content.tooLarge {
-                            Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
-                        } else if let image {
-                            Image(uiImage: image).resizable().scaledToFit()
-                                .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())
-                            HStack {
-                                Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }
-                                ShareLink(item: Image(uiImage: image), preview: SharePreview(content.name, image: Image(uiImage: image))) {
-                                    Label("Share preview", systemImage: "square.and.arrow.up")
-                                }
-                            }.buttonStyle(.bordered)
-                        } else if let pdf {
-                            CompanionPDFPreview(document: pdf).containerRelativeFrame(.vertical) { length, _ in length * 0.8 }
-                                .accessibilityIdentifier("companion-pdf-preview")
-                            Text("PDF preview").font(.caption).foregroundStyle(.secondary)
-                        } else if content.kind != "pdf", content.mimeType == "image/svg+xml", let bytes = content.bytes {
-                            // SVG is an image resource, never an executable document.
-                            CompanionSVGImage(bytes: bytes).frame(height: 360)
-                            Text("SVG preview • scripts and external resources are blocked").font(.caption).foregroundStyle(.secondary)
-                        } else if content.kind != "pdf", let text = content.text {
-                            Text(text).font(.callout.monospaced()).textSelection(.enabled)
-                            if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
-                            Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
-                        } else if let player {
-                            VideoPlayer(player: player).frame(height: content.kind == "audio" ? 130 : 300)
-                            Text("Playback starts only when you press Play.").font(.caption).foregroundStyle(.secondary)
-                        } else {
-                            Text("This format cannot be previewed on this iPhone. Open it on your desktop.")
+                }
+                if let error {
+                    ContentUnavailableView("Preview unavailable", systemImage: "doc.questionmark", description: Text(error))
+                    Button("Try again") { Task { await load() } }.frame(maxWidth: .infinity)
+                }
+                if let content {
+                    if let folder = content.folder {
+                        CompanionFolderList(listing: folder) { path in
+                            CompanionContentPage(source: .entry(path), store: store, target: target, archiveRoots: archiveRoots, close: close)
                         }
+                    } else if content.kind == "folder" {
+                        Text("This folder can't be listed on this iPhone. Open it on your desktop.")
+                    } else if content.tooLarge {
+                        Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
+                    } else if let image {
+                        Image(uiImage: image).resizable().scaledToFit()
+                            .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())
+                        HStack {
+                            Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }
+                            ShareLink(item: Image(uiImage: image), preview: SharePreview(content.name, image: Image(uiImage: image))) {
+                                Label("Share preview", systemImage: "square.and.arrow.up")
+                            }
+                        }.buttonStyle(.bordered)
+                    } else if let pdf {
+                        CompanionPDFPreview(document: pdf).containerRelativeFrame(.vertical) { length, _ in length * 0.8 }
+                            .accessibilityIdentifier("companion-pdf-preview")
+                        Text("PDF preview").font(.caption).foregroundStyle(.secondary)
+                    } else if content.kind != "pdf", content.mimeType == "image/svg+xml", let bytes = content.bytes {
+                        // SVG is an image resource, never an executable document.
+                        CompanionSVGImage(bytes: bytes).frame(height: 360)
+                        Text("SVG preview • scripts and external resources are blocked").font(.caption).foregroundStyle(.secondary)
+                    } else if content.kind != "pdf", let text = content.text {
+                        Text(text).font(.callout.monospaced()).textSelection(.enabled)
+                        if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
+                        Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                    } else if let player {
+                        VideoPlayer(player: player).frame(height: content.kind == "audio" ? 130 : 300)
+                        Text("Playback starts only when you press Play.").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Text("This format cannot be previewed on this iPhone. Open it on your desktop.")
                     }
-                }.padding(20).frame(maxWidth: 900).frame(maxWidth: .infinity)
-            }
-            .privacySensitive()
-            .navigationTitle(content?.name ?? "Desktop preview")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }
-            .task { await load() }
-            .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
+                }
+            }.padding(20).frame(maxWidth: 900).frame(maxWidth: .infinity)
         }
+        .privacySensitive()
+        .navigationTitle(content?.name ?? "Desktop preview")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }
+        .task { await load() }
+        .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
     }
 
     private func load() async {
         guard !loading else { return }
         let id = UUID(); loadID = id
-        loading = true; error = nil; content = nil; image = nil; pdf = nil; clearPlayback()
+        loading = true; error = nil; linkError = nil; content = nil; image = nil; pdf = nil; clearPlayback()
         defer { loading = false }
         do {
-            let value = try await store.content(reference, target: target, contentRoots: archiveRoots)
+            let value = switch source {
+            case .reference(let reference): try await store.content(reference, target: target, contentRoots: archiveRoots)
+            case .entry(let path): try await store.linkContent(path, target: target)
+            }
             guard !Task.isCancelled, loadID == id else { return }
             content = value
             if value.kind == "image", value.mimeType != "image/svg+xml", let bytes = value.bytes {
@@ -203,6 +242,9 @@ private struct CompanionContentView: View {
                 let asset = AVURLAsset(url: file, options: [AVURLAssetReferenceRestrictionsKey: AVAssetReferenceRestrictions.forbidAll.rawValue])
                 player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
             }
+        } catch let error as CompanionLinkError {
+            guard !Task.isCancelled, loadID == id else { return }
+            content = nil; linkError = error
         } catch {
             guard !Task.isCancelled, loadID == id else { return }
             content = nil; self.error = error.localizedDescription

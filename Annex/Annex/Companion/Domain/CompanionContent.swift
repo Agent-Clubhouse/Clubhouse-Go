@@ -107,8 +107,8 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         }
     }
 
-    /// Desktop #3192 tries literal, decoded, then anchor-free forms, in that order.
-    /// File URLs are converted without ever consulting the phone's filesystem or home.
+    /// The spellings the desktop tries (#3192): literal, decoded, then anchor-free. The phone only screens a link with them,
+    /// to decide whether it is local and offered; the chat-link route resolves it on the desktop. File URLs are converted without ever consulting the phone's filesystem or home.
     static func linkPaths(_ href: String, windows: Bool = false) -> [String] {
         guard href.utf16.count <= 1024 else { return [] }
         let href = href.trimmingCharacters(in: .whitespaces)
@@ -146,32 +146,7 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         return path.range(of: #"^[A-Za-z][A-Za-z0-9+.-]*:"#, options: .regularExpression) != nil
     }
 
-    /// Folder syntax is a hint, not a filesystem stat. A host route is needed to
-    /// confirm existence or distinguish an extensionless file from a folder (#3208).
-    func folderLinkPath(roots: CompanionContentRoots) -> String? {
-        guard case .link(let href) = self else { return nil }
-        return Self.linkPaths(href, windows: roots.windows).first {
-            Self.file($0).isOffered(roots: roots) && ($0.hasSuffix("/") || (roots.windows && $0.hasSuffix("\\")))
-        }
-    }
-
-    /// Each fallback is authorized against this conversation's own snapshot.
-    /// Only a desktop content-unavailable answer permits trying another spelling.
-    @MainActor func loadLink(roots: CompanionContentRoots, load: (Self) async throws -> CompanionContent) async throws -> CompanionContent {
-        guard case .link(let href) = self else { return try await load(self) }
-        if let folder = folderLinkPath(roots: roots) {
-            return .init(kind: "folder", name: folder, text: Self.folderLinkMessage)
-        }
-        let candidates = Self.linkPaths(href, windows: roots.windows).filter { Self.file($0).isOffered(roots: roots) }
-        guard !candidates.isEmpty else { throw CompanionContentError.unavailable("This conversation can't preview that link. Refresh the conversation or open it on your desktop.") }
-        for (index, path) in candidates.enumerated() {
-            do { return try await load(.file(path)) }
-            catch is CompanionContentError where index < candidates.count - 1 { continue }
-        }
-        throw CompanionContentError.unavailable(Self.unavailableLinkMessage(hostName: "your desktop"))
-    }
-
-    static let folderLinkMessage = "This link names a folder. Folder contents aren't available on this phone. Open the folder on your desktop."
+    /// The `/content` route answers a missing file, an unreadable one and a folder alike.
     static func unavailableLinkMessage(hostName: String) -> String {
         "Not available on the phone: this target may be missing, unreadable, or a folder on \(hostName). Open it on your desktop to check."
     }
@@ -224,6 +199,8 @@ struct CompanionContent: Sendable {
     var text: String?
     var truncated = false
     var tooLarge = false
+    /// Kind `folder`: the desktop's listing from the chat-link route.
+    var folder: CompanionFolderListing?
 
     /// Bytes the phone may give PDFKit: only a desktop `pdf` payload within the phone limit, never one picked by MIME or another kind.
     var pdfBytes: Data? {
@@ -232,8 +209,7 @@ struct CompanionContent: Sendable {
     }
 }
 
-/// Only a confirmed content-route refusal triggers href spelling fallbacks.
-/// The existing route deliberately does not distinguish missing files from folders.
+/// A refusal the `/content` route answered as `content_unavailable`.
 enum CompanionContentError: Error, LocalizedError {
     case unavailable(String)
     var errorDescription: String? { switch self { case .unavailable(let message): message } }
