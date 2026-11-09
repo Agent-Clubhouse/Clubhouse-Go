@@ -17,11 +17,13 @@ import UIKit
     static let notAllowedLink = "/Users/river/private/keys.md"
     static let folderPath = "/Users/river/clubhouse/Some Folder"
     static let linkFile = folderPath + "/notes.md"
+    static let codeSpanFile = "Some Folder/notes.md"
+    static let codeSpanFolder = "Some Folder/"
     static var history: CompanionHistory {
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-local-links") {
             return .init(items: [
                 .message(.init(id: "local-links-acceptance", role: .assistant,
-                              text: "Local links: [file](\(linkHref)), [missing](\(missingLink)), [folder](\(folderHref)), [big folder](\(truncatedHref)), [private](\(notAllowedLink))."))
+                              text: "Local links: [file](\(linkHref)), [missing](\(missingLink)), [folder](\(folderHref)), [big folder](\(truncatedHref)), [private](\(notAllowedLink)). Paths: `\(codeSpanFile)`, `\(codeSpanFolder)`."))
             ], contentRoots: .init(anyPath: true))
         }
         return .init(items: [
@@ -45,6 +47,12 @@ import UIKit
             return .directory(.init(path: "/Users/river/clubhouse/Big Folder", name: "Big Folder",
                                     entries: (1...12).map { .init(name: String(format: "file-%03d.txt", $0), kind: .file, size: $0 * 10) },
                                     truncated: true))
+        case homeText, temporaryText:
+            return .file(path: href, name: (href as NSString).lastPathComponent, kind: "text", size: nil)
+        case homePDF:
+            return .file(path: href, name: (href as NSString).lastPathComponent, kind: "pdf", size: nil)
+        case codeSpanFile: return resolve(linkFile)
+        case codeSpanFolder: return resolve(folderHref)
         case notAllowedLink: return .notAllowed
         default: return .missing
         }

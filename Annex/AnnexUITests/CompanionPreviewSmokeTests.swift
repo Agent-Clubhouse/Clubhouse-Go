@@ -913,7 +913,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
     }
 
-    func testLocalLinksResolveToFileFolderTruncatedMissingAndNotShared() {
+    func testLocalLinksAndPathsResolveToFileFolderTruncatedMissingAndNotShared() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance", "--companion-preview-local-links"], attempts: 1)
         openRiver(app)
         func open(_ href: String) {
@@ -986,6 +986,17 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["Not shared with the phone"].exists)
         contentAcceptanceCapture(app, name: "Local link not shared")
         close(notShared)
+
+        // Code-span paths resolve the same way as links.
+        open("Some Folder/notes.md")
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        contentAcceptanceCapture(app, name: "Code span file")
+        close(preview)
+        open("Some Folder/")
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        XCTAssertTrue(entry("notes.md").exists)
+        contentAcceptanceCapture(app, name: "Code span folder")
+        close(list)
         XCTAssertEqual(app.state, .runningForeground)
     }
 

@@ -187,10 +187,15 @@ import Observation
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
         }
-        guard case .link(let href) = reference else { return try await service.content(reference, target: target) }
-        return try await linkContent(href, target: target)
+        switch reference {
+        case .link(let href): return try await linkContent(href, target: target)
+        // A code-span path resolves like a link, so a folder lists and a missing file says so. A desktop
+        // without the route still reads files through `/content`, as before.
+        case .file(let path) where host.canResolveLinks: return try await linkContent(path, target: target)
+        default: return try await service.content(reference, target: target)
+        }
     }
-    /// A chat link, or an entry of a folder the desktop listed, resolved on the desktop first (`chatLinks` v1).
+    /// A chat link, a code-span path, or an entry of a folder the desktop listed, resolved on the desktop first (`chatLinks` v1).
     /// Entries skip the conversation's path hints: the desktop listed them and still authorizes every read.
     func linkContent(_ href: String, target: CompanionTarget) async throws -> CompanionContent {
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }

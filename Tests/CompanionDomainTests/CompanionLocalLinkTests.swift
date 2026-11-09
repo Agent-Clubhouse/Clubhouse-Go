@@ -186,4 +186,35 @@ import Testing
         await #expect(throws: CompanionLinkError.self) { try await h.store.content(.link("file:///tmp/Some%20Folder/a.md#intro"), target: h.target) }
         #expect(await h.transport.readRoutes.compactMap(\.href) == ["file:///tmp/Some%20Folder/a.md#intro"])
     }
+
+    @Test func codeSpanPathsResolveLikeLinks() async throws {
+        let h = try await Self.harness()
+        defer { h.stop() }
+        await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "file"))
+        await h.transport.setRead("chatContent", .object(["kind": .string("text"), "name": .string("guide.md"), "text": .string("Synthetic")]))
+        #expect(try await h.store.content(.file("docs/guide.md"), target: h.target).text == "Synthetic")
+        var routes = await h.transport.readRoutes.filter { ["chatLink", "chatContent"].contains($0.name) }
+        #expect(routes.map(\.name) == ["chatLink", "chatContent"])
+        #expect(routes.first?.href == "docs/guide.md" && routes.last?.filePath == "/work/app/docs/guide.md")
+
+        await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "directory"))
+        let folder = try await h.store.content(.file("docs/"), target: h.target)
+        #expect(folder.kind == "folder" && folder.folder?.entries.count == 4)
+        await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "missing"))
+        await #expect(throws: CompanionLinkError.missing(hostName: "Fixture")) { try await h.store.content(.file("docs/old.md"), target: h.target) }
+        routes = await h.transport.readRoutes.filter { $0.name == "chatContent" }
+        #expect(routes.count == 1, "Neither a folder nor a missing path is read as a file")
+        // Path hints still gate a code span before the desktop is asked.
+        await #expect(throws: CompanionServiceError.self) { try await h.store.content(.file("/tmp/a.md"), target: h.target) }
+        #expect(await h.transport.readRoutes.compactMap(\.href).last == "docs/old.md")
+    }
+
+    @Test func codeSpanPathsReadThroughContentWithoutTheRoute() async throws {
+        let h = try await Self.harness(chatLinks: false)
+        defer { h.stop() }
+        await h.transport.setRead("chatContent", .object(["kind": .string("text"), "name": .string("a.md"), "text": .string("direct")]))
+        #expect(try await h.store.content(.file("docs/a.md"), target: h.target).text == "direct")
+        #expect(await h.transport.readRoutes.filter { $0.name == "chatLink" }.isEmpty)
+        #expect(await h.transport.readRoutes.last { $0.name == "chatContent" }?.filePath == "docs/a.md")
+    }
 }
