@@ -118,7 +118,7 @@ private struct CompanionArchivedSessionView: View {
         .defaultScrollAnchor(.bottom)
         .companionContentPreviews(store: store, target: target, contentRoots: transcript?.contentRoots ?? .init())
         .background(Color(.systemGroupedBackground))
-        .environment(\.companionSenderResolver, CompanionSenderResolver(agents: store.host(for: target)?.allAgents ?? []))
+        .environment(\.companionSenderResolver, CompanionSenderResolver(host: store.host(for: target), hosts: store.hosts))
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {

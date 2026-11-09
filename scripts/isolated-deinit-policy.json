@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -61,7 +61,8 @@
           "transcriptExpansions": "[ TranscriptKey : CompanionTranscriptExpansion ]",
           "uncertainCreateRequest": "CompanionCreateRequest ?",
           "uncertainSpawnRequest": "CompanionSpawnRequest ?",
-          "uploadedAttachmentIDs": "[ String : String ]"
+          "uploadedAttachmentIDs": "[ String : String ]",
+          "wrongMachines": "[ CompanionTarget : CompanionWrongMachine ]"
         },
         "storageMacros": [
           "@ Observable"
@@ -162,7 +163,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects.",
+      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Saved commands are keyed by CompanionCommandKey (#339), a Hashable value of two Strings; values remain Sendable AnnexCommand structs.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -205,7 +206,7 @@
           "refreshTasks": "[ String : Task < Void , Never > ]",
           "registeredTransportIDs": "[ String : UUID ]",
           "reviewGenerations": "[ String : UUID ]",
-          "savedCommands": "[ String : AnnexCommand ]",
+          "savedCommands": "[ CompanionCommandKey : AnnexCommand ]",
           "streamDiagnostics": "CompanionStreamDiagnostics",
           "subscribers": "[ UUID : AsyncStream < CompanionEvent > . Continuation ]",
           "transports": "[ String : any AnnexTransporting ]",

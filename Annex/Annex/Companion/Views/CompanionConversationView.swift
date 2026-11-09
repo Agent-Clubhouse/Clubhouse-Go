@@ -82,7 +82,13 @@ struct CompanionConversationView: View {
             }
             if let error = store.operationErrors[target] {
                 HStack(alignment: .top) {
-                    Label(error, systemImage: "exclamationmark.circle").font(.subheadline)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(error, systemImage: "exclamationmark.circle").font(.subheadline)
+                        if let other = store.otherMachineTarget(for: target), let machine = store.host(for: other)?.name {
+                            Button("Open on \(machine)", systemImage: "arrow.up.right.square") { store.openOnOtherMachine(from: target) }
+                                .font(.subheadline.weight(.semibold))
+                        }
+                    }
                     Spacer()
                     Button("Dismiss", systemImage: "xmark") { store.dismissError(for: target) }.labelStyle(.iconOnly)
                 }
@@ -92,7 +98,7 @@ struct CompanionConversationView: View {
             if showsAgentTerminal { CompanionAgentTerminalPane(store: store, target: target) }
             else {
                 timeline.companionContentPreviews(store: store, target: target)
-                    .environment(\.companionSenderResolver, CompanionSenderResolver(agents: store.host(for: target)?.allAgents ?? []))
+                    .environment(\.companionSenderResolver, CompanionSenderResolver(host: store.host(for: target), hosts: store.hosts))
             }
         }
         .companionBackground()

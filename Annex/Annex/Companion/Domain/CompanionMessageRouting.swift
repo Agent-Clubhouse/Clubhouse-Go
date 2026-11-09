@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// Desktop message-routing.ts. Compute at the message boundary, never from a SwiftUI body.
 enum CompanionMessageDisplay: Sendable, Equatable {
@@ -117,22 +120,59 @@ extension CompanionSenderIdentity {
 }
 
 /// An equatable value supplied by transcript parents; only other-sender rows subscribe to it.
+/// A sender id can be an address, `agentId@machine` (#339): an agent on another machine of the network, relayed
+/// here. It's looked up on that machine when this phone has it, and always named with its machine.
 struct CompanionSenderResolver: Sendable, Equatable {
     private var byID: [String: CompanionSenderIdentity] = [:]
     private var uniqueNames: [String: CompanionSenderIdentity] = [:]
+    /// This chat's machine: its identity fingerprint. Nil: every address is read as this machine's.
+    private var hostID: String?
+    /// Other machines' agents by address, already named with their machine.
+    private var remote: [String: CompanionSenderIdentity] = [:]
+    private var machineNames: [String: String] = [:]
     init(agents: [CompanionAgent]) {
         let identities = agents.map { CompanionSenderIdentity(agent: $0) }
         for identity in identities { byID[identity.id] = identity }
         for (name, matches) in Dictionary(grouping: identities, by: \.name) where matches.count == 1 { uniqueNames[name] = matches[0] }
     }
+    /// The chat's own desktop, and the phone's other desktops for senders on other machines.
+    init(host: CompanionHost?, hosts: [CompanionHost]) {
+        self.init(agents: host?.allAgents ?? [])
+        guard let host else { return }
+        hostID = host.id.lowercased()
+        for other in hosts where other.id.lowercased() != hostID {
+            let machine = other.id.lowercased()
+            machineNames[machine] = other.name
+            for agent in other.allAgents {
+                var identity = CompanionSenderIdentity(agent: agent)
+                identity.id = AnnexAgentAddress(agentID: agent.id.agentID, machine: machine).formatted
+                identity.name = Self.name(agent.name, on: other.name)
+                remote[identity.id] = identity
+            }
+        }
+    }
     func resolve(_ sender: CompanionRoutedMessagePart.Sender?) -> CompanionSenderIdentity? {
         guard let sender else { return nil }
-        if let id = sender.agentID, !id.isEmpty { return byID[id] }
+        if let id = sender.agentID, !id.isEmpty {
+            let address = AnnexAgentAddress(parsing: id)
+            if let hostID, address.isElsewhere(than: hostID) { return remote[address.formatted] }
+            return byID[address.agentID]
+        }
         return uniqueNames[sender.name]
     }
     func avatarIdentity(for sender: CompanionRoutedMessagePart.Sender?) -> CompanionSenderIdentity? {
         guard let sender else { return nil }
-        return resolve(sender) ?? .init(id: sender.agentID ?? sender.name, name: sender.name)
+        return resolve(sender) ?? .init(id: sender.agentID ?? sender.name, name: fallbackName(sender))
+    }
+    /// The name the message carries. The desktop names a sender on another machine with its machine; when it's one
+    /// of this phone's desktops and the name doesn't say so, it's added.
+    private func fallbackName(_ sender: CompanionRoutedMessagePart.Sender) -> String {
+        guard let hostID, let id = sender.agentID, case let address = AnnexAgentAddress(parsing: id), address.isElsewhere(than: hostID),
+              let machine = address.machine, let machineName = machineNames[machine] else { return sender.name }
+        return Self.name(sender.name, on: machineName)
+    }
+    private static func name(_ name: String, on machine: String) -> String {
+        machine.isEmpty || name.hasSuffix(" on \(machine)") ? name : "\(name) on \(machine)"
     }
 }
 

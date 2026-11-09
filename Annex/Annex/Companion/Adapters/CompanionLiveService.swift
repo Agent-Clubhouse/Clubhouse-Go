@@ -42,7 +42,9 @@ import ClubhouseTransport
     private var consumedHelperRequests: Set<String> = []
 
     init(iconStore: CompanionIconStore = .shared) { self.iconStore = iconStore }
-    private var savedCommands: [String: AnnexCommand] = [:]
+    /// A command as first sent, for its retries. Keyed by machine too: a command id names one command on one desktop,
+    /// and the desktop ties its receipt to the command as sent, agent reference included.
+    private var savedCommands: [CompanionCommandKey: AnnexCommand] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
     /// Called when a host stops answering at its saved address while the app is active.
@@ -788,11 +790,13 @@ import ClubhouseTransport
     private func execute(_ kind: AnnexCommand.Kind, id: String, hostID: String, validateReceipt: Bool = true) async throws -> AnnexCommandReceipt {
         try validateDispatcherCommand(kind, hostID: hostID)
         guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }
-        let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
+        let key = CompanionCommandKey(hostID: hostID, commandID: id)
+        let command = savedCommands[key] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
         guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.") }
-        savedCommands[id] = command
+        savedCommands[key] = command
         do {
             let receipt = try await transport(for: hostID).execute(command)
+            if let error = wrongMachineError(receipt, command: command, hostID: hostID) { throw error }
             if validateReceipt, let error = Self.receiptError(receipt, attachmentCount: command.attachmentCount) { throw error }
             return receipt
         } catch let error as CompanionServiceError { throw error }
@@ -802,6 +806,15 @@ import ClubhouseTransport
         }
         catch AnnexTransportError.commandOutcomeUnknown { throw CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.") }
         catch { throw CompanionServiceError.rejected(Self.readableError(error)) }
+    }
+    /// A `wrong_machine` refusal: the agent is on another machine. It's never sent on there by itself: the command
+    /// carries this desktop's epoch and session, so only the person can decide to do it again on the other one.
+    private func wrongMachineError(_ receipt: AnnexCommandReceipt, command: AnnexCommand, hostID: String) -> CompanionServiceError? {
+        guard let machine = receipt.wrongMachine, machine != hostID.lowercased() else { return nil }
+        let other = hosts[machine]
+        let agentID = command.agentReference.map { AnnexAgentAddress(parsing: $0).agentID }
+        let agent = agentID.flatMap { id in other?.allAgents.first { $0.id.agentID == id } }
+        return .wrongMachine(.init(machine: machine, machineName: other?.name, agentName: agent?.name, target: agent?.id))
     }
     /// The off-state allowlist never authorizes a start, a wake, settings changes or enable=true.
     private func validateDispatcherCommand(_ kind: AnnexCommand.Kind, hostID: String) throws {
@@ -1416,12 +1429,13 @@ import ClubhouseTransport
         try requireProviderControl(target)
         try validateDispatcherCommand(kind, hostID: target.hostID)
         guard let caps = capabilities[target.hostID] else { throw CompanionServiceError.unavailable("Reconnect to the desktop.") }
-        if let previous = savedCommands[id], Date().timeIntervalSince(previous.createdAt) * 1000 >= Double(caps.idempotency.ttlMs) {
+        let key = CompanionCommandKey(hostID: target.hostID, commandID: id)
+        if let previous = savedCommands[key], Date().timeIntervalSince(previous.createdAt) * 1000 >= Double(caps.idempotency.ttlMs) {
             throw CompanionServiceError.uncertain("The desktop's retry window expired. The previous action's outcome is still unknown. Check the agent on the desktop before another action.")
         }
-        let command = savedCommands[id] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
+        let command = savedCommands[key] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
         guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. The previous action's outcome is still unknown. Check the agent on the desktop before another action.") }
-        savedCommands[id] = command
+        savedCommands[key] = command
         let receipt: AnnexCommandReceipt
         do { receipt = try await transport(for: target.hostID).execute(command) }
         catch AnnexTransportError.rejected(let status, let code, _) {
@@ -1431,6 +1445,7 @@ import ClubhouseTransport
         }
         catch let error as CompanionServiceError { throw error }
         catch { throw CompanionServiceError.uncertain("The reply was lost. Check the previous result before another provider action.") }
+        if let error = wrongMachineError(receipt, command: command, hostID: target.hostID) { throw error }
         switch receipt.status {
         case .rejected: throw CompanionServiceError.rejected(CompanionProviderReason.message(receipt.error?.code))
         case .failed: throw CompanionServiceError.uncertain(CompanionProviderReason.message(receipt.error?.code))

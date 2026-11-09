@@ -50,6 +50,19 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
     public var attachmentCount: Int {
         if case .send(_, _, _, _, let ids) = kind { ids.count } else { 0 }
     }
+    /// The command's `agentId`, as sent: a bare id or an `agentId@machine` address. Nil when it names no agent.
+    public var agentReference: String? {
+        switch kind {
+        case .send(let agent, _, _, _, _), .interrupt(let agent, _), .removeQueued(let agent, _, _), .permission(let agent, _, _, _, _),
+             .question(let agent, _, _, _), .start(let agent, _, _, _, _), .stop(let agent, _), .providerPreview(let agent, _),
+             .providerChange(let agent, _, _), .setModel(let agent, _, _, _), .setLevel(let agent, _, _), .dismissFinishedQuick(_, let agent):
+            agent
+        case .update(let update): update.agentID
+        case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
+             .setDispatcherEnabled, .updateHelperRouting:
+            nil
+        }
+    }
     public var type: String {
         switch kind {
         case .send: "chat.send"
@@ -327,8 +340,16 @@ nonisolated public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public let revision: String?
     public let settings: AnnexJSON?
     public let error: Failure?
+    /// The machine a `wrong_machine` refusal says the agent is on: an identity fingerprint, lowercased by `wrongMachine`.
+    public let machine: String?
     /// 'completed' means dispatch completed, not that the agent's turn ended.
     public var isDispatchAcknowledged: Bool { status == .completed }
+    /// The other machine a `wrong_machine` refusal names, when it names a well-formed one.
+    public var wrongMachine: String? {
+        guard status == .rejected, error?.code == AnnexAgentAddressCapability.wrongMachine, let machine,
+              AnnexAgentAddress.isMachineFingerprint(machine) else { return nil }
+        return machine.lowercased()
+    }
 }
 
 nonisolated public struct AnnexCapabilities: Decodable, Sendable {
@@ -351,6 +372,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let pairing: Pairing?
     public let network: AnnexNetworkCapability?
     public var supportsNetwork: Bool { network?.isSupported == true }
+    /// Snapshots name their machine, and commands take `agentId@machine` addresses (`agentAddress` v1).
+    public let agentAddress: AnnexAgentAddressCapability?
+    public var supportsAgentAddress: Bool { agentAddress?.isSupported == true }
     public let idempotency: Idempotency
     /// Every address the desktop answers on, LAN first then Tailscale. A hint: each is pin-checked before use.
     public struct Routes: Decodable, Sendable, Equatable {
@@ -508,6 +532,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         events = optional(.events)
         pairing = optional(.pairing)
         network = optional(.network)
+        agentAddress = optional(.agentAddress)
         routes = optional(.routes)
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
@@ -528,7 +553,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, idempotency, routes, createOptions, agentSettings, agentState, providerControl
+        case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
     }
 }
