@@ -29,6 +29,7 @@ struct FramebriarShakePreview: View {
     @AppStorage(CompanionFeedback.shakePreferenceKey) private var enabled = true
     @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var captureScreen = true
     @State private var settingsCapture: CompanionFeedbackSettingsCapture?
+    @State private var showingSettingsCover = false
     @State private var showingOther = false
     @State private var lastResponder = "none"
     @State private var selection: String?
@@ -67,16 +68,22 @@ struct FramebriarShakePreview: View {
         fixtureRoot
         .companionFeedbackShake(presenter, enabled: enabled, captureScreen: captureScreen)
         .companionFeedbackEntryPoints(presenter)
-        .sheet(item: $settingsCapture) { capture in
+        .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
             NavigationStack {
                 Form {
                     Button("Simulate shake in Settings") { PreviewMotionProbe.shake() }
+                    if isWireFixture {
+                        Text(captureState).accessibilityIdentifier("fixture-settings-capture-state")
+                        Button("Cover Settings") { showingSettingsCover = true }
+                    }
                     CompanionFeedbackSettings(model: model, initialCapture: capture)
                 }
                     .navigationTitle("Fixture settings")
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { settingsCapture = nil } } }
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil } } }
             }.environment(\.companionFeedbackFixtureControls, isWireFixture ? Self.wireControls : nil)
-                .onDisappear { capture.screenshot = nil }
+                .fullScreenCover(isPresented: $showingSettingsCover) {
+                    Button("Return to Settings") { showingSettingsCover = false }
+                }
         }
         .sheet(isPresented: $showingOther) {
             NavigationStack {
@@ -209,7 +216,7 @@ struct FramebriarShakePreview: View {
         Button("Simulate repeated shake") { for _ in 0..<3 { lastResponder = PreviewMotionProbe.shake() } }
         Text("Responder: \(lastResponder)").accessibilityIdentifier("fixture-responder")
         Button("Settings") {
-            settingsCapture = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
+            $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
         }
         Button("Present other screen") { showingOther = true }
         // What iOS posts after the side and volume buttons take a screenshot.

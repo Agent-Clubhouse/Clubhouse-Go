@@ -165,22 +165,45 @@ struct CompanionFeedbackSettings: View {
 private struct CompanionFeedbackCapturedComposer: View {
     let model: FeedbackModel
     let capture: CompanionFeedbackSettingsCapture?
+    @Environment(\.dismiss) private var dismiss
     @State private var png: Data?
     @State private var prepared = false
     @State private var unavailable: FeedbackScreenshotUnavailable?
+    @State private var missingCapture = false
     var body: some View {
         Group {
-            if prepared { CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable) }
+            if prepared {
+                CompanionFeedbackComposer(model: model, initialScreenshotPNG: png, screenshotUnavailable: unavailable, onClose: {
+                    // NavigationStack may retain this destination's state after a pop.
+                    // Cancel/Done must release both the original pixels and encoded attachment.
+                    capture?.screenshot = nil
+                    png = nil
+                    prepared = false
+                    dismiss()
+                })
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if missingCapture {
+                        Text("Add or replace a screenshot from Photos below, or reopen Settings for a new screen capture.")
+                            .font(.caption).padding(.horizontal).padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading).background(.bar)
+                            .accessibilityIdentifier("settings-feedback-screenshot-missing")
+                    }
+                }
+            }
             else { ProgressView("Preparing feedback…") }
         }
         .navigationTitle("Send feedback")
         .task {
             guard !prepared else { return }
             let image = capture?.screenshot
+            // Transfer ownership before suspension. Settings no longer retains a second copy
+            // through Cancel, and a retained NavigationLink cannot reuse a cancelled screenshot.
+            capture?.screenshot = nil
             let encoded = await CompanionFeedbackPresenter.encode(image)
             guard !Task.isCancelled else { return }
             png = encoded
             unavailable = capture?.screenshotUnavailable ?? (image != nil && encoded == nil ? .failed : nil)
+            missingCapture = encoded == nil && unavailable == nil
             prepared = true
         }
     }

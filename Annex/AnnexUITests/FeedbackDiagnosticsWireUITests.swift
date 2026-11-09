@@ -431,6 +431,44 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         waitForExpectations(timeout: 5)
     }
 
+    @MainActor func testSettingsCaptureSurvivesTemporaryCoverAndCancelReleasesIt() throws {
+        let app = launch()
+        settings(app)
+        app.buttons["Cover Settings"].tap()
+        let back = app.buttons["Return to Settings"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5)); back.tap()
+        ordinaryButton(app)
+        _ = revealComposerElement(app.images["framebriar-attachment"], in: app)
+        XCTAssertTrue(app.buttons["Replace screenshot"].exists)
+        // Back navigation is hidden even before any note/edit: leaving a draft is explicit.
+        let navigation = app.navigationBars["Send feedback"]
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.45))
+        edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.45)))
+        XCTAssertTrue(navigation.exists, "An untouched draft must not pop around Cancel's cleanup")
+        app.buttons["Cancel"].tap()
+        let state = app.staticTexts["fixture-settings-capture-state"]
+        XCTAssertTrue(scrollTo(state, in: app, up: false, maxSwipes: 6))
+        expectation(for: NSPredicate(format: "label == 'Pending: false · Alive: false · Encodes: 1'"), evaluatedWith: state)
+        waitForExpectations(timeout: 5)
+
+        // The cancelled capture cannot silently reappear in a second draft in this Settings visit.
+        ordinaryButton(app)
+        XCTAssertFalse(app.images["framebriar-attachment"].exists)
+        let add = app.buttons["Add screenshot"]
+        revealComposerElement(add, in: app).tap()
+        let photos = app.navigationBars["Photos"]
+        XCTAssertTrue(photos.waitForExistence(timeout: 20)); photos.buttons["Cancel"].tap()
+        let reason = app.staticTexts["settings-feedback-screenshot-missing"]
+        XCTAssertTrue(reason.exists)
+        XCTAssertTrue(reason.label.contains("Add or replace a screenshot from Photos"))
+        XCTAssertFalse(app.staticTexts["framebriar-screenshot-unavailable"].exists, "A discarded capture is not a capture failure")
+        app.buttons["Cancel"].tap(); closeSettings(app)
+        let snapshot = try wire(app)
+        XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 0)
+        XCTAssertEqual((snapshot["saves"] as? [Any])?.count, 0)
+        XCTAssertEqual((snapshot["media"] as? [Any])?.count, 0)
+    }
+
     @MainActor func testNativeMenuEventAndLongPressPreAttachWithoutSaving() throws {
         let app = launch()
         let activate = app.buttons["fixture-activate-feedback-menu"]

@@ -24,6 +24,17 @@ final class CompanionFeedbackSettingsCapture: Identifiable {
     nonisolated deinit {}
 }
 
+extension Binding where Value == CompanionFeedbackSettingsCapture? {
+    /// View disappearance can mean navigation or a temporary cover. Release only when the
+    /// presentation is actually dismissed/replaced, including a swipe or a programmatic close.
+    var releasingFeedbackScreenshot: Self {
+        Binding(get: { wrappedValue }, set: { next in
+            if next?.id != wrappedValue?.id { wrappedValue?.screenshot = nil }
+            wrappedValue = next
+        })
+    }
+}
+
 /// Feedback entry points that don't depend on a gesture: the "Send feedback" menu items and the offer
 /// shown after an iOS screenshot. Presents over whatever is on screen (sheets, Review), so a trigger
 /// from any screen reaches the same composer. Captures stay on the phone until the person submits.

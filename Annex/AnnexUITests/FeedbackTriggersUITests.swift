@@ -3,6 +3,33 @@ import XCTest
 /// Feedback entry points that don't depend on a shake (#181): the offer after an iOS screenshot and the
 /// Send feedback menu items. The fixture posts `userDidTakeScreenshotNotification` as iOS does.
 final class FeedbackTriggersUITests: ReliableUITestCase {
+    @MainActor func testSettingsFromHomeToolbarAttachesCaptureOrOffersPhotos() throws {
+        for failed in [false, true] {
+            let app = launchApp(["--companion-preview", "--companion-preview-feedback", "--companion-preview-start-home",
+                                 "--framebriar-wire-ui-testing"] + (failed ? ["--feedback-capture-failure"] : []))
+            XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 15))
+            waitAndTap(app.buttons["Settings"], until: app.navigationBars["Settings"], timeout: 5)
+            let send = app.buttons["Send feedback"]
+            XCTAssertTrue(scrollTo(send, in: app, maxSwipes: 6)); send.tap()
+            XCTAssertTrue(app.textViews["framebriar-notes"].waitForExistence(timeout: 5))
+            if failed {
+                XCTAssertFalse(app.images["framebriar-attachment"].exists)
+                let add = app.buttons["Add screenshot"]
+                XCTAssertTrue(scrollTo(add, in: app, maxSwipes: 4)); add.tap()
+                let photos = app.navigationBars["Photos"]
+                XCTAssertTrue(photos.waitForExistence(timeout: 20)); photos.buttons["Cancel"].tap()
+                XCTAssertTrue(app.staticTexts["framebriar-screenshot-unavailable"].exists)
+            } else {
+                XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["Replace screenshot"].exists)
+            }
+            app.buttons["Cancel"].tap()
+            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+            app.buttons["Done"].tap()
+            app.terminate()
+        }
+    }
+
     /// Both Go's modal enrollment route and Settings expose clearing without enrollment or a send.
     @MainActor func testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings() throws {
         let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-shake-unenrolled"])
