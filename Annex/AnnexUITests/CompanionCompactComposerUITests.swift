@@ -303,14 +303,17 @@ import XCTest
     /// In system dark mode the draft keeps the dark theme: its typed text stays readable (WCAG AA) on the field, and
     /// the keyboard is the dark one. A composer glass that adapted to light left white text at about 2:1.
     func testDarkModeDraftTextAndKeyboardStayDark() {
-        let previous = XCUIDevice.shared.appearance
-        addTeardownBlock { XCUIDevice.shared.appearance = previous }
-        XCUIDevice.shared.appearance = .dark
-        let app = launchApp(["--companion-preview", "--companion-preview-working-composer"], attempts: 1)
+        // Dark for this launch; setting the simulator's appearance from a test doesn't reach the app on every runtime.
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer", "--companion-preview-dark"], attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer, attempts: 1)
+        // Guard: the conversation's own background must really be dark, so a failed switch fails here, loudly.
+        let navigation = app.navigationBars.firstMatch.frame
+        let ground = pixels(app, in: CGRect(x: 0, y: navigation.maxY + 4, width: 12, height: 40)).sorted { luminance($0) < luminance($1) }
+        guard !ground.isEmpty else { return }
+        XCTAssertLessThan(luminance(ground[ground.count / 2]), 0.2, "The app must launch dark: background \(ground[ground.count / 2])")
         focus(composer, in: app)
         composer.typeText("Readable draft WWWWWWWW")
         capture(app, "dark mode typed draft")

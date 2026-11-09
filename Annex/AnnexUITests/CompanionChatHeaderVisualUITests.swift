@@ -33,12 +33,13 @@ import XCTest
     }
 
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
-    /// glass must not restyle it. Sampled inside the circle, left of the initial and clear of the status dot.
+    /// glass must not restyle it. The 50pt photo is centred at the top of the identity control; sampled inside it,
+    /// left of the initial and clear of the status dot.
     private func assertAvatarColour(_ app: XCUIApplication, _ state: String) {
         let identity = app.buttons["companion-chat-header"].frame
         guard let image = app.screenshot().image.cgImage else { return XCTFail("\(state): no screenshot") }
         let scale = CGFloat(image.width) / app.frame.width
-        let x = Int(((identity.minX + 13) * scale).rounded()), y = Int((identity.midY * scale).rounded())
+        let x = Int(((identity.midX - 16) * scale).rounded()), y = Int(((identity.minY + 25) * scale).rounded())
         var pixel = [UInt8](repeating: 0, count: 4)
         pixel.withUnsafeMutableBytes { buffer in
             let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
@@ -50,6 +51,37 @@ import XCTest
         for (channel, expected) in zip(rgb, [99, 102, 241]) {
             XCTAssertEqual(channel, expected, accuracy: 12, "\(state): avatar renders \(rgb), not the canonical indigo")
         }
+    }
+
+    /// The name pill under the photo floats over whatever transcript is behind it; its text stays at WCAG AA.
+    /// Sampled across the bottom of the identity control, where the pill is, away from the photo.
+    private func assertNamePillContrast(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let identity = app.buttons["companion-chat-header"].frame
+        let pill = CGRect(x: identity.midX - 30, y: identity.maxY - 13, width: 60, height: 9)
+        guard let image = app.screenshot().image.cgImage else { return XCTFail("No screenshot", file: file, line: line) }
+        let scale = CGFloat(image.width) / app.frame.width
+        guard let cropped = image.cropping(to: CGRect(x: pill.minX * scale, y: pill.minY * scale,
+                                                      width: pill.width * scale, height: pill.height * scale).integral) else {
+            return XCTFail("Bad pill crop \(pill)", file: file, line: line)
+        }
+        let (width, height) = (cropped.width, cropped.height)
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        bytes.withUnsafeMutableBytes { buffer in
+            let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+            context?.draw(cropped, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        func luminance(_ i: Int) -> Double {
+            func channel(_ v: UInt8) -> Double { let x = Double(v) / 255; return x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4) }
+            return 0.2126 * channel(bytes[i]) + 0.7152 * channel(bytes[i + 1]) + 0.0722 * channel(bytes[i + 2])
+        }
+        let values = stride(from: 0, to: bytes.count, by: 4).map(luminance).sorted()
+        guard !values.isEmpty else { return }
+        let background = values[values.count / 2]
+        let text = abs(values.first! - background) > abs(values.last! - background) ? values.first! : values.last!
+        let ratio = (max(text, background) + 0.05) / (min(text, background) + 0.05)
+        XCTAssertGreaterThanOrEqual(ratio, 4.5, "Name pill text contrast over the transcript", file: file, line: line)
     }
 
     /// Between the navigation bar and the top of the keyboard, including its assistant row.
@@ -85,11 +117,19 @@ import XCTest
         let context = app.buttons["companion-context-usage"]
         XCTAssertEqual(context.label, "Context and plan limits")
         XCTAssertEqual(context.value as? String, "Latest reported context: 28% full")
-        for button in [app.buttons["companion-chat-header"], context] {
-            XCTAssertTrue(button.isHittable, button.identifier)
-            assertMinimumTarget(button, button.identifier)
-            XCTAssertTrue(pixelContains(region.navigation, button.frame), "\(button.identifier) stays in navigation: \(button.frame)")
-        }
+        XCTAssertTrue(context.isHittable)
+        assertMinimumTarget(context, "context usage")
+        XCTAssertTrue(pixelContains(region.navigation, context.frame), "Context usage stays in navigation: \(context.frame)")
+        // Like Messages, the photo sits centred in the bar and its name pill may hang just below it, over the
+        // transcript; it never reaches the composer.
+        let identity = app.buttons["companion-chat-header"]
+        XCTAssertTrue(identity.isHittable)
+        assertMinimumTarget(identity, "identity")
+        XCTAssertTrue(region.navigation.contains(CGPoint(x: identity.frame.midX, y: identity.frame.midY)), "Identity sits on the bar: \(identity.frame)")
+        XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxX), pixelAligned(context.frame.minX), "Identity clears the trailing controls")
+        XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxY), pixelAligned(composerTop), "Identity never reaches the composer")
+        // XCUI's landscape screenshots come back rotated and half black on this runtime, so pixels are read in portrait.
+        if app.frame.height > app.frame.width { assertNamePillContrast(app) }
         return composerTop
     }
 

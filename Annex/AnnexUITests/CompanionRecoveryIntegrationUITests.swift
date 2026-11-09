@@ -28,11 +28,19 @@ import XCTest
         add(attachment)
     }
 
+    /// Status rows (recovery, and the wrong-machine notice in the same place) start below the floating identity.
+    private func assertClearOfHeader(_ text: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let identity = app.buttons["companion-chat-header"].frame
+        XCTAssertGreaterThanOrEqual(pixelAligned(text.frame.minY), pixelAligned(identity.maxY),
+                                    "\(text.label) is not under the floating header: \(text.frame), header \(identity)", file: file, line: line)
+    }
+
     func testFirstLoadProgressFailureDetailsRetryAndRecovery() {
         let app = launch()
         XCTAssertTrue(app.staticTexts["Refreshing conversation…"].waitForExistence(timeout: 10))
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "Refreshing conversation…")).count, 1)
         XCTAssertFalse(app.buttons["companion-recovery-retry"].exists, "Progress offers no retry")
+        assertClearOfHeader(app.staticTexts["Refreshing conversation…"], in: app)
         assertNoLargeRecovery(app)
         capture(app, "compact first-load progress")
         fixture(app, "fail")
@@ -67,6 +75,7 @@ import XCTest
         fixture(app, "operation")
         fixture(app, "connection-failure")
         XCTAssertTrue(app.staticTexts["Connection issue"].waitForExistence(timeout: 5))
+        assertClearOfHeader(app.staticTexts["Connection issue"], in: app)
         let warning = app.staticTexts["Synthetic operation warning stays separate."]
         XCTAssertTrue(warning.exists)
         let retry = app.buttons["companion-recovery-retry"]

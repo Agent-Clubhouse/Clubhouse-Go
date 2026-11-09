@@ -121,6 +121,8 @@ struct CompanionConversationView: View {
         conversationContent
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) {
+            // The photo's name pill hangs just below the bar, like Messages; status rows and banners start under it.
+            // The transcript still scrolls beneath.
             CompanionConversationHeaderBarLayout(
                 residualHeight: geometry.size.height,
                 showsDetails: showHeaderDetails
@@ -138,6 +140,7 @@ struct CompanionConversationView: View {
                 VStack(spacing: 0) { otherAgentBanner }
                     .frame(maxWidth: .infinity)
             }
+            .padding(.top, Self.headerPillClearance)
         }
         }
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
@@ -236,6 +239,9 @@ struct CompanionConversationView: View {
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
         }
     }
+
+    /// How far the identity's name pill hangs below the navigation bar, at most.
+    private static let headerPillClearance: CGFloat = 8
 
     private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
 
@@ -474,7 +480,8 @@ struct CompanionConversationView: View {
                 }
             }
             .background { CompanionReadingTouchObserver { cancelReadingRestoration(.touch) }.allowsHitTesting(false).accessibilityHidden(true) }
-            .scrollEdgeEffectStyle(.hard, for: .top)
+            // Soft at the top, like Messages: the transcript scrolls under the floating header instead of meeting a band.
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.hard, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")

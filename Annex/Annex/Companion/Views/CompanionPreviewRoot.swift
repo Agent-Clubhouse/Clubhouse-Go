@@ -38,7 +38,12 @@ struct CompanionPreviewRoot: View {
             CompanionConversationHeaderFixture()
         } else if CompanionRecoveryFixture.isEnabled {
             CompanionRecoveryFixture()
-        } else { normalPreview }
+        } else {
+            // `--companion-preview-dark`: dark for this launch only. Changing the simulator's appearance from a UI test
+            // doesn't reliably reach the app on every runtime.
+            normalPreview
+                .preferredColorScheme(ProcessInfo.processInfo.arguments.contains("--companion-preview-dark") ? .dark : nil)
+        }
     }
 
     private var normalPreview: some View {

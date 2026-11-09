@@ -4,20 +4,28 @@ Mobile chat chrome for #314 (identity header), #315 (composer) and #322 (recover
 
 ## Identity header
 
-The navigation principal is the agent's canonical `CompanionAgentAvatar` (saved profile image, emoji or initials, with
-its status dot) beside its name, in a native glass capsule with a 44×44 target. Tapping it discloses a details card with
-the full name, desktop/project, status, Access and model. A known live level is the single Access badge; boolean-only
-access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the identity button's
-accessibility label still carries them.
+Like Messages, the navigation principal is the agent's canonical `CompanionAgentAvatar` (saved profile image, emoji or
+initials, with its status dot) as a 50pt photo, centred over a small name pill with a chevron; in a short landscape
+bar the photo shrinks to 30pt beside the pill. The whole control is one target of at least 44×44. The pill's text is
+capped at the xxLarge size like other bar controls, with the Large Content Viewer at accessibility sizes. Tapping it
+discloses a details card with the full name, desktop/project, status, Access and model. A known live level is the single
+Access badge; boolean-only access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the
+identity's accessibility label still carries them.
 
-The identity capsule, the usage control and the details card draw their glass over the theme's opaque card and use its
-label colors. Bare glass took on the brightness of whatever scrolled behind it, and in dark mode the white label fell to
-about 1.5:1. The palette keeps label and secondary label at 4.5:1 or better against the card.
+The transcript scrolls under the floating controls with the soft scroll-edge effect; there is no band under the bar.
+The pill may hang just below the bar, so the top bar adds 8pt of clearance: status rows, banners and the first message
+start below it, while scrolled content passes beneath.
 
-The details card and the other-agent banner share one top `safeAreaBar`, so the transcript gets the system scroll-edge
-effect instead of an opacity panel. `CompanionConversationHeaderBarLayout` caps the card at a third of the height left
-above the composer; taller details scroll inside the card. Working/activity moved to a one-line footer above the
-composer, and idle chats reserve no footer.
+The name pill, the usage control, the details card and the composer draw their glass behind the content, over the
+theme's opaque card, and use its label colors. Bare glass took on the brightness of whatever scrolled behind it (white
+labels fell to about 1.5:1 in dark mode), and content inside a glass effect is restyled, which dimmed avatars. The
+palette keeps label and secondary label at 4.5:1 or better against the card, with Reduce Transparency and Increase
+Contrast too. The draft's keyboard follows the system appearance.
+
+The details card and the other-agent banner share one top `safeAreaBar`. `CompanionConversationHeaderBarLayout` caps the
+card at a third of the height left above the composer, and taller details scroll inside it. When less than 100pt
+remains (landscape with the keyboard up), expanded details aren't shown at all and VoiceOver says why; they return when
+there is room. Working/activity moved to a one-line footer above the composer, and idle chats reserve no footer.
 
 The usage control in the navigation bar (a context ring, or a chart icon when context is unknown) is at least 44×44 and
 opens the existing context editor. Its sheet always offers "Plan limits by desktop", which opens the unchanged plan

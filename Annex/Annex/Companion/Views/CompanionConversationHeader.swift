@@ -9,25 +9,46 @@ struct CompanionConversationIdentityButton: View {
     /// Expanded, but there's no room to show the details (landscape with the keyboard up).
     var detailsLackRoom = false
 
-    var body: some View {
-        Button { isExpanded.toggle() } label: {
-            HStack(spacing: 6) {
-                CompanionAgentAvatar(agent: agent, size: 28)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(agent.displayName)
-                        .font(.headline).lineLimit(1).truncationMode(.tail)
-                    if let reviewPosition {
-                        Text(reviewPosition).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                    }
-                }
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption2)
+    @Environment(\.companionPalette) private var palette
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    private var namePill: some View {
+        HStack(spacing: 3) {
+            Text(agent.displayName)
+                .font(.caption.weight(.semibold)).lineLimit(1).truncationMode(.tail)
+            if let reviewPosition {
+                Text(reviewPosition).font(.caption2.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
             }
-            .padding(.horizontal, 8)
+            Image(systemName: isExpanded ? "chevron.up" : "chevron.right")
+                .font(.system(size: 9, weight: .bold)).foregroundStyle(Color(palette.secondaryLabel))
+        }
+        .foregroundStyle(Color(palette.label))
+        .padding(.horizontal, 9).padding(.vertical, 3)
+        .companionCardGlass(Capsule(), interactive: true)
+    }
+
+    /// Like Messages: the photo centred over a small name pill, floating over the transcript. A short (landscape)
+    /// bar has no room for that, so the photo shrinks and sits beside the pill.
+    var body: some View {
+        let compact = verticalSizeClass == .compact
+        Button { isExpanded.toggle() } label: {
+            let layout = compact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: -4))
+            layout {
+                CompanionAgentAvatar(agent: agent, size: compact ? 30 : 50)
+                    // Lifted off whatever scrolls behind it.
+                    .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+                namePill
+            }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
-            .companionCardGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
+        // Bar controls cap their size, like the system's; the Large Content Viewer shows the name at accessibility
+        // sizes, and the details card shows it in full.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        .accessibilityShowsLargeContentViewer {
+            Label(agent.displayName, systemImage: "person.crop.circle")
+        }
         .accessibilityLabel(reviewPosition.map { "\(agent.displayName), \($0)" } ?? accessibilityLabel)
         .accessibilityValue(isExpanded ? (detailsLackRoom ? "Details hidden, no room while editing" : "Details expanded") : "Details collapsed")
         .accessibilityHint("Shows or hides conversation details")
