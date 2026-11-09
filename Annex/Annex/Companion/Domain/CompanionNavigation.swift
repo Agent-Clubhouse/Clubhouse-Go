@@ -152,12 +152,13 @@ enum CompanionRoute: Hashable {
 }
 
 extension CompanionStore {
-    /// The same connected-agent and helper-request rule as Needs you, restricted to Dispatchers.
+    /// The same connected-agent, helper-request and grant-request rule as Needs you, restricted to Dispatchers.
     var dispatcherNeedsYouCount: Int {
         hosts.filter(\.connection.canOperate).reduce(0) { count, host in
             let target = host.dispatcher?.liveAgent?.id
             return count + (host.dispatcher?.liveAgent?.status.needsYou == true ? 1 : 0)
                 + helperRequests(on: host).filter { $0.agentTarget == target }.count
+                + grantRequests(on: host).filter { $0.agentTarget == target }.count
         }
     }
 }

@@ -796,6 +796,9 @@ struct CompanionNeedsYouView: View {
         .task(id: items.map(\.id)) {
             for item in items where !store.conversation(for: item.agent.id).isLoaded { await store.load(item.agent.id) }
         }
+        .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: { Text(store.grantRequestNotice ?? "") }
     }
 
     @ViewBuilder private func unavailableNotice(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
@@ -939,6 +942,8 @@ struct CompanionAttentionCard: View {
             }
         case .helperRequest(let request):
             CompanionHelperRequestActions(request: request, store: store)
+        case .grantRequest(let request):
+            CompanionGrantRequestActions(request: request, store: store)
         default:
             NavigationLink(value: item.agent.id) { Text(item.kind == .failure ? "Open chat" : "Answer in chat") }
                 .buttonStyle(.bordered).buttonBorderShape(.capsule)
@@ -1026,6 +1031,67 @@ struct CompanionHelperRequestActions: View {
             ? "\(request.requesterName) asked to dispose of \(name), but it has work that would be lost."
             : "\(request.requesterName) asked to dispose of \(name)."
         return "\(intro) This stops \(name), deletes its folder and its local branch. Anything already pushed stays on the remote."
+    }
+}
+
+/// A Clubhouse permission request, as the desktop's Needs you shows it: the host's line for the call, its arguments
+/// in full (Allow once covers exactly these), the agent's reason, what Allow does, and only the answers it takes.
+struct CompanionGrantRequestActions: View {
+    let request: CompanionGrantRequest
+    @Bindable var store: CompanionStore
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        let busy = store.grantRequestsInFlight.contains(request.slot)
+        VStack(alignment: .leading, spacing: 8) {
+            if let detail = request.detail {
+                Text(detail).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("grant-request-detail")
+            }
+            if let arguments = request.arguments {
+                Text(arguments).font(.caption.monospaced()).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10).background(Color(palette.raisedCard), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .accessibilityLabel("Arguments: \(arguments)")
+                    .accessibilityIdentifier("grant-request-arguments")
+            }
+            if let reason = request.reason {
+                Text("“\(reason)”").font(.subheadline.italic()).foregroundStyle(Color(palette.secondaryLabel))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Reason: \(reason)")
+                    .accessibilityIdentifier("grant-request-reason")
+            }
+            if let effect = request.allowEffect {
+                Text(effect).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("grant-request-effect")
+            }
+            HStack(spacing: 8) {
+                if request.canDecline {
+                    Button { Task { await store.answer(request, with: .decline) } } label: {
+                        Text("Decline").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("grant-request-decline")
+                }
+                if let allow = request.allowAnswer {
+                    Button { Task { await store.answer(request, with: allow) } } label: {
+                        Text(busy ? "Sending…" : allow.label).frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent).companionProminentLabel()
+                    .accessibilityIdentifier("grant-request-allow")
+                }
+            }
+            .buttonBorderShape(.capsule).controlSize(.large)
+            .disabled(!store.canAnswer(request))
+            if let error = store.grantRequestErrors[request.slot] {
+                Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("grant-request-error")
+            }
+            NavigationLink(value: request.agentTarget) { Text("Open chat") }
+                .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                .accessibilityIdentifier("grant-request-open-chat")
+        }
     }
 }
 

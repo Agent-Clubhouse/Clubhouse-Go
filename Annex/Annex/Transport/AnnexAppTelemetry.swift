@@ -56,7 +56,7 @@ nonisolated public enum AnnexAppTelemetry {
     public static func isAction(_ operation: AnnexDiagnosticOperation) -> Bool {
         switch operation {
         case .start, .send, .steer, .queued, .interrupt, .permission, .question, .spawn, .removeQueued, .wake, .upload,
-             .createAgent, .updateAgent, .command, .helperRequest, .updateProject, .finishedQuick, .revoke, .forget: true
+             .createAgent, .updateAgent, .command, .helperRequest, .grantRequest, .updateProject, .finishedQuick, .revoke, .forget: true
         default: false
         }
     }

@@ -33,6 +33,12 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         /// Turns the desktop's app-wide Dispatcher on or off (`dispatcher` v1). Turning it on needs the experimental flag.
         case setDispatcherEnabled(Bool)
         case updateHelperRouting(AnnexHelperRoutingUpdate)
+        /// Answers a Clubhouse grant request (`grantRequests` v1): an Ask-first call or an agent's `request_grant` ask.
+        case answerGrant(requestID: String, answer: GrantAnswer)
+    }
+    /// What `grant.answer` takes. Offer only those the request's `answers` list.
+    public enum GrantAnswer: String, Sendable, Equatable, CaseIterable {
+        case allowOnce = "allow_once", allowLasting = "allow_lasting", decline
     }
     /// A reasoning effort to switch to, or the provider's default (sent as `null`; needs `effortDefault`).
     public enum Effort: Sendable, Equatable {
@@ -59,7 +65,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             agent
         case .update(let update): update.agentID
         case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
-             .setDispatcherEnabled, .updateHelperRouting:
+             .setDispatcherEnabled, .updateHelperRouting, .answerGrant:
             nil
         }
     }
@@ -87,6 +93,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearFinishedQuick: "quick.clear"
         case .setDispatcherEnabled: "dispatcher.setEnabled"
         case .updateHelperRouting: "helperRouting.update"
+        case .answerGrant: "grant.answer"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -173,6 +180,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .updateHelperRouting(let update):
             guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil else { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
+        case .answerGrant(let request, let answer):
+            guard !request.isEmpty, request.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            v["requestId"] = .string(request); v["answer"] = .string(answer.rawValue)
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(AnnexJSON.object(v))
@@ -455,6 +465,29 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsHelperRequests: Bool {
         commands.contains("helper.approve") && commands.contains("helper.decline") && (helperRequests?.version ?? 0) >= 1
     }
+    /// Clubhouse grant requests waiting on the user, in the snapshot's `grantRequests`, with their events.
+    public struct GrantRequests: Decodable, Sendable, Equatable {
+        public let version: Int
+        public let snapshotField: String
+        public let answers: [String]
+        public let commands: [String]
+        public init(version: Int = 1, snapshotField: String = "grantRequests", answers: [String] = AnnexCommand.GrantAnswer.allCases.map(\.rawValue),
+                    commands: [String] = ["grant.answer"]) {
+            self.version = version; self.snapshotField = snapshotField; self.answers = answers; self.commands = commands
+        }
+        /// A malformed block reads as off rather than failing the whole capability document.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = (try? c.decode(Int.self, forKey: .version)) ?? 0
+            snapshotField = (try? c.decode(String.self, forKey: .snapshotField)) ?? "grantRequests"
+            answers = (try? c.decode([String].self, forKey: .answers)) ?? []
+            commands = (try? c.decode([String].self, forKey: .commands)) ?? []
+        }
+        private enum CodingKeys: String, CodingKey { case version, snapshotField, answers, commands }
+    }
+    public let grantRequests: GrantRequests?
+    /// Grant requests are listed and can be answered (`grant.answer` with grant requests v1).
+    public var supportsGrantRequests: Bool { commands.contains("grant.answer") && (grantRequests?.version ?? 0) >= 1 }
     /// Finished quick agents are shared with the desktop. Older desktops leave the list on the phone.
     public var supportsFinishedQuickAgents: Bool {
         commands.contains("quick.dismiss") && commands.contains("quick.clear") && (finishedQuickAgents?.version ?? 0) >= 1
@@ -552,6 +585,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         contextWindow = optional(.contextWindow)
         helperRouting = optional(.helperRouting)
         helperRequests = optional(.helperRequests)
+        grantRequests = optional(.grantRequests)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
         dispatcher = optional(.dispatcher)
@@ -559,6 +593,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
+        case grantRequests
     }
 }
 

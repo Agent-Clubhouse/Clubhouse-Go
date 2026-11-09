@@ -103,6 +103,11 @@ import ClubhouseTransport
                 }
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") { hosts[0].canControlProvider = true }
+            // Clubhouse grant requests in Needs you (`--companion-preview-grant-requests`); their answers succeed.
+            if Self.showsGrantRequests {
+                hosts[0].canAnswerGrantRequests = true
+                hosts[0].grantRequests = Self.grantRequests
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
                let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
                let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.sleepingTarget }) {
@@ -585,6 +590,30 @@ import ClubhouseTransport
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
+        if Self.showsGrantRequests { return }
+        throw previewError
+    }
+    #if DEBUG
+    private static var showsGrantRequests: Bool { ProcessInfo.processInfo.arguments.contains("--companion-preview-grant-requests") }
+    #else
+    private static let showsGrantRequests = false
+    #endif
+    /// River's held Remove device call (Allow once or Decline) and Cedar asking for a lasting permission (Allow or Decline).
+    static let grantRequests: [CompanionGrantRequest] = [
+        .init(id: "grant_preview_call", hostID: target.hostID, projectID: target.projectID, kind: .call, agentID: target.agentID, agentName: "River",
+              actionLabels: ["Manage devices"], whereLabel: "the app", toolName: "remove_device",
+              summary: "Wants to run remove_device, which needs: Manage devices on the app.",
+              detail: "Remove Travel iPad (tablet, in this network). A device in the network goes from every device in it, and comes back only when a person pairs it again.",
+              arguments: "{\n  \"id\": \"aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99\"\n}", reason: "You said the iPad was lost.",
+              allowEffect: "Allow runs this one call when it tries again. Its permissions stay as they are.",
+              requestedAt: Date().addingTimeInterval(-300), expiresAt: Date().addingTimeInterval(86_000), answers: [.allowOnce, .decline]),
+        .init(id: "grant_preview_ask", hostID: target.hostID, projectID: target.projectID, kind: .grant, agentID: "cedar", agentName: "Cedar",
+              actionLabels: ["Change app settings"], whereLabel: "the app", summary: "Asks for Change app settings on the app.",
+              reason: "To set the cheap model for easy tasks.",
+              allowEffect: "Allow adds this to its Clubhouse permissions, where you can remove it later.",
+              requestedAt: Date().addingTimeInterval(-200), expiresAt: Date().addingTimeInterval(86_000), answers: [.allowLasting, .decline]),
+    ]
     static var helperRoutingCapability: AnnexCapabilities.HelperRouting? {
         try? AnnexJSON.object([
             "version": .integer(1), "path": .string("/api/v1/mobile/helper-routing"),
