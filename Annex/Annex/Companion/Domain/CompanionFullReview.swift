@@ -9,6 +9,14 @@ struct CompanionEventReference: Sendable, Equatable, Identifiable {
     let sequence: Int64
     let truncation: AnnexJSON?
     let event: AnnexJSON
+    var reviewLabel: String {
+        switch event["type"]?.string {
+        case "permission_request": "Review full request"
+        case "tool_call": "Review full input"
+        case "tool_call_update": "Review full output"
+        default: "Review full payload"
+        }
+    }
     var id: String { "\(sessionID):\(sequence)" }
     init?(event: AnnexJSON) {
         guard let session = event["sessionId"]?.string, let seq = event["seq"]?.integer, seq > 0 else { return nil }
@@ -22,6 +30,8 @@ struct CompanionFullReview: Sendable {
     let digest: String
     static func reason(_ error: Error) -> String {
         switch error {
+        case let error as URLError where error.code == .timedOut:
+            "The full-event download timed out. Try again on a faster connection, or review and approve it on the desktop."
         case AnnexTransportError.responseTooLarge, AnnexTransportError.rejected(413, _, _):
             "This event exceeds the 32 MiB phone review limit. Review and approve it on the desktop, or deny it here."
         case AnnexTransportError.unauthorized, AnnexTransportError.forbidden, AnnexTransportError.rejected(401, _, _), AnnexTransportError.rejected(403, _, _):

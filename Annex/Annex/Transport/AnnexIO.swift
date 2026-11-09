@@ -116,6 +116,10 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         self.telemetry = telemetry
         self.clock = clock
         self.maximumResponseBytes = max(1, maximumResponseBytes)
+        let config = Self.configuration()
+        session = URLSession(configuration: config, delegate: AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, telemetry: telemetry), delegateQueue: nil)
+    }
+    static func configuration(resourceTimeout: TimeInterval = 60) -> URLSessionConfiguration {
         let config = URLSessionConfiguration.ephemeral
         config.urlCache = nil
         config.httpCookieStorage = nil
@@ -123,9 +127,9 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         config.urlCredentialStorage = nil
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 30
-        config.timeoutIntervalForResource = 60
+        config.timeoutIntervalForResource = resourceTimeout
         config.tlsMinimumSupportedProtocolVersion = .TLSv12
-        session = URLSession(configuration: config, delegate: AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, telemetry: telemetry), delegateQueue: nil)
+        return config
     }
     deinit { session.invalidateAndCancel() }
     private func validate(_ request: URLRequest, scheme: String) throws {
@@ -142,9 +146,9 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
         try await performBounded(request, limit: min(maximumResponseBytes, max(1, maximumBytes)))
     }
     public func performFullEvent(_ request: URLRequest, maximumBytes: Int) async throws -> AnnexHTTPResponse {
-        try await performBounded(request, limit: min(AnnexFullEvent.maximumBytes, max(1, maximumBytes)))
+        try await performBounded(request, limit: min(AnnexFullEvent.maximumBytes, max(1, maximumBytes)), fullEvent: true)
     }
-    private func performBounded(_ request: URLRequest, limit: Int) async throws -> AnnexHTTPResponse {
+    private func performBounded(_ request: URLRequest, limit: Int, fullEvent: Bool = false) async throws -> AnnexHTTPResponse {
         return try await telemetry.measure(.http) {
             try validate(request, scheme: "https")
             var request = request
@@ -153,16 +157,25 @@ nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {
             let diagnostic = AnnexTelemetry.current
             diagnostic?.number(.requestBytes, Double(request.httpBody?.count ?? 0))
             let delegate = AnnexPinnedSessionDelegate(host: host, clientIdentity: clientIdentity, diagnostic: diagnostic, telemetry: telemetry)
-            let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
-            guard let http = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
-            diagnostic?.number(.statusCode, Double(http.statusCode))
-            guard response.expectedContentLength <= limit else { throw AnnexTransportError.responseTooLarge }
-            var body = Data()
-            for try await byte in bytes {
-                try Task.checkCancellation()
-                guard body.count < limit else { throw AnnexTransportError.responseTooLarge }
-                body.append(byte)
+            let body: Data
+            let http: HTTPURLResponse
+            if fullEvent {
+                (body, http) = try await AnnexFullEventDownload(trust: delegate, maximumBytes: limit).perform(request)
+            } else {
+                let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
+                guard let response = response as? HTTPURLResponse else { throw AnnexTransportError.malformedResponse }
+                http = response
+                guard response.expectedContentLength <= limit else { throw AnnexTransportError.responseTooLarge }
+                var received = Data()
+                for try await byte in bytes {
+                    try Task.checkCancellation()
+                    guard received.count < limit else { throw AnnexTransportError.responseTooLarge }
+                    received.append(byte)
+                }
+                body = received
             }
+            try Task.checkCancellation()
+            diagnostic?.number(.statusCode, Double(http.statusCode))
             diagnostic?.number(.responseBytes, Double(body.count))
             if let parent = http.value(forHTTPHeaderField: "traceparent"),
                let context = AnnexTraceContext(traceparent: parent, tracestate: http.value(forHTTPHeaderField: "tracestate")),

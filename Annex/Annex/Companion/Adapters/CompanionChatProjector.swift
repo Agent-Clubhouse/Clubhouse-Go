@@ -523,7 +523,7 @@ extension Optional where Wrapped == AnnexJSON {
 extension AnnexJSON {
     var displayText: String {
         if let string { return string }
-        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return (try? encoder.encode(self)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
     }
 }

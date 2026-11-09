@@ -8,10 +8,10 @@ private func fullFixture(_ name: String) throws -> AnnexJSON {
     return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: path))
 }
 private let reviewDigest = "sha256:" + String(repeating: "a", count: 64)
-private func fullBody() -> AnnexJSON {
-    .object(["version": .integer(1), "agentId": .string("a"), "sessionId": .string("s"), "seq": .integer(7), "digest": .string(reviewDigest),
-        "event": .object(["v": .integer(1), "agentId": .string("a"), "sessionId": .string("s"), "seq": .integer(7), "type": .string("permission_request"),
-            "data": .object(["requestId": .string("big"), "rawInput": .object(["content": .string(String(repeating: "y", count: 400 * 1024))])])])])
+private func fullBody(sequence: Int64 = 7, request: String = "big", digest: String = reviewDigest, isPermission: Bool = true, payloadSize: Int = 400 * 1024) -> AnnexJSON {
+    .object(["version": .integer(1), "agentId": .string("a"), "sessionId": .string("s"), "seq": .integer(sequence), "digest": .string(digest),
+        "event": .object(["v": .integer(1), "agentId": .string("a"), "sessionId": .string("s"), "seq": .integer(sequence), "type": .string(isPermission ? "permission_request" : "tool_call"),
+            "data": .object(["requestId": .string(request), "rawInput": .object(["content": .string(String(repeating: "y", count: payloadSize))])])])])
 }
 private func capabilitiesResponse() throws -> AnnexHTTPResponse {
     try AnnexContract.response(fullFixture("capabilities.json")["response"])
@@ -53,7 +53,7 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
     }
 
     @Test func digestCannotMoveBetweenDevicesSessionsRequestsOrAgents() async throws {
-        let io = AnnexContractIO([try capabilitiesResponse(), .init(status: 200, data: try AnnexContract.encode(fullBody()))])
+        let io = AnnexContractIO([try capabilitiesResponse(), .init(status: 200, data: try AnnexContract.encode(fullBody())), try capabilitiesResponse()])
         let transport = try await annexContractTransport(io)
         _ = try await transport.read(.capabilities)
         _ = try await transport.fullEvent(agentID: "a", sessionID: "s", sequence: 7)
@@ -67,9 +67,10 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
         }
         #expect(await io.requests.count == 2)
         await transport.disconnect()
-        // Even if the same epoch is seen on reconnect, the in-memory review is gone.
-        let encoded = try permission().encoded()
-        #expect(try JSONDecoder().decode(AnnexJSON.self, from: encoded)["reviewedDigest"] == .string(reviewDigest))
+        _ = try await transport.read(.capabilities)
+        do { _ = try await transport.execute(permission("after-disconnect")); Issue.record("Disconnected review must be gone") }
+        catch AnnexTransportError.rejected(409, "incomplete_representation", _) { }
+        #expect(await io.requests.count == 3)
     }
 
     @Test func mismatchedOrStillCutFullResponsesCannotBeReviewed() throws {
@@ -133,6 +134,43 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
         }
     }
 
+    @Test func nonPermissionEventsDoNotCreateApprovalReviews() async throws {
+        let io = AnnexContractIO([try capabilitiesResponse(), .init(status: 200, data: try AnnexContract.encode(fullBody(isPermission: false, payloadSize: 0)))])
+        let transport = try await annexContractTransport(io)
+        _ = try await transport.read(.capabilities)
+        let full = try await transport.fullEvent(agentID: "a", sessionID: "s", sequence: 7)
+        #expect(full.event["type"] == .string("tool_call"))
+        do { _ = try await transport.execute(permission()); Issue.record("Tool fetch must not authorize a permission") }
+        catch AnnexTransportError.rejected(409, "incomplete_representation", _) { }
+        #expect(await io.requests.count == 2)
+    }
+
+    @Test func reviewCapacityIsBoundedAt128AndNewestFetchCanBeApproved() async throws {
+        let epoch = try permission().epoch
+        func digest(_ index: Int) -> String {
+            let hex = String(index, radix: 16); return "sha256:" + String(repeating: "0", count: 64 - hex.count) + hex
+        }
+        func receipt(_ id: String) throws -> AnnexHTTPResponse {
+            .init(status: 200, data: try AnnexContract.encode(.object(["version": .integer(1), "epoch": .string(epoch), "commandId": .string(id), "status": .string("completed")])))
+        }
+        var responses = [try capabilitiesResponse()]
+        for index in 1...128 {
+            responses.append(.init(status: 200, data: try AnnexContract.encode(fullBody(sequence: Int64(index), request: "r\(index)", digest: digest(index), payloadSize: 0))))
+        }
+        responses.append(try receipt("before-cap"))
+        responses.append(.init(status: 200, data: try AnnexContract.encode(fullBody(sequence: 129, request: "r129", digest: digest(129), payloadSize: 0))))
+        responses.append(try receipt("newest"))
+        let io = AnnexContractIO(responses), transport = try await annexContractTransport(io)
+        _ = try await transport.read(.capabilities)
+        for index in 1...128 { _ = try await transport.fullEvent(agentID: "a", sessionID: "s", sequence: Int64(index)) }
+        #expect(try await transport.execute(permission("before-cap", request: "r1", digest: digest(1))).status == .completed)
+        _ = try await transport.fullEvent(agentID: "a", sessionID: "s", sequence: 129)
+        do { _ = try await transport.execute(permission("old", request: "r1", digest: digest(1))); Issue.record("Overflow must not retain old reviews") }
+        catch AnnexTransportError.rejected(409, "incomplete_representation", _) { }
+        #expect(try await transport.execute(permission("newest", request: "r129", digest: digest(129))).status == .completed)
+        #expect(await io.requests.count == 132)
+    }
+
     @Test func overCapAndRevocationAreRefusalsAndNeverGrantAReview() async throws {
         for response in [AnnexHTTPResponse(status: 413, data: Data(#"{"error":"event_too_large","bytes":33554433,"maximumBytes":33554432}"#.utf8)),
                          AnnexHTTPResponse(status: 403, data: Data(#"{"error":"authorization_revoked"}"#.utf8))] {
@@ -140,7 +178,8 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
             let transport = try await annexContractTransport(io)
             _ = try await transport.read(.capabilities)
             await #expect(throws: AnnexTransportError.self) { try await transport.fullEvent(agentID: "a", sessionID: "s", sequence: 7) }
-            await #expect(throws: AnnexTransportError.self) { try await transport.execute(permission()) }
+            do { _ = try await transport.execute(permission()); Issue.record("Failed fetch cannot grant a review") }
+            catch AnnexTransportError.rejected(409, "incomplete_representation", _) { }
             #expect(await io.requests.count == 2)
         }
         #expect(throws: AnnexTransportError.responseTooLarge) {

@@ -20,6 +20,7 @@
 				Transport/AnnexClientIdentity.swift,
 				Transport/AnnexCommands.swift,
                 Transport/AnnexFullEvent.swift,
+                Transport/AnnexFullEventIO.swift,
                 Transport/AnnexHelperRouting.swift,
                 Transport/AnnexProviderControl.swift,
 				Transport/AnnexCredentials.swift,

@@ -92,6 +92,18 @@ import Testing
         #expect(harness.store.fullReviewFailures[harness.target] == nil)
     }
 
+    @Test func transportIncompleteRefusalRetainsItsMachineCodeInTheService() async throws {
+        let harness = try await start(); defer { harness.stop() }
+        try await harness.loadSession()
+        await harness.transport.enqueue(.thrown(.rejected(status: 409, code: "incomplete_representation", message: "Review this request again")))
+        do {
+            try await harness.service.respond(to: "small", optionID: "allow", target: harness.target, clientCommandID: "refused")
+            Issue.record("Expected a review-required refusal")
+        } catch CompanionServiceError.incompleteRepresentation(let message) {
+            #expect(message == "Review this request again")
+        }
+    }
+
     @Test func canonicalCutPayloadsRetainSequenceSessionTruncationAndReplacementSemantics() throws {
         for name in ["chat-event-tool-call-preview.json", "chat-event-tool-output-preview.json"] {
             let event = try #require(ContractFixtures.json(name)["frame"]?["payload"]?["event"])
@@ -141,7 +153,7 @@ import Testing
         #expect(await serviceErrorKind { try await harness.service.respond(to: "big", optionID: "ok", reviewedDigest: digest, target: harness.target, clientCommandID: "changed") } == .rejected)
         await harness.transport.emit(.connection(.disconnected))
         try await harness.waitUntil { harness.host?.connection == .offline }
-        harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target)
+        #expect(!harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target))
         #expect(!harness.store.canApprove(request, target: harness.target))
         #expect(await harness.transport.executed.isEmpty)
     }
@@ -156,7 +168,7 @@ import Testing
         await harness.transport.setEpoch("restarted")
         try await harness.refreshCatalog()
         await harness.store.load(harness.target, force: true)
-        harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target)
+        #expect(!harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target))
         #expect(!harness.store.canApprove(try approval(harness), target: harness.target))
         #expect(await serviceErrorKind { try await harness.service.respond(to: "big", optionID: "ok", reviewedDigest: digest, target: harness.target, clientCommandID: "restarted") } == .rejected)
         #expect(await harness.transport.executed.isEmpty)
@@ -170,7 +182,7 @@ import Testing
         let restarted = Harness.chatEvent("s2", sequence: 1, type: "session_started", data: [:])
         await harness.transport.emit(.message(.init(type: "chat:event", payload: .object(["agentId": .string("agent"), "event": restarted]))))
         try await harness.waitUntil { harness.store.conversation(for: harness.target).sessionID == "s2" }
-        harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target)
+        #expect(!harness.store.acknowledgeFullReview(full, reference: reference, target: harness.target))
         #expect(!harness.store.canApprove(request, target: harness.target))
         #expect(await serviceErrorKind { try await harness.service.respond(to: "big", optionID: "ok", reviewedDigest: digest, target: harness.target, clientCommandID: "session-changed") } == .rejected)
     }
