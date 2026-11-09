@@ -10,6 +10,10 @@ the full name, desktop/project, status, Access and model. A known live level is 
 access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the identity button's
 accessibility label still carries them.
 
+The identity capsule, the usage control and the details card draw their glass over the theme's opaque card and use its
+label colors. Bare glass took on the brightness of whatever scrolled behind it, and in dark mode the white label fell to
+about 1.5:1. The palette keeps label and secondary label at 4.5:1 or better against the card.
+
 The details card and the other-agent banner share one top `safeAreaBar`, so the transcript gets the system scroll-edge
 effect instead of an opacity panel. `CompanionConversationHeaderBarLayout` caps the card at a third of the height left
 above the composer; taller details scroll inside the card. Working/activity moved to a one-line footer above the
