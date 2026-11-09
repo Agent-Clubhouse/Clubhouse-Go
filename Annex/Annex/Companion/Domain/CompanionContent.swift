@@ -4,10 +4,12 @@ import Foundation
 enum CompanionContentReference: Hashable, Sendable, Identifiable {
     case image(String)
     case file(String)
+    /// A Markdown href, resolved only after a tap; code-span paths stay literal.
+    case link(String)
     /// An image this phone sent, shown from its own copy (`CompanionMessageImage.id`).
     case localImage(String)
-    var id: String { switch self { case .image(let v): "image:" + v; case .file(let v): "file:" + v; case .localImage(let v): "local-image:" + v } }
-    var label: String { switch self { case .image, .localImage: "View image"; case .file(let p): p } }
+    var id: String { switch self { case .image(let v): "image:" + v; case .file(let v): "file:" + v; case .link(let v): "link:" + v; case .localImage(let v): "local-image:" + v } }
+    var label: String { switch self { case .image, .localImage: "View image"; case .file(let p), .link(let p): p } }
     static func validMediaReference(_ value: String) -> Bool {
         let parts = value.split(separator: ".", omittingEmptySubsequences: false)
         return parts.count == 2 && parts[0].count == 64 && parts[0].allSatisfy { $0.isASCII && ($0.isNumber || ("a"..."f").contains(String($0))) }
@@ -20,11 +22,19 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         let bounded = String(text.prefix(64 * 1024)) as NSString
         var seen = Set<String>(); var result: [Self] = []
         for match in regex.matches(in: bounded as String, range: NSRange(location: 0, length: bounded.length)).prefix(40) {
-            let range = match.range(at: match.range(at: 1).location == NSNotFound ? 2 : 1)
-            let value = bounded.substring(with: range)
-            guard isValidFilePath(value), isInsideAgentFolders(value) || isAbsolute(value) || isHomeRelative(value),
-                  (value.contains("/") || isHomeRelative(value) || !URL(fileURLWithPath: value).pathExtension.isEmpty), seen.insert(value).inserted else { continue }
-            result.append(.file(value))
+            let isLink = match.range(at: 1).location == NSNotFound
+            let value = bounded.substring(with: match.range(at: isLink ? 2 : 1))
+            let reference: Self
+            if isLink {
+                guard !linkPaths(value).isEmpty else { continue }
+                reference = .link(value)
+            } else {
+                guard isValidFilePath(value), isInsideAgentFolders(value) || isAbsolute(value) || isHomeRelative(value),
+                      (value.contains("/") || isHomeRelative(value) || !URL(fileURLWithPath: value).pathExtension.isEmpty) else { continue }
+                reference = .file(value)
+            }
+            guard seen.insert(reference.id).inserted else { continue }
+            result.append(reference)
         }
         return result
     }
@@ -49,8 +59,8 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
     /// Lexical guards only, never a phone filesystem lookup. Discovery has no host platform;
     /// eligibility and direct fetches additionally apply the POSIX `/net` automount refusal.
     static func isValidFilePath(_ path: String, windows: Bool? = nil) -> Bool {
-        guard !path.isEmpty, path.utf16.count <= 1024, !path.contains("\0"),
-              (path.first != "~" || isHomeRelative(path)), !path.contains("://") else { return false }
+        guard !path.isEmpty, path.utf16.count <= 1024, !path.contains("\0"), !path.contains("\r"), !path.contains("\n"),
+              (path.first != "~" || isHomeRelative(path)), !hasURLScheme(path) else { return false }
         // UNC shares and device prefixes (`\\?\`, `\\.\`), including mixed separators.
         let start = path.prefix(2)
         guard !(start.count == 2 && start.allSatisfy { $0 == "/" || $0 == "\\" }) else { return false }
@@ -88,10 +98,84 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         richContentAvailable ? references.filter { $0.isOffered(roots: roots) } : []
     }
     func isOffered(roots: CompanionContentRoots) -> Bool {
-        guard case .file(let path) = self else { return true }
-        guard Self.isValidFilePath(path, windows: roots.windows) else { return false }
-        return Self.isInsideAgentFolders(path) || (roots.anyPath && (Self.isAbsolute(path) || Self.isHomeRelative(path))) || roots.covers(path)
+        switch self {
+        case .link(let href): return Self.linkPaths(href, windows: roots.windows).contains { Self.file($0).isOffered(roots: roots) }
+        case .file(let path):
+            guard Self.isValidFilePath(path, windows: roots.windows) else { return false }
+            return Self.isInsideAgentFolders(path) || (roots.anyPath && (Self.isAbsolute(path) || Self.isHomeRelative(path))) || roots.covers(path)
+        case .image, .localImage: return true
+        }
     }
+
+    /// Desktop #3192 tries literal, decoded, then anchor-free forms, in that order.
+    /// File URLs are converted without ever consulting the phone's filesystem or home.
+    static func linkPaths(_ href: String, windows: Bool = false) -> [String] {
+        guard href.utf16.count <= 1024 else { return [] }
+        let href = href.trimmingCharacters(in: .whitespaces)
+        guard !href.isEmpty, href.utf16.count <= 1024, !href.contains(where: { "\0\r\n".contains($0) }),
+              href.first != "#", href.first != "?" else { return [] }
+        var forms = [href, href.removingPercentEncoding].compactMap { $0 }
+        if let hash = href.firstIndex(of: "#") {
+            let path = String(href[..<hash])
+            forms += [path, path.removingPercentEncoding].compactMap { $0 }
+        }
+        var seen = Set<String>()
+        return forms.compactMap { form in
+            var path = form
+            if form.lowercased().hasPrefix("file://") {
+                guard let url = URLComponents(string: form), url.scheme?.lowercased() == "file",
+                      url.host == nil || url.host == "" || url.host?.lowercased() == "localhost",
+                      url.user == nil, url.password == nil, url.port == nil,
+                      !url.percentEncodedPath.lowercased().contains("%2f"),
+                      !windows || !url.percentEncodedPath.lowercased().contains("%5c"),
+                      let decoded = url.percentEncodedPath.removingPercentEncoding, decoded.hasPrefix("/") else { return nil }
+                path = decoded
+                if windows, path.count >= 4 {
+                    let drive = path.dropFirst().prefix(3)
+                    if drive.first!.isLetter, drive.dropFirst().first == ":", ["/", "\\"].contains(drive.last!) { path.removeFirst() }
+                }
+            }
+            guard isValidFilePath(path, windows: windows), seen.insert(path).inserted else { return nil }
+            return path
+        }
+    }
+
+    private static func hasURLScheme(_ path: String) -> Bool {
+        // Drive paths are desktop paths, not URI schemes.
+        if isAbsolute(path) { return false }
+        return path.range(of: #"^[A-Za-z][A-Za-z0-9+.-]*:"#, options: .regularExpression) != nil
+    }
+
+    /// Folder syntax is a hint, not a filesystem stat. A host route is needed to
+    /// confirm existence or distinguish an extensionless file from a folder (#3208).
+    func folderLinkPath(roots: CompanionContentRoots) -> String? {
+        guard case .link(let href) = self else { return nil }
+        return Self.linkPaths(href, windows: roots.windows).first {
+            Self.file($0).isOffered(roots: roots) && ($0.hasSuffix("/") || (roots.windows && $0.hasSuffix("\\")))
+        }
+    }
+
+    /// Each fallback is authorized against this conversation's own snapshot.
+    /// Only a desktop content-unavailable answer permits trying another spelling.
+    @MainActor func loadLink(roots: CompanionContentRoots, load: (Self) async throws -> CompanionContent) async throws -> CompanionContent {
+        guard case .link(let href) = self else { return try await load(self) }
+        if let folder = folderLinkPath(roots: roots) {
+            return .init(kind: "folder", name: folder, text: Self.folderLinkMessage)
+        }
+        let candidates = Self.linkPaths(href, windows: roots.windows).filter { Self.file($0).isOffered(roots: roots) }
+        guard !candidates.isEmpty else { throw CompanionContentError.unavailable("This conversation can't preview that link. Refresh the conversation or open it on your desktop.") }
+        for (index, path) in candidates.enumerated() {
+            do { return try await load(.file(path)) }
+            catch is CompanionContentError where index < candidates.count - 1 { continue }
+        }
+        throw CompanionContentError.unavailable(Self.unavailableLinkMessage(hostName: "your desktop"))
+    }
+
+    static let folderLinkMessage = "This link names a folder. Folder contents aren't available on this phone. Open the folder on your desktop."
+    static func unavailableLinkMessage(hostName: String) -> String {
+        "Not available on the phone: this target may be missing, unreadable, or a folder on \(hostName). Open it on your desktop to check."
+    }
+
     static let richContentOffHint = "Turn on Rich chat content in the desktop's Experimental settings to preview images and files on your phone."
     /// With Rich chat content off, one hint replaces every link: under the latest row that would have had some.
     static func hintRowID(in rows: [CompanionTimelineRow], richContentAvailable: Bool) -> String? {
@@ -146,4 +230,11 @@ struct CompanionContent: Sendable {
         guard kind == "pdf", !tooLarge, let bytes, bytes.count <= 8 * 1024 * 1024 else { return nil }
         return bytes
     }
+}
+
+/// Only a confirmed content-route refusal triggers href spelling fallbacks.
+/// The existing route deliberately does not distinguish missing files from folders.
+enum CompanionContentError: Error, LocalizedError {
+    case unavailable(String)
+    var errorDescription: String? { switch self { case .unavailable(let message): message } }
 }

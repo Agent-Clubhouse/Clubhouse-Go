@@ -26,8 +26,8 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         // Both are discovered, but neither is offered without the appropriate snapshot hint.
         let files = CompanionContentReference.files(in: text)
         #expect(files == [.file("/tmp/apple-shot.kqtP/apple.png"), .file("~/Desktop/notes.md"), .file("C:\\Users\\me\\a.txt"), .file("C:/Users/me/b.txt"),
-                          .file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
-        #expect(CompanionContentReference.offered(files, richContentAvailable: true) == [.file("src/app.swift"), .file("build/test.log"), .file("./README.md")])
+                          .file("src/app.swift"), .link("build/test.log"), .file("./README.md")])
+        #expect(CompanionContentReference.offered(files, richContentAvailable: true) == [.file("src/app.swift"), .link("build/test.log"), .file("./README.md")])
     }
 
     @Test func onlyRelativePathsCountAsInsideTheAgentsFolders() {
@@ -136,7 +136,7 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite @MainActor struct CompanionContentErrorMessageTests {
     @Test func desktopRefusalsBecomeSpecificMessages() {
         let missingFile = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .file("a.txt"), hostName: "Studio Mac")
-        #expect(missingFile.contains("Studio Mac") && missingFile.contains("can't read it"))
+        #expect(missingFile.contains("Studio Mac") && missingFile.contains("missing, unreadable, or a folder"))
         let missingImage = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .image(mediaRef), hostName: "Studio Mac")
         #expect(missingImage.contains("image") && missingImage.contains("Studio Mac"))
         let agentGone = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "agent_not_found"), reference: .file("a.txt"), hostName: "Studio Mac")

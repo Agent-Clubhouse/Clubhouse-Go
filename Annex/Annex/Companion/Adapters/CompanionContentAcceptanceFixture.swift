@@ -10,8 +10,17 @@ import UIKit
     static let homeText = "~/.clubhouse/scratch/home.txt"
     static let temporaryText = "/tmp/clubhouse-preview/scratch.txt"
     static let homePDF = "~/.clubhouse/scratch/acceptance.pdf"
+    static let linkFile = "Some Folder/notes.md"
+    static let linkHref = "Some%20Folder/notes.md#intro"
+    static let missingLink = "missing.md"
     static var history: CompanionHistory {
-        .init(items: [
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-local-links") {
+            return .init(items: [
+                .message(.init(id: "local-links-acceptance", role: .assistant,
+                              text: "Local links: [file](\(linkHref)), [missing](\(missingLink)), [folder](Some%20Folder/)."))
+            ], contentRoots: .init(anyPath: true))
+        }
+        return .init(items: [
             .message(.init(id: "content-acceptance", role: .assistant,
                           text: "Synthetic scratch files: `\(homeText)`, `\(temporaryText)`, `\(homePDF)`."))
         ], contentRoots: .init(paths: ["/Users/river/clubhouse"], anyPath: true))
@@ -19,6 +28,8 @@ import UIKit
     static func content(path: String) throws -> CompanionContent {
         let name = (path as NSString).lastPathComponent
         switch path {
+        case linkFile:
+            return .init(kind: "text", name: name, text: "Synthetic local link preview")
         case homeText, temporaryText:
             return .init(kind: "text", name: name, mimeType: "text/plain",
                          text: "Synthetic scratch preview\nRaw path: \(path)")
@@ -41,7 +52,7 @@ import UIKit
             }
             return .init(kind: "pdf", name: name, mimeType: "application/pdf", bytes: bytes)
         default:
-            throw CompanionServiceError.unavailable("Unknown synthetic content reference.")
+            throw CompanionContentError.unavailable(CompanionContentReference.unavailableLinkMessage(hostName: "Studio Mac"))
         }
     }
 }

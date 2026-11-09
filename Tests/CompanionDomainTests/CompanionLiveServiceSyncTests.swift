@@ -349,7 +349,7 @@ import Testing
         #expect(await refused(.rejected(status: 404, code: "agent_not_found"), .file("a.txt")) == "This agent is no longer on Fixture.")
         #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image is no longer available on Fixture.")
         #expect(await refused(.rejected(status: 404, code: nil), .file("a.txt"))
-                == "Fixture couldn't share this file. It may have moved, or this desktop can't read it.")
+                == CompanionContentReference.unavailableLinkMessage(hostName: "Fixture"))
         #expect(await refused(.responseTooLarge, .file("a.txt")) == "This file is too large to preview on your phone. Open it on Fixture.")
         #expect(await refused(.rateLimited(code: nil, retryAfterSeconds: 3), .file("a.txt")) == "The desktop is busy. Try again in a moment.")
     }
