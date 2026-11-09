@@ -59,6 +59,21 @@ import ClubhouseTransport
             guard let self else { return }
             Task { try? await self.registry.learnRoutes(hostID: hostID, routes.endpoints) }
         }
+        service.onNetwork = { [weak self] hostID, snapshot in
+            guard let self else { return }
+            do {
+                try await self.registry.reconcileNetwork(snapshot, from: hostID)
+                await self.registry.introduceNetworkMembers()
+                await self.syncNetworkRegistrations()
+            } catch { self.restoreError = CompanionLiveService.readableError(error) }
+        }
+        service.onNetworkRefusal = { [weak self] hostID in
+            guard let self else { return }
+            do {
+                try await self.registry.networkPeerNotPaired(hostID: hostID)
+                await self.syncNetworkRegistrations()
+            } catch { self.restoreError = CompanionLiveService.readableError(error) }
+        }
         service.prepareResume = { [weak self] in await self?.switchToAnsweringRoutes() ?? [] }
         defer { isRestoring = false }
         do {
@@ -72,6 +87,20 @@ import ClubhouseTransport
             restoredHostIDs = Set(restored.map { $0.host.hostID })
             for registration in restored { await service.register(await answeringRoute(for: registration)) }
         } catch { restoreError = CompanionLiveService.readableError(error) }
+    }
+    private func syncNetworkRegistrations() async {
+        let registrations = await registry.all()
+        let current = Set(registrations.map { $0.host.hostID })
+        for id in service.registeredHostIDs.subtracting(current) {
+            service.remove(hostID: id)
+            restoredHostIDs?.remove(id)
+            sessionHosts.remove(id)
+            if store.selection?.hostID == id { store.selection = nil }
+        }
+        for registration in registrations where !service.registeredHostIDs.contains(registration.host.hostID) {
+            restoredHostIDs?.insert(registration.host.hostID)
+            await service.register(registration)
+        }
     }
     /// The desktop at the first of its saved routes that answers with its pinned certificate, so opening
     /// the app away from home goes straight to Tailscale instead of waiting out the home address.

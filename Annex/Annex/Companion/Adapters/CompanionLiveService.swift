@@ -44,7 +44,11 @@ import ClubhouseTransport
     private var isSuspended = false
     /// Called when a host stops answering at its saved address while the app is active.
     var onUnreachable: ((String) -> Void)?
-    /// Called with the addresses a connected desktop reports for itself (home Wi-Fi, Tailscale).
+    /// Membership arrives only over the host's authenticated transport.
+    var onNetwork: ((String, AnnexNetworkSnapshot) async -> Void)?
+    var onNetworkRefusal: ((String) async -> Void)?
+    var registeredHostIDs: Set<String> { Set(transports.keys) }
+    /// Addresses a connected desktop reports for itself (home Wi-Fi, Tailscale).
     var onRoutes: ((String, AnnexCapabilities.Routes) -> Void)?
     /// Runs on resume before reconnecting; returns the hosts it already reconnected on a better route.
     var prepareResume: (() async -> Set<String>)?
@@ -813,6 +817,10 @@ import ClubhouseTransport
                 cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .reconnecting
             case .failed(let error):
+                if case .rejected(status: 401, code: "peer_not_paired", message: _) = error {
+                    await onNetworkRefusal?(hostID)
+                    guard hosts[hostID] != nil else { return }
+                }
                 cancelRefresh(hostID: hostID)
                 hosts[hostID]?.connection = .failed(Self.readableError(error))
             case .retrying(_, _, let error):
@@ -833,6 +841,10 @@ import ClubhouseTransport
         case .message(let envelope):
             guard let payload = envelope.payload else { return }
             switch envelope.type {
+            case "network:changed":
+                if let snapshot = try? payload.decode(AnnexNetworkSnapshot.self) {
+                    await onNetwork?(hostID, snapshot)
+                }
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
@@ -921,6 +933,11 @@ import ClubhouseTransport
             let rawCaps = try? await transport.read(.capabilities)
             let newCapabilities = rawCaps == nil ? capabilities[hostID]
                 : (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
+            if newCapabilities?.supportsNetwork == true,
+               let raw = try? await transport.read(.network), let snapshot = try? raw.decode(AnnexNetworkSnapshot.self) {
+                await onNetwork?(hostID, snapshot)
+                guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
+            }
             let rawProjects = try await transport.read(.projects)
             let projects = rawProjects["projects"] ?? rawProjects
             var agents: [String: AnnexJSON] = [:]

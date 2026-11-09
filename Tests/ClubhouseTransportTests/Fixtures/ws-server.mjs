@@ -96,6 +96,10 @@ server.on('upgrade', (req, socket) => {
           sizeSent = Number(size); sentAt = performance.now();
           socket.write(frame(kind === 'text' ? 1 : 2, Buffer.alloc(sizeSent, 'x')));
         }
+        else if (text === 'close:4401') {
+          const code = Buffer.alloc(2); code.writeUInt16BE(4401);
+          socket.write(frame(8, Buffer.concat([code, Buffer.from('peer_not_paired')])));
+        }
         else if (text === 'close:1013') {
           const reason = Buffer.alloc(2); reason.writeUInt16BE(1013);
           socket.write(frame(8, reason));

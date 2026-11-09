@@ -184,6 +184,7 @@ public actor AnnexTransport: AnnexTransporting {
             case .identity: path = ["api", "v1", "identity"]
             case .status: path = ["api", "v1", "status"]
             case .projects: path = ["api", "v1", "projects"]
+            case .network: path = ["api", "v1", "mobile", "network"]
             case .capabilities: path = ["api", "v1", "mobile", "capabilities"]
             case .chatContent(let agent, let reference, let file):
                 guard (reference != nil) != (file != nil) else { throw AnnexTransportError.invalidEndpoint }
@@ -477,6 +478,7 @@ public actor AnnexTransport: AnnexTransporting {
     private func terminalError(_ error: Error) -> AnnexTransportError? {
         if let error = error as? AnnexTransportError {
             switch error {
+            case .rejected(status: 401, code: "peer_not_paired", message: _): return error
             case .identityMismatch, .trustRequired, .unauthorized, .forbidden, .credentialMissing, .malformedResponse: return error
             default: return nil
             }

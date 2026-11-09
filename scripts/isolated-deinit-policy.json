@@ -158,7 +158,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all three production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership.",
+      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -188,6 +188,8 @@
           "isSuspended": "Bool",
           "knownCapabilities": "Set < String >",
           "needsCatchUp": "Set < String >",
+          "onNetwork": "( ( String , AnnexNetworkSnapshot ) async -> Void ) ?",
+          "onNetworkRefusal": "( ( String ) async -> Void ) ?",
           "onRoutes": "( ( String , AnnexCapabilities . Routes ) -> Void ) ?",
           "onUnreachable": "( ( String ) -> Void ) ?",
           "prepareResume": "( ( ) async -> Set < String > ) ?",
