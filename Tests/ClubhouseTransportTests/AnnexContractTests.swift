@@ -7,10 +7,9 @@ import Testing
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer"]
+                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer",
+                                       "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"]
     /// Advertised by the vendored desktop, built by another phone change. Whichever lands second removes its set.
-    /// Dispatcher settings (#338).
-    static let notYetBuiltDispatcherCommands: Set<String> = ["dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"]
     /// Saved Access (#263): recorded `agent.create` / `agent.update` requests with the top-level `access` field.
     static let notYetBuiltAccessFields = ["access"]
 
@@ -35,7 +34,8 @@ import Testing
     @Test func capabilitiesDecodeWithEveryFeatureTheDesktopAdvertises() throws {
         let caps = try capabilities()
         #expect(caps.version == 1 && caps.controlAuth == "mtls-pinned-client" && caps.controlAvailable == true)
-        #expect(Set(caps.commands) == Set(Self.commandTypes).union(Self.notYetBuiltDispatcherCommands))
+        #expect(Set(caps.commands) == Set(Self.commandTypes))
+        #expect(caps.supportsDispatcherSettings && caps.dispatcher?.settings?.path == "/api/v1/mobile/dispatcher/settings")
         #expect(caps.supportsGrantRequests)
         #expect(caps.grantRequests == .init(version: 1, snapshotField: "grantRequests", answers: ["allow_once", "allow_lasting", "decline"], commands: ["grant.answer"]))
         #expect(Set(caps.grantRequests?.answers ?? []) == Set(AnnexCommand.GrantAnswer.allCases.map(\.rawValue)))
@@ -58,7 +58,7 @@ import Testing
     /// The desktop's field list for every command is what the phone checks its encoder against.
     @Test func everyAdvertisedCommandHasAPhoneEncodingWithinTheDesktopsFields() throws {
         let schema = try AnnexContract.json("commands/_fields.json")
-        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes).union(Self.notYetBuiltDispatcherCommands))
+        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes))
         for command in Self.maximalCommands() {
             let encoded = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
             let entry = schema["commands"]?[command.type]
@@ -282,6 +282,17 @@ import Testing
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
         case "helperRouting.update": return (try? r.decode(AnnexHelperRoutingUpdate.self)).map { .updateHelperRouting($0) }
         case "dispatcher.setEnabled": return b("enabled").map { .setDispatcherEnabled($0) }
+        case "dispatcher.update":
+            let emoji: AnnexAgentUpdate.Clearable? = switch r["emoji"] { case .string(let v)?: .set(v); case .null?: .clear; default: nil }
+            let personality = r["personality"].map { AnnexDispatcherUpdate.Personality(preset: $0["preset"]?.string, text: $0["text"]?.string) }
+            return .updateDispatcher(.init(behavior: s("behavior"), name: s("name"), color: s("color"), emoji: emoji, personality: personality))
+        case "dispatcher.setModels":
+            if let on = b("byHand") { return .setDispatcherModels(.byHand(on)) }
+            guard let role = s("role") else { return nil }
+            func field(_ key: String) -> AnnexDispatcherModels.Field? { switch r[key] { case .string(let v)?: .set(v); case .null?: .cliDefault; default: nil } }
+            return .setDispatcherModels(.pick(role: role, provider: s("provider"), model: s("model"), effort: field("effort"), contextWindow: field("contextWindow")))
+        case "dispatcher.clearChat": return s("expectedState").map { .clearDispatcherChat(expectedState: $0) }
+        case "dispatcher.forgetEverything": return s("expectedState").map { .forgetDispatcherEverything(expectedState: $0) }
         case "grant.answer": return s("requestId").flatMap { id in s("answer").flatMap(AnnexCommand.GrantAnswer.init(rawValue:)).map { .answerGrant(requestID: id, answer: $0) } }
         default: return nil
         }
@@ -331,6 +342,10 @@ import Testing
             .setModel(agentID: "a", sessionID: "s", model: "m", effort: .providerDefault),
             .setLevel(agentID: "a", sessionID: "s", level: "plan"),
             .setDispatcherEnabled(true),
+            .updateDispatcher(.init(behavior: "light", name: "n", color: "c", emoji: .clear, personality: .init(preset: "custom", text: "t"))),
+            .setDispatcherModels(.pick(role: "work", provider: "o", model: "m", effort: .cliDefault, contextWindow: .set("1m"))),
+            .clearDispatcherChat(expectedState: "opaque"),
+            .forgetDispatcherEverything(expectedState: "opaque"),
             .answerGrant(requestID: "grant_r", answer: .allowLasting),
             .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]

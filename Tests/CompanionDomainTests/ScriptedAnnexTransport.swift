@@ -110,6 +110,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
         case .createOptions: "createOptions"
         case .agentSettings: "agentSettings"
         case .helperRouting: "helperRouting"
+        case .dispatcherSettings: "dispatcherSettings"
         case .gitStatus: "gitStatus"
         case .gitDiff: "gitDiff"
         default: "other"

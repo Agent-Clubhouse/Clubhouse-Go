@@ -35,6 +35,16 @@ import ClubhouseTransport
     private let showsQuestions: Bool
     private let showsContextWindow: Bool
     private var editedHelperPresets: CompanionHelperRouting?
+    /// The hosts last sent, so a Dispatcher settings change can send them again.
+    private var sentHosts: [CompanionHost] = []
+    /// Settings > Dispatcher on its preview Dispatcher (`--companion-preview-dispatcher-settings`). Set before `events()`.
+    var showsDispatcherSettings: Bool = {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-settings")
+        #else
+        false
+        #endif
+    }()
     private let showsHelperPresets: Bool
     private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
@@ -123,6 +133,11 @@ import ClubhouseTransport
                 hosts[0].projects[project].agents[agent].status = .working
             }
             #endif
+            if self.showsDispatcherSettings, hosts[0].dispatcher != nil {
+                hosts[0].canEditDispatcherSettings = true
+                hosts[0].dispatcherSettings = Self.previewDispatcherSettings
+            }
+            self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
@@ -790,4 +805,98 @@ import ClubhouseTransport
     /// A fake shell that echoes, and a terminal-mode agent's screen.
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel { CompanionPreviewTerminalChannel(scope: scope) }
     private var previewError: CompanionServiceError { .unavailable("Preview only. This action does not contact a desktop.") }
+}
+
+// MARK: Settings > Dispatcher (#338), with `--companion-preview-dispatcher-settings`
+
+extension CompanionPreviewService {
+    /// Standard Behavior, models left to it, the Concise personality and some usage today. Its chat is running.
+    static var previewDispatcherSettings: CompanionDispatcherSettings {
+        .init(agentID: dispatcherTarget.agentID,
+              behavior: .init(value: "standard", choices: [
+                .init(id: "light", label: "Light", description: "Fast models, and it doesn’t check in on its own. Keeps usage low."),
+                .init(id: "standard", label: "Standard", description: "Balanced models. Checks in on your agents occasionally."),
+                .init(id: "thorough", label: "Thorough", description: "The strongest models for the work. Checks in frequently.")]),
+              models: .init(note: "A new model or effort applies at once where the CLI allows, otherwise at its next start.", roles: [
+                .init(id: "chat", label: "Talking with you", help: "Its replies to you in its chat."),
+                .init(id: "work", label: "Working in the background", help: "The work you hand it, its check-ins and memory upkeep.")]),
+              identity: .init(name: CompanionDispatcher.name, color: "cyan"),
+              personality: .init(preset: "concise", text: previewPersonalities[1].text ?? "", presets: previewPersonalities),
+              usage: .init(day: "2026-11-09",
+                           conversations: .init(turns: 4, input: 182_000, cachedInput: 120_000, cacheWrite: 9000, output: 6400, costUSD: 0.42, costIsEstimate: true),
+                           background: .init(turns: 2, turnsWithoutUsage: 1, input: 21_000, output: 900, costUSD: 0.03, costIsEstimate: true)),
+              notHonored: ["model", "contextWindow", "runtime", "freeAgentMode", "access"],
+              clearChat: .init(expectedState: "preview-clear-1", applies: "now"),
+              forgetEverything: .init(expectedState: "preview-forget-1"))
+    }
+    static let previewPersonalities: [CompanionDispatcherSettings.PersonalityPreset] = [
+        .init(id: "friendly", label: "Friendly", description: "Warm and upbeat", text: "Be warm and upbeat, like a teammate who enjoys the work."),
+        .init(id: "concise", label: "Concise", description: "Short and direct", text: "Be short and direct. Lead with the answer."),
+        .init(id: "detailed", label: "Detailed", description: "Context and reasons", text: "Give context and reasons."),
+        .init(id: "custom", label: "Custom", description: "Write your own", text: nil),
+    ]
+
+    private var previewDispatcher: CompanionDispatcherSettings? {
+        get { sentHosts.first?.dispatcherSettings }
+        set {
+            guard !sentHosts.isEmpty else { return }
+            sentHosts[0].dispatcherSettings = newValue
+            continuation?.yield(.hosts(sentHosts))
+        }
+    }
+    func dispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings {
+        guard let settings = previewDispatcher else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        return settings
+    }
+    func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        guard var settings = previewDispatcher else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        if let behavior = update.behavior { settings.behavior.value = behavior }
+        if let name = update.name { settings.identity.name = name }
+        if let color = update.color { settings.identity.color = color }
+        switch update.emoji { case .set(let emoji)?: settings.identity.emoji = emoji; case .clear?: settings.identity.emoji = nil; case nil: break }
+        if let personality = update.personality {
+            if let preset = personality.preset {
+                settings.personality?.preset = preset
+                if let text = Self.previewPersonalities.first(where: { $0.id == preset })?.text { settings.personality?.text = text }
+            }
+            if let text = personality.text, personality.preset == nil {
+                settings.personality?.text = text
+                settings.personality?.preset = Self.previewPersonalities.first { $0.text == text }?.id ?? "custom"
+            }
+        }
+        previewDispatcher = settings
+        return settings
+    }
+    func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        guard var settings = previewDispatcher else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        switch models {
+        case .byHand(let on):
+            settings.models.byHand = on
+            settings.behavior.setsModels = !on
+            for index in settings.models.roles.indices where settings.models.roles[index].pick == nil {
+                settings.models.roles[index].pick = .init(provider: "claude-code", model: "opus")
+            }
+        case .pick(let role, let provider, let model, let effort, _):
+            guard let index = settings.models.roles.firstIndex(where: { $0.id == role }) else { throw CompanionServiceError.rejected("role must be chat or work.") }
+            var pick = settings.models.roles[index].pick ?? .init()
+            if let provider { pick.provider = provider; pick.model = "default" }
+            if let model { pick.model = model }
+            switch effort { case .set(let value)?: pick.effort = value; case .cliDefault?: pick.effort = nil; case nil: break }
+            settings.models.roles[index].pick = pick
+        }
+        previewDispatcher = settings
+        return settings
+    }
+    /// Nothing leaves the phone; a reset spends its confirmation, as the desktop's does.
+    func resetDispatcher(_ prompt: CompanionDispatcherResetPrompt, clientCommandID: String) async throws -> CompanionDispatcherResetOutcome {
+        guard var settings = previewDispatcher, prompt.expectedState == prompt.reset.confirmation(in: settings).expectedState else {
+            throw CompanionServiceError.rejected("This changed since you were asked. Check again and confirm.")
+        }
+        switch prompt.reset {
+        case .clearChat: settings.clearChat.expectedState = prompt.expectedState + "+"
+        case .forgetEverything: settings.forgetEverything.expectedState = prompt.expectedState + "+"
+        }
+        previewDispatcher = settings
+        return prompt.reset == .clearChat ? .chatCleared(now: settings.clearChat.applies == "now") : .forgot(removed: 3, heldNews: 0)
+    }
 }

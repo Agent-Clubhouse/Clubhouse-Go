@@ -252,6 +252,9 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// Helpers talk to their parent, even when the parent is in another project. Older desktops omit this.
     var parentAgentID: String?
     var routing: CompanionHelperRoutingDecision?
+    /// The Dispatcher's raw settings that Settings > Dispatcher doesn't offer (`model`, `runtime`, `access`…), to hide to match.
+    /// `agent.update` still takes them; the phone just doesn't show them.
+    var notHonored: Set<String> = []
 
     /// Any setting is waiting for the agent to sleep, so the sheet shows the desktop's hint.
     var hasLockedSettings: Bool {
@@ -286,6 +289,7 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
         merged.appIdleMinutes = previous.appIdleMinutes
         merged.workspace = workspace ?? previous.workspace
         merged.orchestration = orchestration ?? previous.orchestration
+        if merged.notHonored.isEmpty { merged.notHonored = previous.notHonored }
         return merged
     }
 }
@@ -418,6 +422,13 @@ enum CompanionAgentCommandError {
         case "dispatcher_locked": return "The desktop doesn't let you change this for the Dispatcher."
         case "dispatcher_flag_off": return detail ?? CompanionDispatcher.flagOffNote
         case "dispatcher_layout_off": return detail ?? CompanionDispatcher.layoutOffNote
+        // Settings > Dispatcher (`dispatcher.settings` v1). Its sentences start with the value sent ("turbo isn't a Behavior."),
+        // which the phone only offers from the desktop's own lists, so they aren't shown as is.
+        case "invalid_behavior": return "That Behavior isn't one the desktop offers. Choose Light, Standard or Thorough."
+        case "invalid_personality": return "The desktop couldn't use that personality. Choose a preset, or keep your own text shorter."
+        case "invalid_models": return "The desktop couldn't read that model choice. Updating Clubhouse may help."
+        case "models_refused": return detail ?? "The desktop didn't accept that model choice. Choose another."
+        case "clear_failed": return detail ?? "The desktop couldn't clear the Dispatcher's chat. Check it on the desktop."
         // Chat commands (`docs/mobile-control-v1.md` → Commands).
         case "session_mismatch": return "This conversation moved to a new session. Refresh it and try again."
         case "not_chat": return "This agent isn't running in chat. Start it first."

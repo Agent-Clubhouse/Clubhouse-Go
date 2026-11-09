@@ -92,6 +92,7 @@ extension CompanionAgentSettings {
         orchestration = CompanionOrchestration(json: json["orchestration"])
         parentAgentID = json["parentAgentId"]?.string
         routing = CompanionHelperRoutingDecision(json: json["routing"])
+        notHonored = Set(json["notHonored"].arrayValue.compactMap { $0["setting"]?.string })
     }
 
     /// `"inherit"`, `"never"` or a number of minutes; anything else inherits, as the desktop's `normalizeIdleSleep`.
