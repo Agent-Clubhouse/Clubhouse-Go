@@ -33,6 +33,12 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         /// Turns the desktop's app-wide Dispatcher on or off (`dispatcher` v1). Turning it on needs the experimental flag.
         case setDispatcherEnabled(Bool)
         case updateHelperRouting(AnnexHelperRoutingUpdate)
+        /// Settings > Dispatcher (`dispatcher.settings` v1). The two resets carry the confirmation the settings route gave
+        /// for that action, and are never retried with a new one: the person confirms again.
+        case updateDispatcher(AnnexDispatcherUpdate)
+        case setDispatcherModels(AnnexDispatcherModels)
+        case clearDispatcherChat(expectedState: String)
+        case forgetDispatcherEverything(expectedState: String)
         /// Answers a Clubhouse grant request (`grantRequests` v1): an Ask-first call or an agent's `request_grant` ask.
         case answerGrant(requestID: String, answer: GrantAnswer)
     }
@@ -65,7 +71,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             agent
         case .update(let update): update.agentID
         case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
-             .setDispatcherEnabled, .updateHelperRouting, .answerGrant:
+             .setDispatcherEnabled, .updateHelperRouting, .updateDispatcher, .setDispatcherModels, .clearDispatcherChat, .forgetDispatcherEverything,
+             .answerGrant:
             nil
         }
     }
@@ -93,6 +100,10 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearFinishedQuick: "quick.clear"
         case .setDispatcherEnabled: "dispatcher.setEnabled"
         case .updateHelperRouting: "helperRouting.update"
+        case .updateDispatcher: "dispatcher.update"
+        case .setDispatcherModels: "dispatcher.setModels"
+        case .clearDispatcherChat: "dispatcher.clearChat"
+        case .forgetDispatcherEverything: "dispatcher.forgetEverything"
         case .answerGrant: "grant.answer"
         }
     }
@@ -180,6 +191,15 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .updateHelperRouting(let update):
             guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil else { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
+        case .updateDispatcher(let update):
+            guard update.isValid else { throw AnnexTransportError.malformedResponse }
+            v.merge(update.fields) { _, new in new }
+        case .setDispatcherModels(let models):
+            guard models.isValid else { throw AnnexTransportError.malformedResponse }
+            v.merge(models.fields) { _, new in new }
+        case .clearDispatcherChat(let expectedState), .forgetDispatcherEverything(let expectedState):
+            guard !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            v["expectedState"] = .string(expectedState)
         case .answerGrant(let request, let answer):
             guard !request.isEmpty, request.count <= 256 else { throw AnnexTransportError.malformedResponse }
             v["requestId"] = .string(request); v["answer"] = .string(answer.rawValue)
@@ -509,8 +529,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public let newLayout: Bool
         /// The project id its agent is listed under.
         public let projectID: String
-        public init(version: Int = 1, enabled: Bool, flagOn: Bool, newLayout: Bool = true, projectID: String = Self.defaultProjectID) {
+        /// Settings > Dispatcher's route and commands (`settings` v1). Absent on desktops before Clubhouse #3206.
+        public let settings: Feature?
+        public init(version: Int = 1, enabled: Bool, flagOn: Bool, newLayout: Bool = true, projectID: String = Self.defaultProjectID, settings: Feature? = nil) {
             self.version = version; self.enabled = enabled; self.flagOn = flagOn; self.newLayout = newLayout; self.projectID = projectID
+            self.settings = settings
         }
         /// A malformed block reads as off rather than failing the whole capability document.
         public init(from decoder: Decoder) throws {
@@ -520,8 +543,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
             flagOn = (try? c.decode(Bool.self, forKey: .flagOn)) ?? false
             newLayout = (try? c.decode(Bool.self, forKey: .newLayout)) ?? true
             projectID = (try? c.decode(String.self, forKey: .projectId)).flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultProjectID
+            settings = (try? c.decodeIfPresent(Feature.self, forKey: .settings)) ?? nil
         }
-        private enum CodingKeys: String, CodingKey { case version, enabled, flagOn, newLayout, projectId }
+        private enum CodingKeys: String, CodingKey { case version, enabled, flagOn, newLayout, projectId, settings }
     }
     public let dispatcher: Dispatcher?
     public var supportsDispatcher: Bool { (dispatcher?.version ?? 0) >= 1 }

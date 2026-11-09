@@ -127,6 +127,8 @@ Dispatcher checks run last and support `--only` and retries. Phone gestures cove
 
 **Not covered: Clubhouse grant requests (#337).** No live check holds a Clubhouse MCP call for Ask first or makes a `request_grant` ask, so `grant.answer` against a real desktop, the audit record's `mobile` surface, and a lasting Allow appearing on the agent's permissions page are unverified. The contract tests drive the desktop's recorded snapshot, events and every `grant.answer` receipt through the live service and store (`CompanionGrantRequestLiveTests`), and `CompanionGrantRequestUITests` covers Allow once and Decline against the preview desktop.
 
+**Not covered: Settings > Dispatcher (#338).** No live check changes Behavior or runs Clear chat or Forget everything against a real desktop. The contract tests drive the recorded settings route, every `dispatcher.*` receipt, the `stale_state` re-ask and `dispatcher:changed` through the live service and store (`AnnexContractDispatcherSettingsTests`), and `CompanionDispatcherUITests.testBehaviorClearChatAndForgetEverything` covers Behavior and both confirmations against the preview desktop.
+
 `--companion-sample-images` replaces the photo picker in this suite, as in preview mode. In DEBUG builds it is honoured when a test invitation is present.
 
 ### Nightly workflow
