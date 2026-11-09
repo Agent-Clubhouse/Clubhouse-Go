@@ -7,7 +7,12 @@ import Testing
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange"]
+                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer"]
+    /// Advertised by the vendored desktop, built by another phone change. Whichever lands second removes its set.
+    /// Dispatcher settings (#338).
+    static let notYetBuiltDispatcherCommands: Set<String> = ["dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"]
+    /// Saved Access (#263): recorded `agent.create` / `agent.update` requests with the top-level `access` field.
+    static let notYetBuiltAccessFields = ["access"]
 
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
@@ -22,6 +27,7 @@ import Testing
         let commit = try #require(source["commit"]?.string)
         #expect(commit.count == 40 && commit.allSatisfy(\.isHexDigit))
         for type in Self.commandTypes { #expect(files.contains("commands/\(type).json"), "\(type)") }
+        #expect(files.contains("snapshot-grant-requests.json") && files.contains("grant-request-events.json"))
     }
 
     // MARK: Capabilities
@@ -29,7 +35,10 @@ import Testing
     @Test func capabilitiesDecodeWithEveryFeatureTheDesktopAdvertises() throws {
         let caps = try capabilities()
         #expect(caps.version == 1 && caps.controlAuth == "mtls-pinned-client" && caps.controlAvailable == true)
-        #expect(Set(caps.commands) == Set(Self.commandTypes))
+        #expect(Set(caps.commands) == Set(Self.commandTypes).union(Self.notYetBuiltDispatcherCommands))
+        #expect(caps.supportsGrantRequests)
+        #expect(caps.grantRequests == .init(version: 1, snapshotField: "grantRequests", answers: ["allow_once", "allow_lasting", "decline"], commands: ["grant.answer"]))
+        #expect(Set(caps.grantRequests?.answers ?? []) == Set(AnnexCommand.GrantAnswer.allCases.map(\.rawValue)))
         #expect(caps.supportsAgentCreate && caps.supportsAgentSettings && caps.supportsModelSwitch && caps.supportsLevelSwitch)
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
@@ -49,7 +58,7 @@ import Testing
     /// The desktop's field list for every command is what the phone checks its encoder against.
     @Test func everyAdvertisedCommandHasAPhoneEncodingWithinTheDesktopsFields() throws {
         let schema = try AnnexContract.json("commands/_fields.json")
-        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes))
+        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes).union(Self.notYetBuiltDispatcherCommands))
         for command in Self.maximalCommands() {
             let encoded = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
             let entry = schema["commands"]?[command.type]
@@ -70,6 +79,7 @@ import Testing
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.
                 if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
+                if Self.notYetBuiltAccessFields.contains(where: { request[$0] != nil }) { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
                 var expected = request
@@ -272,6 +282,7 @@ import Testing
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
         case "helperRouting.update": return (try? r.decode(AnnexHelperRoutingUpdate.self)).map { .updateHelperRouting($0) }
         case "dispatcher.setEnabled": return b("enabled").map { .setDispatcherEnabled($0) }
+        case "grant.answer": return s("requestId").flatMap { id in s("answer").flatMap(AnnexCommand.GrantAnswer.init(rawValue:)).map { .answerGrant(requestID: id, answer: $0) } }
         default: return nil
         }
     }
@@ -320,6 +331,7 @@ import Testing
             .setModel(agentID: "a", sessionID: "s", model: "m", effort: .providerDefault),
             .setLevel(agentID: "a", sessionID: "s", level: "plan"),
             .setDispatcherEnabled(true),
+            .answerGrant(requestID: "grant_r", answer: .allowLasting),
             .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]
         return kinds.map { AnnexCommand(commandID: "c", epoch: "e", kind: $0) }

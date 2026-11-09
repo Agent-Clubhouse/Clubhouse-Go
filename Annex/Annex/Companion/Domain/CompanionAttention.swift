@@ -56,23 +56,28 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         case unreviewed
         /// An orchestrator asked to start a helper (on the orchestrator) or dispose one (on the helper).
         case helperRequest(CompanionHelperRequest)
+        /// A Clubhouse permission request: an Ask-first call or the agent's `request_grant` ask. Answered with `grant.answer`.
+        case grantRequest(CompanionGrantRequest)
     }
     var agent: CompanionAgent
     var hostName: String
     /// The agent's project, or "Dispatcher" for the desktop's Dispatcher, which has none.
     var projectName: String
     var kind: Kind
-    /// An agent's own wait, or one helper request: an agent can have both.
+    /// An agent's own wait, or one helper or grant request: an agent can have several.
     var id: String {
         if case .helperRequest(let request) = kind { return "helper:\(request.slot)" }
+        if case .grantRequest(let request) = kind { return "grant:\(request.slot)" }
         return "agent:\(agent.id.hostID):\(agent.id.projectID):\(agent.id.agentID)"
     }
     var helperRequest: CompanionHelperRequest? { if case .helperRequest(let request) = kind { request } else { nil } }
+    var grantRequest: CompanionGrantRequest? { if case .grantRequest(let request) = kind { request } else { nil } }
 
     var deadline: Date? { if case .approval(let approval) = kind { approval.deadline } else { nil } }
     /// When the agent began waiting, from the desktop's `detailedStatus.timestamp`, or when the helper request came.
     var since: Date? {
         if let helperRequest { return helperRequest.requestedAt }
+        if let grantRequest { return grantRequest.requestedAt }
         return agent.detail?.since
     }
 
@@ -90,6 +95,7 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         case .question: Self.questionLine
         case .failure: failureLine
         case .helperRequest(let request): request.summary
+        case .grantRequest(let request): request.summary
         case .unreviewed:
             switch agent.status {
             case .approval: Self.permissionLine(toolName: agent.detail?.toolName)
@@ -108,7 +114,8 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
             return summary.isEmpty || summary == "Review the requested action" ? nil : summary
         case .question(let question): return question.prompts.first?.text
         case .helperRequest(let request): return request.task
-        case .failure, .unreviewed: return nil
+        // The card shows the request's detail, arguments and reason itself.
+        case .grantRequest, .failure, .unreviewed: return nil
         }
     }
 
@@ -316,7 +323,7 @@ extension CompanionStore {
     }
 
     /// Needs you, as the desktop lists it: questions, permission requests, failed tools and errored agents on
-    /// connected desktops, and helper start and dispose requests from desktops that send them, oldest first. An
+    /// connected desktops, and helper and Clubhouse grant requests from desktops that send them, oldest first. An
     /// approval about to time out goes first. An offline desktop's agents are left to its reconnect card.
     func attentionItems(now: Date = Date()) -> [CompanionAttentionItem] {
         var items: [CompanionAttentionItem] = []
@@ -324,6 +331,10 @@ extension CompanionStore {
             for request in helperRequests(on: host, now: now) {
                 guard let agent = host.agent(for: request.agentTarget), let place = host.placeName(for: agent.id) else { continue }
                 items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .helperRequest(request)))
+            }
+            for request in grantRequests(on: host, now: now) {
+                guard let agent = host.agent(for: request.agentTarget), let place = host.placeName(for: agent.id) else { continue }
+                items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .grantRequest(request)))
             }
             // The Dispatcher is listed with its own name in place of a project's.
             let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcher?.liveAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
@@ -356,11 +367,18 @@ extension CompanionStore {
         }.map(\.element)
     }
 
-    /// The Needs you badge: agents waiting on you on a connected desktop, and helper requests.
+    /// The Needs you badge: agents waiting on you on a connected desktop, and helper and grant requests.
     var needsYouCount: Int {
         let operable = hosts.filter(\.connection.canOperate)
         return operable.flatMap(\.allAgents).filter { $0.status.needsYou }.count
-            + operable.reduce(0) { $0 + helperRequests(on: $1).count }
+            + operable.reduce(0) { $0 + helperRequests(on: $1).count + grantRequests(on: $1).count }
+    }
+
+    /// A desktop's waiting grant requests, when it can take answers: unexpired ones whose agent is listed.
+    func grantRequests(on host: CompanionHost, now: Date = Date()) -> [CompanionGrantRequest] {
+        guard host.canAnswerGrantRequests else { return [] }
+        let listed = Set(host.allAgents.map(\.id))
+        return host.grantRequests.filter { listed.contains($0.agentTarget) && !$0.isExpired(at: now) }
     }
 
     /// A desktop's waiting helper requests, when it can take answers: unexpired ones whose agent is listed.

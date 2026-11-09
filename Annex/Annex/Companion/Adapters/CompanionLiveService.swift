@@ -40,6 +40,9 @@ import ClubhouseTransport
     private let iconStore: CompanionIconStore
     private var helperLabelsCache: [String: (revision: String, labels: CompanionHelperRouting.Labels)] = [:]
     private var consumedHelperRequests: Set<String> = []
+    /// Grant requests this connection saw resolved or answered, by host. A snapshot read before the answer can't bring
+    /// one back; only its `grant_request:opened` (a lasting Allow that couldn't be saved) does. Cleared on reconnect.
+    private var resolvedGrantRequests: [String: Set<String>] = [:]
 
     init(iconStore: CompanionIconStore = .shared) { self.iconStore = iconStore }
     /// A command as first sent, for its retries. Keyed by machine too: a command id names one command on one desktop,
@@ -592,6 +595,48 @@ import ClubhouseTransport
         hosts[request.hostID]?.helperRequests.removeAll { $0.id == request.id }
         emitHosts()
     }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
+        guard capabilities[request.hostID]?.supportsGrantRequests == true else { throw CompanionServiceError.unavailable(CompanionGrantRequestError.updateDesktop) }
+        guard let wire = AnnexCommand.GrantAnswer(rawValue: answer.rawValue) else { throw CompanionServiceError.rejected(CompanionGrantRequestError.message(code: "", message: nil)) }
+        let receipt = try await execute(.answerGrant(requestID: request.id, answer: wire), id: clientCommandID, hostID: request.hostID, validateReceipt: false)
+        switch receipt.status {
+        case .completed:
+            dropGrantRequests([request.id], hostID: request.hostID)
+        case .rejected where receipt.error?.code == "grant_request_not_found":
+            // Expired, answered elsewhere, withdrawn, or not one this device may see.
+            dropGrantRequests([request.id], hostID: request.hostID)
+            throw CompanionGrantRequestError.gone(CompanionGrantRequestError.message(code: "grant_request_not_found", message: receipt.error?.message))
+        case .rejected where receipt.error?.code.hasPrefix("grant_") == true:
+            // Nothing changed; the request still waits.
+            throw CompanionGrantRequestError.refused(CompanionGrantRequestError.message(code: receipt.error?.code ?? "", message: receipt.error?.message))
+        default:
+            if let error = Self.receiptError(receipt) { throw error }
+        }
+    }
+    private func dropGrantRequests(_ ids: [String], hostID: String) {
+        resolvedGrantRequests[hostID, default: []].formUnion(ids)
+        guard hosts[hostID]?.grantRequests.contains(where: { ids.contains($0.id) }) == true else { return }
+        hosts[hostID]?.grantRequests.removeAll { ids.contains($0.id) }
+        emitHosts()
+    }
+    /// The snapshot's `grantRequests`, oldest first. An entry without an id, a known kind, a project or an agent is skipped.
+    /// A request without `answers` takes its kind's: Allow once and Decline for a call, a lasting Allow and Decline for a grant.
+    nonisolated static func grantRequests(from value: AnnexJSON, hostID: String) -> [CompanionGrantRequest] {
+        Optional(value).arrayValue.compactMap { item -> CompanionGrantRequest? in
+            guard let id = item["requestId"]?.string, !id.isEmpty, let kind = item["kind"]?.string.flatMap(CompanionGrantRequest.Kind.init(rawValue:)),
+                  let projectID = item["projectId"]?.string, let agentID = item["agent"]?["agentId"]?.string else { return nil }
+            func text(_ key: String) -> String? { item[key]?.string.flatMap { $0.isEmpty ? nil : $0 } }
+            let labels = item["actionLabels"].arrayValue.compactMap(\.string)
+            var answers = item["answers"].arrayValue.compactMap { $0.string.flatMap(CompanionGrantRequest.Answer.init(rawValue:)) }
+            if answers.isEmpty { answers = kind == .call ? [.allowOnce, .decline] : [.allowLasting, .decline] }
+            let summary = text("summary") ?? (labels.isEmpty ? "Asks for a Clubhouse permission." : "Asks for \(labels.joined(separator: ", ")).")
+            return .init(id: id, hostID: hostID, projectID: projectID, kind: kind, agentID: agentID,
+                         agentName: item["agent"]?["name"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? agentID,
+                         actionLabels: labels, whereLabel: text("where"), toolName: text("toolName"), summary: summary,
+                         detail: text("detail"), arguments: text("arguments"), reason: text("reason"), allowEffect: text("allowEffect"),
+                         requestedAt: item["requestedAt"].flatMap(date(from:)), expiresAt: item["expiresAt"].flatMap(date(from:)), answers: answers)
+        }
+    }
     /// The snapshot's `helperRequests`. An entry without an id, kind, project or requester is skipped.
     nonisolated static func helperRequests(from value: AnnexJSON, hostID: String) -> [CompanionHelperRequest] {
         Optional(value).arrayValue.compactMap { item -> CompanionHelperRequest? in
@@ -932,6 +977,7 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .connecting
             case .disconnected, .suspended:
                 cancelRefresh(hostID: hostID)
+                resolvedGrantRequests[hostID] = nil
                 hosts[hostID]?.connection = .offline
                 emit(.resyncRequired(hostID: hostID))
             case .reconnecting:
@@ -955,6 +1001,8 @@ import ClubhouseTransport
             }
         case .resyncRequired:
             clearFullReviews(hostID: hostID)
+            // The next snapshot is whole; events missed since may have reopened a request.
+            resolvedGrantRequests[hostID] = nil
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
             needsCatchUp.insert(hostID)
@@ -988,6 +1036,11 @@ import ClubhouseTransport
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID).filter { !consumedHelperRequests.contains($0.slot) } }
+                // Shown only once capabilities say the desktop takes answers (`canAnswerGrantRequests`).
+                if let requests = payload[capabilities[hostID]?.grantRequests?.snapshotField ?? "grantRequests"] {
+                    let resolved = resolvedGrantRequests[hostID] ?? []
+                    hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID).filter { !resolved.contains($0.id) }
+                }
                 hosts[hostID]?.helperRoutingRevision = payload["helperRoutingRevision"]?.string
                 // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
                 hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])
@@ -1003,6 +1056,13 @@ import ClubhouseTransport
                     emitHosts()
                     await refreshHelperRoutingLabels(hostID: hostID)
                 }
+            // Each is followed by a snapshot with the rows, so the list itself always comes from the snapshot.
+            case "grant_request:opened":
+                // The same id again: a lasting Allow that couldn't be saved. Its row comes back with the next snapshot.
+                if let id = payload["requestId"]?.string { resolvedGrantRequests[hostID]?.remove(id) }
+            case "grant_request:resolved":
+                // Answered anywhere, expired or withdrawn. Ids never seen are fine.
+                dropGrantRequests(payload["requestIds"].arrayValue.compactMap(\.string), hostID: hostID)
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
                 if let theme = Self.theme(from: payload, terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme; emitHosts() }
@@ -1081,6 +1141,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canStopAgents = newCapabilities?.commands.contains("agent.stop") == true
                 hosts[hostID]?.canControlProvider = newCapabilities?.supportsProviderControl == true
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
+                hosts[hostID]?.canAnswerGrantRequests = newCapabilities?.supportsGrantRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
                 hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
                 hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
