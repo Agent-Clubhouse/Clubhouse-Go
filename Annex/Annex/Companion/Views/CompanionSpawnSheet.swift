@@ -48,7 +48,7 @@ struct CompanionSpawnSheet: View {
                 Button("Create another agent") { store.acknowledgeReviewedCreate() }
             } message: { Text("The earlier agent may already be on your desktop. Continue only after checking its agent list.") }
             .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-                Button("Turn on Free Agent Mode", role: .destructive) { durable.freeAgentMode = true }
+                Button(CompanionFreeAgentMode.confirmAction, role: .destructive) { durable.freeAgentMode = true }
             } message: { Text(CompanionFreeAgentMode.help) }
             .onAppear {
                 project = initialProject
@@ -372,10 +372,10 @@ struct CompanionSpawnSheet: View {
             }
         } else {
             Section {
-                LabeledContent("Free Agent Mode", value: "Off")
+                LabeledContent(CompanionFreeAgentMode.title, value: "Off")
                     .accessibilityIdentifier("new-agent-free-agent-mode")
             } header: { Text("Permissions") } footer: {
-                Text("The agent asks before it edits. Free Agent Mode can only be turned on at the desktop.")
+                Text("Access follows the desktop default. Change it on the desktop.")
             }
         }
         if !options.mcpCatalog.isEmpty {
@@ -432,7 +432,7 @@ struct CompanionSpawnSheet: View {
         }
     }
 
-    /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
+    /// Whether the desktop accepts the legacy boolean Access control.
     private func offersFreeAgentMode(_ options: CompanionCreateOptions) -> Bool {
         selectedHost?.canSetFreeAgentMode == true && options.freeAgentModeAllowed
     }

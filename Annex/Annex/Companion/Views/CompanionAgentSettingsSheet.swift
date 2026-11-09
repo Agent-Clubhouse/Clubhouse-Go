@@ -248,7 +248,7 @@ struct CompanionAgentSettingsForm: View {
                 if focusContext, settings != nil { proxy.scrollTo("agent-context-section", anchor: .top) }
             }
             .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-                Button("Turn on Free Agent Mode", role: .destructive) { save(.init(freeAgentMode: true)) }
+                Button(CompanionFreeAgentMode.confirmAction, role: .destructive) { save(.init(freeAgentMode: true)) }
             } message: { Text(CompanionFreeAgentMode.help) }
             .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
                 Button("Change CLI", role: .destructive) {
@@ -444,7 +444,7 @@ struct CompanionAgentSettingsForm: View {
                     .disabled(!settings.freeAgentMode.canEdit(sleeping: sleeping) || saving)
                     .accessibilityIdentifier("agent-settings-free-agent-mode")
             } else {
-                LabeledContent("Free Agent Mode", value: settings.freeAgentMode.value ? "On" : "Off")
+                LabeledContent(CompanionFreeAgentMode.title, value: settings.freeAgentMode.value ? "On" : "Off")
                     .accessibilityIdentifier("agent-settings-free-agent-mode")
             }
         } header: { Text("Access") } footer: {
@@ -586,12 +586,12 @@ struct CompanionAgentSettingsForm: View {
         return notes.joined(separator: " ")
     }
 
-    /// The desktop takes Free Agent Mode from a phone; older ones keep it for themselves.
+    /// Whether the desktop accepts the legacy boolean Access control.
     private var canSetFreeAgentMode: Bool { store.host(for: target)?.canSetFreeAgentMode == true }
 
     /// Why the toggle can't change, else the desktop's help text.
     private func freeAgentModeFooter(_ settings: CompanionAgentSettings) -> String {
-        guard canSetFreeAgentMode else { return "Free Agent Mode can only be changed on the desktop." }
+        guard canSetFreeAgentMode else { return "Access can only be changed on the desktop." }
         if settings.freeAgentMode.editable == .never { return CompanionFreeAgentMode.unsupported }
         if settings.freeAgentMode.isLocked(sleeping: settings.sleeping) { return "\(CompanionAgentSettings.lockedHint). \(CompanionFreeAgentMode.help)" }
         return CompanionFreeAgentMode.help
