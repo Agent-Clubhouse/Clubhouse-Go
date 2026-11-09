@@ -37,6 +37,14 @@ import ClubhouseTransport
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
     private var sentHosts: [CompanionHost] = []
+    /// Settings > Dispatcher on its preview Dispatcher (`--companion-preview-dispatcher-settings`). Set before `events()`.
+    var showsDispatcherSettings: Bool = {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-settings")
+        #else
+        false
+        #endif
+    }()
     private let showsHelperPresets: Bool
     private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
@@ -123,11 +131,11 @@ import ClubhouseTransport
                let agent = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.target }) {
                 hosts[0].projects[project].agents[agent].status = .working
             }
-            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-settings"), hosts[0].dispatcher != nil {
+            #endif
+            if self.showsDispatcherSettings, hosts[0].dispatcher != nil {
                 hosts[0].canEditDispatcherSettings = true
                 hosts[0].dispatcherSettings = Self.previewDispatcherSettings
             }
-            #endif
             self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }

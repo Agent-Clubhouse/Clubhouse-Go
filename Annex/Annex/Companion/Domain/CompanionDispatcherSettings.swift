@@ -160,9 +160,10 @@ nonisolated struct CompanionDispatcherResetPrompt: Sendable, Equatable, Identifi
         if let old, old.identity.name != new.identity.name { parts.append("It's now called \(new.identity.name).") }
         switch reset {
         case .clearChat:
+            // Only a change it can see: without the earlier settings, it doesn't know whether the chat woke or slept.
             let before = old?.clearChat.applies, after = new.clearChat.applies
-            if before != after, after == "now" { parts.append("Its chat woke up, so it would start over at once.") }
-            else if before != after, after == "next_start" { parts.append("Its chat went to sleep, so it would start over when it next wakes.") }
+            if let before, before != after, after == "now" { parts.append("Its chat woke up, so it would start over at once.") }
+            else if let before, before != after, after == "next_start" { parts.append("Its chat went to sleep, so it would start over when it next wakes.") }
             else { parts.append("Its conversation changed since you were asked.") }
         case .forgetEverything:
             parts.append("Its memory changed since you were asked, as it does while it works.")

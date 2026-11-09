@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work. Dispatcher settings (#338) add only an optional CompanionDispatcherResetPrompt (Sendable value struct of Strings and an enum), a Set<String> of host ids and a String-keyed map of String notices; no callbacks, UI ownership or teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -22,6 +22,9 @@
           "createError": "String ?",
           "createInProgress": "Bool",
           "dispatcherErrors": "[ String : String ]",
+          "dispatcherResetNotices": "[ String : String ]",
+          "dispatcherResetPrompt": "CompanionDispatcherResetPrompt ?",
+          "dispatcherResetting": "Set < String >",
           "dispatcherSwitching": "Set < String >",
           "draftPersistence": "( any CompanionDraftPersistence ) ?",
           "drafts": "[ CompanionTarget : String ]",
@@ -394,7 +397,7 @@
     "CompanionPreviewService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
-      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged.",
+      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged. Reviewed #338 addition: sentHosts is an array of CompanionHost value structs (the hosts last yielded), used to re-yield Dispatcher settings changes, and showsDispatcherSettings is a Bool; no callbacks or UI references.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -403,9 +406,11 @@
         "properties": {
           "continuation": "AsyncStream < CompanionEvent > . Continuation ?",
           "editedHelperPresets": "CompanionHelperRouting ?",
+          "sentHosts": "[ CompanionHost ]",
           "showsAutoQuota": "Bool",
           "showsContextWindow": "Bool",
           "showsDispatcher": "Bool",
+          "showsDispatcherSettings": "Bool",
           "showsEmptyConversation": "Bool",
           "showsHelperIdentity": "Bool",
           "showsHelperPresets": "Bool",

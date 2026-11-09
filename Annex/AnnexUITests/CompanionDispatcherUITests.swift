@@ -103,7 +103,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertFalse(notice.waitForExistence(timeout: 1), "Cancel clears nothing")
         waitAndTap(clear, until: clearAlert, timeout: 5)
         waitAndTap(clearAlert.buttons["Clear chat"], untilGone: clearAlert)
-        XCTAssertTrue(notice.waitForExistence(timeout: 5))
+        // The result is the section's last row, which a Form only keeps while it is on screen.
+        XCTAssertTrue(scrollUntilExists(notice, in: app), "Clearing says what it did")
         XCTAssertEqual(notice.label, "Its conversation started over.")
 
         // Forget everything is asked separately, with its own words.
@@ -117,6 +118,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertFalse(notice.waitForExistence(timeout: 1), "Asking clears the last result, and Cancel forgets nothing")
         waitAndTap(forget, until: forgetAlert, timeout: 5)
         waitAndTap(forgetAlert.buttons["Forget everything"], untilGone: forgetAlert)
+        XCTAssertTrue(scrollUntilExists(notice, in: app), "Forgetting says what it did")
         XCTAssertTrue(notice.wait(for: \.label, toEqual: "Its memory was cleared.", timeout: 5))
         screenshot(app, "Dispatcher after both resets")
     }
