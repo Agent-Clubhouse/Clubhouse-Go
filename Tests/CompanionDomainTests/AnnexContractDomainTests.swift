@@ -428,14 +428,11 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
 
     // MARK: Errors the user reads
 
-    /// Recorded refusals for commands another open change builds; whichever of the two PRs merges second removes the
-    /// entries it now covers. `grant.answer`: Clubhouse permission requests, Go #337 (go-grant-requests).
-    static let exemptRefusalFiles: Set<String> = ["commands/grant.answer.json"]
 
     /// Every refusal the desktop recorded, for every command, reaches the user as a sentence, never a code.
     @Test func everyRecordedRefusalHasAUserMessage() throws {
         var seen: Set<String> = []
-        for file in try ContractFixtures.files() where file.hasPrefix("commands/") && file != "commands/_fields.json" && !Self.exemptRefusalFiles.contains(file) {
+        for file in try ContractFixtures.files() where file.hasPrefix("commands/") && file != "commands/_fields.json" {
             for item in try ContractFixtures.cases(file) {
                 guard let body = item["response"]?["body"], body["status"]?.string != "completed", body["status"] != nil else { continue }
                 let receipt = try body.decode(AnnexCommandReceipt.self)

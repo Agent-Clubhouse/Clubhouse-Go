@@ -102,6 +102,11 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canAnswerHelperRequests = false
     /// Helper starts and disposes orchestrators asked the user to decide, oldest first, from the desktop's snapshot.
     var helperRequests: [CompanionHelperRequest] = []
+    /// The desktop lists Clubhouse grant requests and takes `grant.answer` (grant requests v1).
+    var canAnswerGrantRequests = false
+    /// Clubhouse permission requests waiting on the user, oldest first, from the desktop's snapshot. A Manage devices
+    /// call that names this device is never listed: only the desktop or another device can answer it.
+    var grantRequests: [CompanionGrantRequest] = []
     /// The desktop offers `projectState` v1 with `project.setPinned` and `project.setInactive`.
     var canSyncProjectState = false
     /// Each project's pins, mark and idle flag from the snapshot. Nil until the desktop sends it (after its one-time migration).
@@ -248,6 +253,61 @@ struct CompanionHelperRequest: Identifiable, Sendable, Equatable {
         return dispose?.workAtRisk == true ? "Dispose anyway" : "Dispose"
     }
     var canApprove: Bool { kind == .start || dispose?.canDispose == true }
+}
+
+/// A Clubhouse permission request (the snapshot's `grantRequests`): an agent's Clubhouse MCP call held for Ask first,
+/// or the agent asking for a permission for itself (`request_grant`). Not a CLI permission request and not a helper request.
+struct CompanionGrantRequest: Identifiable, Sendable, Equatable {
+    enum Kind: String, Sendable { case call, grant }
+    /// The answers the desktop takes for a request. Offer exactly those the request lists.
+    enum Answer: String, Sendable, CaseIterable {
+        case allowOnce = "allow_once", allowLasting = "allow_lasting", decline
+        var label: String {
+            switch self {
+            case .allowOnce: "Allow once"
+            case .allowLasting: "Allow"
+            case .decline: "Decline"
+            }
+        }
+        var allows: Bool { self != .decline }
+    }
+    /// The desktop's request id (`grant_…`).
+    var id: String
+    var hostID: String
+    /// The asking agent's project, or the Dispatcher's project id.
+    var projectID: String
+    var kind: Kind
+    var agentID: String
+    var agentName: String
+    /// What the permission lets it do, in the desktop's words ("Manage devices").
+    var actionLabels: [String]
+    /// Where: "the app", or a project.
+    var whereLabel: String?
+    /// The held call's tool, for a `call`.
+    var toolName: String?
+    /// The desktop's line above the request.
+    var summary: String
+    /// The host's plain-words line for the call, such as which device it removes.
+    var detail: String?
+    /// The call's arguments in full, as JSON. Allow once covers exactly these, so they are shown whole.
+    var arguments: String?
+    /// The agent's reason, in its own words.
+    var reason: String?
+    /// The desktop's line under the request: what Allow does.
+    var allowEffect: String?
+    var requestedAt: Date?
+    var expiresAt: Date?
+    /// What this request takes, in the desktop's order.
+    var answers: [Answer]
+
+    /// The agent whose Needs you row shows it.
+    var agentTarget: CompanionTarget { .init(hostID: hostID, projectID: projectID, agentID: agentID) }
+    /// Unique across desktops.
+    var slot: String { "\(hostID):\(id)" }
+    /// The Allow this request takes: once for a call, lasting for a grant.
+    var allowAnswer: Answer? { answers.first(where: \.allows) }
+    var canDecline: Bool { answers.contains(.decline) }
+    func isExpired(at now: Date) -> Bool { expiresAt.map { $0 <= now } ?? false }
 }
 
 /// The desktop's `/mobile/capabilities.attachments`.
@@ -814,6 +874,8 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws
     /// Approve or decline a helper request. `force` approves a dispose that would lose work.
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws
+    /// `grant.answer`: answers a Clubhouse grant request. A retry with the same `clientCommandID` replays the desktop's receipt.
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws
     /// The project root's uncommitted files. Read-only.
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges
     /// One uncommitted file's diff.
@@ -934,6 +996,9 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to answer helper requests from your phone.")
+    }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable(CompanionGrantRequestError.updateDesktop)
     }
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
         throw CompanionServiceError.unavailable("This desktop can't show its changes.")
