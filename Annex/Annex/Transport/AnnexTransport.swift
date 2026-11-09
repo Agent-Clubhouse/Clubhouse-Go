@@ -564,6 +564,21 @@ public actor AnnexTransport: AnnexTransporting {
         }
     }
 
+    /// A snapshot says which machine it's from (`agentAddress` v1). It must be the identity this transport pinned:
+    /// another machine's agents under this host would route commands and addresses to the wrong desktop.
+    private func checkSnapshotMachine(_ value: AnnexJSON?) throws {
+        guard let value, value != .null else {
+            if capabilities?.supportsAgentAddress == true { throw AnnexTransportError.malformedResponse }
+            return
+        }
+        guard let machine = try? value.decode(AnnexMachine.self), AnnexAgentAddress.isMachineFingerprint(machine.fingerprint) else {
+            throw AnnexTransportError.malformedResponse
+        }
+        guard machine.fingerprint.lowercased() == host.hostID.lowercased() else {
+            throw AnnexTransportError.identityMismatch
+        }
+    }
+
     private func isAwaitingFirstSnapshot(generation current: UUID) -> Bool {
         current == generation && awaitingFirstSnapshot
     }
@@ -606,6 +621,7 @@ public actor AnnexTransport: AnnexTransporting {
                   envelope.epoch == nil || envelope.epoch == capabilities?.epoch else {
                 throw AnnexTransportError.malformedResponse
             }
+            try checkSnapshotMachine(envelope.payload?["machine"])
         }
         // A live suffix may already be queued ahead of the replay reply. If we
         // dropped pre-snapshot frames, only the ordered replay can fill that

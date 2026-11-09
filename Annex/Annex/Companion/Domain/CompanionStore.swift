@@ -22,6 +22,8 @@ import Observation
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
     private(set) var operationErrors: [CompanionTarget: String] = [:]
+    /// The `wrong_machine` refusal behind a chat's error, while it shows.
+    private(set) var wrongMachines: [CompanionTarget: CompanionWrongMachine] = [:]
     /// Helper requests being answered, and why an answer failed, by `CompanionHelperRequest.slot`.
     private(set) var helperRequestsInFlight: Set<String> = []
     var helperRequestNotice: String?
@@ -167,7 +169,7 @@ import Observation
         pendingCommands.insert(target); operationErrors.removeValue(forKey: target)
         defer { pendingCommands.remove(target) }
         do { try await service.wake(target, resume: choice.resume, clientCommandID: UUID().uuidString); await load(target, force: true) }
-        catch { operationErrors[target] = error.localizedDescription; await load(target, force: true) }
+        catch { fail(error, for: target); await load(target, force: true) }
     }
     /// An archive supplies its own snapshot hints; it never updates or inherits the live conversation's policy.
     func content(_ reference: CompanionContentReference, target: CompanionTarget, contentRoots archiveRoots: CompanionContentRoots? = nil) async throws -> CompanionContent {
@@ -377,6 +379,7 @@ import Observation
         } catch let error as CompanionServiceError {
             if case .uncertain(let detail) = error { updateDelivery(commandID, target: target, delivery: .uncertain(detail)) }
             else {
+                if case .wrongMachine = error { fail(error, for: target) }
                 updateDelivery(commandID, target: target, delivery: .failed(error.localizedDescription))
                 return error.localizedDescription
             }
@@ -457,7 +460,7 @@ import Observation
             // A lost reply is not a refusal and must not unlock provider changes or a new start.
             if case CompanionServiceError.rejected = error { sleepRequests.remove(target); confirmedSleepCommands[target] = nil }
             if case CompanionServiceError.unavailable = error { sleepRequests.remove(target); confirmedSleepCommands[target] = nil }
-            operationErrors[target] = error.localizedDescription
+            fail(error, for: target)
         }
     }
     func refreshSleepState(_ target: CompanionTarget) async {
@@ -471,7 +474,7 @@ import Observation
             }
             try await service.refreshSleepState(target)
         }
-        catch { operationErrors[target] = error.localizedDescription }
+        catch { fail(error, for: target) }
     }
 
     func cancel(_ target: CompanionTarget) async {
@@ -480,7 +483,7 @@ import Observation
         operationErrors[target] = nil
         defer { pendingCommands.remove(target) }
         do { try await service.cancel(target, clientCommandID: UUID().uuidString) }
-        catch { operationErrors[target] = error.localizedDescription }
+        catch { fail(error, for: target) }
     }
 
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
@@ -514,7 +517,7 @@ import Observation
                 upsert(.approval(submitted), target: target)
                 conversations[target, default: .init()].requiresResync = true
             }
-            operationErrors[target] = error.localizedDescription
+            fail(error, for: target)
         }
     }
 
@@ -594,7 +597,7 @@ import Observation
         defer { pendingCommands.remove(target) }
         do { try await command(UUID().uuidString) }
         catch {
-            operationErrors[target] = error.localizedDescription
+            fail(error, for: target)
             if case CompanionServiceError.uncertain = error { conversations[target, default: .init()].requiresResync = true }
             else if case CompanionServiceError.rejected = error { await load(target, force: true) }
         }
@@ -658,7 +661,7 @@ import Observation
                 conversations[target, default: .init()].requiresResync = true
             }
             upsert(.question(submitted), target: target)
-            operationErrors[target] = error.localizedDescription
+            fail(error, for: target)
         }
     }
 
@@ -956,13 +959,31 @@ import Observation
                 await load(target, force: true)
             }
         } catch {
-            operationErrors[target] = error.localizedDescription
+            fail(error, for: target)
             if case CompanionServiceError.rejected = error {} else {
                 conversations[target, default: .init()].requiresResync = true
             }
         }
     }
-    func dismissError(for target: CompanionTarget) { operationErrors[target] = nil }
+    func dismissError(for target: CompanionTarget) { operationErrors[target] = nil; wrongMachines[target] = nil }
+
+    /// Shows a command's failure on the agent's chat, keeping a `wrong_machine` refusal's other machine.
+    private func fail(_ error: Error, for target: CompanionTarget) {
+        operationErrors[target] = error.localizedDescription
+        if case CompanionServiceError.wrongMachine(let refusal) = error { wrongMachines[target] = refusal }
+        else { wrongMachines[target] = nil }
+    }
+    /// The agent on another machine that the error showing on this chat says to use instead.
+    func otherMachineTarget(for target: CompanionTarget) -> CompanionTarget? {
+        guard operationErrors[target] != nil, let other = wrongMachines[target]?.target, agent(for: other) != nil else { return nil }
+        return other
+    }
+    /// Opens the agent on the machine a `wrong_machine` refusal named. Nothing is sent there.
+    func openOnOtherMachine(from target: CompanionTarget) {
+        guard let other = otherMachineTarget(for: target) else { return }
+        dismissError(for: target)
+        selection = other
+    }
 
     func apply(_ event: CompanionEvent) {
         AnnexTelemetry.shared.measurePerformance(.storeApply) {

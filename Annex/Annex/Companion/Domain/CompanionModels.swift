@@ -717,11 +717,46 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     /// The desktop requires a fresh, complete review before this request can be allowed.
     case incompleteRepresentation(String)
     case uncertain(String)
+    /// The desktop refused the command with `wrong_machine`: the agent is on another machine.
+    case wrongMachine(CompanionWrongMachine)
     var errorDescription: String? {
         switch self {
         case .unavailable(let text), .rejected(let text), .incompleteRepresentation(let text), .uncertain(let text): text
+        case .wrongMachine(let refusal): refusal.message
         }
     }
+}
+
+/// A `wrong_machine` refusal, with the machine it names and, when this phone is connected to that machine and
+/// knows the agent there, the agent to open instead. Nothing is sent there on its own.
+struct CompanionWrongMachine: Sendable, Equatable {
+    /// The identity fingerprint the desktop named.
+    var machine: String
+    /// This phone's name for that machine, when it's one of its desktops.
+    var machineName: String?
+    var agentName: String?
+    /// The agent on that machine.
+    var target: CompanionTarget?
+    var message: String {
+        guard let machineName else {
+            return "That agent is on another computer, which isn't connected to this phone. Pair it to reach the agent."
+        }
+        let agent = agentName ?? "That agent"
+        return target == nil
+            ? "\(agent) is on \(machineName). Open it from \(machineName) to continue."
+            : "\(agent) is on \(machineName). Open it there to continue."
+    }
+}
+
+/// One command on one desktop: command ids are unique per machine, not across the network.
+struct CompanionCommandKey: Hashable, Sendable {
+    var hostID: String
+    var commandID: String
+}
+
+extension CompanionTarget {
+    /// The agent's network-wide address, `agentId@machine` (`docs/annex-network-phone.md` §Agent addresses).
+    var address: AnnexAgentAddress { .init(agentID: agentID, machine: hostID) }
 }
 
 /// Image failures with a recovery the store acts on, rather than only text to show.
