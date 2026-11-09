@@ -70,7 +70,7 @@ import XCTest
             if level == "maximum" { XCTAssertTrue(row.label.contains("Same as Hard"), row.label) }
         }
         let minimum = element(app, "helper-preset-codex-cli-minimum")
-        XCTAssertTrue(scrollUntilExists(minimum, in: app, up: false) && scrollTo(minimum, in: app))
+        XCTAssertTrue(scrollUntilExists(minimum, in: app, up: false) && scrollTo(minimum, in: app, up: false))
         waitAndTap(minimum, until: app.buttons["helper-preset-save"])
         XCTAssertTrue(element(app, "helper-preset-inheritance").label == "Same as Easy")
         XCTAssertFalse(app.buttons["helper-preset-reset"].exists)
@@ -91,7 +91,7 @@ import XCTest
         XCTAssertTrue(scrollUntilExists(footer, in: app) && scrollTo(footer, in: app))
         XCTAssertTrue(footer.label.contains("Preset only. Auto doesn’t choose this provider."), footer.label)
         let easy = element(app, "helper-preset-copilot-cli-easy")
-        XCTAssertTrue(scrollUntilExists(easy, in: app, up: false) && scrollTo(easy, in: app))
+        XCTAssertTrue(scrollUntilExists(easy, in: app, up: false) && scrollTo(easy, in: app, up: false))
         XCTAssertTrue(easy.label.contains("claude-haiku-4.5") && !easy.label.contains("effort"), easy.label)
         waitAndTap(easy, until: app.buttons["helper-preset-model"])
         XCTAssertTrue(element(app, "helper-preset-no-effort").exists)
