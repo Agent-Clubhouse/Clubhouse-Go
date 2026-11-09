@@ -869,7 +869,7 @@
         {
           "expression": "CompanionStateLifetime { if ! testMode { CompanionInstallReset . clearLeftoversIfFreshInstall ( ) } return CompanionRuntime ( registry : testMode ? AnnexTransportRegistry ( ) : AnnexTransportRegistry ( pairings : KeychainAnnexPairingStore ( ) ) , persistsDrafts : ! testMode ) }",
           "producers": {
-            "testMode": "ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil || ( ProcessInfo . processInfo . arguments . contains ( \" --scene-runtime-testing \" ) || ProcessInfo . processInfo . arguments . contains ( \" --companion-root-ui-testing \" ) )"
+            "testMode": "unitTestHost || ProcessInfo . processInfo . environment [ \" CLUBHOUSE_COMPANION_TEST_INVITATION \" ] != nil || ( ProcessInfo . processInfo . arguments . contains ( \" --scene-runtime-testing \" ) || ProcessInfo . processInfo . arguments . contains ( \" --companion-root-ui-testing \" ) )"
           }
         }
       ]
