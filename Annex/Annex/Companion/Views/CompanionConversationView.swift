@@ -140,11 +140,15 @@ struct CompanionConversationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if showsActions {
+                // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition)
                 }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) { contextButton }
+                    .sharedBackgroundVisibility(.hidden)
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
@@ -241,6 +245,8 @@ struct CompanionConversationView: View {
             }
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
+            // Like the identity capsule: an opaque card keeps the reading legible over bright transcript content.
+            .background(Color(palette.card), in: .capsule)
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)

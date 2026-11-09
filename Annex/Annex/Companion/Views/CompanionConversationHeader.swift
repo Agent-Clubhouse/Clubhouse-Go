@@ -6,6 +6,7 @@ struct CompanionConversationIdentityButton: View {
     @Binding var isExpanded: Bool
     let accessibilityLabel: String
     var reviewPosition: String? = nil
+    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         Button { isExpanded.toggle() } label: {
@@ -23,6 +24,9 @@ struct CompanionConversationIdentityButton: View {
             .padding(.horizontal, 8)
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
+            // An opaque theme card under the glass: bare glass took the brightness of the transcript scrolled
+            // beneath it, and the theme's label fell to 1.5:1 on it in dark mode.
+            .background(Color(palette.card), in: .capsule)
             .glassEffect(.regular.interactive(), in: .capsule)
         }
         .buttonStyle(.plain)
@@ -102,12 +106,14 @@ struct CompanionConversationDetailsCard: View {
     let agent: CompanionAgent
     let contextName: String
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(agent.displayName).font(.headline).fixedSize(horizontal: false, vertical: true)
+            Text(agent.displayName).font(.headline).foregroundStyle(Color(palette.label))
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("companion-chat-details-name")
-            Text(contextName).font(.caption).foregroundStyle(.secondary)
+            Text(contextName).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                 .accessibilityIdentifier("companion-chat-host-tag")
             let layout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
@@ -121,12 +127,15 @@ struct CompanionConversationDetailsCard: View {
                 else if agent.freeAgentMode { CompanionElevatedAccessBadge(label: CompanionFreeAgentMode.title) }
             }
             if let model = agent.model {
-                Text(model).font(.caption).foregroundStyle(.secondary)
+                Text(model).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                     .accessibilityIdentifier("companion-chat-details-model")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
+        // Glass alone took the brightness of whatever scrolled behind it, which left secondary text unreadable in
+        // dark mode. The theme's card is opaque, and its secondary label is kept at 4.5:1 against it in every theme.
+        .background(Color(palette.card), in: .rect(cornerRadius: 20))
         .glassEffect(.regular, in: .rect(cornerRadius: 20))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("companion-chat-details")
