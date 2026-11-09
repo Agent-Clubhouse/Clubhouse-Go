@@ -114,7 +114,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(forgetAlert.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "This can’t be undone.")).firstMatch.exists)
         screenshot(app, "Forget everything confirmation")
         waitAndTap(forgetAlert.buttons["Cancel"], untilGone: forgetAlert)
-        XCTAssertEqual(notice.label, "Its conversation started over.", "Cancel forgets nothing")
+        XCTAssertFalse(notice.waitForExistence(timeout: 1), "Asking clears the last result, and Cancel forgets nothing")
         waitAndTap(forget, until: forgetAlert, timeout: 5)
         waitAndTap(forgetAlert.buttons["Forget everything"], untilGone: forgetAlert)
         XCTAssertTrue(notice.wait(for: \.label, toEqual: "Its memory was cleared.", timeout: 5))

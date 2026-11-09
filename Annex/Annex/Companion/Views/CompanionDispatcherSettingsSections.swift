@@ -40,30 +40,24 @@ struct CompanionDispatcherSettingsSections: View {
         }
     }
 
-    /// Loading, drafts and the reset confirmation, on one section only: a modifier on several Form sections
-    /// applies to each of them, which would present the confirmation once per section.
+    /// Loading and drafts, on the first section only: a modifier on several Form sections applies to each of them.
     private var lifecycle: Lifecycle {
-        Lifecycle(store: store, hostID: hostID, settings: settings, load: load, applyDrafts: applyDrafts)
+        Lifecycle(settings: settings, load: load, applyDrafts: applyDrafts, hostID: hostID)
     }
     private struct Lifecycle: ViewModifier {
-        let store: CompanionStore
-        let hostID: String
         let settings: CompanionDispatcherSettings?
         let load: () async -> Void
         let applyDrafts: (CompanionDispatcherSettings) -> Void
-        private var prompt: CompanionDispatcherResetPrompt? {
-            store.dispatcherResetPrompt.flatMap { $0.hostID == hostID ? $0 : nil }
-        }
+        let hostID: String
         func body(content: Content) -> some View {
             content
                 .task(id: hostID) { await load() }
                 .onChange(of: settings, initial: true) { _, new in if let new { applyDrafts(new) } }
-                .alert(prompt?.title ?? "", isPresented: Binding(get: { prompt != nil }, set: { if !$0 { store.cancelDispatcherReset() } }),
-                       presenting: prompt) { prompt in
-                    Button(prompt.reset.action, role: .destructive) { Task { await store.confirmDispatcherReset(prompt) } }
-                    Button("Cancel", role: .cancel) { store.cancelDispatcherReset() }
-                } message: { prompt in Text(prompt.message) }
         }
+    }
+    /// The prompt for this desktop's Dispatcher.
+    private var prompt: CompanionDispatcherResetPrompt? {
+        store.dispatcherResetPrompt.flatMap { $0.hostID == hostID ? $0 : nil }
     }
 
     @ViewBuilder private func content(_ settings: CompanionDispatcherSettings) -> some View {
@@ -308,6 +302,12 @@ struct CompanionDispatcherSettingsSections: View {
         } header: { Text("Start over") } footer: {
             Text("Clear chat starts its conversation over; it keeps its memory. Forget everything clears its memory and can’t be undone; its chat stays. Each asks first.")
         }
+        // On the section with the buttons: a Form doesn't keep sections scrolled out of view, nor what they present.
+        .alert(prompt?.title ?? "", isPresented: Binding(get: { prompt != nil }, set: { if !$0 { store.cancelDispatcherReset() } }),
+               presenting: prompt) { prompt in
+            Button(prompt.reset.action, role: .destructive) { Task { await store.confirmDispatcherReset(prompt) } }
+            Button("Cancel", role: .cancel) { store.cancelDispatcherReset() }
+        } message: { prompt in Text(prompt.message) }
     }
 
     // MARK: Saving
