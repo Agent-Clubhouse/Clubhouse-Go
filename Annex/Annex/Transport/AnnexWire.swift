@@ -111,6 +111,8 @@ nonisolated public enum AnnexReadRoute: Sendable {
     /// One durable agent's settings, each with when it can change.
     case agentSettings(agentID: String)
     case helperRouting(projectID: String? = nil, agentID: String? = nil)
+    /// Settings > Dispatcher (`dispatcher.settings` v1). 404 `dispatcher_off` while it is off.
+    case dispatcherSettings
     /// The project root's branch and uncommitted files (`git status --porcelain`).
     case gitStatus(projectID: String)
     /// One file's text at HEAD (or in the index when `staged`) and in the working tree, for a read-only diff.

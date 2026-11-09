@@ -85,6 +85,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canSetContextWindow = false
     var helperRouting: AnnexCapabilities.HelperRouting?
     var canEditHelperPresets = false
+    /// Settings > Dispatcher from the phone: Behavior, models, look, personality, usage and its two resets (`dispatcher.settings` v1).
+    var canEditDispatcherSettings = false
+    /// The last Settings > Dispatcher read or result. Re-read on `dispatcher:changed` and when the snapshot's Dispatcher changes; nil while it is off.
+    var dispatcherSettings: CompanionDispatcherSettings?
     var helperRoutingRevision: String?
     var helperRoutingLabels: CompanionHelperRouting.Labels = [:]
     /// The desktop shows and takes agents' orchestration policy (`orchestration` v1).
@@ -824,6 +828,12 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel
     /// `dispatcher.setEnabled`: turns the desktop's Dispatcher on or off.
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws
+    /// Settings > Dispatcher (`dispatcher.settings` v1): read, change, and its two confirmed resets.
+    func dispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings
+    func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings
+    func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings
+    /// Sent once with the prompt's confirmation. Throws `CompanionDispatcherSettingsError.stale` with fresh settings when it went stale.
+    func resetDispatcher(_ prompt: CompanionDispatcherResetPrompt, clientCommandID: String) async throws -> CompanionDispatcherResetOutcome
     func sleepDispatcher(_ target: CompanionTarget, clientCommandID: String) async throws
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws
     func refreshSleepState(_ target: CompanionTarget) async throws
@@ -864,6 +874,18 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to turn the Dispatcher on from your phone.")
+    }
+    func dispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings {
+        throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+    }
+    func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+    }
+    func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+    }
+    func resetDispatcher(_ prompt: CompanionDispatcherResetPrompt, clientCommandID: String) async throws -> CompanionDispatcherResetOutcome {
+        throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
     }
     func terminal(_ scope: CompanionTerminalScope) throws -> any CompanionTerminalChannel {
         throw CompanionServiceError.unavailable(CompanionTerminalAvailability.updateDesktop)

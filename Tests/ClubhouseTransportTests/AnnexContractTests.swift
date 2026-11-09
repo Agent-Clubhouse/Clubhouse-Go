@@ -7,7 +7,15 @@ import Testing
     private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange"]
+                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange",
+                                       "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"]
+    /// Commands the desktop advertises that another open change builds. Whichever of the two PRs merges second removes
+    /// the entries it now covers.
+    /// - `grant.answer`: Clubhouse permission requests, Go #337 (go-grant-requests).
+    static let exemptCommandTypes = ["grant.answer"]
+    /// Recorded requests with fields another open change sends. `access` on `agent.create` and `agent.update`: saved
+    /// Access for ordinary agents, Go #263.
+    static let exemptRequestFields = ["access"]
 
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
@@ -29,7 +37,8 @@ import Testing
     @Test func capabilitiesDecodeWithEveryFeatureTheDesktopAdvertises() throws {
         let caps = try capabilities()
         #expect(caps.version == 1 && caps.controlAuth == "mtls-pinned-client" && caps.controlAvailable == true)
-        #expect(Set(caps.commands) == Set(Self.commandTypes))
+        #expect(Set(caps.commands) == Set(Self.commandTypes + Self.exemptCommandTypes))
+        #expect(caps.supportsDispatcherSettings && caps.dispatcher?.settings?.path == "/api/v1/mobile/dispatcher/settings")
         #expect(caps.supportsAgentCreate && caps.supportsAgentSettings && caps.supportsModelSwitch && caps.supportsLevelSwitch)
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
@@ -49,7 +58,7 @@ import Testing
     /// The desktop's field list for every command is what the phone checks its encoder against.
     @Test func everyAdvertisedCommandHasAPhoneEncodingWithinTheDesktopsFields() throws {
         let schema = try AnnexContract.json("commands/_fields.json")
-        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes))
+        #expect(Optional(schema["commands"] ?? .null).keys == Set(Self.commandTypes + Self.exemptCommandTypes))
         for command in Self.maximalCommands() {
             let encoded = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
             let entry = schema["commands"]?[command.type]
@@ -70,6 +79,7 @@ import Testing
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.
                 if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
+                if ["agent.create", "agent.update"].contains(type), Self.exemptRequestFields.contains(where: { request[$0] != nil }) { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
                 var expected = request
@@ -272,6 +282,17 @@ import Testing
         case "quick.clear": return s("projectId").map { .clearFinishedQuick(projectID: $0) }
         case "helperRouting.update": return (try? r.decode(AnnexHelperRoutingUpdate.self)).map { .updateHelperRouting($0) }
         case "dispatcher.setEnabled": return b("enabled").map { .setDispatcherEnabled($0) }
+        case "dispatcher.update":
+            let emoji: AnnexAgentUpdate.Clearable? = switch r["emoji"] { case .string(let v)?: .set(v); case .null?: .clear; default: nil }
+            let personality = r["personality"].map { AnnexDispatcherUpdate.Personality(preset: $0["preset"]?.string, text: $0["text"]?.string) }
+            return .updateDispatcher(.init(behavior: s("behavior"), name: s("name"), color: s("color"), emoji: emoji, personality: personality))
+        case "dispatcher.setModels":
+            if let on = b("byHand") { return .setDispatcherModels(.byHand(on)) }
+            guard let role = s("role") else { return nil }
+            func field(_ key: String) -> AnnexDispatcherModels.Field? { switch r[key] { case .string(let v)?: .set(v); case .null?: .cliDefault; default: nil } }
+            return .setDispatcherModels(.pick(role: role, provider: s("provider"), model: s("model"), effort: field("effort"), contextWindow: field("contextWindow")))
+        case "dispatcher.clearChat": return s("expectedState").map { .clearDispatcherChat(expectedState: $0) }
+        case "dispatcher.forgetEverything": return s("expectedState").map { .forgetDispatcherEverything(expectedState: $0) }
         default: return nil
         }
     }
@@ -320,6 +341,10 @@ import Testing
             .setModel(agentID: "a", sessionID: "s", model: "m", effort: .providerDefault),
             .setLevel(agentID: "a", sessionID: "s", level: "plan"),
             .setDispatcherEnabled(true),
+            .updateDispatcher(.init(behavior: "light", name: "n", color: "c", emoji: .clear, personality: .init(preset: "custom", text: "t"))),
+            .setDispatcherModels(.pick(role: "work", provider: "o", model: "m", effort: .cliDefault, contextWindow: .set("1m"))),
+            .clearDispatcherChat(expectedState: "opaque"),
+            .forgetDispatcherEverything(expectedState: "opaque"),
             .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]
         return kinds.map { AnnexCommand(commandID: "c", epoch: "e", kind: $0) }

@@ -834,6 +834,77 @@ import Observation
         catch { dispatcherErrors[hostID] = error.localizedDescription }
     }
 
+    // MARK: Settings > Dispatcher (#338)
+
+    /// A Clear chat or Forget everything waiting on the person. Shown as its own confirmation.
+    var dispatcherResetPrompt: CompanionDispatcherResetPrompt?
+    /// Hosts with a reset on its way to the desktop.
+    private(set) var dispatcherResetting: Set<String> = []
+    /// What the last reset did, or why it didn't, per host.
+    var dispatcherResetNotices: [String: String] = [:]
+
+    /// The host offers Settings > Dispatcher and its Dispatcher is on.
+    func canEditDispatcherSettings(hostID: String) -> Bool {
+        guard let host = hosts.first(where: { $0.id == hostID }) else { return false }
+        return host.canEditDispatcherSettings && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
+    }
+    /// The last settings the desktop sent, kept current by the service.
+    func dispatcherSettings(hostID: String) -> CompanionDispatcherSettings? {
+        hosts.first { $0.id == hostID }?.dispatcherSettings
+    }
+    func loadDispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings {
+        guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        return try await service.dispatcherSettings(hostID: hostID)
+    }
+    func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String) async throws -> CompanionDispatcherSettings {
+        try requireDispatcherConnection(hostID)
+        return try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
+    }
+    func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String) async throws -> CompanionDispatcherSettings {
+        try requireDispatcherConnection(hostID)
+        return try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
+    }
+    private func requireDispatcherConnection(_ hostID: String) throws {
+        guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else {
+            throw CompanionServiceError.unavailable("Reconnect to your desktop to change the Dispatcher.")
+        }
+    }
+    /// Reads the settings right before asking, so the confirmation is as fresh as it can be, then asks.
+    func askDispatcherReset(_ reset: CompanionDispatcherReset, hostID: String) async {
+        guard !dispatcherResetting.contains(hostID) else { return }
+        dispatcherResetNotices[hostID] = nil
+        do {
+            try requireDispatcherConnection(hostID)
+            let settings = try await service.dispatcherSettings(hostID: hostID)
+            guard let prompt = CompanionDispatcherResetPrompt(reset, settings: settings, hostID: hostID) else {
+                dispatcherResetNotices[hostID] = "This desktop didn't offer a confirmation for \(reset.action). Try again."
+                return
+            }
+            dispatcherResetPrompt = prompt
+        } catch { dispatcherResetNotices[hostID] = error.localizedDescription }
+    }
+    func cancelDispatcherReset() { dispatcherResetPrompt = nil }
+    /// Sends the confirmed reset once. A stale confirmation did nothing: the person is asked again with what changed.
+    func confirmDispatcherReset(_ prompt: CompanionDispatcherResetPrompt) async {
+        let hostID = prompt.hostID
+        guard !dispatcherResetting.contains(hostID) else { return }
+        if dispatcherResetPrompt?.id == prompt.id { dispatcherResetPrompt = nil }
+        let asked = dispatcherSettings(hostID: hostID)
+        dispatcherResetting.insert(hostID)
+        defer { dispatcherResetting.remove(hostID) }
+        do {
+            try requireDispatcherConnection(hostID)
+            let outcome = try await service.resetDispatcher(prompt, clientCommandID: UUID().uuidString)
+            dispatcherResetNotices[hostID] = outcome.message
+        } catch CompanionDispatcherSettingsError.stale(let fresh) {
+            let changed = CompanionDispatcherResetPrompt.changes(prompt.reset, from: asked, to: fresh)
+            if let again = CompanionDispatcherResetPrompt(prompt.reset, settings: fresh, hostID: hostID, changed: changed) {
+                dispatcherResetPrompt = again
+            } else { dispatcherResetNotices[hostID] = changed }
+        } catch { dispatcherResetNotices[hostID] = error.localizedDescription }
+    }
+
     // MARK: Project page (#158)
 
     /// The project's "Finished, waiting on you", newest first: the desktop's list when it shares one (#167), else this phone's.

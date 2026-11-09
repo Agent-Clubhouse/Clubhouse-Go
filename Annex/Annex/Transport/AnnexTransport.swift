@@ -238,6 +238,7 @@ public actor AnnexTransport: AnnexTransporting {
                 path = ["api", "v1", "mobile", "helper-routing"]
                 if let project { query.append(.init(name: "projectId", value: project)) }
                 if let agent { query.append(.init(name: "agentId", value: agent)) }
+            case .dispatcherSettings: path = ["api", "v1", "mobile", "dispatcher", "settings"]
             case .gitStatus(let project): path = ["api", "v1", "projects", project, "git", "info"]
             case .gitDiff(let project, let file, let staged):
                 path = ["api", "v1", "projects", project, "git", "diff"]

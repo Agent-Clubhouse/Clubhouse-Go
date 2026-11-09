@@ -969,7 +969,10 @@ import ClubhouseTransport
                 }
             case "snapshot":
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
+                let dispatcherBefore = dispatcherCatalog[hostID]
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
+                // A change to its name, look, CLI or model, or its chat waking or sleeping, changes its settings and confirmations.
+                let dispatcherChanged = dispatcherCatalog[hostID] != dispatcherBefore
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 let generation = eventGenerations[hostID]
                 let usesRefs = envelope.iconReferencesEnabled ?? ((capabilities[hostID]?.iconRefs?.version ?? 0) >= 1 || payload["iconRefs"] != nil)
@@ -997,6 +1000,7 @@ import ClubhouseTransport
                 if let theme = Self.theme(from: payload["theme"], terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme }
                 emitHosts()
                 await refreshHelperRoutingLabels(hostID: hostID)
+                if dispatcherChanged { await refreshDispatcherSettings(hostID: hostID) }
             case "helper_routing:changed":
                 if let revision = payload["revision"]?.string {
                     hosts[hostID]?.helperRoutingRevision = revision
@@ -1044,6 +1048,7 @@ import ClubhouseTransport
                 applyDispatcherChange(enabled: payload["enabled"].boolValue == true, flagOn: payload["flagOn"].boolValue == true,
                                       agentID: payload["agentId"]?.string, agent: payload["agent"], mcpOff: CompanionDispatcherMCPOff(json: payload), hostID: hostID)
                 scheduleRefresh(hostID: hostID)
+                await refreshDispatcherSettings(hostID: hostID, force: true)
             default: break
             }
         }
@@ -1096,6 +1101,8 @@ import ClubhouseTransport
                     helperLabelsCache[hostID] = nil
                 }
                 hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
+                hosts[hostID]?.canEditDispatcherSettings = newCapabilities?.supportsDispatcherSettings == true
+                if newCapabilities?.supportsDispatcherSettings != true { hosts[hostID]?.dispatcherSettings = nil }
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
                     dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
@@ -1535,6 +1542,78 @@ import ClubhouseTransport
         let result = receipt.result
         applyDispatcherChange(enabled: result?["enabled"]?.boolOrNil ?? enabled, flagOn: result?["flagOn"]?.boolOrNil ?? dispatcherFlags[hostID]?.flagOn ?? true,
                               agentID: result?["agentId"]?.string, mcpOff: CompanionDispatcherMCPOff(json: result), hostID: hostID)
+    }
+    // MARK: Settings > Dispatcher
+
+    func dispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings {
+        guard capabilities[hostID]?.supportsDispatcherSettings == true else {
+            throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+        }
+        let generation = eventGenerations[hostID]
+        do {
+            let settings = try CompanionDispatcherSettings(json: try await transport(for: hostID).read(.dispatcherSettings))
+            try Task.checkCancellation()
+            guard eventGenerations[hostID] == generation else { throw CancellationError() }
+            rememberDispatcherSettings(settings, hostID: hostID)
+            return settings
+        } catch AnnexTransportError.rejected(404, "dispatcher_off"?, _) {
+            rememberDispatcherSettings(nil, hostID: hostID)
+            throw CompanionServiceError.unavailable("The Dispatcher is turned off on the desktop. Turn it on first.")
+        }
+        catch let error as CompanionServiceError { throw error }
+        catch is CancellationError { throw CancellationError() }
+        catch { throw CompanionServiceError.unavailable(Self.agentReadError(error, subject: "Dispatcher settings")) }
+    }
+    /// `dispatcher.update` and `dispatcher.setModels` answer with the fresh settings; nothing is read again.
+    func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        try await dispatcherSettingsCommand(.updateDispatcher(update), hostID: hostID, clientCommandID: clientCommandID)
+    }
+    func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        try await dispatcherSettingsCommand(.setDispatcherModels(models), hostID: hostID, clientCommandID: clientCommandID)
+    }
+    private func dispatcherSettingsCommand(_ kind: AnnexCommand.Kind, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        guard capabilities[hostID]?.supportsDispatcherSettings == true else {
+            throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+        }
+        let receipt = try await execute(kind, id: clientCommandID, hostID: hostID)
+        guard let settings = try? CompanionDispatcherSettings(json: receipt.result ?? .null) else {
+            throw CompanionServiceError.uncertain("The desktop saved this but its settings couldn't be read. Open the settings again to check.")
+        }
+        rememberDispatcherSettings(settings, hostID: hostID)
+        return settings
+    }
+    /// One confirmed reset, sent once with the confirmation the person was shown. A stale confirmation does nothing on
+    /// the desktop: the settings are read again and returned in `.stale`, so the person can be asked again. Never retried here.
+    func resetDispatcher(_ prompt: CompanionDispatcherResetPrompt, clientCommandID: String) async throws -> CompanionDispatcherResetOutcome {
+        let hostID = prompt.hostID
+        guard capabilities[hostID]?.supportsDispatcherSettings == true else {
+            throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
+        }
+        let kind: AnnexCommand.Kind = prompt.reset == .clearChat ? .clearDispatcherChat(expectedState: prompt.expectedState)
+            : .forgetDispatcherEverything(expectedState: prompt.expectedState)
+        let receipt = try await execute(kind, id: clientCommandID, hostID: hostID, validateReceipt: false)
+        if receipt.status == .rejected, receipt.error?.code == "stale_state" {
+            throw CompanionDispatcherSettingsError.stale(try await dispatcherSettings(hostID: hostID))
+        }
+        if let error = Self.receiptError(receipt) { throw error }
+        guard let outcome = CompanionDispatcherResetOutcome(prompt.reset, result: receipt.result) else {
+            throw CompanionServiceError.uncertain("The desktop's result couldn't be read. Open the Dispatcher's settings to check.")
+        }
+        // Its confirmations are spent; the next ones come from a fresh read.
+        _ = try? await dispatcherSettings(hostID: hostID)
+        return outcome
+    }
+    private func rememberDispatcherSettings(_ settings: CompanionDispatcherSettings?, hostID: String) {
+        guard hosts[hostID] != nil, hosts[hostID]?.dispatcherSettings != settings else { return }
+        hosts[hostID]?.dispatcherSettings = settings
+        emitHosts()
+    }
+    /// Keeps read settings current. `force` reads them even if nothing has asked yet, as after `dispatcher:changed`.
+    private func refreshDispatcherSettings(hostID: String, force: Bool = false) async {
+        guard capabilities[hostID]?.supportsDispatcherSettings == true else { return }
+        guard hosts[hostID]?.dispatcher?.enabled == true else { rememberDispatcherSettings(nil, hostID: hostID); return }
+        guard force || hosts[hostID]?.dispatcherSettings != nil else { return }
+        _ = try? await dispatcherSettings(hostID: hostID)
     }
     /// The Dispatcher as the desktop last described it: its flags from capabilities and `dispatcher:changed`, its agent
     /// from the snapshot. Nil on desktops without `dispatcher` v1, which leaves everything as before.
