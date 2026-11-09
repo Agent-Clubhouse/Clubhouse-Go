@@ -103,8 +103,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .updateDispatcher: "dispatcher.update"
         case .setDispatcherModels: "dispatcher.setModels"
         case .clearDispatcherChat: "dispatcher.clearChat"
-        case .forgetDispatcherEverything,
-             .answerGrant: "dispatcher.forgetEverything"
+        case .forgetDispatcherEverything: "dispatcher.forgetEverything"
+        case .answerGrant: "grant.answer"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
