@@ -1043,6 +1043,7 @@ struct CompanionGrantRequestActions: View {
     let request: CompanionGrantRequest
     @Bindable var store: CompanionStore
     var showsOpenChat = true
+    @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionPalette) private var palette
     @State private var updateMode: AnnexUpdateMode?
 
@@ -1107,9 +1108,16 @@ struct CompanionGrantRequestActions: View {
                     .accessibilityIdentifier("grant-request-error")
             }
             if showsOpenChat {
-                NavigationLink(value: request.agentTarget) { Text("Open chat") }
-                    .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                    .accessibilityIdentifier("grant-request-open-chat")
+                Group {
+                    if store.isDispatcher(request.agentTarget) {
+                        // Switch tabs directly instead of pushing a route that immediately reroutes to the Dispatcher.
+                        Button("Open chat") { openAgent(request.agentTarget) }
+                    } else {
+                        NavigationLink(value: request.agentTarget) { Text("Open chat") }
+                    }
+                }
+                .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                .accessibilityIdentifier("grant-request-open-chat")
             }
         }
         .onChange(of: store.hosts.first { $0.id == request.hostID }?.controlEpoch) { _, _ in updateMode = nil }

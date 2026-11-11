@@ -52,6 +52,7 @@ They show the same details, complete arguments, reason, Allow effect and offered
 when needed, including at accessibility sizes. Answering on either surface removes the request from both.
 Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
 remain subject to `store.canAnswer`.
+Open chat on a Dispatcher's grant switches directly to its retained Dispatcher tab instead of pushing a duplicate chat.
 
 ## Recovery status
 

@@ -26,13 +26,31 @@ import XCTest
     }
 
     private func revealChatAnswer(_ answer: XCUIElement, in app: XCUIApplication) {
-        let viewport = app.scrollViews["companion-chat-grant-requests-scroll"]
-        for _ in 0..<6 {
-            if answer.exists && answer.isHittable && (!viewport.exists || pixelContains(viewport.frame, answer.frame)) { return }
-            XCTAssertTrue(viewport.exists, "Long requests have their own scroll viewport")
-            viewport.swipeUp(velocity: .slow)
+        let viewport = app.scrollViews.containing(.button, identifier: "grant-request-allow").firstMatch
+        func visibleBounds() -> CGRect {
+            var bounds = viewport.frame.intersection(app.frame)
+            let composer = app.descendants(matching: .any).matching(identifier: "companion-composer-region").firstMatch
+            for footer in [composer, app.staticTexts["companion-chat-activity"]] where footer.exists {
+                bounds.size.height = max(0, min(bounds.maxY, footer.frame.minY) - bounds.minY)
+            }
+            return bounds
         }
-        XCTAssertTrue(answer.isHittable && pixelContains(viewport.frame, answer.frame), "The complete answer button is reachable")
+        for _ in 0..<6 {
+            if answer.exists && answer.isHittable && (!viewport.exists || pixelContains(visibleBounds(), answer.frame)) { return }
+            XCTAssertTrue(viewport.exists, "Long requests have their own scroll viewport")
+            // Scroll views extend under safe-area bars; start the drag above the composer, not inside it.
+            let bounds = visibleBounds()
+            XCTAssertGreaterThan(bounds.height, 60)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.8))
+            let end = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.2))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        attach(app, "Grant request: unreachable chat answer")
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Grant request chat hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        XCTAssertTrue(answer.isHittable && pixelContains(visibleBounds(), answer.frame),
+                      "The complete answer button is reachable: answer \(answer.frame), viewport \(visibleBounds())")
     }
 
     func testAnswerInChatRemovesNeedsYouCardAndKeepsCLIApprovalSeparate() {
@@ -90,6 +108,14 @@ import XCTest
     }
 
     func testDesktopUpdateInChatRequiresExplicitRestartMode() {
+        desktopUpdateInChat(opensFromNeedsYou: false)
+    }
+
+    func testDispatcherGrantOpenChatSwitchesTabsAndShowsTheRequest() {
+        desktopUpdateInChat(opensFromNeedsYou: true)
+    }
+
+    private func desktopUpdateInChat(opensFromNeedsYou: Bool) {
         let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
         let home = app.tabBars.buttons["Home"]
         XCTAssertTrue(home.waitForExistence(timeout: 15))
@@ -106,10 +132,16 @@ import XCTest
         waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
         let summary = app.staticTexts["Update Clubhouse to 1.1.0"]
         XCTAssertTrue(scrollUntilExists(summary, in: app))
-        let openChat = app.cells.containing(.staticText, identifier: "Update Clubhouse to 1.1.0").buttons["grant-request-open-chat"]
-        XCTAssertTrue(scrollTo(openChat, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
-        waitAndTap(openChat, until: card)
+        if opensFromNeedsYou {
+            let openChat = app.cells.containing(.staticText, identifier: "Update Clubhouse to 1.1.0").buttons["grant-request-open-chat"]
+            XCTAssertTrue(scrollTo(openChat, in: app))
+            waitAndTap(openChat, until: card)
+        } else {
+            waitAndTap(app.tabBars.buttons["Dispatcher"], until: card)
+        }
+        XCTAssertTrue(app.tabBars.buttons["Dispatcher"].isSelected)
+        XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
 
         let allow = button("grant-request-allow", "Allow once", in: app)
         revealChatAnswer(allow, in: app)
@@ -125,7 +157,7 @@ import XCTest
         XCTAssertTrue(allow.isEnabled)
         attach(app, "Grant request: desktop update mode in chat")
         waitAndTap(allow, untilGone: card)
-        waitAndTap(app.navigationBars.buttons.firstMatch, until: app.navigationBars["Needs you"])
+        waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
         XCTAssertFalse(summary.exists, "Answering the update in chat also clears its Needs you card")
     }
 
