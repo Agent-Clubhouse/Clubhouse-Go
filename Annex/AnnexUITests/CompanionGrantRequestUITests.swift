@@ -80,7 +80,7 @@ import XCTest
         let call = app.staticTexts[callSummary]
         XCTAssertTrue(scrollUntilExists(call, in: app))
         let openChat = app.cells.containing(.staticText, identifier: callSummary).buttons["grant-request-open-chat"]
-        XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
+        XCTAssertTrue(scrollUntilExists(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
         tapVisibleRow(openChat, in: app, until: card)
 
@@ -111,7 +111,7 @@ import XCTest
         let ask = app.staticTexts[askSummary]
         XCTAssertTrue(scrollUntilExists(ask, in: app))
         let openChat = app.cells.containing(.staticText, identifier: askSummary).buttons["grant-request-open-chat"]
-        XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
+        XCTAssertTrue(scrollUntilExists(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
         tapVisibleRow(openChat, in: app, until: card)
         XCTAssertTrue(app.navigationBars["Cedar"].exists)
@@ -162,7 +162,7 @@ import XCTest
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
         if opensFromNeedsYou {
             let openChat = app.cells.containing(.staticText, identifier: "Update Clubhouse to 1.1.0").buttons["grant-request-open-chat"]
-            XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
+            XCTAssertTrue(scrollUntilExists(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
             tapVisibleRow(openChat, in: app, until: card)
         } else {
             waitAndTap(app.tabBars.buttons["Dispatcher"], until: card)

@@ -28,7 +28,7 @@ import XCTest
             waitAndTap(tab, until: app.navigationBars["Needs you"])
             let summary = "Wants to run remove_device, which needs: Manage devices on the app."
             let open = app.cells.containing(.staticText, identifier: summary).buttons["grant-request-open-chat"]
-            XCTAssertTrue(scrollTo(open, in: app) && scrollIntoClearArea(open, in: app))
+            XCTAssertTrue(scrollUntilExists(open, in: app) && scrollIntoClearArea(open, in: app))
             tapVisibleRow(open, in: app, until: element(app, "companion-chat-grant-requests"))
         } else {
             let agents = app.tabBars.buttons["Agents"]
@@ -81,27 +81,32 @@ import XCTest
 
     private func verifyAnswer(_ app: XCUIApplication, name: String, requiresFallback: Bool = false) {
         openReview(app, name: name, requiresFallback: requiresFallback)
-        let viewport = app.scrollViews.containing(.button, identifier: "grant-request-allow").firstMatch
         for id in ["grant-request-allow", "grant-request-decline"] {
-            let answer = app.buttons[id]
-            for _ in 0..<12 {
-                let bounds = answerBounds(app, viewport: viewport)
-                if answer.exists && answer.isHittable && pixelContains(bounds, answer.frame) { break }
-                XCTAssertGreaterThan(bounds.height, 44)
-                let origin = app.coordinate(withNormalizedOffset: .zero)
-                let start = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.8))
-                let end = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.2))
-                start.press(forDuration: 0.05, thenDragTo: end)
-            }
-            capture(app, name + " review sheet " + id)
-            let bounds = answerBounds(app, viewport: viewport)
-            XCTAssertTrue(answer.isEnabled && answer.isHittable && pixelContains(bounds, answer.frame),
-                          "\(name): complete \(id) must be reachable: \(answer.frame) in \(bounds)")
-            assertMinimumTarget(answer, id)
+            _ = revealDecision(id, in: app, name: name)
         }
         let close = app.buttons["companion-grant-review-close"]
         if close.exists { waitAndTap(close, untilGone: close, attempts: 1) }
         XCTAssertTrue(element(app, "companion-chat-grant-requests").exists, "Reviewing sends no decision")
+    }
+
+    private func revealDecision(_ id: String, in app: XCUIApplication, name: String) -> XCUIElement {
+        let viewport = app.scrollViews.containing(.button, identifier: "grant-request-allow").firstMatch
+        let answer = app.buttons[id]
+        for _ in 0..<12 {
+            let bounds = answerBounds(app, viewport: viewport)
+            if answer.exists && answer.isHittable && pixelContains(bounds, answer.frame) { break }
+            XCTAssertGreaterThan(bounds.height, 44)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.8))
+            let end = origin.withOffset(CGVector(dx: bounds.midX, dy: bounds.minY + bounds.height * 0.2))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        capture(app, name + " review sheet " + id)
+        let bounds = answerBounds(app, viewport: viewport)
+        XCTAssertTrue(answer.isEnabled && answer.isHittable && pixelContains(bounds, answer.frame),
+                      "\(name): complete \(id) must be reachable: \(answer.frame) in \(bounds)")
+        assertMinimumTarget(answer, id)
+        return answer
     }
 
     func testPortraitDefault() {
@@ -140,8 +145,7 @@ import XCTest
         let app = openRiver(extra: ["--qa368-grant-gone"], fromNeedsYou: true)
         verifyAnswer(app, name: "QA368 gone request before answer")
         openReview(app, name: "QA368 gone request", requiresFallback: false)
-        XCTAssertTrue(scrollIntoClearArea(app.buttons["grant-request-allow"], in: app))
-        app.buttons.matching(identifier: "grant-request-allow").firstMatch.tap()
+        revealDecision("grant-request-allow", in: app, name: "QA368 gone request").tap()
         let alert = app.alerts["Request no longer waiting"]
         XCTAssertTrue(alert.waitForExistence(timeout: 5))
         capture(app, "QA368 gone request notice")
@@ -157,8 +161,7 @@ import XCTest
         let app = openRiver(extra: ["--qa368-grant-refused"], fromNeedsYou: true)
         verifyAnswer(app, name: "QA368 refused request before answer")
         openReview(app, name: "QA368 refused request", requiresFallback: false)
-        XCTAssertTrue(scrollIntoClearArea(app.buttons["grant-request-allow"], in: app))
-        app.buttons.matching(identifier: "grant-request-allow").firstMatch.tap()
+        revealDecision("grant-request-allow", in: app, name: "QA368 refused request").tap()
         XCTAssertTrue(element(app, "grant-request-error").waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["grant-request-allow"].exists)
         XCTAssertEqual(element(app, "grant-request-error").label, "QA permission could not be saved.")
