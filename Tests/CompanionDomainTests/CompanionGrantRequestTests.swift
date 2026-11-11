@@ -132,6 +132,30 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         #expect(items.first { $0.grantRequest?.id == "grant_ask" }?.detail == "Asks for Change app settings on the app.")
         #expect(items.count == 3, "The CLI approval stays its own item")
         #expect(store.needsYouCount == 3)
+        #expect(store.grantRequests(for: agent("planner").id, now: now).map(\.id) == ["grant_ask", "grant_call"])
+        #expect(store.grantRequests(for: agent("docs").id, now: now).isEmpty, "A CLI request is not a Clubhouse grant")
+    }
+
+    @Test func chatScopesRequestsToTheirDesktopProjectAndAgent() {
+        let planner = agent("planner")
+        let otherProjectAgent = agent("planner", project: "p2")
+        let (store, _) = makeStore([call(), ask(), call("other-agent", agentID: "docs"),
+                                    call("other-project", project: "p2")], agents: [planner, agent("docs")])
+        var host = store.hosts[0]
+        host.projects.append(.init(id: "p2", name: "P2", agents: [otherProjectAgent]))
+        var otherHost = host
+        otherHost.id = "other-mac"
+        var otherAgent = planner
+        otherAgent.id.hostID = otherHost.id
+        otherHost.projects = [.init(id: "p1", name: "P1", agents: [otherAgent])]
+        var otherRequest = call("other-host")
+        otherRequest.hostID = otherHost.id
+        otherHost.grantRequests = [otherRequest]
+        store.apply(.hosts([host, otherHost]))
+
+        #expect(store.grantRequests(for: planner.id, now: now).map(\.id) == ["grant_call", "grant_ask"])
+        #expect(store.grantRequests(for: otherProjectAgent.id, now: now).map(\.id) == ["other-project"])
+        #expect(store.grantRequests(for: otherAgent.id, now: now) == [otherRequest])
     }
 
     @Test func hiddenWithoutTheCapabilityOfflineExpiredOrForAnUnlistedAgent() {
@@ -142,6 +166,13 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         let (store, _) = makeStore([expired, call("grant_other", agentID: "gone")])
         #expect(store.attentionItems(now: now).isEmpty && store.needsYouCount == 0)
         #expect(!store.canAnswer(expired))
+        let target = agent("planner").id
+        #expect(makeStore([call()], capable: false).0.grantRequests(for: target, now: now).isEmpty)
+        #expect(makeStore([call()], connection: .offline).0.grantRequests(for: target, now: now).isEmpty)
+        #expect(makeStore([call()], connection: .synchronizing).0.grantRequests(for: target, now: now).isEmpty)
+        #expect(store.grantRequests(for: target, now: now).isEmpty)
+        #expect(store.grantRequests(for: agent("gone").id, now: now).isEmpty)
+        #expect(store.grantRequests(for: .init(hostID: "missing", projectID: "p1", agentID: "planner"), now: now).isEmpty)
     }
 
     @Test func theDispatchersRequestsShowOnItsAgentAndInItsCount() {
@@ -152,6 +183,7 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         let item = store.attentionItems(now: now).first
         #expect(item?.grantRequest == request && item?.agent.id == dispatcherAgent.id && item?.projectName == CompanionDispatcher.name)
         #expect(store.dispatcherNeedsYouCount == 1 && store.needsYouCount == 1)
+        #expect(store.grantRequests(for: dispatcherAgent.id, now: now) == [request])
     }
 
     // MARK: Answering
@@ -167,6 +199,24 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         #expect(store.hosts[0].grantRequests.isEmpty && store.needsYouCount == 0)
         await store.answer(call(), with: .allowOnce)
         #expect(service.answers.count == 2, "An answered request can't be answered again")
+    }
+
+    @Test func chatAndNeedsYouShareAnswerStateInBothDirections() async throws {
+        let target = agent("planner").id
+        let (store, service) = makeStore([call(), ask()])
+        let chatRequest = try #require(store.grantRequests(for: target).first)
+        let needsYouRequest = try #require(store.attentionItems().compactMap(\.grantRequest).last)
+
+        await store.answer(chatRequest, with: .allowOnce)
+        #expect(store.grantRequests(for: target).map(\.id) == ["grant_ask"])
+        #expect(store.attentionItems().compactMap(\.grantRequest).map(\.id) == ["grant_ask"])
+        #expect(!store.canAnswer(chatRequest))
+
+        await store.answer(needsYouRequest, with: .allowLasting)
+        #expect(store.grantRequests(for: target).isEmpty && store.attentionItems().isEmpty)
+        #expect(store.needsYouCount == 0 && !store.canAnswer(needsYouRequest))
+        await store.answer(chatRequest, with: .decline)
+        #expect(service.answers.map(\.answer) == [.allowOnce, .allowLasting])
     }
 
     @Test func aLostReplyRetriesWithTheSameCommandID() async {
@@ -194,6 +244,8 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         await store.answer(ask(), with: .allowLasting)
         #expect(store.hosts[0].grantRequests.map(\.id) == ["grant_ask"] && store.canAnswer(ask()))
         #expect(store.grantRequestErrors[ask().slot] == "Couldn’t save the permissions. Try again." && store.grantRequestNotice == nil)
+        #expect(store.grantRequests(for: agent("planner").id) == [ask()])
+        #expect(store.attentionItems().compactMap(\.grantRequest) == [ask()])
     }
 
     @Test func aRequestThatIsGoneDropsItsRowWithANotice() async {
@@ -202,6 +254,7 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         await store.answer(call(), with: .decline)
         #expect(store.hosts[0].grantRequests.isEmpty && store.grantRequestNotice == CompanionGrantRequestError.goneMessage)
         #expect(store.grantRequestErrors.isEmpty)
+        #expect(store.grantRequests(for: agent("planner").id).isEmpty)
     }
 }
 

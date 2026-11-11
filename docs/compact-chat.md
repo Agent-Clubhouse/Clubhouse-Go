@@ -46,6 +46,11 @@ At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, s
 pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
 through the same `store.canApprove` gate and full-event review as the transcript (#345).
 
+Clubhouse grant requests are separate cards pinned above the composer, not CLI approvals or helper requests (#357).
+They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same
+`CompanionGrantRequestActions` and store answer gate. The cards use at most half the space above the composer and scroll
+when needed, including at accessibility sizes. Answering on either surface removes the request from both.
+
 ## Recovery status
 
 `CompanionRecoveryStatus` classifies connection and conversation state, in this order:

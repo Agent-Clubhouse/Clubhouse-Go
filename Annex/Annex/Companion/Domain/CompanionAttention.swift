@@ -381,6 +381,12 @@ extension CompanionStore {
         return host.grantRequests.filter { listed.contains($0.agentTarget) && !$0.isExpired(at: now) }
     }
 
+    /// Chat shows the same waiting rows as Needs you, scoped to this agent's full desktop/project identity.
+    func grantRequests(for target: CompanionTarget, now: Date = Date()) -> [CompanionGrantRequest] {
+        guard let host = host(for: target), host.connection.canOperate else { return [] }
+        return grantRequests(on: host, now: now).filter { $0.agentTarget == target }
+    }
+
     /// A desktop's waiting helper requests, when it can take answers: unexpired ones whose agent is listed.
     func helperRequests(on host: CompanionHost, now: Date = Date()) -> [CompanionHelperRequest] {
         guard host.canAnswerHelperRequests else { return [] }

@@ -1039,6 +1039,7 @@ struct CompanionHelperRequestActions: View {
 struct CompanionGrantRequestActions: View {
     let request: CompanionGrantRequest
     @Bindable var store: CompanionStore
+    var showsOpenChat = true
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
@@ -1088,9 +1089,11 @@ struct CompanionGrantRequestActions: View {
                 Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("grant-request-error")
             }
-            NavigationLink(value: request.agentTarget) { Text("Open chat") }
-                .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                .accessibilityIdentifier("grant-request-open-chat")
+            if showsOpenChat {
+                NavigationLink(value: request.agentTarget) { Text("Open chat") }
+                    .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                    .accessibilityIdentifier("grant-request-open-chat")
+            }
         }
     }
 }

@@ -142,6 +142,9 @@ struct CompanionConversationView: View {
             }
             .padding(.top, Self.headerPillClearance)
         }
+        .safeAreaBar(edge: .bottom, spacing: 0) {
+            CompanionConversationGrantRequests(store: store, target: target, maximumHeight: geometry.size.height / 2)
+        }
         }
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
         .onGeometryChange(for: Bool.self) { $0.size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails } action: {
@@ -236,6 +239,9 @@ struct CompanionConversationView: View {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
+        .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: { Text(store.grantRequestNotice ?? "") }
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
         }
     }
