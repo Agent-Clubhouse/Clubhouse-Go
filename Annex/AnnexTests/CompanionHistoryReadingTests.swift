@@ -9,11 +9,14 @@ import UIKit
     let preview = CompanionPreviewService(showsReadingScenario: true)
     var historyRequested = false
     var releaseHistory = false
+    var hasEarlierMessages = false
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         historyRequested = true
         while !releaseHistory { try await Task.sleep(for: .milliseconds(10)) }
-        return try await preview.history(for: target)
+        var history = try await preview.history(for: target)
+        history.hasEarlierMessages = hasEarlierMessages
+        return history
     }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { try await preview.send(request) }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { try await preview.cancel(target, clientCommandID: clientCommandID) }
@@ -190,6 +193,38 @@ import UIKit
         await store.load(target, force: true)
         try await monitor.value
         XCTAssertTrue(interceptedYield)
+    }
+
+    func testNewHistoryRestorationCannotReclaimPendingNativeTop() async throws {
+        let service = HistoryReadingService()
+        service.releaseHistory = true
+        let store = CompanionStore(service: service), target = CompanionPreviewService.target
+        let hosts = CompanionPreviewService.hosts(now: .now)
+        store.apply(.hosts(hosts))
+        await store.load(target)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        let agent = try XCTUnwrap(hosts.flatMap(\.allAgents).first { $0.id == target })
+        window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let bookmark = store.readingBookmark(for: target)
+        try await waitUntil { bookmark.viewport.hasInitialized && bookmark.viewport.metrics?.isAtTrueBottom == true }
+        let scroll = try XCTUnwrap(transcript(window))
+        XCTAssertTrue(scroll.delegate?.scrollViewShouldScrollToTop?(scroll) ?? false)
+        XCTAssertTrue(bookmark.viewport.isScrollingToTop)
+        XCTAssertEqual(bookmark.position.offset, 0, accuracy: 1)
+        service.hasEarlierMessages = true
+        await store.load(target, force: true)
+        let revision = store.conversation(for: target).historyRevision
+        try await waitUntil {
+            bookmark.viewport.historyRevision == revision && bookmark.viewport.hasInitialized
+                && !bookmark.viewport.isRestoring && bookmark.viewport.restoration?.outcome != nil
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(scroll.contentOffset.y + scroll.adjustedContentInset.top, 0, accuracy: 1,
+                       "A new history restore must not reclaim a pending native-top request")
+        XCTAssertEqual(bookmark.position.offset, 0, accuracy: 1)
     }
 
     func testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt() async throws {

@@ -672,6 +672,7 @@ struct CompanionConversationView: View {
         while readingViewport.restoration?.id == id {
             guard !Task.isCancelled else { readingViewport.finishRestoration(.taskCancelled); return }
             guard var attempt = readingViewport.restoration, attempt.outcome == nil else { return }
+            guard !readingViewport.isScrollingToTop else { readingViewport.finishRestoration(.navigation); return }
             let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
             let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
