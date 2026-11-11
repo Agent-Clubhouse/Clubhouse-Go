@@ -17,13 +17,23 @@ export function rememberPairingPin(fixtureDir: string, pin: string) {
   fs.writeFileSync(path.join(fixtureDir, `invitation-${crypto.randomUUID()}.json`), JSON.stringify({ pin }), { mode: 0o600 });
 }
 
-export async function writePairingInvitation(fixtureDir: string, getStatus: () => Promise<PairingStatus>) {
-  const status = await getStatus();
+function requirePairingReady(status: PairingStatus) {
   if (!status.tlsEnabled || status.advertising || status.pairingPaused ||
       !Number.isInteger(status.port) || status.port <= 0 || status.port > 65535 ||
       !status.fingerprint || !status.tlsCertificateFingerprint || !/^\d{6}$/.test(status.pin)) {
     throw new Error('Fixture Annex is not ready for loopback TLS pairing');
   }
+}
+
+export async function writePairingInvitation(fixtureDir: string, getStatus: () => Promise<PairingStatus>,
+                                             regeneratePin: () => Promise<void>) {
+  requirePairingReady(await getStatus());
+  // Regeneration keeps the observer connected and gives even a slow phone launch the full ten-minute lifetime.
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  await regeneratePin();
+  const status = await getStatus();
+  requirePairingReady(status);
+  if (Date.now() >= expiresAt) throw new Error('Fixture pairing PIN expired while preparing the invitation');
   const invitation = {
     host: '127.0.0.1',
     port: status.port,
@@ -36,4 +46,5 @@ export async function writePairingInvitation(fixtureDir: string, getStatus: () =
   const file = path.join(fixtureDir, 'invitation.json');
   fs.writeFileSync(`${file}.pending`, JSON.stringify(invitation), { mode: 0o600 });
   fs.renameSync(`${file}.pending`, file);
+  return { expiresAt };
 }

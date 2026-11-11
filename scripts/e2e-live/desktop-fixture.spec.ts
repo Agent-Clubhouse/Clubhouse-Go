@@ -13,7 +13,7 @@
  * - It adds one git project with two chat agents: "Echo" in the project folder and "Builder" in its own worktree.
  *
  * Once Annex listens it writes `annex-ready.json` to E2E_FIXTURE_DIR. Before every phone launch, `preparePairing`
- * reads the current one-use PIN and atomically writes `invitation.json` (0600): {host, port, hostID, certificatePin,
+ * regenerates a one-use PIN and atomically writes `invitation.json` (0600): {host, port, hostID, certificatePin,
  * pin, name}, the in-memory pairing that Clubhouse Go's DEBUG bootstrap takes in CLUBHOUSE_COMPANION_TEST_INVITATION.
  * Then it waits until `stop` appears in that folder and quits the app. Meanwhile a test can put an agent to sleep
  * on the desktop, as if stopped there, by writing its id to `sleep-request`; the fixture answers with `sleep-done`.
@@ -308,8 +308,9 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         try {
           switch (request.op) {
             case 'preparePairing':
-              await writePairingInvitation(FIXTURE_DIR, getPairingStatus);
-              result = 'ok'; break;
+              result = await writePairingInvitation(FIXTURE_DIR, getPairingStatus,
+                async () => { await window.evaluate(() => (window as any).clubhouse.annex.regeneratePin()); });
+              break;
             case 'resetGates': {
               // This is the disposable fixture's profile only. Turn the Dispatcher off even when a prior test
               // aborted with it on, and return authoritative values for XCTest. The Clubhouse MCP always runs and

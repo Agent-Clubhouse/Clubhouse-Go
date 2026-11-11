@@ -99,7 +99,7 @@ What the script does:
    Before any build or launch, the script removes every inherited `CLUBHOUSE_*` environment variable, including the agent credentials present when an installed Clubhouse starts the script. The fixture refuses inherited Clubhouse variables. Its fake wrapper records credentials only for fixture-created agent IDs; every MCP RPC verifies that ID, excludes the original inherited port, and checks that the listener belongs to the fixture desktop PID. Fallback teardown also checks that `desktop.pid` runs an executable under `.desktop/` before signaling it.
 
    It never touches your own Clubhouse instance or its profile.
-3. **Prepares one-use pairings.** Once Annex's TLS listener is up, the observer pairs with the current `annex.getStatus().pin`, spending it. The fixture re-reads the rotated status and writes `annex-ready.json` (port only). It does not publish the observer's PIN as a phone invitation. Before each phone launch attempt, XCTest sends `preparePairing` over the private fixture action channel. The fixture reads the current status again and atomically writes `{host, port, hostID, certificatePin, pin, name}` to `invitation.json` (mode 0600), then acknowledges the request without credentials. Each successful pairing spends and rotates its PIN; ephemeral mode changes storage, not one-use semantics. Reading just before launch also avoids freezing a PIN while builds run or between tests.
+3. **Prepares one-use pairings.** Once Annex's TLS listener is up, the observer pairs with the current `annex.getStatus().pin`, spending it. The fixture re-reads the rotated status and writes `annex-ready.json` (port only). It does not publish the observer's PIN as a phone invitation. Before each phone launch attempt, XCTest sends `preparePairing` over the private fixture action channel. The fixture checks readiness and paused state, calls the pinned desktop's existing `annex.regeneratePin()`, re-reads and checks status, then atomically writes `{host, port, hostID, certificatePin, pin, name}` to `invitation.json` (mode 0600). Regeneration gives the slow hosted launch a new ten-minute PIN lifetime without disconnecting the observer or unlocking paused pairing. The acknowledgment contains only a conservative expiry deadline, not credentials. The runner checks that deadline before/after launch and bounds its Home/project waits by it, reporting an explicit fixture PIN-expiry error rather than a generic project timeout. Each successful pairing still spends and rotates its PIN; ephemeral mode changes storage, not one-use semantics.
 4. **Runs `CompanionLiveE2ETests`** on a new simulator of the chosen model, which the script creates for this run and deletes afterwards. On a dev Mac other builds and agents boot, drive and shut down the usual simulators, and sharing one crashed runs and relaunched the app mid-test. Pass `--shared-simulator` to use the existing device instead. The script uninstalls the app and runner first, because a stale runner has run old tests. The runner receives `TEST_RUNNER_CLUBHOUSE_E2E_FIXTURE_DIR`, not a frozen invitation; it reads the newly acknowledged invitation and passes it to the app in its launch environment. Each launch pairs for that session only through the unchanged DEBUG bootstrap. Explicit relaunches, failed-test retries and hosted-runner launch retries all request the current PIN after terminating the old app; foreground reconnects retain the existing authenticated session and need no PIN. Failed tests are retried once. If the simulator itself crashes ("server died", a failed launch), xcodebuild aborts the whole run, so the script reboots the simulator and runs the suite once more, again requesting current invitations. `scripts/verify-xcresult.py` requires a nonempty passing result. xcodebuild prints the launch environment when a launch fails, so the script redacts the invitation from its log. All issued PINs, including the observer's and previous phones', remain in private 0600 history files only until teardown so redaction covers earlier launches too; none are uploaded.
 
    Setup and teardown turn the fixture's Dispatcher off, its only remaining global gate, and check that the desktop reports `flagOn: true`. This also isolates a retry after a timed-out test; individual tests still explicitly enable Dispatcher when needed. Refused mobile commands attach only HTTP status and an allowlisted error code, never the response body or command content.
@@ -170,6 +170,11 @@ node --test --test-concurrency=1 scripts/e2e-live/pairing-fixture.test.ts
 python3 -m unittest discover -s scripts/e2e-live -p 'test_*.py'
 ```
 
+The Python regressions execute the actual fixture request handler and Swift `dispatcherFixture`, `launchPaired`
+and launch-retry methods with inert desktop/XCTest doubles. They cover acknowledged invitation delivery into the
+phone launch environment, explicit expiry errors, relaunches and a fresh runner. Republishing the cached observer
+status instead of reading the regenerated PIN makes the integration test fail with HTTP 410.
+
 `.github/workflows/e2e-nightly.yml` runs the script on `macos-26` every night at 08:17 UTC. To run it on demand, use **Actions → Live E2E (nightly) → Run workflow**, which takes a `desktop_ref` input (default `main`):
 
 ```sh
@@ -177,6 +182,10 @@ gh workflow run e2e-nightly.yml --ref <branch> -f desktop_ref=main
 ```
 
 It never runs on pull requests, which keeps CI minutes down: a run takes about 45 runner minutes, mostly building the desktop (`npm ci` about 6, `electron-forge package` about 23) and the suite itself (about 12). Each run uploads `live-e2e-<run id>` (the xcresult and logs) for 14 days.
+
+The offline privacy regression checks the text logs and JSON evidence processed by `redact-logs.py`. That script
+does not inspect or rewrite xcresult contents. An authorized live run must separately inspect xcresult diagnostics,
+especially failed-launch framework records, for invitations/PINs/nonces before claiming those artifacts are clean.
 
 When a nightly run, or a run on `main`, fails, the workflow opens an issue titled "Nightly live E2E failing", or comments on the open one. Close the issue once the suite is green again.
 

@@ -16,18 +16,20 @@ function fixtureDir(t: { after: (cleanup: () => void) => void }) {
 /** The pinned desktop contract: a PIN is spent before /pair succeeds; only the same identity/cert can retry it. */
 function desktop() {
   let generation = 1;
+  let issuedAt = Date.now();
   const spent = new Map<string, string>();
   const status = {
     tlsEnabled: true, advertising: false, pairingPaused: false, port: 43210,
     fingerprint: 'fixture-host', tlsCertificateFingerprint: 'AA:BB:CC', pin: '000001',
   };
-  const rotate = () => { status.pin = String(++generation).padStart(6, '0'); };
+  const rotate = () => { status.pin = String(++generation).padStart(6, '0'); issuedAt = Date.now(); };
   return {
     status,
     rotate,
+    regeneratePin: async () => { rotate(); },
     pair(pin: string, identityAndCert: string) {
       if (spent.has(pin)) return spent.get(pin) === identityAndCert ? 200 : 410;
-      if (pin !== status.pin) return 410;
+      if (pin !== status.pin || Date.now() - issuedAt >= 10 * 60 * 1000) return 410;
       spent.set(pin, identityAndCert);
       rotate();
       return 200;
@@ -48,7 +50,7 @@ test('observer, every phone, retry and relaunch read the current one-use PIN', a
 
   const issued: string[] = [observerStatus.pin];
   for (const identity of ['first-phone', 'second-test', 'test-retry', 'relaunch', 'launch-timeout-retry']) {
-    await writePairingInvitation(dir, server.getStatus);
+    await writePairingInvitation(dir, server.getStatus, server.regeneratePin);
     const file = path.join(dir, 'invitation.json');
     const invitation = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.deepEqual(invitation, {
@@ -74,11 +76,11 @@ test('build delays, unused invitations and simulator restarts never freeze an ol
   const dir = fixtureDir(t);
   const server = desktop();
   server.rotate(); // A build can outlast the desktop's ten-minute PIN lifetime.
-  await writePairingInvitation(dir, server.getStatus);
+  await writePairingInvitation(dir, server.getStatus, server.regeneratePin);
   const unused = JSON.parse(fs.readFileSync(path.join(dir, 'invitation.json'), 'utf8'));
   server.rotate(); // The phone never paired on its failed launch.
   assert.equal(server.pair(unused.pin, 'failed-launch'), 410);
-  await writePairingInvitation(dir, server.getStatus);
+  await writePairingInvitation(dir, server.getStatus, server.regeneratePin);
   const current = JSON.parse(fs.readFileSync(path.join(dir, 'invitation.json'), 'utf8'));
   assert.notEqual(current.pin, unused.pin);
   assert.equal(server.pair(current.pin, 'restarted-runner'), 200);
@@ -101,7 +103,7 @@ test('dry-run the full Swift suite launch plan, including explicit relaunches an
       for (let launch = 0; launch < method.launches; launch++) {
         // Even a timed-out launch may already have paired before XCTest retries it.
         for (let attempt = 0; attempt < 3; attempt++) {
-          await writePairingInvitation(dir, server.getStatus);
+          await writePairingInvitation(dir, server.getStatus, server.regeneratePin);
           const invitation = JSON.parse(fs.readFileSync(path.join(dir, 'invitation.json'), 'utf8'));
           assert.equal(server.pair(invitation.pin, `${phase}-${method.name}-${launch}-${attempt}`), 200);
           pairings++;
@@ -118,8 +120,41 @@ test('unavailable, paused or non-isolated Annex fails rather than publishing an 
     { port: 0 }, { fingerprint: '' }, { tlsCertificateFingerprint: '' }, { pin: '' }]) {
     const server = desktop();
     Object.assign(server.status, invalid);
-    await assert.rejects(writePairingInvitation(dir, server.getStatus), /not ready/);
+    await assert.rejects(writePairingInvitation(dir, server.getStatus, async () => {
+      assert.fail('Readiness and paused checks must run before regeneration');
+    }), /not ready/);
     assert.equal(fs.existsSync(path.join(dir, 'invitation.json')), false);
   }
-  await assert.rejects(writePairingInvitation(dir, async () => { throw new Error('Desktop exited'); }), /Desktop exited/);
+  await assert.rejects(writePairingInvitation(dir, async () => { throw new Error('Desktop exited'); }, async () => {}), /Desktop exited/);
+});
+
+test('preparation renews a nearly expired PIN before a 90-second hosted launch', async t => {
+  const dir = fixtureDir(t);
+  let now = 0;
+  t.mock.method(Date, 'now', () => now);
+  const server = desktop();
+  const almostExpired = server.status.pin;
+  now = 10 * 60 * 1000 - 1;
+  const prepared = await writePairingInvitation(dir, server.getStatus, server.regeneratePin);
+  const invitation = JSON.parse(fs.readFileSync(path.join(dir, 'invitation.json'), 'utf8'));
+  now += 90_000;
+  assert.notEqual(invitation.pin, almostExpired);
+  assert.equal(server.pair(invitation.pin, 'slow-phone'), 200);
+  assert.ok(now < prepared.expiresAt);
+});
+
+test('expiry during preparation and readiness changes fail without publication', async t => {
+  const dir = fixtureDir(t);
+  let now = 0;
+  t.mock.method(Date, 'now', () => now);
+  const server = desktop();
+  await assert.rejects(writePairingInvitation(dir, server.getStatus, async () => {
+    server.rotate();
+    now += 10 * 60 * 1000;
+  }), /pairing PIN expired/);
+  assert.equal(fs.existsSync(path.join(dir, 'invitation.json')), false);
+  await assert.rejects(writePairingInvitation(dir, server.getStatus, async () => {
+    server.status.pairingPaused = true;
+  }), /not ready/);
+  assert.equal(fs.existsSync(path.join(dir, 'invitation.json')), false);
 });

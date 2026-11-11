@@ -49,20 +49,36 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Launches the app paired, in memory, with the fixture desktop, and waits for its project.
     private func launchPaired(_ extra: [String] = [], allowance: TimeInterval = 300,
                               file: StaticString = #filePath, line: UInt = #line) throws -> XCUIApplication {
+        var pairingExpiresAt = Date.distantPast
+        func checkPairingExpiry() throws {
+            guard Date() < pairingExpiresAt else {
+                throw NSError(domain: "LiveE2EFixture", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Fixture pairing PIN expired before its project appeared; request a fresh invitation and retry the launch."
+                ])
+            }
+        }
         let launched = try launchApp(extra, allowance: allowance, file: file, line: line) {
-            try self.dispatcherFixture("preparePairing", file: file, line: line)
+            let prepared = try XCTUnwrap(try self.dispatcherFixture("preparePairing", file: file, line: line) as? [String: Any])
+            let expiresAt = try XCTUnwrap(prepared["expiresAt"] as? Double)
+            pairingExpiresAt = Date(timeIntervalSince1970: expiresAt / 1000)
+            try checkPairingExpiry()
             let dir = URL(fileURLWithPath: try XCTUnwrap(self.env["CLUBHOUSE_E2E_FIXTURE_DIR"]))
             let invitation = try String(contentsOf: dir.appending(path: "invitation.json"), encoding: .utf8)
             return ["CLUBHOUSE_COMPANION_TEST_INVITATION": invitation, "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
         }
+        try checkPairingExpiry()
         // Home coverage is explicit: an enabled Dispatcher is now the default launch screen.
         let home = launched.tabBars.buttons["Home"]
-        XCTAssertTrue(home.waitForExistence(timeout: 30), file: file, line: line)
+        let homeAppeared = home.waitForExistence(timeout: min(30, max(0, pairingExpiresAt.timeIntervalSinceNow)))
+        if !homeAppeared { try checkPairingExpiry() }
+        XCTAssertTrue(homeAppeared, file: file, line: line)
         home.tap()
         // An inactive project folds into the idle section.
         let listed = any(launched).matching(NSPredicate(format: "(identifier BEGINSWITH 'open-project-' AND label == %@) OR identifier == 'idle-projects-fold'",
                                                         "Open \(projectName)")).firstMatch
-        XCTAssertTrue(listed.waitForExistence(timeout: 60),
+        let projectAppeared = listed.waitForExistence(timeout: min(60, max(0, pairingExpiresAt.timeIntervalSinceNow)))
+        if !projectAppeared { try checkPairingExpiry() }
+        XCTAssertTrue(projectAppeared,
                       "Pairing with the fixture desktop must list its project", file: file, line: line)
         return launched
     }
