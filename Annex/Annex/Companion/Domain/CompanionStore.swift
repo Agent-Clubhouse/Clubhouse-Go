@@ -101,6 +101,11 @@ import Observation
 
     func stop() { listeningTask?.cancel(); listeningTask = nil }
 
+    func shutdown() {
+        stop()
+        providerFlows.removeAll()
+    }
+
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] { try await service.sessions(for: target) }
     func archive(for target: CompanionTarget, sessionID: String) throws -> CompanionArchiveTranscript {
         CompanionArchiveTranscript(reader: try service.archive(for: target, sessionID: sessionID))

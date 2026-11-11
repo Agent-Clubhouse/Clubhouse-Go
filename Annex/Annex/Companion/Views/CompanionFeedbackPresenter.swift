@@ -43,6 +43,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     let model: FeedbackModel?
     private let defaults: UserDefaults
     private var observers: [NSObjectProtocol] = []
+    private var isStopped = false
     private var statusTask: Task<Void, Never>?
     private var screenshotLifecycle = CompanionScreenshotPromptLifecycle()
     private var screenshotData: Data?
@@ -80,10 +81,19 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
 
+    func stop() {
+        isStopped = true
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers.removeAll()
+        statusTask?.cancel(); statusTask = nil
+        discardMenuFeedback()
+        dismissPrompt()
+    }
+
     /// Called on the opening press, before UIKit puts the menu over the app. A nil capture
     /// replaces any older one too: a secure field or failure must never reuse another screen.
     func prepareMenuFeedback(in window: UIWindow, source: UIControl) {
-        guard let model, !model.isComposerOpen, presented == nil else {
+        guard !isStopped, let model, !model.isComposerOpen, presented == nil else {
             discardMenuFeedback()
             return
         }
@@ -114,7 +124,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
 
     /// Resolve the local enrollment status before choosing a route, including at cold launch.
     func sendFeedback(screenshotPNG: Data? = nil, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, frozenImage: CGImage? = nil, from sourceWindow: UIWindow? = nil, fromShake: Bool = false) {
-        guard let model, presented == nil else { return }
+        guard !isStopped, let model, presented == nil else { return }
         dismissPrompt()
         statusTask?.cancel()
         statusTask = Task { [weak self] in
@@ -130,7 +140,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
 
     func screenshotTaken() {
         // An inactive window is usable only as a capture source. Never present into its scene.
-        guard let window = Self.keyWindow(allowInactive: true) else { return }
+        guard !isStopped, let window = Self.keyWindow(allowInactive: true) else { return }
         let decision = CompanionScreenshotFeedback.decide(enabled: CompanionScreenshotFeedback.isEnabled(defaults), configured: model != nil,
             canSubmit: model?.status.map(\.canSubmit), secureFieldActive: Self.hasSecureFirstResponder(window),
             explainedThisSession: explainedThisSession, busy: presented != nil)
@@ -152,7 +162,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     }
 
     private func resumeScreenshotOffer() {
-        guard screenshotLifecycle.pending, let scene = screenshotScene,
+        guard !isStopped, screenshotLifecycle.pending, let scene = screenshotScene,
               scene.activationState == .foregroundActive else { return }
         let decision = CompanionScreenshotFeedback.decide(enabled: CompanionScreenshotFeedback.isEnabled(defaults), configured: model != nil,
             canSubmit: model?.status.map(\.canSubmit), secureFieldActive: scene.windows.contains(where: Self.hasSecureFirstResponder),
@@ -171,7 +181,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     // MARK: Prompt
 
     private func showPrompt(screenshot: Data?, in scene: UIWindowScene?) {
-        guard let scene, scene.activationState == .foregroundActive else { return }
+        guard !isStopped, let scene, scene.activationState == .foregroundActive else { return }
         hidePrompt()
         _ = screenshotLifecycle.resume(active: true, ready: true)
         let window = PassthroughWindow(windowScene: scene)
@@ -213,7 +223,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     // MARK: Presentation
 
     private func presentComposer(screenshot: Data?, screenshotUnavailable: FeedbackScreenshotUnavailable? = nil, from sourceWindow: UIWindow? = nil) {
-        guard let model else { return }
+        guard !isStopped, let model else { return }
         guard presented == nil, !model.isComposerOpen else { return }
         let host = UIHostingController(rootView: NavigationStack {
             CompanionFeedbackComposer(model: model, initialScreenshotPNG: screenshot, screenshotUnavailable: screenshotUnavailable, onClose: { [weak self] in
@@ -224,7 +234,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     }
 
     private func explainEnrollment(fromScreenshot: Bool, fromShake: Bool = false) {
-        guard let model else { return }
+        guard !isStopped, let model else { return }
         if fromScreenshot { explainedThisSession = true }
         let alert = UIAlertController(title: "Feedback enrollment required",
                                       message: fromScreenshot
@@ -250,7 +260,7 @@ extension Binding where Value == CompanionFeedbackSettingsCapture? {
     }
 
     private func present(_ controller: UIViewController, from sourceWindow: UIWindow? = nil) {
-        guard let window = sourceWindow ?? Self.keyWindow(), window.windowScene?.activationState == .foregroundActive,
+        guard !isStopped, let window = sourceWindow ?? Self.keyWindow(), window.windowScene?.activationState == .foregroundActive,
               let root = window.rootViewController else { return }
         var top = root
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }

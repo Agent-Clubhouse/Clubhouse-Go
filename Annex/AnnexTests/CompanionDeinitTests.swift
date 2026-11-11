@@ -37,6 +37,31 @@ private enum DeinitTestLocal { @TaskLocal static var marker = 0 }
         }
     }
 
+    func testQAPopulatedStoreOutlivesRuntimeThenReleasesWithoutACurrentTask() async throws {
+        var runtime: CompanionRuntime? = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        var retainedStore = runtime?.store
+        weak var previousRuntime = runtime
+        weak var previousPresenter = runtime?.feedbackPresenter
+        _ = retainedStore?.providerFlow(for: .init(hostID: "qa", projectID: "qa", agentID: "qa"))
+        runtime = nil
+        for _ in 0..<500 {
+            if previousPresenter == nil { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertNil(previousRuntime)
+        XCTAssertNil(previousPresenter, "Runtime's MainActor teardown must have completed")
+        XCTAssertNotNil(retainedStore)
+        await withCheckedContinuation { done in
+            DispatchQueue.main.async {
+                XCTAssertFalse(withUnsafeCurrentTask { $0 != nil })
+                print("QA_RETAINED_STORE runtimeReleased=\(previousRuntime == nil) teardownCompleted=\(previousPresenter == nil)")
+                DeinitTestLocal.$marker.withValue(1) { retainedStore = nil }
+                print("QA_RETAINED_STORE completed")
+                done.resume()
+            }
+        }
+    }
+
     @inline(never) private static func releaseHolders(includeProviderFlow: Bool = false) {
         let queue = CompanionDecisionQueue { _ in }
         let transcript = CompanionTranscriptExpansion()

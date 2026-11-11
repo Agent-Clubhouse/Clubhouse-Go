@@ -138,3 +138,88 @@ class OwnershipSurfaceTests(unittest.TestCase):
         changed = source.replace('nonisolated deinit {}', 'nonisolated deinit { releaseUI() }')
         a, b = self.surfaces(source, changed)
         self.assertNotEqual(a['deinits'], b['deinits'])
+
+    def test_contextually_typed_initializer_cannot_hide_new_ui_capture(self):
+        source = '''
+        @MainActor func make(_ view: UIView) {
+            let lifecycle: CompanionLifecycle = .init { _ in _ = view.alpha }
+            withExtendedLifetime(lifecycle) {}
+        }
+        '''
+        surface = self.surfaces(source)[0]
+        self.assertIn('constructor:CompanionLifecycle', surface['captureSites'])
+        site = surface['captureSites']['constructor:CompanionLifecycle'][0]
+        self.assertEqual(site['producers'], {'view': 'UIView'})
+
+    def test_contextual_owner_initializers_in_properties_returns_and_parameters(self):
+        for source in [
+            'class Owner { let view: UIView; lazy var lifecycle: CompanionLifecycle = .init { _ in _ = self.view.alpha } }',
+            'func make(_ view: UIView) -> CompanionLifecycle { return .init { _ in _ = view.alpha } }',
+            'func make(_ view: UIView) -> CompanionLifecycle { .init { _ in _ = view.alpha } }',
+            'func consume(_ lifecycle: CompanionLifecycle) {}\nfunc make(_ view: UIView) { consume(.init { _ in _ = view.alpha }) }',
+            'class Owner { func consume(_ lifecycle: CompanionLifecycle) {} ; func make(_ view: UIView) { self.consume(.init { _ in _ = view.alpha }) } }',
+            'func consume(_ value: Int) {}\nclass Owner { func consume(_ lifecycle: CompanionLifecycle) {}; func make(_ view: UIView) { consume(.init { _ in _ = view.alpha }) } }',
+            'func consume(_ value: Int) {}\nfunc make(_ consume: (CompanionLifecycle) -> Void, _ view: UIView) { consume(.init { _ in _ = view.alpha }) }',
+            'func consume(_ value: Int) {}\nclass Owner { init(_ consume: (CompanionLifecycle) -> Void, _ view: UIView) { consume(.init { _ in _ = view.alpha }) } }',
+            'func consume(_ value: Int) {}\nfunc make(_ view: UIView) { func consume(_ lifecycle: CompanionLifecycle) {}; consume(.init { _ in _ = view.alpha }) }',
+            'class Owner { var lifecycle: CompanionLifecycle; func make(_ view: UIView) { self.lifecycle = .init { _ in _ = view.alpha } } }',
+            'typealias Owner = CompanionLifecycle\nfunc make(_ view: UIView) { let lifecycle: Owner = .init { _ in _ = view.alpha } }',
+            'class CompanionLifecycle { static func make(_ view: UIView) -> Self { .init { _ in _ = view.alpha } } }',
+            'extension CompanionLifecycle { static func make(_ view: UIView) -> Self { .init { _ in _ = view.alpha } } }',
+        ]:
+            with self.subTest(source=source):
+                surface = self.surfaces(source)[0]
+                self.assertIn('constructor:CompanionLifecycle', surface['captureSites'])
+                self.assertNotIn('unresolved:contextual-init', surface['captureSites'])
+                self.assertNotEqual(surface['captureSites'], self.surfaces(source.replace('view.alpha', 'view.isHidden'))[0]['captureSites'])
+
+    def test_unresolved_contextual_owner_initializers_fail_closed(self):
+        for expression in ['consume(.init { _ in _ = view.alpha })',
+                           'consume(.init(transition: handler))',
+                           'consume(.init(service: service))',
+                           'consume(.init(factory))']:
+            with self.subTest(expression=expression):
+                source = 'func make(_ view: UIView, handler: Handler, service: Service, factory: Factory) { ' + expression + ' }'
+                surface = self.surfaces(source)[0]
+                self.assertIn('unresolved:contextual-init', surface['captureSites'])
+
+    def test_unrelated_contextual_value_initializers_do_not_require_capture_review(self):
+        for source in [
+            'func make() { let point: CGPoint = .init(x: 1, y: 2) }',
+            'func make() { consume(.init(x: 1, y: 2)) }',
+            'struct Actions { init(open: () -> Void) {} }\nfunc make(_ view: UIView) { let actions: Actions = .init(open: { _ = view.alpha }) }',
+            'class Owner { var cache: [String: Bytes]; func make(_ data: Data) { cache["key"] = .init(data) } }',
+            'struct Attachment { var bytes: Bytes }\nfunc make(_ data: Data) -> Attachment { return .init(bytes: .init(data)) }',
+        ]:
+            with self.subTest(source=source):
+                self.assertEqual(self.surfaces(source)[0]['captureSites'], {})
+
+    def test_ambiguous_and_generic_contexts_do_not_claim_a_non_owner_type(self):
+        for source in [
+            'func consume(_ value: Int) {}\nfunc consume(_ value: CompanionLifecycle) {}\nfunc make(_ view: UIView) { consume(.init { _ in _ = view.alpha }) }',
+            'func consume(_ value: Int) {}\nfunc make(_ view: UIView) { let consume = getSink(); consume(.init { _ in _ = view.alpha }) }',
+            'func make<T>(_ view: UIView) -> T { return .init { _ in _ = view.alpha } }',
+            'class Owner {\n#if DEBUG\nvar lifecycle: CompanionLifecycle\n#else\nvar lifecycle: Other\n#endif\nfunc make(_ view: UIView) { self.lifecycle = .init { _ in _ = view.alpha } }\n}',
+        ]:
+            with self.subTest(source=source):
+                self.assertIn('unresolved:contextual-init', self.surfaces(source)[0]['captureSites'])
+
+    def test_unresolved_owner_shapes_include_required_and_defaulted_parameters(self):
+        declarations = '''
+        class CompanionLifecycle { init(transition: Handler) {} }
+        class CompanionDecisionQueue { init(delay: Delay = .zero, commit: Handler) {} }
+        class CompanionStateLifetime { init(_ factory: Factory) {} }
+        class CompanionStore { init(service: Service, clock: Clock = .live) {} }
+        '''
+        for expression, owner in [
+            ('.init(commit: handler)', True),
+            ('.init(delay: .zero, commit: handler)', True),
+            ('.init(service: service)', True),
+            ('.init(factory)', True),
+            ('.init()', False),
+            ('.init(delay: .zero)', False),
+            ('.init(x: 1, y: 2)', False),
+        ]:
+            with self.subTest(expression=expression):
+                source = declarations + '\nfunc make() { consume(' + expression + ') }'
+                self.assertEqual('unresolved:contextual-init' in self.surfaces(source)[0]['captureSites'], owner)

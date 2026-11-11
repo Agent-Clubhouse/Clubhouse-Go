@@ -61,6 +61,9 @@ actual_sites = {path: data['captureSites'] for path, data in surfaces.items() if
 for path in actual_sites.keys() | policy['captureSites'].keys():
     actual, expected = actual_sites.get(path, {}), policy['captureSites'].get(path, {})
     for site in actual.keys() | expected.keys():
+        if site == 'unresolved:contextual-init':
+            errors.append(f'{path}: unresolved contextual .init could construct a reviewed owner; spell out its constructor or provide an unambiguous type context, rather than approving an unresolved capture site')
+            continue
         if actual.get(site) != expected.get(site):
             errors.append(f'{path}: {site} capture/producer site changed; review the captured owners and update this site in {policy_path} captureSites')
 if errors:

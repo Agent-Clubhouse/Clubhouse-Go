@@ -10,7 +10,8 @@ import ClubhouseTransport
         // Keep owned subtrees alive until a real main-actor task, avoiding the iOS 26.0
         // isolated-deinit task-local runtime bug during UIKit's deferred root destruction.
         Task { @MainActor [feedback, appTelemetry, feedbackPresenter, store, service, lifecycle] in
-            store.stop()
+            feedbackPresenter.stop()
+            store.shutdown()
             appTelemetry?.stop()
             await lifecycle.settle()
             await service.shutdown()
