@@ -120,7 +120,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollTo(access, in: app, maxSwipes: 4)
         XCTAssertTrue(access.exists)
         XCTAssertFalse(access.isEnabled, "Saved Access is a spawn setting, so it waits for the agent to sleep")
-        let applicationNote = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Applies at next start. Saving does not change the running session.")).firstMatch
+        let applicationNote = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Applies at next start. Saving does not change the running session.")).firstMatch
         XCTAssertTrue(scrollTo(applicationNote, in: app, maxSwipes: 3), "The footer explains that saved Access waits for the next start")
         screenshot(app, "Awake agent settings")
 

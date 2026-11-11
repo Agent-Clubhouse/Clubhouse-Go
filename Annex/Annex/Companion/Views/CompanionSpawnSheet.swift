@@ -394,15 +394,17 @@ struct CompanionSpawnSheet: View {
                         .accessibilityIdentifier("new-agent-access")
                 }
             } header: { Text("Access") } footer: {
-                if supported {
-                    let selected = durable.access ?? options.defaultAccess
-                    if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
-                    if durable.access == nil, let level = options.defaultAccess,
-                       let choice = options.options.accessLevels.first(where: { $0.id == level }) {
-                        Text("Desktop default: \(choice.label).")
-                    }
-                    Text("Applies at next start.")
-                } else { Text(CompanionFreeAgentMode.unsupported) }
+                VStack(alignment: .leading, spacing: 4) {
+                    if supported {
+                        let selected = durable.access ?? options.defaultAccess
+                        if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
+                        if durable.access == nil, let level = options.defaultAccess,
+                           let choice = options.options.accessLevels.first(where: { $0.id == level }) {
+                            Text("Desktop default: \(choice.label).")
+                        }
+                        Text("Applies at next start.")
+                    } else { Text(CompanionFreeAgentMode.unsupported) }
+                }
             }
         } else {
             Section {

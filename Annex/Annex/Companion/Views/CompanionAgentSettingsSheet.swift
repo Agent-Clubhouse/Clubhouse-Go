@@ -484,16 +484,18 @@ struct CompanionAgentSettingsForm: View {
                     .accessibilityIdentifier("agent-settings-access")
             }
         } header: { Text("Access") } footer: {
-            if let access = settings.access, canSetAccess {
-                if access.editable == .never { Text(CompanionFreeAgentMode.unsupported) }
-                else {
-                    if let choice = access.choices.first(where: { $0.id == access.value }) { Text(choice.description) }
-                    Text(CompanionSavedAccess.applicationNote)
-                    if access.value != access.startsAt { Text("Starts at \(access.startsAt.label) on this CLI.") }
-                    if let live = agent?.liveAccess { Text(access.applicationSummary(live: live)) }
-                    if !access.canEdit(sleeping: sleeping) { Text(CompanionAgentSettings.lockedHint) }
-                }
-            } else { Text("Access follows the desktop default. Change it on the desktop.") }
+            VStack(alignment: .leading, spacing: 4) {
+                if let access = settings.access, canSetAccess {
+                    if access.editable == .never { Text(CompanionFreeAgentMode.unsupported) }
+                    else {
+                        if let choice = access.choices.first(where: { $0.id == access.value }) { Text(choice.description) }
+                        Text(CompanionSavedAccess.applicationNote)
+                        if access.value != access.startsAt { Text("Starts at \(access.startsAt.label) on this CLI.") }
+                        if let live = agent?.liveAccess { Text(access.applicationSummary(live: live)) }
+                        if !access.canEdit(sleeping: sleeping) { Text(CompanionAgentSettings.lockedHint) }
+                    }
+                } else { Text("Access follows the desktop default. Change it on the desktop.") }
+            }
         }
         }
 
