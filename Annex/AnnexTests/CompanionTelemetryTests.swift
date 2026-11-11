@@ -356,7 +356,8 @@ import SwiftUI
         let clock = TelemetryFixtureClock()
         let network = TelemetryMockTransport(now: { clock.now })
         let (_, model, bridge, _) = try compose(network, now: { clock.now })
-        defer { bridge.stop() }
+        // Isolate report timing from submit's detached telemetry token refresh, as in the delivery test above.
+        bridge.stop()
         await model.setActive(true)
         await model.connect(String(repeating: "i", count: 43))
         let first = try ReviewedFeedback(configuration: config, notes: "fixture", capturedAt: clock.now)
