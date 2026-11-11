@@ -3,6 +3,22 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionBuildInfoTests {
+    @Test func settingsVersionIncludesBuildAndShortCommit() {
+        #expect(CompanionBuildInfo.settingsVersion(version: "2.0.0", build: "125", sha: "abc1234")
+                == "Version 2.0.0 (125) · build abc1234")
+    }
+
+    @Test func settingsVersionOmitsMissingCommit() {
+        #expect(CompanionBuildInfo.settingsVersion(version: "2.0.0", build: "1", sha: nil)
+                == "Version 2.0.0 (1)")
+    }
+
+    @Test func settingsVersionTruncatesOnlyTheDisplayedCommit() {
+        let sha = "4905102899ee20db0c436716f4783f6ba9827c5d"
+        #expect(CompanionBuildInfo.settingsVersion(version: "2.0.0", build: "125", sha: sha)
+                == "Version 2.0.0 (125) · build 4905102")
+    }
+
     @Test func acceptsOnlyARealCommit() {
         let full = "4905102899ee20db0c436716f4783f6ba9827c5d"
         #expect(CompanionBuildInfo.buildSHA(full) == full)
