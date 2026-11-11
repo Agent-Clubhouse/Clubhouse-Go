@@ -49,8 +49,8 @@ for name, entry in policy['classes'].items():
     if mode in ('arc_only', 'main_actor_task') and name in isolated:
         errors.append(f'{name}: {mode} policy requires an explicit nonisolated deinit')
     if mode == 'main_actor_task':
-        actual_deinit = surfaces.get(source, {}).get('deinits', {}).get(name)
-        if not entry.get('deinit') or actual_deinit != entry['deinit']:
+        actual_deinits = surfaces.get(source, {}).get('deinits', {}).get(name)
+        if not entry.get('deinit') or actual_deinits != [entry['deinit']]:
             errors.append(f'{name}: deferred main-actor teardown changed; review retained UI owners and update the deinit policy only after proving destruction stays on MainActor inside a Swift task')
     if mode in ('main_actor', 'generated') and name not in isolated:
         errors.append(f'{name}: main-only/generated policy lost its isolated teardown; do not bypass UI field destruction')

@@ -95,3 +95,46 @@ class OwnershipSurfaceTests(unittest.TestCase):
         a, b = self.surfaces(source, source.replace('PlainService()', 'UIOwner()'))
         self.assertEqual(a['captureSites']['constructor:CompanionLifecycle'][0]['producers'], {'service': 'PlainService ( )'})
         self.assertNotEqual(a['captureSites'], b['captureSites'])
+
+    def test_conditional_and_duplicate_deinits_cannot_hide_behind_the_last_body(self):
+        body = 'nonisolated deinit { Task { @MainActor [presenter] in withExtendedLifetime(presenter) {} } }'
+        approved = self.surfaces('class Owner { ' + body + ' }')[0]['deinits']['Owner']
+        for declarations in [
+            '#if DEBUG\n nonisolated deinit {}\n #else\n ' + body + '\n #endif',
+            '#if DEBUG\n ' + body + '\n #endif',
+            'nonisolated deinit {}\n ' + body,
+        ]:
+            with self.subTest(declarations=declarations):
+                actual = self.surfaces('class Owner {\n' + declarations + '\n}')[0]['deinits']['Owner']
+                self.assertNotEqual(approved, actual)
+
+    def test_explicit_and_self_initializers_preserve_lifecycle_capture_review(self):
+        for call, enclosure in [
+            ('CompanionLifecycle.init', 'func make() { %s }'),
+            ('Self.init', 'class CompanionLifecycle { static func make() { %s } }'),
+            ('Self.init', 'extension CompanionLifecycle { static func make() { %s } }'),
+        ]:
+            with self.subTest(call=call, enclosure=enclosure):
+                source = enclosure % ('let service = PlainService(); _ = ' + call + ' { active in await service.transition(active) }')
+                a, b = self.surfaces(source, source.replace('PlainService()', 'UIOwner()'))
+                self.assertEqual(a['captureSites']['constructor:CompanionLifecycle'][0]['producers'], {'service': 'PlainService ( )'})
+                self.assertNotEqual(a['captureSites'], b['captureSites'])
+
+    def test_explicit_lifecycle_initializer_cannot_hide_new_ui_capture(self):
+        source = 'func make(_ view: UIView) { _ = CompanionLifecycle.init { _ in use(view) } }'
+        surface = self.surfaces(source)[0]
+        self.assertIn('constructor:CompanionLifecycle', surface['captureSites'])
+        site = surface['captureSites']['constructor:CompanionLifecycle'][0]
+        self.assertEqual(site['producers'], {'view': 'UIView'})
+
+    def test_conditional_deinit_fingerprints_every_body(self):
+        source = '''class Owner {
+        #if DEBUG
+        nonisolated deinit {}
+        #else
+        nonisolated deinit { Task { @MainActor [presenter] in withExtendedLifetime(presenter) {} } }
+        #endif
+        }'''
+        changed = source.replace('nonisolated deinit {}', 'nonisolated deinit { releaseUI() }')
+        a, b = self.surfaces(source, changed)
+        self.assertNotEqual(a['deinits'], b['deinits'])

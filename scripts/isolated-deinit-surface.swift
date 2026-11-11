@@ -98,7 +98,7 @@ func captureSite(_ node: some SyntaxProtocol) -> [String: Any] {
 final class Surface: SyntaxVisitor {
     var path: [String] = []
     var classes: [String: [String: Any]] = [:]
-    var deinits: [String: String] = [:]
+    var deinits: [String: [String]] = [:]
     var values: [String: [String: String]] = [:]
     var sites: [String: [[String: Any]]] = [:]
     let constructors = Set(["CompanionStateLifetime", "CompanionDecisionQueue", "CompanionStore", "CompanionLifecycle"])
@@ -117,7 +117,13 @@ final class Surface: SyntaxVisitor {
     }
     override func visitPost(_ node: ClassDeclSyntax) { path.removeLast() }
     override func visit(_ node: DeinitializerDeclSyntax) -> SyntaxVisitorContinueKind {
-        deinits[path.joined(separator: ".")] = canonical(node)
+        var ancestor = Syntax(node).parent
+        var conditional = false
+        while let current = ancestor {
+            if current.is(IfConfigDeclSyntax.self) { conditional = true; break }
+            ancestor = current.parent
+        }
+        deinits[path.joined(separator: "."), default: []].append((conditional ? "<conditional> " : "") + canonical(node))
         return .visitChildren
     }
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -141,9 +147,22 @@ final class Surface: SyntaxVisitor {
     }
     override func visitPost(_ node: EnumDeclSyntax) { path.removeLast() }
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        let callee: String
-        if let generic = node.calledExpression.as(GenericSpecializationExprSyntax.self) { callee = generic.expression.trimmedDescription }
-        else { callee = node.calledExpression.trimmedDescription }
+        var expression = node.calledExpression
+        if let member = expression.as(MemberAccessExprSyntax.self), member.declName.baseName.text == "init", let base = member.base {
+            expression = base
+        }
+        if let generic = expression.as(GenericSpecializationExprSyntax.self) { expression = generic.expression }
+        var callee = expression.trimmedDescription
+        if ["Self", "self"].contains(callee) {
+            callee = path.last ?? ""
+            if callee.isEmpty {
+                var ancestor = Syntax(node).parent
+                while let current = ancestor {
+                    if let ext = current.as(ExtensionDeclSyntax.self) { callee = ext.extendedType.trimmedDescription; break }
+                    ancestor = current.parent
+                }
+            }
+        }
         if constructors.contains(callee) { sites["constructor:" + callee, default: []].append(captureSite(node)) }
         return .visitChildren
     }
@@ -167,7 +186,7 @@ for file in CommandLine.arguments.dropFirst() {
     for name in visitor.classes.keys {
         visitor.classes[name]!["nestedValueProperties"] = visitor.values.filter { $0.key.hasPrefix(name + ".") }
     }
-    output[file] = ["classes": visitor.classes, "deinits": visitor.deinits, "captureSites": visitor.sites.mapValues { $0.sorted { canonicalJSON($0) < canonicalJSON($1) } }]
+    output[file] = ["classes": visitor.classes, "deinits": visitor.deinits.mapValues { $0.sorted() }, "captureSites": visitor.sites.mapValues { $0.sorted { canonicalJSON($0) < canonicalJSON($1) } }]
 }
 let json = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
 FileHandle.standardOutput.write(json)
