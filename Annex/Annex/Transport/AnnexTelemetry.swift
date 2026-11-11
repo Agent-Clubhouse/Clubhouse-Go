@@ -491,6 +491,7 @@ nonisolated extension AnnexCommand {
              .updateDispatcher, .setDispatcherModels, .clearDispatcherChat, .forgetDispatcherEverything: .command
         case .helperApprove, .helperDecline: .helperRequest
         case .answerGrant: .grantRequest
+        case .requestAppUpdate, .cancelAppUpdate: .command
         case .setProjectPinned, .setProjectInactive: .updateProject
         case .dismissFinishedQuick, .clearFinishedQuick: .finishedQuick
         }

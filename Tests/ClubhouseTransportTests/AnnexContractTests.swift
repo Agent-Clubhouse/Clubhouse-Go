@@ -8,7 +8,8 @@ import Testing
                                        "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
                                        "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
                                        "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer",
-                                       "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"]
+                                       "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything",
+                                       "app.update.request", "app.update.cancel"]
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
     }
@@ -76,12 +77,16 @@ import Testing
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.
                 if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
+                // This fixture sync also includes the desktop's separate Copilot Auto setting, not exposed by this phone.
+                if type == "helperRouting.update", request["copilotAuto"] != nil { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
                 var expected = request
                 // The phone always names delivery; `auto` is the desktop's default when it's left out.
                 if type == "chat.send", case .object(var fields) = expected, fields["delivery"] == nil { fields["delivery"] = .string("auto"); expected = .object(fields) }
-                #expect(try JSONDecoder().decode(AnnexJSON.self, from: command.encoded()) == expected, "\(type): \(item["name"]?.string ?? "")")
+                do {
+                    #expect(try JSONDecoder().decode(AnnexJSON.self, from: command.encoded()) == expected, "\(type): \(item["name"]?.string ?? "")")
+                } catch { Issue.record("Cannot encode \(type): \(item["name"]?.string ?? ""): \(error)") }
                 checked += 1
             }
         }
@@ -289,7 +294,11 @@ import Testing
             return .setDispatcherModels(.pick(role: role, provider: s("provider"), model: s("model"), effort: field("effort"), contextWindow: field("contextWindow")))
         case "dispatcher.clearChat": return s("expectedState").map { .clearDispatcherChat(expectedState: $0) }
         case "dispatcher.forgetEverything": return s("expectedState").map { .forgetDispatcherEverything(expectedState: $0) }
-        case "grant.answer": return s("requestId").flatMap { id in s("answer").flatMap(AnnexCommand.GrantAnswer.init(rawValue:)).map { .answerGrant(requestID: id, answer: $0) } }
+        case "grant.answer": return s("requestId").flatMap { id in s("answer").flatMap(AnnexCommand.GrantAnswer.init(rawValue:)).map {
+            .answerGrant(requestID: id, answer: $0, updateMode: s("updateMode").flatMap(AnnexUpdateMode.init(rawValue:)))
+        } }
+        case "app.update.request": return .requestAppUpdate
+        case "app.update.cancel": return s("requestId").map { .cancelAppUpdate(requestID: $0) }
         default: return nil
         }
     }
@@ -343,6 +352,8 @@ import Testing
             .clearDispatcherChat(expectedState: "opaque"),
             .forgetDispatcherEverything(expectedState: "opaque"),
             .answerGrant(requestID: "grant_r", answer: .allowLasting),
+            .requestAppUpdate,
+            .cancelAppUpdate(requestID: "grant_r"),
             .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]
         return kinds.map { AnnexCommand(commandID: "c", epoch: "e", kind: $0) }

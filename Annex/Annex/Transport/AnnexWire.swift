@@ -65,6 +65,8 @@ nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
     public internal(set) var diagnosticBinding: AnnexTelemetryHandshake? = nil
     /// Local socket negotiation, never supplied by wire JSON.
     public var iconReferencesEnabled: Bool? = nil
+    /// Capabilities epoch bound to this authenticated socket, never supplied by wire JSON.
+    public var controlEpoch: String? = nil
     private enum CodingKeys: String, CodingKey {
         case type, payload, seq, replayed, oldestAvailable, lastSeq, fromSeq, toSeq, count, epoch, tc
     }

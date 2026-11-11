@@ -37,7 +37,22 @@ import Observation
     var grantRequestNotice: String?
     /// An answer whose outcome is unknown, by slot. Sending the same answer again reuses its command id, so the desktop
     /// replays its receipt instead of answering twice.
-    private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, commandID: String)] = [:]
+    private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, mode: AnnexUpdateMode?, commandID: String)] = [:]
+    private(set) var appUpdateInFlight: Set<String> = []
+    private(set) var appUpdateErrors: [String: String] = [:]
+    private struct AppUpdateAttemptKey: Hashable {
+        var hostID: String
+        var epoch: String?
+        var requestID: String?
+    }
+    private struct AppUpdateAttempt {
+        var commandID: String
+        var previousRequestID: String?
+        var requestID: String?
+        var initialVersion: String?
+        var targetVersion: String?
+    }
+    private var appUpdateAttempts: [AppUpdateAttemptKey: AppUpdateAttempt] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
@@ -66,6 +81,7 @@ import Observation
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
+    private var isShutDown = false
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
     /// Desktop ids of uploaded images, by `CompanionMessageImage.id`, so a retry doesn't upload them again.
@@ -89,7 +105,7 @@ import Observation
     }
 
     func start() {
-        guard listeningTask == nil else { return }
+        guard !isShutDown, listeningTask == nil else { return }
         let events = service.events()
         listeningTask = Task { [weak self] in
             for await event in events {
@@ -102,8 +118,25 @@ import Observation
     func stop() { listeningTask?.cancel(); listeningTask = nil }
 
     func shutdown() {
+        isShutDown = true
         stop()
         providerFlows.removeAll()
+        appUpdateAttempts.removeAll()
+        appUpdateInFlight.removeAll()
+        appUpdateErrors.removeAll()
+        grantAnswerAttempts.removeAll()
+        grantRequestsInFlight.removeAll()
+        grantRequestErrors.removeAll()
+        grantRequestNotice = nil
+        for index in hosts.indices {
+            hosts[index].canUpdateApp = false
+            hosts[index].appUpdate = nil
+            hosts[index].appUpdateError = nil
+            hosts[index].appUpdateOutcome = nil
+            hosts[index].controlEpoch = nil
+            hosts[index].canAnswerGrantRequests = false
+            hosts[index].grantRequests.removeAll()
+        }
     }
 
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] { try await service.sessions(for: target) }
@@ -667,38 +700,109 @@ import Observation
     }
 
     func canAnswer(_ request: CompanionGrantRequest) -> Bool {
-        guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
+        guard !isShutDown, let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
         return host.connection.canOperate && host.canAnswerGrantRequests && !grantRequestsInFlight.contains(request.slot)
-            && host.grantRequests.contains { $0.id == request.id } && !request.isExpired(at: Date())
+            && request.controlEpoch == host.controlEpoch
+            && (!request.isAppUpdate || (host.canUpdateApp && request.update != nil))
+            && host.grantRequests.contains { $0.id == request.id && $0.controlEpoch == host.controlEpoch } && !request.isExpired(at: Date())
     }
 
     /// Answer a Clubhouse grant request, as the desktop's Needs you does. Only an answer the request lists is sent.
-    func answer(_ request: CompanionGrantRequest, with answer: CompanionGrantRequest.Answer) async {
+    func answer(_ request: CompanionGrantRequest, with answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode? = nil) async {
         guard canAnswer(request), request.answers.contains(answer) else { return }
-        let attempt = grantAnswerAttempts[request.slot].flatMap { $0.answer == answer ? $0.commandID : nil } ?? UUID().uuidString
-        grantAnswerAttempts[request.slot] = (answer, attempt)
+        guard (request.isAppUpdate && answer == .allowOnce) == (updateMode != nil) else {
+            grantRequestErrors[request.slot] = "Choose Restart now or When idle before allowing an update."
+            return
+        }
+        let attempt = grantAnswerAttempts[request.slot].flatMap { $0.answer == answer && $0.mode == updateMode ? $0.commandID : nil } ?? UUID().uuidString
+        grantAnswerAttempts[request.slot] = (answer, updateMode, attempt)
         grantRequestsInFlight.insert(request.slot)
         grantRequestErrors[request.slot] = nil
         defer { grantRequestsInFlight.remove(request.slot) }
         do {
-            try await service.answerGrantRequest(request, answer: answer, clientCommandID: attempt)
+            try await service.answerGrantRequest(request, answer: answer, updateMode: updateMode, clientCommandID: attempt)
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             removeGrantRequest(request)
         } catch CompanionGrantRequestError.gone(let message) {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             grantRequestNotice = message
             removeGrantRequest(request)
         } catch let error as CompanionServiceError {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             // Only a lost reply keeps the command id: the same answer again replays the desktop's receipt.
             if case .uncertain = error {} else { grantAnswerAttempts[request.slot] = nil }
             grantRequestErrors[request.slot] = error.localizedDescription
         } catch {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             grantRequestErrors[request.slot] = error.localizedDescription
         }
     }
     private func removeGrantRequest(_ request: CompanionGrantRequest) {
         if let index = hosts.firstIndex(where: { $0.id == request.hostID }) { hosts[index].grantRequests.removeAll { $0.id == request.id } }
+    }
+
+    func requestAppUpdate(hostID: String) async {
+        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
+              host.appUpdate?.canRequest == true, !appUpdateInFlight.contains(hostID) else { return }
+        await changeAppUpdate(host, requestID: nil)
+    }
+    func cancelAppUpdate(hostID: String) async {
+        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
+              let request = host.appUpdate?.request, request.canCancel, !appUpdateInFlight.contains(hostID) else { return }
+        await changeAppUpdate(host, requestID: request.requestId)
+    }
+    private func changeAppUpdate(_ host: CompanionHost, requestID: String?) async {
+        let hostID = host.id, epoch = host.controlEpoch
+        let key = AppUpdateAttemptKey(hostID: hostID, epoch: epoch, requestID: requestID)
+        let attempt = appUpdateAttempts[key] ?? .init(
+            commandID: UUID().uuidString, previousRequestID: host.appUpdate?.request?.requestId, requestID: requestID,
+            initialVersion: host.appUpdate?.currentVersion,
+            targetVersion: requestID == nil ? host.appUpdate?.availableVersion : host.appUpdate?.request?.version)
+        appUpdateAttempts[key] = attempt
+        appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
+        defer { appUpdateInFlight.remove(hostID) }
+        do {
+            if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: attempt.commandID) }
+            else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: attempt.commandID) }
+            appUpdateAttempts[key] = nil
+        } catch {
+            guard appUpdateAttempts[key]?.commandID == attempt.commandID else { return }
+            guard let host = hosts.first(where: { $0.id == hostID }), host.controlEpoch == epoch else {
+                appUpdateAttempts[key] = nil
+                return
+            }
+            if case CompanionServiceError.uncertain = error {
+                guard appUpdateAttempts[key] != nil else { return }
+            } else { appUpdateAttempts[key] = nil }
+            appUpdateErrors[hostID] = error.localizedDescription
+        }
+    }
+    private func reconcileAppUpdateAttempts(in incoming: [CompanionHost]) {
+        var unresolved: [AppUpdateAttemptKey: AppUpdateAttempt] = [:]
+        for (key, var attempt) in appUpdateAttempts {
+            guard let host = incoming.first(where: { $0.id == key.hostID && $0.controlEpoch == key.epoch }) else { continue }
+            if let update = host.appUpdate {
+                if let initial = attempt.initialVersion, let target = attempt.targetVersion,
+                   update.currentVersion == target, initial != target {
+                    appUpdateErrors[key.hostID] = nil
+                    continue
+                }
+                // A repeated terminal row from before this attempt does not identify its new request.
+                if attempt.requestID == nil, let request = update.request, request.requestId != attempt.previousRequestID {
+                    attempt.requestID = request.requestId
+                }
+                if let requestID = attempt.requestID,
+                   update.request?.requestId != requestID || update.request?.isActive != true {
+                    appUpdateErrors[key.hostID] = nil
+                    continue
+                }
+            }
+            unresolved[key] = attempt
+        }
+        appUpdateAttempts = unresolved
     }
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {
@@ -1120,6 +1224,7 @@ import Observation
     }
 
     func apply(_ event: CompanionEvent) {
+        guard !isShutDown else { return }
         AnnexTelemetry.shared.measurePerformance(.storeApply) {
             let assistant: (CompanionTarget, String)? = switch event {
             case .upsert(let target, .message(let message), _) where message.role == .assistant: (target, message.id)
@@ -1153,6 +1258,15 @@ import Observation
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
+            for host in incoming {
+                if let oldEpoch = hosts.first(where: { $0.id == host.id })?.controlEpoch, host.controlEpoch != oldEpoch {
+                    let prefix = "\(host.id):"
+                    grantAnswerAttempts = grantAnswerAttempts.filter { !$0.key.hasPrefix(prefix) }
+                    grantRequestErrors = grantRequestErrors.filter { !$0.key.hasPrefix(prefix) }
+                    appUpdateErrors[host.id] = nil
+                }
+            }
+            reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }
                 fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }

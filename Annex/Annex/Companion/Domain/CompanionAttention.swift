@@ -378,7 +378,9 @@ extension CompanionStore {
     func grantRequests(on host: CompanionHost, now: Date = Date()) -> [CompanionGrantRequest] {
         guard host.canAnswerGrantRequests else { return [] }
         let listed = Set(host.allAgents.map(\.id))
-        return host.grantRequests.filter { listed.contains($0.agentTarget) && !$0.isExpired(at: now) }
+        return host.grantRequests.filter {
+            listed.contains($0.agentTarget) && !$0.isExpired(at: now) && (!$0.isAppUpdate || host.canUpdateApp)
+        }
     }
 
     /// A desktop's waiting helper requests, when it can take answers: unexpired ones whose agent is listed.
