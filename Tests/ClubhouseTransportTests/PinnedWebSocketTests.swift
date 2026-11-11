@@ -9,29 +9,30 @@ import Foundation
 
 private struct WSFixture {
     struct Info: Decodable { let port: UInt16; let httpPort: UInt16; let pin: String }
-    let process: Process
+    let process: FixtureProcess
     let info: Info
     let host: TrustedAnnexHost
     static func start() throws -> WSFixture {
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["node", try #require(Bundle.module.url(forResource: "ws-server", withExtension: "mjs", subdirectory: "Fixtures")).path]
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        var line = Data()
-        while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
-            line.append(byte)
-            guard line.count < 4096 else { throw AnnexTransportError.malformedResponse }
+        let process = try FixtureProcess(arguments: [
+            "node", try #require(Bundle.module.url(forResource: "ws-server", withExtension: "mjs", subdirectory: "Fixtures")).path
+        ])
+        do {
+            var line = Data()
+            while let byte = try process.output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
+                line.append(byte)
+                guard line.count < 4096 else { throw AnnexTransportError.malformedResponse }
+            }
+            let info = try JSONDecoder().decode(Info.self, from: line)
+            let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: info.port),
+                                            verifiedHostID: "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef",
+                                            verifiedCertificatePin: AnnexCertificatePin(sha256: info.pin))
+            return WSFixture(process: process, info: info, host: host)
+        } catch {
+            process.stop()
+            throw error
         }
-        let info = try JSONDecoder().decode(Info.self, from: line)
-        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: info.port),
-                                        verifiedHostID: "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef",
-                                        verifiedCertificatePin: AnnexCertificatePin(sha256: info.pin))
-        return WSFixture(process: process, info: info, host: host)
     }
-    func stop() { if process.isRunning { process.terminate() }; process.waitUntilExit() }
+    func stop() { process.stop() }
     func webSocketRequest(token: String = "fake-only") throws -> URLRequest {
         var request = URLRequest(url: try host.endpoint.url(path: ["ws"], webSocket: true))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
