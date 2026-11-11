@@ -52,7 +52,8 @@ action targets. This also keeps an eight-line draft, pinned approval and actions
 Accessibility text sizes retain the 10pt outer inset so the larger glass approval control stays clear of the keyboard.
 
 In windows narrower than 390pt, the transcript reserves only the clearance needed for visible jump buttons, keeping them
-clear of the newest item's controls. The width-based choice stays stable when the keyboard opens. Combined with the compact
+clear of the newest item's controls. The choice uses laid-out window width, ignoring prelayout zero width, and stays stable
+when the keyboard opens. Combined with the compact
 composer, this keeps the latest streamed text readable alongside a trailing tool card. Larger windows keep their existing
 scrollable clearance; following and reading anchors do not change.
 

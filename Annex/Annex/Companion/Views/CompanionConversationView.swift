@@ -147,12 +147,14 @@ struct CompanionConversationView: View {
         }
         }
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
-            let lacksRoom = size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails
-            if headerDetailsLackRoom != lacksRoom { headerDetailsLackRoom = lacksRoom }
-            // Width stays stable when the keyboard opens; changing content clearance during that
-            // transition can be mistaken for an upward scroll by the native scroll view.
-            let compact = size.width < 390
+        .onGeometryChange(for: Bool.self) { $0.size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails } action: {
+            headerDetailsLackRoom = $0
+        }
+        .onChange(of: available.size.width, initial: true) { _, width in
+            // Prelayout zero width must not change clearance and publish stale reading frames.
+            // Window width stays stable across keyboard presentation, unlike height.
+            guard width > 0 else { return }
+            let compact = width < 390
             if compactTranscriptControls != compact { compactTranscriptControls = compact }
         }
         .navigationTitle(agent.displayName)
@@ -374,6 +376,12 @@ struct CompanionConversationView: View {
         }
     }
 
+    private var showsLatestControl: Bool {
+        !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(
+            readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)
+        ) && !conversation.items.isEmpty
+    }
+
     private var timeline: some View {
         #if DEBUG
         let _ = CompanionConversationBuildProbe.record?(.timeline, target)
@@ -383,8 +391,8 @@ struct CompanionConversationView: View {
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
-        let showsLatest = !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty
-        let compactClearance = !stops.isEmpty || showsLatest ? max(0, navigationClearance - 8) : 0
+        // Keep scroll-metrics observation in the overlay unless this compact layout needs it.
+        let compactClearance = compactTranscriptControls && (!stops.isEmpty || showsLatestControl) ? max(0, navigationClearance - 8) : 0
         return ScrollViewReader { proxy in
             ScrollView {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
@@ -542,7 +550,7 @@ struct CompanionConversationView: View {
                                 .accessibilityIdentifier("companion-next-message")
                                 .buttonBorderShape(.circle)
                         }
-                        if showsLatest {
+                        if showsLatestControl {
                             Button {
                                 setFollowing(true, reason: .latest)
                                 readingBookmark.position.followsLatest = true
