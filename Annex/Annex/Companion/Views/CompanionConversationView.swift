@@ -193,9 +193,13 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            CompanionConversationGrantFooter(store: store, target: target,
-                maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
+            if store.grantRequests(for: target).isEmpty {
                 composerBar
+            } else {
+                CompanionConversationGrantFooter(store: store, target: target,
+                    maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
+                    composerBar
+                }
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }

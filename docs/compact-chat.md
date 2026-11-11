@@ -51,7 +51,9 @@ They show the same details, complete arguments, reason, Allow effect and offered
 `CompanionGrantRequestActions` and store answer gate. Full cards appear only when their measured height fits half the
 space above the composer. Otherwise a compact pinned row names the requester and summarizes the request; Review opens
 the complete, scrollable sheet without sending a decision. Decisions stack when their full labels cannot fit side by
-side. If a landscape keyboard leaves less room than the footer itself, the footer scrolls with Review first.
+side. The native draft scrolls to the caret when it must shrink to keep Review and the composer above the keyboard.
+If a landscape keyboard leaves less room than the minimum footer, the footer scrolls with Review first.
+Chats without pending Clubhouse grants use the ordinary composer directly, without the measured grant footer.
 Answering on either surface removes the request from both.
 Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
 remain subject to `store.canAnswer`.

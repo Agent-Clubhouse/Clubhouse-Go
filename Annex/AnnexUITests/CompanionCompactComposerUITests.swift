@@ -360,6 +360,35 @@ import XCTest
         try ordinaryWorkingDraft(softWrap: true)
     }
 
+    func testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard() throws {
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer",
+                             "--companion-preview-grant-requests"], attempts: 1)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        let composer = element(app, "companion-composer")
+        waitAndTap(river, until: composer, attempts: 1)
+        focus(composer, in: app)
+        let draft = (1...8).map { "Line \($0)" }.joined(separator: "\n")
+        composer.typeText(draft)
+        XCTAssertEqual(composer.value as? String, draft)
+        try assertRow(app, working: true, state: "pending grant eight lines", editing: true)
+        let snapshot = try layout(app)
+        let review = app.buttons["companion-grant-review"]
+        XCTAssertTrue(review.exists && review.isEnabled && review.isHittable)
+        assertMinimumTarget(review, "Review")
+        XCTAssertTrue(pixelContains(visibleRegion(snapshot), review.frame), "Review stays entirely above the keyboard")
+        XCTAssertLessThanOrEqual(review.frame.maxY, try XCTUnwrap(snapshot["companion-composer-region"]).minY)
+        for id in ["companion-level-menu", "companion-attach", "companion-interrupt", "companion-send"] {
+            XCTAssertTrue(app.buttons[id].isEnabled && app.buttons[id].isHittable, id)
+        }
+        let close = app.buttons["companion-grant-review-close"]
+        waitAndTap(review, until: close, attempts: 1)
+        waitAndTap(close, untilGone: close, attempts: 1)
+        XCTAssertEqual(composer.value as? String, draft, "Review keeps the entire draft")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        try assertRow(app, working: true, state: "pending grant after Review", editing: true)
+    }
+
     private func ordinaryWorkingDraft(softWrap: Bool) throws {
         let app = launchApp(["--companion-preview", "--companion-preview-working-composer"], attempts: 1)
         let river = element(app, "agent-preview-studio-river")
@@ -367,6 +396,7 @@ import XCTest
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer, attempts: 1)
         XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "The pinned approval shares the space")
+        XCTAssertFalse(app.scrollViews["companion-grant-footer-scroll"].exists, "No grants use the ordinary composer layout")
         XCTAssertTrue(app.buttons["companion-interrupt"].exists, "The fixture is Working before typing")
         XCTAssertEqual(composer.label, "Steering message")
         XCTAssertEqual(app.buttons["companion-send"].label, "Send steering message")

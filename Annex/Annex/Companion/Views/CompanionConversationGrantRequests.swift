@@ -1,5 +1,9 @@
 import SwiftUI
 
+extension EnvironmentValues {
+    @Entry var companionComposerFitsGrantFooter = false
+}
+
 /// Footer measurements stay out of the conversation's observation boundary, just like draft edits.
 struct CompanionConversationGrantFooter<Composer: View>: View {
     @Bindable var store: CompanionStore
@@ -10,24 +14,54 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     @State private var footerHeight: CGFloat = 0
 
     var body: some View {
-        let hasGrants = !store.grantRequests(for: target).isEmpty
         // Keep the composer mounted across fit/keyboard changes. When the keyboard leaves less
         // room than this footer, Review stays first and the rest remains reachable by scrolling.
         ScrollView(.vertical) {
-            VStack(spacing: 0) {
-                CompanionConversationGrantRequests(store: store, target: target,
-                    maximumHeight: max(0, maximumHeight - composerHeight) / 2)
-                composer
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
+            FooterLayout(maximumHeight: maximumHeight) {
+                // Concrete slots survive the final request disappearing during footer removal.
+                VStack(spacing: 0) {
+                    CompanionConversationGrantRequests(store: store, target: target,
+                        maximumHeight: max(0, maximumHeight - composerHeight) / 2)
+                }
+                VStack(spacing: 0) { composer }
+                .environment(\.companionComposerFitsGrantFooter, true)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
             }
-            .fixedSize(horizontal: false, vertical: true)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerHeight = $0 }
         }
-        .scrollDisabled(!hasGrants || footerHeight <= maximumHeight)
+        .scrollDisabled(footerHeight <= maximumHeight)
         .scrollDismissesKeyboard(.never)
         .scrollBounceBehavior(.basedOnSize)
-        .frame(height: hasGrants ? min(footerHeight, maximumHeight) : footerHeight)
+        .frame(height: min(footerHeight, maximumHeight))
         .accessibilityIdentifier("companion-grant-footer-scroll")
+    }
+
+    private struct FooterLayout: Layout {
+        let maximumHeight: CGFloat
+
+        func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+            guard let sizes = sizes(width: proposal.width, subviews: subviews) else { return .zero }
+            return CGSize(width: proposal.width ?? max(sizes.0.width, sizes.1.width),
+                          height: sizes.0.height + sizes.1.height)
+        }
+
+        func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+            guard let sizes = sizes(width: bounds.width, subviews: subviews) else { return }
+            subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(sizes.0))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + sizes.0.height),
+                             proposal: ProposedViewSize(sizes.1))
+        }
+
+        private func sizes(width: CGFloat?, subviews: Subviews) -> (CGSize, CGSize)? {
+            guard subviews.count == 2 else {
+                assertionFailure("Grant footer requires its two concrete grant/composer containers")
+                return nil
+            }
+            let grants = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            let composer = subviews[1].sizeThatFits(ProposedViewSize(
+                width: width, height: max(0, maximumHeight - grants.height)))
+            return (grants, composer)
+        }
     }
 }
 
