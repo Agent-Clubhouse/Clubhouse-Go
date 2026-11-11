@@ -3,6 +3,20 @@ import XCTest
 @MainActor
 final class CompanionAgentTreeUITests: ReliableUITestCase {
     private let arguments = ["--companion-preview", "--companion-preview-helper-tree"]
+    private var completedMilestones: [String] = []
+
+    private func requireMilestones(_ milestones: [String], caseID: String = #function) {
+        completedMilestones = []
+        addTeardownBlock { @MainActor [self] in
+            XCTAssertEqual(completedMilestones, milestones, "\(caseID) must complete every behavior phase")
+        }
+    }
+
+    private func completeMilestone(_ phase: String) {
+        completedMilestones.append(phase)
+        XCTContext.runActivity(named: "AgentTree completed: \(phase)") { _ in }
+    }
+
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
@@ -11,7 +25,8 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     func testNestedRowsCollapseRollupRelaunchAndNeedsYouNavigation() {
-        let app = launchApp(arguments)
+        requireMilestones(["initial tree assertions", "persisted tree assertions", "Needs you navigation and return"])
+        let app = launchApp(arguments, attempts: 1)
         let parent = element(app, "helpers-toggle-preview-studio-cedar")
         let child = element(app, "helpers-toggle-preview-studio-river")
         let nested = element(app, "agent-preview-studio-juniper")
@@ -39,6 +54,7 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         let finished = element(app, "fold-finished-preview-studio-clubhouse")
         let quick = element(app, "agent-preview-studio-quick-willow")
         expandFold(finished, revealing: quick, in: app)
+        completeMilestone("initial tree assertions")
         app.terminate()
         app.launchArguments = arguments + ["--ui-testing-fast", "--companion-preview-keep-preferences"]
         app.launch()
@@ -47,6 +63,7 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertFalse(child.exists)
         XCTAssertTrue(scrollUntilExists(moss, in: app))
         XCTAssertTrue(scrollUntilExists(quick, in: app))
+        completeMilestone("persisted tree assertions")
 
         // Needs you is a flat destination and still opens River while Cedar is folded.
         let river = element(app, "agent-preview-studio-river")
@@ -57,9 +74,11 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Collapsed", "Direct navigation preserves disclosure")
+        completeMilestone("Needs you navigation and return")
     }
     func testProjectUsesSameTreeAndCrossProjectCaption() {
-        let app = launchApp(arguments)
+        requireMilestones(["project tree assertions", "shared disclosure and cross-project caption"])
+        let app = launchApp(arguments, attempts: 1)
         let project = element(app, "open-project-preview-studio-clubhouse")
         let toggle = element(app, "helpers-toggle-preview-studio-cedar")
         XCTAssertTrue(scrollUntilExists(project, in: app) && scrollTo(project, in: app))
@@ -70,11 +89,13 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         toggle.tap()
         XCTAssertTrue(element(app, "helpers-toggle-preview-studio-river").waitForNonExistence(timeout: 5))
         XCTAssertTrue(element(app, "agent-preview-studio-cedar").label.contains("2 helpers"))
+        completeMilestone("project tree assertions")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertEqual(toggle.value as? String, "Collapsed", "Home and project share disclosure")
         app.tabBars.buttons["Agents"].tap()
         let maple = element(app, "agent-preview-studio-maple")
         XCTAssertTrue(scrollUntilExists(maple, in: app) && scrollTo(maple, in: app))
         XCTAssertTrue(maple.label.contains("Helper of Cedar in Clubhouse"), maple.label)
+        completeMilestone("shared disclosure and cross-project caption")
     }
 }
