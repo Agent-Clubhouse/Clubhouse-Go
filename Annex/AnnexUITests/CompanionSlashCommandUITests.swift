@@ -25,7 +25,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         let transcript = app.scrollViews.containing(.any, identifier: "companion-tool-preview-reading-failure").firstMatch
         XCTAssertTrue(transcript.waitForExistence(timeout: 5))
         let header = any.matching(identifier: "companion-chat-header").firstMatch
-        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
         let controls = app.buttons["companion-level-menu"]
         let frame = transcript.frame.intersection(app.windows.firstMatch.frame)
         let top = max(frame.minY, header.frame.maxY) + 12
@@ -65,7 +65,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
         let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
         XCTAssertEqual(composer.placeholderValue, "Message River… / for commands")
-        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
         XCTAssertFalse(menu.exists, "No menu before typing")
 
         composer.tap()
@@ -102,7 +102,7 @@ final class CompanionSlashCommandUITests: ReliableUITestCase {
     func testKeyboardMovesAndPicksAndADismissedWordStaysClosed() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading"])
         let composer = openRiver(app)
-        let menu = app.otherElements.matching(identifier: "companion-slash-menu").firstMatch
+        let menu = app.descendants(matching: .any).matching(identifier: "companion-slash-menu").firstMatch
         composer.tap()
         composer.typeText("/c")
         XCTAssertTrue(menu.waitForExistence(timeout: 5))

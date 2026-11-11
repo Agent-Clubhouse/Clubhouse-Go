@@ -220,6 +220,9 @@ jobs:
         timeout-minutes: 5
         run: python3 scripts/ci/wait_simulator.py "$SIMULATOR_UDID"
 
+      - name: Skip first-use keyboard education on the test simulator
+        run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
+
       # Hosted simulator launches/termination exceeded the old 60-second rounded
       # allowance. Keep assertions intact while allowing a bounded two minutes.
       # Hosted macOS runners can take 15–20 s per element lookup and occasionally drop a tap.

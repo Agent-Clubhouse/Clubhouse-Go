@@ -42,6 +42,19 @@ its confirmation, and is disabled under the same capability/connection/pending r
 will be sent to the running agent." caption is gone; Send's accessibility hint says what sending does. Queue-only,
 offline and loading explanations stay.
 
+The slash menu uses the remaining keyboard-safe height after the fixed composer controls, activity line and a readable
+44pt transcript band. Its commands keep 44pt targets; when the full list will not fit, it scrolls without dismissing the
+keyboard. Hardware-keyboard highlighting scrolls the selected command into view. Larger windows keep the complete list
+when there is room.
+
+With less than 360pt above the keyboard, the composer reduces its padding and gaps, not its draft text size or 44pt
+action targets. This also keeps an eight-line draft, pinned approval and actions inside a small phone's visible region.
+
+In windows narrower than 390pt, the transcript reserves only the clearance needed for visible jump buttons, keeping them
+clear of the newest item's controls. The width-based choice stays stable when the keyboard opens. Combined with the compact
+composer, this keeps the latest streamed text readable alongside a trailing tool card. Larger windows keep their existing
+scrollable clearance; following and reading anchors do not change.
+
 At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, so a prominent review button opens the
 pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
 through the same `store.canApprove` gate and full-event review as the transcript (#345).

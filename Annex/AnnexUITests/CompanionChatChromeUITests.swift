@@ -28,9 +28,25 @@ import XCTest
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
         let readable = menu.frame.minY - max(transcript.minY, element(app, "companion-chat-header").frame.maxY)
         print("CHAT_CHROME slash menu=\(menu.frame) readableHeight=\(readable)")
-        XCTAssertGreaterThanOrEqual(readable, 44)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Chat chrome slash menu"; shot.lifetime = .keepAlways; add(shot)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Chat chrome slash menu hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        XCTAssertGreaterThanOrEqual(readable, 44)
+        XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
+        let first = app.buttons["companion-slash-compact"]
+        assertMinimumTarget(first, "/compact")
+        XCTAssertTrue(first.isHittable && pixelContains(menu.frame, first.frame))
+        let last = app.buttons["companion-slash-frontend-design"]
+        assertMinimumTarget(last, "/frontend-design")
+        if !pixelContains(menu.frame, last.frame) {
+            menu.swipeUp()
+        }
+        XCTAssertTrue(last.isHittable && pixelContains(menu.frame, last.frame), "Scrolling exposes the final command above the keyboard")
+        last.tap()
+        XCTAssertTrue(menu.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(composer.value as? String, "/frontend-design ")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "Picking a scrolled command keeps editing")
     }
 
     func testEditingKeepsPermissionConfirmationAndModelAndEffortReachable() {
@@ -159,6 +175,8 @@ import XCTest
         let end = app.staticTexts["End of the long reply."]
         let navigation = app.buttons["companion-next-message"]
         XCTAssertTrue(end.exists && navigation.exists)
+        let visible = CGRect(x: transcript.minX, y: visibleTop, width: transcript.width, height: visibleBottom - visibleTop)
+        XCTAssertTrue(pixelContains(visible, end.frame), "The entire final line stays above the composer")
         XCTAssertLessThanOrEqual(end.frame.maxY, navigation.frame.minY - 4, "The final text can sit clear of floating controls")
         print("CHAT_CHROME \(state) finalText=\(end.frame) nextButton=\(navigation.frame) send=\(app.buttons["companion-send"].frame)")
         let shot = XCTAttachment(screenshot: app.screenshot())

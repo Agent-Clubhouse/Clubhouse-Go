@@ -67,6 +67,11 @@ GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch
 - `scrollTo`, `scrollUntilExists` and `expandFold` stop as soon as the target is there. Don't write `for _ in 0..<n where !condition { swipe }`: `where` doesn't end the loop, so the slow lookup in `condition` still runs on every remaining iteration.
 - Each step fails with a message 30 s before the test's execution time allowance. A test the allowance kills restarts the runner and isn't retried.
 
+CI marks QuickPath's first-use introduction as seen on its selected simulator after boot. For a fresh local UI-test
+simulator, run `xcrun simctl spawn <test-simulator-UUID> defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES`
+after boot too. This affects only that simulator, not the host or any other device; the introduction can otherwise
+replace the keyboard when a sheet or confirmation closes.
+
 Don't retry a tap whose repeat changes the result, such as adding an attachment or toggling a switch.
 
 The live and provider tests listed below skip unless you enable them.

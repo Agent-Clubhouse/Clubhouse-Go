@@ -24,6 +24,7 @@ struct CompanionConversationView: View {
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
     @State private var keyboardVisible = false
+    @State private var compactTranscriptControls = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
@@ -146,8 +147,13 @@ struct CompanionConversationView: View {
         }
         }
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
-        .onGeometryChange(for: Bool.self) { $0.size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails } action: {
-            headerDetailsLackRoom = $0
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+            let lacksRoom = size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails
+            if headerDetailsLackRoom != lacksRoom { headerDetailsLackRoom = lacksRoom }
+            // Width stays stable when the keyboard opens; changing content clearance during that
+            // transition can be mistaken for an upward scroll by the native scroll view.
+            let compact = size.width < 390
+            if compactTranscriptControls != compact { compactTranscriptControls = compact }
         }
         .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -194,11 +200,12 @@ struct CompanionConversationView: View {
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if store.grantRequests(for: target).isEmpty {
-                composerBar
+                composerBar(maximumHeight: max(44, available.size.height - Self.headerPillClearance - 44),
+                            compactHeight: available.size.height < 360)
             } else {
                 CompanionConversationGrantFooter(store: store, target: target,
                     maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
-                    composerBar
+                    composerBar(compactHeight: available.size.height < 360)
                 }
             }
         }
@@ -244,15 +251,16 @@ struct CompanionConversationView: View {
         }
     }
 
-    @ViewBuilder private var composerBar: some View {
+    @ViewBuilder private func composerBar(maximumHeight: CGFloat = .infinity, compactHeight: Bool) -> some View {
         if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-            VStack(spacing: 0) {
+            CompanionComposerLayout(spacing: 0, maximumHeight: maximumHeight) {
                 activityLine
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                 CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
                     focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
             }
+            .environment(\.companionComposerCompactHeight, compactHeight)
             .modifier(CompanionOfferedWidth())
         }
     }
@@ -375,6 +383,8 @@ struct CompanionConversationView: View {
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
+        let showsLatest = !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty
+        let compactClearance = !stops.isEmpty || showsLatest ? max(0, navigationClearance - 8) : 0
         return ScrollViewReader { proxy in
             ScrollView {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
@@ -412,9 +422,9 @@ struct CompanionConversationView: View {
                             }
                         }
                     }
-                    // Scrollable clearance lets every final line move above the floating navigation controls.
-                    // Include that clearance in Latest so it reaches the physical bottom.
-                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, navigationClearance).id("latest")
+                    // Short viewports reserve only the visible controls' clearance, not an extra row.
+                    Color.clear.frame(height: 1).padding(.top, 22)
+                        .padding(.bottom, compactTranscriptControls ? compactClearance : navigationClearance).id("latest")
                 }
                 .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
                 .padding(.top, 24)
@@ -532,7 +542,7 @@ struct CompanionConversationView: View {
                                 .accessibilityIdentifier("companion-next-message")
                                 .buttonBorderShape(.circle)
                         }
-                        if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
+                        if showsLatest {
                             Button {
                                 setFollowing(true, reason: .latest)
                                 readingBookmark.position.followsLatest = true
