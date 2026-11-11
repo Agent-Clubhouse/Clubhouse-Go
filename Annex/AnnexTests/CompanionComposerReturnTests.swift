@@ -198,6 +198,77 @@ import SwiftUI
         XCTAssertTrue(findInput(hosted.window) === hosted.input)
     }
 
+    func testQAShiftReturnUndoRedoPreservesLiteralNewline() async throws {
+        let hosted = try await host("/re")
+        defer { hosted.close() }
+        press(hosted.input, modifiers: .shift)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.store.drafts[hosted.target], "/re\n")
+        let undo = try XCTUnwrap(hosted.input.undoManager)
+        XCTAssertTrue(undo.canUndo)
+        undo.undo()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.store.drafts[hosted.target], "/re")
+        XCTAssertTrue(undo.canRedo)
+        undo.redo()
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.input.text, "/re\n")
+        XCTAssertEqual(hosted.store.drafts[hosted.target], "/re\n")
+        XCTAssertTrue(hosted.service.requests.isEmpty)
+    }
+
+    func testSoftwareReturnCompletesSlashCommands() async throws {
+        let hosted = try await host("/re")
+        defer { hosted.close() }
+        hosted.input.insertText("\n")
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.input.text, "/review ")
+        XCTAssertEqual(hosted.store.drafts[hosted.target], "/review ")
+        XCTAssertTrue(hosted.service.requests.isEmpty)
+    }
+
+    func testNativeTextReplacementPreservesLiteralNewlines() async throws {
+        let hosted = try await host("/re")
+        defer { hosted.close() }
+        hosted.input.replace(try XCTUnwrap(hosted.input.selectedTextRange), withText: "\n")
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.input.text, "/re\n")
+        XCTAssertEqual(hosted.store.drafts[hosted.target], "/re\n")
+        XCTAssertTrue(hosted.service.requests.isEmpty)
+    }
+
+    func testQAKeypadEnterAndCancelReset() async throws {
+        let hosted = try await host()
+        defer { hosted.close() }
+        let enter = ReturnPress(modifiers: .numericPad, keyCode: .keypadEnter)
+        hosted.input.pressesBegan([enter], with: nil)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.service.requests.map(\.text), ["Hardware message"])
+        hosted.input.insertText("After cancel")
+        try await Task.sleep(for: .milliseconds(50))
+        hosted.input.pressesCancelled([enter], with: nil)
+        press(hosted.input)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.service.requests.map(\.text), ["Hardware message", "After cancel"])
+    }
+
+    func testQAOtherReturnReleaseDoesNotResetAHeldPhysicalReturn() async throws {
+        let hosted = try await host()
+        defer { hosted.close() }
+        let held = ReturnPress()
+        hosted.input.pressesBegan([held], with: nil)
+        try await Task.sleep(for: .milliseconds(100))
+        hosted.input.insertText("Must not send until original release")
+        try await Task.sleep(for: .milliseconds(50))
+        let keypad = ReturnPress(modifiers: .numericPad, keyCode: .keypadEnter)
+        hosted.input.pressesBegan([keypad], with: nil)
+        hosted.input.pressesEnded([keypad], with: nil)
+        hosted.input.pressesBegan([held], with: nil)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(hosted.service.requests.map(\.text), ["Hardware message"])
+        hosted.input.pressesEnded([held], with: nil)
+    }
+
     func testCachedUnfocusedOrUneditableInputCannotSendAndRefocusResetsHeldKey() async throws {
         let hosted = try await host()
         defer { hosted.close() }
@@ -225,9 +296,10 @@ import SwiftUI
 
 @MainActor private final class ReturnKey: UIKey {
     private let modifiers: UIKeyModifierFlags
-    init(modifiers: UIKeyModifierFlags) { self.modifiers = modifiers; super.init() }
+    private let usage: UIKeyboardHIDUsage
+    init(modifiers: UIKeyModifierFlags, keyCode: UIKeyboardHIDUsage) { self.modifiers = modifiers; usage = keyCode; super.init() }
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-    override var keyCode: UIKeyboardHIDUsage { .keyboardReturnOrEnter }
+    override var keyCode: UIKeyboardHIDUsage { usage }
     override var characters: String { "\r" }
     override var charactersIgnoringModifiers: String { "\r" }
     override var modifierFlags: UIKeyModifierFlags { modifiers }
@@ -235,7 +307,9 @@ import SwiftUI
 
 private final class ReturnPress: UIPress {
     private let returnKey: UIKey
-    @MainActor init(modifiers: UIKeyModifierFlags = []) { returnKey = ReturnKey(modifiers: modifiers); super.init() }
+    @MainActor init(modifiers: UIKeyModifierFlags = [], keyCode: UIKeyboardHIDUsage = .keyboardReturnOrEnter) {
+        returnKey = ReturnKey(modifiers: modifiers, keyCode: keyCode); super.init()
+    }
     override var key: UIKey? { returnKey }
 }
 

@@ -19,7 +19,6 @@ struct CompanionConversationComposer: View {
     let focusRequests: Int
     @FocusState private var composerFocused: Bool
     @State private var composerSelection: TextSelection?
-    @State private var hardwareNewline: (old: String, new: String)?
     @State private var slashHighlight = 0
     @State private var slashDismissedAt: Int?
     @Binding var confirmCancel: Bool
@@ -49,7 +48,7 @@ struct CompanionConversationComposer: View {
     private var draft: Binding<String> {
         Binding(get: { store.drafts[target] ?? "" }, set: { store.drafts[target] = $0 })
     }
-    /// The draft as the composer edits it. Return while the `/` menu offers a started name picks it, as on the desktop.
+    /// Text edits, including undo/redo, always preserve their literal text. Return completion is an input action.
     private var composerText: Binding<String> {
         Binding(get: { draft.wrappedValue }, set: { text in
             // SwiftUI can invoke the setter twice with the same value for one native edit.
@@ -59,20 +58,6 @@ struct CompanionConversationComposer: View {
                 print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
             }
             #endif
-            let isHardwareNewline = hardwareNewline?.old == draft.wrappedValue && hardwareNewline?.new == text
-            if text != draft.wrappedValue { hardwareNewline = nil }
-            if !isHardwareNewline, composerFocused, let commands = agent.slashCommands,
-               let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
-                                                             highlighted: slashHighlight, dismissedAt: slashDismissedAt) {
-                // On the next turn: a value changed while the text view reports its own edit doesn't reach it.
-                draft.wrappedValue = text
-                Task {
-                    guard draft.wrappedValue == text else { return }
-                    draft.wrappedValue = picked.text
-                    composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
-                }
-                return
-            }
             draft.wrappedValue = text
         })
     }
@@ -348,11 +333,16 @@ struct CompanionConversationComposer: View {
         return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal, returnActions: .init(
             canSubmit: { returnSlashCommand != nil || sendEnabled },
             submit: {
-                if let command = returnSlashCommand { pickSlashCommand(command) }
-                else { sendMessage() }
+                if !completeReturnSlashCommand() { sendMessage() }
             },
-            willInsertNewline: { old, new in hardwareNewline = (old, new) }
+            completeSlashCommand: completeReturnSlashCommand
         ))
+    }
+
+    private func completeReturnSlashCommand() -> Bool {
+        guard let command = returnSlashCommand else { return false }
+        pickSlashCommand(command)
+        return true
     }
 
     private func sendMessage() {
@@ -441,7 +431,7 @@ struct CompanionConversationComposer: View {
     }
 
     /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes.
-    /// Return completion is shared with the native input hook; software Return retains its binding-based pick.
+    /// Return completion is shared with the native input hook, not inferred from text changes.
     private func slashKey(_ press: KeyPress) -> KeyPress.Result {
         let matches = slashMatches
         guard !matches.isEmpty else { return .ignored }

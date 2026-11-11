@@ -33,7 +33,8 @@ A desktop without this capability is read-only for saved Access, not a boolean f
 `CompanionComposerReturnKeyTests` covers the platform-independent Return decision, modifiers, disabled sends,
 composition and repeats. Hosted `CompanionComposerReturnTests` sends synthesized `UIPress`/`UIKey` events to the
 real SwiftUI composer's native `UITextView`, covering send eligibility, slash precedence, Shift+Return selection
-replacement, marked text, attachments, repeat suppression and stable input/focus. The marked-text test uses
+replacement and undo/redo, literal native edits, marked text, attachments, per-key repeat suppression
+across overlapping Return/keypad Enter presses, and stable input/focus. The marked-text test uses
 `UITextInput` to establish and commit composition; it is not proof of a real Japanese/Chinese input engine.
 
 `CompanionHardwareKeyboardUITests` taps the actual on-screen Return key and requires newline/no-send behavior.
@@ -43,6 +44,9 @@ either the focused field or application, even with that simulator's hardware-key
 Ordinary `typeKey("x")` and Shift+`"x"` insert text. A future successful Return injection fails the strict
 expectation so it can be removed. Hosted native tests have no expected failures. Physical-keyboard and iPhone
 Mirroring verification, including real IME confirmation, remain separate checks under #366.
+Only the unavailable injection assertion allows continuation inside its expected-failure scope; ordinary typing,
+draft, focus and no-send checks run outside it with normal failure handling. A Send-button control verifies the
+same operation-error accessibility sentinel used by the hardware send and no-send checks.
 
 ### Writing UI tests for hosted runners
 

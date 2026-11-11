@@ -49,4 +49,26 @@ struct CompanionComposerReturnKeyTests {
         #expect(action == .system)
         #expect(forwardsRelease)
     }
+
+    @Test func overlappingReturnKeysStayHeldUntilTheirOwnRelease() {
+        var key = CompanionComposerReturnKey()
+        let first = key.began(shift: false, otherModifiers: false, markedText: false, canSubmit: true)
+        let overlapping = key.began(key: .keypadEnter, shift: false, otherModifiers: false, markedText: false, canSubmit: true)
+        let keypadRelease = key.ended(key: .keypadEnter)
+        let repeated = key.began(shift: false, otherModifiers: false, markedText: false, canSubmit: true)
+        let returnRelease = key.ended()
+        let next = key.began(key: .keypadEnter, shift: false, otherModifiers: false, markedText: false, canSubmit: true)
+        let unrelatedRelease = key.ended()
+        let keypadRepeat = key.began(key: .keypadEnter, shift: false, otherModifiers: false, markedText: false, canSubmit: true)
+        let finalRelease = key.ended(key: .keypadEnter)
+        #expect(first == .submit)
+        #expect(overlapping == .consume)
+        #expect(!keypadRelease)
+        #expect(repeated == .consume)
+        #expect(!returnRelease)
+        #expect(next == .submit)
+        #expect(unrelatedRelease)
+        #expect(keypadRepeat == .consume)
+        #expect(!finalRelease)
+    }
 }

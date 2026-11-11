@@ -15,7 +15,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     struct ReturnActions {
         var canSubmit: @MainActor () -> Bool
         var submit: @MainActor () -> Void
-        var willInsertNewline: @MainActor (_ old: String, _ new: String) -> Void
+        var completeSlashCommand: @MainActor () -> Bool
     }
 
     func makeCoordinator() -> Coordinator {
@@ -42,6 +42,8 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         var dismissKeyboard: (@MainActor () -> Void)?
         var returnActions: ReturnActions?
         var returnKey = CompanionComposerReturnKey()
+        var handlingHardwareReturn = false
+        var pasting = false
         private var pending: [UITextPasteItem] = []
 
         init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?,
@@ -169,6 +171,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         patchPaste(type)
         patchAccessibilityEscape(type)
         patchHardwareReturn(type)
+        patchSoftwareReturn(type)
         patchTypingProbe(type)
     }
 
@@ -220,7 +223,9 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
             }
             guard !handled else { return }
             MainActor.assumeIsolated {
-                guard let textView = object as? UITextView, coordinator(for: textView) != nil else { return original(object, selector, sender) }
+                guard let textView = object as? UITextView, let coordinator = coordinator(for: textView) else { return original(object, selector, sender) }
+                coordinator.pasting = true
+                defer { coordinator.pasting = false }
                 textView.allowsEditingTextAttributes = false
                 original(object, selector, sender)
                 textView.allowsEditingTextAttributes = true
@@ -250,8 +255,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         press.key?.keyCode == .keyboardReturnOrEnter || press.key?.keyCode == .keypadEnter
     }
 
-    /// UIPress.key exists only for hardware keyboards. Do not intercept insertText or replace SwiftUI's delegate:
-    /// those also carry software Return, IME confirmation, dictation and multiline paste.
+    /// UIPress.key exists only for hardware keyboards. Keep SwiftUI's native input and delegate.
     private static func patchHardwareReturn(_ type: AnyClass) {
         typealias Function = @convention(c) (AnyObject, Selector, NSSet, UIPressesEvent?) -> Void
         let selectors = [
@@ -269,27 +273,37 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
                           let actions = coordinator.returnActions else { return presses }
                     return Set(presses.filter { press in
                         guard isReturn(press), let key = press.key else { return true }
-                        if selector != selectors[0] { return coordinator.returnKey.ended() }
+                        let physicalKey: CompanionComposerReturnKey.Key = key.keyCode == .keypadEnter ? .keypadEnter : .returnOrEnter
+                        if selector != selectors[0] { return coordinator.returnKey.ended(key: physicalKey) }
                         guard textView.isFirstResponder, textView.isEditable, textView.isUserInteractionEnabled else { return true }
                         let modifiers = key.modifierFlags.subtracting([.alphaShift, .numericPad])
-                        switch coordinator.returnKey.began(shift: modifiers.contains(.shift),
+                        switch coordinator.returnKey.began(key: physicalKey, shift: modifiers.contains(.shift),
                             otherModifiers: !modifiers.subtracting(.shift).isEmpty,
                             markedText: textView.markedTextRange != nil, canSubmit: actions.canSubmit()) {
                         case .system: return true
                         case .consume: return false
                         case .submit: actions.submit(); return false
                         case .newline:
-                            let old = textView.text ?? ""
                             let selection = textView.selectedRange
-                            let text = old as NSString
+                            let text = (textView.text ?? "") as NSString
                             guard selection.location != NSNotFound, NSMaxRange(selection) <= text.length else { return true }
-                            actions.willInsertNewline(old, text.replacingCharacters(in: selection, with: "\n"))
+                            coordinator.handlingHardwareReturn = true
+                            defer { coordinator.handlingHardwareReturn = false }
                             textView.insertText("\n")
                             return false
                         }
                     })
                 }
-                if !remaining.isEmpty { original(object, selector, remaining as NSSet, event) }
+                if !remaining.isEmpty {
+                    MainActor.assumeIsolated {
+                        guard let textView = object as? UITextView, let coordinator = coordinator(for: textView) else {
+                            return original(object, selector, remaining as NSSet, event)
+                        }
+                        coordinator.handlingHardwareReturn = true
+                        defer { coordinator.handlingHardwareReturn = false }
+                        original(object, selector, remaining as NSSet, event)
+                    }
+                }
             }
             replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
         }
@@ -305,6 +319,26 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
                 }
             }
             return resigned
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+
+    /// Complete only a single software Return being delivered now, never a binding edit or undo/redo replay.
+    private static func patchSoftwareReturn(_ type: AnyClass) {
+        typealias Function = @convention(c) (AnyObject, Selector, String) -> Void
+        let selector = #selector(UIKeyInput.insertText(_:))
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+        let block: @convention(block) (AnyObject, String) -> Void = { object, text in
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard text == "\n", let textView = object as? UITextView,
+                      textView.isFirstResponder, textView.isEditable, textView.isUserInteractionEnabled,
+                      textView.markedTextRange == nil, textView.undoManager?.isUndoing != true,
+                      textView.undoManager?.isRedoing != true, let coordinator = coordinator(for: textView),
+                      !coordinator.handlingHardwareReturn, !coordinator.pasting else { return false }
+                return coordinator.returnActions?.completeSlashCommand() == true
+            }
+            if !handled { original(object, selector, text) }
         }
         replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
     }
