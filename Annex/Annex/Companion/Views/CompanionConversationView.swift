@@ -474,6 +474,13 @@ struct CompanionConversationView: View {
                         readingViewport.isScrollingToTop = false
                     }
                     if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
+                    // Rotation can reflow the rows and resize the inset viewport in separate passes.
+                    // The default size-change anchor alone can retain the old tail's offset.
+                    if followLatest, !readingViewport.isInteracting, !readingViewport.gesture.hasStarted,
+                       !readingViewport.isRestoring,
+                       old.containerSize != new.containerSize || old.contentInsets != new.contentInsets {
+                        proxy.scrollTo("latest", anchor: .bottom)
+                    }
                     if readingViewport.isRestoring {
                         guard let restoreOffset = readingViewport.restoreOffset,
                               abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
