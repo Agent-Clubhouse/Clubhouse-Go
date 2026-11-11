@@ -1,8 +1,9 @@
 {
   "repository": "Agent-Clubhouse/Clubhouse",
-  "commit": "6beddd7e5082daf8e328c2642621af9fa51c95ce",
+  "commit": "6ea44acbefcbbcd201409c226016b554ad0b3b8c",
+  "note": "unmerged PR #3316",
   "files": {
-    "capabilities.json": "84d544d46b6e06b7ce18691d53d646de55119959619281cf70f5cf10db4b0a17",
+    "capabilities.json": "b40033037ba2154b87afa8b79d9cc1a3774d98dfb1c341a9c4be31e5eeca7aff",
     "snapshot-icon-refs.json": "936c6a1335355d42f73702beee9e73f8fc6127fb89ae651d4dfa9c3b2079c7a5",
     "snapshot-icon-refs-changed.json": "6a543f77d63da1bf44763cb6c1912b6897ce2af711ebabb93fd960d5b542290a",
     "icon-images.json": "06e4474c2075db55847d8d9f2015ccd0c1ea092bc80bc515d85909850814749e",

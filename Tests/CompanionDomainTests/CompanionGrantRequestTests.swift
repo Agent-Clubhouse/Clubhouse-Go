@@ -61,7 +61,7 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         let rows = CompanionLiveService.grantRequests(from: try ContractFixtures.json("snapshot-grant-requests.json")["value"] ?? .null, hostID: "mac")
         try #require(rows.count == 2)
         let call = rows[0], grant = rows[1]
-        #expect(call.id == "grant_00000000-0000-4000-8000-000000000006" && call.kind == .call)
+        #expect(call.id == "grant_00000000-0000-4000-8000-000000000008" && call.kind == .call)
         #expect(call.agentTarget == .init(hostID: "mac", projectID: "__dispatcher__", agentID: "durable_dispatcher") && call.agentName == "Dispatcher")
         #expect(call.actionLabels == ["Manage devices"] && call.whereLabel == "the app" && call.toolName == "remove_device")
         #expect(call.summary == "Wants to run remove_device, which needs: Manage devices on the app.")
@@ -72,7 +72,7 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         #expect(call.answers == [.allowOnce, .decline] && call.allowAnswer == .allowOnce && call.canDecline)
         #expect(try #require(call.expiresAt).timeIntervalSince(try #require(call.requestedAt)) == 24 * 3600)
 
-        #expect(grant.id == "grant_00000000-0000-4000-8000-000000000007" && grant.kind == .grant)
+        #expect(grant.id == "grant_00000000-0000-4000-8000-000000000009" && grant.kind == .grant)
         #expect(grant.agentTarget == .init(hostID: "mac", projectID: "proj_app", agentID: "durable_chat") && grant.agentName == "planner")
         #expect(grant.toolName == nil && grant.detail == nil && grant.arguments == nil && grant.reason == "To set the cheap model for easy tasks.")
         #expect(grant.answers == [.allowLasting, .decline] && grant.allowAnswer == .allowLasting)
@@ -100,7 +100,8 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
             let answer = try #require(request["answer"]?.string.flatMap(CompanionGrantRequest.Answer.init(rawValue:)), "\(item["name"]?.string ?? "")")
             let wire = try #require(AnnexCommand.GrantAnswer(rawValue: answer.rawValue))
             let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string),
-                                       kind: .answerGrant(requestID: try #require(request["requestId"]?.string), answer: wire))
+                                       kind: .answerGrant(requestID: try #require(request["requestId"]?.string), answer: wire,
+                                                          updateMode: request["updateMode"]?.string.flatMap(AnnexUpdateMode.init(rawValue:))))
             #expect(try JSONDecoder().decode(AnnexJSON.self, from: command.encoded()) == request)
         }
     }
@@ -250,8 +251,8 @@ private final class GrantTransport: AnnexTransporting, @unchecked Sendable {
 
 @Suite @MainActor struct CompanionGrantRequestLiveTests {
     static let hostID = "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef"
-    static let callID = "grant_00000000-0000-4000-8000-000000000006"
-    static let askID = "grant_00000000-0000-4000-8000-000000000007"
+    static let callID = "grant_00000000-0000-4000-8000-000000000008"
+    static let askID = "grant_00000000-0000-4000-8000-000000000009"
 
     private func snapshot(_ rows: AnnexJSON? = nil) throws -> AnnexJSON {
         guard case .object(var frame)? = try ContractFixtures.json("snapshot.json")["frame"], case .object(var payload)? = frame["payload"] else {

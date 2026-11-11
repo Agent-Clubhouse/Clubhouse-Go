@@ -48,6 +48,10 @@ import ClubhouseTransport
     /// A command as first sent, for its retries. Keyed by machine too: a command id names one command on one desktop,
     /// and the desktop ties its receipt to the command as sent, agent reference included.
     private var savedCommands: [CompanionCommandKey: AnnexCommand] = [:]
+    private var expiredCommandIDs: Set<CompanionCommandKey> = []
+    private var requestedUpdateVersions: [String: String] = [:]
+    private var updateEpochChanged: Set<String> = []
+    private var snapshotEpochs: [String: String] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
     /// Called when a host stops answering at its saved address while the app is active.
@@ -596,9 +600,23 @@ import ClubhouseTransport
         emitHosts()
     }
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
+        try await answerGrantRequest(request, answer: answer, updateMode: nil, clientCommandID: clientCommandID)
+    }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws {
         guard capabilities[request.hostID]?.supportsGrantRequests == true else { throw CompanionServiceError.unavailable(CompanionGrantRequestError.updateDesktop) }
+        guard !request.isAppUpdate || (capabilities[request.hostID]?.supportsAppUpdate == true && request.update != nil) else {
+            throw CompanionServiceError.rejected("Reconnect to a desktop that supports update approvals.")
+        }
+        guard (request.isAppUpdate && answer == .allowOnce) == (updateMode != nil) else {
+            throw CompanionServiceError.rejected("Choose Restart now or When idle before allowing an update.")
+        }
         guard let wire = AnnexCommand.GrantAnswer(rawValue: answer.rawValue) else { throw CompanionServiceError.rejected(CompanionGrantRequestError.message(code: "", message: nil)) }
-        let receipt = try await execute(.answerGrant(requestID: request.id, answer: wire), id: clientCommandID, hostID: request.hostID, validateReceipt: false)
+        if request.isAppUpdate, answer == .allowOnce { requestedUpdateVersions[request.hostID] = request.update?.version }
+        let receipt = try await execute(.answerGrant(requestID: request.id, answer: wire, updateMode: updateMode), id: clientCommandID, hostID: request.hostID, validateReceipt: false)
+        if request.isAppUpdate, receipt.status != .completed {
+            requestedUpdateVersions[request.hostID] = nil
+            await reconnect(hostID: request.hostID)
+        }
         switch receipt.status {
         case .completed:
             dropGrantRequests([request.id], hostID: request.hostID)
@@ -612,6 +630,23 @@ import ClubhouseTransport
         default:
             if let error = Self.receiptError(receipt) { throw error }
         }
+    }
+    func requestAppUpdate(hostID: String, clientCommandID: String) async throws {
+        try await appUpdateCommand(.requestAppUpdate, hostID: hostID, id: clientCommandID)
+    }
+    func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
+        try await appUpdateCommand(.cancelAppUpdate(requestID: requestID), hostID: hostID, id: clientCommandID)
+    }
+    private func appUpdateCommand(_ kind: AnnexCommand.Kind, hostID: String, id: String) async throws {
+        guard capabilities[hostID]?.supportsAppUpdate == true else {
+            throw CompanionServiceError.unavailable("This desktop cannot apply updates from your phone.")
+        }
+        let receipt = try await execute(kind, id: id, hostID: hostID, validateReceipt: false)
+        if let error = Self.receiptError(receipt) {
+            await reconnect(hostID: hostID)
+            throw error
+        }
+        // Events can precede this receipt. Never replace newer status with its older request result.
     }
     private func dropGrantRequests(_ ids: [String], hostID: String) {
         resolvedGrantRequests[hostID, default: []].formUnion(ids)
@@ -634,7 +669,8 @@ import ClubhouseTransport
                          agentName: item["agent"]?["name"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? agentID,
                          actionLabels: labels, whereLabel: text("where"), toolName: text("toolName"), summary: summary,
                          detail: text("detail"), arguments: text("arguments"), reason: text("reason"), allowEffect: text("allowEffect"),
-                         requestedAt: item["requestedAt"].flatMap(date(from:)), expiresAt: item["expiresAt"].flatMap(date(from:)), answers: answers)
+                         requestedAt: item["requestedAt"].flatMap(date(from:)), expiresAt: item["expiresAt"].flatMap(date(from:)), answers: answers,
+                         update: try? item["update"]?.decode(AnnexUpdateReview.self))
         }
     }
     /// The snapshot's `helperRequests`. An entry without an id, kind, project or requester is skipped.
@@ -784,6 +820,9 @@ import ClubhouseTransport
         dispatcherCatalog.removeValue(forKey: hostID)
         dispatcherFlags.removeValue(forKey: hostID)
         dispatcherMCPOff.removeValue(forKey: hostID)
+        requestedUpdateVersions.removeValue(forKey: hostID)
+        snapshotEpochs.removeValue(forKey: hostID)
+        updateEpochChanged.remove(hostID)
         projections = projections.filter { $0.key.hostID != hostID }
         emitHosts()
     }
@@ -868,6 +907,9 @@ import ClubhouseTransport
         try validateDispatcherCommand(kind, hostID: hostID)
         guard let caps = capabilities[hostID] else { throw CompanionServiceError.unavailable("This desktop does not support mobile control. Update Clubhouse on desktop and reconnect.") }
         let key = CompanionCommandKey(hostID: hostID, commandID: id)
+        guard !expiredCommandIDs.contains(key) else {
+            throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.")
+        }
         let command = savedCommands[key] ?? AnnexCommand(commandID: id, epoch: caps.epoch, kind: kind)
         guard command.epoch == caps.epoch else { throw CompanionServiceError.uncertain("The desktop restarted. Refresh the conversation to check the previous command.") }
         savedCommands[key] = command
@@ -1016,6 +1058,8 @@ import ClubhouseTransport
                     await onNetwork?(hostID, snapshot)
                 }
             case "snapshot":
+                snapshotEpochs[hostID] = envelope.epoch
+                applyAppUpdate(payload["appUpdate"], hostID: hostID)
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 let dispatcherBefore = dispatcherCatalog[hostID]
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
@@ -1067,6 +1111,9 @@ import ClubhouseTransport
             case "grant_request:resolved":
                 // Answered anywhere, expired or withdrawn. Ids never seen are fine.
                 dropGrantRequests(payload["requestIds"].arrayValue.compactMap(\.string), hostID: hostID)
+            case "app_update:changed":
+                applyAppUpdate(payload, hostID: hostID)
+                emitHosts()
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
                 if let theme = Self.theme(from: payload, terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme; emitHosts() }
@@ -1136,8 +1183,24 @@ import ClubhouseTransport
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             if rawCaps != nil {
                 knownCapabilities.insert(hostID)
-                if capabilities[hostID]?.epoch != newCapabilities?.epoch { clearFullReviews(hostID: hostID) }
+                if capabilities[hostID]?.epoch != newCapabilities?.epoch {
+                    clearFullReviews(hostID: hostID)
+                    if let nextEpoch = newCapabilities?.epoch, let previousEpoch = hosts[hostID]?.controlEpoch, previousEpoch != nextEpoch {
+                        let old = savedCommands.keys.filter { $0.hostID == hostID }
+                        expiredCommandIDs.formUnion(old)
+                        for key in old { savedCommands[key] = nil }
+                        resolvedGrantRequests[hostID] = nil
+                        updateEpochChanged.insert(hostID)
+                        if snapshotEpochs[hostID] != newCapabilities?.epoch {
+                            hosts[hostID]?.appUpdate = nil
+                            hosts[hostID]?.grantRequests = []
+                        }
+                    }
+                }
                 capabilities[hostID] = newCapabilities
+                if let epoch = newCapabilities?.epoch { hosts[hostID]?.controlEpoch = epoch }
+                hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
+                reconcileUpdateOutcome(hostID: hostID)
                 hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
                 hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
@@ -1195,6 +1258,32 @@ import ClubhouseTransport
             hosts[hostID]?.connection = .failed(Self.readableError(error))
         }
         emitHosts()
+    }
+
+    private func applyAppUpdate(_ value: AnnexJSON?, hostID: String) {
+        guard let value else { hosts[hostID]?.appUpdate = nil; return }
+        do {
+            let update = try value.decode(AnnexAppUpdate.self)
+            hosts[hostID]?.appUpdate = update
+            hosts[hostID]?.appUpdateError = nil
+            if let request = update.request, request.state == .restarting || request.state == .waitingForIdle {
+                requestedUpdateVersions[hostID] = request.version
+            } else if update.request?.state == .failed || update.request?.state == .cancelled {
+                requestedUpdateVersions[hostID] = nil
+            }
+            reconcileUpdateOutcome(hostID: hostID)
+        } catch {
+            hosts[hostID]?.appUpdate = nil
+            hosts[hostID]?.appUpdateError = "The desktop sent update status this phone cannot read. Reconnect to refresh it."
+        }
+    }
+    private func reconcileUpdateOutcome(hostID: String) {
+        guard updateEpochChanged.contains(hostID), let update = hosts[hostID]?.appUpdate, update.request == nil else { return }
+        updateEpochChanged.remove(hostID)
+        guard let requested = requestedUpdateVersions.removeValue(forKey: hostID) else { return }
+        hosts[hostID]?.appUpdateOutcome = update.currentVersion == requested
+            ? "Updated to \(update.currentVersion)."
+            : "The desktop is running \(update.currentVersion). Update to \(requested) is unconfirmed. Nothing will be retried automatically."
     }
 
     /// One agent's live state, from the desktop's bulk `agentState` read or, on older desktops, a one-event chat page.
@@ -1531,6 +1620,9 @@ import ClubhouseTransport
         try validateDispatcherCommand(kind, hostID: target.hostID)
         guard let caps = capabilities[target.hostID] else { throw CompanionServiceError.unavailable("Reconnect to the desktop.") }
         let key = CompanionCommandKey(hostID: target.hostID, commandID: id)
+        guard !expiredCommandIDs.contains(key) else {
+            throw CompanionServiceError.uncertain("The desktop restarted. The previous action's outcome is still unknown. Check the agent on the desktop before another action.")
+        }
         if let previous = savedCommands[key], Date().timeIntervalSince(previous.createdAt) * 1000 >= Double(caps.idempotency.ttlMs) {
             throw CompanionServiceError.uncertain("The desktop's retry window expired. The previous action's outcome is still unknown. Check the agent on the desktop before another action.")
         }

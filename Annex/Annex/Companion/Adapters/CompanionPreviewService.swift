@@ -45,6 +45,13 @@ import ClubhouseTransport
         false
         #endif
     }()
+    var showsAppUpdate: Bool = {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-app-update")
+        #else
+        false
+        #endif
+    }()
     private let showsHelperPresets: Bool
     private let showsAutoQuota: Bool
     static let dispatcherTarget = CompanionTarget(hostID: "preview-studio", projectID: CompanionDispatcher.defaultProjectID, agentID: "durable_dispatcher")
@@ -117,6 +124,13 @@ import ClubhouseTransport
             if Self.showsGrantRequests {
                 hosts[0].canAnswerGrantRequests = true
                 hosts[0].grantRequests = Self.grantRequests
+            }
+            if self.showsAppUpdate {
+                hosts[0].canUpdateApp = true
+                hosts[0].canAnswerGrantRequests = true
+                hosts[0].controlEpoch = "preview-update-epoch"
+                hosts[0].dispatcher = Self.dispatcher(now: Date())
+                hosts[0].appUpdate = Self.previewAppUpdate()
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
                let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
@@ -609,6 +623,38 @@ import ClubhouseTransport
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
         if Self.showsGrantRequests { return }
         throw previewError
+    }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws {
+        guard showsAppUpdate, request.isAppUpdate else {
+            try await answerGrantRequest(request, answer: answer, clientCommandID: clientCommandID)
+            return
+        }
+        guard answer == .decline || updateMode != nil else { throw previewError }
+        sentHosts[0].grantRequests.removeAll { $0.id == request.id }
+        sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: request.id,
+            state: answer == .decline ? .cancelled : updateMode == .whenIdle ? .waitingForIdle : .restarting, version: "1.1.0"))
+        continuation?.yield(.hosts(sentHosts))
+    }
+    func requestAppUpdate(hostID: String, clientCommandID: String) async throws {
+        guard showsAppUpdate else { throw previewError }
+        let request = CompanionGrantRequest(id: "grant_preview_update", hostID: hostID, projectID: CompanionDispatcher.defaultProjectID,
+            kind: .call, agentID: Self.dispatcherTarget.agentID, agentName: "Dispatcher", actionLabels: ["Update Clubhouse"],
+            whereLabel: "the app", toolName: "request_app_update", summary: "Update Clubhouse to 1.1.0",
+            detail: "Working agents that Restart now would interrupt: River.", arguments: "{\"version\":\"1.1.0\"}",
+            allowEffect: CompanionAppUpdateText.restart, expiresAt: Date().addingTimeInterval(86_400), answers: [.allowOnce, .decline],
+            update: .init(version: "1.1.0", workingAgents: [.init(agentId: Self.target.agentID, name: "River")]))
+        sentHosts[0].grantRequests = [request]
+        sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: request.id, state: .pendingApproval, version: "1.1.0"))
+        continuation?.yield(.hosts(sentHosts))
+    }
+    func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
+        guard showsAppUpdate else { throw previewError }
+        sentHosts[0].grantRequests = []
+        sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: requestID, state: .cancelled, version: "1.1.0"))
+        continuation?.yield(.hosts(sentHosts))
+    }
+    private static func previewAppUpdate(request: AnnexAppUpdate.Request? = nil) -> AnnexAppUpdate {
+        .init(state: .ready, currentVersion: "1.0.0", availableVersion: "1.1.0", downloadProgress: 100, request: request)
     }
     #if DEBUG
     private static var showsGrantRequests: Bool { ProcessInfo.processInfo.arguments.contains("--companion-preview-grant-requests") }

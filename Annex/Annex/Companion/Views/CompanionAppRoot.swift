@@ -384,6 +384,7 @@ struct CompanionSettingsSheet: View {
                             Label(host.name, systemImage: "desktopcomputer").font(.headline)
                             Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
                             Text(host.connection.label).font(.caption)
+                            CompanionAppUpdateLink(store: runtime.store, host: host)
                             if case .failed(let message) = host.connection {
                                 Text(message).font(.subheadline).foregroundStyle(.secondary)
                             }

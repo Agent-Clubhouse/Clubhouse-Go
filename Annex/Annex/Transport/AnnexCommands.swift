@@ -40,7 +40,9 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case clearDispatcherChat(expectedState: String)
         case forgetDispatcherEverything(expectedState: String)
         /// Answers a Clubhouse grant request (`grantRequests` v1): an Ask-first call or an agent's `request_grant` ask.
-        case answerGrant(requestID: String, answer: GrantAnswer)
+        case answerGrant(requestID: String, answer: GrantAnswer, updateMode: AnnexUpdateMode? = nil)
+        case requestAppUpdate
+        case cancelAppUpdate(requestID: String)
     }
     /// What `grant.answer` takes. Offer only those the request's `answers` list.
     public enum GrantAnswer: String, Sendable, Equatable, CaseIterable {
@@ -72,7 +74,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .update(let update): update.agentID
         case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
              .setDispatcherEnabled, .updateHelperRouting, .updateDispatcher, .setDispatcherModels, .clearDispatcherChat, .forgetDispatcherEverything,
-             .answerGrant:
+             .answerGrant, .requestAppUpdate, .cancelAppUpdate:
             nil
         }
     }
@@ -105,6 +107,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearDispatcherChat: "dispatcher.clearChat"
         case .forgetDispatcherEverything: "dispatcher.forgetEverything"
         case .answerGrant: "grant.answer"
+        case .requestAppUpdate: "app.update.request"
+        case .cancelAppUpdate: "app.update.cancel"
         }
     }
     /// The desktop's permission ladder, lowest first. `chat.setLevel` refuses anything else.
@@ -200,9 +204,17 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearDispatcherChat(let expectedState), .forgetDispatcherEverything(let expectedState):
             guard !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
             v["expectedState"] = .string(expectedState)
-        case .answerGrant(let request, let answer):
+        case .requestAppUpdate: break
+        case .cancelAppUpdate(let request):
+            guard !request.isEmpty, request.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            v["requestId"] = .string(request)
+        case .answerGrant(let request, let answer, let updateMode):
             guard !request.isEmpty, request.count <= 256 else { throw AnnexTransportError.malformedResponse }
             v["requestId"] = .string(request); v["answer"] = .string(answer.rawValue)
+            if let updateMode {
+                guard answer == .allowOnce else { throw AnnexTransportError.malformedResponse }
+                v["updateMode"] = .string(updateMode.rawValue)
+            }
         }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return try encoder.encode(AnnexJSON.object(v))
@@ -506,6 +518,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         private enum CodingKeys: String, CodingKey { case version, snapshotField, answers, commands }
     }
     public let grantRequests: GrantRequests?
+    public let appUpdate: AnnexAppUpdateCapability?
+    public var supportsAppUpdate: Bool {
+        appUpdate?.isSupported == true && supportsGrantRequests
+            && commands.contains("app.update.request") && commands.contains("app.update.cancel")
+    }
     /// Grant requests are listed and can be answered (`grant.answer` with grant requests v1).
     public var supportsGrantRequests: Bool { commands.contains("grant.answer") && (grantRequests?.version ?? 0) >= 1 }
     /// Finished quick agents are shared with the desktop. Older desktops leave the list on the phone.
@@ -610,6 +627,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         helperRouting = optional(.helperRouting)
         helperRequests = optional(.helperRequests)
         grantRequests = optional(.grantRequests)
+        appUpdate = optional(.appUpdate)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
         dispatcher = optional(.dispatcher)
@@ -617,7 +635,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
-        case grantRequests
+        case grantRequests, appUpdate
     }
 }
 

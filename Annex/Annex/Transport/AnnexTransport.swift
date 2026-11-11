@@ -254,6 +254,7 @@ public actor AnnexTransport: AnnexTransporting {
                 // Any refused capability document withdraws command authority; never keep a stale epoch.
                 do {
                     let (value, decoded) = try Self.validatedCapabilities(response)
+                    commands = commands.filter { $0.key.epoch == decoded.epoch }
                     capabilities = decoded
                     return value
                 } catch { capabilities = nil; throw error }
@@ -282,6 +283,9 @@ public actor AnnexTransport: AnnexTransporting {
             // Check the exact bytes that will be sent, before reserving a command or doing any IO.
             guard data.count <= 1_048_576 else { throw AnnexTransportError.commandTooLarge }
             let now = clock.now()
+            if let capabilities, capabilities.epoch != command.epoch {
+                throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)
+            }
             let ttl = min(3600, max(1, Double(capabilities?.idempotency.ttlMs ?? 3600000) / 1000))
             guard now.timeIntervalSince(command.createdAt) < ttl else {
                 throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID)

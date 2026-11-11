@@ -1,6 +1,7 @@
 {
-  "commit": "6beddd7e5082daf8e328c2642621af9fa51c95ce",
+  "note": "unmerged PR #3316; re-sync from main after Agent-Clubhouse/Clubhouse#3316 lands",
+  "commit": "6ea44acbefcbbcd201409c226016b554ad0b3b8c",
   "path": "test/fixtures/annex-mobile",
-  "ref": "6beddd7e5082daf8e328c2642621af9fa51c95ce",
+  "ref": "6ea44acbefcbbcd201409c226016b554ad0b3b8c",
   "repository": "Agent-Clubhouse/Clubhouse"
 }

@@ -107,6 +107,11 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// Clubhouse permission requests waiting on the user, oldest first, from the desktop's snapshot. A Manage devices
     /// call that names this device is never listed: only the desktop or another device can answer it.
     var grantRequests: [CompanionGrantRequest] = []
+    var controlEpoch: String?
+    var canUpdateApp = false
+    var appUpdate: AnnexAppUpdate?
+    var appUpdateError: String?
+    var appUpdateOutcome: String?
     /// The desktop offers `projectState` v1 with `project.setPinned` and `project.setInactive`.
     var canSyncProjectState = false
     /// Each project's pins, mark and idle flag from the snapshot. Nil until the desktop sends it (after its one-time migration).
@@ -299,6 +304,8 @@ struct CompanionGrantRequest: Identifiable, Sendable, Equatable {
     var expiresAt: Date?
     /// What this request takes, in the desktop's order.
     var answers: [Answer]
+    var update: AnnexUpdateReview?
+    var isAppUpdate: Bool { update != nil || toolName == "request_app_update" }
 
     /// The agent whose Needs you row shows it.
     var agentTarget: CompanionTarget { .init(hostID: hostID, projectID: projectID, agentID: agentID) }
@@ -876,6 +883,9 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws
     /// `grant.answer`: answers a Clubhouse grant request. A retry with the same `clientCommandID` replays the desktop's receipt.
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws
+    func requestAppUpdate(hostID: String, clientCommandID: String) async throws
+    func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws
     /// The project root's uncommitted files. Read-only.
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges
     /// One uncommitted file's diff.
@@ -999,6 +1009,16 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable(CompanionGrantRequestError.updateDesktop)
+    }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws {
+        guard updateMode == nil else { throw CompanionServiceError.unavailable("This service cannot approve desktop updates.") }
+        try await answerGrantRequest(request, answer: answer, clientCommandID: clientCommandID)
+    }
+    func requestAppUpdate(hostID: String, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop cannot request updates from your phone.")
+    }
+    func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop cannot cancel updates from your phone.")
     }
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
         throw CompanionServiceError.unavailable("This desktop can't show its changes.")
