@@ -14,6 +14,9 @@ private actor UpdateDesktop: AnnexTransporting {
     var capabilityReads = 0
     var continuation: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation?
     var rows: AnnexJSON = .array([])
+    var holdCapabilities = false
+    var capabilityGate: CheckedContinuation<Void, Never>?
+    var includesSnapshotEpoch = true
     init() throws {
         update = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"])
     }
@@ -28,9 +31,10 @@ private actor UpdateDesktop: AnnexTransporting {
         try snapshot()
     }
     func disconnect() { continuation?.yield(.connection(.disconnected)) }
-    func read(_ route: AnnexReadRoute) throws -> AnnexJSON {
+    func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         switch route {
         case .capabilities:
+            if holdCapabilities { await withCheckedContinuation { capabilityGate = $0 } }
             capabilityReads += 1
             guard case .object(var value) = try ContractFixtures.body("capabilities.json") else { throw AnnexTransportError.malformedResponse }
             value["epoch"] = .string(epoch)
@@ -48,7 +52,9 @@ private actor UpdateDesktop: AnnexTransporting {
         payload["grantRequests"] = rows
         payload["dispatcher"] = try ContractFixtures.json("snapshot-dispatcher.json")["value"]
             ?? ContractFixtures.json("snapshot-dispatcher.json")["frame"]?["payload"]?["dispatcher"]
-        continuation?.yield(.message(.init(type: "snapshot", payload: .object(payload), epoch: epoch)))
+        var envelope = AnnexEnvelope(type: "snapshot", payload: .object(payload), epoch: includesSnapshotEpoch ? epoch : nil)
+        envelope.controlEpoch = epoch
+        continuation?.yield(.message(envelope))
     }
     func openApproval() throws {
         rows = .array([try #require(ContractFixtures.json("snapshot-app-update-approval.json")["grantRequest"])])
@@ -59,6 +65,10 @@ private actor UpdateDesktop: AnnexTransporting {
         continuation?.yield(.message(.init(type: "app_update:changed", payload: value)))
     }
     func setLostReply(_ value: Bool) { lostReply = value }
+    func pauseCapabilities() { holdCapabilities = true }
+    func releaseCapabilities() { holdCapabilities = false; capabilityGate?.resume(); capabilityGate = nil }
+    var capabilitiesArePaused: Bool { capabilityGate != nil }
+    func omitSnapshotEpoch() { includesSnapshotEpoch = false }
     func setFailure(_ value: String?) { receiptFailure = value }
     func setBeforeReceipt(_ value: AnnexJSON) { beforeReceipt = value }
     func withdrawUpdateCapability() { supportsUpdate = false }
@@ -103,9 +113,9 @@ private actor UpdateDesktop: AnnexTransporting {
         }
         throw AnnexTransportError.disconnected
     }
-    private func connect() async throws -> (CompanionLiveService, CompanionStore, UpdateDesktop) {
+    private func connect(iconStore: CompanionIconStore = .shared) async throws -> (CompanionLiveService, CompanionStore, UpdateDesktop) {
         let desktop = try UpdateDesktop()
-        let service = CompanionLiveService()
+        let service = CompanionLiveService(iconStore: iconStore)
         let store = CompanionStore(service: service)
         store.start()
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 7432), verifiedHostID: Self.id,
@@ -216,6 +226,9 @@ private actor UpdateDesktop: AnnexTransporting {
         guard case .hosts(let pending) = await events.next() else { Issue.record("Missing preview approval"); return }
         let request = try #require(pending.first?.grantRequests.first)
         #expect(request.isAppUpdate && request.update?.workingAgents.first?.name == "River")
+        let store = CompanionStore(service: service)
+        store.apply(.hosts(pending))
+        #expect(store.canAnswer(request))
         await #expect(throws: CompanionServiceError.self) {
             try await service.answerGrantRequest(request, answer: .allowOnce, updateMode: nil, clientCommandID: "no-choice")
         }
@@ -274,5 +287,149 @@ private actor UpdateDesktop: AnnexTransporting {
         await store.answer(request, with: .allowOnce, updateMode: .now)
         await store.requestAppUpdate(hostID: Self.id)
         #expect(await desktop.sent.isEmpty)
+    }
+
+    @Test func qaLostUpdateRequestReusesItsCommandID() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "ready" && $0["request"] == .null
+        })
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.setLostReply(true)
+        await store.requestAppUpdate(hostID: Self.id)
+        await store.requestAppUpdate(hostID: Self.id)
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0].commandID == sent[1].commandID,
+                "A lost reply must not turn a retry into a new request")
+    }
+
+    @Test func qaNewEpochCannotPublishThePreviousEpochsApprovalWhileSnapshotWaitsForIcons() async throws {
+        let icons = CompanionIconStore()
+        let (service, store, desktop) = try await connect(iconStore: icons)
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        try await desktop.openApproval()
+        try await wait { store.hosts.first?.grantRequests.count == 1 }
+        let oldRequest = try #require(store.hosts.first?.grantRequests.first)
+        let (entered, enteredContinuation) = AsyncStream<Void>.makeStream()
+        let release = DispatchSemaphore(value: 0)
+        let blocker = Task.detached { await icons.qaHoldActor(entered: enteredContinuation, release: release) }
+        for await _ in entered { break }
+        defer { release.signal() }
+        await desktop.restart(version: "1.1.0")
+        await desktop.pauseCapabilities()
+        await service.reconnect(hostID: Self.id)
+        try await wait { await desktop.capabilitiesArePaused }
+        try await Task.sleep(for: .milliseconds(100))
+        await desktop.releaseCapabilities()
+        try await wait { store.hosts.first?.controlEpoch == "new-epoch" && store.hosts.first?.connection == .connected }
+        #expect(store.hosts.first?.grantRequests.isEmpty == true,
+                "Publishing the new epoch must retire old approvals before awaiting icon work")
+        #expect(!store.canAnswer(oldRequest))
+        release.signal()
+        await blocker.value
+    }
+
+    @Test(arguments: [false, true])
+    func lostUpdateRepliesRequireExplicitRetriesAndDoNotSurviveANewEpoch(cancel: Bool) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let value = try #require(cancel
+            ? ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"]
+            : ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+                $0["state"]?.string == "ready" && $0["request"] == .null
+            })
+        let expected = try value.decode(AnnexAppUpdate.self)
+        try await desktop.change(value)
+        try await wait { store.hosts.first?.appUpdate == expected }
+        let perform: @MainActor () async -> Void = {
+            if cancel { await store.cancelAppUpdate(hostID: Self.id) }
+            else { await store.requestAppUpdate(hostID: Self.id) }
+        }
+        await desktop.setLostReply(true)
+        await perform()
+        #expect(store.appUpdateErrors[Self.id]?.contains("reply was lost") == true)
+        await service.reconnect(hostID: Self.id)
+        try await wait { store.hosts.first?.connection == .connected && store.hosts.first?.appUpdate == expected }
+        #expect(await desktop.sent.count == 1, "Reconnect never retries an unknown outcome")
+        await desktop.setLostReply(false)
+        await perform()
+        let recovered = await desktop.sent
+        try #require(recovered.count == 2)
+        #expect(recovered[0] == recovered[1], "An explicit retry recovers the original command's receipt")
+        #expect(store.appUpdateErrors[Self.id] == nil)
+        await desktop.setLostReply(true)
+        await perform()
+        let previousAttempt = try #require(await desktop.sent.last)
+        #expect(previousAttempt.commandID != recovered[1].commandID, "A completed attempt is not reused")
+        await desktop.restart(version: "1.1.0")
+        await service.reconnect(hostID: Self.id)
+        try await wait { store.hosts.first?.connection == .connected && store.hosts.first?.controlEpoch == "new-epoch" }
+        #expect(await desktop.sent.count == 3, "A new epoch never replays old attempts")
+        #expect(store.appUpdateErrors[Self.id] == nil)
+        try await desktop.change(value)
+        try await wait { store.hosts.first?.appUpdate == expected }
+        await perform()
+        let currentAttempt = try #require(await desktop.sent.last)
+        #expect(await desktop.sent.count == 4)
+        #expect(currentAttempt.commandID != previousAttempt.commandID)
+        #expect(currentAttempt.epoch == "new-epoch")
+    }
+
+    @Test func anUncertainRequestAndCancellationKeepIndependentRetryIDs() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        await desktop.setLostReply(true)
+        await store.cancelAppUpdate(hostID: Self.id)
+        let pending = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"])
+        let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "ready" && $0["request"] == .null
+        })
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await store.requestAppUpdate(hostID: Self.id)
+        try await desktop.change(pending)
+        try await wait { store.hosts.first?.appUpdate?.request?.canCancel == true }
+        await store.cancelAppUpdate(hostID: Self.id)
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await store.requestAppUpdate(hostID: Self.id)
+        let sent = await desktop.sent
+        try #require(sent.count == 4)
+        #expect(sent[0] == sent[2] && sent[1] == sent[3])
+        #expect(sent[0].commandID != sent[1].commandID)
+    }
+
+    @Test func anOldApprovalCannotAnswerAnIdenticalRequestIDInTheNewEpoch() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        await desktop.omitSnapshotEpoch()
+        try await desktop.openApproval()
+        try await wait { store.hosts.first?.grantRequests.count == 1 }
+        let oldRequest = try #require(store.hosts.first?.grantRequests.first)
+        await desktop.restart(version: "1.1.0")
+        await service.reconnect(hostID: Self.id)
+        try await wait { store.hosts.first?.controlEpoch == "new-epoch" && store.hosts.first?.connection == .connected }
+        try await desktop.openApproval()
+        try await wait { store.hosts.first?.grantRequests.count == 1 }
+        let currentRequest = try #require(store.hosts.first?.grantRequests.first)
+        #expect(oldRequest.id == currentRequest.id)
+        #expect(!store.canAnswer(oldRequest) && store.canAnswer(currentRequest))
+        await store.answer(oldRequest, with: .allowOnce, updateMode: .now)
+        await #expect(throws: CompanionServiceError.self) {
+            try await service.answerGrantRequest(oldRequest, answer: .allowOnce, updateMode: .now, clientCommandID: "fresh-id-for-stale-row")
+        }
+        #expect(await desktop.sent.isEmpty)
+        await store.answer(currentRequest, with: .decline)
+        #expect(await desktop.sent.count == 1)
+    }
+}
+
+private extension CompanionIconStore {
+    func qaHoldActor(entered: AsyncStream<Void>.Continuation, release: DispatchSemaphore) {
+        entered.yield(())
+        release.wait()
     }
 }

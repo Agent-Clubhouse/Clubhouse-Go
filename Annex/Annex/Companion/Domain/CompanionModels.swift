@@ -305,6 +305,7 @@ struct CompanionGrantRequest: Identifiable, Sendable, Equatable {
     /// What this request takes, in the desktop's order.
     var answers: [Answer]
     var update: AnnexUpdateReview?
+    var controlEpoch: String?
     var isAppUpdate: Bool { update != nil || toolName == "request_app_update" }
 
     /// The agent whose Needs you row shows it.

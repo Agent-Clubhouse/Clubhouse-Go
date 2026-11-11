@@ -18,7 +18,7 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
-Desktop updates (#359) add only Sendable update/review snapshots, String versions/epochs/notices, command-id sets and an optional restart-mode enum to Host, Store and LiveService. PreviewService adds a Bool fixture flag and reuses its value-only host snapshots. No new callbacks, UI owners, teardown work or constructor captures are introduced; their ARC-only policies remain unchanged.
+Desktop updates (#359) add only Sendable update/review snapshots, String versions/epochs/notices, command-id sets and an optional restart-mode enum to Host, Store and LiveService. Grant rows include an optional String snapshot epoch. Store's request/cancel retry map uses a value key containing only the host id, epoch and optional request id, with String command-id values. PreviewService adds a Bool fixture flag and reuses its value-only host snapshots. No new callbacks, UI owners, teardown work or constructor captures are introduced; their ARC-only policies remain unchanged.
 
 An empty nonisolated deinit can release fields on the thread performing the last release. It is not a universal workaround. UI owners and unknown callback/protocol owners retain compiler-generated isolated teardown so their fields still release on MainActor. This leaves those runtime paths vulnerable to the old allocation bug if the missing production combination occurs.
 

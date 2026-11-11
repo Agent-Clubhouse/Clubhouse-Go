@@ -8,8 +8,9 @@ private actor TestSocket: AnnexWebSocket {
     private var closed = false
     private(set) var sent: [Data] = []
     private(set) var closeCount = 0
-    init(epoch: String = "test-epoch", sequence: Int64 = 0) {
-        messages = [Data("{\"type\":\"snapshot\",\"epoch\":\"\(epoch)\",\"payload\":{\"lastSeq\":\(sequence),\"projects\":[],\"agents\":{}}}".utf8)]
+    init(epoch: String = "test-epoch", sequence: Int64 = 0, includesSnapshotEpoch: Bool = true) {
+        let epochField = includesSnapshotEpoch ? "\"epoch\":\"\(epoch)\"," : ""
+        messages = [Data("{\"type\":\"snapshot\",\(epochField)\"payload\":{\"lastSeq\":\(sequence),\"projects\":[],\"agents\":{}}}".utf8)]
     }
     func receive() async throws -> Data {
         if closed { throw AnnexTransportError.disconnected }
@@ -37,8 +38,9 @@ private actor SessionIO: AnnexIO {
     private(set) var posts = 0
     private var epoch = "test-epoch"
     private let initialSequence: Int64
-    init(identity: AnnexPairingIdentity, unauthorized: Bool = false, initialSequence: Int64 = 0) {
-        self.identity = identity; self.unauthorized = unauthorized; self.initialSequence = initialSequence
+    private let includesSnapshotEpoch: Bool
+    init(identity: AnnexPairingIdentity, unauthorized: Bool = false, initialSequence: Int64 = 0, includesSnapshotEpoch: Bool = true) {
+        self.identity = identity; self.unauthorized = unauthorized; self.initialSequence = initialSequence; self.includesSnapshotEpoch = includesSnapshotEpoch
     }
     func restart() { epoch = "new-epoch" }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
@@ -60,24 +62,25 @@ private actor SessionIO: AnnexIO {
         return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
     }
     func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket {
-        let socket = TestSocket(epoch: epoch, sequence: epoch == "test-epoch" ? initialSequence : 0)
+        let socket = TestSocket(epoch: epoch, sequence: epoch == "test-epoch" ? initialSequence : 0, includesSnapshotEpoch: includesSnapshotEpoch)
         sockets.append(socket); return socket
     }
 }
-private func sessionFixture(unauthorized: Bool = false, initialSequence: Int64 = 0) async throws -> (AnnexTransport, SessionIO) {
+private func sessionFixture(unauthorized: Bool = false, initialSequence: Int64 = 0, includesSnapshotEpoch: Bool = true) async throws -> (AnnexTransport, SessionIO) {
     let identity = AnnexPairingIdentity()
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: fingerprint,
                                   verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: host.hostID)
-    let io = SessionIO(identity: identity, unauthorized: unauthorized, initialSequence: initialSequence)
+    let io = SessionIO(identity: identity, unauthorized: unauthorized, initialSequence: initialSequence, includesSnapshotEpoch: includesSnapshotEpoch)
     let transport = AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 0.05, maximumSeconds: 0.05))
     return (transport, io)
 }
 
-@Test func desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities() async throws {
-    let (transport, io) = try await sessionFixture(initialSequence: 900)
+@Test(arguments: [false, true])
+func desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities(includesSnapshotEpoch: Bool) async throws {
+    let (transport, io) = try await sessionFixture(initialSequence: 900, includesSnapshotEpoch: includesSnapshotEpoch)
     let stream = await transport.events()
     try await transport.connect()
     let approval = AnnexCommand(commandID: "reviewed-update", epoch: "test-epoch",
@@ -86,6 +89,9 @@ private func sessionFixture(unauthorized: Bool = false, initialSequence: Int64 =
     for try await event in stream {
         if case .message(let envelope) = event, envelope.type == "snapshot" {
             snapshots += 1
+            let epoch = snapshots == 1 ? "test-epoch" : "new-epoch"
+            #expect(envelope.epoch == (includesSnapshotEpoch ? epoch : nil))
+            #expect(envelope.controlEpoch == epoch)
             if snapshots == 1 {
                 _ = try await transport.execute(approval)
                 await io.restart()

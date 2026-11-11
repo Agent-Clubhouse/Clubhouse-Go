@@ -428,6 +428,7 @@ public actor AnnexTransport: AnnexTransporting {
                       identity["fingerprint"]?.string?.lowercased() == host.hostID else { throw AnnexTransportError.identityMismatch }
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _, message: _) { capabilities = nil }
+                let controlEpoch = capabilities?.epoch
                 socketUsesIconRefs = (capabilities?.iconRefs?.version ?? 0) >= 1
                 var query = [URLQueryItem(name: "client", value: "mobile")]
                 if socketUsesIconRefs { query.append(URLQueryItem(name: "iconRefs", value: "1")) }
@@ -442,7 +443,7 @@ public actor AnnexTransport: AnnexTransporting {
                 droppedBeforeSnapshot = false; awaitingInitialReplay = false
                 if hasConnected { emit(.resyncRequired(.reconnected)) }
                 hasConnected = true
-                try await consume(newSocket, generation: current)
+                try await consume(newSocket, generation: current, controlEpoch: controlEpoch)
                 }
             } catch {
                 diagnostic.fail(error); diagnostic.end()
@@ -534,7 +535,7 @@ public actor AnnexTransport: AnnexTransporting {
         return nil
     }
 
-    private func consume(_ socket: any AnnexWebSocket, generation current: UUID) async throws {
+    private func consume(_ socket: any AnnexWebSocket, generation current: UUID, controlEpoch: String?) async throws {
         let (failureTimeout, timeout) = AsyncThrowingStream<Void, Error>.makeStream()
         defer {
             if current == generation {
@@ -556,7 +557,7 @@ public actor AnnexTransport: AnnexTransporting {
                     while !Task.isCancelled {
                         let data = try await socket.receive()
                         guard let self else { return }
-                        try await self.receive(data, socket: socket, generation: current, snapshotFailure: timeout)
+                        try await self.receive(data, socket: socket, generation: current, controlEpoch: controlEpoch, snapshotFailure: timeout)
                     }
                 } catch { await socket.close(); throw error }
             }
@@ -597,6 +598,7 @@ public actor AnnexTransport: AnnexTransporting {
     }
 
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
+                         controlEpoch: String?,
                          snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation) async throws {
         guard current == generation else { throw CancellationError() }
         guard data.count <= 16 * 1024 * 1024 else {
@@ -679,7 +681,10 @@ public actor AnnexTransport: AnnexTransporting {
             }
             emitTerminal(.frame(envelope)); return
         }
-        if envelope.type == "snapshot" { envelope.iconReferencesEnabled = socketUsesIconRefs }
+        if envelope.type == "snapshot" {
+            envelope.iconReferencesEnabled = socketUsesIconRefs
+            envelope.controlEpoch = controlEpoch
+        }
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
         if envelope.type == "snapshot", let seq = cursor.lastSequence {

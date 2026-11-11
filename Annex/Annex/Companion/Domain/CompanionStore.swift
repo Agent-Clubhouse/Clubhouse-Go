@@ -40,6 +40,12 @@ import Observation
     private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, mode: AnnexUpdateMode?, commandID: String)] = [:]
     private(set) var appUpdateInFlight: Set<String> = []
     private(set) var appUpdateErrors: [String: String] = [:]
+    private struct AppUpdateAttemptKey: Hashable {
+        var hostID: String
+        var epoch: String?
+        var requestID: String?
+    }
+    private var appUpdateAttempts: [AppUpdateAttemptKey: String] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
@@ -666,8 +672,9 @@ import Observation
     func canAnswer(_ request: CompanionGrantRequest) -> Bool {
         guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
         return host.connection.canOperate && host.canAnswerGrantRequests && !grantRequestsInFlight.contains(request.slot)
+            && request.controlEpoch == host.controlEpoch
             && (!request.isAppUpdate || (host.canUpdateApp && request.update != nil))
-            && host.grantRequests.contains { $0.id == request.id } && !request.isExpired(at: Date())
+            && host.grantRequests.contains { $0.id == request.id && $0.controlEpoch == host.controlEpoch } && !request.isExpired(at: Date())
     }
 
     /// Answer a Clubhouse grant request, as the desktop's Needs you does. Only an answer the request lists is sent.
@@ -706,20 +713,31 @@ import Observation
     func requestAppUpdate(hostID: String) async {
         guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               host.appUpdate?.canRequest == true, !appUpdateInFlight.contains(hostID) else { return }
-        await changeAppUpdate(hostID: hostID, requestID: nil)
+        await changeAppUpdate(hostID: hostID, epoch: host.controlEpoch, requestID: nil)
     }
     func cancelAppUpdate(hostID: String) async {
         guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               let request = host.appUpdate?.request, request.canCancel, !appUpdateInFlight.contains(hostID) else { return }
-        await changeAppUpdate(hostID: hostID, requestID: request.requestId)
+        await changeAppUpdate(hostID: hostID, epoch: host.controlEpoch, requestID: request.requestId)
     }
-    private func changeAppUpdate(hostID: String, requestID: String?) async {
+    private func changeAppUpdate(hostID: String, epoch: String?, requestID: String?) async {
+        let key = AppUpdateAttemptKey(hostID: hostID, epoch: epoch, requestID: requestID)
+        let commandID = appUpdateAttempts[key] ?? UUID().uuidString
+        appUpdateAttempts[key] = commandID
         appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
         defer { appUpdateInFlight.remove(hostID) }
         do {
-            if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: UUID().uuidString) }
-            else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: UUID().uuidString) }
-        } catch { appUpdateErrors[hostID] = error.localizedDescription }
+            if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: commandID) }
+            else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: commandID) }
+            appUpdateAttempts[key] = nil
+        } catch {
+            if case CompanionServiceError.uncertain = error {} else { appUpdateAttempts[key] = nil }
+            guard let host = hosts.first(where: { $0.id == hostID }), host.controlEpoch == epoch else {
+                appUpdateAttempts[key] = nil
+                return
+            }
+            appUpdateErrors[hostID] = error.localizedDescription
+        }
     }
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {
@@ -1181,6 +1199,9 @@ import Observation
                     grantRequestErrors = grantRequestErrors.filter { !$0.key.hasPrefix(prefix) }
                     appUpdateErrors[host.id] = nil
                 }
+            }
+            appUpdateAttempts = appUpdateAttempts.filter { key, _ in
+                incoming.contains { $0.id == key.hostID && $0.controlEpoch == key.epoch }
             }
             for host in incoming where !host.connection.canOperate {
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }

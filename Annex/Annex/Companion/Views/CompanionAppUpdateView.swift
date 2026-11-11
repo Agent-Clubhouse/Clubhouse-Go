@@ -9,13 +9,8 @@ struct CompanionAppUpdateLink: View {
             NavigationLink {
                 CompanionAppUpdateView(store: store, hostID: host.id)
             } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(host.appUpdate.map { CompanionAppUpdateText.indicator($0, desktop: host.name) } ?? "Desktop updates on \(host.name)",
-                          systemImage: "arrow.down.circle")
-                    if let update = host.appUpdate {
-                        Text("Running \(update.currentVersion)").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                Label(host.appUpdate.map { CompanionAppUpdateText.indicator($0, desktop: host.name) } ?? "Desktop updates on \(host.name)",
+                      systemImage: "arrow.down.circle")
             }
             .accessibilityIdentifier("app-update-\(host.id)")
         }
@@ -33,8 +28,6 @@ struct CompanionAppUpdateView: View {
                 if let update = host.appUpdate {
                     Section {
                         Text(CompanionAppUpdateText.indicator(update, desktop: host.name)).font(.headline)
-                        Text("Running \(update.currentVersion)")
-                        if let version = update.availableVersion { Text("Available \(version)") }
                         if update.state == .downloading { ProgressView(value: update.downloadProgress, total: 100) }
                         if let reason = update.reason { Text(reason) }
                         if let request = update.request {

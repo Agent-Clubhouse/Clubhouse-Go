@@ -1,6 +1,17 @@
 import XCTest
 
 @MainActor final class CompanionAppUpdateUITests: ReliableUITestCase {
+    func testQAIndicatorShowsTheAvailableVersion() {
+        let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
+        let home = app.tabBars.buttons["Home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        waitAndTap(home, until: app.navigationBars["Clubhouse"])
+        let indicator = app.buttons["app-update-preview-studio"]
+        XCTAssertTrue(scrollTo(indicator, in: app))
+        XCTAssertTrue(indicator.label.contains("1.0.0"), indicator.label)
+        XCTAssertTrue(indicator.label.contains("1.1.0"), indicator.label)
+    }
+
     func testIndicatorRequestAndExplicitModeBeforeAllowOnce() {
         let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
         let home = app.tabBars.buttons["Home"]

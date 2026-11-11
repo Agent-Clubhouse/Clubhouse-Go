@@ -604,6 +604,9 @@ import ClubhouseTransport
     }
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws {
         guard capabilities[request.hostID]?.supportsGrantRequests == true else { throw CompanionServiceError.unavailable(CompanionGrantRequestError.updateDesktop) }
+        guard request.controlEpoch == capabilities[request.hostID]?.epoch else {
+            throw CompanionServiceError.rejected("The desktop restarted. Refresh and review the current request before answering.")
+        }
         guard !request.isAppUpdate || (capabilities[request.hostID]?.supportsAppUpdate == true && request.update != nil) else {
             throw CompanionServiceError.rejected("Reconnect to a desktop that supports update approvals.")
         }
@@ -656,7 +659,7 @@ import ClubhouseTransport
     }
     /// The snapshot's `grantRequests`, oldest first. An entry without an id, a known kind, a project or an agent is skipped.
     /// A request without `answers` takes its kind's: Allow once and Decline for a call, a lasting Allow and Decline for a grant.
-    nonisolated static func grantRequests(from value: AnnexJSON, hostID: String) -> [CompanionGrantRequest] {
+    nonisolated static func grantRequests(from value: AnnexJSON, hostID: String, epoch: String? = nil) -> [CompanionGrantRequest] {
         Optional(value).arrayValue.compactMap { item -> CompanionGrantRequest? in
             guard let id = item["requestId"]?.string, !id.isEmpty, let kind = item["kind"]?.string.flatMap(CompanionGrantRequest.Kind.init(rawValue:)),
                   let projectID = item["projectId"]?.string, let agentID = item["agent"]?["agentId"]?.string else { return nil }
@@ -670,7 +673,7 @@ import ClubhouseTransport
                          actionLabels: labels, whereLabel: text("where"), toolName: text("toolName"), summary: summary,
                          detail: text("detail"), arguments: text("arguments"), reason: text("reason"), allowEffect: text("allowEffect"),
                          requestedAt: item["requestedAt"].flatMap(date(from:)), expiresAt: item["expiresAt"].flatMap(date(from:)), answers: answers,
-                         update: try? item["update"]?.decode(AnnexUpdateReview.self))
+                         update: try? item["update"]?.decode(AnnexUpdateReview.self), controlEpoch: epoch)
         }
     }
     /// The snapshot's `helperRequests`. An entry without an id, kind, project or requester is skipped.
@@ -1058,7 +1061,12 @@ import ClubhouseTransport
                     await onNetwork?(hostID, snapshot)
                 }
             case "snapshot":
-                snapshotEpochs[hostID] = envelope.epoch
+                    // Publish approval rows and their epoch atomically, before icon work can yield to a capability refresh.
+                    let epoch = envelope.controlEpoch ?? envelope.epoch
+                    let resolved = resolvedGrantRequests[hostID] ?? []
+                    let requests = payload[capabilities[hostID]?.grantRequests?.snapshotField ?? "grantRequests"] ?? .array([])
+                    hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID, epoch: epoch).filter { !resolved.contains($0.id) }
+                    snapshotEpochs[hostID] = epoch
                 applyAppUpdate(payload["appUpdate"], hostID: hostID)
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 let dispatcherBefore = dispatcherCatalog[hostID]
@@ -1083,11 +1091,6 @@ import ClubhouseTransport
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID).filter { !consumedHelperRequests.contains($0.slot) } }
-                // Shown only once capabilities say the desktop takes answers (`canAnswerGrantRequests`).
-                if let requests = payload[capabilities[hostID]?.grantRequests?.snapshotField ?? "grantRequests"] {
-                    let resolved = resolvedGrantRequests[hostID] ?? []
-                    hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID).filter { !resolved.contains($0.id) }
-                }
                 hosts[hostID]?.helperRoutingRevision = payload["helperRoutingRevision"]?.string
                 // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
                 hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])

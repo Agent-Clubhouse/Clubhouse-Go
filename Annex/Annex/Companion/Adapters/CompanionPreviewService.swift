@@ -642,7 +642,8 @@ import ClubhouseTransport
             whereLabel: "the app", toolName: "request_app_update", summary: "Update Clubhouse to 1.1.0",
             detail: "Working agents that Restart now would interrupt: River.", arguments: "{\"version\":\"1.1.0\"}",
             allowEffect: CompanionAppUpdateText.restart, expiresAt: Date().addingTimeInterval(86_400), answers: [.allowOnce, .decline],
-            update: .init(version: "1.1.0", workingAgents: [.init(agentId: Self.target.agentID, name: "River")]))
+            update: .init(version: "1.1.0", workingAgents: [.init(agentId: Self.target.agentID, name: "River")]),
+            controlEpoch: sentHosts[0].controlEpoch)
         sentHosts[0].grantRequests = [request]
         sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: request.id, state: .pendingApproval, version: "1.1.0"))
         continuation?.yield(.hosts(sentHosts))

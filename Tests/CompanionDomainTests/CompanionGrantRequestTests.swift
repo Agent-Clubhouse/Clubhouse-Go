@@ -226,7 +226,9 @@ private final class GrantTransport: AnnexTransporting, @unchecked Sendable {
     func disconnect() {}
     func drop() { stream?.yield(.connection(.disconnected)) }
     func emit(_ frame: AnnexJSON) throws {
-        stream?.yield(.message(try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(frame))))
+        var envelope = try JSONDecoder().decode(AnnexEnvelope.self, from: JSONEncoder().encode(frame))
+        if envelope.type == "snapshot" { envelope.controlEpoch = try ContractFixtures.body("capabilities.json")["epoch"]?.string }
+        stream?.yield(.message(envelope))
     }
     func read(_ route: AnnexReadRoute) throws -> AnnexJSON {
         switch route {
