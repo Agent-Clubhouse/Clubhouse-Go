@@ -477,6 +477,7 @@ private actor UpdateDesktop: AnnexTransporting {
         await desktop.setLostReply(true)
         await perform()
         #expect(store.appUpdateErrors[Self.id]?.contains("reply was lost") == true)
+        let originalError = store.appUpdateErrors[Self.id]
         await desktop.pauseCapabilities()
         await service.reconnect(hostID: Self.id)
         try await wait {
@@ -486,17 +487,21 @@ private actor UpdateDesktop: AnnexTransporting {
         await desktop.setLostReply(false)
         await perform()
         #expect(await desktop.sent.count == 1)
-        #expect(store.appUpdateErrors[Self.id]?.contains("Reconnect") == true,
-                "A tap queued before synchronization must explain why it did not send")
+        #expect(store.appUpdateErrors[Self.id] == originalError)
+        let notice = try #require(store.attentionDecisionNotices.first)
+        #expect(notice.message.contains("Not sent") && notice.message.contains("reconnecting"),
+                "The banner must explain why the queued tap did not send")
         await desktop.releaseCapabilities()
         try await wait { store.hosts.first?.connection == .connected }
-        #expect(store.appUpdateErrors[Self.id] == nil)
+        #expect(store.appUpdateErrors[Self.id] == originalError)
+        #expect(store.attentionDecisionNotices == [notice])
         #expect(await desktop.sent.count == 1, "Becoming ready must not replay the blocked retry")
         await perform()
         let sent = await desktop.sent
         try #require(sent.count == 2)
         #expect(sent[0] == sent[1], "A blocked retry must not discard the unknown command")
         #expect(store.appUpdateErrors[Self.id] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
     }
 
     @Test(arguments: AnnexUpdateMode.allCases)
@@ -509,6 +514,7 @@ private actor UpdateDesktop: AnnexTransporting {
         await desktop.setLostReply(true)
         await store.answer(request, with: .allowOnce, updateMode: mode)
         #expect(store.grantRequestErrors[request.slot]?.contains("reply was lost") == true)
+        let originalError = store.grantRequestErrors[request.slot]
         await desktop.pauseCapabilities()
         await service.reconnect(hostID: Self.id)
         try await wait {
@@ -518,16 +524,41 @@ private actor UpdateDesktop: AnnexTransporting {
         await desktop.setLostReply(false)
         await store.answer(request, with: .allowOnce, updateMode: mode)
         #expect(await desktop.sent.count == 1)
-        #expect(store.grantRequestErrors[request.slot]?.contains("Reconnect") == true)
+        #expect(store.grantRequestErrors[request.slot] == originalError)
+        let notice = try #require(store.decisionNotices(for: request).first)
+        #expect(notice.message.contains("Not sent") && notice.message.contains(request.agentName))
         await desktop.releaseCapabilities()
         try await wait { store.hosts.first?.connection == .connected }
-        #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(store.grantRequestErrors[request.slot] == originalError)
+        #expect(store.decisionNotices(for: request) == [notice])
         #expect(await desktop.sent.count == 1, "Becoming ready must not answer an approval")
         await store.answer(request, with: .allowOnce, updateMode: mode)
         let sent = await desktop.sent
         try #require(sent.count == 2)
         #expect(sent[0] == sent[1])
         #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(store.decisionNotices(for: request).isEmpty)
+    }
+
+    @Test func updateNoticesForTwoHostsRemainIndependentlyDismissible() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        store.stop()
+        var first = try #require(store.hosts.first)
+        first.connection = .synchronizing
+        var other = first
+        other.id = "other-mac"
+        other.name = "Other Mac"
+        store.apply(.hosts([first, other]))
+        await store.requestAppUpdate(hostID: first.id)
+        await store.requestAppUpdate(hostID: other.id)
+        let notices = store.attentionDecisionNotices
+        #expect(notices.count == 2 && Set(notices.map(\.id)).count == 2,
+                "The banner must identify each host's update action independently")
+        #expect(notices.last?.message.contains(other.name) == true)
+        store.dismissDecisionNotice(try #require(notices.first))
+        #expect(store.attentionDecisionNotices.map(\.hostID) == [other.id])
+        #expect(await desktop.sent.isEmpty)
     }
 
     @Test(arguments: [false, true])
@@ -552,33 +583,38 @@ private actor UpdateDesktop: AnnexTransporting {
             host.connection = connection
             store.apply(.hosts([host]))
             await perform()
-            #expect(store.appUpdateErrors[Self.id]?.contains("Reconnect") == true)
+            #expect(store.attentionDecisionNotices.first?.message.contains("reconnecting") == true)
             store.apply(.hosts([original]))
+            #expect(!store.attentionDecisionNotices.isEmpty)
             #expect(store.appUpdateErrors[Self.id] == nil)
+            for notice in store.attentionDecisionNotices { store.dismissDecisionNotice(notice) }
         }
         var host = original
         host.canUpdateApp = false
         store.apply(.hosts([host]))
         await perform()
-        let capabilityError = try #require(store.appUpdateErrors[Self.id])
+        let capabilityNotice = try #require(store.attentionDecisionNotices.first)
         host.canUpdateApp = true
         host.appUpdate = nil
         store.apply(.hosts([host]))
         await perform()
-        let statusError = try #require(store.appUpdateErrors[Self.id])
-        #expect(statusError != capabilityError)
+        let statusNotice = try #require(store.attentionDecisionNotices.first)
+        #expect(statusNotice.message != capabilityNotice.message)
+        #expect(store.appUpdateErrors[Self.id] == nil)
         #expect(await desktop.sent.isEmpty)
         store.apply(.hosts([original]))
         await desktop.pauseReceipts()
         let active = Task { await perform() }
         try await wait { await desktop.receiptIsPaused }
         #expect(store.appUpdateErrors[Self.id] == nil, "An operable tap must not report a guard error")
+        #expect(store.attentionDecisionNotices.isEmpty)
         await perform()
-        #expect(store.appUpdateErrors[Self.id]?.contains("in progress") == true)
+        #expect(store.attentionDecisionNotices.first?.message.contains("in progress") == true)
         await desktop.releaseReceipt()
         await active.value
         #expect(await desktop.sent.count == 1, "An in-flight action must not send a duplicate")
         #expect(store.appUpdateErrors[Self.id] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
     }
 
     @Test func anUncertainRequestAndCancellationKeepIndependentRetryIDsUntilResolved() async throws {

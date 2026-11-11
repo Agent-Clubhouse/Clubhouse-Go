@@ -1,5 +1,30 @@
 import Foundation
 
+struct CompanionDecisionNotice: Identifiable, Equatable, Sendable {
+    enum Action: Hashable, Sendable {
+        case requestUpdate
+        case cancelUpdate(String?)
+        case grant(String, epoch: String?)
+        case helper(String)
+        case approval(String)
+        case question(String)
+    }
+    struct ID: Hashable, Sendable {
+        var hostID: String
+        var target: CompanionTarget?
+        var action: Action
+    }
+    var hostID: String
+    var target: CompanionTarget?
+    var action: Action
+    var epoch: String?
+    var sessionID: String?
+    var label: String
+    var detail: String
+    var id: ID { .init(hostID: hostID, target: target, action: action) }
+    var message: String { "Not sent — \(label) \(detail)" }
+}
+
 /// What Needs you cannot currently know. Cached requests from these desktops stay out of the action list.
 struct CompanionAttentionAvailability {
     struct UnavailableHost: Identifiable, Equatable {

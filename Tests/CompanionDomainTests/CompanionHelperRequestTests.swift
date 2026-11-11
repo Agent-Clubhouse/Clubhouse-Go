@@ -145,15 +145,31 @@ private func dispose(_ id: String = "hdispose_1", at seconds: TimeInterval = 60,
         let (store, service) = makeStore([request], connection: connection)
         await store.answer(request, approve: true)
         #expect(service.answers.isEmpty)
-        #expect(store.helperRequestErrors[request.slot]?.contains("Reconnect") == true)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.decisionNotices(for: request.agentTarget).first?.message.contains(request.helperName) == true)
         var host = store.hosts[0]
         host.connection = .connected
         store.apply(.hosts([host]))
         #expect(store.helperRequestErrors[request.slot] == nil)
+        #expect(store.attentionDecisionNotices.count == 1)
         #expect(service.answers.isEmpty, "Readiness must not send a previously blocked decision")
         await store.answer(request, approve: true)
         #expect(service.answers.count == 1)
         #expect(store.helperRequestErrors[request.slot] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
+    }
+
+    @Test func aResolvedHelperDecisionRetiresItsReconnectNotice() async {
+        let request = start()
+        let (store, service) = makeStore([request], connection: .synchronizing)
+        await store.answer(request, approve: true)
+        #expect(store.attentionDecisionNotices.count == 1)
+        var host = store.hosts[0]
+        host.connection = .connected
+        host.helperRequests = []
+        store.apply(.hosts([host]))
+        #expect(store.attentionDecisionNotices.isEmpty)
+        #expect(service.answers.isEmpty)
     }
 
     @Test func encodesTheCommands() throws {

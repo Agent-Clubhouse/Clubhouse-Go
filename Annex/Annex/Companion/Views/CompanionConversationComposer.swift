@@ -609,6 +609,7 @@ struct CompanionComposerApprovalReviewSheet: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        CompanionDecisionNoticesView(store: store, notices: store.decisionNotices(for: target))
                         if let approval = currentApproval {
                             let originalRequestID = approval.id
                             CompanionApprovalCard(approval: approval, queuePosition: queuePosition(at: context.date),

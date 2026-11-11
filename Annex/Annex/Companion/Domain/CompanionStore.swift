@@ -40,6 +40,7 @@ import Observation
     private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, mode: AnnexUpdateMode?, commandID: String)] = [:]
     private(set) var appUpdateInFlight: Set<String> = []
     private(set) var appUpdateErrors: [String: String] = [:]
+    private(set) var decisionNotices: [String: [CompanionDecisionNotice]] = [:]
     private struct AppUpdateAttemptKey: Hashable {
         var hostID: String
         var epoch: String?
@@ -124,6 +125,7 @@ import Observation
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
         appUpdateErrors.removeAll()
+        decisionNotices.removeAll()
         grantAnswerAttempts.removeAll()
         grantRequestsInFlight.removeAll()
         grantRequestErrors.removeAll()
@@ -549,14 +551,14 @@ import Observation
 
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
         guard !isShutDown else { return }
-        if let error = decisionConnectionError(hostID: target.hostID) {
-            operationErrors[target] = error
-            return
-        }
+        let action = CompanionDecisionNotice.Action.approval(approval.id)
+        if blockDecisionWhileReconnecting(action, hostID: target.hostID, target: target,
+                                          label: "\(option.label) for \(agent(for: target)?.displayName ?? target.agentID)") { return }
         guard canOperate(target), agent(for: target)?.capabilities.contains(.approve) == true,
               !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option),
               (!option.allows || canApprove(approval, target: target)),
               option.isAnswerable(persistentApprovals: canAnswerPersistentApprovals(target)) else { return }
+        dismissDecisionNotice(hostID: target.hostID, action: action, target: target)
         var submitted = approval
         submitted.resolution = .submitting
         upsert(.approval(submitted), target: target)
@@ -685,11 +687,11 @@ import Observation
     /// the desktop's "Dispose anyway"; one whose checks couldn't run can only be declined.
     func answer(_ request: CompanionHelperRequest, approve: Bool) async {
         guard !isShutDown else { return }
-        if let error = decisionConnectionError(hostID: request.hostID) {
-            helperRequestErrors[request.slot] = error
-            return
-        }
+        let action = CompanionDecisionNotice.Action.helper(request.id)
+        if blockDecisionWhileReconnecting(action, hostID: request.hostID, target: request.agentTarget,
+                                          label: "\(approve ? request.approveLabel : "Decline") for \(request.helperName)") { return }
         guard canAnswer(request), !approve || canApprove(request) else { return }
+        dismissDecisionNotice(hostID: request.hostID, action: action, target: request.agentTarget)
         let force = approve && request.kind == .dispose && request.dispose?.workAtRisk == true
         helperRequestsInFlight.insert(request.slot)
         helperRequestErrors[request.slot] = nil
@@ -720,15 +722,16 @@ import Observation
     /// Answer a Clubhouse grant request, as the desktop's Needs you does. Only an answer the request lists is sent.
     func answer(_ request: CompanionGrantRequest, with answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode? = nil) async {
         guard !isShutDown else { return }
-        if let error = decisionConnectionError(hostID: request.hostID) {
-            grantRequestErrors[request.slot] = error
-            return
-        }
+        let action = CompanionDecisionNotice.Action.grant(request.id, epoch: request.controlEpoch)
+        let label = updateMode.map { $0 == .now ? "Restart now" : "When idle" } ?? answer.label
+        if blockDecisionWhileReconnecting(action, hostID: request.hostID, target: request.agentTarget,
+                                          label: "\(label) for \(request.agentName)") { return }
         guard canAnswer(request), request.answers.contains(answer) else { return }
         guard (request.isAppUpdate && answer == .allowOnce) == (updateMode != nil) else {
             grantRequestErrors[request.slot] = "Choose Restart now or When idle before allowing an update."
             return
         }
+        dismissDecisionNotice(hostID: request.hostID, action: action, target: request.agentTarget)
         let attempt = grantAnswerAttempts[request.slot].flatMap { $0.answer == answer && $0.mode == updateMode ? $0.commandID : nil } ?? UUID().uuidString
         grantAnswerAttempts[request.slot] = (answer, updateMode, attempt)
         grantRequestsInFlight.insert(request.slot)
@@ -760,39 +763,72 @@ import Observation
     }
 
     func requestAppUpdate(hostID: String) async {
-        guard let host = appUpdateHost(hostID: hostID) else { return }
+        let action = CompanionDecisionNotice.Action.requestUpdate
+        guard let host = appUpdateHost(hostID: hostID, action: action) else { return }
         guard host.appUpdate?.canRequest == true else {
-            appUpdateErrors[hostID] = "Refresh the desktop's update status before requesting an update."
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "needs refreshed update status before trying again.")
             return
         }
+        dismissDecisionNotice(hostID: hostID, action: action)
         await changeAppUpdate(host, requestID: nil)
     }
     func cancelAppUpdate(hostID: String) async {
-        guard let host = appUpdateHost(hostID: hostID) else { return }
+        let action = CompanionDecisionNotice.Action.cancelUpdate(hosts.first { $0.id == hostID }?.appUpdate?.request?.requestId)
+        guard let host = appUpdateHost(hostID: hostID, action: action) else { return }
         guard let request = host.appUpdate?.request, request.canCancel else {
-            appUpdateErrors[hostID] = "This update request can no longer be cancelled. Refresh its status."
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "can no longer be cancelled. Refresh its status.")
             return
         }
+        dismissDecisionNotice(hostID: hostID, action: action)
         await changeAppUpdate(host, requestID: request.requestId)
     }
-    private static let decisionReconnectMessage = "Reconnect to your desktop and wait for it to finish refreshing before trying again."
-    private static let appUpdateInProgressMessage = "An update command is already in progress. Wait for its reply before trying again."
-    private func decisionConnectionError(hostID: String) -> String? {
-        hosts.first(where: { $0.id == hostID })?.connection.canOperate == true
-            ? nil : Self.decisionReconnectMessage
+    var attentionDecisionNotices: [CompanionDecisionNotice] {
+        hosts.flatMap { decisionNotices[$0.id] ?? [] }
     }
-    private func appUpdateHost(hostID: String) -> CompanionHost? {
+    func decisionNotices(for target: CompanionTarget) -> [CompanionDecisionNotice] {
+        (decisionNotices[target.hostID] ?? []).filter { $0.target == target }
+    }
+    func decisionNotices(for request: CompanionGrantRequest) -> [CompanionDecisionNotice] {
+        decisionNotices(for: request.agentTarget).filter { $0.action == .grant(request.id, epoch: request.controlEpoch) }
+    }
+    func dismissDecisionNotice(_ notice: CompanionDecisionNotice) {
+        dismissDecisionNotice(hostID: notice.hostID, action: notice.action, target: notice.target)
+    }
+    private func dismissDecisionNotice(hostID: String, action: CompanionDecisionNotice.Action, target: CompanionTarget? = nil) {
+        decisionNotices[hostID]?.removeAll { $0.id == .init(hostID: hostID, target: target, action: action) }
+        if decisionNotices[hostID]?.isEmpty == true { decisionNotices[hostID] = nil }
+    }
+    private func recordDecisionNotice(_ action: CompanionDecisionNotice.Action, hostID: String, target: CompanionTarget? = nil,
+                                      label: String, detail: String = "was blocked while reconnecting. Answer again.") {
+        let notice = CompanionDecisionNotice(hostID: hostID, target: target, action: action,
+            epoch: hosts.first { $0.id == hostID }?.controlEpoch, sessionID: target.flatMap { conversations[$0]?.sessionID },
+            label: label, detail: detail)
+        dismissDecisionNotice(notice)
+        decisionNotices[hostID, default: []].append(notice)
+    }
+    private func blockDecisionWhileReconnecting(_ action: CompanionDecisionNotice.Action, hostID: String,
+                                                target: CompanionTarget? = nil, label: String) -> Bool {
+        guard hosts.first(where: { $0.id == hostID })?.connection.canOperate != true else { return false }
+        recordDecisionNotice(action, hostID: hostID, target: target, label: label)
+        return true
+    }
+    private func recordUpdateDecisionNotice(_ action: CompanionDecisionNotice.Action, hostID: String, detail: String) {
+        let hostName = hosts.first { $0.id == hostID }?.name ?? "desktop"
+        let label = action == .requestUpdate ? "Request update on \(hostName)" : "Cancel update request on \(hostName)"
+        recordDecisionNotice(action, hostID: hostID, label: label, detail: detail)
+    }
+    private func appUpdateHost(hostID: String, action: CompanionDecisionNotice.Action) -> CompanionHost? {
         guard !isShutDown else { return nil }
-        if let error = decisionConnectionError(hostID: hostID) {
-            appUpdateErrors[hostID] = error
+        guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else {
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "was blocked while reconnecting. Answer again.")
             return nil
         }
         guard let host = hosts.first(where: { $0.id == hostID }), host.canUpdateApp else {
-            appUpdateErrors[hostID] = "This desktop cannot apply updates from your phone."
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "is unavailable because this desktop cannot apply updates from your phone.")
             return nil
         }
         guard !appUpdateInFlight.contains(hostID) else {
-            appUpdateErrors[hostID] = Self.appUpdateInProgressMessage
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "must wait for the update command already in progress.")
             return nil
         }
         return host
@@ -808,7 +844,7 @@ import Observation
         appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
         defer {
             appUpdateInFlight.remove(hostID)
-            if appUpdateErrors[hostID] == Self.appUpdateInProgressMessage { appUpdateErrors[hostID] = nil }
+            dismissDecisionNotice(hostID: hostID, action: requestID.map { .cancelUpdate($0) } ?? .requestUpdate)
         }
         do {
             if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: attempt.commandID) }
@@ -853,13 +889,13 @@ import Observation
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {
         guard !isShutDown else { return }
-        if let error = decisionConnectionError(hostID: target.hostID) {
-            operationErrors[target] = error
-            return
-        }
+        let action = CompanionDecisionNotice.Action.question(question.id)
+        if blockDecisionWhileReconnecting(action, hostID: target.hostID, target: target,
+                                          label: "Answer for \(agent(for: target)?.displayName ?? target.agentID)") { return }
         guard canOperate(target), !pendingCommands.contains(target), question.resolution == .pending,
               agent(for: target)?.capabilities.contains(.answer) == true,
               Self.validAnswers(answers, for: question) else { return }
+        dismissDecisionNotice(hostID: target.hostID, action: action, target: target)
         var submitted = question
         submitted.resolution = .submitting
         upsert(.question(submitted), target: target)
@@ -1288,6 +1324,11 @@ import Observation
             }
             let previousRevision = (assistant ?? tool).flatMap { conversations[$0.0]?.itemsRevision }
             applyEvent(event)
+            switch event {
+            case .hosts, .timeline, .upsert(_, .approval, _), .upsert(_, .question, _):
+                reconcileDecisionNotices()
+            default: break
+            }
             if let (target, id) = assistant {
                 timelineProjections[target]?.updateAssistant(id, previousRevision: previousRevision, conversation: conversation(for: target))
             }
@@ -1310,19 +1351,6 @@ import Observation
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
             for host in incoming {
-                if host.connection.canOperate {
-                    if appUpdateErrors[host.id] == Self.decisionReconnectMessage { appUpdateErrors[host.id] = nil }
-                    grantRequestErrors = grantRequestErrors.filter {
-                        !$0.key.hasPrefix("\(host.id):") || $0.value != Self.decisionReconnectMessage
-                    }
-                    helperRequestErrors = helperRequestErrors.filter {
-                        !($0.key.hasPrefix("start:\(host.id):") || $0.key.hasPrefix("dispose:\(host.id):"))
-                            || $0.value != Self.decisionReconnectMessage
-                    }
-                    operationErrors = operationErrors.filter {
-                        $0.key.hostID != host.id || $0.value != Self.decisionReconnectMessage
-                    }
-                }
                 if let oldEpoch = hosts.first(where: { $0.id == host.id })?.controlEpoch, host.controlEpoch != oldEpoch {
                     let prefix = "\(host.id):"
                     grantAnswerAttempts = grantAnswerAttempts.filter { !$0.key.hasPrefix(prefix) }
@@ -1415,6 +1443,40 @@ import Observation
                 items[index] = .message(message)
                 conversations[target, default: .init()].items = items
             }
+        }
+    }
+
+    private func reconcileDecisionNotices() {
+        for (hostID, notices) in decisionNotices {
+            guard let host = hosts.first(where: { $0.id == hostID }) else { decisionNotices[hostID] = nil; continue }
+            let pending = notices.filter { notice in
+                guard notice.epoch == host.controlEpoch else { return false }
+                switch notice.action {
+                case .grant(let id, let epoch):
+                    return !host.connection.canOperate || host.grantRequests.contains {
+                        $0.id == id && $0.controlEpoch == epoch && !$0.isExpired(at: Date())
+                    }
+                case .helper(let id):
+                    return !host.connection.canOperate || host.helperRequests.contains { $0.id == id }
+                case .requestUpdate:
+                    return !host.connection.canOperate || (host.canUpdateApp && host.appUpdate?.canRequest == true)
+                case .cancelUpdate(let id):
+                    return !host.connection.canOperate || (host.canUpdateApp && id != nil
+                        && host.appUpdate?.request?.requestId == id && host.appUpdate?.request?.canCancel == true)
+                case .approval(let id), .question(let id):
+                    guard let target = notice.target else { return false }
+                    let conversation = conversation(for: target)
+                    if let session = notice.sessionID, session != conversation.sessionID { return false }
+                    return !conversation.items.contains { item in
+                        switch (notice.action, item) {
+                        case (.approval, .approval(let approval)): return approval.id == id && approval.resolution != .pending
+                        case (.question, .question(let question)): return question.id == id && question.resolution != .pending
+                        default: return false
+                        }
+                    }
+                }
+            }
+            decisionNotices[hostID] = pending.isEmpty ? nil : pending
         }
     }
 

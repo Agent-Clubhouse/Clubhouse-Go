@@ -219,13 +219,16 @@ import Testing
         await store.respond(approval, option: allow, target: target)
         #expect(service.responses.isEmpty)
         #expect(approvalResolution(store) == .pending)
-        #expect(store.operationErrors[target]?.contains("Reconnect") == true)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.decisionNotices(for: target).first?.message.contains("Allow once for Agent") == true)
         store.apply(.hosts([host()]))
         #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.count == 1)
         #expect(service.responses.isEmpty, "Readiness must not send a previously blocked approval")
         await store.respond(approval, option: allow, target: target)
         #expect(service.responses == ["p"])
         #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
     }
 
     @Test func rejectedApprovalReopensItForAnotherAnswer() async {
@@ -275,13 +278,38 @@ import Testing
         await store.answer(question, answers: ["color": .choices(["red"])], target: target)
         #expect(service.answered.isEmpty)
         #expect(questionResolution(store) == .pending)
-        #expect(store.operationErrors[target]?.contains("Reconnect") == true)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.decisionNotices(for: target).first?.message.contains("Answer for Agent") == true)
         store.apply(.hosts([host()]))
         #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.count == 1)
         #expect(service.answered.isEmpty, "Readiness must not send a previously blocked answer")
         await store.answer(question, answers: ["color": .choices(["red"])], target: target)
         #expect(service.answered == ["q"])
         #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
+    }
+
+    @Test func authoritativeDecisionResolutionClearsOnlyItsReconnectNotice() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        store.apply(.upsert(target, .question(question), sequence: 2))
+        await store.respond(approval, option: allow, target: target)
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(store.decisionNotices(for: target).count == 2)
+        store.apply(.hosts([host()]))
+        #expect(store.decisionNotices(for: target).count == 2)
+        var resolvedApproval = approval
+        resolvedApproval.resolution = .allowed
+        store.apply(.upsert(target, .approval(resolvedApproval), sequence: 3))
+        #expect(store.decisionNotices(for: target).count == 1)
+        #expect(store.decisionNotices(for: target).first?.action == .question(question.id))
+        var resolvedQuestion = question
+        resolvedQuestion.resolution = .answered
+        store.apply(.upsert(target, .question(resolvedQuestion), sequence: 4))
+        #expect(store.decisionNotices(for: target).isEmpty)
+        #expect(service.responses.isEmpty && service.answered.isEmpty)
     }
 
     @Test func answeredQuestionIsMarkedAnswered() async {

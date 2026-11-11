@@ -200,15 +200,98 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         let (store, service) = makeStore([request], connection: connection)
         await store.answer(request, with: .allowOnce)
         #expect(service.answers.isEmpty)
-        #expect(store.grantRequestErrors[request.slot]?.contains("Reconnect") == true)
+        #expect(store.attentionItems().isEmpty && store.grantRequests(for: request.agentTarget).isEmpty)
+        #expect(store.attentionDecisionNotices.first?.message.contains(request.agentName) == true)
+        #expect(store.decisionNotices(for: request).first?.message.contains("Not sent") == true)
         var host = store.hosts[0]
         host.connection = .connected
         store.apply(.hosts([host]))
         #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(!store.decisionNotices(for: request).isEmpty)
         #expect(service.answers.isEmpty, "Readiness must not send a previously blocked answer")
         await store.answer(request, with: .allowOnce)
         #expect(service.answers.count == 1)
         #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(store.decisionNotices(for: request).isEmpty)
+    }
+
+    @Test func qaLostReplyWarningSurvivesABlockedReconnectTap() async throws {
+        let request = ask()
+        let (store, service) = makeStore([request])
+        service.failures = [CompanionServiceError.uncertain("The desktop may have received this command, but its reply was lost.")]
+        await store.answer(request, with: .allowLasting)
+        let originalError = try #require(store.grantRequestErrors[request.slot])
+        var host = store.hosts[0]
+        host.connection = .synchronizing
+        store.apply(.hosts([host]))
+        await store.answer(request, with: .allowLasting)
+        #expect(service.answers.count == 1)
+        host.connection = .connected
+        store.apply(.hosts([host]))
+        #expect(store.canAnswer(request))
+        #expect(store.hosts[0].grantRequests == [request])
+        #expect(store.grantRequestErrors[request.slot] == originalError,
+                "A blocked tap and readiness alone do not resolve the earlier unknown outcome")
+        await store.answer(request, with: .allowLasting)
+        #expect(service.answers.count == 2)
+        #expect(service.answers[0].commandID == service.answers[1].commandID)
+    }
+
+    @Test func qaReconnectNoticesStayVisibleAcrossHostsAndHiddenCards() async throws {
+        let request = call(), second = ask()
+        let (store, service) = makeStore([request, second], connection: .synchronizing)
+        let first = store.hosts[0]
+        var other = first
+        other.id = "other-mac"
+        other.projects[0].agents[0].id.hostID = other.id
+        var otherRequest = request
+        otherRequest.hostID = other.id
+        other.grantRequests = [otherRequest]
+        store.apply(.hosts([first, other]))
+        await store.answer(request, with: .allowOnce)
+        await store.answer(second, with: .allowLasting)
+        await store.answer(otherRequest, with: .allowOnce)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.grantRequests(for: request.agentTarget).isEmpty)
+        #expect(store.attentionDecisionNotices.count == 3, "The banner stays visible even when all action cards are hidden")
+        #expect(store.decisionNotices(for: request).first?.message.contains("Answer again") == true)
+        other.connection = .connected
+        store.apply(.hosts([first, other]))
+        #expect(store.attentionDecisionNotices.count == 3, "Another host becoming ready must not erase a blocked-action notice")
+        var ready = first
+        ready.connection = .connected
+        store.apply(.hosts([ready, other]))
+        #expect(store.decisionNotices(for: request).count == 1)
+        #expect(service.answers.isEmpty)
+        await store.answer(request, with: .allowOnce)
+        #expect(store.decisionNotices(for: request).isEmpty)
+        #expect(store.decisionNotices(for: second).count == 1, "Answering one item must not dismiss another")
+        let otherNotice = try #require(store.decisionNotices(for: otherRequest).first)
+        store.dismissDecisionNotice(otherNotice)
+        #expect(store.decisionNotices(for: otherRequest).isEmpty)
+        #expect(store.attentionDecisionNotices.count == 1)
+        ready = store.hosts[0]
+        ready.grantRequests.removeAll { $0.id == second.id }
+        store.apply(.hosts([ready, other]))
+        #expect(store.attentionDecisionNotices.isEmpty, "Authoritative resolution retires the remaining notice")
+        #expect(service.answers.count == 1, "Readiness, dismissal and resolution never send an answer")
+    }
+
+    @Test func aNewEpochRetiresTheNoticeEvenWhenTheGrantIDIsReused() async {
+        var request = call()
+        request.controlEpoch = "old"
+        let (store, service) = makeStore([request], connection: .synchronizing)
+        var host = store.hosts[0]
+        host.controlEpoch = "old"
+        store.apply(.hosts([host]))
+        await store.answer(request, with: .allowOnce)
+        #expect(store.attentionDecisionNotices.count == 1)
+        host.connection = .connected
+        host.controlEpoch = "new"
+        host.grantRequests[0].controlEpoch = "new"
+        store.apply(.hosts([host]))
+        #expect(store.attentionDecisionNotices.isEmpty)
+        #expect(service.answers.isEmpty)
     }
 
     @Test func answersOnlyWhatTheRequestTakesAndDropsTheRow() async {

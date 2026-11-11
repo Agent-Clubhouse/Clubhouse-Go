@@ -36,6 +36,7 @@
           "conversations": "[ CompanionTarget : CompanionConversation ]",
           "createError": "String ?",
           "createInProgress": "Bool",
+          "decisionNotices": "[ String : [ CompanionDecisionNotice ] ]",
           "dispatcherErrors": "[ String : String ]",
           "dispatcherResetNotices": "[ String : String ]",
           "dispatcherResetPrompt": "CompanionDispatcherResetPrompt ?",

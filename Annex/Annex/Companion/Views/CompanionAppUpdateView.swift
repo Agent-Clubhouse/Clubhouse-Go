@@ -23,7 +23,9 @@ struct CompanionAppUpdateView: View {
     @State private var confirmingRequest = false
     private var host: CompanionHost? { store.hosts.first { $0.id == hostID } }
     var body: some View {
+        let notices = (store.decisionNotices[hostID] ?? []).filter { $0.target == nil }
         List {
+            if !notices.isEmpty { CompanionDecisionNoticesView(store: store, notices: notices) }
             if let host, host.canUpdateApp {
                 if let update = host.appUpdate {
                     Section {

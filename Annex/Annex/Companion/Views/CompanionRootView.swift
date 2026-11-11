@@ -738,6 +738,30 @@ struct CompanionDispatcherUnavailableView: View {
 
 // MARK: - Needs you
 
+struct CompanionDecisionNoticesView: View {
+    @Bindable var store: CompanionStore
+    let notices: [CompanionDecisionNotice]
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(notices) { notice in
+                HStack(alignment: .top) {
+                    Label(notice.message, systemImage: "exclamationmark.circle")
+                        .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button("Dismiss", systemImage: "xmark") { store.dismissDecisionNotice(notice) }
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel("Dismiss \(notice.label) notice")
+                }
+                .padding().background(Color(palette.warning).opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("companion-not-sent-notice")
+            }
+        }
+    }
+}
+
 /// Every approval, question and failure across desktops. Taps answer at once; a full swipe
 /// right allows and left denies, held for three seconds so a stray swipe can be undone.
 struct CompanionNeedsYouView: View {
@@ -750,6 +774,11 @@ struct CompanionNeedsYouView: View {
         let items = store.attentionItems()
         let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
+            if !store.attentionDecisionNotices.isEmpty {
+                Section {
+                    CompanionDecisionNoticesView(store: store, notices: store.attentionDecisionNotices)
+                }
+            }
             if items.isEmpty {
                 ContentUnavailableView {
                     Label {
@@ -1050,6 +1079,7 @@ struct CompanionGrantRequestActions: View {
     var body: some View {
         let busy = store.grantRequestsInFlight.contains(request.slot)
         VStack(alignment: .leading, spacing: 8) {
+            CompanionDecisionNoticesView(store: store, notices: store.decisionNotices(for: request))
             if let detail = request.detail {
                 Text(detail).font(.subheadline).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("grant-request-detail")
