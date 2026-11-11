@@ -7,12 +7,27 @@
       "surface": {
         "bases": [],
         "nestedValueProperties": {
+          "CompanionStore.AppUpdateAttempt": {
+            "commandID": "String",
+            "initialVersion": "String ?",
+            "previousRequestID": "String ?",
+            "requestID": "String ?",
+            "targetVersion": "String ?"
+          },
+          "CompanionStore.AppUpdateAttemptKey": {
+            "epoch": "String ?",
+            "hostID": "String",
+            "requestID": "String ?"
+          },
           "CompanionStore.TranscriptKey": {
             "sessionID": "String ?",
             "target": "CompanionTarget"
           }
         },
         "properties": {
+          "appUpdateAttempts": "[ AppUpdateAttemptKey : AppUpdateAttempt ]",
+          "appUpdateErrors": "[ String : String ]",
+          "appUpdateInFlight": "Set < String >",
           "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",
           "clock": "AnnexClock",
           "confirmedSleepCommands": "[ CompanionTarget : String ]",
@@ -35,7 +50,7 @@
           "fullFetchFailures": "[ CompanionTarget : [ String : String ] ]",
           "fullReviewFailures": "[ CompanionTarget : [ String : String ] ]",
           "fullReviews": "[ CompanionTarget : [ String : CompanionFullReview ] ]",
-          "grantAnswerAttempts": "[ String : ( answer : CompanionGrantRequest . Answer , commandID : String ) ]",
+          "grantAnswerAttempts": "[ String : ( answer : CompanionGrantRequest . Answer , mode : AnnexUpdateMode ? , commandID : String ) ]",
           "grantRequestErrors": "[ String : String ]",
           "grantRequestNotice": "String ?",
           "grantRequestsInFlight": "Set < String >",
@@ -46,6 +61,7 @@
           "historyGenerations": "[ CompanionTarget : UUID ]",
           "hosts": "[ CompanionHost ]",
           "imagesRefused": "[ CompanionTarget : String ]",
+          "isShutDown": "Bool",
           "justCreated": "CompanionTarget ?",
           "listeningTask": "Task < Void , Never > ?",
           "operationErrors": "[ CompanionTarget : String ]",
@@ -229,6 +245,7 @@
           "dispatcherMCPOff": "[ String : CompanionDispatcherMCPOff ]",
           "eventGenerations": "[ String : UUID ]",
           "eventTasks": "[ String : Task < Void , Never > ]",
+          "expiredCommandIDs": "Set < CompanionCommandKey >",
           "fullReviews": "[ CompanionTarget : [ String : ( reference : CompanionEventReference , digest : String , epoch : String ) ] ]",
           "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",
           "historyGenerations": "[ CompanionTarget : UUID ]",
@@ -249,12 +266,15 @@
           "refreshAgain": "Set < String >",
           "refreshTasks": "[ String : Task < Void , Never > ]",
           "registeredTransportIDs": "[ String : UUID ]",
+          "requestedUpdateVersions": "[ String : String ]",
           "resolvedGrantRequests": "[ String : Set < String > ]",
           "reviewGenerations": "[ String : UUID ]",
           "savedCommands": "[ CompanionCommandKey : AnnexCommand ]",
+          "snapshotEpochs": "[ String : String ]",
           "streamDiagnostics": "CompanionStreamDiagnostics",
           "subscribers": "[ UUID : AsyncStream < CompanionEvent > . Continuation ]",
           "transports": "[ String : any AnnexTransporting ]",
+          "updateEpochChanged": "Set < String >",
           "windowsHosts": "Set < String >"
         },
         "storageMacros": []
@@ -444,6 +464,7 @@
           "continuation": "AsyncStream < CompanionEvent > . Continuation ?",
           "editedHelperPresets": "CompanionHelperRouting ?",
           "sentHosts": "[ CompanionHost ]",
+          "showsAppUpdate": "Bool",
           "showsAutoQuota": "Bool",
           "showsContextWindow": "Bool",
           "showsDispatcher": "Bool",

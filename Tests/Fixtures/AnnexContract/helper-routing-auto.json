@@ -137,7 +137,7 @@
     },
     "kind": "start",
     "projectId": "proj_app",
-    "requestId": "hstart_00000000-0000-4000-8000-000000000023",
+    "requestId": "hstart_00000000-0000-4000-8000-000000000025",
     "requestedAt": "2027-01-15T07:50:00.000Z",
     "requestedRouting": {
       "difficulty": "hard",
@@ -166,7 +166,7 @@
     },
     "kind": "start",
     "projectId": "proj_app",
-    "requestId": "hstart_00000000-0000-4000-8000-000000000024",
+    "requestId": "hstart_00000000-0000-4000-8000-000000000026",
     "requestedAt": "2027-01-15T07:50:00.000Z",
     "requestedRouting": {
       "difficulty": null,
@@ -235,6 +235,53 @@
         "effort": "high",
         "model": "gpt-6.1-sol",
         "provider": "codex-cli"
+      },
+      "source": {
+        "effort": "builtin_mapping",
+        "model": "builtin_mapping",
+        "provider": "auto"
+      }
+    },
+    "copilotLastResort": {
+      "balanced": true,
+      "context": {
+        "status": "none"
+      },
+      "decidedAt": "2027-01-15T08:00:00.000Z",
+      "display": {
+        "reason": "Its quota is unknown. No provider with readable plan usage was eligible",
+        "summary": "claude-opus-5.5, high effort. Its quota is unknown. No provider with readable plan usage was eligible."
+      },
+      "fallback": "none",
+      "load": {
+        "copilot-cli": 0
+      },
+      "mode": "auto",
+      "policyVersion": 3,
+      "quota": {
+        "copilot-cli": {
+          "asOf": null,
+          "state": "unknown",
+          "unknownReason": "not_supported"
+        }
+      },
+      "quotaBasis": "unknown_fallback",
+      "reason": "last_resort_unmeasured",
+      "requested": {
+        "difficulty": "hard",
+        "effort": null,
+        "model": null,
+        "provider": "auto"
+      },
+      "resolved": {
+        "difficulty": "hard",
+        "effort": "high",
+        "model": "claude-opus-5.5",
+        "provider": "copilot-cli"
+      },
+      "skipped": {
+        "claude-code": "quota_near_limit",
+        "codex-cli": "cooling_down"
       },
       "source": {
         "effort": "builtin_mapping",

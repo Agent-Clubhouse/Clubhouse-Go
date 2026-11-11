@@ -19,6 +19,7 @@
             membershipExceptions = (
 				Transport/AnnexClientIdentity.swift,
 				Transport/AnnexCommands.swift,
+                Transport/AnnexAppUpdate.swift,
                 Transport/AnnexFullEvent.swift,
                 Transport/AnnexFullEventIO.swift,
                 Transport/AnnexHelperRouting.swift,

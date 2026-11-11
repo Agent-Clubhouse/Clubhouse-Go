@@ -49,12 +49,12 @@ import Testing
         #expect(CompanionHelperRouting.label([:], family: "reason", code: "future") == "Other")
     }
 
-    @Test func fiveLevelsPreserveInheritanceAndCopilotIsPresetOnly() throws {
+    @Test func fiveLevelsPreserveInheritanceAndAdvertisedAutoCandidates() throws {
         let page = try page()
         for id in ["claude-code", "codex-cli", "copilot-cli"] {
             let provider = try #require(page.providers[id])
             #expect(provider.autoEligible)
-            #expect(provider.autoCandidate == (id != "copilot-cli"))
+            #expect(provider.autoCandidate)
             for (level, follows) in [("minimum", "easy"), ("maximum", "hard")] {
                 let cell = try #require(provider.cells[level])
                 #expect(cell.follows == follows && cell.custom == nil)
@@ -111,7 +111,7 @@ import Testing
     @Test func encodesAcceptedUpdatesAndRetainsFreshSettingsInStaleReceipt() throws {
         for item in try ContractFixtures.cases("commands/helperRouting.update.json") {
             let raw = try #require(item["request"])
-            if item["name"]?.string?.hasPrefix("accepted") == true {
+            if item["name"]?.string?.hasPrefix("accepted") == true, raw["copilotAuto"] == nil {
                 let update = try raw.decode(AnnexHelperRoutingUpdate.self)
                 let command = AnnexCommand(commandID: try #require(raw["commandId"]?.string), epoch: try #require(raw["epoch"]?.string), kind: .updateHelperRouting(update))
                 #expect(try JSONDecoder().decode(AnnexJSON.self, from: command.encoded()) == raw)

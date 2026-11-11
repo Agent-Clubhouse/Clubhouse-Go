@@ -307,6 +307,9 @@ struct CompanionHomeView: View {
                 .listRowBackground(Color.clear)
             } else {
                 summary
+                ForEach(store.hosts.filter { $0.canUpdateApp && $0.appUpdate?.state != AnnexAppUpdate.State.none }) { host in
+                    CompanionAppUpdateLink(store: store, host: host)
+                }
                 ForEach(store.hosts.filter { !isListed($0) }) { host in offlineCard(host) }
                 needsYou
                 dispatchers
@@ -1040,6 +1043,7 @@ struct CompanionGrantRequestActions: View {
     let request: CompanionGrantRequest
     @Bindable var store: CompanionStore
     @Environment(\.companionPalette) private var palette
+    @State private var updateMode: AnnexUpdateMode?
 
     var body: some View {
         let busy = store.grantRequestsInFlight.contains(request.slot)
@@ -1062,9 +1066,21 @@ struct CompanionGrantRequestActions: View {
                     .accessibilityLabel("Reason: \(reason)")
                     .accessibilityIdentifier("grant-request-reason")
             }
-            if let effect = request.allowEffect {
+            if let effect = request.allowEffect ?? (request.isAppUpdate ? CompanionAppUpdateText.restart : nil) {
                 Text(effect).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("grant-request-effect")
+            }
+            if let update = request.update {
+                Text(update.workingAgents.isEmpty ? "No working agents at the time of this request."
+                     : "Working agents: " + update.workingAgents.map { "\($0.name) (\($0.agentId))" }.joined(separator: ", "))
+                    .font(.subheadline).accessibilityIdentifier("app-update-working-agents")
+                Text(CompanionAppUpdateText.platform).font(.caption).foregroundStyle(.secondary)
+                Picker("Restart mode", selection: $updateMode) {
+                    Text("Choose restart mode").tag(Optional<AnnexUpdateMode>.none)
+                    Text("Restart now").tag(Optional(AnnexUpdateMode.now))
+                    Text("When idle").tag(Optional(AnnexUpdateMode.whenIdle))
+                }
+                .accessibilityIdentifier("app-update-mode")
             }
             HStack(spacing: 8) {
                 if request.canDecline {
@@ -1075,11 +1091,12 @@ struct CompanionGrantRequestActions: View {
                     .accessibilityIdentifier("grant-request-decline")
                 }
                 if let allow = request.allowAnswer {
-                    Button { Task { await store.answer(request, with: allow) } } label: {
+                    Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
                         Text(busy ? "Sending…" : allow.label).frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .accessibilityIdentifier("grant-request-allow")
+                    .disabled(request.isAppUpdate && updateMode == nil)
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
@@ -1092,6 +1109,7 @@ struct CompanionGrantRequestActions: View {
                 .buttonStyle(.bordered).buttonBorderShape(.capsule)
                 .accessibilityIdentifier("grant-request-open-chat")
         }
+        .onChange(of: store.hosts.first { $0.id == request.hostID }?.controlEpoch) { _, _ in updateMode = nil }
     }
 }
 
