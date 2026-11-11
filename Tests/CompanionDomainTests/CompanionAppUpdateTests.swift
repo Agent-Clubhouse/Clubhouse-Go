@@ -17,6 +17,8 @@ private actor UpdateDesktop: AnnexTransporting {
     var holdCapabilities = false
     var capabilityGate: CheckedContinuation<Void, Never>?
     var includesSnapshotEpoch = true
+    var holdReceipt = false
+    var receiptGate: CheckedContinuation<Void, Never>?
     init() throws {
         update = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"])
     }
@@ -68,6 +70,9 @@ private actor UpdateDesktop: AnnexTransporting {
     func pauseCapabilities() { holdCapabilities = true }
     func releaseCapabilities() { holdCapabilities = false; capabilityGate?.resume(); capabilityGate = nil }
     var capabilitiesArePaused: Bool { capabilityGate != nil }
+    func pauseReceipts() { holdReceipt = true }
+    func releaseReceipt() { holdReceipt = false; receiptGate?.resume(); receiptGate = nil }
+    var receiptIsPaused: Bool { receiptGate != nil }
     func omitSnapshotEpoch() { includesSnapshotEpoch = false }
     func setFailure(_ value: String?) { receiptFailure = value }
     func setBeforeReceipt(_ value: AnnexJSON) { beforeReceipt = value }
@@ -78,8 +83,9 @@ private actor UpdateDesktop: AnnexTransporting {
                           "downloadProgress": .integer(0), "reason": .null, "request": .null])
         rows = .array([])
     }
-    func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt {
+    func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
         sent.append(command)
+        if holdReceipt { await withCheckedContinuation { receiptGate = $0 } }
         if lostReply { throw AnnexTransportError.commandOutcomeUnknown(commandID: command.commandID) }
         if let receiptFailure {
             guard let item = try ContractFixtures.cases("commands/app.update.request.json").first(where: { $0["response"]?["body"]?["error"]?["code"]?.string == receiptFailure }),
@@ -304,6 +310,74 @@ private actor UpdateDesktop: AnnexTransporting {
         try #require(sent.count == 2)
         #expect(sent[0].commandID == sent[1].commandID,
                 "A lost reply must not turn a retry into a new request")
+    }
+
+    @Test(arguments: [false, true])
+    func terminalShutdownClearsUnknownUpdatesAndRejectsLateReplies(cancel: Bool) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { service.remove(hostID: Self.id) }
+        let value = try #require(cancel
+            ? ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"]
+            : ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+                $0["state"]?.string == "ready" && $0["request"] == .null
+            })
+        let expected = try value.decode(AnnexAppUpdate.self)
+        try await desktop.change(value)
+        try await wait { store.hosts.first?.appUpdate == expected }
+        let perform: @MainActor () async -> Void = {
+            if cancel { await store.cancelAppUpdate(hostID: Self.id) }
+            else { await store.requestAppUpdate(hostID: Self.id) }
+        }
+        await desktop.setLostReply(true)
+        await perform()
+        #expect(store.appUpdateErrors[Self.id] != nil)
+        await desktop.pauseReceipts()
+        let retry = Task { await perform() }
+        try await wait { await desktop.receiptIsPaused }
+        let prior = store.hosts
+        store.shutdown()
+        #expect(store.appUpdateInFlight.isEmpty && store.appUpdateErrors.isEmpty)
+        await service.shutdown()
+        await desktop.releaseReceipt()
+        await retry.value
+        #expect(store.appUpdateErrors.isEmpty)
+        #expect(store.hosts.first?.appUpdate == nil)
+        store.start()
+        store.apply(.hosts(prior))
+        await perform()
+        #expect(await desktop.sent.count == 2, "Shutdown must neither replay nor admit a fresh update")
+        #expect(store.hosts.first?.appUpdate == nil)
+        #expect(service.registeredHostIDs.isEmpty)
+        var events = service.events().makeAsyncIterator()
+        guard case .hosts(let stopped) = await events.next() else { Issue.record("Missing shutdown hosts"); return }
+        #expect(stopped.first?.appUpdate == nil && stopped.first?.controlEpoch == nil)
+        #expect(stopped.first?.canUpdateApp == false)
+    }
+
+    @Test(arguments: [false, true])
+    func terminalShutdownClearsApprovalAttemptsAndRejectsALateAnswer(lostReply: Bool) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { service.remove(hostID: Self.id) }
+        try await desktop.openApproval()
+        try await wait { store.hosts.first?.grantRequests.count == 1 }
+        let request = try #require(store.hosts.first?.grantRequests.first)
+        await desktop.setLostReply(true)
+        await store.answer(request, with: .allowOnce, updateMode: .whenIdle)
+        #expect(store.grantRequestErrors[request.slot] != nil)
+        await desktop.pauseReceipts()
+        let retry = Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) }
+        try await wait { await desktop.receiptIsPaused }
+        store.shutdown()
+        await service.shutdown()
+        await desktop.setLostReply(lostReply)
+        await desktop.releaseReceipt()
+        await retry.value
+        #expect(store.grantRequestsInFlight.isEmpty && store.grantRequestErrors.isEmpty)
+        #expect(store.grantRequestNotice == nil)
+        #expect(store.hosts.first?.grantRequests.isEmpty == true)
+        #expect(!store.canAnswer(request))
+        await store.answer(request, with: .allowOnce, updateMode: .now)
+        #expect(await desktop.sent.count == 2)
     }
 
     @Test func qaNewEpochCannotPublishThePreviousEpochsApprovalWhileSnapshotWaitsForIcons() async throws {

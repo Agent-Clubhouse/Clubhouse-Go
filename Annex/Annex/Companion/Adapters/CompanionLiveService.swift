@@ -625,6 +625,9 @@ import ClubhouseTransport
         guard let wire = AnnexCommand.GrantAnswer(rawValue: answer.rawValue) else { throw CompanionServiceError.rejected(CompanionGrantRequestError.message(code: "", message: nil)) }
         if request.isAppUpdate, answer == .allowOnce { requestedUpdateVersions[request.hostID] = request.update?.version }
         let receipt = try await execute(.answerGrant(requestID: request.id, answer: wire, updateMode: updateMode), id: clientCommandID, hostID: request.hostID, validateReceipt: false)
+        guard capabilities[request.hostID]?.epoch == request.controlEpoch else {
+            throw CompanionServiceError.rejected("The desktop connection changed. Refresh and review the current request before answering.")
+        }
         if request.isAppUpdate, receipt.status != .completed {
             requestedUpdateVersions[request.hostID] = nil
             await reconnect(hostID: request.hostID)
@@ -845,6 +848,28 @@ import ClubhouseTransport
             hosts[id]?.connection = .offline
             emit(.resyncRequired(hostID: id))
             await transport.disconnect()
+        }
+        emitHosts()
+    }
+    func shutdown() async {
+        await suspend()
+        transports.removeAll()
+        registeredTransportIDs.removeAll()
+        capabilities.removeAll()
+        savedCommands.removeAll()
+        expiredCommandIDs.removeAll()
+        requestedUpdateVersions.removeAll()
+        updateEpochChanged.removeAll()
+        snapshotEpochs.removeAll()
+        resolvedGrantRequests.removeAll()
+        for id in hosts.keys {
+            hosts[id]?.canUpdateApp = false
+            hosts[id]?.appUpdate = nil
+            hosts[id]?.appUpdateError = nil
+            hosts[id]?.appUpdateOutcome = nil
+            hosts[id]?.controlEpoch = nil
+            hosts[id]?.canAnswerGrantRequests = false
+            hosts[id]?.grantRequests.removeAll()
         }
         emitHosts()
     }

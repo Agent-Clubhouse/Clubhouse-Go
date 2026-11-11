@@ -87,7 +87,7 @@ import ClubhouseTransport
         Task { await telemetry.flush() }
     }
 
-    /// Tests only: the app keeps one instance for its lifetime.
+    /// Releases subscriptions when the owning runtime ends; also used by isolated tests.
     func stop() {
         lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
         lifecycleObservers.removeAll()

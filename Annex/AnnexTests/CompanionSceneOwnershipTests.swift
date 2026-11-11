@@ -202,6 +202,98 @@ import FramebriarUI
         XCTAssertEqual(runtimes.count, 1)
         XCTAssertEqual(clients.count, 1)
         print("CLIENT_OWNER phase=background-foreground activePumps=\(activePumps) peakPumps=\(peakPumps) starts=\(pumpStarts) connects=\(await transports.asyncCounts())")
+        window.rootViewController = nil
+        if !isolated { window.isHidden = true }
+        try await wait { activePumps == 0 }
+        if !isolated {
+            addTeardownBlock { @MainActor in
+                try await self.wait { runtimes.allSatisfy { $0.value == nil } }
+            }
+        }
+    }
+
+    func testReplacingRootOwnersReleasesEveryPreviousRuntime() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let config = try Configuration(gameID: "scene-fixture")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let network = SceneHTTP(), enrollment = SceneEnrollment(), source = AnnexTelemetry()
+        CompanionSceneTestSupport.makeFeedback = {
+            let client = try! Client(configuration: config, transport: network, enrollmentStore: enrollment,
+                                     feedbackStore: FileFeedbackStore(directory: directory))
+            return CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
+        }
+        var runtimes: [WeakSceneObject<CompanionRuntime>] = []
+        var presenters: [WeakSceneObject<CompanionFeedbackPresenter>] = []
+        var clients: [WeakSceneObject<Client>] = []
+        var bridges: [WeakSceneObject<CompanionTelemetry>] = []
+        defer {
+            window.rootViewController = nil; window.isHidden = true
+            CompanionSceneTestSupport.makeFeedback = nil
+            try? FileManager.default.removeItem(at: directory)
+        }
+        for _ in 0..<5 {
+            let lifetime = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
+            let runtime = lifetime.value
+            runtimes.append(WeakSceneObject(runtime))
+            presenters.append(WeakSceneObject(runtime.feedbackPresenter))
+            clients.append(WeakSceneObject(try XCTUnwrap(runtime.feedback?.client)))
+            bridges.append(WeakSceneObject(try XCTUnwrap(runtime.appTelemetry)))
+            window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: lifetime).environment(\.scenePhase, .active))
+            window.makeKeyAndVisible()
+            try await wait { runtimes.last?.value?.restoredHostIDs != nil }
+            try await wait("Previous runtimes must deallocate") { runtimes.dropLast().allSatisfy { $0.value == nil } }
+            try await wait("Previous feedback presenters must deallocate") { presenters.dropLast().allSatisfy { $0.value == nil } }
+            try await wait("Previous feedback clients and telemetry bridges must deallocate") {
+                clients.dropLast().allSatisfy { $0.value == nil } && bridges.dropLast().allSatisfy { $0.value == nil }
+            }
+        }
+        window.rootViewController = nil
+        window.isHidden = true
+        try await wait("All runtimes must deallocate after unmounting") { runtimes.allSatisfy { $0.value == nil } }
+        try await wait("All feedback presenters must deallocate after unmounting") { presenters.allSatisfy { $0.value == nil } }
+        try await wait("All feedback clients and telemetry bridges must deallocate after unmounting") {
+            clients.allSatisfy { $0.value == nil } && bridges.allSatisfy { $0.value == nil }
+        }
+    }
+
+    func testRuntimeReleaseStopsAnActiveTransportLoop() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "teardown.invalid", port: 443),
+                                       verifiedHostID: Array(repeating: "cd", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "cd", count: 32)))
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "qa-only"), for: host.hostID)
+        let clock = ClubhouseTransport.AnnexManualClock(), io = SceneOfflineIO()
+        var transport: AnnexTransport? = AnnexTransport(host: host, credentials: credentials, io: io, clock: clock.clock)
+        weak var previousTransport = transport
+        var owner: CompanionStateLifetime<CompanionRuntime>? = CompanionStateLifetime {
+            CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        }
+        weak var previousRuntime = try XCTUnwrap(owner).value
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: try XCTUnwrap(owner)).environment(\.scenePhase, .active))
+        window.makeKeyAndVisible()
+        try await wait { previousRuntime?.restoredHostIDs != nil }
+        await previousRuntime?.service.register(.init(host: host, alias: "QA desktop", transport: try XCTUnwrap(transport)))
+        try await wait { clock.sleeperCount > 0 }
+        transport = nil
+        window.rootViewController = nil
+        window.isHidden = true
+        owner = nil
+        try await wait { previousRuntime == nil }
+        await CompanionIconStore.shared.remove(host: host.hostID)
+        try await Task.sleep(for: .milliseconds(200))
+        let pendingBeforeAdvance = clock.sleeperCount
+        let requestsBeforeAdvance = await io.count
+        clock.advance(by: .seconds(60))
+        try await Task.sleep(for: .milliseconds(200))
+        let requestsAfterAdvance = await io.count
+        print("QA_RUNTIME_TEARDOWN runtimeReleased=\(previousRuntime == nil) transportAlive=\(previousTransport != nil) sleepers=\(pendingBeforeAdvance) requestsBefore=\(requestsBeforeAdvance) requestsAfter=\(requestsAfterAdvance)")
+        XCTAssertEqual(pendingBeforeAdvance, 0, "Destroying the runtime must cancel its transport retry loop")
+        XCTAssertEqual(requestsAfterAdvance, requestsBeforeAdvance, "An old runtime must not continue network retries")
+        XCTAssertNil(previousTransport, "The active transport must not retain itself after its owner ends")
+        await previousTransport?.disconnect()
     }
 
     func testColdRootPhasesRestoreOneConnection() async throws {
@@ -249,6 +341,136 @@ import FramebriarUI
             XCTAssertEqual(runtime.restoredHostIDs, Set([host.hostID]))
             print("CLIENT_COLD phase=\(initialPhase) preSuspended=\(preSuspended) restoreCalls=\(restoreCalls) beforeActive=\(beforeActive) afterActive=\(afterActive)")
         }
+    }
+
+    func testQATeardownSettlesQueuedTransitionsBeforeFinalDisconnect() async throws {
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "qa-order.invalid", port: 443),
+                                       verifiedHostID: Array(repeating: "de", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "de", count: 32)))
+        let transport = SceneShutdownGateTransport()
+        var runtime: CompanionRuntime? = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        weak var previousRuntime = runtime
+        weak var previousService = runtime?.service
+        addTeardownBlock {
+            await transport.releaseDisconnect()
+            await CompanionIconStore.shared.remove(host: host.hostID)
+        }
+        await runtime?.service.register(.init(host: host, alias: "QA ordering", transport: transport))
+        runtime?.lifecycle.update(.background)
+        try await waitAsync { await transport.disconnectCount == 1 }
+        runtime?.lifecycle.update(.active)
+        runtime = nil
+        XCTAssertNil(previousRuntime)
+        await transport.releaseDisconnect()
+        try await wait { previousService == nil }
+        let calls = await transport.calls
+        print("QA_SHUTDOWN_ORDER \(calls)")
+        XCTAssertEqual(calls, ["connect", "disconnect", "disconnect", "connect", "disconnect"])
+    }
+
+    func testQADyingRuntimeMustNotOfferFeedbackOverItsReplacement() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let preference = CompanionScreenshotFeedback.preferenceKey
+        let previousPreference = UserDefaults.standard.object(forKey: preference)
+        UserDefaults.standard.set(true, forKey: preference)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let config = try Configuration(gameID: "scene-fixture")
+        let enrollment = SceneEnrollment(), network = SceneHTTP(), source = AnnexTelemetry()
+        CompanionSceneTestSupport.makeFeedback = {
+            let client = try! Client(configuration: config, transport: network, enrollmentStore: enrollment,
+                                     feedbackStore: FileFeedbackStore(directory: directory))
+            return CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
+        }
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "qa-prompt.invalid", port: 443),
+                                       verifiedHostID: Array(repeating: "df", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "df", count: 32)))
+        let transport = SceneShutdownGateTransport()
+        addTeardownBlock {
+            await transport.releaseDisconnect()
+            await CompanionIconStore.shared.remove(host: host.hostID)
+        }
+        defer {
+            window.rootViewController = nil
+            window.isHidden = true
+            if let previousPreference { UserDefaults.standard.set(previousPreference, forKey: preference) }
+            else { UserDefaults.standard.removeObject(forKey: preference) }
+            CompanionSceneTestSupport.makeFeedback = nil
+            try? FileManager.default.removeItem(at: directory)
+        }
+        var owner: CompanionStateLifetime<CompanionRuntime>? = CompanionStateLifetime {
+            CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        }
+        weak var previousRuntime = try XCTUnwrap(owner).value
+        weak var previousPresenter = previousRuntime?.feedbackPresenter
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: try XCTUnwrap(owner)).environment(\.scenePhase, .active))
+        window.makeKeyAndVisible()
+        try await wait { previousRuntime?.restoredHostIDs != nil }
+        await previousRuntime?.feedback?.update()
+        XCTAssertEqual(previousRuntime?.feedback?.status?.canSubmit, true)
+        await previousRuntime?.service.register(.init(host: host, alias: "QA prompt", transport: transport))
+        window.rootViewController = nil
+        owner = nil
+        try await wait { previousRuntime == nil }
+        try await waitAsync { await transport.disconnectCount == 1 }
+        let replacementOwner = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
+        let replacement = replacementOwner.value
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: replacementOwner).environment(\.scenePhase, .active))
+        window.makeKeyAndVisible()
+        try await wait { replacement.restoredHostIDs != nil }
+        await replacement.feedback?.update()
+        XCTAssertEqual(replacement.feedback?.status?.canSubmit, true)
+        NotificationCenter.default.post(name: UIApplication.userDidTakeScreenshotNotification, object: nil)
+        func promptCount() -> Int {
+            scene.windows.filter { !$0.isHidden && String(describing: type(of: $0)).contains("PassthroughWindow") }.count
+        }
+        try await wait { promptCount() > 0 }
+        try await Task.sleep(for: .milliseconds(100))
+        print("QA_DYING_PRESENTER runtimeReleased=\(previousRuntime == nil) oldPresenterAlive=\(previousPresenter != nil) promptCount=\(promptCount())")
+        XCTAssertEqual(promptCount(), 1, "Only the replacement runtime may offer feedback")
+        await transport.releaseDisconnect()
+        try await wait { previousPresenter == nil }
+        replacement.appTelemetry?.stop()
+        replacement.service.remove(hostID: host.hostID)
+    }
+
+    func testQAShutdownPreservesReplacementHostIconFetcherAndTransport() async throws {
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "qa-replacement.invalid", port: 443),
+                                       verifiedHostID: Array(repeating: "e0", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "e0", count: 32)))
+        var oldTransport: SceneShutdownGateTransport? = SceneShutdownGateTransport()
+        weak var previousTransport = oldTransport
+        var runtime: CompanionRuntime? = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        weak var previousService = runtime?.service
+        await runtime?.service.register(.init(host: host, alias: "Old", transport: try XCTUnwrap(oldTransport)))
+        runtime = nil
+        try await waitAsync { await oldTransport?.disconnectCount == 1 }
+        let replacementTransport = SceneShutdownGateTransport()
+        await replacementTransport.releaseDisconnect()
+        let replacement = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        await replacement.service.register(.init(host: host, alias: "Replacement", transport: replacementTransport))
+        await oldTransport?.releaseDisconnect()
+        try await wait { previousService == nil }
+        oldTransport = nil
+        try await wait { previousTransport == nil }
+        let key = CompanionIconReference.inline(host: host.hostID, kind: .agent, id: "qa-icon", data: Data([0]))
+        _ = await CompanionIconStore.shared.image(for: key, points: 32)
+        let iconReadCount = await replacementTransport.iconReadCount
+        let calls = await replacementTransport.calls
+        print("QA_REPLACEMENT oldTransportReleased=\(previousTransport == nil) calls=\(calls) iconReads=\(iconReadCount)")
+        XCTAssertEqual(iconReadCount, 1)
+        XCTAssertEqual(calls, ["connect"])
+        XCTAssertEqual(replacement.service.registeredHostIDs, Set([host.hostID]))
+        await replacement.service.shutdown()
+        await CompanionIconStore.shared.remove(host: host.hostID)
+    }
+
+    private func waitAsync(_ condition: () async -> Bool) async throws {
+        for _ in 0..<500 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTFail("QA asynchronous fixture did not reach expected state")
     }
 
     func testOneClientKeepsQueueAndEnrollmentCoherentAcrossCallers() async throws {
@@ -324,12 +546,12 @@ import FramebriarUI
         }
     }
 
-    private func wait(_ condition: () -> Bool) async throws {
+    private func wait(_ message: String = "Scene fixture did not reach expected state", until condition: () -> Bool) async throws {
         for _ in 0..<500 {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTFail("Scene fixture did not reach expected state")
+        XCTFail(message)
     }
 }
 
@@ -356,6 +578,45 @@ private actor SceneHTTP: HTTPTransport {
         return HTTPResponse(status: 200, headers: ["content-type": "application/json"], body: try JSONSerialization.data(withJSONObject: object))
     }
 }
+private actor SceneOfflineIO: AnnexIO {
+    private(set) var count = 0
+    func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
+        count += 1
+        throw URLError(.notConnectedToInternet)
+    }
+    func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket {
+        throw URLError(.notConnectedToInternet)
+    }
+}
+
+private actor SceneShutdownGateTransport: AnnexTransporting {
+    private var gate: CheckedContinuation<Void, Never>?
+    private var holdFirstDisconnect = true
+    private(set) var disconnectCount = 0
+    private(set) var iconReadCount = 0
+    private(set) var calls: [String] = []
+    func events() -> AsyncThrowingStream<AnnexTransportEvent, Error> { AsyncThrowingStream { _ in } }
+    func connect() { calls.append("connect") }
+    func disconnect() async {
+        disconnectCount += 1
+        calls.append("disconnect")
+        if holdFirstDisconnect {
+            await withCheckedContinuation { gate = $0 }
+        }
+    }
+    func releaseDisconnect() {
+        holdFirstDisconnect = false
+        gate?.resume()
+        gate = nil
+    }
+    func read(_ route: AnnexReadRoute) throws -> AnnexJSON { throw AnnexTransportError.disconnected }
+    func execute(_ command: AnnexCommand) throws -> AnnexCommandReceipt { throw AnnexTransportError.disconnected }
+    func icon(kind: String, id: String, version: String, ifNoneMatch: String?) throws -> AnnexHTTPResponse {
+        iconReadCount += 1
+        throw AnnexTransportError.unsupportedCapability("QA icon probe")
+    }
+}
+
 private actor SceneTransport: AnnexTransporting {
     private(set) var connectCount = 0
     func events() -> AsyncThrowingStream<AnnexTransportEvent, Error> { AsyncThrowingStream { _ in } }

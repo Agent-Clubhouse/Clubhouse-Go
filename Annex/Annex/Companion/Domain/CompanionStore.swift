@@ -81,6 +81,7 @@ import Observation
     @ObservationIgnored private let draftPersistence: (any CompanionDraftPersistence)?
     @ObservationIgnored private let finishedPersistence: (any CompanionFinishedPersistence)?
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
+    private var isShutDown = false
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
     /// Desktop ids of uploaded images, by `CompanionMessageImage.id`, so a retry doesn't upload them again.
@@ -104,7 +105,7 @@ import Observation
     }
 
     func start() {
-        guard listeningTask == nil else { return }
+        guard !isShutDown, listeningTask == nil else { return }
         let events = service.events()
         listeningTask = Task { [weak self] in
             for await event in events {
@@ -115,6 +116,28 @@ import Observation
     }
 
     func stop() { listeningTask?.cancel(); listeningTask = nil }
+
+    func shutdown() {
+        isShutDown = true
+        stop()
+        providerFlows.removeAll()
+        appUpdateAttempts.removeAll()
+        appUpdateInFlight.removeAll()
+        appUpdateErrors.removeAll()
+        grantAnswerAttempts.removeAll()
+        grantRequestsInFlight.removeAll()
+        grantRequestErrors.removeAll()
+        grantRequestNotice = nil
+        for index in hosts.indices {
+            hosts[index].canUpdateApp = false
+            hosts[index].appUpdate = nil
+            hosts[index].appUpdateError = nil
+            hosts[index].appUpdateOutcome = nil
+            hosts[index].controlEpoch = nil
+            hosts[index].canAnswerGrantRequests = false
+            hosts[index].grantRequests.removeAll()
+        }
+    }
 
     func sessions(for target: CompanionTarget) async throws -> [CompanionSessionSummary] { try await service.sessions(for: target) }
     func archive(for target: CompanionTarget, sessionID: String) throws -> CompanionArchiveTranscript {
@@ -677,7 +700,7 @@ import Observation
     }
 
     func canAnswer(_ request: CompanionGrantRequest) -> Bool {
-        guard let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
+        guard !isShutDown, let host = hosts.first(where: { $0.id == request.hostID }) else { return false }
         return host.connection.canOperate && host.canAnswerGrantRequests && !grantRequestsInFlight.contains(request.slot)
             && request.controlEpoch == host.controlEpoch
             && (!request.isAppUpdate || (host.canUpdateApp && request.update != nil))
@@ -698,17 +721,21 @@ import Observation
         defer { grantRequestsInFlight.remove(request.slot) }
         do {
             try await service.answerGrantRequest(request, answer: answer, updateMode: updateMode, clientCommandID: attempt)
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             removeGrantRequest(request)
         } catch CompanionGrantRequestError.gone(let message) {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             grantRequestNotice = message
             removeGrantRequest(request)
         } catch let error as CompanionServiceError {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             // Only a lost reply keeps the command id: the same answer again replays the desktop's receipt.
             if case .uncertain = error {} else { grantAnswerAttempts[request.slot] = nil }
             grantRequestErrors[request.slot] = error.localizedDescription
         } catch {
+            guard grantAnswerAttempts[request.slot]?.commandID == attempt else { return }
             grantAnswerAttempts[request.slot] = nil
             grantRequestErrors[request.slot] = error.localizedDescription
         }
@@ -718,12 +745,12 @@ import Observation
     }
 
     func requestAppUpdate(hostID: String) async {
-        guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
+        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               host.appUpdate?.canRequest == true, !appUpdateInFlight.contains(hostID) else { return }
         await changeAppUpdate(host, requestID: nil)
     }
     func cancelAppUpdate(hostID: String) async {
-        guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
+        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               let request = host.appUpdate?.request, request.canCancel, !appUpdateInFlight.contains(hostID) else { return }
         await changeAppUpdate(host, requestID: request.requestId)
     }
@@ -742,6 +769,7 @@ import Observation
             else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: attempt.commandID) }
             appUpdateAttempts[key] = nil
         } catch {
+            guard appUpdateAttempts[key]?.commandID == attempt.commandID else { return }
             guard let host = hosts.first(where: { $0.id == hostID }), host.controlEpoch == epoch else {
                 appUpdateAttempts[key] = nil
                 return
@@ -1196,6 +1224,7 @@ import Observation
     }
 
     func apply(_ event: CompanionEvent) {
+        guard !isShutDown else { return }
         AnnexTelemetry.shared.measurePerformance(.storeApply) {
             let assistant: (CompanionTarget, String)? = switch event {
             case .upsert(let target, .message(let message), _) where message.role == .assistant: (target, message.id)

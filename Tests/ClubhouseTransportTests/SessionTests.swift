@@ -200,6 +200,9 @@ func qaSocketEpochRemainsCorrectWhenRestartRacesTheUpgrade(cancelRefreshWhenClos
     #expect(replay["epoch"]?.string == "new-epoch",
             "The replacement socket replays with its freshly negotiated epoch")
     await transport.disconnect()
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(await replacement.closeCount >= 1)
+    #expect(await io.sockets.count == 2, "Shutdown must also stop the replacement's reconnect loop")
 }
 
 @Test func unauthorizedStopsWithoutReconnectLoop() async throws {
