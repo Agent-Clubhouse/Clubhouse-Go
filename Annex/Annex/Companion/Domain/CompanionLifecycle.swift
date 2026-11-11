@@ -3,6 +3,8 @@ import Foundation
 /// Inactive is transient (Control Center, permission sheets, foregrounding).
 /// Only background suspends; the next active phase resumes, in arrival order.
 @MainActor final class CompanionLifecycle {
+    // ARC-only teardown; transition captures are reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
     enum Phase { case active, inactive, background }
     private var wantsActive = true
     private var pending: Task<Void, Never>?

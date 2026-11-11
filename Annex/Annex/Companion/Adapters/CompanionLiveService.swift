@@ -806,6 +806,11 @@ import ClubhouseTransport
         }
         emitHosts()
     }
+    func shutdown() async {
+        await suspend()
+        transports.removeAll()
+        registeredTransportIDs.removeAll()
+    }
     func resume() async {
         isSuspended = false
         let reconnected = await prepareResume?() ?? []

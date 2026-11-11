@@ -70,7 +70,8 @@ python3 - <<'PY'
 import collections, json
 with open('scripts/isolated-deinit-policy.json') as f:
     counts = collections.Counter(c['policy'] for c in json.load(f)['classes'].values())
-print(f"{counts['arc_only']} protected; {counts['main_actor'] + counts['generated']} retained")
+print(f"{counts['arc_only']} ARC-only; {counts['main_actor_task']} deferred MainActor; "
+      f"{counts['main_actor'] + counts['generated']} retained isolated")
 PY
 ```
 

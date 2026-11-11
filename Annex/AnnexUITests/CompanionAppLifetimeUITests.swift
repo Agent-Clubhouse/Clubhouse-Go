@@ -14,4 +14,14 @@ import XCTest
             XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
         }
     }
+
+    func testRootSettingsActionCanOpenCloseAndReopen() {
+        let app = launchApp(["--companion-root-ui-testing"])
+        for _ in 0..<2 {
+            let settings = app.navigationBars["Settings"]
+            waitAndTap(app.buttons["Settings"], until: settings, timeout: 10)
+            settings.buttons["Done"].tap()
+            XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
+        }
+    }
 }

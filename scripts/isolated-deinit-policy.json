@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners; Store adds no UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work. Dispatcher settings (#338) add only an optional CompanionDispatcherResetPrompt (Sendable value struct of Strings and an enum), a Set<String> of host ids and a String-keyed map of String notices; no callbacks, UI ownership or teardown work.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners. Runtime invokes Store.shutdown inside its real MainActor task before any await, clearing providerFlows so a SwiftUI-retained Store can later die outside a task without owning isolated-deinit flows. Store's empty deinit does no cleanup itself. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work. Dispatcher settings (#338) add only an optional CompanionDispatcherResetPrompt (Sendable value struct of Strings and an enum), a Set<String> of host ids and a String-keyed map of String notices; no callbacks, UI ownership or teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -102,9 +102,36 @@
       }
     },
     "CompanionRuntime": {
-      "policy": "main_actor",
+      "policy": "main_actor_task",
       "source": "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
-      "reason": "Owns feedback presenter with UIKit windows/controllers; retain main-actor field destruction."
+      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree. Its first statement quiesces Presenter observers, offers and pending status work; before any await, Store.shutdown stops listening and clears isolated-deinit providerFlows, and telemetry stops. This protects both a Store retained beyond Runtime teardown and a Presenter retained while transport disconnect waits. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task then waits for pending lifecycle transitions and shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All retained owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. Fields and exact deinit body are gated.",
+      "deinit": "nonisolated deinit { Task { @ MainActor [ feedback , appTelemetry , feedbackPresenter , store , service , lifecycle ] in feedbackPresenter . stop ( ) store . shutdown ( ) appTelemetry ? . stop ( ) await lifecycle . settle ( ) await service . shutdown ( ) withExtendedLifetime ( ( feedback , appTelemetry , feedbackPresenter , store , lifecycle ) ) { } } }",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "appTelemetry": "CompanionTelemetry ?",
+          "feedback": "FeedbackModel ?",
+          "feedbackPresenter": "CompanionFeedbackPresenter",
+          "isRestoring": "Bool",
+          "lifecycle": "CompanionLifecycle",
+          "nextRediscovery": "[ String : Date ]",
+          "preferences": "CompanionPreferences",
+          "rediscovering": "Set < String >",
+          "registry": "AnnexTransportRegistry",
+          "restoredHostIDs": "Set < String > ?",
+          "restoreError": "String ?",
+          "service": "CompanionLiveService",
+          "sessionHosts": "Set < String >",
+          "started": "Bool",
+          "store": "CompanionStore",
+          "syncingNetworkRegistrations": "Bool",
+          "telemetryExporter": "AnnexOTLPExporter"
+        },
+        "storageMacros": [
+          "@ Observable"
+        ]
+      }
     },
     "CompanionMarkdown.Box": {
       "policy": "arc_only",
@@ -127,9 +154,19 @@
       "reason": "UIWindow subclass owns UIKit/controller/layer state."
     },
     "CompanionLifecycle": {
-      "policy": "main_actor",
+      "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionLifecycle.swift",
-      "reason": "Owns injected main-actor transition closure; arbitrary captures not proved UI-free."
+      "reason": "Bool, Sendable task handle and transition closure. The reviewed production constructor captures only the ARC-only CompanionLiveService; no UIKit owner or main-only destruction. Transition execution stays on MainActor and ordered tasks complete unchanged; deinit performs no cancellation, async work or task-local access. New constructor captures require review (#349).",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "pending": "Task < Void , Never > ?",
+          "transition": "@ MainActor ( Bool ) async -> Void",
+          "wantsActive": "Bool"
+        },
+        "storageMacros": []
+      }
     },
     "CompanionTelemetry": {
       "policy": "main_actor",
@@ -367,7 +404,7 @@
     "CompanionStateLifetime": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift",
-      "reason": "Reviewed constructors produce Queue or actor-isolated Runtime. Factories capture Store or a Bool; Runtime retains isolated teardown for its UIKit fields. New constructor/capture sites require review.",
+      "reason": "Reviewed constructors produce Queue, Runtime, synthetic Store or DEBUG feedback-fixture values. Factories capture reviewed Store, a Bool or nothing; Runtime separately defers its UIKit fields' teardown to a MainActor task (#349). New constructor/capture sites require review.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
@@ -713,7 +750,7 @@
     "CompanionProviderFlow": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift",
-      "reason": "Owns an injected CompanionService protocol and canRequest callback. Production callback captures Store weakly plus a value target, but arbitrary injected owners are not constrained to UI-free teardown; retain synthesized MainActor destruction. Remaining fields are provider receipt/target/String/Bool values, with no cleanup side effects."
+      "reason": "Owns an injected CompanionService protocol and canRequest callback. Production callback captures Store weakly plus a value target, but arbitrary injected owners are not constrained to UI-free teardown; retain synthesized MainActor destruction. Store.shutdown explicitly releases its providerFlows inside Runtime's real MainActor task before any await, so a Store that outlives Runtime no longer owns these isolated-deinit objects. Remaining fields are provider receipt/target/String/Bool values, with no cleanup side effects."
     },
     "CompanionRecoveryFixtureService": {
       "policy": "arc_only",
@@ -760,6 +797,14 @@
   },
   "captureSites": {
     "Annex/Annex/Companion/Views/CompanionAppRoot.swift": {
+      "constructor:CompanionLifecycle": [
+        {
+          "expression": "CompanionLifecycle { active in if active { await service . resume ( ) } else { await service . suspend ( ) } }",
+          "producers": {
+            "service": "CompanionLiveService ( )"
+          }
+        }
+      ],
       "callback:onRoutes": [
         {
           "expression": "service . onRoutes = { [ weak self ] hostID , routes in guard let self else { return } Task { try ? await self . registry . learnRoutes ( hostID : hostID , routes . endpoints ) } }",
