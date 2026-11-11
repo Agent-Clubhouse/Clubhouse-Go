@@ -194,11 +194,12 @@ struct CompanionConversationView: View {
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
             if store.grantRequests(for: target).isEmpty {
-                composerBar
+                composerBar(maximumHeight: max(44, available.size.height - Self.headerPillClearance - 44),
+                            compactHeight: available.size.height < 360)
             } else {
                 CompanionConversationGrantFooter(store: store, target: target,
                     maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
-                    composerBar
+                    composerBar(compactHeight: available.size.height < 360)
                 }
             }
         }
@@ -244,15 +245,16 @@ struct CompanionConversationView: View {
         }
     }
 
-    @ViewBuilder private var composerBar: some View {
+    @ViewBuilder private func composerBar(maximumHeight: CGFloat = .infinity, compactHeight: Bool) -> some View {
         if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-            VStack(spacing: 0) {
+            CompanionComposerLayout(spacing: 0, maximumHeight: maximumHeight) {
                 activityLine
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                 CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
                     focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
             }
+            .environment(\.companionComposerCompactHeight, compactHeight)
             .modifier(CompanionOfferedWidth())
         }
     }
@@ -366,6 +368,12 @@ struct CompanionConversationView: View {
         }
     }
 
+    private var showsLatestControl: Bool {
+        !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(
+            readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)
+        ) && !conversation.items.isEmpty
+    }
+
     private var timeline: some View {
         #if DEBUG
         let _ = CompanionConversationBuildProbe.record?(.timeline, target)
@@ -375,6 +383,7 @@ struct CompanionConversationView: View {
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
+        let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
         return ScrollViewReader { proxy in
             ScrollView {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
@@ -412,11 +421,12 @@ struct CompanionConversationView: View {
                             }
                         }
                     }
-                    // Scrollable clearance lets every final line move above the floating navigation controls.
-                    // Include that clearance in Latest so it reaches the physical bottom.
-                    Color.clear.frame(height: 1).padding(.top, 22).padding(.bottom, navigationClearance).id("latest")
+                    CompanionTranscriptEndSpacer(horizontalPadding: horizontalPadding, navigationClearance: navigationClearance) {
+                        !stops.isEmpty || showsLatestControl
+                    }
+                    .id("latest")
                 }
-                .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
+                .padding(.horizontal, horizontalPadding)
                 .padding(.top, 24)
                 .coordinateSpace(name: "companion-transcript-content")
                 .background {
@@ -532,7 +542,7 @@ struct CompanionConversationView: View {
                                 .accessibilityIdentifier("companion-next-message")
                                 .buttonBorderShape(.circle)
                         }
-                        if !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(readingViewport.metrics ?? .init(offset: 0, contentHeight: 0, containerHeight: 0)) && !conversation.items.isEmpty {
+                        if showsLatestControl {
                             Button {
                                 setFollowing(true, reason: .latest)
                                 readingBookmark.position.followsLatest = true
@@ -887,6 +897,38 @@ struct CompanionContextRing: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
+    }
+}
+
+private struct CompanionTranscriptEndSpacer: View {
+    let horizontalPadding: CGFloat
+    let navigationClearance: CGFloat
+    let showsControls: @MainActor () -> Bool
+
+    var body: some View {
+        CompanionTranscriptEndLayout(horizontalPadding: horizontalPadding, navigationClearance: navigationClearance,
+                                     showsControls: showsControls()) {
+            Color.clear.frame(height: 1).padding(.top, 22)
+        }
+    }
+}
+
+/// Restore the transcript's outer insets when applying the window-width breakpoint.
+/// Choosing during measurement avoids a post-layout compact-mode transition.
+private struct CompanionTranscriptEndLayout: Layout {
+    let horizontalPadding: CGFloat
+    let navigationClearance: CGFloat
+    let showsControls: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let marker = subviews.first?.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) ?? .zero
+        let compact = proposal.width.map { $0 > 0 && $0 + horizontalPadding * 2 < 390 } ?? false
+        let clearance = compact ? (showsControls ? max(0, navigationClearance - 8) : 0) : navigationClearance
+        return CGSize(width: marker.width, height: marker.height + clearance)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: nil))
     }
 }
 

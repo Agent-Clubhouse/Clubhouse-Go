@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 import ClubhouseTransport
 
+extension EnvironmentValues {
+    @Entry var companionComposerCompactHeight = false
+}
+
 /// A retained tab's editing bookmark. Plain values only; never UIKit or SwiftUI handles.
 @MainActor final class CompanionComposerMemory {
     nonisolated deinit {}
@@ -31,6 +35,7 @@ struct CompanionConversationComposer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionComposerFitsGrantFooter) private var fitsGrantFooter
+    @Environment(\.companionComposerCompactHeight) private var compactHeight
     @Environment(\.companionPalette) private var palette
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
@@ -119,7 +124,7 @@ struct CompanionConversationComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        composerLayout {
             pinnedApprovalBar
             if isAsleep {
                 VStack(alignment: .leading, spacing: 8) {
@@ -138,6 +143,7 @@ struct CompanionConversationComposer: View {
             CompanionAttachmentStrip(store: store, target: target)
             if !slashMatches.isEmpty {
                 CompanionSlashMenuView(commands: slashMatches, highlighted: min(slashHighlight, slashMatches.count - 1), pick: pickSlashCommand)
+                    .layoutValue(key: CompanionComposerFlexibleHeight.self, value: true)
             }
             HStack(alignment: .bottom, spacing: 4) {
                 inputRowLayout {
@@ -153,7 +159,7 @@ struct CompanionConversationComposer: View {
                             // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                             // A grant footer instead offers a bounded height so Review and the actions stay visible.
                             .fixedSize(horizontal: false, vertical: !fitsGrantFooter)
-                            .padding(.vertical, 12).padding(.horizontal, 16)
+                            .padding(.vertical, compactHeight ? 6 : 12).padding(.horizontal, 16)
                             // The draft keeps the full text row as it grows; actions stay in their own row below.
                             .frame(minHeight: composerRowHeight)
                             .focused($composerFocused)
@@ -222,7 +228,8 @@ struct CompanionConversationComposer: View {
             }
             composerCaption
         }
-        .padding(.horizontal, 16).padding(.vertical, 10)
+        // Large-text glass controls extend beyond the 44pt row; retain their keyboard clearance.
+        .padding(.horizontal, 16).padding(.vertical, compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -292,12 +299,19 @@ struct CompanionConversationComposer: View {
             guard (try? await Task.sleep(for: .milliseconds(300))) != nil else { return }
             showRefreshing = true
         }
+        .layoutValue(key: CompanionComposerFlexibleHeight.self, value: !slashMatches.isEmpty || fitsGrantFooter)
     }
 
     /// Keep the full-width draft above one action row at every text size and focus state.
     /// Retain the field subtree; typing does not select a different layout or control placement.
     private var inputRowLayout: AnyLayout {
         AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+    }
+
+    private var composerLayout: AnyLayout {
+        slashMatches.isEmpty
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: compactHeight ? 8 : 10))
+            : AnyLayout(CompanionComposerLayout(spacing: compactHeight ? 8 : 10))
     }
 
     /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.
@@ -450,7 +464,7 @@ struct CompanionConversationComposer: View {
     }
 
     /// The send button with its padding, or one line of text with the field's padding if that is taller.
-    private var composerRowHeight: CGFloat { max(48, composerLineHeight + 24) }
+    private var composerRowHeight: CGFloat { max(compactHeight ? 44 : 48, composerLineHeight + (compactHeight ? 12 : 24)) }
 
     /// Reserve a caption only for information that changes what sending will do.
     @ViewBuilder private var composerCaption: some View {
@@ -510,6 +524,44 @@ struct CompanionConversationComposer: View {
         }
         if agent.status == .working { return steers ? "Steer \(agent.displayName)…" : "Queue a message for \(agent.displayName)…" }
         return agent.slashCommands == nil ? "Message \(agent.displayName)…" : "Message \(agent.displayName)… / for commands"
+    }
+}
+
+struct CompanionComposerFlexibleHeight: LayoutValueKey {
+    static let defaultValue = false
+}
+
+/// Measure fixed controls first, then offer the menu only the remaining keyboard-safe height.
+/// The outer activity/composer stack uses the same allocation without remounting the native editor.
+struct CompanionComposerLayout: Layout {
+    let spacing: CGFloat
+    var maximumHeight: CGFloat = .infinity
+
+    private func sizes(proposal: ProposedViewSize, subviews: Subviews) -> [CGSize] {
+        var sizes = subviews.map { $0.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) }
+        if let flexible = subviews.firstIndex(where: { $0[CompanionComposerFlexibleHeight.self] }) {
+            let gaps = CGFloat(max(0, sizes.filter { $0.height > 0 }.count - 1)) * spacing
+            let fixedHeight = sizes.indices.filter { $0 != flexible }.reduce(gaps) { $0 + sizes[$1].height }
+            let budget = max(0, min(maximumHeight, proposal.height ?? .infinity) - fixedHeight)
+            sizes[flexible] = subviews[flexible].sizeThatFits(ProposedViewSize(width: proposal.width, height: budget))
+        }
+        return sizes
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = sizes(proposal: proposal, subviews: subviews)
+        let gaps = CGFloat(max(0, sizes.filter { $0.height > 0 }.count - 1)) * spacing
+        return CGSize(width: proposal.width ?? sizes.map(\.width).max() ?? 0,
+                      height: sizes.reduce(gaps) { $0 + $1.height })
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let sizes = sizes(proposal: ProposedViewSize(width: bounds.width, height: bounds.height), subviews: subviews)
+        var y = bounds.minY
+        for index in subviews.indices {
+            subviews[index].place(at: CGPoint(x: bounds.minX, y: y), anchor: .topLeading, proposal: ProposedViewSize(sizes[index]))
+            if sizes[index].height > 0 { y += sizes[index].height + spacing }
+        }
     }
 }
 

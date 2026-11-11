@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 @MainActor final class CompanionKeyboardDismissalUITests: ReliableUITestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
@@ -9,6 +10,8 @@ import XCTest
     }
     private func screenshot(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "\(name) hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
     }
     private func focus(_ composer: XCUIElement, in app: XCUIApplication) {
         composer.tap()
@@ -22,6 +25,33 @@ import XCTest
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
         XCTAssertFalse(app.navigationBars.buttons["companion-dismiss-keyboard"].exists,
                        "Keyboard dismissal does not add a navigation-bar control")
+    }
+    private func transcriptViewport(_ app: XCUIApplication) -> CGRect {
+        // The ScrollView's AX frame extends beneath the bars; its container exports the visible viewport.
+        let transcript = element(app, "companion-transcript").frame.intersection(app.frame)
+        let top = max(transcript.minY, element(app, "companion-chat-header").frame.maxY)
+        var bottom = min(transcript.maxY, element(app, "companion-composer-region").frame.minY)
+        let activity = app.staticTexts["companion-chat-activity"]
+        if activity.exists { bottom = min(bottom, activity.frame.minY) }
+        return CGRect(x: transcript.minX, y: top, width: transcript.width, height: max(0, bottom - top))
+    }
+
+    private func revealWhileEditing(_ target: XCUIElement, composer: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<4 {
+            let viewport = transcriptViewport(app)
+            XCTAssertGreaterThanOrEqual(viewport.height, 44)
+            if target.isHittable && pixelContains(viewport, target.frame) { return }
+            // Scroll the real timeline, not a screen fraction that could land on the keyboard.
+            let down = target.frame.minY < viewport.minY
+            let start = CGPoint(x: viewport.minX + 8, y: viewport.minY + viewport.height * (down ? 0.25 : 0.75))
+            let end = CGPoint(x: start.x, y: viewport.minY + viewport.height * (down ? 0.75 : 0.25))
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: start.x, dy: start.y)).press(forDuration: 0.05,
+                thenDragTo: origin.withOffset(CGVector(dx: end.x, dy: end.y)))
+            if !app.keyboards.firstMatch.exists { focus(composer, in: app) }
+        }
+        XCTAssertTrue(target.isHittable && pixelContains(transcriptViewport(app), target.frame),
+                      "The target must be fully visible while editing: \(target.frame)")
     }
     private func transcriptPoint(_ app: XCUIApplication) -> XCUICoordinate {
         let frame = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
@@ -91,7 +121,7 @@ import XCTest
     func testShortDispatcherCanDismissAndReturnHome() { dispatcher([]) }
     func testLongDispatcherCanDismissAndReturnHome() { dispatcher(["--companion-preview-long-reply"]) }
 
-    func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() {
+    func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply", "--companion-preview-follow-trace"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
@@ -110,22 +140,47 @@ import XCTest
         XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
         // Tap real selectable text, rather than the blank gutter used above.
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
-        let viewportTop = max(transcript.minY, element(app, "companion-chat-header").frame.maxY)
-        let viewportBottom = min(transcript.maxY, app.buttons["companion-level-menu"].frame.minY)
-        let viewport = CGRect(x: transcript.minX, y: viewportTop, width: transcript.width, height: max(0, viewportBottom - viewportTop))
-        // The first slice can be offscreen once the reply grows. Choose the
-        // largest actually visible text fragment, retaining the real-text tap.
-        let live = replies.allElementsBoundByIndex.filter { $0.isHittable && $0.frame.intersects(viewport) }
-            .max { $0.frame.intersection(viewport).height < $1.frame.intersection(viewport).height }
+        let viewport = transcriptViewport(app)
+        // The final slice, not merely an older visible fragment, must keep a full line readable at Latest.
+        let live = replies.allElementsBoundByIndex.last
         XCTContext.runActivity(named: "Streaming viewport \(viewport), keyboard \(app.keyboards.firstMatch.frame), transcript \(transcript)") { _ in }
         if live == nil { screenshot(app, "Stream viewport missing live text") }
         XCTAssertNotNil(live, "A streamed text fragment must be visible while typing")
         guard let live else { return }
-        let band = viewport.intersection(live.frame)
-        let top = band.minY + 12
-        let bottom = band.maxY - 12
-        XCTAssertGreaterThan(bottom, top)
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: band.midX, dy: (top + bottom) / 2)).tap()
+        screenshot(app, "Streaming text while editing")
+        let lineHeight = ceil(UIFont.preferredFont(forTextStyle: .body).lineHeight)
+        let liveFrame = live.frame
+        let lastLine = CGRect(x: liveFrame.minX, y: liveFrame.maxY - lineHeight, width: liveFrame.width, height: lineHeight)
+        XCTAssertTrue(live.isHittable && pixelContains(viewport, lastLine), "The newest streamed line stays fully visible while following: \(lastLine) in \(viewport)")
+        let newestItem = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-activity-tool:live-")).allElementsBoundByIndex.last
+        XCTAssertNotNil(newestItem, "The live fixture must also exercise a trailing tool card")
+        if let newestItem {
+            XCTAssertTrue(newestItem.isHittable && pixelContains(viewport, newestItem.frame), "The newest tool item stays visible above the composer")
+            let disclosure = newestItem.images["chevron.down"]
+            XCTAssertTrue(disclosure.exists)
+            for jump in [app.buttons["companion-previous-message"], app.buttons["companion-next-message"]] {
+                XCTAssertFalse(jump.frame.intersects(newestItem.frame), "Jump buttons must not cover the newest card's interactive target")
+                XCTAssertFalse(jump.frame.intersects(disclosure.frame), "The newest card's disclosure stays clear of jump buttons")
+            }
+        }
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
+        // Streaming can append a new slice between queries, making the earlier element index stale.
+        func newestTextFrame(in node: XCUIElementSnapshot) -> CGRect? {
+            for child in node.children.reversed() {
+                if let frame = newestTextFrame(in: child) { return frame }
+            }
+            return node.elementType == .staticText && node.label.contains("Streaming preview reply.") ? node.frame : nil
+        }
+        guard let tapText = newestTextFrame(in: try app.snapshot()) else {
+            XCTFail("The latest streamed text must still exist before tapping"); return
+        }
+        let tapLine = CGRect(x: tapText.minX, y: tapText.maxY - lineHeight, width: tapText.width, height: lineHeight)
+        XCTAssertTrue(pixelContains(viewport, tapLine), "The current newest line stays fully visible before tapping")
+        let point = CGPoint(x: tapLine.minX + min(12, tapLine.width / 2), y: tapLine.midY)
+        XCTAssertTrue(viewport.contains(point) && tapText.contains(point))
+        XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
         focus(composer, in: app); transcriptPoint(app).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
@@ -190,6 +245,8 @@ import XCTest
         waitAndTap(river, until: composer)
         let group = app.buttons["companion-activity-tool:keyboard-tool"]
         focus(composer, in: app); composer.typeText("Draft beside a file link")
+        screenshot(app, "Transcript interactions while editing")
+        revealWhileEditing(group, composer: composer, in: app)
         XCTAssertTrue(group.isHittable)
         group.tap()
         XCTAssertTrue(waitFor(group, NSPredicate(format: "value == %@", "Expanded"), timeout: 5), "Ending editing must not swallow a card's toggle")
@@ -198,6 +255,7 @@ import XCTest
         focus(composer, in: app)
         let link = app.buttons.matching(identifier: "companion-content-link")
             .matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch
+        revealWhileEditing(link, composer: composer, in: app)
         XCTAssertTrue(link.isHittable)
         XCTAssertGreaterThan(link.frame.minY, element(app, "companion-chat-header").frame.maxY)
         XCTAssertLessThan(link.frame.maxY, composer.frame.minY)
@@ -211,6 +269,7 @@ import XCTest
         // Copy the final message, which remains above the composer on a phone
         // after the keyboard reduces the viewport.
         let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Open ")).firstMatch
+        revealWhileEditing(message, composer: composer, in: app)
         XCTAssertTrue(message.isHittable)
         message.press(forDuration: 1.2)
         let copy = app.buttons["Copy message"]
