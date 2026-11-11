@@ -215,7 +215,7 @@ class ReliableUITestCase: XCTestCase {
         }
         var bottom = app.frame.maxY
         for chrome in [any.matching(identifier: "companion-composer-region").firstMatch,
-                       app.staticTexts["companion-chat-activity"], app.keyboards.firstMatch] where chrome.exists {
+                       app.staticTexts["companion-chat-activity"], app.keyboards.firstMatch, app.tabBars.firstMatch] where chrome.exists {
             bottom = min(bottom, chrome.frame.minY)
         }
         return CGRect(x: app.frame.minX, y: top + 8, width: app.frame.width, height: max(0, bottom - top - 16))

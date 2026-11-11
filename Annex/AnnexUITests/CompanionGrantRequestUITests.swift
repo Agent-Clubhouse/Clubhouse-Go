@@ -26,9 +26,15 @@ import XCTest
     }
 
     private func revealChatAnswer(_ answer: XCUIElement, in app: XCUIApplication) {
+        openReviewIfNeeded(in: app)
         let viewport = app.scrollViews.containing(.button, identifier: "grant-request-allow").firstMatch
         func visibleBounds() -> CGRect {
             var bounds = viewport.frame.intersection(app.frame)
+            let inReview = app.buttons["companion-grant-review-close"].exists
+            let navigation = inReview ? app.navigationBars["Review permission"] : app.navigationBars.firstMatch
+            let top = max(bounds.minY, navigation.frame.maxY)
+            bounds = CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bounds.maxY - top))
+            if inReview { return bounds }
             let composer = app.descendants(matching: .any).matching(identifier: "companion-composer-region").firstMatch
             for footer in [composer, app.staticTexts["companion-chat-activity"]] where footer.exists {
                 bounds.size.height = max(0, min(bounds.maxY, footer.frame.minY) - bounds.minY)
@@ -53,27 +59,45 @@ import XCTest
                       "The complete answer button is reachable: answer \(answer.frame), viewport \(visibleBounds())")
     }
 
+    private func openReviewIfNeeded(in app: XCUIApplication) {
+        if app.buttons["companion-grant-review-close"].exists { return }
+        let review = app.buttons["companion-grant-review"]
+        if review.exists {
+            XCTAssertTrue(review.isHittable)
+            XCTAssertGreaterThanOrEqual(review.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+            assertMinimumTarget(review, "Review")
+            waitAndTap(review, until: app.buttons["companion-grant-review-close"])
+        }
+    }
+
+    private func closeReviewIfNeeded(in app: XCUIApplication) {
+        let close = app.buttons["companion-grant-review-close"]
+        if close.exists { waitAndTap(close, untilGone: close) }
+    }
+
     func testAnswerInChatRemovesNeedsYouCardAndKeepsCLIApprovalSeparate() {
         let app = openNeedsYou()
         let call = app.staticTexts[callSummary]
         XCTAssertTrue(scrollUntilExists(call, in: app))
         let openChat = app.cells.containing(.staticText, identifier: callSummary).buttons["grant-request-open-chat"]
-        XCTAssertTrue(scrollTo(openChat, in: app))
+        XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
-        waitAndTap(openChat, until: card)
+        tapVisibleRow(openChat, in: app, until: card)
 
         XCTAssertTrue(app.navigationBars["River"].exists, "The request opens its own agent's chat")
+        XCTAssertTrue(app.buttons["Deny"].exists, "The CLI approval remains its own pinned request")
+        openReviewIfNeeded(in: app)
         XCTAssertTrue(app.staticTexts["Clubhouse permission request"].exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "grant-request-detail").firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "grant-request-arguments").firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "grant-request-reason").firstMatch.exists)
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "grant-request-effect").firstMatch.exists)
         XCTAssertFalse(app.buttons["grant-request-open-chat"].exists, "Chat does not link to itself")
-        XCTAssertTrue(app.buttons["Deny"].exists, "The CLI approval remains its own pinned request")
         let allow = button("grant-request-allow", "Allow once", in: app)
         revealChatAnswer(allow, in: app)
         attach(app, "Grant request: answer in chat")
-        waitAndTap(allow, untilGone: card)
+        waitAndTap(allow, untilGone: allow)
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Answering the grant does not answer the CLI approval")
 
         let back = app.navigationBars.buttons.firstMatch
@@ -87,19 +111,22 @@ import XCTest
         let ask = app.staticTexts[askSummary]
         XCTAssertTrue(scrollUntilExists(ask, in: app))
         let openChat = app.cells.containing(.staticText, identifier: askSummary).buttons["grant-request-open-chat"]
-        XCTAssertTrue(scrollTo(openChat, in: app))
+        XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
-        waitAndTap(openChat, until: card)
+        tapVisibleRow(openChat, in: app, until: card)
         XCTAssertTrue(app.navigationBars["Cedar"].exists)
         let allow = button("grant-request-allow", "Allow", in: app)
         revealChatAnswer(allow, in: app)
         XCTAssertFalse(button("grant-request-allow", "Allow once", in: app).exists)
         XCTAssertTrue(app.staticTexts["Allow adds this to its Clubhouse permissions, where you can remove it later."].exists)
+        closeReviewIfNeeded(in: app)
         waitAndTap(app.navigationBars.buttons.firstMatch, until: app.navigationBars["Needs you"])
         XCTAssertTrue(scrollTo(allow, in: app))
         waitAndTap(allow, untilGone: ask)
 
-        waitAndTap(app.tabBars.buttons["Agents"], until: app.navigationBars["Agents"])
+        let agents = app.tabBars.buttons["Agents"]
+        if !agents.exists { waitAndTap(app.tabBars.buttons["Needs you"], until: agents) }
+        waitAndTap(agents, until: app.navigationBars["Agents"])
         let cedar = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-cedar").firstMatch
         XCTAssertTrue(scrollUntilExists(cedar, in: app) && scrollTo(cedar, in: app))
         waitAndTap(cedar, until: app.navigationBars["Cedar"])
@@ -135,8 +162,8 @@ import XCTest
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
         if opensFromNeedsYou {
             let openChat = app.cells.containing(.staticText, identifier: "Update Clubhouse to 1.1.0").buttons["grant-request-open-chat"]
-            XCTAssertTrue(scrollTo(openChat, in: app))
-            waitAndTap(openChat, until: card)
+            XCTAssertTrue(scrollTo(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
+            tapVisibleRow(openChat, in: app, until: card)
         } else {
             waitAndTap(app.tabBars.buttons["Dispatcher"], until: card)
         }
@@ -156,7 +183,8 @@ import XCTest
         app.buttons["When idle"].tap()
         XCTAssertTrue(allow.isEnabled)
         attach(app, "Grant request: desktop update mode in chat")
-        waitAndTap(allow, untilGone: card)
+        waitAndTap(allow, untilGone: allow)
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5))
         waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
         XCTAssertFalse(summary.exists, "Answering the update in chat also clears its Needs you card")
     }

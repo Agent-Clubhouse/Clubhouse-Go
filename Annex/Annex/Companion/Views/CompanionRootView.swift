@@ -1084,22 +1084,9 @@ struct CompanionGrantRequestActions: View {
                 }
                 .accessibilityIdentifier("app-update-mode")
             }
-            HStack(spacing: 8) {
-                if request.canDecline {
-                    Button { Task { await store.answer(request, with: .decline) } } label: {
-                        Text("Decline").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("grant-request-decline")
-                }
-                if let allow = request.allowAnswer {
-                    Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
-                        Text(busy ? "Sending…" : allow.label).frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent).companionProminentLabel()
-                    .accessibilityIdentifier("grant-request-allow")
-                    .disabled(request.isAppUpdate && updateMode == nil)
-                }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { decisions(busy: busy) }
+                VStack(spacing: 8) { decisions(busy: busy) }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!store.canAnswer(request))
@@ -1121,6 +1108,24 @@ struct CompanionGrantRequestActions: View {
             }
         }
         .onChange(of: store.hosts.first { $0.id == request.hostID }?.controlEpoch) { _, _ in updateMode = nil }
+    }
+
+    @ViewBuilder private func decisions(busy: Bool) -> some View {
+        if request.canDecline {
+            Button { Task { await store.answer(request, with: .decline) } } label: {
+                Text("Decline").fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("grant-request-decline")
+        }
+        if let allow = request.allowAnswer {
+            Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
+                Text(busy ? "Sending…" : allow.label).fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).companionProminentLabel()
+            .accessibilityIdentifier("grant-request-allow")
+            .disabled(request.isAppUpdate && updateMode == nil)
+        }
     }
 }
 

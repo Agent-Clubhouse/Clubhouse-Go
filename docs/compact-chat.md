@@ -48,8 +48,11 @@ through the same `store.canApprove` gate and full-event review as the transcript
 
 Clubhouse grant requests are separate cards pinned above the composer, not CLI approvals or helper requests (#357).
 They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same
-`CompanionGrantRequestActions` and store answer gate. The cards use at most half the space above the composer and scroll
-when needed, including at accessibility sizes. Answering on either surface removes the request from both.
+`CompanionGrantRequestActions` and store answer gate. Full cards appear only when their measured height fits half the
+space above the composer. Otherwise a compact pinned row names the requester and summarizes the request; Review opens
+the complete, scrollable sheet without sending a decision. Decisions stack when their full labels cannot fit side by
+side. If a landscape keyboard leaves less room than the footer itself, the footer scrolls with Review first.
+Answering on either surface removes the request from both.
 Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
 remain subject to `store.canAnswer`.
 Open chat on a Dispatcher's grant switches directly to its retained Dispatcher tab instead of pushing a duplicate chat.

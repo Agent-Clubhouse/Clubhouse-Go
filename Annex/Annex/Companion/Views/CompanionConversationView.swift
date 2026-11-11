@@ -117,7 +117,8 @@ struct CompanionConversationView: View {
         .companionBackground()
         // The bottom bar reserves its real size before this boundary observes the safe region.
         // This boundary stays mounted while disclosure/focus/status changes.
-        return GeometryReader { geometry in
+        return GeometryReader { available in
+        GeometryReader { geometry in
         conversationContent
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) {
@@ -141,9 +142,6 @@ struct CompanionConversationView: View {
                     .frame(maxWidth: .infinity)
             }
             .padding(.top, Self.headerPillClearance)
-        }
-        .safeAreaBar(edge: .bottom, spacing: 0) {
-            CompanionConversationGrantRequests(store: store, target: target, maximumHeight: geometry.size.height / 2)
         }
         }
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
@@ -194,15 +192,9 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-                VStack(spacing: 0) {
-                    activityLine
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                    CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
-                        focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
-                }
-                .modifier(CompanionOfferedWidth())
+            CompanionConversationGrantFooter(store: store, target: target,
+                maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
+                composerBar
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
@@ -243,6 +235,20 @@ struct CompanionConversationView: View {
             Button("OK", role: .cancel) { }
         } message: { Text(store.grantRequestNotice ?? "") }
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
+        }
+        }
+    }
+
+    @ViewBuilder private var composerBar: some View {
+        if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
+            VStack(spacing: 0) {
+                activityLine
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
+                    focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+            }
+            .modifier(CompanionOfferedWidth())
         }
     }
 
