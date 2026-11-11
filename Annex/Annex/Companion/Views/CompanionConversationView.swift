@@ -97,6 +97,7 @@ struct CompanionConversationView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(error, systemImage: "exclamationmark.circle").font(.subheadline)
+                            .accessibilityIdentifier("companion-operation-error")
                         if let other = store.otherMachineTarget(for: target), let machine = store.host(for: other)?.name {
                             Button("Open on \(machine)", systemImage: "arrow.up.right.square") { store.openOnOtherMachine(from: target) }
                                 .font(.subheadline.weight(.semibold))

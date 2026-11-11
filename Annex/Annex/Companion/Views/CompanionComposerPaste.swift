@@ -5,13 +5,22 @@ import ObjectiveC
 /// Lets the composer take pasted images. SwiftUI's vertical `TextField` is a `UITextView`, which offers Paste only
 /// for text unless it edits rich text, so this finds the one it sits behind and registers it: Paste is then offered
 /// for images too, and image items go to `handle` while text pastes as before. The same stable native input also
-/// exposes keyboard dismissal to accessibility while editing. Other text views are untouched.
+/// handles hardware Return and exposes keyboard dismissal to accessibility while editing. Other text views are untouched.
 struct CompanionComposerPasteHook: UIViewRepresentable {
     let handle: @MainActor ([NSItemProvider]) async -> [Bool]
     /// Nil outside editing, so Escape retains UIKit's standard navigation behavior.
     var dismissKeyboard: (@MainActor () -> Void)? = nil
+    var returnActions: ReturnActions? = nil
 
-    func makeCoordinator() -> Coordinator { Coordinator(handle: handle, dismissKeyboard: dismissKeyboard) }
+    struct ReturnActions {
+        var canSubmit: @MainActor () -> Bool
+        var submit: @MainActor () -> Void
+        var completeSlashCommand: @MainActor () -> Bool
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(handle: handle, dismissKeyboard: dismissKeyboard, returnActions: returnActions)
+    }
 
     func makeUIView(context: Context) -> HookView {
         let view = HookView()
@@ -22,6 +31,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     func updateUIView(_ view: HookView, context: Context) {
         context.coordinator.handle = handle
         context.coordinator.dismissKeyboard = dismissKeyboard
+        context.coordinator.returnActions = returnActions
         view.attach()
     }
 
@@ -30,11 +40,17 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     @MainActor final class Coordinator: NSObject, UITextPasteDelegate {
         var handle: @MainActor ([NSItemProvider]) async -> [Bool]
         var dismissKeyboard: (@MainActor () -> Void)?
+        var returnActions: ReturnActions?
+        var returnKey = CompanionComposerReturnKey()
+        var handlingHardwareReturn = false
+        var pasting = false
         private var pending: [UITextPasteItem] = []
 
-        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?) {
+        init(handle: @escaping @MainActor ([NSItemProvider]) async -> [Bool], dismissKeyboard: (@MainActor () -> Void)?,
+             returnActions: ReturnActions? = nil) {
             self.handle = handle
             self.dismissKeyboard = dismissKeyboard
+            self.returnActions = returnActions
         }
 
         /// UIKit asks about every item of one drop in a row, so they are handled together on the next turn.
@@ -154,6 +170,8 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         patchCanPerformAction(type)
         patchPaste(type)
         patchAccessibilityEscape(type)
+        patchHardwareReturn(type)
+        patchSoftwareReturn(type)
         patchTypingProbe(type)
     }
 
@@ -205,7 +223,9 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
             }
             guard !handled else { return }
             MainActor.assumeIsolated {
-                guard let textView = object as? UITextView, coordinator(for: textView) != nil else { return original(object, selector, sender) }
+                guard let textView = object as? UITextView, let coordinator = coordinator(for: textView) else { return original(object, selector, sender) }
+                coordinator.pasting = true
+                defer { coordinator.pasting = false }
                 textView.allowsEditingTextAttributes = false
                 original(object, selector, sender)
                 textView.allowsEditingTextAttributes = true
@@ -227,6 +247,98 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
                 return true
             }
             return handled || original(object, selector)
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+
+    private static func isReturn(_ press: UIPress) -> Bool {
+        press.key?.keyCode == .keyboardReturnOrEnter || press.key?.keyCode == .keypadEnter
+    }
+
+    /// UIPress.key exists only for hardware keyboards. Keep SwiftUI's native input and delegate.
+    private static func patchHardwareReturn(_ type: AnyClass) {
+        typealias Function = @convention(c) (AnyObject, Selector, NSSet, UIPressesEvent?) -> Void
+        let selectors = [
+            #selector(UIResponder.pressesBegan(_:with:)),
+            #selector(UIResponder.pressesEnded(_:with:)),
+            #selector(UIResponder.pressesCancelled(_:with:))
+        ]
+        for selector in selectors {
+            guard let method = class_getInstanceMethod(type, selector) else { continue }
+            let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+            let block: @convention(block) (AnyObject, NSSet, UIPressesEvent?) -> Void = { object, nativePresses, event in
+                guard let presses = nativePresses as? Set<UIPress> else { return original(object, selector, nativePresses, event) }
+                let remaining = MainActor.assumeIsolated { () -> Set<UIPress> in
+                    guard let textView = object as? UITextView, let coordinator = coordinator(for: textView),
+                          let actions = coordinator.returnActions else { return presses }
+                    return Set(presses.filter { press in
+                        guard isReturn(press), let key = press.key else { return true }
+                        let physicalKey: CompanionComposerReturnKey.Key = key.keyCode == .keypadEnter ? .keypadEnter : .returnOrEnter
+                        if selector != selectors[0] { return coordinator.returnKey.ended(key: physicalKey) }
+                        guard textView.isFirstResponder, textView.isEditable, textView.isUserInteractionEnabled else { return true }
+                        let modifiers = key.modifierFlags.subtracting([.alphaShift, .numericPad])
+                        switch coordinator.returnKey.began(key: physicalKey, shift: modifiers.contains(.shift),
+                            otherModifiers: !modifiers.subtracting(.shift).isEmpty,
+                            markedText: textView.markedTextRange != nil, canSubmit: actions.canSubmit()) {
+                        case .system: return true
+                        case .consume: return false
+                        case .submit: actions.submit(); return false
+                        case .newline:
+                            let selection = textView.selectedRange
+                            let text = (textView.text ?? "") as NSString
+                            guard selection.location != NSNotFound, NSMaxRange(selection) <= text.length else { return true }
+                            coordinator.handlingHardwareReturn = true
+                            defer { coordinator.handlingHardwareReturn = false }
+                            textView.insertText("\n")
+                            return false
+                        }
+                    })
+                }
+                if !remaining.isEmpty {
+                    MainActor.assumeIsolated {
+                        guard let textView = object as? UITextView, let coordinator = coordinator(for: textView) else {
+                            return original(object, selector, remaining as NSSet, event)
+                        }
+                        coordinator.handlingHardwareReturn = true
+                        defer { coordinator.handlingHardwareReturn = false }
+                        original(object, selector, remaining as NSSet, event)
+                    }
+                }
+            }
+            replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+        }
+        typealias Resign = @convention(c) (AnyObject, Selector) -> Bool
+        let selector = #selector(UIResponder.resignFirstResponder)
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Resign.self)
+        let block: @convention(block) (AnyObject) -> Bool = { object in
+            let resigned = original(object, selector)
+            if resigned {
+                MainActor.assumeIsolated {
+                    if let textView = object as? UITextView { coordinator(for: textView)?.returnKey = .init() }
+                }
+            }
+            return resigned
+        }
+        replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
+    }
+
+    /// Complete only a single software Return being delivered now, never a binding edit or undo/redo replay.
+    private static func patchSoftwareReturn(_ type: AnyClass) {
+        typealias Function = @convention(c) (AnyObject, Selector, String) -> Void
+        let selector = #selector(UIKeyInput.insertText(_:))
+        guard let method = class_getInstanceMethod(type, selector) else { return }
+        let original = unsafeBitCast(method_getImplementation(method), to: Function.self)
+        let block: @convention(block) (AnyObject, String) -> Void = { object, text in
+            let handled = MainActor.assumeIsolated { () -> Bool in
+                guard text == "\n", let textView = object as? UITextView,
+                      textView.isFirstResponder, textView.isEditable, textView.isUserInteractionEnabled,
+                      textView.markedTextRange == nil, textView.undoManager?.isUndoing != true,
+                      textView.undoManager?.isRedoing != true, let coordinator = coordinator(for: textView),
+                      !coordinator.handlingHardwareReturn, !coordinator.pasting else { return false }
+                return coordinator.returnActions?.completeSlashCommand() == true
+            }
+            if !handled { original(object, selector, text) }
         }
         replace(selector, in: type, method: method, with: imp_implementationWithBlock(block))
     }
