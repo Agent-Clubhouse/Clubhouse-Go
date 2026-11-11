@@ -190,6 +190,8 @@ class OwnershipSurfaceTests(unittest.TestCase):
             'struct Actions { init(open: () -> Void) {} }\nfunc make(_ view: UIView) { let actions: Actions = .init(open: { _ = view.alpha }) }',
             'class Owner { var cache: [String: Bytes]; func make(_ data: Data) { cache["key"] = .init(data) } }',
             'struct Attachment { var bytes: Bytes }\nfunc make(_ data: Data) -> Attachment { return .init(bytes: .init(data)) }',
+            'typealias Point = CGPoint\nfunc make() { _ = Point(x: 1, y: 2); _ = Point.init(x: 1, y: 2) }',
+            'func make() { _ = CoreGraphics.CGPoint(x: 1, y: 2) }',
         ]:
             with self.subTest(source=source):
                 self.assertEqual(self.surfaces(source)[0]['captureSites'], {})
@@ -223,3 +225,30 @@ class OwnershipSurfaceTests(unittest.TestCase):
             with self.subTest(expression=expression):
                 source = declarations + '\nfunc make() { consume(' + expression + ') }'
                 self.assertEqual('unresolved:contextual-init' in self.surfaces(source)[0]['captureSites'], owner)
+
+    def test_generic_associated_types_cannot_claim_a_resolved_non_owner(self):
+        declarations = 'protocol Container { associatedtype Owner }\n'
+        for body in [
+            'func make<T: Container>(_ type: T.Type, _ view: UIView) -> T.Owner where T.Owner == CompanionLifecycle { .init { _ in _ = view.alpha } }',
+            'func make<T: Container>(_ type: T.Type, _ view: UIView) where T.Owner == CompanionLifecycle { let make = { () -> T.Owner in .init { _ in _ = view.alpha } }; _ = make }',
+            'func consume<T: Container>(_ type: T.Type, _ owner: T.Owner) {}\nfunc make<T: Container>(_ type: T.Type, _ view: UIView) where T.Owner == CompanionLifecycle { consume(type, .init { _ in _ = view.alpha }) }',
+            'extension Container where Owner == CompanionLifecycle { func make(_ view: UIView) -> Owner { .init { _ in _ = view.alpha } } }',
+            'extension Container where Owner == CompanionLifecycle { func make(_ view: UIView) -> Self.Owner { .init { _ in _ = view.alpha } } }',
+            'typealias Selected<T: Container> = T.Owner\nfunc make<T: Container>(_ type: T.Type, _ view: UIView) where T.Owner == CompanionLifecycle { _ = Selected<T> { _ in _ = view.alpha } }',
+        ]:
+            with self.subTest(body=body):
+                sites = self.surfaces(declarations + body)[0]['captureSites']
+                self.assertTrue({'constructor:CompanionLifecycle', 'unresolved:contextual-init'} & sites.keys())
+
+    def test_alias_and_qualified_owner_constructors_cannot_hide_captures(self):
+        for source in [
+            'typealias Owner = CompanionLifecycle\nfunc make(_ view: UIView) { _ = Owner { _ in _ = view.alpha } }',
+            'typealias Owner = CompanionLifecycle\nfunc make(_ view: UIView) { _ = Owner.init { _ in _ = view.alpha } }',
+            'typealias First = ClubhouseGo.CompanionLifecycle\ntypealias Owner = First\nfunc make(_ view: UIView) { _ = Owner.init { _ in _ = view.alpha } }',
+            'typealias Owner = CompanionLifecycle\nextension Owner { static func make(_ view: UIView) -> Self { Self.init { _ in _ = view.alpha } } }',
+            'func make(_ view: UIView) { _ = ClubhouseGo.CompanionLifecycle { _ in _ = view.alpha } }',
+            'func make(_ view: UIView) { _ = ClubhouseGo.CompanionLifecycle.init { _ in _ = view.alpha } }',
+        ]:
+            with self.subTest(source=source):
+                sites = self.surfaces(source)[0]['captureSites']
+                self.assertTrue({'constructor:CompanionLifecycle', 'unresolved:contextual-init'} & sites.keys())

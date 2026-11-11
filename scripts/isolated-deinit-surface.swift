@@ -124,6 +124,7 @@ final class DeclarationIndex: SyntaxVisitor {
     var fields: [String: [String: [TypeSyntax]]] = [:]
     var aliases: [String: [TypeSyntax]] = [:]
     var genericNames = Set<String>()
+    var associatedNames = Set<String>()
 
     func enter(_ name: String, _ members: MemberBlockItemListSyntax) {
         path.append(name)
@@ -176,31 +177,52 @@ final class DeclarationIndex: SyntaxVisitor {
         genericNames.insert(node.name.text)
         return .visitChildren
     }
+    override func visit(_ node: AssociatedTypeDeclSyntax) -> SyntaxVisitorContinueKind {
+        associatedNames.insert(node.name.text)
+        return .visitChildren
+    }
     func field(_ name: String, on owner: String) -> TypeSyntax? {
         guard let types = fields[owner]?[name], Set(types.map { canonical($0) }).count == 1 else { return nil }
         return types[0]
     }
-    func name(_ type: TypeSyntax, seen: Set<String> = []) -> String? {
-        if let optional = type.as(OptionalTypeSyntax.self) { return name(optional.wrappedType, seen: seen) }
-        if let attributed = type.as(AttributedTypeSyntax.self) { return name(attributed.baseType, seen: seen) }
-        guard let name = type.as(IdentifierTypeSyntax.self)?.name.text ?? type.as(MemberTypeSyntax.self)?.name.text else { return nil }
-        guard !genericNames.contains(name) else { return nil }
-        if name == "Self" {
-            var ancestor = Syntax(type).parent
-            while let current = ancestor {
-                if let node = current.as(ClassDeclSyntax.self) { return node.name.text }
-                if let node = current.as(StructDeclSyntax.self) { return node.name.text }
-                if let node = current.as(ActorDeclSyntax.self) { return node.name.text }
-                if let node = current.as(EnumDeclSyntax.self) { return node.name.text }
-                if let node = current.as(ExtensionDeclSyntax.self) { return self.name(node.extendedType, seen: seen) }
-                ancestor = current.parent
-            }
-            return nil
+    func enclosingName(near node: some SyntaxProtocol, seen: Set<String> = []) -> String? {
+        var ancestor = Syntax(node).parent
+        while let current = ancestor {
+            if let node = current.as(ClassDeclSyntax.self) { return node.name.text }
+            if let node = current.as(StructDeclSyntax.self) { return node.name.text }
+            if let node = current.as(ActorDeclSyntax.self) { return node.name.text }
+            if let node = current.as(EnumDeclSyntax.self) { return node.name.text }
+            if let node = current.as(ExtensionDeclSyntax.self) { return name(node.extendedType, seen: seen) }
+            ancestor = current.parent
         }
+        return nil
+    }
+    func resolvedName(_ name: String, seen: Set<String> = []) -> String? {
+        guard !genericNames.contains(name), !associatedNames.contains(name) else { return nil }
         guard let alternatives = aliases[name] else { return name }
         guard !seen.contains(name) else { return nil }
         let names = alternatives.compactMap { self.name($0, seen: seen.union([name])) }
         return names.count == alternatives.count && Set(names).count == 1 ? names[0] : nil
+    }
+    func name(_ type: TypeSyntax, seen: Set<String> = []) -> String? {
+        if let optional = type.as(OptionalTypeSyntax.self) { return name(optional.wrappedType, seen: seen) }
+        if let attributed = type.as(AttributedTypeSyntax.self) { return name(attributed.baseType, seen: seen) }
+        if let member = type.as(MemberTypeSyntax.self), name(member.baseType, seen: seen) == nil { return nil }
+        guard let name = type.as(IdentifierTypeSyntax.self)?.name.text ?? type.as(MemberTypeSyntax.self)?.name.text else { return nil }
+        if name == "Self" { return enclosingName(near: type, seen: seen) }
+        return resolvedName(name, seen: seen)
+    }
+    func constructorName(_ expression: ExprSyntax) -> String? {
+        if let generic = expression.as(GenericSpecializationExprSyntax.self) { return constructorName(generic.expression) }
+        if let reference = expression.as(DeclReferenceExprSyntax.self) {
+            if ["Self", "self"].contains(reference.baseName.text) { return enclosingName(near: expression) }
+            return resolvedName(reference.baseName.text)
+        }
+        if let member = expression.as(MemberAccessExprSyntax.self), let base = member.base,
+           let owner = constructorName(base) {
+            return member.declName.baseName.text == "init" ? owner : resolvedName(member.declName.baseName.text)
+        }
+        return nil
     }
 }
 final class Surface: SyntaxVisitor {
@@ -389,11 +411,9 @@ final class Surface: SyntaxVisitor {
     }
     override func visitPost(_ node: EnumDeclSyntax) { path.removeLast() }
     override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
-        var expression = node.calledExpression
+        let expression = node.calledExpression
         if let member = expression.as(MemberAccessExprSyntax.self), member.declName.baseName.text == "init" {
-            if let base = member.base {
-                expression = base
-            } else {
+            if member.base == nil {
                 if let type = contextualType(Syntax(node)), let name = declarations.name(type) {
                     if constructors.contains(name) { sites["constructor:" + name, default: []].append(captureSite(node)) }
                 } else if possibleOwner(node) {
@@ -402,19 +422,16 @@ final class Surface: SyntaxVisitor {
                 return .visitChildren
             }
         }
-        if let generic = expression.as(GenericSpecializationExprSyntax.self) { expression = generic.expression }
-        var callee = expression.trimmedDescription
-        if ["Self", "self"].contains(callee) {
-            callee = path.last ?? ""
-            if callee.isEmpty {
-                var ancestor = Syntax(node).parent
-                while let current = ancestor {
-                    if let ext = current.as(ExtensionDeclSyntax.self) { callee = ext.extendedType.trimmedDescription; break }
-                    ancestor = current.parent
-                }
+        if let callee = declarations.constructorName(expression) {
+            if constructors.contains(callee) { sites["constructor:" + callee, default: []].append(captureSite(node)) }
+        } else if possibleOwner(node) {
+            let candidate = expression.as(GenericSpecializationExprSyntax.self)?.expression ?? expression
+            let identifier = candidate.as(DeclReferenceExprSyntax.self)?.baseName.text
+                ?? candidate.as(MemberAccessExprSyntax.self)?.declName.baseName.text
+            if let identifier, identifier == "init" || identifier.first?.isUppercase == true || declarations.aliases[identifier] != nil {
+                sites["unresolved:contextual-init", default: []].append(captureSite(node))
             }
         }
-        if constructors.contains(callee) { sites["constructor:" + callee, default: []].append(captureSite(node)) }
         return .visitChildren
     }
     override func visit(_ node: SequenceExprSyntax) -> SyntaxVisitorContinueKind {
