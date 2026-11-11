@@ -3,6 +3,29 @@ import XCTest
 /// Feedback entry points that don't depend on a shake (#181): the offer after an iOS screenshot and the
 /// Send feedback menu items. The fixture posts `userDidTakeScreenshotNotification` as iOS does.
 final class FeedbackTriggersUITests: ReliableUITestCase {
+    @MainActor private func confirmation(_ app: XCUIApplication, titled title: String) -> XCUIElement {
+        XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5))
+        // An enrollment sheet can contain the popover and its same-named underlying button.
+        let popover = app.popovers.containing(.staticText, identifier: title).firstMatch
+        return popover.exists ? popover : app.sheets.containing(.staticText, identifier: title).firstMatch
+    }
+
+    @MainActor private func revealFeedbackRow(_ row: XCUIElement, in app: XCUIApplication, title: String) throws {
+        let form = try XCTUnwrap(app.collectionViews.allElementsBoundByIndex.last)
+        let navigation = app.navigationBars[title]
+        for _ in 0..<12 {
+            checkTimeLeft("revealing the feedback row")
+            let bounds = form.frame
+            let visible = CGRect(x: bounds.minX, y: navigation.frame.maxY + 8,
+                                 width: bounds.width, height: bounds.maxY - navigation.frame.maxY - 24)
+            if row.exists && row.isHittable && visible.contains(row.frame) { return }
+            let start = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dy = row.exists && row.frame.minY < visible.minY ? visible.height * 0.2 : -visible.height * 0.2
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+        }
+        XCTFail("The feedback row must be fully visible below its sheet's navigation bar")
+    }
+
     @MainActor func testSettingsFromHomeToolbarAttachesCaptureOrOffersPhotos() throws {
         for failed in [false, true] {
             let app = launchApp(["--companion-preview", "--companion-preview-feedback", "--companion-preview-start-home",
@@ -41,20 +64,23 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         explainer.buttons["Set up feedback"].tap()
         XCTAssertTrue(app.navigationBars["Feedback enrollment"].waitForExistence(timeout: 5))
         let clear = app.buttons["Clear queued feedback"]
-        XCTAssertTrue(scrollTo(clear, in: app, maxSwipes: 6))
+        try revealFeedbackRow(clear, in: app, title: "Feedback enrollment")
         clear.tap()
-        let confirmation = app.sheets.firstMatch
+        var confirmation = confirmation(app, titled: "Clear queued feedback from this device?")
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         confirmation.buttons["Clear queued feedback"].tap()
+        try revealFeedbackRow(app.staticTexts["framebriar-status"], in: app, title: "Feedback enrollment")
         XCTAssertTrue(app.staticTexts["framebriar-status"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["framebriar-status"].label, "Queued reports cleared from this device.")
         app.buttons["Done"].tap()
 
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 5)
-        XCTAssertTrue(scrollTo(clear, in: app, maxSwipes: 4))
+        try revealFeedbackRow(clear, in: app, title: "Fixture settings")
         clear.tap()
+        confirmation = self.confirmation(app, titled: "Clear queued feedback from this device?")
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         confirmation.buttons["Clear queued feedback"].tap()
+        try revealFeedbackRow(app.staticTexts["feedback-queue-status"], in: app, title: "Fixture settings")
         XCTAssertTrue(app.staticTexts["feedback-queue-status"].waitForExistence(timeout: 5))
         app.buttons["Done"].tap()
         XCTAssertTrue(app.staticTexts["fixture-counters"].label.contains("Queued: 0 · Network: 0"))
@@ -64,12 +90,12 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-held-ui-testing"])
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
         let summary = app.staticTexts["feedback-held-summary"]
-        XCTAssertTrue(scrollTo(summary, in: app, maxSwipes: 5))
+        try revealFeedbackRow(summary, in: app, title: "Fixture settings")
         XCTAssertTrue(summary.label.hasPrefix("2 reports were saved under a previous enrollment"))
         let release = app.buttons["feedback-release-held"]
-        XCTAssertTrue(scrollTo(release, in: app, maxSwipes: 3))
+        try revealFeedbackRow(release, in: app, title: "Fixture settings")
         release.tap()
-        let confirmation = app.sheets.firstMatch
+        let confirmation = confirmation(app, titled: "Send 2 reports saved under a previous enrollment with this one?")
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
         // Compact iOS 26 confirmation popovers omit an automatic Cancel row. An outside
@@ -81,7 +107,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         release.tap()
         confirmation.buttons["Send"].tap()
         let result = app.staticTexts["feedback-queue-status"]
-        XCTAssertTrue(scrollTo(result, in: app, maxSwipes: 3))
+        try revealFeedbackRow(result, in: app, title: "Fixture settings")
         XCTAssertEqual(result.label, "2 will send with this enrollment. They aren't confirmed sent yet.")
         XCTAssertFalse(summary.exists)
         app.buttons["Done"].tap()
@@ -92,10 +118,12 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         app.launch()
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
         let clear = app.buttons["feedback-clear-held"]
-        XCTAssertTrue(scrollTo(clear, in: app, maxSwipes: 5))
+        try revealFeedbackRow(clear, in: app, title: "Fixture settings")
         XCTAssertFalse(app.buttons["feedback-release-held"].exists, "No release token while unenrolled")
         clear.tap()
-        confirmation.buttons["Clear held reports"].tap()
+        let clearConfirmation = self.confirmation(app, titled: "Clear 2 reports saved under a previous enrollment? They won't be sent.")
+        XCTAssertTrue(clearConfirmation.waitForExistence(timeout: 5))
+        clearConfirmation.buttons["Clear held reports"].tap()
         XCTAssertTrue(result.waitForExistence(timeout: 5))
         XCTAssertEqual(result.label, "2 cleared from this device. They weren't sent.")
         app.buttons["Done"].tap()

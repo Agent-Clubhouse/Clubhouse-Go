@@ -318,12 +318,15 @@ import UIKit
         let loading = CompanionStore(service: service), target = CompanionPreviewService.target
         let hosts = CompanionPreviewService.hosts(now: .now)
         loading.apply(.hosts(hosts))
-        for id in 0..<5 {
-            loading.apply(.upsert(target, .message(.init(id: "live-\(id)", role: .assistant,
-                text: String(repeating: "Live preview update. ", count: 40))), sequence: nil))
-        }
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        // Explicit paragraphs keep five items taller than the viewport even when iPad wraps less text.
+        let paragraphs = Int(ceil((window.bounds.height + 600) / (5 * UIFont.preferredFont(forTextStyle: .body).lineHeight)))
+        let liveText = String(repeating: "Live preview update.\n\n", count: paragraphs)
+        for id in 0..<5 {
+            loading.apply(.upsert(target, .message(.init(id: "live-\(id)", role: .assistant,
+                text: liveText)), sequence: nil))
+        }
         let agent = try XCTUnwrap(hosts.flatMap(\.allAgents).first { $0.id == target })
         window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: loading, agent: agent) })
         window.makeKeyAndVisible()

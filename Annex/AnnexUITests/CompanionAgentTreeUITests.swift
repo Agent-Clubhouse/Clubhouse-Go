@@ -92,7 +92,9 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         completeMilestone("project tree assertions")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertEqual(toggle.value as? String, "Collapsed", "Home and project share disclosure")
-        app.tabBars.buttons["Agents"].tap()
+        let agents = app.buttons.matching(identifier: "Agents").firstMatch
+        XCTAssertTrue(agents.waitForExistence(timeout: 5))
+        agents.tap()
         let maple = element(app, "agent-preview-studio-maple")
         XCTAssertTrue(scrollUntilExists(maple, in: app) && scrollTo(maple, in: app))
         XCTAssertTrue(maple.label.contains("Helper of Cedar in Clubhouse"), maple.label)
