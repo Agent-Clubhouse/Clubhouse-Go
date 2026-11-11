@@ -580,7 +580,7 @@ struct CompanionConversationView: View {
                 readingViewport.historyRevision = revision
                 readingViewport.hasInitialized = true
                 if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
-                if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop { proxy.scrollTo("latest", anchor: .bottom) }
                 else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
