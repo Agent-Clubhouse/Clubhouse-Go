@@ -209,6 +209,7 @@ import ClubhouseTransport
                                        capabilities: capabilities.union(extra),
                                        lastActivity: now.addingTimeInterval(-minutesAgo * 60), turnStartedAt: turnStartedAt, contextUsage: contextUsage)
             agent.color = color; agent.isQuick = quick; agent.freeAgentMode = freeAgent
+            agent.access = freeAgent ? .auto : .ask
             if !quick { agent.isSleepingOnDesktop = status == .sleeping }
             agent.executionMode = executionMode; agent.branch = branch; agent.orchestrator = orchestrator; agent.session = session
             agent.chatControls = chatControls
@@ -243,7 +244,7 @@ import ClubhouseTransport
                     agent("prototype", "birch", "Birch", "Spike the sync engine", .sleeping, minutesAgo: 60 * 24 * 21, color: "amber")
                 ], color: "amber", emoji: "🧪")
             ], richContentAvailable: true, canResolveLinks: true, canSpawn: true, canCreateDurable: true, canEditSettings: true, canStopAgents: true,
-               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canSetContextWindow: contextWindow, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
+               canAnswerPersistentApprovals: true, canSetFreeAgentMode: true, canSetAccess: true, canSetContextWindow: contextWindow, canOrchestrate: true, providers: [.init(id: "claude-code", name: "Claude Code")], attachments: attachments,
                canAnswerHelperRequests: true, helperRequests: helperRequests,
                terminal: .init(projectShell: true, agentShell: true, agentAttach: true),
                dispatcher: dispatcher ? Self.dispatcher(now: now) : nil),
@@ -316,6 +317,7 @@ import ClubhouseTransport
         var agent = CompanionAgent(id: dispatcherTarget, name: CompanionDispatcher.name, subtitle: "", status: .idle, model: "Opus",
                                    capabilities: [.chat, .steer, .cancel, .approve], executionMode: "chat", lastActivity: now.addingTimeInterval(-3 * 60))
         agent.isDispatcher = true; agent.freeAgentMode = true; agent.color = "cyan"; agent.orchestrator = "claude-code"
+        agent.access = .fullAccess
         agent.detail = .init(state: "idle", message: "Sent River the reconnect follow-up")
         return .init(enabled: true, flagOn: true, canToggle: true, agent: agent)
     }
@@ -616,7 +618,7 @@ import ClubhouseTransport
         .init(options: Self.agentOptions,
               mcpCatalog: [.init(id: "github", name: "GitHub", description: "Issues and pull requests"), .init(id: "ado", name: "Azure DevOps", description: nil)],
               mcpDefaults: ["github"], isGitRepo: true, suggestedName: "brave-otter", defaultOrchestrator: "claude-code",
-              defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true, freeAgentModeAllowed: true)
+              defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true, freeAgentModeAllowed: true, defaultAccess: .ask)
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
@@ -773,6 +775,7 @@ import ClubhouseTransport
                      contextWindow: showsContextWindow ? Self.previewContext(editable: .sleeping) : nil,
                      runtime: .init(value: "default", editable: .sleeping), resolvedRuntime: "chat",
                      freeAgentMode: .init(value: false, editable: .sleeping),
+                     access: Self.savedAccess,
                      idleSleep: .init(value: .inherit, editable: .always),
                      options: options, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30,
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
@@ -796,7 +799,8 @@ import ClubhouseTransport
         state: "running", sleeping: false, name: .init(value: CompanionDispatcher.name, editable: .never), color: .init(value: "cyan", editable: .never),
         emoji: .init(value: nil, editable: .never), orchestrator: .init(value: "claude-code", editable: .always), resolvedOrchestrator: "claude-code",
         model: .init(value: "opus", editable: .always), runtime: .init(value: "chat", editable: .always), resolvedRuntime: "chat",
-        freeAgentMode: .init(value: true, editable: .always), idleSleep: .init(value: .never, editable: .always),
+        freeAgentMode: .init(value: true, editable: .always), access: .init(value: .fullAccess, editable: .always, choices: accessChoices, startsAt: .fullAccess, defaultLevel: .ask),
+        idleSleep: .init(value: .never, editable: .always),
         options: agentOptions, idleSleepMinutes: [15, 30, 60, 240], appIdleMinutes: 30)
     /// Juniper orchestrates, asking before each helper starts; River doesn't.
     static let juniperOrchestration = CompanionOrchestration(orchestrate: true, control: "ask-before-start", maxHelpers: 3,
@@ -818,13 +822,18 @@ import ClubhouseTransport
     private static let agentOptions = CompanionAgentOptions(
         orchestrators: [
             .init(id: "claude-code", displayName: "Claude Code", shortName: "CC", available: true, permissions: true, chat: true,
-                  models: [.init(id: "default", label: "Default"), .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")]),
+                  models: [.init(id: "default", label: "Default"), .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")],
+                  accessLevels: CompanionPermissionLevel.allCases),
             .init(id: "codex", displayName: "Codex", shortName: "CX", available: false, unavailableReason: "Not installed on this desktop", permissions: false, chat: false,
-                  models: [.init(id: "default", label: "Default")]),
+                  models: [.init(id: "default", label: "Default")], accessLevels: [.ask]),
         ],
         colors: [("indigo", "Indigo", "#6366f1"), ("emerald", "Emerald", "#10b981"), ("amber", "Amber", "#f59e0b"), ("rose", "Rose", "#f43f5e"),
                  ("cyan", "Cyan", "#06b6d4"), ("violet", "Violet", "#8b5cf6"), ("orange", "Orange", "#f97316"), ("teal", "Teal", "#14b8a6")]
-            .map { CompanionColorOption(id: $0.0, label: $0.1, hex: $0.2) })
+            .map { CompanionColorOption(id: $0.0, label: $0.1, hex: $0.2) }, accessLevels: accessChoices)
+    static let accessChoices = CompanionPermissionLevel.allCases.map {
+        CompanionAccessChoice(id: $0, label: $0.label, description: $0.detail)
+    }
+    static let savedAccess = CompanionSavedAccess(value: .ask, editable: .sleeping, choices: accessChoices, startsAt: .ask, defaultLevel: .ask)
     /// The project root's changes: one of each status, with a long line to scroll sideways.
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges {
         try await Task.sleep(for: .milliseconds(200))

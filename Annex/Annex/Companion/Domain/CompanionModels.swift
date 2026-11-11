@@ -82,6 +82,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canAnswerPersistentApprovals = false
     /// The desktop takes Free Agent Mode from a phone (`permissions.freeAgentMode`).
     var canSetFreeAgentMode = false
+    var canSetAccess = false
     var canSetContextWindow = false
     var helperRouting: AnnexCapabilities.HelperRouting?
     var canEditHelperPresets = false
@@ -364,6 +365,7 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var icon: CompanionIconReference? = nil
     /// Free Agent Mode bypasses every permission prompt, so nothing reaches Needs you. A safety signal.
     var freeAgentMode = false
+    var access: CompanionPermissionLevel?
     /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.
     var isDispatcher = false
     /// An unnamed Dispatcher keeps its feature label until the desktop supplies its name.

@@ -20,6 +20,14 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   - `--diagnostics-ui-testing`: `DiagnosticSettingsTests`
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
 
+Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
+`CompanionAgentSheetsTests` covers create/settings pickers and elevated confirmation; package contract tests encode
+every recorded Access request without exemptions. Saved changes apply at next start, while chat's known live level
+wins in its existing badge only while the session is running. Ended sessions use saved Access.
+`QA361AccessRegressionTests` covers Access-only snapshot refreshes in both open sheets and elevated confirmation
+against the latest snapshot while cached settings are stale.
+A desktop without this capability is read-only for saved Access, not a boolean fallback.
+
 ### Writing UI tests for hosted runners
 
 GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch, and sometimes drop a tap or long-press. Fixture-mode UI tests subclass `ReliableUITestCase` (`Annex/AnnexUITests/UITestSupport.swift`):

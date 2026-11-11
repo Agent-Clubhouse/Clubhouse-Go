@@ -15,9 +15,10 @@ struct CompanionAgentDetailsSheet: View {
     private var agent: CompanionAgent? { store.agent(for: target) }
     private var canLoadSettings: Bool { store.canEditSettings(target) }
     private var isDispatcher: Bool { store.isDispatcher(target) }
-    /// Re-read when the agent wakes, sleeps or is renamed, as the settings sheet does.
+    /// Re-read when the agent wakes, sleeps, is renamed or changes saved Access.
     private var refreshKey: String {
-        [agent?.status.rawValue ?? "", agent?.name ?? "", store.host(for: target)?.connection.label ?? ""].joined(separator: "|")
+        [agent?.status.rawValue ?? "", agent?.name ?? "", agent?.access?.rawValue ?? "",
+         store.host(for: target)?.connection.label ?? ""].joined(separator: "|")
     }
 
     var body: some View {

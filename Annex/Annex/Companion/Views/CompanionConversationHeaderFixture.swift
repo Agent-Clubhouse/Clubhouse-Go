@@ -53,6 +53,13 @@ struct CompanionConversationHeaderFixture: View {
                 // Only the desktop's Auto-or-Full boolean, with no known live level.
                 agent.chatControls = nil
                 agent.session = nil
+                agent.access = nil
+            }
+            if let raw = arguments.first(where: { $0.hasPrefix("--companion-header-saved-access=") })?.split(separator: "=").last,
+               let level = CompanionPermissionLevel(rawValue: String(raw)) {
+                agent.access = level
+                agent.chatControls = nil
+                agent.session = nil
             }
             agent.emoji = nil; agent.icon = nil
             host.projects = [.init(id: target.projectID, name: "Header fixture", agents: [agent])]

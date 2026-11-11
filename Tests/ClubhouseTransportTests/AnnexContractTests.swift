@@ -10,10 +10,6 @@ import Testing
                                        "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer",
                                        "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything",
                                        "app.update.request", "app.update.cancel"]
-    /// Advertised by the vendored desktop, built by another phone change. Whichever lands second removes its set.
-    /// Saved Access (#263): recorded `agent.create` / `agent.update` requests with the top-level `access` field.
-    static let notYetBuiltAccessFields = ["access"]
-
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
     }
@@ -46,6 +42,7 @@ import Testing
         #expect(caps.supportsSlashCommands && caps.slashCommands?.version == 1)
         #expect(caps.supportsChatLinks && caps.chatLinks?.version == 1 && caps.chatLinks?.path == "/api/v1/mobile/agents/{agentId}/link?href={href}")
         #expect(caps.supportsOrchestration && caps.orchestration?.version == 1)
+        #expect(caps.supportsAccess && caps.access?.version == 1)
         #expect(caps.supportsProviderControl)
         #expect(caps.attachments == .init(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10))
         #expect(caps.terminal == .init(projectShell: true, agentShell: true, agentAttach: true, maxShellsPerConnection: 8, maxInputLength: 65_536))
@@ -80,7 +77,6 @@ import Testing
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.
                 if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
-                if Self.notYetBuiltAccessFields.contains(where: { request[$0] != nil }) { continue }
                 // This fixture sync also includes the desktop's separate Copilot Auto setting, not exposed by this phone.
                 if type == "helperRouting.update", request["copilotAuto"] != nil { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
@@ -264,7 +260,7 @@ import Testing
             return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"),
                                  freeAgentMode: b("freeAgentMode"), useWorktree: b("useWorktree"), mcpIDs: strings("mcpIds"),
                                  branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName"),
-                                 orchestration: orchestration(r["orchestration"])))
+                                 orchestration: orchestration(r["orchestration"]), access: s("access")))
         case "agent.update":
             guard let a = s("agentId") else { return nil }
             func clearable(_ key: String) -> AnnexAgentUpdate.Clearable? { switch r[key] { case .string(let v)?: .set(v); case .null?: .clear; default: nil } }
@@ -278,7 +274,7 @@ import Testing
                                  contextWindow: clearable("contextWindow"),
                                  runtime: s("runtime").flatMap(AnnexAgentUpdate.Runtime.init(rawValue:)),
                                  freeAgentMode: b("freeAgentMode"), idleSleep: idle,
-                                 orchestration: orchestration(r["orchestration"])))
+                                 orchestration: orchestration(r["orchestration"]), access: s("access")))
         case "project.setPinned": return s("projectId").flatMap { p in b("pinned").map { .setProjectPinned(projectID: p, pinned: $0) } }
         case "project.setInactive": return s("projectId").flatMap { p in b("inactive").map { .setProjectInactive(projectID: p, inactive: $0) } }
         case "helper.approve": return s("requestId").map { .helperApprove(requestID: $0, force: b("force") ?? false) }
