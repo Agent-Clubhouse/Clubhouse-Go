@@ -425,7 +425,14 @@ private actor UpdateDesktop: AnnexTransporting {
         await desktop.setLostReply(true)
         await perform()
         #expect(store.appUpdateErrors[Self.id]?.contains("reply was lost") == true)
+        // The unchanged status can still belong to the previous connection.
+        await desktop.pauseCapabilities()
         await service.reconnect(hostID: Self.id)
+        try await wait {
+            let paused = await desktop.capabilitiesArePaused
+            return paused && store.hosts.first?.connection == .synchronizing
+        }
+        await desktop.releaseCapabilities()
         try await wait { store.hosts.first?.connection == .connected && store.hosts.first?.appUpdate == expected }
         #expect(await desktop.sent.count == 1, "Reconnect never retries an unknown outcome")
         await desktop.setLostReply(false)
@@ -450,6 +457,128 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(await desktop.sent.count == 4)
         #expect(currentAttempt.commandID != previousAttempt.commandID)
         #expect(currentAttempt.epoch == "new-epoch")
+    }
+
+    @Test(arguments: [false, true])
+    func aRetryDuringReconnectShowsAnErrorAndKeepsItsOriginalCommand(cancel: Bool) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        if !cancel {
+            let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+                $0["state"]?.string == "ready" && $0["request"] == .null
+            })
+            try await desktop.change(ready)
+            try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        }
+        let perform: @MainActor () async -> Void = {
+            if cancel { await store.cancelAppUpdate(hostID: Self.id) }
+            else { await store.requestAppUpdate(hostID: Self.id) }
+        }
+        await desktop.setLostReply(true)
+        await perform()
+        #expect(store.appUpdateErrors[Self.id]?.contains("reply was lost") == true)
+        await desktop.pauseCapabilities()
+        await service.reconnect(hostID: Self.id)
+        try await wait {
+            let paused = await desktop.capabilitiesArePaused
+            return paused && store.hosts.first?.connection == .synchronizing
+        }
+        await desktop.setLostReply(false)
+        await perform()
+        #expect(await desktop.sent.count == 1)
+        #expect(store.appUpdateErrors[Self.id]?.contains("Reconnect") == true,
+                "A tap queued before synchronization must explain why it did not send")
+        await desktop.releaseCapabilities()
+        try await wait { store.hosts.first?.connection == .connected }
+        #expect(store.appUpdateErrors[Self.id] == nil)
+        #expect(await desktop.sent.count == 1, "Becoming ready must not replay the blocked retry")
+        await perform()
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0] == sent[1], "A blocked retry must not discard the unknown command")
+        #expect(store.appUpdateErrors[Self.id] == nil)
+    }
+
+    @Test(arguments: AnnexUpdateMode.allCases)
+    func anUpdateApprovalDuringReconnectShowsAnErrorAndKeepsItsOriginalCommand(_ mode: AnnexUpdateMode) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        try await desktop.openApproval()
+        try await wait { store.hosts.first?.grantRequests.count == 1 }
+        let request = try #require(store.hosts.first?.grantRequests.first)
+        await desktop.setLostReply(true)
+        await store.answer(request, with: .allowOnce, updateMode: mode)
+        #expect(store.grantRequestErrors[request.slot]?.contains("reply was lost") == true)
+        await desktop.pauseCapabilities()
+        await service.reconnect(hostID: Self.id)
+        try await wait {
+            let paused = await desktop.capabilitiesArePaused
+            return paused && store.hosts.first?.connection == .synchronizing
+        }
+        await desktop.setLostReply(false)
+        await store.answer(request, with: .allowOnce, updateMode: mode)
+        #expect(await desktop.sent.count == 1)
+        #expect(store.grantRequestErrors[request.slot]?.contains("Reconnect") == true)
+        await desktop.releaseCapabilities()
+        try await wait { store.hosts.first?.connection == .connected }
+        #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(await desktop.sent.count == 1, "Becoming ready must not answer an approval")
+        await store.answer(request, with: .allowOnce, updateMode: mode)
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0] == sent[1])
+        #expect(store.grantRequestErrors[request.slot] == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func changedUpdatePreconditionsExplainWhyAnActionDidNotSend(cancel: Bool) async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        if !cancel {
+            let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+                $0["state"]?.string == "ready" && $0["request"] == .null
+            })
+            try await desktop.change(ready)
+            try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        }
+        store.stop()
+        let original = try #require(store.hosts.first)
+        let perform: @MainActor () async -> Void = {
+            if cancel { await store.cancelAppUpdate(hostID: Self.id) }
+            else { await store.requestAppUpdate(hostID: Self.id) }
+        }
+        for connection in [CompanionConnection.connecting, .synchronizing] {
+            var host = original
+            host.connection = connection
+            store.apply(.hosts([host]))
+            await perform()
+            #expect(store.appUpdateErrors[Self.id]?.contains("Reconnect") == true)
+            store.apply(.hosts([original]))
+            #expect(store.appUpdateErrors[Self.id] == nil)
+        }
+        var host = original
+        host.canUpdateApp = false
+        store.apply(.hosts([host]))
+        await perform()
+        let capabilityError = try #require(store.appUpdateErrors[Self.id])
+        host.canUpdateApp = true
+        host.appUpdate = nil
+        store.apply(.hosts([host]))
+        await perform()
+        let statusError = try #require(store.appUpdateErrors[Self.id])
+        #expect(statusError != capabilityError)
+        #expect(await desktop.sent.isEmpty)
+        store.apply(.hosts([original]))
+        await desktop.pauseReceipts()
+        let active = Task { await perform() }
+        try await wait { await desktop.receiptIsPaused }
+        #expect(store.appUpdateErrors[Self.id] == nil, "An operable tap must not report a guard error")
+        await perform()
+        #expect(store.appUpdateErrors[Self.id]?.contains("in progress") == true)
+        await desktop.releaseReceipt()
+        await active.value
+        #expect(await desktop.sent.count == 1, "An in-flight action must not send a duplicate")
+        #expect(store.appUpdateErrors[Self.id] == nil)
     }
 
     @Test func anUncertainRequestAndCancellationKeepIndependentRetryIDsUntilResolved() async throws {

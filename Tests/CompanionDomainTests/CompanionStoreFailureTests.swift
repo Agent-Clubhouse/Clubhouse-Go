@@ -211,6 +211,23 @@ import Testing
         return value.resolution
     }
 
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func anApprovalDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = connection })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        await store.respond(approval, option: allow, target: target)
+        #expect(service.responses.isEmpty)
+        #expect(approvalResolution(store) == .pending)
+        #expect(store.operationErrors[target]?.contains("Reconnect") == true)
+        store.apply(.hosts([host()]))
+        #expect(store.operationErrors[target] == nil)
+        #expect(service.responses.isEmpty, "Readiness must not send a previously blocked approval")
+        await store.respond(approval, option: allow, target: target)
+        #expect(service.responses == ["p"])
+        #expect(store.operationErrors[target] == nil)
+    }
+
     @Test func rejectedApprovalReopensItForAnotherAnswer() async {
         let service = ScriptedCompanionService()
         service.respondError = CompanionServiceError.rejected("Stale request")
@@ -248,6 +265,23 @@ import Testing
     private func questionResolution(_ store: CompanionStore) -> CompanionQuestion.Resolution? {
         guard case .question(let value)? = store.conversation(for: target).items.first else { return nil }
         return value.resolution
+    }
+
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func aQuestionDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = connection })
+        store.apply(.upsert(target, .question(question), sequence: 1))
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(service.answered.isEmpty)
+        #expect(questionResolution(store) == .pending)
+        #expect(store.operationErrors[target]?.contains("Reconnect") == true)
+        store.apply(.hosts([host()]))
+        #expect(store.operationErrors[target] == nil)
+        #expect(service.answered.isEmpty, "Readiness must not send a previously blocked answer")
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(service.answered == ["q"])
+        #expect(store.operationErrors[target] == nil)
     }
 
     @Test func answeredQuestionIsMarkedAnswered() async {

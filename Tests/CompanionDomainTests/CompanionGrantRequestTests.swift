@@ -194,6 +194,23 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
 
     // MARK: Answering
 
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func anAnswerDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let request = call()
+        let (store, service) = makeStore([request], connection: connection)
+        await store.answer(request, with: .allowOnce)
+        #expect(service.answers.isEmpty)
+        #expect(store.grantRequestErrors[request.slot]?.contains("Reconnect") == true)
+        var host = store.hosts[0]
+        host.connection = .connected
+        store.apply(.hosts([host]))
+        #expect(store.grantRequestErrors[request.slot] == nil)
+        #expect(service.answers.isEmpty, "Readiness must not send a previously blocked answer")
+        await store.answer(request, with: .allowOnce)
+        #expect(service.answers.count == 1)
+        #expect(store.grantRequestErrors[request.slot] == nil)
+    }
+
     @Test func answersOnlyWhatTheRequestTakesAndDropsTheRow() async {
         let (store, service) = makeStore([call(), ask()])
         await store.answer(call(), with: .allowLasting)

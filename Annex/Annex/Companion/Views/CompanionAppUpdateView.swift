@@ -70,6 +70,7 @@ struct CompanionAppUpdateView: View {
         .navigationTitle("Desktop update")
         .alert("Request update on \(host?.name ?? "desktop")?", isPresented: $confirmingRequest) {
             Button("Request update") { Task { await store.requestAppUpdate(hostID: hostID) } }
+                .disabled(host?.connection.canOperate != true || store.appUpdateInFlight.contains(hostID))
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This only creates an approval in Needs you. \(CompanionAppUpdateText.restart)")

@@ -139,6 +139,23 @@ private func dispose(_ id: String = "hdispose_1", at seconds: TimeInterval = 60,
         #expect(!offline.canAnswer(start()))
     }
 
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func aDecisionDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let request = start()
+        let (store, service) = makeStore([request], connection: connection)
+        await store.answer(request, approve: true)
+        #expect(service.answers.isEmpty)
+        #expect(store.helperRequestErrors[request.slot]?.contains("Reconnect") == true)
+        var host = store.hosts[0]
+        host.connection = .connected
+        store.apply(.hosts([host]))
+        #expect(store.helperRequestErrors[request.slot] == nil)
+        #expect(service.answers.isEmpty, "Readiness must not send a previously blocked decision")
+        await store.answer(request, approve: true)
+        #expect(service.answers.count == 1)
+        #expect(store.helperRequestErrors[request.slot] == nil)
+    }
+
     @Test func encodesTheCommands() throws {
         func fields(_ kind: AnnexCommand.Kind) throws -> AnnexJSON {
             try JSONDecoder().decode(AnnexJSON.self, from: AnnexCommand(commandID: "c", epoch: "e", kind: kind).encoded())

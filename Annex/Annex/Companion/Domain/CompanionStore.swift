@@ -548,6 +548,11 @@ import Observation
     }
 
     func respond(_ approval: CompanionApproval, option: CompanionApprovalOption, target: CompanionTarget) async {
+        guard !isShutDown else { return }
+        if let error = decisionConnectionError(hostID: target.hostID) {
+            operationErrors[target] = error
+            return
+        }
         guard canOperate(target), agent(for: target)?.capabilities.contains(.approve) == true,
               !pendingCommands.contains(target), !approval.isExpired(at: Date()), approval.resolution == .pending, approval.options.contains(option),
               (!option.allows || canApprove(approval, target: target)),
@@ -679,6 +684,11 @@ import Observation
     /// Approve or decline a helper request, as the desktop's Needs you does. Approving a dispose with work at risk is
     /// the desktop's "Dispose anyway"; one whose checks couldn't run can only be declined.
     func answer(_ request: CompanionHelperRequest, approve: Bool) async {
+        guard !isShutDown else { return }
+        if let error = decisionConnectionError(hostID: request.hostID) {
+            helperRequestErrors[request.slot] = error
+            return
+        }
         guard canAnswer(request), !approve || canApprove(request) else { return }
         let force = approve && request.kind == .dispose && request.dispose?.workAtRisk == true
         helperRequestsInFlight.insert(request.slot)
@@ -709,6 +719,11 @@ import Observation
 
     /// Answer a Clubhouse grant request, as the desktop's Needs you does. Only an answer the request lists is sent.
     func answer(_ request: CompanionGrantRequest, with answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode? = nil) async {
+        guard !isShutDown else { return }
+        if let error = decisionConnectionError(hostID: request.hostID) {
+            grantRequestErrors[request.slot] = error
+            return
+        }
         guard canAnswer(request), request.answers.contains(answer) else { return }
         guard (request.isAppUpdate && answer == .allowOnce) == (updateMode != nil) else {
             grantRequestErrors[request.slot] = "Choose Restart now or When idle before allowing an update."
@@ -745,14 +760,42 @@ import Observation
     }
 
     func requestAppUpdate(hostID: String) async {
-        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
-              host.appUpdate?.canRequest == true, !appUpdateInFlight.contains(hostID) else { return }
+        guard let host = appUpdateHost(hostID: hostID) else { return }
+        guard host.appUpdate?.canRequest == true else {
+            appUpdateErrors[hostID] = "Refresh the desktop's update status before requesting an update."
+            return
+        }
         await changeAppUpdate(host, requestID: nil)
     }
     func cancelAppUpdate(hostID: String) async {
-        guard !isShutDown, let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
-              let request = host.appUpdate?.request, request.canCancel, !appUpdateInFlight.contains(hostID) else { return }
+        guard let host = appUpdateHost(hostID: hostID) else { return }
+        guard let request = host.appUpdate?.request, request.canCancel else {
+            appUpdateErrors[hostID] = "This update request can no longer be cancelled. Refresh its status."
+            return
+        }
         await changeAppUpdate(host, requestID: request.requestId)
+    }
+    private static let decisionReconnectMessage = "Reconnect to your desktop and wait for it to finish refreshing before trying again."
+    private static let appUpdateInProgressMessage = "An update command is already in progress. Wait for its reply before trying again."
+    private func decisionConnectionError(hostID: String) -> String? {
+        hosts.first(where: { $0.id == hostID })?.connection.canOperate == true
+            ? nil : Self.decisionReconnectMessage
+    }
+    private func appUpdateHost(hostID: String) -> CompanionHost? {
+        guard !isShutDown else { return nil }
+        if let error = decisionConnectionError(hostID: hostID) {
+            appUpdateErrors[hostID] = error
+            return nil
+        }
+        guard let host = hosts.first(where: { $0.id == hostID }), host.canUpdateApp else {
+            appUpdateErrors[hostID] = "This desktop cannot apply updates from your phone."
+            return nil
+        }
+        guard !appUpdateInFlight.contains(hostID) else {
+            appUpdateErrors[hostID] = Self.appUpdateInProgressMessage
+            return nil
+        }
+        return host
     }
     private func changeAppUpdate(_ host: CompanionHost, requestID: String?) async {
         let hostID = host.id, epoch = host.controlEpoch
@@ -763,7 +806,10 @@ import Observation
             targetVersion: requestID == nil ? host.appUpdate?.availableVersion : host.appUpdate?.request?.version)
         appUpdateAttempts[key] = attempt
         appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
-        defer { appUpdateInFlight.remove(hostID) }
+        defer {
+            appUpdateInFlight.remove(hostID)
+            if appUpdateErrors[hostID] == Self.appUpdateInProgressMessage { appUpdateErrors[hostID] = nil }
+        }
         do {
             if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: attempt.commandID) }
             else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: attempt.commandID) }
@@ -806,6 +852,11 @@ import Observation
     }
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {
+        guard !isShutDown else { return }
+        if let error = decisionConnectionError(hostID: target.hostID) {
+            operationErrors[target] = error
+            return
+        }
         guard canOperate(target), !pendingCommands.contains(target), question.resolution == .pending,
               agent(for: target)?.capabilities.contains(.answer) == true,
               Self.validAnswers(answers, for: question) else { return }
@@ -1259,6 +1310,19 @@ import Observation
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
             for host in incoming {
+                if host.connection.canOperate {
+                    if appUpdateErrors[host.id] == Self.decisionReconnectMessage { appUpdateErrors[host.id] = nil }
+                    grantRequestErrors = grantRequestErrors.filter {
+                        !$0.key.hasPrefix("\(host.id):") || $0.value != Self.decisionReconnectMessage
+                    }
+                    helperRequestErrors = helperRequestErrors.filter {
+                        !($0.key.hasPrefix("start:\(host.id):") || $0.key.hasPrefix("dispose:\(host.id):"))
+                            || $0.value != Self.decisionReconnectMessage
+                    }
+                    operationErrors = operationErrors.filter {
+                        $0.key.hostID != host.id || $0.value != Self.decisionReconnectMessage
+                    }
+                }
                 if let oldEpoch = hosts.first(where: { $0.id == host.id })?.controlEpoch, host.controlEpoch != oldEpoch {
                     let prefix = "\(host.id):"
                     grantAnswerAttempts = grantAnswerAttempts.filter { !$0.key.hasPrefix(prefix) }

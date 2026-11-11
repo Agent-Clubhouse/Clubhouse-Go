@@ -1083,6 +1083,7 @@ struct CompanionGrantRequestActions: View {
                     Text("When idle").tag(Optional(AnnexUpdateMode.whenIdle))
                 }
                 .accessibilityIdentifier("app-update-mode")
+                .disabled(!store.canAnswer(request))
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { decisions(busy: busy) }
