@@ -327,9 +327,11 @@ import Observation
                 return message.delivery != .confirmed && !acknowledged.contains(commandID)
             }
             // Do not overwrite events received while a history request was in flight.
+            var replacesHistory = true
             if history.sessionID == current.sessionID,
                let historySequence = history.lastSequence, let currentSequence = current.lastSequence,
                currentSequence > historySequence {
+                replacesHistory = false
                 let currentByID = Dictionary(current.items.map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
                 let historyIDs = Set(history.items.map(\.id))
                 current.items = history.items.map { currentByID[$0.id] ?? $0 } + current.items.filter { !historyIDs.contains($0.id) }
@@ -344,6 +346,7 @@ import Observation
             }
             current.historyRevision = UUID()
             conversations[target] = current
+            reconcileDecisionNotices(authoritativeTarget: replacesHistory ? target : nil)
         } catch {
             guard historyGenerations[target] == generation else { return }
             conversations[target, default: .init()].isLoading = false
@@ -799,8 +802,9 @@ import Observation
         if decisionNotices[hostID]?.isEmpty == true { decisionNotices[hostID] = nil }
     }
     private func recordDecisionNotice(_ action: CompanionDecisionNotice.Action, hostID: String, target: CompanionTarget? = nil,
-                                      label: String, detail: String = "was blocked while reconnecting. Answer again.") {
-        let notice = CompanionDecisionNotice(hostID: hostID, target: target, action: action,
+                                      label: String, detail: String = "was blocked while reconnecting. Answer again.",
+                                      cause: CompanionDecisionNotice.Cause = .reconnecting) {
+        let notice = CompanionDecisionNotice(hostID: hostID, target: target, action: action, cause: cause,
             epoch: hosts.first { $0.id == hostID }?.controlEpoch, sessionID: target.flatMap { conversations[$0]?.sessionID },
             label: label, detail: detail)
         dismissDecisionNotice(notice)
@@ -812,15 +816,16 @@ import Observation
         recordDecisionNotice(action, hostID: hostID, target: target, label: label)
         return true
     }
-    private func recordUpdateDecisionNotice(_ action: CompanionDecisionNotice.Action, hostID: String, detail: String) {
+    private func recordUpdateDecisionNotice(_ action: CompanionDecisionNotice.Action, hostID: String, detail: String,
+                                            cause: CompanionDecisionNotice.Cause = .precondition) {
         let hostName = hosts.first { $0.id == hostID }?.name ?? "desktop"
         let label = action == .requestUpdate ? "Request update on \(hostName)" : "Cancel update request on \(hostName)"
-        recordDecisionNotice(action, hostID: hostID, label: label, detail: detail)
+        recordDecisionNotice(action, hostID: hostID, label: label, detail: detail, cause: cause)
     }
     private func appUpdateHost(hostID: String, action: CompanionDecisionNotice.Action) -> CompanionHost? {
         guard !isShutDown else { return nil }
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else {
-            recordUpdateDecisionNotice(action, hostID: hostID, detail: "was blocked while reconnecting. Answer again.")
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "was blocked while reconnecting. Answer again.", cause: .reconnecting)
             return nil
         }
         guard let host = hosts.first(where: { $0.id == hostID }), host.canUpdateApp else {
@@ -828,7 +833,7 @@ import Observation
             return nil
         }
         guard !appUpdateInFlight.contains(hostID) else {
-            recordUpdateDecisionNotice(action, hostID: hostID, detail: "must wait for the update command already in progress.")
+            recordUpdateDecisionNotice(action, hostID: hostID, detail: "must wait for the update command already in progress.", cause: .updateInFlight)
             return nil
         }
         return host
@@ -844,7 +849,8 @@ import Observation
         appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
         defer {
             appUpdateInFlight.remove(hostID)
-            dismissDecisionNotice(hostID: hostID, action: requestID.map { .cancelUpdate($0) } ?? .requestUpdate)
+            decisionNotices[hostID]?.removeAll { $0.cause == .updateInFlight }
+            if decisionNotices[hostID]?.isEmpty == true { decisionNotices[hostID] = nil }
         }
         do {
             if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: attempt.commandID) }
@@ -1325,7 +1331,7 @@ import Observation
             let previousRevision = (assistant ?? tool).flatMap { conversations[$0.0]?.itemsRevision }
             applyEvent(event)
             switch event {
-            case .hosts, .timeline, .upsert(_, .approval, _), .upsert(_, .question, _):
+            case .hosts, .upsert(_, .approval, _), .upsert(_, .question, _):
                 reconcileDecisionNotices()
             default: break
             }
@@ -1385,7 +1391,8 @@ import Observation
             var runs = finishedRuns
             if runs.observe(hosts, now: Date()) { finishedRuns = runs }
         case .timeline(let target, let incoming, let sequence, let reset, let sessionID):
-            if reset || conversation(for: target).sessionID != sessionID { clearFullReviews(target) }
+            let replacesTimeline = reset || conversation(for: target).sessionID != sessionID
+            if replacesTimeline { clearFullReviews(target) }
             if !reset, let previous = conversation(for: target).lastSequence, sequence < previous { return }
             let items = Self.carryingLocalImages(incoming, from: conversation(for: target).items)
             let commandIDs = Set(items.compactMap { item -> String? in
@@ -1413,6 +1420,7 @@ import Observation
             conversations[target, default: .init()].historyRevision = UUID()
             conversations[target, default: .init()].lastSequence = sequence
             conversations[target, default: .init()].sessionID = sessionID
+            reconcileDecisionNotices(authoritativeTarget: replacesTimeline ? target : nil)
         case .resyncRequired(let hostID):
             fullReviews = fullReviews.filter { $0.key.hostID != hostID }
             fetchedReviews = fetchedReviews.filter { $0.key.hostID != hostID }
@@ -1446,7 +1454,7 @@ import Observation
         }
     }
 
-    private func reconcileDecisionNotices() {
+    private func reconcileDecisionNotices(authoritativeTarget: CompanionTarget? = nil) {
         for (hostID, notices) in decisionNotices {
             guard let host = hosts.first(where: { $0.id == hostID }) else { decisionNotices[hostID] = nil; continue }
             let pending = notices.filter { notice in
@@ -1467,13 +1475,14 @@ import Observation
                     guard let target = notice.target else { return false }
                     let conversation = conversation(for: target)
                     if let session = notice.sessionID, session != conversation.sessionID { return false }
-                    return !conversation.items.contains { item in
+                    for item in conversation.items {
                         switch (notice.action, item) {
-                        case (.approval, .approval(let approval)): return approval.id == id && approval.resolution != .pending
-                        case (.question, .question(let question)): return question.id == id && question.resolution != .pending
-                        default: return false
+                        case (.approval, .approval(let approval)) where approval.id == id: return approval.resolution == .pending
+                        case (.question, .question(let question)) where question.id == id: return question.resolution == .pending
+                        default: break
                         }
                     }
+                    return authoritativeTarget != target
                 }
             }
             decisionNotices[hostID] = pending.isEmpty ? nil : pending

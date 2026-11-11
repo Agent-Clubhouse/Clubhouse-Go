@@ -1,6 +1,11 @@
 import Foundation
 
 struct CompanionDecisionNotice: Identifiable, Equatable, Sendable {
+    enum Cause: Equatable, Sendable {
+        case reconnecting
+        case updateInFlight
+        case precondition
+    }
     enum Action: Hashable, Sendable {
         case requestUpdate
         case cancelUpdate(String?)
@@ -17,6 +22,7 @@ struct CompanionDecisionNotice: Identifiable, Equatable, Sendable {
     var hostID: String
     var target: CompanionTarget?
     var action: Action
+    var cause: Cause
     var epoch: String?
     var sessionID: String?
     var label: String

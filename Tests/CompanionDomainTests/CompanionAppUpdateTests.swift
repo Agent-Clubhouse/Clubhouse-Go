@@ -540,6 +540,57 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(store.decisionNotices(for: request).isEmpty)
     }
 
+    @Test func qaOppositeUpdateProgressNoticeClearsWhenCommandFinishes() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "ready" && $0["request"] == .null
+        })
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.pauseReceipts()
+        let active = Task { await store.requestAppUpdate(hostID: Self.id) }
+        try await wait { await desktop.receiptIsPaused }
+        let pending = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"])
+        try await desktop.change(pending)
+        try await wait { store.hosts.first?.appUpdate?.request?.canCancel == true }
+        await store.cancelAppUpdate(hostID: Self.id)
+        #expect(store.attentionDecisionNotices.first?.message.contains("in progress") == true)
+        await desktop.releaseReceipt()
+        await active.value
+        #expect(!store.appUpdateInFlight.contains(Self.id))
+        #expect(await desktop.sent.count == 1)
+        #expect(store.attentionDecisionNotices.isEmpty,
+                "A cancellation blocked by the request command must not keep saying that command is in progress")
+    }
+
+    @Test func qaUpdateCompletionDoesNotEraseANewerReconnectNotice() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "ready" && $0["request"] == .null
+        })
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.pauseReceipts()
+        await desktop.setLostReply(true)
+        let active = Task { await store.requestAppUpdate(hostID: Self.id) }
+        try await wait { await desktop.receiptIsPaused }
+        store.stop()
+        var host = try #require(store.hosts.first)
+        host.connection = .synchronizing
+        store.apply(.hosts([host]))
+        await store.requestAppUpdate(hostID: Self.id)
+        let notice = try #require(store.attentionDecisionNotices.first)
+        #expect(notice.message.contains("reconnecting"))
+        await desktop.releaseReceipt()
+        await active.value
+        #expect(store.appUpdateErrors[Self.id]?.contains("reply was lost") == true)
+        #expect(await desktop.sent.count == 1)
+        #expect(store.attentionDecisionNotices == [notice],
+                "The earlier unknown command's completion did not send or resolve the later blocked tap")
+    }
+
     @Test func updateNoticesForTwoHostsRemainIndependentlyDismissible() async throws {
         let (service, store, desktop) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.id) }
