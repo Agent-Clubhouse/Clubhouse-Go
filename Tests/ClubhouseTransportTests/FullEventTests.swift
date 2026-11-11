@@ -1,12 +1,7 @@
 import Foundation
-import CryptoKit
 import Testing
 @testable import ClubhouseTransport
 
-private func fullFixture(_ name: String) throws -> AnnexJSON {
-    let path = AnnexContract.directory.deletingLastPathComponent().appendingPathComponent("AnnexFullEvents").appendingPathComponent(name)
-    return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: path))
-}
 private let reviewDigest = "sha256:" + String(repeating: "a", count: 64)
 private func fullBody(sequence: Int64 = 7, request: String = "big", digest: String = reviewDigest, isPermission: Bool = true, payloadSize: Int = 400 * 1024) -> AnnexJSON {
     .object(["version": .integer(1), "agentId": .string("a"), "sessionId": .string("s"), "seq": .integer(sequence), "digest": .string(digest),
@@ -14,10 +9,10 @@ private func fullBody(sequence: Int64 = 7, request: String = "big", digest: Stri
             "data": .object(["requestId": .string(request), "rawInput": .object(["content": .string(String(repeating: "y", count: payloadSize))])])])])
 }
 private func capabilitiesResponse() throws -> AnnexHTTPResponse {
-    try AnnexContract.response(fullFixture("capabilities.json")["response"])
+    try AnnexContract.response(AnnexContract.json("capabilities.json")["response"])
 }
 private func permission(_ id: String = "approve", agent: String = "a", session: String = "s", request: String = "big", digest: String = reviewDigest) throws -> AnnexCommand {
-    let caps = try fullFixture("capabilities.json")["response"]?["body"]
+    let caps = try AnnexContract.json("capabilities.json")["response"]?["body"]
     return .init(commandID: id, epoch: caps?["epoch"]?.string ?? "", kind: .permission(agentID: agent, sessionID: session, requestID: request, optionID: "ok", reviewedDigest: digest))
 }
 
@@ -27,7 +22,7 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
         #expect(caps.supportsFullEvents)
         #expect(caps.fullEvents?.maximumBytes == AnnexFullEvent.maximumBytes)
         for file in ["chat-event-tool-call-preview.json", "chat-event-tool-output-preview.json"] {
-            let frame = try #require(fullFixture(file)["frame"])
+            let frame = try #require(AnnexContract.json(file)["frame"])
             let decoded = try JSONDecoder().decode(AnnexEnvelope.self, from: AnnexContract.encode(frame))
             #expect(decoded.payload?["event"] == frame["payload"]?["event"])
             #expect(decoded.payload?["event"]?["data"]?["truncated"]?["originalBytes"]?.integer != nil)
@@ -120,17 +115,6 @@ private func permission(_ id: String = "approve", agent: String = "a", session: 
         event["data"] = .object(payload); body["event"] = .object(event)
         #expect(throws: AnnexTransportError.malformedResponse) {
             try AnnexFullEvent(data: AnnexContract.encode(.object(body)), agentID: "a", sessionID: "s", sequence: 7)
-        }
-    }
-
-    @Test func isolatedCanonicalFixturesMatchTheirRecordedSourceHashes() throws {
-        let source = try fullFixture("SOURCE.json")
-        guard case .object(let files)? = source["sha256"] else { Issue.record("Missing provenance"); return }
-        let root = AnnexContract.directory.deletingLastPathComponent().appendingPathComponent("AnnexFullEvents")
-        for (name, hash) in files {
-            let data = try Data(contentsOf: root.appendingPathComponent(name))
-            #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() == hash.string)
-            #expect(source["commits"]?[name]?.string?.count == 40)
         }
     }
 

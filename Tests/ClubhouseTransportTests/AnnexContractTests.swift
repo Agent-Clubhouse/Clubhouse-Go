@@ -4,12 +4,19 @@ import Testing
 
 /// The phone's transport against the desktop's recorded protocol (`Tests/Fixtures/AnnexContract/`).
 @Suite struct AnnexContractTests {
-    private static let commandTypes = ["chat.send", "chat.interrupt", "chat.permission", "chat.question", "chat.queue.remove", "agent.start",
-                                       "agent.stop", "agent.spawn", "agent.create", "agent.update", "project.setPinned", "project.setInactive",
-                                       "helper.approve", "helper.decline", "chat.setModel", "chat.setLevel", "quick.dismiss", "quick.clear",
-                                       "dispatcher.setEnabled", "helperRouting.update", "agent.providerPreview", "agent.providerChange", "grant.answer",
-                                       "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything",
-                                       "app.update.request", "app.update.cancel"]
+    private static let commandFiles = [
+        "commands/chat.send.json", "commands/chat.interrupt.json", "commands/chat.permission.json", "commands/chat.question.json",
+        "commands/chat.queue.remove.json", "commands/agent.start.json", "commands/agent.stop.json", "commands/agent.spawn.json",
+        "commands/agent.create.json", "commands/agent.update.json", "commands/project.setPinned.json", "commands/project.setInactive.json",
+        "commands/helper.approve.json", "commands/helper.decline.json", "commands/chat.setModel.json", "commands/chat.setLevel.json",
+        "commands/quick.dismiss.json", "commands/quick.clear.json", "commands/dispatcher.setEnabled.json", "commands/helperRouting.update.json",
+        "commands/agent.providerPreview.json", "commands/agent.providerChange.json", "commands/grant.answer.json",
+        "commands/dispatcher.update.json", "commands/dispatcher.setModels.json", "commands/dispatcher.clearChat.json",
+        "commands/dispatcher.forgetEverything.json", "commands/app.update.request.json", "commands/app.update.cancel.json"
+    ]
+    private static var commandTypes: [String] {
+        commandFiles.map { String($0.dropFirst("commands/".count).dropLast(".json".count)) }
+    }
     private func capabilities() throws -> AnnexCapabilities {
         try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
     }
@@ -71,8 +78,9 @@ import Testing
     /// Every accepted request the desktop recorded is one the phone builds identically (`AnnexCommand.encoded()`).
     @Test func phoneCommandsEncodeExactlyAsTheDesktopAcceptsThem() throws {
         var checked = 0
-        for type in Self.commandTypes {
-            for item in try AnnexContract.cases("commands/\(type).json") where item["response"]?["body"]?["status"]?.string == "completed" {
+        for file in Self.commandFiles {
+            let type = String(file.dropFirst("commands/".count).dropLast(".json".count))
+            for item in try AnnexContract.cases(file) where item["response"]?["body"]?["status"]?.string == "completed" {
                 let request = try #require(item["request"])
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.

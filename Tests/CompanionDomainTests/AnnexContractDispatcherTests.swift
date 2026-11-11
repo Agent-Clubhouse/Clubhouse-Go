@@ -157,4 +157,53 @@ import Testing
         #expect(CompanionLiveService.agentReadError(AnnexTransportError.rejected(status: 404, code: "agent_not_found")) == "This agent is no longer on the desktop.")
         #expect(routes["git"]?["response"]?["body"]?["error"]?.string == "not_git_repo")
     }
+
+    /// Clubhouse #3146 filters on the desktop, not the phone. Chunks stay raw until the clean final reply replaces them.
+    @Test func filteredGroupChatMatchesHistoryAndLiveWithoutHidingOrdinaryAgentActivity() throws {
+        let fixture = try ContractFixtures.json("dispatcher-group-chat.json")
+        let history = try #require(fixture["dispatcher"]?["history"]?["response"]?["body"])
+        let events = history["events"].arrayValue
+        #expect(events.compactMap { $0["seq"]?.integer } == [1, 2, 3, 8, 9, 10, 11])
+        #expect(history["lastSeq"]?.integer == 12, "Hidden events still count in the desktop watermark")
+
+        var live = CompanionChatProjector()
+        for frame in try #require(fixture["dispatcher"]?["frames"]).arrayValue {
+            let envelope = try frame.decode(AnnexEnvelope.self)
+            #expect(envelope.type == "chat:event")
+            let event = try #require(envelope.payload?["event"])
+            live.apply(event)
+            if event["type"]?.string == "agent_message_chunk" {
+                guard case .message(let chunk)? = live.items.last else { Issue.record("Missing streamed reply"); return }
+                #expect(chunk.text == "On it (task_id=t_1abcdef)." && chunk.isStreaming)
+            }
+            if event["type"]?.string == "turn_ended" {
+                #expect(live.status == .idle && live.turnStartedAt == nil)
+            }
+        }
+        var archived = CompanionChatProjector()
+        for event in events { archived.apply(event) }
+        #expect(live.items == archived.items)
+        #expect(live.lastSequence == 11 && live.status == .idle)
+        #expect(live.items.map(\.id) == ["message:msg_you", "message:amsg_1", "message:msg_news"],
+                "No tool, thought, subagent, hand-off or turn-footer rows")
+        let messages = try live.items.map { item -> CompanionMessage in
+            guard case .message(let message) = item else { throw AnnexTransportError.malformedResponse }
+            return message
+        }
+        try #require(messages.count == 3)
+        #expect(messages[0].display == .you("Tell me when checkout is fixed."))
+        #expect(messages[1].text == "On it." && !messages[1].isStreaming)
+        #expect(messages[2].display == .others([
+            .init(sender: .init(agentID: "durable_sleepy", name: "brave-otter"), text: "Checkout is fixed.")
+        ]), "Display the cleaned routed part, not the raw task ids, routing tags or Clubhouse update")
+
+        let ordinaryEvents = try #require(fixture["agent"]?["history"]?["response"]?["body"]?["events"]).arrayValue
+        #expect(ordinaryEvents.count == 12)
+        #expect(ordinaryEvents.contains { $0["type"]?.string == "agent_thought" })
+        #expect(ordinaryEvents.contains { $0["type"]?.string == "tool_call" })
+        var ordinary = CompanionChatProjector()
+        for event in ordinaryEvents { ordinary.apply(event) }
+        #expect(ordinary.items.contains { if case .tool = $0 { true } else { false } })
+        #expect(ordinary.items != live.items, "The ordinary agent's stream remains unfiltered")
+    }
 }

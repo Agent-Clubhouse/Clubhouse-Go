@@ -8,11 +8,6 @@ private let phoneIdentity = Result { try AnnexClientIdentity.ephemeral() }
 private let desktopA = Result { try AnnexClientIdentity.ephemeral() }
 private let desktopB = Result { try AnnexClientIdentity.ephemeral() }
 
-private func fixture(_ name: String) throws -> AnnexJSON {
-    let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "Fixtures/AnnexNetwork")
-    return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: directory.appending(path: name + ".json")))
-}
-
 private func member(_ identity: AnnexClientIdentity, name: String = "Desktop", pairingID: String? = "desktop-pair", joinedAt: String = networkDate, isSelf: Bool = false) throws -> AnnexNetworkMember {
     .init(fingerprint: try identity.fingerprint, publicKey: identity.pairingIdentity.publicKeyBase64, name: name, icon: "computer", color: "indigo", kind: "desktop",
           hosts: ["127.0.0.1", "studio.tail1234.ts.net"], port: 7432, certFingerprint: identity.certificateFingerprint,
@@ -70,24 +65,24 @@ private func pairedNetwork(joined: Bool = true) async throws -> (AnnexTransportR
 }
 
 @Test func desktopNetworkFixturesDecodeWithoutChangingTheirWireRecords() throws {
-    let pair = try fixture("network-pairing")
+    let pair = try AnnexContract.json("network-pairing.json")
     #expect(pair["request"]?["body"]?["network"] == .integer(1))
     let pairing = try #require(pair["response"]?["body"]?["pairing"]).decode(AnnexNetworkPairing.self)
-    #expect(pairing.id.hasSuffix("0025"))
-    #expect(try #require(pair["response"]?["body"]?["serverPairing"]).decode(AnnexNetworkPairing.self).id.hasSuffix("0021"))
-    let list = try fixture("network-list")
+    #expect(pairing.id.hasSuffix("0035"))
+    #expect(try #require(pair["response"]?["body"]?["serverPairing"]).decode(AnnexNetworkPairing.self).id.hasSuffix("0031"))
+    let list = try AnnexContract.json("network-list.json")
     let view = try #require(list["member"]?["response"]?["body"]).decode(AnnexNetworkSnapshot.self)
     #expect(view.joined && view.members.count == 3 && view.removals.count == 1)
-    #expect(view.members[1].online == false && view.members[1].pairingId?.hasSuffix("0022") == true)
+    #expect(view.members[1].online == false && view.members[1].pairingId?.hasSuffix("0032") == true)
     #expect(!view.removals[0].ends(pairingID: "later", joinedAt: "2026-11-06T10:00:00.000Z"))
     let oneToOne = try #require(list["oneToOne"]?["response"]?["body"]).decode(AnnexNetworkSnapshot.self)
     #expect(!oneToOne.joined && oneToOne.members.count == 1)
-    let envelope = try #require(fixture("network-changed")["frame"]).decode(AnnexEnvelope.self)
+    let envelope = try #require(AnnexContract.json("network-changed.json")["frame"]).decode(AnnexEnvelope.self)
     #expect(envelope.type == "network:changed")
     #expect(try envelope.payload?.decode(AnnexNetworkSnapshot.self) == view)
-    let posted = try #require(fixture("network-members")["accepted"]?["request"]?["body"]?["members"]).decode([AnnexNetworkMember].self)
+    let posted = try #require(AnnexContract.json("network-members.json")["accepted"]?["request"]?["body"]?["members"]).decode([AnnexNetworkMember].self)
     #expect(posted == view.members)
-    #expect(try fixture("capabilities")["response"]?["body"]?.decode(AnnexCapabilities.self).supportsNetwork == true)
+    #expect(try AnnexContract.json("capabilities.json")["response"]?["body"]?.decode(AnnexCapabilities.self).supportsNetwork == true)
     // Fixture keys and certs are deliberately redacted, so they cannot establish trust.
     #expect(throws: AnnexTransportError.identityMismatch) { try view.members[0].trustedHost() }
 }

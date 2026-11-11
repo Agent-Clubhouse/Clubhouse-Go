@@ -10,8 +10,7 @@ import Testing
     }
 
     @Test func capabilityOnlyOffersAdvertisedPresets() throws {
-        let fixture = ContractFixtures.directory.deletingLastPathComponent().appending(path: "AnnexHelperRouting/capabilities.json")
-        let raw = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: fixture))["response"]?["body"] ?? .null
+        let raw = try ContractFixtures.body("capabilities.json")
         let caps = try raw.decode(AnnexCapabilities.self)
         #expect(caps.supportsHelperRouting)
         let feature = try #require(caps.helperRouting)
@@ -19,7 +18,7 @@ import Testing
         #expect(feature.difficulties == ["easy", "medium", "hard"])
         #expect(feature.presetLevels == ["minimum", "easy", "medium", "hard", "maximum"])
         #expect(feature.presetProviders == ["claude-code", "codex-cli", "copilot-cli"])
-        #expect(feature.autoCandidates == ["claude-code", "codex-cli"])
+        #expect(feature.autoCandidates == ["claude-code", "codex-cli", "copilot-cli"])
         var fields = try #require(raw.object)
         fields["helperRouting"] = nil
         #expect(try !AnnexJSON.object(fields).decode(AnnexCapabilities.self).supportsHelperRouting)
