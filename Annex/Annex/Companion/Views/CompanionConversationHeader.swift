@@ -164,9 +164,7 @@ struct CompanionConversationDetailsCard: View {
             layout {
                 CompanionStatusText(status: agent.status).font(.caption.weight(.semibold))
                     .accessibilityIdentifier("companion-chat-details-status")
-                // A known live level takes precedence; boolean-only Access can be Auto or Full.
-                if let controls = agent.chatControls { CompanionLevelBadge(level: controls.currentLevel) }
-                else if let level = agent.session?.level.flatMap(CompanionPermissionLevel.init(rawValue:)) { CompanionLevelBadge(level: level) }
+                if let level = agent.displayedChatAccess { CompanionLevelBadge(level: level) }
                 else if agent.freeAgentMode { CompanionElevatedAccessBadge(label: CompanionFreeAgentMode.title) }
             }
             if let model = agent.model {

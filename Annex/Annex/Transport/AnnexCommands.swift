@@ -158,10 +158,13 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .spawn(let project, let prompt, let model, let orchestrator):
             v["projectId"] = .string(project); v["prompt"] = .string(prompt)
             if let model { v["model"] = .string(model) }; if let orchestrator { v["orchestrator"] = .string(orchestrator) }
-        case .create(let create): v.merge(create.fields) { _, new in new }
+        case .create(let create):
+            if let access = create.access, !Self.permissionLevels.contains(access) { throw AnnexTransportError.malformedResponse }
+            v.merge(create.fields) { _, new in new }
         case .update(let update):
             // The desktop refuses an update that changes nothing.
             guard !update.isEmpty else { throw AnnexTransportError.malformedResponse }
+            if let access = update.access, !Self.permissionLevels.contains(access) { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
         case .setModel(let agent, let session, let model, let effort):
             guard !model.isEmpty, model.count <= 256 else { throw AnnexTransportError.malformedResponse }
@@ -257,8 +260,8 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
     }
 }
 
-/// `agent.create`: a durable agent, as the desktop's New agent page makes one. Send `freeAgentMode` only to a desktop
-/// that advertises `permissions.freeAgentMode`; older ones refuse the field (403 `free_agent_mode_not_allowed`).
+/// `agent.create`: a durable agent, as the desktop's New agent page makes one. Saved Access needs `access` v1.
+/// `freeAgentMode` is retained for recorded legacy requests, not used as a fallback for saved Access.
 /// There is no persona: personas were retired on the desktop (Clubhouse #2901), which refuses one (409 `managed_agent`).
 nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var projectID: String
@@ -267,8 +270,10 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var color: String
     public var orchestrator: String?
     public var model: String?
-    /// Skip every permission prompt. Omitted follows the project's agent defaults.
+    /// Legacy wire compatibility only. Saved Access takes precedence when both fields are present.
     public var freeAgentMode: Bool?
+    /// Saved five-level Access (`access` v1). Omitted follows the desktop's Default access.
+    public var access: String?
     public var useWorktree: Bool?
     public var mcpIDs: [String]?
     public var branchName: String?
@@ -278,16 +283,18 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var orchestration: AnnexOrchestrationPatch?
     public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil,
                 freeAgentMode: Bool? = nil, useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil,
-                folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil) {
+                folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil, access: String? = nil) {
         self.projectID = projectID; self.name = name; self.color = color; self.orchestrator = orchestrator; self.model = model
         self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
         self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName; self.orchestration = orchestration
+        self.access = access
     }
     var fields: [String: AnnexJSON] {
         var v: [String: AnnexJSON] = ["projectId": .string(projectID), "name": .string(name), "color": .string(color)]
         if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         if let model { v["model"] = .string(model) }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
+        if let access { v["access"] = .string(access) }
         if let useWorktree { v["useWorktree"] = .bool(useWorktree) }
         if let mcpIDs { v["mcpIds"] = .array(mcpIDs.map(AnnexJSON.string)) }
         if let branchName { v["branchName"] = .string(branchName) }
@@ -298,7 +305,7 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     }
 }
 
-/// `agent.update`: only the settings that changed. `freeAgentMode` needs a desktop that advertises `permissions.freeAgentMode`.
+/// `agent.update`: only the settings that changed. Saved Access needs `access` v1 and applies at next start.
 /// Persona and Clubhouse Mode are never sent: the desktop retired both (Clubhouse #2901) and refuses them (409 `managed_agent`).
 nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     /// A value that can also be cleared, sent as `null`.
@@ -330,15 +337,18 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
     public var runtime: Runtime?
     /// A spawn setting: the desktop refuses it while the agent is awake (409 `agent_running`).
     public var freeAgentMode: Bool?
+    /// Saved five-level Access for the next start (`access` v1).
+    public var access: String?
     public var idleSleep: IdleSleep?
     /// Changes any time, even while the agent runs. Needs a desktop that advertises `orchestration` v1.
     public var orchestration: AnnexOrchestrationPatch?
     public init(agentID: String, name: String? = nil, color: String? = nil, emoji: Clearable? = nil, orchestrator: String? = nil, model: String? = nil, contextWindow: Clearable? = nil,
                 runtime: Runtime? = nil, freeAgentMode: Bool? = nil, idleSleep: IdleSleep? = nil,
-                orchestration: AnnexOrchestrationPatch? = nil) {
+                orchestration: AnnexOrchestrationPatch? = nil, access: String? = nil) {
         self.agentID = agentID; self.name = name; self.color = color; self.emoji = emoji; self.orchestrator = orchestrator
         self.model = model; self.contextWindow = contextWindow; self.runtime = runtime
         self.freeAgentMode = freeAgentMode; self.idleSleep = idleSleep; self.orchestration = orchestration
+        self.access = access
     }
     /// True when it changes nothing; the desktop needs at least one setting.
     public var isEmpty: Bool { fields.count == 1 }
@@ -352,6 +362,7 @@ nonisolated public struct AnnexAgentUpdate: Sendable, Equatable {
         if let contextWindow { v["contextWindow"] = contextWindow.json }
         if let runtime { v["runtime"] = .string(runtime.rawValue) }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
+        if let access { v["access"] = .string(access) }
         if let idleSleep { v["idleSleep"] = idleSleep.json }
         if let orchestration, !orchestration.isEmpty { v["orchestration"] = orchestration.json }
         return v
@@ -439,6 +450,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAgentSettings: Bool { commands.contains("agent.update") && (agentSettings?.version ?? 0) >= 1 }
     /// The composer's model, effort and level controls (`chatControls` v1). Absent on older desktops.
     public let chatControls: Feature?
+    /// The canonical saved Access level, separate from the running chat level.
+    public let access: Feature?
+    public var supportsAccess: Bool { (access?.version ?? 0) >= 1 }
     public var supportsModelSwitch: Bool { commands.contains("chat.setModel") && (chatControls?.version ?? 0) >= 1 }
     public var supportsLevelSwitch: Bool { commands.contains("chat.setLevel") && (chatControls?.version ?? 0) >= 1 }
     /// The composer's `/` menu: the chat snapshot's `slashCommands` and `commands_available` events (`slashCommands` v1).
@@ -601,6 +615,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         projectState = optional(.projectState)
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
+        access = optional(.access)
         slashCommands = optional(.slashCommands)
         chatLinks = optional(.chatLinks)
         iconRefs = optional(.iconRefs)
@@ -616,7 +631,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
-        case iconRefs, projectState, finishedQuickAgents, chatControls, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
+        case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
         case grantRequests
     }
 }

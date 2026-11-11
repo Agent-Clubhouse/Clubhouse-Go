@@ -17,6 +17,38 @@ nonisolated struct CompanionSetting<Value: Sendable & Equatable>: Sendable, Equa
     func canEdit(sleeping: Bool) -> Bool { editable == .always || (editable == .sleeping && sleeping) }
 }
 
+/// Server-owned labels and descriptions for the shared saved/live Access ladder.
+nonisolated struct CompanionAccessChoice: Identifiable, Sendable, Equatable {
+    var id: CompanionPermissionLevel
+    var label: String
+    var description: String
+}
+
+nonisolated struct CompanionSavedAccess: Sendable, Equatable {
+    var value: CompanionPermissionLevel
+    var editable: CompanionSettingEditable
+    var choices: [CompanionAccessChoice]
+    var startsAt: CompanionPermissionLevel
+    var defaultLevel: CompanionPermissionLevel
+
+    static let applicationNote = "Applies at next start. Saving does not change the running session."
+    var selectedLabel: String {
+        let label = choices.first { $0.id == value }?.label ?? value.label
+        return choices.contains { $0.id == value } ? label : "\(label) (not available for this CLI)"
+    }
+    func canEdit(sleeping: Bool) -> Bool {
+        CompanionSetting(value: value, editable: editable).canEdit(sleeping: sleeping)
+    }
+    func applicationSummary(live: CompanionPermissionLevel?) -> String {
+        if let live, live != startsAt {
+            let saved = value != startsAt ? " (\(value.label) saved)" : ""
+            return "\(live.label) now, starts at \(startsAt.label)\(saved)"
+        }
+        if value != startsAt { return "\(value.label) saved, starts at \(startsAt.label)" }
+        return live.map { "\($0.label) now" } ?? value.label
+    }
+}
+
 nonisolated struct CompanionModelOption: Identifiable, Sendable, Equatable, Hashable {
     var id: String
     var label: String
@@ -121,6 +153,7 @@ nonisolated struct CompanionOrchestratorOption: Identifiable, Sendable, Equatabl
     /// The agent can run in chat on this CLI.
     var chat: Bool
     var models: [CompanionModelOption]
+    var accessLevels: [CompanionPermissionLevel] = []
     var warning: String? { available ? nil : (unavailableReason ?? "CLI not found. The agent may fail to start.") }
 }
 
@@ -146,6 +179,7 @@ nonisolated struct CompanionMCPOption: Identifiable, Sendable, Equatable {
 nonisolated struct CompanionAgentOptions: Sendable, Equatable {
     var orchestrators: [CompanionOrchestratorOption] = []
     var colors: [CompanionColorOption] = []
+    var accessLevels: [CompanionAccessChoice] = []
     func orchestrator(_ id: String?) -> CompanionOrchestratorOption? { orchestrators.first { $0.id == id } }
     /// The models for a CLI, keeping a saved custom model in the list.
     /// More models than this open as a list of their own instead of a menu.
@@ -169,8 +203,14 @@ nonisolated struct CompanionCreateOptions: Sendable, Equatable {
     var defaultColor = "indigo"
     var defaultModel = "default"
     var defaultUseWorktree = false
-    /// `agent.create` takes `freeAgentMode` (`freeAgentMode.allowed`). Offer it only for CLIs with permission support.
+    /// Kept only for decoding the legacy wire contract; the UI uses saved Access.
     var freeAgentModeAllowed = false
+    var defaultAccess: CompanionPermissionLevel?
+
+    func accessChoices(for orchestrator: String) -> [CompanionAccessChoice] {
+        let allowed = options.orchestrator(orchestrator)?.accessLevels ?? []
+        return options.accessLevels.filter { allowed.contains($0.id) }
+    }
 }
 
 /// An agent's own auto-sleep: follow the app's chat idle timeout, never sleep, or sleep after this many minutes idle.
@@ -238,7 +278,9 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     /// `default`, `chat` or `terminal`; `resolvedRuntime` is `chat` or `terminal`.
     var runtime: CompanionSetting<String>
     var resolvedRuntime: String
+    /// Legacy-only evidence when the exact saved Access is absent.
     var freeAgentMode: CompanionSetting<Bool>
+    var access: CompanionSavedAccess?
     var idleSleep: CompanionSetting<CompanionIdleSleep>
     /// Only chat agents idle-sleep; the value is kept either way.
     var idleSleepApplies = true
@@ -260,7 +302,8 @@ nonisolated struct CompanionAgentSettings: Sendable, Equatable {
     var hasLockedSettings: Bool {
         [name.isLocked(sleeping: sleeping), color.isLocked(sleeping: sleeping), emoji.isLocked(sleeping: sleeping),
          orchestrator.isLocked(sleeping: sleeping), model.isLocked(sleeping: sleeping), runtime.isLocked(sleeping: sleeping),
-         freeAgentMode.isLocked(sleeping: sleeping),
+         access.map { CompanionSetting(value: $0.value, editable: $0.editable).isLocked(sleeping: sleeping) }
+            ?? freeAgentMode.isLocked(sleeping: sleeping),
          contextWindow?.isLocked(sleeping: sleeping) ?? false].contains(true)
     }
     /// The Settings card's Auto-sleep summary.
@@ -306,6 +349,7 @@ nonisolated struct CompanionSettingsChange: Sendable, Equatable {
     var runtime: String?
     /// Only to desktops that take it (`permissions.freeAgentMode`).
     var freeAgentMode: Bool?
+    var access: CompanionPermissionLevel?
     var idleSleep: CompanionIdleSleep?
     /// Only to desktops that take it (`orchestration` v1).
     var orchestration: CompanionOrchestrationChange?
@@ -321,6 +365,7 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var model: String?
     /// Nil uses the desktop's Default access. False explicitly chooses or keeps a level below Auto.
     var freeAgentMode: Bool? = nil
+    var access: CompanionPermissionLevel? = nil
     var useWorktree: Bool?
     var mcpIDs: [String]?
     /// Nil leaves it to the default. Only sent to desktops that take it (`orchestration` v1).
@@ -398,6 +443,7 @@ enum CompanionAgentCommandError {
         case "invalid_context_window": return "That context setting is no longer available for this model. Choose one offered by the desktop or reset to Default."
         case "free_agent_mode_not_allowed": return "Free Agent Mode can only be changed on the desktop."
         case "free_agent_mode_unavailable": return CompanionFreeAgentMode.unsupported
+        case "access_unavailable": return detail ?? "That Access level isn't available for this CLI and runtime. Choose one offered by the desktop."
         case "agent_creating": return "This agent is still being set up. Try again when it's ready."
         case "orchestrator_unavailable": return "That CLI isn't enabled for this project on the desktop."
         case "runtime_unavailable": return "Chat isn't available for this agent's CLI."
