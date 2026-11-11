@@ -332,9 +332,7 @@ jobs:
       # without paying for another full UI suite or accepting a passing retry.
       - name: Run iPad tests without retries
         run: |
-          if ! env -u COPILOT_CONNECTION_TOKEN GIT_CONFIG_COUNT=1 \
-            GIT_CONFIG_KEY_0=safe.bareRepository GIT_CONFIG_VALUE_0=all \
-            xcodebuild test-without-building \
+          if ! xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -configuration Debug \
             -destination "$DEST" \
