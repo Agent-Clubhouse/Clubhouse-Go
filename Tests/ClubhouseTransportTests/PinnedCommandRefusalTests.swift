@@ -28,14 +28,12 @@ private final class PacedCommandBody: InputStream, @unchecked Sendable {
 }
 
 @Test(.timeLimit(.minutes(1))) func pinnedURLSessionObservesRefusalWhileAnOversizeBodyIsUploading() async throws {
-    let process = Process(), output = Pipe()
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    process.arguments = ["node", try #require(Bundle.module.url(forResource: "command-refusal-server", withExtension: "mjs", subdirectory: "Fixtures")).path]
-    process.standardOutput = output; process.standardError = FileHandle.nullDevice
-    try process.run()
-    defer { if process.isRunning { process.terminate() }; process.waitUntilExit() }
+    let process = try FixtureProcess(arguments: [
+        "node", try #require(Bundle.module.url(forResource: "command-refusal-server", withExtension: "mjs", subdirectory: "Fixtures")).path
+    ])
+    defer { process.stop() }
     var line = Data()
-    while let byte = try output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
+    while let byte = try process.output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
         line.append(byte)
         guard line.count < 4096 else { throw AnnexTransportError.malformedResponse }
     }
