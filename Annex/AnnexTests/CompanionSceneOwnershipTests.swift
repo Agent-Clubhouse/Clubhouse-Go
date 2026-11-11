@@ -202,6 +202,59 @@ import FramebriarUI
         XCTAssertEqual(runtimes.count, 1)
         XCTAssertEqual(clients.count, 1)
         print("CLIENT_OWNER phase=background-foreground activePumps=\(activePumps) peakPumps=\(peakPumps) starts=\(pumpStarts) connects=\(await transports.asyncCounts())")
+        window.rootViewController = nil
+        if !isolated { window.isHidden = true }
+        try await wait { activePumps == 0 }
+        if !isolated {
+            addTeardownBlock { @MainActor in
+                try await self.wait { runtimes.allSatisfy { $0.value == nil } }
+            }
+        }
+    }
+
+    func testReplacingRootOwnersReleasesEveryPreviousRuntime() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let config = try Configuration(gameID: "scene-fixture")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let network = SceneHTTP(), enrollment = SceneEnrollment(), source = AnnexTelemetry()
+        CompanionSceneTestSupport.makeFeedback = {
+            let client = try! Client(configuration: config, transport: network, enrollmentStore: enrollment,
+                                     feedbackStore: FileFeedbackStore(directory: directory))
+            return CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
+        }
+        var runtimes: [WeakSceneObject<CompanionRuntime>] = []
+        var presenters: [WeakSceneObject<CompanionFeedbackPresenter>] = []
+        var clients: [WeakSceneObject<Client>] = []
+        var bridges: [WeakSceneObject<CompanionTelemetry>] = []
+        defer {
+            window.rootViewController = nil; window.isHidden = true
+            CompanionSceneTestSupport.makeFeedback = nil
+            try? FileManager.default.removeItem(at: directory)
+        }
+        for _ in 0..<5 {
+            let lifetime = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
+            let runtime = lifetime.value
+            runtimes.append(WeakSceneObject(runtime))
+            presenters.append(WeakSceneObject(runtime.feedbackPresenter))
+            clients.append(WeakSceneObject(try XCTUnwrap(runtime.feedback?.client)))
+            bridges.append(WeakSceneObject(try XCTUnwrap(runtime.appTelemetry)))
+            window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: lifetime).environment(\.scenePhase, .active))
+            window.makeKeyAndVisible()
+            try await wait { runtimes.last?.value?.restoredHostIDs != nil }
+            try await wait("Previous runtimes must deallocate") { runtimes.dropLast().allSatisfy { $0.value == nil } }
+            try await wait("Previous feedback presenters must deallocate") { presenters.dropLast().allSatisfy { $0.value == nil } }
+            try await wait("Previous feedback clients and telemetry bridges must deallocate") {
+                clients.dropLast().allSatisfy { $0.value == nil } && bridges.dropLast().allSatisfy { $0.value == nil }
+            }
+        }
+        window.rootViewController = nil
+        window.isHidden = true
+        try await wait("All runtimes must deallocate after unmounting") { runtimes.allSatisfy { $0.value == nil } }
+        try await wait("All feedback presenters must deallocate after unmounting") { presenters.allSatisfy { $0.value == nil } }
+        try await wait("All feedback clients and telemetry bridges must deallocate after unmounting") {
+            clients.allSatisfy { $0.value == nil } && bridges.allSatisfy { $0.value == nil }
+        }
     }
 
     func testColdRootPhasesRestoreOneConnection() async throws {
@@ -324,12 +377,12 @@ import FramebriarUI
         }
     }
 
-    private func wait(_ condition: () -> Bool) async throws {
+    private func wait(_ message: String = "Scene fixture did not reach expected state", until condition: () -> Bool) async throws {
         for _ in 0..<500 {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTFail("Scene fixture did not reach expected state")
+        XCTFail(message)
     }
 }
 

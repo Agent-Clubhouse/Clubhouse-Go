@@ -39,7 +39,13 @@ private enum DeinitTestLocal { @TaskLocal static var marker = 0 }
         viewport.metrics = .init(offset: 1, contentHeight: 100, containerHeight: 50)
         let projection = CompanionTimelineProjection()
         XCTAssertEqual(projection.rows(for: .init(items: [.notice(id: "fixture", text: "fixture")])).count, 1)
-        withExtendedLifetime((holder, queue, transcript, part, bookmark, viewport, projection)) {}
+        let service = CompanionLiveService()
+        let lifecycle = CompanionLifecycle { active in
+            if active { await service.resume() }
+            else { await service.suspend() }
+        }
+        let runtime = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        withExtendedLifetime((holder, queue, transcript, part, bookmark, viewport, projection, lifecycle, runtime)) {}
     }
 
     func testRenderedLifetimeDoesNotConstructDiscardedValues() {

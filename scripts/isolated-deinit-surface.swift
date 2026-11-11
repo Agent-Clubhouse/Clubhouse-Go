@@ -98,9 +98,10 @@ func captureSite(_ node: some SyntaxProtocol) -> [String: Any] {
 final class Surface: SyntaxVisitor {
     var path: [String] = []
     var classes: [String: [String: Any]] = [:]
+    var deinits: [String: String] = [:]
     var values: [String: [String: String]] = [:]
     var sites: [String: [[String: Any]]] = [:]
-    let constructors = Set(["CompanionStateLifetime", "CompanionDecisionQueue", "CompanionStore"])
+    let constructors = Set(["CompanionStateLifetime", "CompanionDecisionQueue", "CompanionStore", "CompanionLifecycle"])
     let callbacks = Set(["onUnreachable", "onRoutes", "prepareResume"])
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
         path.append(node.name.text)
@@ -115,6 +116,10 @@ final class Surface: SyntaxVisitor {
         return .visitChildren
     }
     override func visitPost(_ node: ClassDeclSyntax) { path.removeLast() }
+    override func visit(_ node: DeinitializerDeclSyntax) -> SyntaxVisitorContinueKind {
+        deinits[path.joined(separator: ".")] = canonical(node)
+        return .visitChildren
+    }
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
         path.append(node.name.text)
         var ancestor = Syntax(node).parent
@@ -162,7 +167,7 @@ for file in CommandLine.arguments.dropFirst() {
     for name in visitor.classes.keys {
         visitor.classes[name]!["nestedValueProperties"] = visitor.values.filter { $0.key.hasPrefix(name + ".") }
     }
-    output[file] = ["classes": visitor.classes, "captureSites": visitor.sites.mapValues { $0.sorted { canonicalJSON($0) < canonicalJSON($1) } }]
+    output[file] = ["classes": visitor.classes, "deinits": visitor.deinits, "captureSites": visitor.sites.mapValues { $0.sorted { canonicalJSON($0) < canonicalJSON($1) } }]
 }
 let json = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
 FileHandle.standardOutput.write(json)

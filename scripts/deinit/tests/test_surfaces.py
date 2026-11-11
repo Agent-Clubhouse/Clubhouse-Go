@@ -82,3 +82,16 @@ class OwnershipSurfaceTests(unittest.TestCase):
         source = 'class Owner { var count = 0; func unrelated() { struct Temporary { var value: Int } } }'
         a, b = self.surfaces(source, source.replace('value: Int', 'value: UIView'))
         self.assertEqual(a['classes'], b['classes'])
+
+    def test_deferred_teardown_body_and_retained_owners_are_visible(self):
+        source = 'class Owner { nonisolated deinit { Task { @MainActor [presenter] in withExtendedLifetime(presenter) {} } } }'
+        a, b = self.surfaces(source, source.replace('[presenter]', ''))
+        self.assertNotEqual(a['deinits'], b['deinits'])
+        self.assertEqual(a['classes'], b['classes'])
+        self.assertNotEqual(a['deinits'], self.surfaces(source.replace('@MainActor', ''))[0]['deinits'])
+
+    def test_lifecycle_transition_captures_and_producers_require_review(self):
+        source = 'func make() { let service = PlainService(); _ = CompanionLifecycle { active in await service.transition(active) } }'
+        a, b = self.surfaces(source, source.replace('PlainService()', 'UIOwner()'))
+        self.assertEqual(a['captureSites']['constructor:CompanionLifecycle'][0]['producers'], {'service': 'PlainService ( )'})
+        self.assertNotEqual(a['captureSites'], b['captureSites'])

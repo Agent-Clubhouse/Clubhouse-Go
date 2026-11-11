@@ -6,6 +6,15 @@ import ClubhouseTransport
 #endif
 
 @MainActor @Observable final class CompanionRuntime {
+    nonisolated deinit {
+        // Keep UI-affine owners alive until a real main-actor task, avoiding the iOS 26.0
+        // isolated-deinit task-local runtime bug during UIKit's deferred root destruction.
+        Task { @MainActor [feedback, appTelemetry, feedbackPresenter] in
+            appTelemetry?.stop()
+            withExtendedLifetime((feedback, appTelemetry, feedbackPresenter)) {}
+        }
+    }
+
     let telemetryExporter = AnnexOTLPExporter()
     let feedback: FeedbackModel?
     /// Enrollment-gated Framebriar telemetry; nil in test mode or when feedback isn't configured.
@@ -241,7 +250,11 @@ struct CompanionAppRoot: View {
     }
     var body: some View {
         ZStack {
-            CompanionRootView(store: runtime.store, preferences: runtime.preferences, onPair: { showPairing = true }, onSettings: { openSettings() }, pairedHostIDs: runtime.restoredHostIDs)
+            CompanionRootView(store: runtime.store, preferences: runtime.preferences,
+                              onPair: { [showPairing = $showPairing] in showPairing.wrappedValue = true },
+                              onSettings: { [settingsCapture = $settingsCapture.releasingFeedbackScreenshot] in
+                                  settingsCapture.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
+                              }, pairedHostIDs: runtime.restoredHostIDs)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })

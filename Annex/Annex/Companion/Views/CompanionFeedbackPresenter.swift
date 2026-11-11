@@ -386,7 +386,7 @@ extension View {
     /// Installs the menu action for this subtree. Screenshots are observed by the presenter itself.
     func companionFeedbackEntryPoints(_ presenter: CompanionFeedbackPresenter?) -> some View {
         var action: (@MainActor () -> Void)?
-        if let presenter, presenter.model != nil { action = { presenter.sendMenuFeedback() } }
+        if let presenter, presenter.model != nil { action = { [weak presenter] in presenter?.sendMenuFeedback() } }
         return environment(\.companionSendFeedback, action)
             .background {
                 CompanionFeedbackMenuCapture(presenter: presenter).allowsHitTesting(false).accessibilityHidden(true)
