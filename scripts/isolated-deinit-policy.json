@@ -514,7 +514,7 @@
     "CompanionComposerPasteHook.Coordinator": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
-      "reason": "Owns UITextPasteItem array and injected main-actor callback; preserve isolation."
+      "reason": "Owns UITextPasteItem array and injected main-actor paste, dismissal and hardware-Return callbacks, including composer State bindings. Return repeat tracking is a plain value. Preserve isolated teardown; no new ARC-only exemption."
     },
     "CompanionStreamDiagnostics": {
       "policy": "arc_only",
