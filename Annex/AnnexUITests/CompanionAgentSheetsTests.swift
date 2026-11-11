@@ -61,11 +61,26 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
         XCTAssertEqual(worktree.value as? String, "1", "On by default")
-        let freeAgent = app.switches["new-agent-free-agent-mode"]
-        scrollTo(freeAgent, in: app, maxSwipes: 4)
-        XCTAssertTrue(freeAgent.isEnabled, "A desktop that takes Free Agent Mode offers it for a CLI with permission support")
-        XCTAssertEqual(freeAgent.value as? String, "0", "Off by default")
-        XCTAssertTrue(app.staticTexts["Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."].exists, "The desktop's help text")
+        let access = app.buttons["new-agent-access"]
+        scrollTo(access, in: app, maxSwipes: 4)
+        XCTAssertTrue(access.isEnabled)
+        XCTAssertTrue(access.label.contains("Ask first") || (access.value as? String) == "Ask first", "Starts at the desktop's default level")
+        access.tap()
+        for label in ["Plan", "Ask first", "Auto-accept edits", "Auto", "Full access"] {
+            XCTAssertTrue(app.buttons[label].waitForExistence(timeout: 3), "Offers \(label)")
+        }
+        app.buttons["Auto"].tap()
+        let confirmAuto = app.buttons["Use Auto"]
+        XCTAssertTrue(confirmAuto.waitForExistence(timeout: 5), "Raising to Auto asks first")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(confirmAuto.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(access.label.contains("Ask first") || (access.value as? String) == "Ask first", "Cancel keeps the desktop default")
+        access.tap()
+        app.buttons["Full access"].tap()
+        let confirmFull = app.buttons["Use Full access"]
+        XCTAssertTrue(confirmFull.waitForExistence(timeout: 5))
+        confirmFull.tap()
+        XCTAssertTrue(access.label.contains("Full access") || (access.value as? String) == "Full access")
 
         // Preview never pretends the desktop created anything. The refusal shows at the top of the form.
         XCTAssertTrue(create.isEnabled)
@@ -101,11 +116,12 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         let autoSleep = app.buttons["agent-settings-auto-sleep"]
         scrollTo(autoSleep, in: app, maxSwipes: 4)
         XCTAssertTrue(autoSleep.isEnabled, "Auto-sleep can change at any time")
-        let freeAgent = element(app, "agent-settings-free-agent-mode")
-        scrollTo(freeAgent, in: app, maxSwipes: 4)
-        XCTAssertTrue(freeAgent.exists, "Free Agent Mode is a toggle on a desktop that takes it")
-        XCTAssertFalse(freeAgent.isEnabled, "It's a spawn setting, so it waits for the agent to sleep")
-        XCTAssertTrue(app.staticTexts["Sleep the agent to change these. Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."].exists)
+        let access = app.buttons["agent-settings-access"]
+        scrollTo(access, in: app, maxSwipes: 4)
+        XCTAssertTrue(access.exists)
+        XCTAssertFalse(access.isEnabled, "Saved Access is a spawn setting, so it waits for the agent to sleep")
+        let applicationNote = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Applies at next start. Saving does not change the running session.")).firstMatch
+        XCTAssertTrue(scrollTo(applicationNote, in: app, maxSwipes: 3), "The footer explains that saved Access waits for the next start")
         screenshot(app, "Awake agent settings")
 
         // Preview edits fail visibly and put the control back.
@@ -114,6 +130,20 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         never.tap()
         scrollUntilExists(element(app, "agent-settings-error"), in: app, up: false, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(element(app, "agent-settings-error").waitForExistence(timeout: 5))
+    }
+
+    func testCreateAccessIsSetByTheCLIWithoutPermissionSupport() {
+        let app = launch()
+        let newAgent = app.navigationBars.buttons["New agent"]
+        waitAndTap(newAgent, until: element(app, "new-agent-name"), timeout: 15)
+        let cli = app.buttons["new-agent-orchestrator"]
+        scrollTo(cli, in: app)
+        waitAndTap(cli, until: app.buttons["Codex"])
+        app.buttons["Codex"].tap()
+        let access = element(app, "new-agent-access")
+        scrollTo(access, in: app, maxSwipes: 5)
+        XCTAssertTrue(access.label.contains("Set by the CLI"), access.label)
+        XCTAssertFalse(app.buttons["new-agent-access"].exists, "A CLI that sets its own Access has no picker")
     }
 
     func testSleepingAgentSettingsOpenFromLongPressAndAreEditable() {
@@ -135,21 +165,22 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertFalse(element(app, "agent-settings-locked-hint").exists, "Nothing is locked while it sleeps")
         screenshot(app, "Sleeping agent settings")
 
-        // Turning Free Agent Mode on is confirmed first; preview then refuses it visibly.
-        let freeAgent = element(app, "agent-settings-free-agent-mode")
-        scrollTo(freeAgent, in: app, maxSwipes: 4)
-        XCTAssertTrue(freeAgent.isEnabled, "A sleeping agent's Free Agent Mode can change")
-        // With no Clubhouse mode row above it, the toggle can reach the screen before its lazy footer loads.
-        let help = app.staticTexts["Enables Auto or Full access, as chosen by the desktop. Auto decides what needs approval."]
-        XCTAssertTrue(scrollTo(help, in: app, maxSwipes: 3), "The desktop's help text")
-        XCTAssertTrue(scrollTo(freeAgent, in: app, up: false, maxSwipes: 2))
-        freeAgent.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
-        let confirm = app.buttons["Enable Auto or Full access"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Turning it on asks first")
-        screenshot(app, "Free Agent Mode confirmation")
+        let access = app.buttons["agent-settings-access"]
+        scrollTo(access, in: app, maxSwipes: 4)
+        XCTAssertTrue(access.isEnabled)
+        access.tap()
+        for label in ["Plan", "Ask first", "Auto-accept edits", "Auto", "Full access"] {
+            XCTAssertTrue(app.buttons[label].waitForExistence(timeout: 3), "Offers \(label)")
+        }
+        app.buttons["Auto"].tap()
+        let confirm = app.buttons["Use Auto"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Raising Access asks first")
+        screenshot(app, "Saved Access confirmation")
         confirm.tap()
         scrollUntilExists(element(app, "agent-settings-error"), in: app, up: false, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(element(app, "agent-settings-error").waitForExistence(timeout: 5))
+        scrollTo(access, in: app, maxSwipes: 4)
+        XCTAssertTrue(access.label.contains("Ask first") || (access.value as? String) == "Ask first", "A refused change does not change saved Access")
         app.buttons["Done"].tap()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))
     }

@@ -261,8 +261,9 @@ struct CompanionAgentListRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(agent.name).font(.body).lineLimit(1)
-                    if let label = CompanionFreeAgentMode.elevatedLabel(freeAgentMode: agent.freeAgentMode,
-                                                                       level: agent.chatControls?.currentLevel ?? agent.session?.level.flatMap(CompanionPermissionLevel.init(rawValue:))) {
+                    if let access = agent.access {
+                        CompanionLevelBadge(level: access)
+                    } else if let label = CompanionFreeAgentMode.elevatedLabel(freeAgentMode: agent.freeAgentMode, level: agent.liveAccess) {
                         CompanionElevatedAccessBadge(label: label)
                     }
                     if let hostTag { CompanionHostTag(name: hostTag) }

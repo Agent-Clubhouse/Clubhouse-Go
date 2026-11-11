@@ -274,6 +274,22 @@ import XCTest
         capture(app, "boolean-only Access expanded")
     }
 
+    func testEverySavedAccessLevelUsesTheSingleExistingBadge() {
+        for (id, label) in [("plan", "Plan"), ("ask", "Ask first"), ("auto_edit", "Auto-accept edits"),
+                            ("auto", "Auto"), ("full_access", "Full access")] {
+            let app = launch(["--companion-header-idle", "--companion-header-saved-access=\(id)"])
+            let identity = app.buttons["companion-chat-header"]
+            XCTAssertTrue(identity.label.contains("Access: \(label)"), identity.label)
+            XCTAssertFalse(identity.label.contains("Auto or Full access"))
+            waitAndTap(identity, until: element(app, "companion-chat-details"), attempts: 1)
+            let badges = app.staticTexts.matching(identifier: "companion-header-level")
+            XCTAssertEqual(badges.count, 1, "One visible level label: \(app.debugDescription)")
+            XCTAssertEqual(badges.firstMatch.label, "Permissions: \(label)")
+            XCTAssertFalse(element(app, "elevated-access-badge").exists)
+            app.terminate()
+        }
+    }
+
     func testIdleFallbackCustomImageVersionAndContextQuota() {
         let app = launch(["--companion-header-idle"])
         XCTAssertFalse(app.staticTexts["companion-chat-activity"].exists)

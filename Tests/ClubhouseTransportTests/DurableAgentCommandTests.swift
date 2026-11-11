@@ -69,6 +69,26 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     #expect(throws: AnnexTransportError.malformedResponse) { try decoded(.update(.init(agentID: "a1"))) }
 }
 
+@Test(arguments: AnnexCommand.permissionLevels) func savedAccessEncodesExactLevels(_ level: String) throws {
+    let create = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", access: level)))
+    let update = try decoded(.update(.init(agentID: "a", access: level)))
+    #expect(create["access"] == .string(level) && create["freeAgentMode"] == nil)
+    #expect(update["access"] == .string(level) && update["freeAgentMode"] == nil)
+    #expect(!AnnexAgentUpdate(agentID: "a", access: level).isEmpty)
+}
+
+@Test func invalidSavedAccessIsNotSent() {
+    #expect(throws: AnnexTransportError.malformedResponse) { try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", access: "bypass"))) }
+    #expect(throws: AnnexTransportError.malformedResponse) { try decoded(.update(.init(agentID: "a", access: ""))) }
+}
+
+@Test func savedAccessCapabilityRequiresVersionOne() throws {
+    for (extra, supported) in [("", false), (#","access":{"version":0}"#, false), (#","access":{"version":1}"#, true)] {
+        let caps = try JSONDecoder().decode(AnnexCapabilities.self, from: Data(capabilities(commands: [], extra: extra).utf8))
+        #expect(caps.supportsAccess == supported)
+    }
+}
+
 /// Free Agent Mode is only sent when given: older desktops refuse the field (403 `free_agent_mode_not_allowed`).
 @Test func freeAgentModeIsSentOnlyWhenGiven() throws {
     let commands: [AnnexCommand.Kind] = [

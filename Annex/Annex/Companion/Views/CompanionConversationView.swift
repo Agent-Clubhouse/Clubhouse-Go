@@ -247,7 +247,7 @@ struct CompanionConversationView: View {
 
     private var headerAccessibilityLabel: String {
         [agent.displayName, contextName, agent.status.label,
-         (agent.chatControls?.currentLevel.label ?? agent.session?.level.map(CompanionSessionFacts.levelLabel)
+         (agent.displayedChatAccess?.label
           ?? (agent.freeAgentMode ? CompanionFreeAgentMode.title : nil)).map { "Access: \($0)" }]
             .compactMap { $0 }.joined(separator: ", ")
     }

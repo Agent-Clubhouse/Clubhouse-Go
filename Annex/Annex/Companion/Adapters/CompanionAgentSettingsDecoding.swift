@@ -15,15 +15,18 @@ extension CompanionAgentOptions {
                 guard let id = model["id"]?.string else { return nil }
                 return .init(id: id, label: model["label"]?.string ?? id)
             }
+            let levels = value["accessLevels"].arrayValue.compactMap { $0.string.flatMap(CompanionPermissionLevel.init(rawValue:)) }
             return .init(id: id, displayName: value["displayName"]?.string ?? id, shortName: value["shortName"]?.string ?? id,
                          badge: value["badge"]?.string, available: value["available"]?.boolOrNil ?? true,
                          unavailableReason: value["unavailableReason"]?.string, permissions: value["permissions"].boolValue,
-                         chat: value["chat"].boolValue, models: models)
+                         chat: value["chat"].boolValue, models: models,
+                         accessLevels: levels)
         } ?? []
         colors = json?["colors"].arrayValue.compactMap { value -> CompanionColorOption? in
             guard let id = value["id"]?.string else { return nil }
             return .init(id: id, label: value["label"]?.string ?? id, hex: value["hex"]?.string ?? "")
         } ?? []
+        accessLevels = CompanionAccessChoice.decode(json?["accessLevels"])
     }
 }
 
@@ -46,6 +49,7 @@ extension CompanionCreateOptions {
         defaultModel = defaults?["model"]?.string ?? "default"
         defaultUseWorktree = defaults?["useWorktree"]?.boolOrNil ?? isGitRepo
         freeAgentModeAllowed = json["freeAgentMode"]?["allowed"].boolValue ?? false
+        defaultAccess = defaults?["access"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:))
     }
 }
 
@@ -79,6 +83,15 @@ extension CompanionAgentSettings {
         default: .sleeping
         }
         freeAgentMode = .init(value: settings["freeAgentMode"]?["value"].boolValue ?? false, editable: freeAgentEditable)
+        if let saved = settings["access"] {
+            guard let value = saved["value"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)),
+                  let startsAt = saved["startsAt"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)),
+                  let defaultLevel = saved["default"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)),
+                  let accessEditable = saved["editable"]?.string.flatMap(CompanionSettingEditable.init(rawValue:)),
+                  saved["applies"]?.string == "next_start" else { throw AnnexTransportError.malformedResponse }
+            access = .init(value: value, editable: accessEditable, choices: CompanionAccessChoice.decode(saved["choices"]),
+                           startsAt: startsAt, defaultLevel: defaultLevel)
+        }
         let idle = settings["idleSleep"]
         idleSleep = .init(value: Self.idleSleep(idle?["value"]), editable: editable("idleSleep"))
         idleSleepApplies = idle?["applies"]?.boolOrNil ?? true
@@ -228,7 +241,18 @@ extension AnnexAgentUpdate {
         self.init(agentID: agentID, name: change.name, color: change.color, emoji: clearable(change.emoji), orchestrator: change.orchestrator,
                   model: change.model, contextWindow: clearable(change.contextWindow), runtime: change.runtime.flatMap(Runtime.init(rawValue:)),
                   freeAgentMode: change.freeAgentMode, idleSleep: idle,
-                  orchestration: change.orchestration.map(AnnexOrchestrationPatch.init))
+                  orchestration: change.orchestration.map(AnnexOrchestrationPatch.init), access: change.access?.rawValue)
+    }
+}
+
+extension CompanionAccessChoice {
+    static func decode(_ json: AnnexJSON?) -> [Self] {
+        json.arrayValue.compactMap { choice in
+            guard let id = choice["id"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)),
+                  let label = choice["label"]?.string,
+                  let description = choice["description"]?.string else { return nil }
+            return .init(id: id, label: label, description: description)
+        }
     }
 }
 

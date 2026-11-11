@@ -487,13 +487,16 @@ import ClubhouseTransport
     /// snapshot shows it leave `creating` for sleeping (or failed).
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
         guard capabilities[request.project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
-        // Older desktops refuse the field outright, so it's left out for them.
-        let freeAgentMode = capabilities[request.project.hostID]?.supportsFreeAgentMode == true ? request.freeAgentMode : nil
+        if request.access != nil, capabilities[request.project.hostID]?.supportsAccess != true {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change saved Access from your phone.")
+        }
+        let freeAgentMode = capabilities[request.project.hostID]?.supportsAccess != true
+            && capabilities[request.project.hostID]?.supportsFreeAgentMode == true ? request.freeAgentMode : nil
         let orchestration = capabilities[request.project.hostID]?.supportsOrchestration == true
             ? request.orchestrate.map { AnnexOrchestrationPatch(orchestrate: .set($0)) } : nil
         let create = AnnexAgentCreate(projectID: request.project.projectID, name: request.name, color: request.color, orchestrator: request.orchestrator,
                                       model: request.model, freeAgentMode: freeAgentMode, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs,
-                                      orchestration: orchestration)
+                                      orchestration: orchestration, access: request.access?.rawValue)
         let receipt = try await execute(.create(create), id: request.clientCommandID, hostID: request.project.hostID)
         guard let agentID = receipt.result?["agentId"]?.string else { throw CompanionServiceError.uncertain("The desktop created the agent but didn't say which one. Check its agent list.") }
         await refresh(hostID: request.project.hostID)
@@ -567,6 +570,12 @@ import ClubhouseTransport
         }
         if change.freeAgentMode != nil, capabilities[target.hostID]?.supportsFreeAgentMode != true {
             throw CompanionServiceError.rejected(CompanionAgentCommandError.message(code: "free_agent_mode_not_allowed", message: nil) ?? "")
+        }
+        if change.access != nil, capabilities[target.hostID]?.supportsAccess != true {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change saved Access from your phone.")
+        }
+        if change.freeAgentMode != nil, capabilities[target.hostID]?.supportsAccess == true {
+            throw CompanionServiceError.rejected("Choose an exact Access level for this desktop.")
         }
         if change.orchestration?.isEmpty == false, capabilities[target.hostID]?.supportsOrchestration != true {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change orchestration from your phone.")
@@ -1158,6 +1167,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
                 hosts[hostID]?.canAnswerPersistentApprovals = newCapabilities?.supportsPersistentApprovals == true
                 hosts[hostID]?.canSetFreeAgentMode = newCapabilities?.supportsFreeAgentMode == true
+                hosts[hostID]?.canSetAccess = newCapabilities?.supportsAccess == true
                 hosts[hostID]?.canSetContextWindow = newCapabilities?.supportsContextWindow == true
                 hosts[hostID]?.helperRouting = newCapabilities?.supportsHelperRouting == true ? newCapabilities?.helperRouting : nil
                 hosts[hostID]?.canEditHelperPresets = newCapabilities?.supportsHelperRoutingUpdate == true
@@ -1437,6 +1447,7 @@ import ClubhouseTransport
         agent.emoji = value["emoji"]?.string
         agent.icon = icon
         agent.freeAgentMode = value["freeAgentMode"].boolValue == true
+        agent.access = value["access"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:))
         agent.orchestration = CompanionOrchestration(json: value["orchestration"])
     }
     /// The desktop's `detailedStatus`, or nil when it sends none.

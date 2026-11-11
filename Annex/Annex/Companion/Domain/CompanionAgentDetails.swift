@@ -138,10 +138,16 @@ struct CompanionAgentDetails: Equatable {
         model = agent.executionMode != nil ? agent.model ?? settings?.modelLabel : settings?.modelLabel ?? agent.model
         effort = session?.effort.map { session?.effortIsDefault == true ? "\($0.capitalized) (default)" : $0.capitalized }
         freeAgentMode = settings?.freeAgentMode.value ?? agent.freeAgentMode
-        let liveLevel = agent.chatControls?.currentLevel.rawValue ?? session?.level
-        accessIsElevated = liveLevel.map { $0 == "auto" || $0 == "full_access" } ?? freeAgentMode
-        access = Self.access(level: liveLevel, levelNames: session?.levelNames ?? [:], freeAgentMode: freeAgentMode,
-                             permissions: settings.flatMap { $0.options.orchestrator(orchestrator)?.permissions })
+        let liveLevel = agent.liveAccess
+        accessIsElevated = (liveLevel ?? settings?.access?.value ?? agent.access).map { $0 >= .auto } ?? freeAgentMode
+        if let saved = settings?.access {
+            access = saved.editable == .never ? "Set by the CLI" : saved.applicationSummary(live: liveLevel)
+        } else if let saved = agent.access {
+            access = liveLevel.map { $0 != saved ? "\($0.label) now, starts at \(saved.label)" : $0.label } ?? saved.label
+        } else {
+            access = Self.access(level: liveLevel?.rawValue, levelNames: session?.levelNames ?? [:], freeAgentMode: freeAgentMode,
+                                 permissions: settings.flatMap { $0.options.orchestrator(orchestrator)?.permissions })
+        }
         autoSleep = settings.map { $0.idleSleepApplies ? $0.autoSleepSummary : "Doesn't sleep in a terminal" }
         branch = workspace?.branch ?? agent.branch
         worktree = workspace?.worktree

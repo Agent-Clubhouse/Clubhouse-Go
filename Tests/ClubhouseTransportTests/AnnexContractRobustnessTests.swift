@@ -37,6 +37,7 @@ import Testing
             case "chatControls": #expect(!caps.supportsModelSwitch && !caps.supportsLevelSwitch)
             case "slashCommands": #expect(!caps.supportsSlashCommands)
             case "permissions": #expect(!caps.supportsPersistentApprovals && !caps.supportsFreeAgentMode)
+            case "access": #expect(!caps.supportsAccess)
             case "helperRequests": #expect(!caps.supportsHelperRequests)
             case "grantRequests": #expect(!caps.supportsGrantRequests)
             case "projectState": #expect(!caps.supportsProjectState)
