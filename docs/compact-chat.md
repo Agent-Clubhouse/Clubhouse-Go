@@ -46,6 +46,19 @@ At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, s
 pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
 through the same `store.canApprove` gate and full-event review as the transcript (#345).
 
+Clubhouse grant requests are separate cards pinned above the composer, not CLI approvals or helper requests (#357).
+They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same
+`CompanionGrantRequestActions` and store answer gate. Full cards appear only when their measured height fits half the
+space above the composer. Otherwise a compact pinned row names the requester and summarizes the request; Review opens
+the complete, scrollable sheet without sending a decision. Decisions stack when their full labels cannot fit side by
+side. The native draft scrolls to the caret when it must shrink to keep Review and the composer above the keyboard.
+If a landscape keyboard leaves less room than the minimum footer, the footer scrolls with Review first.
+Chats without pending Clubhouse grants use the ordinary composer directly, without the measured grant footer.
+Answering on either surface removes the request from both.
+Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
+remain subject to `store.canAnswer`.
+Open chat on a Dispatcher's grant switches directly to its retained Dispatcher tab instead of pushing a duplicate chat.
+
 ## Recovery status
 
 `CompanionRecoveryStatus` classifies connection and conversation state, in this order:

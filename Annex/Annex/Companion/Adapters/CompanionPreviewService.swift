@@ -623,6 +623,14 @@ import ClubhouseTransport
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--qa368-grant-gone") {
+            throw CompanionGrantRequestError.gone("QA grant is no longer waiting.")
+        }
+        if ProcessInfo.processInfo.arguments.contains("--qa368-grant-refused") {
+            throw CompanionGrantRequestError.refused("QA permission could not be saved.")
+        }
+        #endif
         if Self.showsGrantRequests { return }
         throw previewError
     }

@@ -118,7 +118,8 @@ struct CompanionConversationView: View {
         .companionBackground()
         // The bottom bar reserves its real size before this boundary observes the safe region.
         // This boundary stays mounted while disclosure/focus/status changes.
-        return GeometryReader { geometry in
+        return GeometryReader { available in
+        GeometryReader { geometry in
         conversationContent
         // Bars, not insets: the transcript gets the system scroll-edge effect under the glass instead of showing through.
         .safeAreaBar(edge: .top, spacing: 0) {
@@ -192,15 +193,13 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-                VStack(spacing: 0) {
-                    activityLine
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 20)
-                    CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
-                        focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+            if store.grantRequests(for: target).isEmpty {
+                composerBar
+            } else {
+                CompanionConversationGrantFooter(store: store, target: target,
+                    maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
+                    composerBar
                 }
-                .modifier(CompanionOfferedWidth())
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
@@ -237,7 +236,24 @@ struct CompanionConversationView: View {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
+        .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
+            Button("OK", role: .cancel) { }
+        } message: { Text(store.grantRequestNotice ?? "") }
         .modifier(CompanionSleepConfirmation(store: store, target: target, isPresented: $confirmSleep))
+        }
+        }
+    }
+
+    @ViewBuilder private var composerBar: some View {
+        if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
+            VStack(spacing: 0) {
+                activityLine
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
+                    focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+            }
+            .modifier(CompanionOfferedWidth())
         }
     }
 

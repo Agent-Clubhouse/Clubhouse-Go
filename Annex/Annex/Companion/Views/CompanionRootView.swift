@@ -1042,6 +1042,8 @@ struct CompanionHelperRequestActions: View {
 struct CompanionGrantRequestActions: View {
     let request: CompanionGrantRequest
     @Bindable var store: CompanionStore
+    var showsOpenChat = true
+    @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionPalette) private var palette
     @State private var updateMode: AnnexUpdateMode?
 
@@ -1082,22 +1084,9 @@ struct CompanionGrantRequestActions: View {
                 }
                 .accessibilityIdentifier("app-update-mode")
             }
-            HStack(spacing: 8) {
-                if request.canDecline {
-                    Button { Task { await store.answer(request, with: .decline) } } label: {
-                        Text("Decline").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("grant-request-decline")
-                }
-                if let allow = request.allowAnswer {
-                    Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
-                        Text(busy ? "Sending…" : allow.label).frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent).companionProminentLabel()
-                    .accessibilityIdentifier("grant-request-allow")
-                    .disabled(request.isAppUpdate && updateMode == nil)
-                }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { decisions(busy: busy) }
+                VStack(spacing: 8) { decisions(busy: busy) }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!store.canAnswer(request))
@@ -1105,11 +1094,38 @@ struct CompanionGrantRequestActions: View {
                 Text(error).font(.caption).foregroundStyle(Color(palette.error)).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("grant-request-error")
             }
-            NavigationLink(value: request.agentTarget) { Text("Open chat") }
+            if showsOpenChat {
+                Group {
+                    if store.isDispatcher(request.agentTarget) {
+                        // Switch tabs directly instead of pushing a route that immediately reroutes to the Dispatcher.
+                        Button("Open chat") { openAgent(request.agentTarget) }
+                    } else {
+                        NavigationLink(value: request.agentTarget) { Text("Open chat") }
+                    }
+                }
                 .buttonStyle(.bordered).buttonBorderShape(.capsule)
                 .accessibilityIdentifier("grant-request-open-chat")
+            }
         }
         .onChange(of: store.hosts.first { $0.id == request.hostID }?.controlEpoch) { _, _ in updateMode = nil }
+    }
+
+    @ViewBuilder private func decisions(busy: Bool) -> some View {
+        if request.canDecline {
+            Button { Task { await store.answer(request, with: .decline) } } label: {
+                Text("Decline").fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityIdentifier("grant-request-decline")
+        }
+        if let allow = request.allowAnswer {
+            Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
+                Text(busy ? "Sending…" : allow.label).fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent).companionProminentLabel()
+            .accessibilityIdentifier("grant-request-allow")
+            .disabled(request.isAppUpdate && updateMode == nil)
+        }
     }
 }
 

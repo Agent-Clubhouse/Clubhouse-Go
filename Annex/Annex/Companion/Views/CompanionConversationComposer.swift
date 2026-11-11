@@ -30,6 +30,7 @@ struct CompanionConversationComposer: View {
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.companionComposerFitsGrantFooter) private var fitsGrantFooter
     @Environment(\.companionPalette) private var palette
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
@@ -150,7 +151,8 @@ struct CompanionConversationComposer: View {
                             .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? (composerFocused ? 1 : 3) : 8))
                             // Size to the text view's own line height. Otherwise one line is laid out ~1.7pt shorter
                             // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
-                            .fixedSize(horizontal: false, vertical: true)
+                            // A grant footer instead offers a bounded height so Review and the actions stay visible.
+                            .fixedSize(horizontal: false, vertical: !fitsGrantFooter)
                             .padding(.vertical, 12).padding(.horizontal, 16)
                             // The draft keeps the full text row as it grows; actions stay in their own row below.
                             .frame(minHeight: composerRowHeight)
