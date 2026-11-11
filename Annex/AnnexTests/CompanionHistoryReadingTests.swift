@@ -192,6 +192,45 @@ import UIKit
         XCTAssertTrue(interceptedYield)
     }
 
+    func testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt() async throws {
+        for intent in ["stalled", "ended", "drag", "navigation"] {
+            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+            let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+            let controller = UIViewController()
+            window.rootViewController = controller
+            let scroll = UIScrollView(frame: window.bounds)
+            scroll.contentSize = CGSize(width: window.bounds.width, height: window.bounds.height * 3)
+            let anchor = CompanionNativeScrollTopObserver.Anchor()
+            var pending = false, repairs = 0
+            anchor.requested = { pending = true }
+            anchor.pending = { pending }
+            anchor.repaired = { repairs += 1 }
+            scroll.addSubview(anchor)
+            controller.view.addSubview(scroll)
+            window.makeKeyAndVisible()
+            defer { anchor.disconnect(); window.isHidden = true; window.rootViewController = nil }
+            scroll.contentOffset.y = 500
+            XCTAssertTrue(scroll.delegate?.scrollViewShouldScrollToTop?(scroll) == true)
+            if intent == "drag" { scroll.delegate?.scrollViewWillBeginDragging?(scroll) }
+            if intent == "navigation" { pending = false }
+            if intent == "ended" {
+                scroll.contentOffset.y = 250
+                scroll.delegate?.scrollViewDidEndScrollingAnimation?(scroll)
+            }
+            if intent == "stalled" || intent == "ended" {
+                try await waitUntil { repairs == 1 }
+                XCTAssertEqual(scroll.contentOffset.y + scroll.adjustedContentInset.top, 0, accuracy: 1)
+            }
+            scroll.contentOffset.y = 600
+            let intentOffset = scroll.contentOffset.y + scroll.adjustedContentInset.top
+            scroll.delegate?.scrollViewDidEndScrollingAnimation?(scroll)
+            try await Task.sleep(for: .milliseconds(100))
+            XCTAssertEqual(repairs, intent == "stalled" || intent == "ended" ? 1 : 0, intent)
+            XCTAssertEqual(scroll.contentOffset.y + scroll.adjustedContentInset.top, intentOffset, accuracy: 1,
+                           "A repair must never override newer intent: \(intent)")
+        }
+    }
+
     func testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample() async throws {
         let service = HistoryReadingService()
         service.releaseHistory = true

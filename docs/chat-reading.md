@@ -25,7 +25,9 @@ Native status-bar top requests pause following synchronously in UIKit's `scrollV
 
 The adapter implements a stable set of public scroll-delegate callbacks and keeps the original delegate weak: UIKit's cached optional-method flags remain safe after that delegate disappears. Missing callbacks retain UIKit defaults, including no zoom view, an unchanged drag target and permission to scroll to top. The central bookmark-save helper rejects every caller while native top owns the viewport, including history work resuming after a yield.
 
-The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. Its synthetic animation nevertheless reaches top, and the unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0. Closing the pre-geometry window is not yet proof that it caused the reported on-device animation cancellation; #252 remains open for device confirmation.
+If the requested top has made no upward progress after two display intervals, or its animation ends short, the adapter completes that same request once without animation. A weak display-link target avoids retaining the transcript, and new user intent or unmount disarms the repair. Opt-in `CHAT_FOLLOW` records `nativeTopRepair`. This is a bounded completion of an explicit user action, not a new inference from ordinary layout geometry.
+
+The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. The unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0, but later stress reproduced animation cancellation even after the synchronous handoff. The underlying animation mechanism remains unproven; the bounded repair does not claim to identify it. #252 remains open for device confirmation.
 
 ## Test plan
 

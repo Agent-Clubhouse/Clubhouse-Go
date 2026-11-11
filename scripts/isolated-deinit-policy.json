@@ -752,7 +752,12 @@
     "CompanionNativeScrollTopObserver.Anchor": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionNativeScrollTopObserver.swift",
-      "reason": "UIView delegate adapter owns a MainActor view callback and UIKit superclass state, with weak scroll/delegate references. Dismantle restores the original delegate and clears the callback. Preserve isolated UIKit teardown."
+      "reason": "UIView delegate adapter owns MainActor view callbacks, a display link and UIKit superclass state, with weak scroll/delegate references. Its display-link target references the anchor weakly. Dismantle invalidates the link, restores the original delegate and clears callbacks. Preserve isolated UIKit teardown."
+    },
+    "CompanionNativeScrollTopObserver.FrameTarget": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionNativeScrollTopObserver.swift",
+      "reason": "UIKit display-link callback target references the UIView anchor weakly, avoiding a display-link ownership cycle. The anchor invalidates on completion, new intent and disconnect; a callback after anchor release invalidates itself. Preserve MainActor teardown for the UIKit callback owner."
     },
     "ReadingOpeningTouch": {
       "policy": "main_actor",

@@ -424,7 +424,9 @@ struct CompanionConversationView: View {
                         Color.clear.preference(key: CompanionReadingFrames.self,
                             value: ["__content": CGRect(origin: .zero, size: geometry.size)])
                     }
-                    CompanionNativeScrollTopObserver { nativeScrollToTopRequested() }
+                    CompanionNativeScrollTopObserver(requested: { nativeScrollToTopRequested() },
+                        pending: { readingViewport.isScrollingToTop },
+                        repaired: { traceFollow(reason: .nativeTopRepair, previous: followLatest, next: followLatest) })
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .frame(maxWidth: 860)
@@ -730,7 +732,7 @@ struct CompanionConversationView: View {
         if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
-    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeUpward, latest, restore, messageJump, mount }
+    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, nativeUpward, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
         if reason == .bottom {
