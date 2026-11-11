@@ -194,9 +194,15 @@ private actor UpdateDesktop: AnnexTransporting {
         }
         try await desktop.change(values[5])
         try await wait { store.hosts.first?.appUpdate?.canRequest == true }
-        await desktop.setFailure("dispatcher_unavailable")
-        await store.requestAppUpdate(hostID: Self.id)
-        #expect(store.appUpdateErrors[Self.id]?.contains("desktop banner") == true)
+        for code in ["dispatcher_unavailable", "update_approval_capacity"] {
+            try await wait { store.hosts.first?.connection == .connected }
+            await desktop.setFailure(code)
+            await store.requestAppUpdate(hostID: Self.id)
+            let recorded = try #require(ContractFixtures.cases("commands/app.update.request.json").first {
+                $0["response"]?["body"]?["error"]?["code"]?.string == code
+            })
+            #expect(store.appUpdateErrors[Self.id] == recorded["response"]?["body"]?["error"]?["message"]?.string)
+        }
     }
 
     @Test(arguments: AnnexUpdateMode.allCases) func previewUsesOnlySyntheticStateForEveryUpdateChoice(_ mode: AnnexUpdateMode) async throws {

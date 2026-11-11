@@ -68,7 +68,7 @@ import Testing
         }
         #expect(codes.isSuperset(of: ["update_unsupported", "dispatcher_unavailable", "update_not_ready", "update_request_active",
                                      "update_request_not_found", "update_restart_started", "grant_answer_failed", "grant_answer_not_offered",
-                                     "grant_request_not_found"]))
+                                     "grant_request_not_found", "update_approval_capacity"]))
     }
 
     @Test func onlyAllowOnceCanCarryARestartMode() {
@@ -82,17 +82,4 @@ import Testing
         }
     }
 
-    @Test func approvalCapacityRefusalUsesTheSameRejectedReceiptShape() async throws {
-        let caps = try #require(AnnexContract.json("capabilities.json")["response"])
-        let epoch = try #require(caps["body"]?["epoch"]?.string)
-        // Desktop #3316's implementation has this refusal, although the canonical command fixture does not exercise it.
-        let message = "The Dispatcher already has too many approvals waiting. Answer one first."
-        let body: AnnexJSON = .object(["version": .integer(1), "commandId": .string("capacity"), "epoch": .string(epoch),
-            "status": .string("rejected"), "error": .object(["code": .string("update_approval_capacity"), "message": .string(message)])])
-        let io = AnnexContractIO([try AnnexContract.response(caps), .init(status: 409, data: try AnnexContract.encode(body))])
-        let transport = try await annexContractTransport(io)
-        _ = try await transport.read(.capabilities)
-        let receipt = try await transport.execute(.init(commandID: "capacity", epoch: epoch, kind: .requestAppUpdate))
-        #expect(receipt.status == .rejected && receipt.error?.code == "update_approval_capacity" && receipt.error?.message == message)
-    }
 }
