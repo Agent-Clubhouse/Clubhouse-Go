@@ -121,7 +121,7 @@ import UIKit
     func testShortDispatcherCanDismissAndReturnHome() { dispatcher([]) }
     func testLongDispatcherCanDismissAndReturnHome() { dispatcher(["--companion-preview-long-reply"]) }
 
-    func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() {
+    func testStreamingInAnOrdinaryChatKeepsEditingUntilTheUserDismisses() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply", "--companion-preview-follow-trace"])
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
@@ -149,7 +149,8 @@ import UIKit
         guard let live else { return }
         screenshot(app, "Streaming text while editing")
         let lineHeight = ceil(UIFont.preferredFont(forTextStyle: .body).lineHeight)
-        let lastLine = CGRect(x: live.frame.minX, y: live.frame.maxY - lineHeight, width: live.frame.width, height: lineHeight)
+        let liveFrame = live.frame
+        let lastLine = CGRect(x: liveFrame.minX, y: liveFrame.maxY - lineHeight, width: liveFrame.width, height: lineHeight)
         XCTAssertTrue(live.isHittable && pixelContains(viewport, lastLine), "The newest streamed line stays fully visible while following: \(lastLine) in \(viewport)")
         let newestItem = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-activity-tool:live-")).allElementsBoundByIndex.last
         XCTAssertNotNil(newestItem, "The live fixture must also exercise a trailing tool card")
@@ -162,10 +163,22 @@ import UIKit
                 XCTAssertFalse(jump.frame.intersects(disclosure.frame), "The newest card's disclosure stays clear of jump buttons")
             }
         }
-        let point = CGPoint(x: lastLine.minX + min(12, lastLine.width / 2), y: lastLine.midY)
         XCTAssertTrue(app.keyboards.firstMatch.exists)
         XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
-        XCTAssertTrue(viewport.contains(point) && live.frame.contains(point))
+        // Streaming can append a new slice between queries, making the earlier element index stale.
+        func newestTextFrame(in node: XCUIElementSnapshot) -> CGRect? {
+            for child in node.children.reversed() {
+                if let frame = newestTextFrame(in: child) { return frame }
+            }
+            return node.elementType == .staticText && node.label.contains("Streaming preview reply.") ? node.frame : nil
+        }
+        guard let tapText = newestTextFrame(in: try app.snapshot()) else {
+            XCTFail("The latest streamed text must still exist before tapping"); return
+        }
+        let tapLine = CGRect(x: tapText.minX, y: tapText.maxY - lineHeight, width: tapText.width, height: lineHeight)
+        XCTAssertTrue(pixelContains(viewport, tapLine), "The current newest line stays fully visible before tapping")
+        let point = CGPoint(x: tapLine.minX + min(12, tapLine.width / 2), y: tapLine.midY)
+        XCTAssertTrue(viewport.contains(point) && tapText.contains(point))
         XCTAssertFalse(app.keyboards.firstMatch.frame.contains(point))
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
