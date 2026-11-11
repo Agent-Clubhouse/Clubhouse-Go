@@ -60,6 +60,21 @@ attempt and assert their behavior-completion milestones during teardown (#327).
 A launch-only result cannot satisfy the completion check. Their existing navigation,
 intentional preference relaunch, assertions and time limits are unchanged.
 
+CI also reuses the simulator build in a separate **iPad hosted tests + UI smoke** lane (#284).
+It creates an iPad Pro 11-inch (M4) on the newest installed iOS runtime selected by the Xcode setup,
+runs the entire `ClubhouseGoTests` bundle plus the two feedback confirmation tests and
+`CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption`, then deletes the device.
+Both bundles must pass without retries. This targeted lane leaves the iPhone shards unchanged and
+avoids duplicating the full UI suite; budget roughly 8-15 additional macOS runner minutes per app change
+(artifact transfer, simulator boot, hosted tests and three UI tests), running alongside the iPhone shards.
+
+The #284 failures were test assumptions, not unreachable iPad product controls: confirmation dialogs
+use popovers, iPad top tabs are not inside `app.tabBars`, and whole-screen swipes can hide a row behind
+a short modal's navigation bar. Feedback tests select the titled popover before its containing sheet
+and reveal rows inside the actual form viewport. The five-live-item hosted history fixture sizes its
+paragraphs from the window height; it still requires an initial offset greater than 500 points and
+the same history-following and retained-reading-bookmark outcomes.
+
 GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch, and sometimes drop a tap or long-press. Fixture-mode UI tests subclass `ReliableUITestCase` (`Annex/AnnexUITests/UITestSupport.swift`):
 
 - `launchApp(_:)` launches in portrait with `--ui-testing-fast` (UIKit animations off, DEBUG only) and relaunches after a launch or terminate timeout.

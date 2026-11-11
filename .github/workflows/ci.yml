@@ -21,7 +21,7 @@ env:
   SCHEME: ClubhouseGo
 
 # changes ─┬─ swift-packages                       (fast lane: vendor check, swift test, coverage ratchet)
-#          ├─ build ── ui-tests × N shards          (build once, test-without-building)
+#          ├─ build ── ui-tests × N shards + iPad   (build once, test-without-building)
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
 #
@@ -287,10 +287,90 @@ jobs:
             build/isolated-deinit-runtime/summary.json
           retention-days: 7
 
+  ipad-tests:
+    name: iPad hosted tests + UI smoke
+    needs: [changes, build]
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-products
+
+      - name: Unpack test products
+        run: |
+          mkdir -p DerivedData/Build
+          zstd -dc test-products.tar.zst | tar -C DerivedData/Build -xf -
+          echo "XCTESTRUN=$(ls DerivedData/Build/Products/*.xctestrun)" >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/setup-xcode
+        with:
+          xcode: ${{ needs.build.outputs.xcode }}
+
+      - name: Create iPad simulator
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "
+          import json, sys
+          runtimes = [r for r in json.load(sys.stdin)['runtimes'] if 'iOS' in r['name'] and r.get('isAvailable')]
+          print(max(runtimes, key=lambda r: tuple(map(int, r['version'].split('.'))))['identifier'])
+          ")
+          SIMULATOR_UDID=$(xcrun simctl create "CI iPad" com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M4-8GB "$RUNTIME")
+          echo "SIMULATOR_UDID=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          echo "DEST=platform=iOS Simulator,id=$SIMULATOR_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIMULATOR_UDID"
+
+      - name: Wait for simulator boot
+        timeout-minutes: 5
+        run: python3 scripts/ci/wait_simulator.py "$SIMULATOR_UDID"
+
+      - name: Skip first-use keyboard education on the test simulator
+        run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
+
+      # Reuse the iPhone build; qualify all hosted tests and the three iPad regressions
+      # without paying for another full UI suite or accepting a passing retry.
+      - name: Run iPad tests without retries
+        run: |
+          if ! xcodebuild test-without-building \
+            -xctestrun "$XCTESTRUN" \
+            -configuration Debug \
+            -destination "$DEST" \
+            -jobs 2 \
+            -only-testing:ClubhouseGoTests \
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings \
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled \
+            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption \
+            -parallel-testing-enabled NO \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -resultBundlePath TestResults/iPad.xcresult \
+            2>&1 | tee xcodebuild-ipad.log; then
+            echo "::warning::xcodebuild exited unsuccessfully; checking the complete xcresult"
+          fi
+          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
+            --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests
+
+      - name: Upload iPad test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-ipad
+          path: |
+            TestResults
+            xcodebuild-ipad.log
+          retention-days: 7
+
+      - name: Delete iPad simulator
+        if: ${{ always() && env.SIMULATOR_UDID != '' }}
+        run: |
+          xcrun simctl shutdown "$SIMULATOR_UDID"
+          xcrun simctl delete "$SIMULATOR_UDID"
+
   # One check that is green when every lane this change needs passed (skipped lanes are fine).
   ci-result:
     name: CI result
-    needs: [changes, swift-packages, build, release-build, ui-tests]
+    needs: [changes, swift-packages, build, release-build, ui-tests, ipad-tests]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
