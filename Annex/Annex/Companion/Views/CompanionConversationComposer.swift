@@ -228,7 +228,8 @@ struct CompanionConversationComposer: View {
             }
             composerCaption
         }
-        .padding(.horizontal, 16).padding(.vertical, compactHeight ? 4 : 10)
+        // Large-text glass controls extend beyond the 44pt row; retain their keyboard clearance.
+        .padding(.horizontal, 16).padding(.vertical, compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)

@@ -49,6 +49,7 @@ when there is room.
 
 With less than 360pt above the keyboard, the composer reduces its padding and gaps, not its draft text size or 44pt
 action targets. This also keeps an eight-line draft, pinned approval and actions inside a small phone's visible region.
+Accessibility text sizes retain the 10pt outer inset so the larger glass approval control stays clear of the keyboard.
 
 In windows narrower than 390pt, the transcript reserves only the clearance needed for visible jump buttons, keeping them
 clear of the newest item's controls. The width-based choice stays stable when the keyboard opens. Combined with the compact
