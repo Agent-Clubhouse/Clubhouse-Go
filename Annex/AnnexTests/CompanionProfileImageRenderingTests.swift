@@ -81,8 +81,9 @@ import UIKit
     }
 
     private func pixelAboveInitials(in view: UIView) throws -> [Int] {
-        let snapshot = UIGraphicsImageRenderer(bounds: view.bounds).image { context in
-            view.layer.render(in: context.cgContext)
+        let snapshot = UIGraphicsImageRenderer(bounds: view.bounds).image { _ in
+            // SwiftUI can defer display after layout and the cached-image task have completed.
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
         }
         let image = try XCTUnwrap(snapshot.cgImage)
         let pixel = try XCTUnwrap(image.cropping(to: CGRect(x: CGFloat(image.width / 2), y: CGFloat(image.height / 4), width: 1, height: 1)))
