@@ -12,7 +12,8 @@
  *   CLI on this machine can never be reached.
  * - It adds one git project with two chat agents: "Echo" in the project folder and "Builder" in its own worktree.
  *
- * Once Annex listens it writes `invitation.json` (0600) to E2E_FIXTURE_DIR: {host, port, hostID, certificatePin,
+ * Once Annex listens it writes `annex-ready.json` to E2E_FIXTURE_DIR. Before every phone launch, `preparePairing`
+ * reads the current one-use PIN and atomically writes `invitation.json` (0600): {host, port, hostID, certificatePin,
  * pin, name}, the in-memory pairing that Clubhouse Go's DEBUG bootstrap takes in CLUBHOUSE_COMPANION_TEST_INVITATION.
  * Then it waits until `stop` appears in that folder and quits the app. Meanwhile a test can put an agent to sleep
  * on the desktop, as if stopped there, by writing its id to `sleep-request`; the fixture answers with `sleep-done`.
@@ -28,6 +29,7 @@ import forge from 'node-forge';
 import WebSocket from 'ws';
 import { launchApp } from '../launch';
 import { createIconFixture } from './icon-fixture';
+import { rememberPairingPin, writePairingInvitation } from './pairing-fixture';
 
 const FIXTURE_DIR = process.env.E2E_FIXTURE_DIR ?? '';
 const DESKTOP = path.resolve(__dirname, '..', '..');
@@ -45,7 +47,7 @@ function writeFile(file: string, content: string, mode = 0o644) {
 /** Defense in depth for fixture replies and wire evidence; secrets stay only in their private temp files. */
 function evidence(value: unknown): string {
   const secrets: string[] = [];
-  for (const file of fs.readdirSync(FIXTURE_DIR).filter(f => f === 'invitation.json' || /^mcp-.*\.json$/.test(f))) {
+  for (const file of fs.readdirSync(FIXTURE_DIR).filter(f => /^invitation(?:-.*)?\.json$/.test(f) || /^mcp-.*\.json$/.test(f))) {
     const credentials = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, file), 'utf8'));
     for (const key of ['pin', 'CLUBHOUSE_HOOK_NONCE']) {
       if (credentials[key]) secrets.push(String(credentials[key]));
@@ -264,28 +266,23 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     });
 
     // Phones pair over TLS only; wait until the TLS listener reports its certificate.
+    const getPairingStatus = () => window.evaluate(() => (window as any).clubhouse.annex.getStatus());
     let status: any;
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
-      status = await window.evaluate(() => (window as any).clubhouse.annex.getStatus());
+      status = await getPairingStatus();
       if (status?.tlsEnabled && status.port && status.pin && status.fingerprint && status.tlsCertificateFingerprint) break;
       await new Promise((r) => setTimeout(r, 500));
     }
     if (!status?.tlsCertificateFingerprint) throw new Error(`Annex did not start TLS: ${JSON.stringify({ ...status, pin: undefined })}`);
     if (status.advertising) throw new Error('A loopback-only fixture must not advertise');
 
+    rememberPairingPin(FIXTURE_DIR, status.pin);
     observer = await observeDesktop(status);
-    const invitation = {
-      host: '127.0.0.1',
-      port: status.port,
-      hostID: status.fingerprint,
-      certificatePin: String(status.tlsCertificateFingerprint).replace(/:/g, '').toLowerCase(),
-      pin: status.pin,
-      name: 'E2E Fixture Desktop',
-    };
-    writeFile(path.join(FIXTURE_DIR, 'invitation.json'), JSON.stringify(invitation), 0o600);
+    status = await getPairingStatus(); // The observer spent its PIN; never publish that cached invitation.
     writeFile(path.join(FIXTURE_DIR, 'agents.json'), JSON.stringify({ project: path.basename(projectDir), ...agents }));
-    log(`Annex listening on 127.0.0.1:${status.port}; invitation written`);
+    writeFile(path.join(FIXTURE_DIR, 'annex-ready.json'), JSON.stringify({ port: status.port }));
+    log(`Annex listening on 127.0.0.1:${status.port}; ready for per-launch pairing requests`);
 
     const stop = path.join(FIXTURE_DIR, 'stop');
     const sleepRequest = path.join(FIXTURE_DIR, 'sleep-request');
@@ -310,6 +307,9 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
         let result: unknown;
         try {
           switch (request.op) {
+            case 'preparePairing':
+              await writePairingInvitation(FIXTURE_DIR, getPairingStatus);
+              result = 'ok'; break;
             case 'resetGates': {
               // This is the disposable fixture's profile only. Turn the Dispatcher off even when a prior test
               // aborted with it on, and return authoritative values for XCTest. The Clubhouse MCP always runs and

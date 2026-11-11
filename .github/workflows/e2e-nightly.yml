@@ -51,6 +51,11 @@ jobs:
           cache: npm
           cache-dependency-path: .desktop/package-lock.json
 
+      - name: Test live fixture helpers
+        run: |
+          node --test --test-concurrency=1 scripts/e2e-live/pairing-fixture.test.ts
+          python3 -m unittest discover -s scripts/e2e-live -p 'test_*.py'
+
       - name: Select Xcode matching simulator runtime
         run: |
           # Find the installed iOS simulator runtime version

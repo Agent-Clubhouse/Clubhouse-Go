@@ -16,11 +16,13 @@ class RedactLogsTests(unittest.TestCase):
             fixture.mkdir(mode=0o700)
             output.mkdir()
             for name, data in [('invitation.json', {'pin': 'PIN-SENTINEL'}),
+                               ('invitation-observer.json', {'pin': 'PIN-OBSERVER'}),
+                               ('invitation-previous-phone.json', {'pin': 'PIN-PREVIOUS'}),
                                ('mcp-agent.json', {'CLUBHOUSE_HOOK_NONCE': 'NONCE-CURRENT'}),
                                ('mcp-agent-history.json', {'CLUBHOUSE_HOOK_NONCE': 'NONCE-PREVIOUS'})]:
                 (fixture / name).write_text(json.dumps(data))
                 (fixture / name).chmod(0o600)
-            secret_text = 'PIN-SENTINEL NONCE-CURRENT NONCE-PREVIOUS'
+            secret_text = 'PIN-SENTINEL PIN-OBSERVER PIN-PREVIOUS NONCE-CURRENT NONCE-PREVIOUS'
             evidence = [{'at': '2026-11-01T20:00:00.000Z', 'event': secret_text, 'durationMs': 123.4}]
             for name in ['desktop-annex.json', 'dispatcher-wire.json']:
                 (fixture / name).write_text(json.dumps(evidence))
@@ -28,7 +30,7 @@ class RedactLogsTests(unittest.TestCase):
             subprocess.run([sys.executable, str(root / 'scripts/e2e-live/redact-logs.py'), str(fixture), str(output)], check=True)
             for name in ['desktop-annex.json', 'dispatcher-wire.json', 'xcodebuild-test.log']:
                 text = (output / name).read_text()
-                for secret in ['PIN-SENTINEL', 'NONCE-CURRENT', 'NONCE-PREVIOUS']:
+                for secret in ['PIN-SENTINEL', 'PIN-OBSERVER', 'PIN-PREVIOUS', 'NONCE-CURRENT', 'NONCE-PREVIOUS']:
                     self.assertNotIn(secret, text)
                 self.assertIn('<redacted>', text)
             self.assertEqual(json.loads((output / 'desktop-annex.json').read_text())[0]['durationMs'], 123.4)

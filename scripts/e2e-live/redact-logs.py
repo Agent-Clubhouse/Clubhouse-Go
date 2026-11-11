@@ -6,7 +6,7 @@ import sys
 
 fixture, output = map(pathlib.Path, sys.argv[1:])
 secrets = set()
-for file in [fixture / 'invitation.json', *fixture.glob('mcp-*.json')]:
+for file in [fixture / 'invitation.json', *fixture.glob('invitation-*.json'), *fixture.glob('mcp-*.json')]:
     try:
         data = json.loads(file.read_text())
     except (OSError, ValueError):
