@@ -13,9 +13,16 @@ class ReliableUITestCase: XCTestCase {
     private var deadline = Date.distantFuture
 
     /// Launches the app in portrait with `--ui-testing-fast`, relaunching if the runner times out launching or
-    /// terminating it.
+    /// terminating it. Per-launch credentials are refreshed after termination, including on retries.
     func launchApp(_ arguments: [String], environment: [String: String] = [:], allowance: TimeInterval = 240, attempts: Int = 3,
                    file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
+        launchApp(arguments, environment: environment, allowance: allowance, attempts: attempts, file: file, line: line,
+                  environmentForLaunch: { [:] })
+    }
+
+    func launchApp(_ arguments: [String], environment: [String: String] = [:], allowance: TimeInterval = 240, attempts: Int = 3,
+                   file: StaticString = #filePath, line: UInt = #line,
+                   environmentForLaunch: () throws -> [String: String]) rethrows -> XCUIApplication {
         continueAfterFailure = false
         executionTimeAllowance = allowance
         deadline = Date().addingTimeInterval(allowance - Self.allowanceMargin)
@@ -35,17 +42,25 @@ class ReliableUITestCase: XCTestCase {
         options.issueMatcher = { issue in
             ["Failed to launch", "Failed to terminate", "Timed out while launching"].contains { issue.compactDescription.contains($0) }
         }
-        for attempt in 1..<max(attempts, 1) {
-            continueAfterFailure = true
-            XCTExpectFailure("Attempt \(attempt): hosted runners sometimes time out launching the app", options: options) {
+        for attempt in 1...max(attempts, 1) {
+            if attempt > 1 && app.state != .notRunning {
+                app.terminate()
+                _ = app.wait(for: .notRunning, timeout: 15)
+            }
+            app.launchEnvironment.merge(try environmentForLaunch()) { _, new in new }
+            if attempt < attempts {
+                continueAfterFailure = true
+                XCTExpectFailure("Attempt \(attempt): hosted runners sometimes time out launching the app", options: options) {
+                    app.launch()
+                }
+                continueAfterFailure = false
+            } else {
+                // The last attempt reports any failure as it is.
                 app.launch()
             }
-            continueAfterFailure = false
             if app.wait(for: .runningForeground, timeout: 30) { return app }
         }
-        // The last attempt reports any failure as it is.
-        app.launch()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30), "The app must launch", file: file, line: line)
+        XCTFail("The app must launch", file: file, line: line)
         return app
     }
 

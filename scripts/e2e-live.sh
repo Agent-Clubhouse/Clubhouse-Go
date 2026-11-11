@@ -8,9 +8,9 @@
 #    webpack bundle (npm ci + electron-forge package). Meanwhile it builds Clubhouse Go for testing.
 # 2. Launches the desktop through scripts/e2e-live/desktop-fixture.spec.ts: a disposable profile, Annex loopback-only
 #    and ephemeral, and the desktop's scripted fake Claude CLI, so no model is called and no tokens are spent.
-# 3. Waits for its Annex endpoint and the pairing invitation the fixture mints.
+# 3. Waits for its Annex endpoint and private fixture action channel.
 # 4. Runs CompanionLiveE2ETests on a new simulator of the chosen model (--shared-simulator uses the existing device),
-#    passing the invitation to the app in memory.
+#    requesting a current one-use invitation before each app launch.
 # 5. Tears everything down: the desktop, its profile and the simulator.
 #
 # Results land in build/e2e-live/ (override with E2E_OUT_DIR): LiveE2E.xcresult, xcodebuild and desktop logs.
@@ -110,7 +110,7 @@ teardown() {
   }
   if [[ -n "$BOOTED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl shutdown "$BOOTED_SIMULATOR" >/dev/null 2>&1; fi
   if [[ -n "$CREATED_SIMULATOR" && "$KEEP_SIMULATOR" == 0 ]]; then xcrun simctl delete "$CREATED_SIMULATOR" >/dev/null 2>&1; fi
-  rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live/icon-fixture.ts" "$DESKTOP_DIR/e2e/phone-live/live-icon-images.json" 2>/dev/null
+  rm -f "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live/pairing-fixture.ts" "$DESKTOP_DIR/e2e/phone-live/icon-fixture.ts" "$DESKTOP_DIR/e2e/phone-live/live-icon-images.json" 2>/dev/null
   rm -rf "$FIXTURE_DIR"
   if [[ $status -eq 0 ]]; then log "Live E2E passed"; else log "Live E2E failed (exit $status); see $OUT"; fi
   exit $status
@@ -199,6 +199,7 @@ fi
 log "Launching the desktop fixture (log: $OUT/desktop-fixture.log)"
 mkdir -p "$DESKTOP_DIR/e2e/phone-live"
 cp "$ROOT/scripts/e2e-live/desktop-fixture.spec.ts" "$DESKTOP_DIR/e2e/phone-live/desktop-fixture.spec.ts"
+cp "$ROOT/scripts/e2e-live/pairing-fixture.ts" "$DESKTOP_DIR/e2e/phone-live/pairing-fixture.ts"
 cp "$ROOT/scripts/e2e-live/icon-fixture.ts" "$ROOT/scripts/e2e-live/live-icon-images.json" "$DESKTOP_DIR/e2e/phone-live/"
 (
   cd "$DESKTOP_DIR"
@@ -209,12 +210,12 @@ cp "$ROOT/scripts/e2e-live/icon-fixture.ts" "$ROOT/scripts/e2e-live/live-icon-im
 FIXTURE_PID=$!
 
 for _ in $(seq 1 180); do
-  [[ -s "$FIXTURE_DIR/invitation.json" ]] && break
+  [[ -s "$FIXTURE_DIR/annex-ready.json" ]] && break
   kill -0 "$FIXTURE_PID" 2>/dev/null || { tail -60 "$OUT/desktop-fixture.log"; die "The desktop fixture exited before Annex was ready"; }
   sleep 1
 done
-[[ -s "$FIXTURE_DIR/invitation.json" ]] || { tail -60 "$OUT/desktop-fixture.log"; die "Timed out waiting for the desktop's Annex endpoint"; }
-PORT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$FIXTURE_DIR/invitation.json")"
+[[ -s "$FIXTURE_DIR/annex-ready.json" ]] || { tail -60 "$OUT/desktop-fixture.log"; die "Timed out waiting for the desktop's Annex endpoint"; }
+PORT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["port"])' "$FIXTURE_DIR/annex-ready.json")"
 log "Desktop Annex is listening on 127.0.0.1:$PORT"
 
 # --- Live UI tests ---------------------------------------------------------------------------------------------
@@ -229,8 +230,8 @@ for bundle in com.Agent-Clubhouse.Go com.Agent-Clubhouse.GoUITests.xctrunner; do
 
 fixture() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$FIXTURE_DIR/agents.json" "$1"; }
 
-# The invitation reaches the app in memory: the runner reads TEST_RUNNER_ variables without the prefix and passes it in
-# the app's launch environment. It pairs only with this loopback, ephemeral desktop, which is gone after teardown;
+# The runner requests a fresh invitation through the private fixture channel before EVERY app launch attempt and
+# passes it in the app's launch environment. It pairs only with this loopback, ephemeral desktop, gone after teardown;
 # still, xcodebuild prints the launch environment when a launch fails, so the log is scrubbed.
 run_tests() {
   rm -rf "$OUT/LiveE2E.xcresult"
@@ -238,7 +239,6 @@ run_tests() {
   local retry=("-retry-tests-on-failure" "-test-iterations" "2")
   if [[ "${E2E_ICON_FIXTURE:-0}" == 1 ]]; then retry=(); fi
   TEST_RUNNER_CLUBHOUSE_RUN_LIVE_E2E=1 \
-  TEST_RUNNER_CLUBHOUSE_COMPANION_TEST_INVITATION="$(cat "$FIXTURE_DIR/invitation.json")" \
   TEST_RUNNER_CLUBHOUSE_E2E_PROJECT="$(fixture project)" \
   TEST_RUNNER_CLUBHOUSE_E2E_ECHO_AGENT="$(fixture echo)" \
   TEST_RUNNER_CLUBHOUSE_E2E_BUILDER_AGENT="$(fixture builder)" \

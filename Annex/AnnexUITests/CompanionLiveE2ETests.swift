@@ -6,7 +6,7 @@ import UIKit
 /// The script launches the desktop as an isolated fixture (loopback-only, ephemeral Annex, a disposable profile) with
 /// its scripted fake Claude CLI, so every reply is deterministic and no model is called. The fixture has one git
 /// project with two sleeping chat agents, Echo (project folder) and Builder (own worktree). Each test launches the app
-/// with the fixture's in-memory invitation, which pairs it for that session only.
+/// with a fresh one-use invitation from the fixture, which pairs it for that session only.
 ///
 /// The fake CLI's scripted turns: `hello` streams "Hello"; `tool` asks to run `ls` and replies `allowed:…` or
 /// `denied:…`; `ask` asks "Which DB?"; a message with images replies
@@ -23,7 +23,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     override func setUpWithError() throws {
         try super.setUpWithError()
-        try XCTSkipUnless(env["CLUBHOUSE_RUN_LIVE_E2E"] == "1" && env["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil,
+        try XCTSkipUnless(env["CLUBHOUSE_RUN_LIVE_E2E"] == "1" && env["CLUBHOUSE_E2E_FIXTURE_DIR"] != nil,
                           "Run through scripts/e2e-live.sh, which launches the desktop fixture")
         // Also run before retries/--only: a failed test may have left the Dispatcher on.
         try resetDispatcherGates()
@@ -32,7 +32,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     override func tearDownWithError() throws {
         try super.tearDownWithError()
         guard env["CLUBHOUSE_RUN_LIVE_E2E"] == "1",
-              env["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil else { return }
+              env["CLUBHOUSE_E2E_FIXTURE_DIR"] != nil else { return }
         // XCTest runs teardown after an assertion/budget failure; body-local cleanup is not sufficient.
         try resetDispatcherGates()
     }
@@ -48,18 +48,37 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     /// Launches the app paired, in memory, with the fixture desktop, and waits for its project.
     private func launchPaired(_ extra: [String] = [], allowance: TimeInterval = 300,
-                              file: StaticString = #filePath, line: UInt = #line) -> XCUIApplication {
-        let invitation = ["CLUBHOUSE_COMPANION_TEST_INVITATION": env["CLUBHOUSE_COMPANION_TEST_INVITATION"] ?? "",
-                          "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
-        let launched = launchApp(extra, environment: invitation, allowance: allowance, file: file, line: line)
+                              file: StaticString = #filePath, line: UInt = #line) throws -> XCUIApplication {
+        var pairingExpiresAt = Date.distantPast
+        func checkPairingExpiry() throws {
+            guard Date() < pairingExpiresAt else {
+                throw NSError(domain: "LiveE2EFixture", code: 1, userInfo: [
+                    NSLocalizedDescriptionKey: "Fixture pairing PIN expired before its project appeared; request a fresh invitation and retry the launch."
+                ])
+            }
+        }
+        let launched = try launchApp(extra, allowance: allowance, file: file, line: line) {
+            let prepared = try XCTUnwrap(try self.dispatcherFixture("preparePairing", file: file, line: line) as? [String: Any])
+            let expiresAt = try XCTUnwrap(prepared["expiresAt"] as? Double)
+            pairingExpiresAt = Date(timeIntervalSince1970: expiresAt / 1000)
+            try checkPairingExpiry()
+            let dir = URL(fileURLWithPath: try XCTUnwrap(self.env["CLUBHOUSE_E2E_FIXTURE_DIR"]))
+            let invitation = try String(contentsOf: dir.appending(path: "invitation.json"), encoding: .utf8)
+            return ["CLUBHOUSE_COMPANION_TEST_INVITATION": invitation, "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
+        }
+        try checkPairingExpiry()
         // Home coverage is explicit: an enabled Dispatcher is now the default launch screen.
         let home = launched.tabBars.buttons["Home"]
-        XCTAssertTrue(home.waitForExistence(timeout: 30), file: file, line: line)
+        let homeAppeared = home.waitForExistence(timeout: min(30, max(0, pairingExpiresAt.timeIntervalSinceNow)))
+        if !homeAppeared { try checkPairingExpiry() }
+        XCTAssertTrue(homeAppeared, file: file, line: line)
         home.tap()
         // An inactive project folds into the idle section.
         let listed = any(launched).matching(NSPredicate(format: "(identifier BEGINSWITH 'open-project-' AND label == %@) OR identifier == 'idle-projects-fold'",
                                                         "Open \(projectName)")).firstMatch
-        XCTAssertTrue(listed.waitForExistence(timeout: 60),
+        let projectAppeared = listed.waitForExistence(timeout: min(60, max(0, pairingExpiresAt.timeIntervalSinceNow)))
+        if !projectAppeared { try checkPairingExpiry() }
+        XCTAssertTrue(projectAppeared,
                       "Pairing with the fixture desktop must list its project", file: file, line: line)
         return launched
     }
@@ -265,8 +284,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     // MARK: - Tests
 
     /// Pairing, the catalog with the desktop's status words, and a foreground reconnect.
-    func test1PairingCatalogAndReconnect() {
-        let app = launchPaired()
+    func test1PairingCatalogAndReconnect() throws {
+        let app = try launchPaired()
         let builder = revealAgent(app, builderID)
         XCTAssertTrue(builder.label.contains("Builder"), builder.label)
         XCTAssertTrue(agentRow(app, echoID).exists, "Both fixture agents are listed")
@@ -298,8 +317,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// Chat streaming, then approvals: Deny, Allow, Always allow, and a structured question.
-    func test2ChatStreamApprovalsAndQuestion() {
-        let app = launchPaired()
+    func test2ChatStreamApprovalsAndQuestion() throws {
+        let app = try launchPaired()
         openAwakeChat(app, echoID)
         send(app, "hello")
         XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "The streamed reply must arrive")
@@ -348,8 +367,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// An image picked on the phone is uploaded, attached to the message, and reaches the CLI.
-    func test3ImageUploadReachesTheCLI() {
-        let app = launchPaired(["--companion-sample-images"])
+    func test3ImageUploadReachesTheCLI() throws {
+        let app = try launchPaired(["--companion-sample-images"])
         openAwakeChat(app, echoID)
         let attach = app.buttons["companion-attach"]
         XCTAssertTrue(attach.waitForExistence(timeout: 15), "The desktop advertises image attachments")
@@ -364,8 +383,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// The composer's model and level menus switch the live session.
-    func test4ModelAndLevelSwitch() {
-        let app = launchPaired()
+    func test4ModelAndLevelSwitch() throws {
+        let app = try launchPaired()
         openAwakeChat(app, echoID)
         send(app, "hello")
         XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "A first turn reports the session's model")
@@ -397,8 +416,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// New agent creates a durable agent on the desktop, and its settings change there.
-    func test5CreateDurableAgentAndSettings() {
-        let app = launchPaired()
+    func test5CreateDurableAgentAndSettings() throws {
+        let app = try launchPaired()
         let name = "phone-\(Int(Date().timeIntervalSince1970) % 100000)"
         let newAgent = app.navigationBars.buttons["New agent"]
         let nameField = element(app, "new-agent-name")
@@ -450,8 +469,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Pinning and marking a project inactive go to the desktop, so a fresh pairing sees them. It runs first, while every
     /// agent sleeps: Home never folds a project with an awake agent into the idle section, and the phone can't put one
     /// to sleep. A later run (`--only`, a retry) still checks the desktop's mark through the menu.
-    func test0ProjectPinAndIdleSync() {
-        var app = launchPaired()
+    func test0ProjectPinAndIdleSync() throws {
+        var app = try launchPaired()
         revealProject(app)
         let menu = projectMenu(app)
         scrollTo(menu, in: app)
@@ -476,7 +495,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(unpin.waitForNonExistence(timeout: 5))
         // Relaunching pairs again from scratch, so only the desktop can remember the pin.
         app.terminate()
-        app = launchPaired()
+        app = try launchPaired()
         waitAndTap(projectMenu(app), until: app.buttons["Unpin project"], timeout: 10, "The desktop must keep the pin")
         screenshot(app, "Pin kept by the desktop")
         app.buttons["Unpin project"].tap()
@@ -488,7 +507,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let idleFold = element(app, "idle-projects-fold")
         if !awake { XCTAssertTrue(idleFold.waitForExistence(timeout: 20), "An inactive project folds into the idle section") }
         app.terminate()
-        app = launchPaired()
+        app = try launchPaired()
         let fold = element(app, "idle-projects-fold")
         if !awake { XCTAssertTrue(fold.waitForExistence(timeout: 20), "The desktop must keep the inactive mark") }
         revealProject(app)
@@ -502,8 +521,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
     /// A quick agent started from the phone finishes on the desktop and shows under "Finished, waiting on you",
     /// where Dismiss removes it on the desktop. Its task is the fake CLI's `crash`, which exits at once. It runs last.
-    func test7FinishedQuickAgent() {
-        let app = launchPaired()
+    func test7FinishedQuickAgent() throws {
+        let app = try launchPaired()
         let newAgent = app.navigationBars.buttons["New agent"]
         let kind = element(app, "new-agent-kind")
         waitAndTap(newAgent, until: kind, timeout: 15)
@@ -532,8 +551,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     /// Terminals: the project root shell and Builder's worktree shell spawn, echo, resize with rotation, and close.
-    func test6ProjectAndAgentTerminals() {
-        let app = launchPaired()
+    func test6ProjectAndAgentTerminals() throws {
+        let app = try launchPaired()
         let output = element(app, "terminal-output")
         func waitForOutput(_ text: String, timeout: TimeInterval = 20, file: StaticString = #filePath, line: UInt = #line) {
             XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", text), timeout: timeout),
@@ -585,7 +604,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// when the phone comes back, on Home, without opening its chat.
     func test8AgentThatSleptWhileAwayReadsSleepingAfterForeground() throws {
         let fixtureDir = try XCTUnwrap(env["CLUBHOUSE_E2E_FIXTURE_DIR"], "Run through scripts/e2e-live.sh, which passes the fixture folder")
-        let app = launchPaired()
+        let app = try launchPaired()
         openAwakeChat(app, echoID)
         send(app, "hello")
         XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "The desktop must stream the CLI's reply")
@@ -614,7 +633,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     func test9aDispatcherPhoneSwitchDesktopChangesAndReplay() throws {
         try dispatcherFixture("setEnabled", ["enabled": false])
         let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
-        let app = launchPaired()
+        let app = try launchPaired()
         let row = dispatcherRow(app)
         XCTAssertFalse(row.exists)
         let toggle = dispatcherSwitch(app)
@@ -665,7 +684,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     func test9bDispatcherChatSettingsSleepWakeAndResume() throws {
         let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
         let id = try XCTUnwrap(state["agentId"] as? String)
-        let app = launchPaired()
+        let app = try launchPaired()
         let row = dispatcherRow(app)
         waitAndTap(row, until: composer(app), timeout: 20)
         let wake = app.buttons["companion-wake"]
@@ -726,7 +745,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     func test9cAgentDispatcherSwitchesAndRealMCPDelivery() throws {
         let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
         let id = try XCTUnwrap(state["agentId"] as? String)
-        let app = launchPaired()
+        let app = try launchPaired()
         // Start Dispatcher when running this test alone; the fake wrapper records its bridge credentials.
         waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
         if app.buttons["companion-wake"].waitForExistence(timeout: 3) { app.buttons["companion-wake"].tap() }
@@ -842,7 +861,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
         let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
         let id = try XCTUnwrap(state["agentId"] as? String)
-        let app = launchPaired()
+        let app = try launchPaired()
         waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
         openDispatcherSettings(app)
         func pick(_ field: String, _ option: String) {
@@ -894,7 +913,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let policy = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": echoID,
             "orchestration": ["orchestrate": true, "control": "hands-off", "connectToDispatcher": true]]]) as? [String: Any])
         XCTAssertEqual(policy["status"] as? Int, 200)
-        let app = launchPaired()
+        let app = try launchPaired()
         waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
         let wake = app.buttons["companion-wake"]
         if wake.waitForExistence(timeout: 3) { wake.tap() }
@@ -995,7 +1014,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             let dispatcher = try XCTUnwrap(refs(value, "agents")[try XCTUnwrap(value["dispatcherId"] as? String)] as? [String: Any])
             XCTAssertEqual(dispatcher["version"] as? String, (value["dispatcherExpected"] as? [String: Any])?["version"] as? String)
         }
-        var app = launchPaired(allowance: 600)
+        var app = try launchPaired(allowance: 600)
         // Sample the center of the avatar, excluding its status dot and clipping shape.
         func sample(_ element: XCUIElement, project: Bool = false, half: Int = 0) throws -> [String: Int] {
             let frame = element.frame
@@ -1044,7 +1063,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Real PNG agent and project icons")
 
         let count = downloads(audit).count, connects = (audit["connects"] as? [Any])?.count ?? 0
-        app.terminate(); app = launchPaired(allowance: 600)
+        app.terminate(); app = try launchPaired(allowance: 600)
         try painted(dispatcherRow(app), "red"); _ = revealAgent(app, echoID)
         try painted(agentRow(app, echoID), "red"); try painted(projectHeader(app), "red", project: true)
         audit = try state()
