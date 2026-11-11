@@ -79,6 +79,119 @@ import UIKit
         XCTAssertTrue(scroll.delegate === replacement, "Dismantling must restore the latest delegate")
     }
 
+    func testNativeTopAdapterSurvivesItsOriginalDelegate() throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        let controller = UIViewController()
+        window.rootViewController = controller
+        let scroll = UIScrollView(frame: window.bounds)
+        scroll.contentSize = CGSize(width: window.bounds.width, height: window.bounds.height * 3)
+        var original: NativeTopDelegate? = NativeTopDelegate()
+        weak var weakOriginal = original
+        scroll.delegate = original
+        let anchor = CompanionNativeScrollTopObserver.Anchor()
+        scroll.addSubview(anchor)
+        controller.view.addSubview(scroll)
+        window.makeKeyAndVisible()
+        defer { anchor.disconnect(); window.isHidden = true; window.rootViewController = nil }
+        scroll.contentOffset.y = 500
+        XCTAssertTrue(scroll.delegate === anchor)
+        XCTAssertGreaterThan(original?.scrolls ?? 0, 0)
+        original = nil
+        XCTAssertNil(weakOriginal)
+        scroll.contentOffset.y = 600
+        XCTAssertTrue(scroll.delegate === anchor)
+    }
+
+    func testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate() throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        let controller = UIViewController()
+        window.rootViewController = controller
+        let scroll = UIScrollView(frame: window.bounds)
+        scroll.contentSize = CGSize(width: window.bounds.width, height: window.bounds.height * 3)
+        scroll.maximumZoomScale = 3
+        let zoomRect = CGRect(origin: .zero, size: CGSize(width: window.bounds.width / 2, height: window.bounds.height / 2))
+        scroll.zoom(to: zoomRect, animated: false)
+        let unadaptedZoom = scroll.zoomScale
+        let anchor = CompanionNativeScrollTopObserver.Anchor()
+        var requests = 0
+        anchor.requested = { requests += 1 }
+        scroll.addSubview(anchor)
+        controller.view.addSubview(scroll)
+        window.makeKeyAndVisible()
+        defer { anchor.disconnect(); window.isHidden = true; window.rootViewController = nil }
+        scroll.contentOffset.y = 500
+        XCTAssertTrue(scroll.delegate?.scrollViewShouldScrollToTop?(scroll) == true)
+        XCTAssertEqual(requests, 1)
+        XCTAssertNil(scroll.delegate?.viewForZooming?(in: scroll))
+        scroll.zoom(to: zoomRect, animated: false)
+        XCTAssertEqual(scroll.zoomScale, unadaptedZoom, "An absent zoom view must retain UIKit's disabled-zoom behavior")
+        var target = CGPoint(x: 7, y: 11)
+        scroll.delegate?.scrollViewWillEndDragging?(scroll, withVelocity: CGPoint(x: 1, y: 2), targetContentOffset: &target)
+        XCTAssertEqual(target, CGPoint(x: 7, y: 11), "An absent drag callback must not change UIKit's target")
+    }
+
+    func testNativeTopBookmarkSurvivesYieldedHistoryRestore() async throws {
+        let service = HistoryReadingService()
+        service.releaseHistory = true
+        let store = CompanionStore(service: service), target = CompanionPreviewService.target
+        let hosts = CompanionPreviewService.hosts(now: .now)
+        store.apply(.hosts(hosts))
+        await store.load(target)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        let agent = try XCTUnwrap(hosts.flatMap(\.allAgents).first { $0.id == target })
+        func mount() {
+            window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
+            window.makeKeyAndVisible()
+        }
+        mount()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let bookmark = store.readingBookmark(for: target)
+        try await waitUntil { bookmark.viewport.hasInitialized && bookmark.viewport.metrics?.isAtTrueBottom == true }
+        let entry = "message:reading-100"
+        let frame = try XCTUnwrap(bookmark.viewport.frames[entry])
+        let seed = CompanionReadingPosition(followsLatest: false, entryID: entry,
+            distanceFromEntry: 8, offset: frame.lowerBound + 8, shownEntries: bookmark.position.shownEntries)
+        window.rootViewController = nil
+        try await Task.sleep(for: .milliseconds(50))
+        bookmark.position = seed
+        mount()
+        try await waitUntil {
+            bookmark.viewport.hasInitialized && !bookmark.viewport.isRestoring
+                && abs((bookmark.viewport.metrics?.normalizedOffset ?? -1) - seed.offset) <= 1
+        }
+        var interceptedYield = false
+        let monitor = Task { @MainActor in
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while !Task.isCancelled, ContinuousClock.now < deadline {
+                if !bookmark.viewport.hasInitialized, let restore = bookmark.viewport.restoration, restore.outcome == nil {
+                    let scroll = try XCTUnwrap(self.transcript(window))
+                    XCTAssertGreaterThan(scroll.contentOffset.y + scroll.adjustedContentInset.top, 500)
+                    XCTAssertTrue(scroll.delegate?.scrollViewShouldScrollToTop?(scroll) ?? false)
+                    XCTAssertTrue(bookmark.viewport.isScrollingToTop)
+                    XCTAssertEqual(bookmark.position.offset, 0, accuracy: 1)
+                    interceptedYield = true
+                    let restoreDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+                    while !bookmark.viewport.hasInitialized, !Task.isCancelled, ContinuousClock.now < restoreDeadline {
+                        await Task.yield()
+                    }
+                    XCTAssertTrue(bookmark.viewport.hasInitialized)
+                    XCTAssertTrue(bookmark.viewport.isScrollingToTop)
+                    XCTAssertEqual(bookmark.position.offset, 0, accuracy: 1, "The yielded history task must not save its pre-native offset over the top bookmark")
+                    return
+                }
+                await Task.yield()
+            }
+            XCTFail("Did not intercept the yielded history task")
+        }
+        defer { monitor.cancel() }
+        await store.load(target, force: true)
+        try await monitor.value
+        XCTAssertTrue(interceptedYield)
+    }
+
     func testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample() async throws {
         let service = HistoryReadingService()
         service.releaseHistory = true

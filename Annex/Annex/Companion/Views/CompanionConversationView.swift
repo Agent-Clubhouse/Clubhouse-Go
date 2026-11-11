@@ -542,7 +542,9 @@ struct CompanionConversationView: View {
                 }.padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
-                if followLatest && !readingViewport.isScrollingToTop { proxy.scrollTo("latest", anchor: .bottom) }
+                if followLatest && !readingViewport.isScrollingToTop {
+                    proxy.scrollTo("latest", anchor: .bottom)
+                }
             }
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
             // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
@@ -579,8 +581,12 @@ struct CompanionConversationView: View {
                 }
                 readingViewport.historyRevision = revision
                 readingViewport.hasInitialized = true
-                if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
-                if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop { proxy.scrollTo("latest", anchor: .bottom) }
+                if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics {
+                    saveReadingPosition(metrics)
+                }
+                if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop {
+                    proxy.scrollTo("latest", anchor: .bottom)
+                }
                 else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
@@ -644,6 +650,7 @@ struct CompanionConversationView: View {
 
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
         guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction,
+              !readingViewport.isScrollingToTop,
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)

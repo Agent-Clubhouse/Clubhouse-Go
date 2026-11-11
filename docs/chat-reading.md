@@ -23,6 +23,8 @@ Full history loads and replay snapshots advance a separate history revision; str
 
 Native status-bar top requests pause following synchronously in UIKit's `scrollViewShouldScrollToTop`, before the first SwiftUI geometry sample. Until top arrives, pending bottom geometry and entry restoration cannot reclaim the viewport. The saved target is the top of the currently shown history window; older pages remain behind Show earlier messages. A new transcript touch, drag or explicit navigation takes ownership from the native jump. The delegate adapter observes only its enclosing transcript scroll view, preserves the original delegate's veto and forwards its other callbacks.
 
+The adapter implements a stable set of public scroll-delegate callbacks and keeps the original delegate weak: UIKit's cached optional-method flags remain safe after that delegate disappears. Missing callbacks retain UIKit defaults, including no zoom view, an unchanged drag target and permission to scroll to top. The central bookmark-save helper rejects every caller while native top owns the viewport, including history work resuming after a yield.
+
 The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. Its synthetic animation nevertheless reaches top, and the unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0. Closing the pre-geometry window is not yet proof that it caused the reported on-device animation cancellation; #252 remains open for device confirmation.
 
 ## Test plan
