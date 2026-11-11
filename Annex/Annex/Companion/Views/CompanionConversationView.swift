@@ -424,6 +424,10 @@ struct CompanionConversationView: View {
                         Color.clear.preference(key: CompanionReadingFrames.self,
                             value: ["__content": CGRect(origin: .zero, size: geometry.size)])
                     }
+                    CompanionNativeScrollTopObserver(requested: { nativeScrollToTopRequested() },
+                        pending: { readingViewport.isScrollingToTop },
+                        repaired: { traceFollow(reason: .nativeTopRepair, previous: followLatest, next: followLatest) })
+                        .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
@@ -453,6 +457,10 @@ struct CompanionConversationView: View {
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
                     guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction else { return }
+                    if readingViewport.isScrollingToTop {
+                        guard metrics.normalizedOffset <= 1 else { return }
+                        readingViewport.isScrollingToTop = false
+                    }
                     if readingViewport.isInteracting && readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
                     if readingViewport.isRestoring {
                         guard let restoreOffset = readingViewport.restoreOffset,
@@ -478,7 +486,7 @@ struct CompanionConversationView: View {
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
-                    guard !readingViewport.preserveBookmarkUntilUserAction,
+                    guard !readingViewport.isScrollingToTop, !readingViewport.preserveBookmarkUntilUserAction,
                           readingViewport.restoration?.outcome != nil || readingViewport.restoration == nil else { return }
                     guard canRecordReadingPosition, !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
                     let saved = readingBookmark.position
@@ -496,7 +504,12 @@ struct CompanionConversationView: View {
                     }
                 }
             }
-            .background { CompanionReadingTouchObserver { cancelReadingRestoration(.touch) }.allowsHitTesting(false).accessibilityHidden(true) }
+            .background {
+                CompanionReadingTouchObserver {
+                    cancelNativeScrollToTop()
+                    cancelReadingRestoration(.touch)
+                }.allowsHitTesting(false).accessibilityHidden(true)
+            }
             // Soft at the top, like Messages: the transcript scrolls under the floating header instead of meeting a band.
             .scrollEdgeEffectStyle(.soft, for: .top)
             .scrollEdgeEffectStyle(.hard, for: .bottom)
@@ -531,7 +544,9 @@ struct CompanionConversationView: View {
                 }.padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
-                if followLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                if followLatest && !readingViewport.isScrollingToTop {
+                    proxy.scrollTo("latest", anchor: .bottom)
+                }
             }
             // Once the history is in, pin to the latest after the layout settles. On iOS 26.5 a chat that loads during a
             // navigation transition can keep the bottom anchor's estimate with no rows laid out, which looks empty.
@@ -568,8 +583,12 @@ struct CompanionConversationView: View {
                 }
                 readingViewport.historyRevision = revision
                 readingViewport.hasInitialized = true
-                if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
-                if saved.followsLatest { proxy.scrollTo("latest", anchor: .bottom) }
+                if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics {
+                    saveReadingPosition(metrics)
+                }
+                if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop {
+                    proxy.scrollTo("latest", anchor: .bottom)
+                }
                 else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
@@ -607,7 +626,10 @@ struct CompanionConversationView: View {
     }
     private func readingScrollPhaseChanged(from old: ScrollPhase, to phase: ScrollPhase, metrics: CompanionScrollMetrics) {
         let userPhase = phase == .tracking || phase == .interacting || phase == .decelerating
-        if userPhase { cancelReadingRestoration(.scrollPhase) }
+        if userPhase {
+            cancelNativeScrollToTop()
+            cancelReadingRestoration(.scrollPhase)
+        }
         traceScrollPhase(phase, metrics: metrics)
         CompanionChatPerformance.scroll(target: target, isUserScrolling: userPhase)
         if phase == .tracking {
@@ -630,6 +652,7 @@ struct CompanionConversationView: View {
 
     private func saveReadingPosition(_ metrics: CompanionScrollMetrics) {
         guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction,
+              !readingViewport.isScrollingToTop,
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
@@ -649,6 +672,7 @@ struct CompanionConversationView: View {
         while readingViewport.restoration?.id == id {
             guard !Task.isCancelled else { readingViewport.finishRestoration(.taskCancelled); return }
             guard var attempt = readingViewport.restoration, attempt.outcome == nil else { return }
+            guard !readingViewport.isScrollingToTop else { readingViewport.finishRestoration(.navigation); return }
             let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
             let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
@@ -696,13 +720,29 @@ struct CompanionConversationView: View {
         proxy.scrollTo(id, anchor: .top)
     }
 
-    private enum FollowReason: String { case earlier, gesture, bottom, nativeUpward, latest, restore, messageJump, mount }
+    private func nativeScrollToTopRequested() {
+        setFollowing(false, reason: .nativeTop)
+        readingViewport.isScrollingToTop = true
+        readingBookmark.position.followsLatest = false
+        readingBookmark.position.capture(offset: 0, frames: readingViewport.frames)
+    }
+
+    private func cancelNativeScrollToTop() {
+        guard readingViewport.isScrollingToTop else { return }
+        readingViewport.isScrollingToTop = false
+        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+    }
+
+    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, nativeUpward, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
         if reason == .bottom {
-            guard !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring,
+            guard !readingViewport.isScrollingToTop, !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring,
                   readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
-        } else if reason != .restore && reason != .mount { cancelReadingRestoration(.navigation) }
+        } else if reason != .restore && reason != .mount {
+            cancelNativeScrollToTop()
+            cancelReadingRestoration(.navigation)
+        }
         let previous = followLatest
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }

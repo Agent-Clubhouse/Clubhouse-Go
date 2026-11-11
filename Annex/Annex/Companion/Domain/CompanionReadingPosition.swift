@@ -133,6 +133,7 @@ enum CompanionAssistantNavigation {
     var previousMetrics: CompanionScrollMetrics?
     var frameContentHeight: Double?
     var isInteracting = false
+    var isScrollingToTop = false
     var isRestoring = false
     var hasInitialized = false
     /// Only the mounted history generation may save geometry or infer native scrolling.
@@ -169,6 +170,7 @@ enum CompanionAssistantNavigation {
         previousMetrics = nil
         frameContentHeight = nil
         isInteracting = false
+        isScrollingToTop = false
         isRestoring = false
         hasInitialized = false
         historyRevision = nil
