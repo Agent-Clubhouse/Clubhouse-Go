@@ -21,6 +21,10 @@ Reading bookmarks retain the first intersecting entry key plus offset, shown his
 
 Full history loads and replay snapshots advance a separate history revision; streamed chunks do not. Geometry can pause following or save a bookmark only after that loaded revision has been anchored by its mounted transcript. This excludes the offset reset between partial live items and full history even when the reported content height is unchanged. Followers re-anchor to latest; an existing reader keeps the saved entry and offset through the replacement.
 
+Native status-bar top requests pause following synchronously in UIKit's `scrollViewShouldScrollToTop`, before the first SwiftUI geometry sample. Until top arrives, pending bottom geometry and entry restoration cannot reclaim the viewport. The saved target is the top of the currently shown history window; older pages remain behind Show earlier messages. A new transcript touch, drag or explicit navigation takes ownership from the native jump. The delegate adapter observes only its enclosing transcript scroll view, preserves the original delegate's veto and forwards its other callbacks.
+
+The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. Its synthetic animation nevertheless reaches top, and the unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0. Closing the pre-geometry window is not yet proof that it caused the reported on-device animation cancellation; #252 remains open for device confirmation.
+
 ## Test plan
 
 - Domain: mixed runs/order/keys; all tool kinds; running status; failure/permission split and rejoin; tool image boundary; short/long routed rows; helper questions/notices; pending queues and failed/uncertain delivery; attachment counts; no Markdown slices or links for collapsed traffic; expansion persistence; structured terminal exit codes; assistant/question navigation boundaries; bookmark prepend/resize; Latest drag/keyboard/bounce geometry.
