@@ -24,7 +24,6 @@ struct CompanionConversationView: View {
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
     @State private var keyboardVisible = false
-    @State private var compactTranscriptControls = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
@@ -149,13 +148,6 @@ struct CompanionConversationView: View {
         // VoiceOver says when an expanded disclosure is hidden for lack of room, rather than "expanded".
         .onGeometryChange(for: Bool.self) { $0.size.height < CompanionConversationHeaderBarLayout.minimumRoomForDetails } action: {
             headerDetailsLackRoom = $0
-        }
-        .onChange(of: available.size.width, initial: true) { _, width in
-            // Prelayout zero width must not change clearance and publish stale reading frames.
-            // Window width stays stable across keyboard presentation, unlike height.
-            guard width > 0 else { return }
-            let compact = width < 390
-            if compactTranscriptControls != compact { compactTranscriptControls = compact }
         }
         .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -391,8 +383,7 @@ struct CompanionConversationView: View {
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
-        // Keep scroll-metrics observation in the overlay unless this compact layout needs it.
-        let compactClearance = compactTranscriptControls && (!stops.isEmpty || showsLatestControl) ? max(0, navigationClearance - 8) : 0
+        let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
         return ScrollViewReader { proxy in
             ScrollView {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
@@ -430,11 +421,12 @@ struct CompanionConversationView: View {
                             }
                         }
                     }
-                    // Short viewports reserve only the visible controls' clearance, not an extra row.
-                    Color.clear.frame(height: 1).padding(.top, 22)
-                        .padding(.bottom, compactTranscriptControls ? compactClearance : navigationClearance).id("latest")
+                    CompanionTranscriptEndSpacer(horizontalPadding: horizontalPadding, navigationClearance: navigationClearance) {
+                        !stops.isEmpty || showsLatestControl
+                    }
+                    .id("latest")
                 }
-                .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 14 : 22)
+                .padding(.horizontal, horizontalPadding)
                 .padding(.top, 24)
                 .coordinateSpace(name: "companion-transcript-content")
                 .background {
@@ -905,6 +897,38 @@ struct CompanionContextRing: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")
+    }
+}
+
+private struct CompanionTranscriptEndSpacer: View {
+    let horizontalPadding: CGFloat
+    let navigationClearance: CGFloat
+    let showsControls: @MainActor () -> Bool
+
+    var body: some View {
+        CompanionTranscriptEndLayout(horizontalPadding: horizontalPadding, navigationClearance: navigationClearance,
+                                     showsControls: showsControls()) {
+            Color.clear.frame(height: 1).padding(.top, 22)
+        }
+    }
+}
+
+/// Restore the transcript's outer insets when applying the window-width breakpoint.
+/// Choosing during measurement avoids a post-layout compact-mode transition.
+private struct CompanionTranscriptEndLayout: Layout {
+    let horizontalPadding: CGFloat
+    let navigationClearance: CGFloat
+    let showsControls: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let marker = subviews.first?.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil)) ?? .zero
+        let compact = proposal.width.map { $0 > 0 && $0 + horizontalPadding * 2 < 390 } ?? false
+        let clearance = compact ? (showsControls ? max(0, navigationClearance - 8) : 0) : navigationClearance
+        return CGSize(width: marker.width, height: marker.height + clearance)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: nil))
     }
 }
 
