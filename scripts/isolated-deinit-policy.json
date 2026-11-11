@@ -104,8 +104,8 @@
     "CompanionRuntime": {
       "policy": "main_actor_task",
       "source": "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
-      "reason": "Root release also reproduces the isolated-deinit runtime abort (#349). FeedbackModel, CompanionTelemetry and CompanionFeedbackPresenter remain strongly captured until a MainActor Swift task stops telemetry and releases them. All other fields are reviewed ARC-only service/store/lifecycle/preferences, Sendable actors or values; no UI destruction is moved off MainActor. Both fields and exact deinit body are gated.",
-      "deinit": "nonisolated deinit { Task { @ MainActor [ feedback , appTelemetry , feedbackPresenter ] in appTelemetry ? . stop ( ) withExtendedLifetime ( ( feedback , appTelemetry , feedbackPresenter ) ) { } } }",
+      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree: providerFlows owns the retained-isolation CompanionProviderFlow, so an ARC-only outer Store is not recursively thunk-free. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task stops Store listening and telemetry, waits for pending lifecycle transitions, then shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. Fields and exact deinit body are gated.",
+      "deinit": "nonisolated deinit { Task { @ MainActor [ feedback , appTelemetry , feedbackPresenter , store , service , lifecycle ] in store . stop ( ) appTelemetry ? . stop ( ) await lifecycle . settle ( ) await service . shutdown ( ) withExtendedLifetime ( ( feedback , appTelemetry , feedbackPresenter , store , lifecycle ) ) { } } }",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},

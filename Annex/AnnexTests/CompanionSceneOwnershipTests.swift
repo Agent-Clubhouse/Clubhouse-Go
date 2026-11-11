@@ -257,6 +257,45 @@ import FramebriarUI
         }
     }
 
+    func testRuntimeReleaseStopsAnActiveTransportLoop() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "teardown.invalid", port: 443),
+                                       verifiedHostID: Array(repeating: "cd", count: 16).joined(separator: ":"),
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "cd", count: 32)))
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "qa-only"), for: host.hostID)
+        let clock = ClubhouseTransport.AnnexManualClock(), io = SceneOfflineIO()
+        var transport: AnnexTransport? = AnnexTransport(host: host, credentials: credentials, io: io, clock: clock.clock)
+        weak var previousTransport = transport
+        var owner: CompanionStateLifetime<CompanionRuntime>? = CompanionStateLifetime {
+            CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        }
+        weak var previousRuntime = try XCTUnwrap(owner).value
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: try XCTUnwrap(owner)).environment(\.scenePhase, .active))
+        window.makeKeyAndVisible()
+        try await wait { previousRuntime?.restoredHostIDs != nil }
+        await previousRuntime?.service.register(.init(host: host, alias: "QA desktop", transport: try XCTUnwrap(transport)))
+        try await wait { clock.sleeperCount > 0 }
+        transport = nil
+        window.rootViewController = nil
+        window.isHidden = true
+        owner = nil
+        try await wait { previousRuntime == nil }
+        await CompanionIconStore.shared.remove(host: host.hostID)
+        try await Task.sleep(for: .milliseconds(200))
+        let pendingBeforeAdvance = clock.sleeperCount
+        let requestsBeforeAdvance = await io.count
+        clock.advance(by: .seconds(60))
+        try await Task.sleep(for: .milliseconds(200))
+        let requestsAfterAdvance = await io.count
+        print("QA_RUNTIME_TEARDOWN runtimeReleased=\(previousRuntime == nil) transportAlive=\(previousTransport != nil) sleepers=\(pendingBeforeAdvance) requestsBefore=\(requestsBeforeAdvance) requestsAfter=\(requestsAfterAdvance)")
+        XCTAssertEqual(pendingBeforeAdvance, 0, "Destroying the runtime must cancel its transport retry loop")
+        XCTAssertEqual(requestsAfterAdvance, requestsBeforeAdvance, "An old runtime must not continue network retries")
+        XCTAssertNil(previousTransport, "The active transport must not retain itself after its owner ends")
+        await previousTransport?.disconnect()
+    }
+
     func testColdRootPhasesRestoreOneConnection() async throws {
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "scene.invalid", port: 443), verifiedHostID: Array(repeating: "ab", count: 16).joined(separator: ":"),
                                        verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
@@ -409,6 +448,17 @@ private actor SceneHTTP: HTTPTransport {
         return HTTPResponse(status: 200, headers: ["content-type": "application/json"], body: try JSONSerialization.data(withJSONObject: object))
     }
 }
+private actor SceneOfflineIO: AnnexIO {
+    private(set) var count = 0
+    func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
+        count += 1
+        throw URLError(.notConnectedToInternet)
+    }
+    func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket {
+        throw URLError(.notConnectedToInternet)
+    }
+}
+
 private actor SceneTransport: AnnexTransporting {
     private(set) var connectCount = 0
     func events() -> AsyncThrowingStream<AnnexTransportEvent, Error> { AsyncThrowingStream { _ in } }

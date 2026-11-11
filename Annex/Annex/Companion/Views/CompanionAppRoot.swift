@@ -7,11 +7,14 @@ import ClubhouseTransport
 
 @MainActor @Observable final class CompanionRuntime {
     nonisolated deinit {
-        // Keep UI-affine owners alive until a real main-actor task, avoiding the iOS 26.0
+        // Keep owned subtrees alive until a real main-actor task, avoiding the iOS 26.0
         // isolated-deinit task-local runtime bug during UIKit's deferred root destruction.
-        Task { @MainActor [feedback, appTelemetry, feedbackPresenter] in
+        Task { @MainActor [feedback, appTelemetry, feedbackPresenter, store, service, lifecycle] in
+            store.stop()
             appTelemetry?.stop()
-            withExtendedLifetime((feedback, appTelemetry, feedbackPresenter)) {}
+            await lifecycle.settle()
+            await service.shutdown()
+            withExtendedLifetime((feedback, appTelemetry, feedbackPresenter, store, lifecycle)) {}
         }
     }
 

@@ -25,7 +25,19 @@ private enum DeinitTestLocal { @TaskLocal static var marker = 0 }
         }
     }
 
-    @inline(never) private static func releaseHolders() {
+    func testRuntimeWithProviderFlowReleasesInsideTaskLocalWithoutACurrentTask() async {
+        await withCheckedContinuation { done in
+            DispatchQueue.main.async {
+                XCTAssertFalse(withUnsafeCurrentTask { $0 != nil })
+                DeinitTestLocal.$marker.withValue(1) {
+                    Self.releaseHolders(includeProviderFlow: true)
+                }
+                done.resume()
+            }
+        }
+    }
+
+    @inline(never) private static func releaseHolders(includeProviderFlow: Bool = false) {
         let queue = CompanionDecisionQueue { _ in }
         let transcript = CompanionTranscriptExpansion()
         let part = transcript.part(messageID: "fixture", index: 0)
@@ -45,6 +57,13 @@ private enum DeinitTestLocal { @TaskLocal static var marker = 0 }
             else { await service.suspend() }
         }
         let runtime = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        if includeProviderFlow {
+            let target = CompanionTarget(hostID: "qa", projectID: "qa", agentID: "qa")
+            _ = runtime.store.providerFlow(for: target)
+            _ = runtime.store.timelineProjection(for: target).rows(for: .init(items: [.notice(id: "qa", text: "qa")]))
+            runtime.store.readingBookmark(for: target).viewport.frames = ["qa": 0...100]
+            _ = runtime.store.transcriptExpansion(for: target).part(messageID: "qa", index: 0)
+        }
         withExtendedLifetime((holder, queue, transcript, part, bookmark, viewport, projection, lifecycle, runtime)) {}
     }
 
