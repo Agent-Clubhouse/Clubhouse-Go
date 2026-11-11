@@ -19,6 +19,7 @@ struct CompanionConversationComposer: View {
     let focusRequests: Int
     @FocusState private var composerFocused: Bool
     @State private var composerSelection: TextSelection?
+    @State private var hardwareNewline: (old: String, new: String)?
     @State private var slashHighlight = 0
     @State private var slashDismissedAt: Int?
     @Binding var confirmCancel: Bool
@@ -44,6 +45,7 @@ struct CompanionConversationComposer: View {
     private var hasMessage: Bool {
         !draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !(store.attachmentDrafts[target] ?? []).isEmpty
     }
+    private var sendEnabled: Bool { store.canSend(target) && hasMessage }
     private var draft: Binding<String> {
         Binding(get: { store.drafts[target] ?? "" }, set: { store.drafts[target] = $0 })
     }
@@ -57,7 +59,9 @@ struct CompanionConversationComposer: View {
                 print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
             }
             #endif
-            if composerFocused, let commands = agent.slashCommands,
+            let isHardwareNewline = hardwareNewline?.old == draft.wrappedValue && hardwareNewline?.new == text
+            if text != draft.wrappedValue { hardwareNewline = nil }
+            if !isHardwareNewline, composerFocused, let commands = agent.slashCommands,
                let picked = CompanionSlashMenu.pickOnReturn(old: draft.wrappedValue, new: text, commands: commands,
                                                              highlighted: slashHighlight, dismissedAt: slashDismissedAt) {
                 // On the next turn: a value changed while the text view reports its own edit doesn't reach it.
@@ -167,7 +171,7 @@ struct CompanionConversationComposer: View {
                             .frame(minHeight: composerRowHeight)
                             .focused($composerFocused)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
-                            .accessibilityHint("Runs on your desktop. Command Return sends the message.")
+                            .accessibilityHint("Runs on your desktop. With a hardware keyboard, Return sends, Shift Return inserts a new line, and Command Return also sends.")
                             .accessibilityIdentifier("companion-composer")
                             // Pasted or dropped images join the attachments; text pastes as usual. Added after the
                             // accessibility modifiers so the hook doesn't appear as a second composer element.
@@ -201,9 +205,7 @@ struct CompanionConversationComposer: View {
                                 .accessibilityIdentifier("companion-interrupt")
                                 .frame(height: actionRowHeight)
                             }
-                            Button {
-                                Task { await store.sendDraft(to: target) }
-                            } label: {
+                            Button(action: sendMessage) {
                                 Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
                                     .font(.system(size: 20, weight: .bold))
                             }
@@ -211,7 +213,7 @@ struct CompanionConversationComposer: View {
                             // Keep the regular-size glass circle inside the field, with a full-size interaction target.
                             .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
                             .contentShape(.circle)
-                            .disabled(!store.canSend(target) || !hasMessage)
+                            .disabled(!sendEnabled)
                             .keyboardShortcut(.return, modifiers: .command)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
                             .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
@@ -343,7 +345,19 @@ struct CompanionConversationComposer: View {
         let dismissal: (@MainActor () -> Void)?
         if composerFocused { dismissal = { @MainActor in self.dismissKeyboard() } }
         else { dismissal = nil }
-        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal)
+        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal, returnActions: .init(
+            canSubmit: { returnSlashCommand != nil || sendEnabled },
+            submit: {
+                if let command = returnSlashCommand { pickSlashCommand(command) }
+                else { sendMessage() }
+            },
+            willInsertNewline: { old, new in hardwareNewline = (old, new) }
+        ))
+    }
+
+    private func sendMessage() {
+        guard sendEnabled else { return }
+        Task { await store.sendDraft(to: target) }
     }
 
     private var showsKeyboardDismissButton: Bool {
@@ -404,6 +418,12 @@ struct CompanionConversationComposer: View {
         return CompanionSlashMenu.matches(commands, text: draft.wrappedValue, token: token)
     }
 
+    private var returnSlashCommand: CompanionSlashCommand? {
+        guard let token = slashToken, !slashMatches.isEmpty else { return nil }
+        let command = slashMatches[min(slashHighlight, slashMatches.count - 1)]
+        return CompanionSlashMenu.returnPicks(token, highlighted: command) ? command : nil
+    }
+
     /// Replaces the word with `/name ` and leaves the caret after it.
     private func pickSlashCommand(_ command: CompanionSlashCommand) {
         guard let token = caretSlashToken else { return }
@@ -420,8 +440,8 @@ struct CompanionConversationComposer: View {
         return true
     }
 
-    /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes. Return reaches the
-    /// text view as a newline, which `composerText` turns into a pick. Without a menu these keys work as usual.
+    /// A hardware keyboard drives the menu like the desktop's: arrows move, Tab picks, Esc closes.
+    /// Return completion is shared with the native input hook; software Return retains its binding-based pick.
     private func slashKey(_ press: KeyPress) -> KeyPress.Result {
         let matches = slashMatches
         guard !matches.isEmpty else { return .ignored }

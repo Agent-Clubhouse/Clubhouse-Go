@@ -28,6 +28,22 @@ wins in its existing badge only while the session is running. Ended sessions use
 against the latest snapshot while cached settings are stale.
 A desktop without this capability is read-only for saved Access, not a boolean fallback.
 
+### Composer keyboards
+
+`CompanionComposerReturnKeyTests` covers the platform-independent Return decision, modifiers, disabled sends,
+composition and repeats. Hosted `CompanionComposerReturnTests` sends synthesized `UIPress`/`UIKey` events to the
+real SwiftUI composer's native `UITextView`, covering send eligibility, slash precedence, Shift+Return selection
+replacement, marked text, attachments, repeat suppression and stable input/focus. The marked-text test uses
+`UITextInput` to establish and commit composition; it is not proof of a real Japanese/Chinese input engine.
+
+`CompanionHardwareKeyboardUITests` taps the actual on-screen Return key and requires newline/no-send behavior.
+Its hardware Return and Shift+Return assertions retain strict expected failures tracked by #366: on the local
+iPhone 17 Pro / iOS 26.0 simulator, `typeKey("\r")`, `.return`, `.enter` and modified Return do nothing through
+either the focused field or application, even with that simulator's hardware-keyboard preference enabled.
+Ordinary `typeKey("x")` and Shift+`"x"` insert text. A future successful Return injection fails the strict
+expectation so it can be removed. Hosted native tests have no expected failures. Physical-keyboard and iPhone
+Mirroring verification, including real IME confirmation, remain separate checks under #366.
+
 ### Writing UI tests for hosted runners
 
 GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch, and sometimes drop a tap or long-press. Fixture-mode UI tests subclass `ReliableUITestCase` (`Annex/AnnexUITests/UITestSupport.swift`):
