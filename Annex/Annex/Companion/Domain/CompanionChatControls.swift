@@ -43,6 +43,14 @@ nonisolated enum CompanionPermissionLevel: String, CaseIterable, Sendable, Compa
     static func < (lhs: Self, rhs: Self) -> Bool { lhs.rank < rhs.rank }
 }
 
+extension CompanionAgent {
+    var liveAccess: CompanionPermissionLevel? {
+        chatControls?.level ?? session?.level.flatMap(CompanionPermissionLevel.init(rawValue:))
+    }
+    /// Only chat uses the live level. Catalog rows use the saved launch level.
+    var displayedChatAccess: CompanionPermissionLevel? { liveAccess ?? access }
+}
+
 /// When a model or effort change takes effect (`ChatCapabilities.modelSwitch` / `effortSwitch`).
 nonisolated enum CompanionSwitchTiming: String, Sendable {
     case live, perTurn = "per_turn", restart, none

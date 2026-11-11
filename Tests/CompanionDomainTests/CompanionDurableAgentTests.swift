@@ -42,6 +42,56 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
 }
 
 @Suite struct CompanionDurableAgentDecodingTests {
+    @Test func savedAccessUsesDesktopChoicesAndDefault() throws {
+        let options = try CompanionCreateOptions(json: ContractFixtures.body("create-options.json"))
+        #expect(options.defaultAccess == .ask)
+        #expect(options.accessChoices(for: "claude-code").map(\.id) == CompanionPermissionLevel.allCases)
+        #expect(options.accessChoices(for: "codex-cli").map(\.id) == [.ask])
+        #expect(options.accessChoices(for: "unknown").isEmpty)
+        #expect(options.options.accessLevels.first?.description == "Reads and plans. Makes no changes.")
+        let settings = try CompanionAgentSettings(json: ContractFixtures.body("agent-settings-running.json"))
+        let access = try #require(settings.access)
+        #expect(access.value == .ask && access.startsAt == .ask && access.defaultLevel == .ask)
+        #expect(access.choices == options.accessChoices(for: "claude-code"))
+        #expect(!access.canEdit(sleeping: false) && access.canEdit(sleeping: true))
+        #expect(access.applicationSummary(live: .auto) == "Auto now, starts at Ask first")
+        #expect(access.applicationSummary(live: .ask) == "Ask first now")
+        #expect(access.applicationSummary(live: nil) == "Ask first")
+        #expect(CompanionSavedAccess.applicationNote.contains("next start"))
+    }
+
+    @Test func savedAccessKeepsAnUnavailableLevelAndReportsActualStart() {
+        var access = CompanionSavedAccess(value: .auto, editable: .sleeping,
+                                          choices: [.init(id: .ask, label: "Ask first", description: "Asks")],
+                                          startsAt: .ask, defaultLevel: .ask)
+        #expect(access.selectedLabel == "Auto (not available for this CLI)")
+        #expect(access.applicationSummary(live: nil) == "Auto saved, starts at Ask first")
+        #expect(access.applicationSummary(live: .fullAccess) == "Full access now, starts at Ask first (Auto saved)")
+        access.editable = .always
+        #expect(access.canEdit(sleeping: false))
+        access.editable = .never
+        #expect(!access.canEdit(sleeping: true))
+    }
+
+    @Test func savedAndLiveAccessStaySeparate() {
+        var agent = CompanionAgent(id: .init(hostID: "h", projectID: "p", agentID: "a"), name: "a", subtitle: "", status: .idle)
+        agent.access = .plan
+        agent.freeAgentMode = true
+        #expect(agent.displayedChatAccess == .plan)
+        #expect(CompanionAgentDetails(agent: agent).access == "Plan")
+        agent.chatControls = .init(level: .autoEdit)
+        #expect(agent.access == .plan && agent.displayedChatAccess == .autoEdit)
+        #expect(CompanionAgentDetails(agent: agent).access == "Auto-accept edits now, starts at Plan")
+        agent.chatControls = .init()
+        #expect(agent.displayedChatAccess == .plan, "An unreported live level must not invent Ask first")
+    }
+
+    @Test func savedAccessUpdateUsesTheExactLevel() {
+        let update = AnnexAgentUpdate(agentID: "a", change: .init(access: .fullAccess))
+        #expect(update.access == "full_access" && update.freeAgentMode == nil && !update.isEmpty)
+        #expect(CompanionAgentCommandError.message(code: "access_unavailable", message: "This CLI cannot start in Auto.") == "This CLI cannot start in Auto.")
+    }
+
     @Test func createOptionsDecodeTheNewAgentForm() throws {
         let options = try CompanionCreateOptions(json: json(optionsJSON))
         #expect(options.options.orchestrators.map(\.id) == ["claude-code", "codex"])
@@ -205,12 +255,14 @@ private actor DurableTransport: AnnexTransporting {
     let commands: [String]
     let durable: Bool
     let freeAgentMode: Bool
+    let access: Bool
     private(set) var executed: [AnnexCommand] = []
     private(set) var reads: [String] = []
     var receipt: AnnexJSON = .null
-    init(durable: Bool, freeAgentMode: Bool = false) {
+    init(durable: Bool, freeAgentMode: Bool = false, access: Bool = false) {
         self.durable = durable
         self.freeAgentMode = freeAgentMode
+        self.access = access
         commands = durable ? ["agent.spawn", "agent.start", "agent.create", "agent.update"] : ["agent.spawn", "agent.start"]
     }
     func setReceipt(_ value: AnnexJSON) { receipt = value }
@@ -228,6 +280,7 @@ private actor DurableTransport: AnnexTransporting {
                                              "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
                                              "commands": .array(commands.map(AnnexJSON.string))]
             if freeAgentMode { caps["permissions"] = .object(["version": .integer(1), "freeAgentMode": .bool(true)]) }
+            if access { caps["access"] = .object(["version": .integer(1)]) }
             if durable {
                 caps["createOptions"] = .object(["version": .integer(1), "path": .string("/api/v1/mobile/projects/{projectId}/create-options")])
                 caps["agentSettings"] = .object(["version": .integer(1), "path": .string("/api/v1/mobile/agents/{agentId}/settings")])
@@ -301,6 +354,49 @@ private actor DurableTransport: AnnexTransporting {
         #expect(command.type == "agent.create" && command.commandID == "c1")
         guard case .create(let sent) = command.kind else { Issue.record("Expected agent.create"); return }
         #expect(sent == AnnexAgentCreate(projectID: "p1", name: "brave-otter", color: "teal", orchestrator: "claude-code", useWorktree: true, mcpIDs: ["ado"]))
+    }
+
+    @Test func accessCapabilitySendsExactCreateAndNeverFallsBackToTheBoolean() async throws {
+        let transport = DurableTransport(durable: true, freeAgentMode: true, access: true)
+        await transport.setReceipt(try json(#"{"version":1,"commandId":"c1","epoch":"epoch","status":"completed","result":{"agentId":"durable_1","projectId":"p1","state":"creating"}}"#))
+        let (service, store) = try await setup(transport)
+        defer { store.stop(); service.remove(hostID: hostID) }
+        #expect(store.hosts.first?.canSetAccess == true)
+        let request = CompanionCreateRequest(project: project, name: "brave-otter", color: "teal",
+                                             freeAgentMode: false, access: .fullAccess, clientCommandID: "c1")
+        #expect(await store.create(request))
+        let command = try #require(await transport.executed.first)
+        let payload = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+        #expect(payload["access"] == .string("full_access") && payload["freeAgentMode"] == nil)
+        await #expect(throws: CompanionServiceError.self) {
+            try await service.updateSettings(.init(freeAgentMode: true), target: agent, clientCommandID: "c2")
+        }
+        #expect(await transport.executed.count == 1)
+    }
+
+    @Test func savedAccessNeedsTheCapabilityAndUpdateSendsOnlyItsExactLevel() async throws {
+        for enabled in [false, true] {
+            let transport = DurableTransport(durable: true, access: enabled)
+            let result = try json(settingsJSON(sleeping: true, options: false))
+            await transport.setReceipt(.object(["version": .integer(1), "commandId": .string("c1"), "epoch": .string("epoch"),
+                                               "status": .string("completed"), "result": result]))
+            let (service, store) = try await setup(transport)
+            defer { store.stop(); service.remove(hostID: hostID) }
+            if enabled {
+                _ = try await service.updateSettings(.init(access: .auto), target: agent, clientCommandID: "c1")
+                let command = try #require(await transport.executed.first)
+                guard case .update(let sent) = command.kind else { Issue.record("Expected update"); return }
+                #expect(sent.access == "auto" && sent.freeAgentMode == nil)
+            } else {
+                await #expect(throws: CompanionServiceError.self) {
+                    try await service.updateSettings(.init(access: .auto), target: agent, clientCommandID: "c1")
+                }
+                await #expect(throws: CompanionServiceError.self) {
+                    try await service.create(.init(project: project, name: "n", color: "teal", access: .auto, clientCommandID: "c1"))
+                }
+                #expect(await transport.executed.isEmpty)
+            }
+        }
     }
 
     @Test func createSendsExplicitOffAndOmitsDesktopDefaultAccess() async throws {

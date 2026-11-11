@@ -16,7 +16,8 @@ struct CompanionSpawnSheet: View {
     @State private var showOptions = false
     @State private var confirmReviewedSpawn = false
     @State private var confirmReviewedCreate = false
-    @State private var confirmFreeAgentMode = false
+    @State private var confirmAccess = false
+    @State private var pendingAccess: CompanionPermissionLevel?
     @State private var kind: Kind = .durable
     @State private var durable = DurableForm()
     @FocusState private var promptFocused: Bool
@@ -47,9 +48,15 @@ struct CompanionSpawnSheet: View {
             .confirmationDialog("Finish reviewing the previous request?", isPresented: $confirmReviewedCreate, titleVisibility: .visible) {
                 Button("Create another agent") { store.acknowledgeReviewedCreate() }
             } message: { Text("The earlier agent may already be on your desktop. Continue only after checking its agent list.") }
-            .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-                Button(CompanionFreeAgentMode.confirmAction, role: .destructive) { durable.freeAgentMode = true }
-            } message: { Text(CompanionFreeAgentMode.help) }
+            .confirmationDialog("Use \(pendingAccess?.label ?? "elevated Access")?", isPresented: $confirmAccess, titleVisibility: .visible) {
+                Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {
+                    durable.access = pendingAccess
+                    pendingAccess = nil
+                }
+                Button("Cancel", role: .cancel) { pendingAccess = nil }
+            } message: {
+                Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
+            }
             .onAppear {
                 project = initialProject
                 if store.uncertainSpawnRequest == nil { store.spawnError = nil }
@@ -210,7 +217,7 @@ struct CompanionSpawnSheet: View {
         var model = "default"
         var useWorktree = true
         var mcpIDs: Set<String> = []
-        var freeAgentMode = false
+        var access: CompanionPermissionLevel?
         /// Off leaves it to the default, so only on is sent.
         var orchestrate = false
 
@@ -222,7 +229,7 @@ struct CompanionSpawnSheet: View {
             model = options.defaultModel
             useWorktree = options.isGitRepo && options.defaultUseWorktree
             mcpIDs = Set(options.mcpDefaults)
-            freeAgentMode = false
+            access = nil
             orchestrate = false
         }
         var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
@@ -323,7 +330,9 @@ struct CompanionSpawnSheet: View {
             .accessibilityIdentifier("new-agent-orchestrator")
             .onChange(of: durable.orchestrator) { _, id in
                 if !options.options.models(for: id).contains(where: { $0.id == durable.model }) { durable.model = "default" }
-                if options.options.orchestrator(id)?.permissions != true { durable.freeAgentMode = false }
+                if let access = durable.access, !options.accessChoices(for: id).contains(where: { $0.id == access }) {
+                    durable.access = nil
+                }
             }
             // The desktop's default can be a model the live list doesn't name; it still shows, as itself.
             let models = options.options.models(for: durable.orchestrator, keeping: durable.model)
@@ -359,26 +368,47 @@ struct CompanionSpawnSheet: View {
                      : "Works in the project folder, on whatever branch is checked out there.")
             }
         }
-        if offersFreeAgentMode(options) {
-            // As the desktop's New agent page: only for CLIs with permission support.
+        if selectedHost?.canSetAccess == true {
             let supported = options.options.orchestrator(durable.orchestrator)?.permissions == true
             Section {
                 if supported {
-                    Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { durable.freeAgentMode },
-                                                                         set: { if $0 { confirmFreeAgentMode = true } else { durable.freeAgentMode = false } }))
-                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                    Picker("Access", selection: Binding(get: { durable.access ?? options.defaultAccess }, set: { level in
+                        let current = durable.access ?? options.defaultAccess ?? .ask
+                        if let level, level.needsConfirmation(from: current) {
+                            pendingAccess = level
+                            confirmAccess = true
+                        } else { durable.access = level }
+                    })) {
+                        let current = durable.access ?? options.defaultAccess
+                        if !options.accessChoices(for: durable.orchestrator).contains(where: { $0.id == current }) {
+                            Text(current.map { "\($0.label) (not available for this CLI)" } ?? "Desktop default")
+                                .tag(current).disabled(true)
+                        }
+                        ForEach(options.accessChoices(for: durable.orchestrator)) { choice in
+                            Text(choice.label).tag(Optional(choice.id))
+                        }
+                    }
+                    .accessibilityIdentifier("new-agent-access")
                 } else {
                     LabeledContent("Access", value: "Set by the CLI")
-                        .accessibilityIdentifier("new-agent-free-agent-mode")
+                        .accessibilityIdentifier("new-agent-access")
                 }
-            } header: { Text("Permissions") } footer: {
-                Text(supported ? CompanionFreeAgentMode.help : CompanionFreeAgentMode.unsupported)
+            } header: { Text("Access") } footer: {
+                if supported {
+                    let selected = durable.access ?? options.defaultAccess
+                    if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
+                    if durable.access == nil, let level = options.defaultAccess,
+                       let choice = options.options.accessLevels.first(where: { $0.id == level }) {
+                        Text("Desktop default: \(choice.label).")
+                    }
+                    Text("Applies at next start.")
+                } else { Text(CompanionFreeAgentMode.unsupported) }
             }
         } else {
             Section {
                 LabeledContent("Access", value: "Desktop default")
-                    .accessibilityIdentifier("new-agent-free-agent-mode")
-            } header: { Text("Permissions") } footer: {
+                    .accessibilityIdentifier("new-agent-access")
+            } header: { Text("Access") } footer: {
                 Text("Access follows the desktop default. Change it on the desktop.")
             }
         }
@@ -405,8 +435,7 @@ struct CompanionSpawnSheet: View {
             let request = CompanionCreateRequest(
                 project: project, name: durable.trimmedName, color: durable.color,
                 orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
-                // A supported toggle sends false explicitly when off; nil follows Desktop default access.
-                freeAgentMode: offersFreeAgentMode(options) && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.freeAgentMode : nil,
+                access: selectedHost?.canSetAccess == true && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.access : nil,
                 useWorktree: options.isGitRepo ? durable.useWorktree : nil,
                 mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
                 orchestrate: offersOrchestration && durable.orchestrate ? true : nil,
@@ -437,10 +466,6 @@ struct CompanionSpawnSheet: View {
         }
     }
 
-    /// Whether the desktop accepts the legacy boolean Access control.
-    private func offersFreeAgentMode(_ options: CompanionCreateOptions) -> Bool {
-        selectedHost?.canSetFreeAgentMode == true && options.freeAgentModeAllowed
-    }
     /// The desktop takes an orchestration policy (`orchestration` v1).
     private var offersOrchestration: Bool { selectedHost?.canOrchestrate == true }
     private var selectedHost: CompanionHost? { store.hosts.first { $0.id == project?.hostID } }

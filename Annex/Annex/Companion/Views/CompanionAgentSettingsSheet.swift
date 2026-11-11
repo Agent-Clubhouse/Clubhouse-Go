@@ -199,7 +199,8 @@ struct CompanionAgentSettingsForm: View {
     @State private var saving = false
     @State private var nameDraft = ""
     @State private var emojiDraft = ""
-    @State private var confirmFreeAgentMode = false
+    @State private var confirmAccess = false
+    @State private var pendingAccess: CompanionPermissionLevel?
     @State private var pendingOrchestrator: String?
     @State private var confirmOrchestratorChange = false
 
@@ -253,9 +254,15 @@ struct CompanionAgentSettingsForm: View {
             .task(id: settings != nil) {
                 if focusContext, settings != nil { proxy.scrollTo("agent-context-section", anchor: .top) }
             }
-            .confirmationDialog(CompanionFreeAgentMode.confirmTitle, isPresented: $confirmFreeAgentMode, titleVisibility: .visible) {
-                Button(CompanionFreeAgentMode.confirmAction, role: .destructive) { save(.init(freeAgentMode: true)) }
-            } message: { Text(CompanionFreeAgentMode.help) }
+            .confirmationDialog("Use \(pendingAccess?.label ?? "elevated Access")?", isPresented: $confirmAccess, titleVisibility: .visible) {
+                Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {
+                    if let pendingAccess { save(.init(access: pendingAccess)) }
+                    pendingAccess = nil
+                }
+                Button("Cancel", role: .cancel) { pendingAccess = nil }
+            } message: {
+                Text(settings?.access?.choices.first { $0.id == pendingAccess }?.description ?? "")
+            }
             .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
                 Button("Change CLI", role: .destructive) {
                     if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
@@ -452,17 +459,41 @@ struct CompanionAgentSettingsForm: View {
 
         if !hides("freeAgentMode", settings) && !hides("access", settings) {
         Section {
-            if canSetFreeAgentMode {
-                Toggle(CompanionFreeAgentMode.title, isOn: Binding(get: { settings.freeAgentMode.value },
-                                                                     set: { if $0 { confirmFreeAgentMode = true } else { save(.init(freeAgentMode: false)) } }))
-                    .disabled(!settings.freeAgentMode.canEdit(sleeping: sleeping) || saving)
-                    .accessibilityIdentifier("agent-settings-free-agent-mode")
+            if let access = settings.access, canSetAccess {
+                if access.editable == .never {
+                    LabeledContent("Access", value: "Set by the CLI")
+                        .accessibilityIdentifier("agent-settings-access")
+                } else {
+                    Picker("Access", selection: Binding(get: { access.value }, set: { level in
+                        guard level != access.value, access.choices.contains(where: { $0.id == level }) else { return }
+                        if level.needsConfirmation(from: access.value) {
+                            pendingAccess = level
+                            confirmAccess = true
+                        } else { save(.init(access: level)) }
+                    })) {
+                        if !access.choices.contains(where: { $0.id == access.value }) {
+                            Text(access.selectedLabel).tag(access.value)
+                        }
+                        ForEach(access.choices) { choice in Text(choice.label).tag(choice.id) }
+                    }
+                    .disabled(!access.canEdit(sleeping: sleeping) || saving)
+                    .accessibilityIdentifier("agent-settings-access")
+                }
             } else {
-                LabeledContent(CompanionFreeAgentMode.title, value: settings.freeAgentMode.value ? "On" : "Off")
-                    .accessibilityIdentifier("agent-settings-free-agent-mode")
+                LabeledContent("Access", value: settings.access?.selectedLabel ?? "Desktop default")
+                    .accessibilityIdentifier("agent-settings-access")
             }
         } header: { Text("Access") } footer: {
-            Text(freeAgentModeFooter(settings))
+            if let access = settings.access, canSetAccess {
+                if access.editable == .never { Text(CompanionFreeAgentMode.unsupported) }
+                else {
+                    if let choice = access.choices.first(where: { $0.id == access.value }) { Text(choice.description) }
+                    Text(CompanionSavedAccess.applicationNote)
+                    if access.value != access.startsAt { Text("Starts at \(access.startsAt.label) on this CLI.") }
+                    if let live = agent?.liveAccess { Text(access.applicationSummary(live: live)) }
+                    if !access.canEdit(sleeping: sleeping) { Text(CompanionAgentSettings.lockedHint) }
+                }
+            } else { Text("Access follows the desktop default. Change it on the desktop.") }
         }
         }
 
@@ -601,16 +632,7 @@ struct CompanionAgentSettingsForm: View {
         return notes.joined(separator: " ")
     }
 
-    /// Whether the desktop accepts the legacy boolean Access control.
-    private var canSetFreeAgentMode: Bool { store.host(for: target)?.canSetFreeAgentMode == true }
-
-    /// Why the toggle can't change, else the desktop's help text.
-    private func freeAgentModeFooter(_ settings: CompanionAgentSettings) -> String {
-        guard canSetFreeAgentMode else { return "Access can only be changed on the desktop." }
-        if settings.freeAgentMode.editable == .never { return CompanionFreeAgentMode.unsupported }
-        if settings.freeAgentMode.isLocked(sleeping: settings.sleeping) { return "\(CompanionAgentSettings.lockedHint). \(CompanionFreeAgentMode.help)" }
-        return CompanionFreeAgentMode.help
-    }
+    private var canSetAccess: Bool { store.host(for: target)?.canSetAccess == true }
 
     /// "Chat · Opus · Sleeps after 30 min", as the Settings card's one line.
     private func summary(_ settings: CompanionAgentSettings) -> String {
