@@ -43,6 +43,8 @@ The live and provider tests listed below skip unless you enable them.
 
 ## Live E2E against a real desktop (nightly)
 
+Desktop update validation (#359) is deliberately **fixtures and preview only**: never trigger a real update or restart. `AppUpdateContractTests` reads the pinned desktop statuses, events, approval and command/error fixtures; `CompanionAppUpdateTests` covers capability gates, required approval modes, cancellation, explicit same-id request/cancel recovery, authoritative retirement of resolved attempts, terminal shutdown with late replies, and new-epoch/lost-receipt safety, including a capability refresh racing a snapshot blocked on icon work. `SessionTests.desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities` exercises the real transport with synthetic sockets. `qaSocketEpochRemainsCorrectWhenRestartRacesTheUpgrade` proves fresh capabilities replace a mismatched socket before publishing its epochless snapshot. `CompanionAppUpdateUITests` uses `--companion-preview-app-update` for the Home indicator's running/available versions, Request update and explicit mode before Allow once. Fixtures are re-synced from desktop main at `8bd00f0cf2f40d75af153c49b8e4485726eaeee9` after Agent-Clubhouse/Clubhouse#3316 merged.
+
 `scripts/e2e-live.sh` tests Clubhouse Go end to end against a real Clubhouse desktop. Nothing here calls a model or spends tokens. It needs Node (the repo's `.nvmrc`), Xcode with an iOS simulator, and network access to clone `Agent-Clubhouse/Clubhouse`.
 
 ```sh

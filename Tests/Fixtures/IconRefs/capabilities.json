@@ -22,6 +22,22 @@
         "path": "/api/v1/mobile/agents/state",
         "version": 1
       },
+      "appUpdate": {
+        "approvalCommand": "grant.answer",
+        "approvalModeField": "updateMode",
+        "commands": [
+          "app.update.request",
+          "app.update.cancel"
+        ],
+        "event": "app_update:changed",
+        "idleWaitMs": 1800000,
+        "modes": [
+          "now",
+          "when_idle"
+        ],
+        "snapshotField": "appUpdate",
+        "version": 1
+      },
       "attachments": {
         "imageTypes": [
           "image/png",
@@ -68,7 +84,9 @@
         "dispatcher.update",
         "dispatcher.setModels",
         "dispatcher.clearChat",
-        "dispatcher.forgetEverything"
+        "dispatcher.forgetEverything",
+        "app.update.request",
+        "app.update.cancel"
       ],
       "contextWindow": {
         "version": 1
@@ -92,6 +110,7 @@
         "flagOn": true,
         "newLayout": true,
         "projectId": "__dispatcher__",
+        "requestsUnderWay": 0,
         "settings": {
           "path": "/api/v1/mobile/dispatcher/settings",
           "version": 1
@@ -141,7 +160,8 @@
       "helperRouting": {
         "autoCandidates": [
           "claude-code",
-          "codex-cli"
+          "codex-cli",
+          "copilot-cli"
         ],
         "autoOffReasons": [
           "not_enabled",
@@ -158,6 +178,7 @@
         "commands": [
           "helperRouting.update"
         ],
+        "copilotAuto": true,
         "difficulties": [
           "easy",
           "medium",
@@ -169,6 +190,9 @@
           "builtin_preset",
           "candidate_skipped",
           "model_unverified"
+        ],
+        "lastResortCandidates": [
+          "copilot-cli"
         ],
         "levels": [
           "minimum",
@@ -211,6 +235,7 @@
           "fair_rotation",
           "better_quota_tier",
           "unknown_fallback",
+          "last_resort_unmeasured",
           "sticky",
           "default_order"
         ],
@@ -222,6 +247,7 @@
         "skipped": [
           "cli_disabled",
           "cli_unavailable",
+          "auto_disabled",
           "auto_not_supported",
           "no_valid_mapping",
           "cooling_down",

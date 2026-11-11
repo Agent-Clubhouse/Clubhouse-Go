@@ -6,9 +6,13 @@ private actor TestSocket: AnnexWebSocket {
     private var messages: [Data]
     private var pending: CheckedContinuation<Data, Error>?
     private var closed = false
+    private var onClose: (@Sendable () -> Void)?
     private(set) var sent: [Data] = []
     private(set) var closeCount = 0
-    init() { messages = [Data(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#.utf8)] }
+    init(epoch: String = "test-epoch", sequence: Int64 = 0, includesSnapshotEpoch: Bool = true, holdsSnapshot: Bool = false) {
+        let epochField = includesSnapshotEpoch ? "\"epoch\":\"\(epoch)\"," : ""
+        messages = holdsSnapshot ? [] : [Data("{\"type\":\"snapshot\",\(epochField)\"payload\":{\"lastSeq\":\(sequence),\"projects\":[],\"agents\":{}}}".utf8)]
+    }
     func receive() async throws -> Data {
         if closed { throw AnnexTransportError.disconnected }
         if !messages.isEmpty { return messages.removeFirst() }
@@ -21,8 +25,11 @@ private actor TestSocket: AnnexWebSocket {
     }
     func send(_ data: Data) { sent.append(data) }
     func ping() throws { if closed { throw AnnexTransportError.disconnected } }
+    func onClose(_ action: @escaping @Sendable () -> Void) { onClose = action }
     func close() {
         closeCount += 1; closed = true
+        let onClose = self.onClose; self.onClose = nil
+        onClose?()
         pending?.resume(throwing: AnnexTransportError.disconnected); pending = nil
     }
 }
@@ -31,33 +38,87 @@ private actor SessionIO: AnnexIO {
     private let unauthorized: Bool
     private(set) var sockets: [TestSocket] = []
     private(set) var requestCount = 0
-    init(identity: AnnexPairingIdentity, unauthorized: Bool = false) { self.identity = identity; self.unauthorized = unauthorized }
+    private(set) var capabilityReads = 0
+    private(set) var posts = 0
+    private var epoch = "test-epoch"
+    private let initialSequence: Int64
+    private let includesSnapshotEpoch: Bool
+    private var restartOnOpen = false
+    init(identity: AnnexPairingIdentity, unauthorized: Bool = false, initialSequence: Int64 = 0, includesSnapshotEpoch: Bool = true) {
+        self.identity = identity; self.unauthorized = unauthorized; self.initialSequence = initialSequence; self.includesSnapshotEpoch = includesSnapshotEpoch
+    }
+    func restart() { epoch = "new-epoch" }
+    func restartBetweenCapabilitiesAndSocket() { restartOnOpen = true }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         requestCount += 1
         if unauthorized { return AnnexHTTPResponse(status: 401, data: Data()) }
         let body: AnnexJSON
-        if request.url?.path.hasSuffix("identity") == true {
+        if request.httpMethod == "POST" {
+            posts += 1
+            let command = try JSONDecoder().decode(AnnexJSON.self, from: #require(request.httpBody))
+            body = .object(["version": .integer(1), "commandId": command["commandId"] ?? .null,
+                            "epoch": .string(epoch), "status": .string("completed"), "result": .object([:])])
+        } else if request.url?.path.hasSuffix("identity") == true {
             body = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
         } else {
-            body = .object(["version": .integer(1), "epoch": .string("test-epoch"), "controlAuth": .string("mtls-pinned-client"), "controlAvailable": .bool(true), "commands": .array([]),
+            capabilityReads += 1
+            body = .object(["version": .integer(1), "epoch": .string(epoch), "controlAuth": .string("mtls-pinned-client"), "controlAvailable": .bool(true), "commands": .array([.string("grant.answer")]),
                 "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(2048), "ttlMs": .integer(3600000)])])
         }
         return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
     }
     func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket {
-        let socket = TestSocket(); sockets.append(socket); return socket
+        if restartOnOpen { epoch = "new-epoch" }
+        let socket = TestSocket(epoch: epoch, sequence: epoch == "test-epoch" ? initialSequence : 0, includesSnapshotEpoch: includesSnapshotEpoch, holdsSnapshot: restartOnOpen)
+        sockets.append(socket); return socket
     }
 }
-private func sessionFixture(unauthorized: Bool = false) async throws -> (AnnexTransport, SessionIO) {
+private func sessionFixture(unauthorized: Bool = false, initialSequence: Int64 = 0, includesSnapshotEpoch: Bool = true) async throws -> (AnnexTransport, SessionIO) {
     let identity = AnnexPairingIdentity()
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: fingerprint,
                                   verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: host.hostID)
-    let io = SessionIO(identity: identity, unauthorized: unauthorized)
+    let io = SessionIO(identity: identity, unauthorized: unauthorized, initialSequence: initialSequence, includesSnapshotEpoch: includesSnapshotEpoch)
     let transport = AnnexTransport(host: host, credentials: credentials, io: io, backoff: AnnexBackoff(initialSeconds: 0.05, maximumSeconds: 0.05))
     return (transport, io)
+}
+
+@Test(arguments: [false, true])
+func desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities(includesSnapshotEpoch: Bool) async throws {
+    let (transport, io) = try await sessionFixture(initialSequence: 900, includesSnapshotEpoch: includesSnapshotEpoch)
+    let stream = await transport.events()
+    try await transport.connect()
+    let approval = AnnexCommand(commandID: "reviewed-update", epoch: "test-epoch",
+                                kind: .answerGrant(requestID: "grant_update", answer: .allowOnce, updateMode: .now))
+    var snapshots = 0
+    for try await event in stream {
+        if case .message(let envelope) = event, envelope.type == "snapshot" {
+            snapshots += 1
+            let epoch = snapshots == 1 ? "test-epoch" : "new-epoch"
+            #expect(envelope.epoch == (includesSnapshotEpoch ? epoch : nil))
+            #expect(envelope.controlEpoch == epoch)
+            if snapshots == 1 {
+                _ = try await transport.execute(approval)
+                await io.restart()
+                await io.sockets.first?.close()
+            } else { break }
+        }
+    }
+    #expect(await io.capabilityReads == 2)
+    await #expect(throws: AnnexTransportError.commandOutcomeUnknown(commandID: approval.commandID)) {
+        try await transport.execute(approval)
+    }
+    #expect(await io.posts == 1, "The old approval is not posted again or satisfied by an old cached receipt")
+    let socket = try #require(await io.sockets.last)
+    for _ in 0..<50 {
+        if await !socket.sent.isEmpty { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    let replay = try JSONDecoder().decode(AnnexJSON.self, from: #require(await socket.sent.last))
+    #expect(replay["epoch"]?.string == "new-epoch" && replay["since"]?.integer == 0)
+    await transport.disconnect()
 }
 
 @Test func disconnectCancelsSocketAndPreventsReconnect() async throws {
@@ -81,6 +142,67 @@ private func sessionFixture(unauthorized: Bool = false) async throws -> (AnnexTr
     try await Task.sleep(for: .milliseconds(150))
     #expect(await socket.closeCount >= 1)
     #expect(await io.sockets.count == 1)
+}
+
+@Test(arguments: [false, true])
+func qaSocketEpochRemainsCorrectWhenRestartRacesTheUpgrade(cancelRefreshWhenClosed: Bool) async throws {
+    let (transport, io) = try await sessionFixture(includesSnapshotEpoch: false)
+    await io.restartBetweenCapabilitiesAndSocket()
+    let stream = await transport.events()
+    try await transport.connect()
+    for _ in 0..<400 {
+        if await !io.sockets.isEmpty { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    let socket = try #require(await io.sockets.first)
+    let (start, trigger) = AsyncStream<Void>.makeStream()
+    let refresh = Task {
+        for await _ in start { break }
+        return try await transport.read(.capabilities)
+    }
+    if cancelRefreshWhenClosed {
+        // LiveService cancels its capability refresh when the transport announces a disconnect.
+        await socket.onClose { refresh.cancel() }
+    }
+    trigger.yield(()); trigger.finish()
+    let currentCapabilities = try await refresh.value
+    #expect(currentCapabilities["epoch"]?.string == "new-epoch")
+    await socket.push(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#)
+    for _ in 0..<400 {
+        if await io.sockets.count == 2 { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    try #require(await io.sockets.count == 2, "A new capabilities epoch must replace the socket, not retag its buffered frames")
+    let replacement = try #require(await io.sockets.last)
+    let rows = try #require(AnnexContract.json("snapshot-grant-requests.json")["value"])
+    let fresh = AnnexEnvelope(type: "snapshot", payload: .object([
+        "lastSeq": .integer(0), "projects": .array([]), "agents": .object([:]), "grantRequests": rows
+    ]))
+    await replacement.push(String(decoding: try JSONEncoder().encode(fresh), as: UTF8.self))
+    var requiredResync = false
+    for try await event in stream {
+        if case .resyncRequired(.serverRestart) = event { requiredResync = true }
+        if case .message(let envelope) = event, envelope.type == "snapshot" {
+            #expect(envelope.epoch == nil)
+            #expect(envelope.payload?["grantRequests"] == rows, "Only the replacement socket's snapshot may be exposed")
+            #expect(envelope.controlEpoch == currentCapabilities["epoch"]?.string,
+                    "A socket opened after restart cannot stamp new rows with the prior epoch")
+            break
+        }
+    }
+    #expect(requiredResync)
+    #expect(await socket.closeCount >= 1)
+    for _ in 0..<50 {
+        if await !replacement.sent.isEmpty { break }
+        try await Task.sleep(for: .milliseconds(5))
+    }
+    let replay = try JSONDecoder().decode(AnnexJSON.self, from: #require(await replacement.sent.last))
+    #expect(replay["epoch"]?.string == "new-epoch",
+            "The replacement socket replays with its freshly negotiated epoch")
+    await transport.disconnect()
+    try await Task.sleep(for: .milliseconds(150))
+    #expect(await replacement.closeCount >= 1)
+    #expect(await io.sockets.count == 2, "Shutdown must also stop the replacement's reconnect loop")
 }
 
 @Test func unauthorizedStopsWithoutReconnectLoop() async throws {
