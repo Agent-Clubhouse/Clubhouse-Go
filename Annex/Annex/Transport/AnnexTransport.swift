@@ -19,6 +19,7 @@ public actor AnnexTransport: AnnexTransporting {
     private var telemetryHello: (request: AnnexTelemetryHandshake.Request, span: AnnexDiagnosticSpan)?
     private var telemetryDeadline: Task<Void, Never>?
     private var socket: (any AnnexWebSocket)?
+    private var socketControlEpoch: String?
     private var generation = UUID()
     private var state: AnnexConnectionState = .disconnected
     private var capabilities: AnnexCapabilities?
@@ -136,14 +137,21 @@ public actor AnnexTransport: AnnexTransporting {
             guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
             guard loop == nil, generation == requestedGeneration else { return }
             try Task.checkCancellation()
-            generation = UUID()
-            let current = generation
-            transition(.connecting)
-            loop = Task { [weak self] in await self?.run(generation: current) }
+            beginConnection()
 
         }
     }
+    private func beginConnection() {
+        generation = UUID()
+        let current = generation
+        transition(.connecting)
+        loop = Task { [weak self] in await self?.run(generation: current) }
+    }
     public func disconnect() async {
+        let oldSocket = stopConnection()
+        await oldSocket?.close()
+    }
+    private func stopConnection() -> (any AnnexWebSocket)? {
         telemetry.record(.disconnect)
         endTelemetryHello(.cancelled)
         telemetryBinding = nil
@@ -151,6 +159,7 @@ public actor AnnexTransport: AnnexTransporting {
         generation = UUID()
         loop?.cancel(); loop = nil
         let oldSocket = socket; socket = nil
+        socketControlEpoch = nil
         fullEventReviews.removeAll()
         capabilities = nil
         awaitingFirstSnapshot = false
@@ -158,7 +167,7 @@ public actor AnnexTransport: AnnexTransporting {
         initialReplayDeadline?.cancel(); initialReplayDeadline = nil
         droppedBeforeSnapshot = false; awaitingInitialReplay = false
         transition(.disconnected)
-        await oldSocket?.close()
+        return oldSocket
     }
 
     private func authorizedRequest(path: [String], query: [URLQueryItem] = [], encodedQuery: String? = nil, webSocket: Bool = false) async throws -> URLRequest {
@@ -256,6 +265,14 @@ public actor AnnexTransport: AnnexTransporting {
                     let (value, decoded) = try Self.validatedCapabilities(response)
                     commands = commands.filter { $0.key.epoch == decoded.epoch }
                     capabilities = decoded
+                    if (socket != nil || socketControlEpoch != nil), socketControlEpoch != decoded.epoch {
+                        // Buffered frames still belong to the old binding, even if an epochless snapshot looks current.
+                        let oldSocket = stopConnection()
+                        emit(.resyncRequired(.serverRestart))
+                        // The disconnect may cancel the caller's refresh task. Start its replacement before yielding.
+                        beginConnection()
+                        await oldSocket?.close()
+                    }
                     return value
                 } catch { capabilities = nil; throw error }
             }
@@ -429,6 +446,7 @@ public actor AnnexTransport: AnnexTransporting {
                 do { _ = try await read(.capabilities) }
                 catch AnnexTransportError.rejected(status: 404, code: _, message: _) { capabilities = nil }
                 let controlEpoch = capabilities?.epoch
+                socketControlEpoch = controlEpoch
                 socketUsesIconRefs = (capabilities?.iconRefs?.version ?? 0) >= 1
                 var query = [URLQueryItem(name: "client", value: "mobile")]
                 if socketUsesIconRefs { query.append(URLQueryItem(name: "iconRefs", value: "1")) }
@@ -436,6 +454,10 @@ public actor AnnexTransport: AnnexTransporting {
                 guard current == generation && !Task.isCancelled else { return }
                 let newSocket = try await io.openWebSocket(request)
                 guard current == generation && !Task.isCancelled else { await newSocket.close(); return }
+                guard controlEpoch == capabilities?.epoch else {
+                    await newSocket.close()
+                    throw AnnexTransportError.disconnected
+                }
                 socket = newSocket
                 try await sendTelemetryHello(on: newSocket, attemptID: attemptID, generation: current)
                 cursor.beginConnection()
@@ -451,6 +473,7 @@ public actor AnnexTransport: AnnexTransporting {
                 guard current == generation && !Task.isCancelled else { return }
                 fullEventReviews.removeAll()
                 capabilities = nil
+                socketControlEpoch = nil
                 let oldSocket = socket; socket = nil; await oldSocket?.close()
                 guard current == generation && !Task.isCancelled else { return }
                 if let terminal = terminalError(error) {

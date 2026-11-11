@@ -7,6 +7,13 @@
       "surface": {
         "bases": [],
         "nestedValueProperties": {
+          "CompanionStore.AppUpdateAttempt": {
+            "commandID": "String",
+            "initialVersion": "String ?",
+            "previousRequestID": "String ?",
+            "requestID": "String ?",
+            "targetVersion": "String ?"
+          },
           "CompanionStore.AppUpdateAttemptKey": {
             "epoch": "String ?",
             "hostID": "String",
@@ -18,7 +25,7 @@
           }
         },
         "properties": {
-          "appUpdateAttempts": "[ AppUpdateAttemptKey : String ]",
+          "appUpdateAttempts": "[ AppUpdateAttemptKey : AppUpdateAttempt ]",
           "appUpdateErrors": "[ String : String ]",
           "appUpdateInFlight": "Set < String >",
           "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",

@@ -45,7 +45,14 @@ import Observation
         var epoch: String?
         var requestID: String?
     }
-    private var appUpdateAttempts: [AppUpdateAttemptKey: String] = [:]
+    private struct AppUpdateAttempt {
+        var commandID: String
+        var previousRequestID: String?
+        var requestID: String?
+        var initialVersion: String?
+        var targetVersion: String?
+    }
+    private var appUpdateAttempts: [AppUpdateAttemptKey: AppUpdateAttempt] = [:]
     private(set) var spawnInProgress = false
     var spawnError: String?
     private(set) var uncertainSpawnRequest: CompanionSpawnRequest?
@@ -713,31 +720,61 @@ import Observation
     func requestAppUpdate(hostID: String) async {
         guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               host.appUpdate?.canRequest == true, !appUpdateInFlight.contains(hostID) else { return }
-        await changeAppUpdate(hostID: hostID, epoch: host.controlEpoch, requestID: nil)
+        await changeAppUpdate(host, requestID: nil)
     }
     func cancelAppUpdate(hostID: String) async {
         guard let host = hosts.first(where: { $0.id == hostID }), host.connection.canOperate, host.canUpdateApp,
               let request = host.appUpdate?.request, request.canCancel, !appUpdateInFlight.contains(hostID) else { return }
-        await changeAppUpdate(hostID: hostID, epoch: host.controlEpoch, requestID: request.requestId)
+        await changeAppUpdate(host, requestID: request.requestId)
     }
-    private func changeAppUpdate(hostID: String, epoch: String?, requestID: String?) async {
+    private func changeAppUpdate(_ host: CompanionHost, requestID: String?) async {
+        let hostID = host.id, epoch = host.controlEpoch
         let key = AppUpdateAttemptKey(hostID: hostID, epoch: epoch, requestID: requestID)
-        let commandID = appUpdateAttempts[key] ?? UUID().uuidString
-        appUpdateAttempts[key] = commandID
+        let attempt = appUpdateAttempts[key] ?? .init(
+            commandID: UUID().uuidString, previousRequestID: host.appUpdate?.request?.requestId, requestID: requestID,
+            initialVersion: host.appUpdate?.currentVersion,
+            targetVersion: requestID == nil ? host.appUpdate?.availableVersion : host.appUpdate?.request?.version)
+        appUpdateAttempts[key] = attempt
         appUpdateInFlight.insert(hostID); appUpdateErrors[hostID] = nil
         defer { appUpdateInFlight.remove(hostID) }
         do {
-            if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: commandID) }
-            else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: commandID) }
+            if let requestID { try await service.cancelAppUpdate(hostID: hostID, requestID: requestID, clientCommandID: attempt.commandID) }
+            else { try await service.requestAppUpdate(hostID: hostID, clientCommandID: attempt.commandID) }
             appUpdateAttempts[key] = nil
         } catch {
-            if case CompanionServiceError.uncertain = error {} else { appUpdateAttempts[key] = nil }
             guard let host = hosts.first(where: { $0.id == hostID }), host.controlEpoch == epoch else {
                 appUpdateAttempts[key] = nil
                 return
             }
+            if case CompanionServiceError.uncertain = error {
+                guard appUpdateAttempts[key] != nil else { return }
+            } else { appUpdateAttempts[key] = nil }
             appUpdateErrors[hostID] = error.localizedDescription
         }
+    }
+    private func reconcileAppUpdateAttempts(in incoming: [CompanionHost]) {
+        var unresolved: [AppUpdateAttemptKey: AppUpdateAttempt] = [:]
+        for (key, var attempt) in appUpdateAttempts {
+            guard let host = incoming.first(where: { $0.id == key.hostID && $0.controlEpoch == key.epoch }) else { continue }
+            if let update = host.appUpdate {
+                if let initial = attempt.initialVersion, let target = attempt.targetVersion,
+                   update.currentVersion == target, initial != target {
+                    appUpdateErrors[key.hostID] = nil
+                    continue
+                }
+                // A repeated terminal row from before this attempt does not identify its new request.
+                if attempt.requestID == nil, let request = update.request, request.requestId != attempt.previousRequestID {
+                    attempt.requestID = request.requestId
+                }
+                if let requestID = attempt.requestID,
+                   update.request?.requestId != requestID || update.request?.isActive != true {
+                    appUpdateErrors[key.hostID] = nil
+                    continue
+                }
+            }
+            unresolved[key] = attempt
+        }
+        appUpdateAttempts = unresolved
     }
 
     func answer(_ question: CompanionQuestion, answers: [String: CompanionAnswer], target: CompanionTarget) async {
@@ -1200,9 +1237,7 @@ import Observation
                     appUpdateErrors[host.id] = nil
                 }
             }
-            appUpdateAttempts = appUpdateAttempts.filter { key, _ in
-                incoming.contains { $0.id == key.hostID && $0.controlEpoch == key.epoch }
-            }
+            reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }
                 fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }

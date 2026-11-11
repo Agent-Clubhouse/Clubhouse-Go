@@ -378,11 +378,10 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(currentAttempt.epoch == "new-epoch")
     }
 
-    @Test func anUncertainRequestAndCancellationKeepIndependentRetryIDs() async throws {
+    @Test func anUncertainRequestAndCancellationKeepIndependentRetryIDsUntilResolved() async throws {
         let (service, store, desktop) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.id) }
         await desktop.setLostReply(true)
-        await store.cancelAppUpdate(hostID: Self.id)
         let pending = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"])
         let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
             $0["state"]?.string == "ready" && $0["request"] == .null
@@ -393,13 +392,17 @@ private actor UpdateDesktop: AnnexTransporting {
         try await desktop.change(pending)
         try await wait { store.hosts.first?.appUpdate?.request?.canCancel == true }
         await store.cancelAppUpdate(hostID: Self.id)
+        await store.cancelAppUpdate(hostID: Self.id)
+        let unresolved = await desktop.sent
+        try #require(unresolved.count == 3)
+        #expect(unresolved[0].commandID != unresolved[1].commandID)
+        #expect(unresolved[1] == unresolved[2])
         try await desktop.change(ready)
         try await wait { store.hosts.first?.appUpdate?.canRequest == true }
         await store.requestAppUpdate(hostID: Self.id)
         let sent = await desktop.sent
         try #require(sent.count == 4)
-        #expect(sent[0] == sent[2] && sent[1] == sent[3])
-        #expect(sent[0].commandID != sent[1].commandID)
+        #expect(sent[0].commandID != sent[3].commandID, "Authoritative disappearance resolved the earlier request")
     }
 
     @Test func anOldApprovalCannotAnswerAnIdenticalRequestIDInTheNewEpoch() async throws {
@@ -424,6 +427,106 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(await desktop.sent.isEmpty)
         await store.answer(currentRequest, with: .decline)
         #expect(await desktop.sent.count == 1)
+    }
+
+    @Test func qaReconciledCancelledRequestAllowsAFreshExplicitRequest() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let values = try ContractFixtures.json("app-update-statuses.json")["values"].arrayValue
+        let ready = try #require(values.first { $0["state"]?.string == "ready" && $0["request"] == .null })
+        let pending = try #require(values.first { $0["request"]?["state"]?.string == "pending_approval" })
+        let cancelled = try #require(values.first { $0["request"]?["state"]?.string == "cancelled" })
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.setLostReply(true)
+        await store.requestAppUpdate(hostID: Self.id)
+        try await desktop.change(pending)
+        try await wait { store.hosts.first?.appUpdate?.request?.state == .pendingApproval }
+        try await desktop.change(cancelled)
+        try await wait { store.hosts.first?.appUpdate?.request?.state == .cancelled }
+        await desktop.setLostReply(false)
+        await store.requestAppUpdate(hostID: Self.id)
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0].commandID != sent[1].commandID,
+                "A new request after authoritative cancellation is not a retry of the old request")
+    }
+
+    @Test(arguments: [false, true])
+    func authoritativeTerminalStatesResolveUnknownRequestAndCancelOutcomes(cancel: Bool) async throws {
+        let values = try ContractFixtures.json("app-update-statuses.json")["values"].arrayValue
+        let ready = try #require(values.first { $0["state"]?.string == "ready" && $0["request"] == .null })
+        let pending = try #require(values.first { $0["request"]?["state"]?.string == "pending_approval" })
+        for value in values where ["cancelled", "failed"].contains(value["request"]?["state"]?.string ?? "") {
+            let (service, store, desktop) = try await connect()
+            defer { store.stop(); service.remove(hostID: Self.id) }
+            if !cancel {
+                try await desktop.change(ready)
+                try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+            }
+            await desktop.setLostReply(true)
+            if cancel { await store.cancelAppUpdate(hostID: Self.id) }
+            else { await store.requestAppUpdate(hostID: Self.id) }
+            #expect(store.appUpdateErrors[Self.id] != nil)
+            try await desktop.change(pending)
+            try await wait { store.hosts.first?.appUpdate?.request?.state == .pendingApproval }
+            let expected = try value.decode(AnnexAppUpdate.self)
+            try await desktop.change(value)
+            try await wait { store.hosts.first?.appUpdate == expected }
+            #expect(store.appUpdateErrors[Self.id] == nil, "Authoritative outcomes resolve the lost receipt")
+            #expect(await desktop.sent.count == 1, "Reconciliation must never dispatch another command")
+            if !cancel {
+                await desktop.setLostReply(false)
+                await store.requestAppUpdate(hostID: Self.id)
+                let sent = await desktop.sent
+                try #require(sent.count == 2)
+                #expect(sent[0].commandID != sent[1].commandID)
+            }
+        }
+    }
+
+    @Test func aPreexistingTerminalRowDoesNotResolveANewUnknownRequest() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let cancelled = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["request"]?["state"]?.string == "cancelled"
+        })
+        try await desktop.change(cancelled)
+        try await wait { store.hosts.first?.appUpdate?.request?.state == .cancelled }
+        await desktop.setLostReply(true)
+        await store.requestAppUpdate(hostID: Self.id)
+        await service.reconnect(hostID: Self.id)
+        try await wait { store.hosts.first?.connection == .connected }
+        #expect(store.appUpdateErrors[Self.id] != nil)
+        await desktop.setLostReply(false)
+        await store.requestAppUpdate(hostID: Self.id)
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0] == sent[1], "The old terminal row must not invent a fresh request id for an unresolved attempt")
+    }
+
+    @Test func anInstalledVersionResolvesALostRequestWithoutAnIntermediateApprovalSnapshot() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let ready = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "ready" && $0["request"] == .null
+        })
+        let version = try #require(ready["availableVersion"]?.string)
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.setLostReply(true)
+        await store.requestAppUpdate(hostID: Self.id)
+        try await desktop.change(.object(["state": .string("none"), "currentVersion": .string(version), "downloadProgress": .integer(0)]))
+        try await wait { store.hosts.first?.appUpdate?.currentVersion == version }
+        #expect(store.appUpdateErrors[Self.id] == nil)
+        #expect(await desktop.sent.count == 1)
+        try await desktop.change(ready)
+        try await wait { store.hosts.first?.appUpdate?.canRequest == true }
+        await desktop.setLostReply(false)
+        await store.requestAppUpdate(hostID: Self.id)
+        let sent = await desktop.sent
+        try #require(sent.count == 2)
+        #expect(sent[0].commandID != sent[1].commandID)
     }
 }
 
