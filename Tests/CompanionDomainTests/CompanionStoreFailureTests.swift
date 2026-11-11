@@ -9,6 +9,7 @@ import Testing
 
     var historyValue = CompanionHistory(items: [])
     var historyCalls = 0
+    var historyError: Error?
     var sent: [CompanionSendRequest] = []
     var sendError: Error?
     var cancelled: [CompanionTarget] = []
@@ -31,7 +32,11 @@ import Testing
     var spawnError: Error?
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
-    func history(for target: CompanionTarget) async throws -> CompanionHistory { historyCalls += 1; return historyValue }
+    func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        historyCalls += 1
+        if let historyError { throw historyError }
+        return historyValue
+    }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
         sent.append(request)
         if let sendError { throw sendError }
@@ -211,6 +216,26 @@ import Testing
         return value.resolution
     }
 
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func anApprovalDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = connection })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        await store.respond(approval, option: allow, target: target)
+        #expect(service.responses.isEmpty)
+        #expect(approvalResolution(store) == .pending)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.decisionNotices(for: target).first?.message.contains("Allow once for Agent") == true)
+        store.apply(.hosts([host()]))
+        #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.count == 1)
+        #expect(service.responses.isEmpty, "Readiness must not send a previously blocked approval")
+        await store.respond(approval, option: allow, target: target)
+        #expect(service.responses == ["p"])
+        #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
+    }
+
     @Test func rejectedApprovalReopensItForAnotherAnswer() async {
         let service = ScriptedCompanionService()
         service.respondError = CompanionServiceError.rejected("Stale request")
@@ -248,6 +273,110 @@ import Testing
     private func questionResolution(_ store: CompanionStore) -> CompanionQuestion.Resolution? {
         guard case .question(let value)? = store.conversation(for: target).items.first else { return nil }
         return value.resolution
+    }
+
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing])
+    func aQuestionDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = connection })
+        store.apply(.upsert(target, .question(question), sequence: 1))
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(service.answered.isEmpty)
+        #expect(questionResolution(store) == .pending)
+        #expect(store.attentionItems().isEmpty)
+        #expect(store.decisionNotices(for: target).first?.message.contains("Answer for Agent") == true)
+        store.apply(.hosts([host()]))
+        #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.count == 1)
+        #expect(service.answered.isEmpty, "Readiness must not send a previously blocked answer")
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(service.answered == ["q"])
+        #expect(store.operationErrors[target] == nil)
+        #expect(store.attentionDecisionNotices.isEmpty)
+    }
+
+    @Test func qaHistoryResolutionRetiresDecisionNotices() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        store.apply(.upsert(target, .question(question), sequence: 2))
+        await store.respond(approval, option: allow, target: target)
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(store.decisionNotices(for: target).count == 2)
+        store.apply(.hosts([host()]))
+        var resolvedApproval = approval
+        resolvedApproval.resolution = .allowed
+        var resolvedQuestion = question
+        resolvedQuestion.resolution = .answered
+        service.historyValue = .init(items: [.approval(resolvedApproval), .question(resolvedQuestion)], lastSequence: 3)
+        await store.load(target, force: true)
+        #expect(approvalResolution(store) == .allowed)
+        #expect(store.conversation(for: target).items.contains {
+            if case .question(let value) = $0 { return value.id == question.id && value.resolution == .answered }
+            return false
+        })
+        #expect(store.decisionNotices(for: target).isEmpty,
+                "A reconnect history refresh resolved both prompts, but their Not sent notices remain")
+    }
+
+    @Test func qaAuthoritativeDisappearanceRetiresDecisionNotices() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing })
+        store.apply(.timeline(target, items: [.approval(approval), .question(question)], sequence: 2, reset: true, sessionID: "same-session"))
+        await store.respond(approval, option: allow, target: target)
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(store.decisionNotices(for: target).count == 2)
+        store.apply(.hosts([host()]))
+        store.apply(.timeline(target, items: [], sequence: 3, reset: true, sessionID: "same-session"))
+        #expect(store.conversation(for: target).items.isEmpty)
+        #expect(store.decisionNotices(for: target).isEmpty,
+                "A same-session authoritative replacement no longer contains either pending item")
+    }
+
+    @Test func noticesSurvivePartialStaleAndFailedHistoryUntilReplacement() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        await store.respond(approval, option: allow, target: target)
+        store.apply(.hosts([host()]))
+        #expect(store.decisionNotices(for: target).count == 1, "An operable host with unloaded history cannot establish resolution")
+        store.apply(.timeline(target, items: [], sequence: 2, reset: false, sessionID: nil))
+        #expect(store.decisionNotices(for: target).count == 1, "A partial timeline window cannot establish disappearance")
+        service.historyValue = .init(items: [], lastSequence: 1)
+        await store.load(target, force: true)
+        #expect(store.decisionNotices(for: target).count == 1, "History older than the current stream is not an authoritative replacement")
+        service.historyError = ScriptedCompanionService.Failure()
+        await store.load(target, force: true)
+        #expect(store.conversation(for: target).requiresResync)
+        #expect(store.decisionNotices(for: target).count == 1, "A failed refresh cannot establish resolution")
+        service.historyError = nil
+        service.historyValue = .init(items: [], lastSequence: 3)
+        await store.load(target, force: true)
+        #expect(store.conversation(for: target).items.isEmpty)
+        #expect(store.decisionNotices(for: target).isEmpty)
+        #expect(service.responses.isEmpty)
+    }
+
+    @Test func authoritativeDecisionResolutionClearsOnlyItsReconnectNotice() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing })
+        store.apply(.upsert(target, .approval(approval), sequence: 1))
+        store.apply(.upsert(target, .question(question), sequence: 2))
+        await store.respond(approval, option: allow, target: target)
+        await store.answer(question, answers: ["color": .choices(["red"])], target: target)
+        #expect(store.decisionNotices(for: target).count == 2)
+        store.apply(.hosts([host()]))
+        #expect(store.decisionNotices(for: target).count == 2)
+        var resolvedApproval = approval
+        resolvedApproval.resolution = .allowed
+        store.apply(.upsert(target, .approval(resolvedApproval), sequence: 3))
+        #expect(store.decisionNotices(for: target).count == 1)
+        #expect(store.decisionNotices(for: target).first?.action == .question(question.id))
+        var resolvedQuestion = question
+        resolvedQuestion.resolution = .answered
+        store.apply(.upsert(target, .question(resolvedQuestion), sequence: 4))
+        #expect(store.decisionNotices(for: target).isEmpty)
+        #expect(service.responses.isEmpty && service.answered.isEmpty)
     }
 
     @Test func answeredQuestionIsMarkedAnswered() async {

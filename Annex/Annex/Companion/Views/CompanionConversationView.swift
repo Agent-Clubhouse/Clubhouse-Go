@@ -83,6 +83,8 @@ struct CompanionConversationView: View {
         let conversationContent = VStack(spacing: 0) {
             if store.justCreated == target { CompanionCreatedAgentNotice(store: store, agent: agent) { focusComposer() } }
             connectionBanner
+            CompanionDecisionNoticesView(store: store, notices: store.decisionNotices(for: target))
+                .padding(.horizontal)
             if store.hasPendingProviderAction(target) {
                 Text("A provider action is awaiting confirmation. Open Agent settings to check its result.")
                     .font(.subheadline).padding(.horizontal)

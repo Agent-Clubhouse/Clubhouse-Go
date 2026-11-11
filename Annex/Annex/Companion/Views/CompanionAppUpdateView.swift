@@ -23,7 +23,9 @@ struct CompanionAppUpdateView: View {
     @State private var confirmingRequest = false
     private var host: CompanionHost? { store.hosts.first { $0.id == hostID } }
     var body: some View {
+        let notices = (store.decisionNotices[hostID] ?? []).filter { $0.target == nil }
         List {
+            if !notices.isEmpty { CompanionDecisionNoticesView(store: store, notices: notices) }
             if let host, host.canUpdateApp {
                 if let update = host.appUpdate {
                     Section {
@@ -70,6 +72,7 @@ struct CompanionAppUpdateView: View {
         .navigationTitle("Desktop update")
         .alert("Request update on \(host?.name ?? "desktop")?", isPresented: $confirmingRequest) {
             Button("Request update") { Task { await store.requestAppUpdate(hostID: hostID) } }
+                .disabled(host?.connection.canOperate != true || store.appUpdateInFlight.contains(hostID))
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This only creates an approval in Needs you. \(CompanionAppUpdateText.restart)")
