@@ -7,6 +7,9 @@
   `scripts/testflight.sh` at archive time. Later commits always get higher build numbers.
 - The archive also sets `FRAMEBRIAR_BUILD_SHA` to the full commit, which Info.plist carries as
   `FramebriarBuildSHA`, so feedback reports and telemetry from the build carry `buildSha`.
+- Settings → About shows the installed version, build number and seven-character commit, when available.
+  Long-press the row to copy the full commit. Local Xcode builds default to build `1` and no commit
+  unless `CURRENT_PROJECT_VERSION` and `FRAMEBRIAR_BUILD_SHA` are supplied explicitly.
 - Each build sent to Apple comes from a commit with a release tag, following the desktop's convention:
   - A version-bump PR (`chore: bump version to 2.0.0-beta.1 (TestFlight)`).
   - An annotated, signed tag on its merge commit, e.g. `v2.0.0-beta.1`, with the release title as the

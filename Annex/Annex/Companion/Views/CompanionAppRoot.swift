@@ -463,6 +463,7 @@ struct CompanionSettingsSheet: View {
                     Text("Connect over the same local network or a direct Tailscale address. Your agents keep running on your desktop when you leave the app.")
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
+                CompanionBuildInfoSection()
                 if let error { Section { Text(error).foregroundStyle(.red) } }
             }
             .onAppear { AnnexTelemetry.shared.record(.settings) }
@@ -499,6 +500,31 @@ struct CompanionSettingsSheet: View {
     }
 }
 
+
+struct CompanionBuildInfoSection: View {
+    private let version = CompanionBuildInfo.version()
+    private let sha = CompanionBuildInfo.buildSHA()
+
+    var body: some View {
+        let text = CompanionBuildInfo.settingsVersion(version: version.version, build: version.build, sha: sha)
+        Section("About") {
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .contextMenu {
+                    if let sha {
+                        Button("Copy build SHA", systemImage: "doc.on.doc") { UIPasteboard.general.string = sha }
+                    } else {
+                        Button("Copy version", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                    }
+                }
+                .accessibilityIdentifier("settings-build-version")
+                .accessibilityLabel("App \(text)")
+                .accessibilityHint(sha == nil ? "Long-press to copy the version." : "Long-press to copy the full build commit.")
+        }
+    }
+}
 
 /// Shared with the preview so launch-preference UI tests exercise the production control.
 struct CompanionStartScreenPicker: View {

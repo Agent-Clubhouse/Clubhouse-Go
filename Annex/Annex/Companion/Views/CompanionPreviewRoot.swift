@@ -72,6 +72,7 @@ struct CompanionPreviewRoot: View {
                                 Button("Reconnect desktop") { report(connection: .connected) }
                             }
                         }
+                        CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil } } }

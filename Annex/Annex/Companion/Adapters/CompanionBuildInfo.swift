@@ -20,4 +20,11 @@ nonisolated enum CompanionBuildInfo {
         (bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
          bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String)
     }
+
+    static func settingsVersion(version: String?, build: String?, sha: String?) -> String {
+        var text = "Version \(version ?? "unknown")"
+        if let build { text += " (\(build))" }
+        if let sha { text += " · build \(sha.prefix(7))" }
+        return text
+    }
 }
