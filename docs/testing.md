@@ -50,6 +50,11 @@ same operation-error accessibility sentinel used by the hardware send and no-sen
 
 ### Writing UI tests for hosted runners
 
+`CompanionPreviewSmokeTests/testWakeSheetAcceptsTextWithoutTapping` probes #246 with
+animations enabled: it opens Wake with a message, types without tapping the field,
+then requires the software keyboard, exact text and enabled Wake action. The existing
+project-page smoke test separately covers explicitly tapped entry.
+
 GitHub's macOS runners can take 15–20 s per element lookup and 90 s per launch, and sometimes drop a tap or long-press. Fixture-mode UI tests subclass `ReliableUITestCase` (`Annex/AnnexUITests/UITestSupport.swift`):
 
 - `launchApp(_:)` launches in portrait with `--ui-testing-fast` (UIKit animations off, DEBUG only) and relaunches after a launch or terminate timeout.
