@@ -45,7 +45,8 @@ nonisolated enum CompanionPermissionLevel: String, CaseIterable, Sendable, Compa
 
 extension CompanionAgent {
     var liveAccess: CompanionPermissionLevel? {
-        chatControls?.level ?? session?.level.flatMap(CompanionPermissionLevel.init(rawValue:))
+        guard isRunning, isSleepingOnDesktop != true else { return nil }
+        return chatControls?.level ?? session?.level.flatMap(CompanionPermissionLevel.init(rawValue:))
     }
     /// Only chat uses the live level. Catalog rows use the saved launch level.
     var displayedChatAccess: CompanionPermissionLevel? { liveAccess ?? access }

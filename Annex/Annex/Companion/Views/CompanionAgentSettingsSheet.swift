@@ -213,7 +213,7 @@ struct CompanionAgentSettingsForm: View {
     private func hides(_ setting: String, _ settings: CompanionAgentSettings) -> Bool {
         showsDispatcherSettings && settings.notHonored.contains(setting)
     }
-    /// Re-read when the snapshot changes what the agent is doing, its name or its orchestration, as the desktop broadcasts after an update.
+    /// Re-read when the snapshot changes the lifecycle, identity, Access or orchestration.
     private var refreshKey: String {
         let sleeping = agent?.isSleepingOnDesktop
         let lifecycle = sleeping == true ? "asleep" : sleeping == false ? "awake" : "unknown"
@@ -222,6 +222,7 @@ struct CompanionAgentSettingsForm: View {
         values.append(agent?.orchestration.map { "\($0)" } ?? "")
         values.append(agent?.parentAgentID ?? "")
         values.append(agent?.orchestrator ?? "")
+        values.append(agent?.access?.rawValue ?? "")
         return values.joined(separator: "|")
     }
 
@@ -465,8 +466,8 @@ struct CompanionAgentSettingsForm: View {
                         .accessibilityIdentifier("agent-settings-access")
                 } else {
                     Picker("Access", selection: Binding(get: { access.value }, set: { level in
-                        guard level != access.value, access.choices.contains(where: { $0.id == level }) else { return }
-                        if level.needsConfirmation(from: access.value) {
+                        guard level != (agent?.access ?? access.value), access.choices.contains(where: { $0.id == level }) else { return }
+                        if accessNeedsConfirmation(level, saved: access) {
                             pendingAccess = level
                             confirmAccess = true
                         } else { save(.init(access: level)) }
@@ -635,6 +636,10 @@ struct CompanionAgentSettingsForm: View {
     }
 
     private var canSetAccess: Bool { store.host(for: target)?.canSetAccess == true }
+
+    func accessNeedsConfirmation(_ level: CompanionPermissionLevel, saved: CompanionSavedAccess) -> Bool {
+        level.needsConfirmation(from: agent?.access ?? saved.value)
+    }
 
     /// "Chat · Opus · Sleeps after 30 min", as the Settings card's one line.
     private func summary(_ settings: CompanionAgentSettings) -> String {

@@ -92,6 +92,24 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
         #expect(CompanionAgentCommandError.message(code: "access_unavailable", message: "This CLI cannot start in Auto.") == "This CLI cannot start in Auto.")
     }
 
+    @Test func endedSessionsUseSavedAccessDespiteRetainedLiveFacts() {
+        var agent = CompanionAgent(id: .init(hostID: "h", projectID: "p", agentID: "a"), name: "a", subtitle: "", status: .idle)
+        agent.access = .plan
+        agent.session = .init(level: "full_access")
+        #expect(agent.liveAccess == .fullAccess)
+        for status in [CompanionAgentStatus.sleeping, .stopped, .completed, .failed] {
+            agent.status = status
+            #expect(agent.liveAccess == nil && agent.displayedChatAccess == .plan)
+            #expect(CompanionAgentDetails(agent: agent).access == "Plan")
+        }
+        agent.status = .idle
+        agent.isSleepingOnDesktop = true
+        agent.chatControls = .init(level: .auto)
+        #expect(agent.liveAccess == nil && agent.displayedChatAccess == .plan)
+        agent.isSleepingOnDesktop = false
+        #expect(agent.liveAccess == .auto)
+    }
+
     @Test func createOptionsDecodeTheNewAgentForm() throws {
         let options = try CompanionCreateOptions(json: json(optionsJSON))
         #expect(options.options.orchestrators.map(\.id) == ["claude-code", "codex"])
