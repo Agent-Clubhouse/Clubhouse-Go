@@ -89,6 +89,46 @@ import XCTest
         XCTAssertFalse(app.buttons["grant-request-allow"].exists)
     }
 
+    func testDesktopUpdateInChatRequiresExplicitRestartMode() {
+        let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
+        let home = app.tabBars.buttons["Home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        waitAndTap(home, until: app.navigationBars["Clubhouse"])
+        let indicator = app.buttons["app-update-preview-studio"]
+        XCTAssertTrue(scrollTo(indicator, in: app))
+        waitAndTap(indicator, until: app.navigationBars["Desktop update"])
+        app.buttons["app-update-request"].tap()
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        waitAndTap(alert.buttons["Request update"], untilGone: alert)
+        XCTAssertTrue(app.buttons["app-update-cancel"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
+        let summary = app.staticTexts["Update Clubhouse to 1.1.0"]
+        XCTAssertTrue(scrollUntilExists(summary, in: app))
+        let openChat = app.cells.containing(.staticText, identifier: "Update Clubhouse to 1.1.0").buttons["grant-request-open-chat"]
+        XCTAssertTrue(scrollTo(openChat, in: app))
+        let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
+        waitAndTap(openChat, until: card)
+
+        let allow = button("grant-request-allow", "Allow once", in: app)
+        revealChatAnswer(allow, in: app)
+        XCTAssertFalse(allow.isEnabled, "Chat must not allow an update without choosing its restart mode")
+        let picker = app.buttons["app-update-mode"]
+        XCTAssertTrue(picker.isHittable)
+        picker.tap()
+        XCTAssertTrue(app.buttons["Restart now"].exists && app.buttons["When idle"].exists)
+        app.buttons["Restart now"].tap()
+        XCTAssertTrue(allow.isEnabled)
+        picker.tap()
+        app.buttons["When idle"].tap()
+        XCTAssertTrue(allow.isEnabled)
+        attach(app, "Grant request: desktop update mode in chat")
+        waitAndTap(allow, untilGone: card)
+        waitAndTap(app.navigationBars.buttons.firstMatch, until: app.navigationBars["Needs you"])
+        XCTAssertFalse(summary.exists, "Answering the update in chat also clears its Needs you card")
+    }
+
     func testAllowOnceAndDeclineAnswerGrantRequests() {
         let app = openNeedsYou()
         // A held call: the host's line, its arguments whole, the agent's reason, and Allow once or Decline.

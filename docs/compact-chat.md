@@ -50,6 +50,8 @@ Clubhouse grant requests are separate cards pinned above the composer, not CLI a
 They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same
 `CompanionGrantRequestActions` and store answer gate. The cards use at most half the space above the composer and scroll
 when needed, including at accessibility sizes. Answering on either surface removes the request from both.
+Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
+remain subject to `store.canAnswer`.
 
 ## Recovery status
 

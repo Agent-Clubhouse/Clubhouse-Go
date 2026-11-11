@@ -8,6 +8,7 @@ import Testing
 
 @MainActor private final class GrantService: CompanionService {
     var answers: [(id: String, answer: CompanionGrantRequest.Answer, commandID: String)] = []
+    var updateModes: [AnnexUpdateMode?] = []
     var failures: [Error] = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { .init(items: []) }
@@ -19,6 +20,10 @@ import Testing
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws {
         answers.append((request.id, answer, clientCommandID))
         if !failures.isEmpty { throw failures.removeFirst() }
+    }
+    func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws {
+        updateModes.append(updateMode)
+        try await answerGrantRequest(request, answer: answer, clientCommandID: clientCommandID)
     }
 }
 
@@ -218,6 +223,44 @@ private func ask(_ id: String = "grant_ask", at seconds: TimeInterval = 60) -> C
         #expect(store.needsYouCount == 0 && !store.canAnswer(needsYouRequest))
         await store.answer(chatRequest, with: .decline)
         #expect(service.answers.map(\.answer) == [.allowOnce, .allowLasting])
+    }
+
+    @Test func chatCannotAnswerARowFromAnEarlierEpoch() async throws {
+        var request = call()
+        request.controlEpoch = "old-epoch"
+        let (store, service) = makeStore([request])
+        var host = store.hosts[0]
+        host.controlEpoch = request.controlEpoch
+        store.apply(.hosts([host]))
+        let oldChatRow = try #require(store.grantRequests(for: request.agentTarget).first)
+        #expect(store.canAnswer(oldChatRow))
+
+        host.controlEpoch = "new-epoch"
+        host.grantRequests[0].controlEpoch = host.controlEpoch
+        store.apply(.hosts([host]))
+        let newChatRow = try #require(store.grantRequests(for: request.agentTarget).first)
+        #expect(!store.canAnswer(oldChatRow) && store.canAnswer(newChatRow))
+        await store.answer(oldChatRow, with: .allowOnce)
+        #expect(service.answers.isEmpty, "A retained chat card cannot submit the same id from an old epoch")
+        #expect(store.grantRequests(for: request.agentTarget) == [newChatRow])
+    }
+
+    @Test func chatUpdateGrantRequiresAnExplicitRestartMode() async throws {
+        var request = call("update")
+        request.toolName = "request_app_update"
+        request.update = .init(version: "1.1.0", workingAgents: [])
+        let (store, service) = makeStore([request])
+        var host = store.hosts[0]
+        host.canUpdateApp = true
+        store.apply(.hosts([host]))
+        let chatRow = try #require(store.grantRequests(for: request.agentTarget).first)
+        await store.answer(chatRow, with: .allowOnce)
+        #expect(service.answers.isEmpty && store.canAnswer(chatRow))
+        #expect(store.grantRequestErrors[chatRow.slot] == "Choose Restart now or When idle before allowing an update.")
+        await store.answer(chatRow, with: .allowOnce, updateMode: .whenIdle)
+        #expect(service.answers.map(\.answer) == [.allowOnce] && service.updateModes == [.whenIdle])
+        #expect(store.grantRequests(for: request.agentTarget).isEmpty)
+        #expect(store.attentionItems().isEmpty)
     }
 
     @Test func aLostReplyRetriesWithTheSameCommandID() async {
