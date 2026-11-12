@@ -141,6 +141,10 @@ struct CompanionChatControlsPresentationTests {
         unresolved.model = "opus"
         unresolved.models = []
         #expect(unresolved.modelDifference(savedModel: "sonnet") == nil)
+        unresolved.models = controls.models + [.init(id: "default", label: "Default")]
+        #expect(unresolved.modelDifference(savedModel: "default") == nil, "A listed default still doesn't name its model")
+        unresolved.model = "default"
+        #expect(unresolved.modelDifference(savedModel: "sonnet") == nil)
     }
 
     @Test @MainActor func modelDifferenceRequiresTheSameRunningProviderAndAnHonoredSetting() async throws {
@@ -160,6 +164,9 @@ struct CompanionChatControlsPresentationTests {
         #expect(agent.modelDifference(from: settings) == nil)
         settings.notHonored = []
         agent.isSleepingOnDesktop = true
+        #expect(agent.modelDifference(from: settings) == nil)
+        agent.isSleepingOnDesktop = false
+        agent.status = .sleeping
         #expect(agent.modelDifference(from: settings) == nil)
     }
 

@@ -36,17 +36,28 @@ import XCTest
 
             let model = app.buttons["companion-model-menu"]
             waitAndTap(app.buttons["companion-level-menu"], until: model)
-            XCTAssertEqual(model.label, "Model: Opus")
-            let sonnet = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sonnet,")).firstMatch
+            XCTAssertEqual(model.label, "Opus")
+            let sonnet = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sonnet")).firstMatch
             waitAndTap(model, until: sonnet)
+            capture(app, differs ? "Session and Saved - Model submenu (preview)" : "Plain Model submenu - equal models (preview)")
             XCTAssertEqual(text(app, "Session: Opus").exists, differs)
             XCTAssertEqual(text(app, "Saved: Sonnet (next start)").exists, differs)
+            if differs {
+                for label in ["Session: Opus", "Saved: Sonnet (next start)"] {
+                    let frame = text(app, label).frame
+                    XCTAssertFalse(frame.isEmpty, label)
+                    XCTAssertTrue(app.frame.contains(frame), label)
+                    XCTAssertLessThanOrEqual(frame.maxY, app.keyboards.firstMatch.frame.minY, "\(label) is visible above the keyboard")
+                }
+            }
             XCTAssertTrue(text(app, "Model").exists, "The existing model choices remain available")
-            capture(app, differs ? "Session and Saved - Model submenu (preview)" : "Plain Model submenu - equal models (preview)")
 
-            // The first tap dismisses the menu; a subsequent tap opens the existing settings route.
+            // The menu makes toolbar elements non-hittable; dismiss outside it before using the toolbar.
+            let ring = app.buttons["companion-context-usage"]
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: ring.frame.midX, dy: ring.frame.midY)).tap()
+            XCTAssertTrue(sonnet.waitForNonExistence(timeout: 5))
             let picker = app.buttons["agent-settings-model"]
-            waitAndTap(app.buttons["companion-context-usage"], until: element(app, "agent-settings-summary"))
+            waitAndTap(ring, until: element(app, "companion-context-reading-note"))
             XCTAssertTrue(scrollTo(picker, in: app))
             if differs {
                 XCTAssertTrue(picker.label.contains("Saved") && picker.label.contains("Sonnet") && picker.label.contains("(next start)"), picker.label)
