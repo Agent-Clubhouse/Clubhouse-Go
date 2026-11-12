@@ -47,8 +47,8 @@ struct CompanionChatControlsBar: View, Equatable {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        // Priority ordering can scroll Session/Saved out of a keyboard-height nested menu.
-        .menuOrder(modelDifference == nil ? .automatic : .fixed)
+        // Priority ordering can scroll status rows out of a keyboard-height nested menu.
+        .menuOrder(modelDifference == nil && savedModelError == nil ? .automatic : .fixed)
     }
 
     private var levelMenu: some View {
