@@ -423,8 +423,13 @@ struct CompanionAgentSettingsForm: View {
             }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             if !hides("model", settings) {
-            Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
-                ForEach(models) { Text($0.label).tag($0.id) }
+            let difference = agent?.modelDifference(from: settings)
+            if let difference {
+                LabeledContent("Session", value: difference.sessionLabel)
+                    .accessibilityIdentifier("agent-settings-model-session")
+            }
+            Picker(difference == nil ? "Model" : "Saved", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
+                ForEach(models) { Text(difference == nil ? $0.label : "\($0.label) (next start)").tag($0.id) }
             }
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)

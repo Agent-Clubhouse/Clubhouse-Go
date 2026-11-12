@@ -50,6 +50,17 @@ extension CompanionAgent {
     }
     /// Only chat uses the live level. Catalog rows use the saved launch level.
     var displayedChatAccess: CompanionPermissionLevel? { liveAccess ?? access }
+
+    func modelDifference(from settings: CompanionAgentSettings?) -> CompanionModelDifference? {
+        guard isRunning, isSleepingOnDesktop != true, let settings, !settings.sleeping,
+              !settings.notHonored.contains("model"), orchestrator == settings.resolvedOrchestrator else { return nil }
+        return chatControls?.modelDifference(savedModel: settings.model.value)
+    }
+}
+
+nonisolated struct CompanionModelDifference: Sendable, Equatable {
+    var sessionLabel: String
+    var savedLabel: String
 }
 
 /// When a model or effort change takes effect (`ChatCapabilities.modelSwitch` / `effortSwitch`).
@@ -137,6 +148,14 @@ nonisolated struct CompanionChatControls: Sendable, Equatable {
     var modelLabel: String? {
         if let model { return models.first { $0.id == model }?.label ?? model }
         return modelUnknown ? "Default model" : nil
+    }
+
+    /// Only distinct choices in the same live catalog prove a difference. Labels and unlisted aliases don't.
+    func modelDifference(savedModel: String?) -> CompanionModelDifference? {
+        guard let model, let savedModel, model != savedModel, model != "default", savedModel != "default",
+              let session = models.first(where: { $0.id == model }),
+              let saved = models.first(where: { $0.id == savedModel }) else { return nil }
+        return .init(sessionLabel: session.label, savedLabel: saved.label)
     }
     /// "High effort", "High effort (default)" or "Default effort".
     var effortLabel: String {

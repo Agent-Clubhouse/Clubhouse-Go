@@ -30,6 +30,10 @@ struct CompanionConversationComposer: View {
     @State private var showRefreshing = false
     @State private var pendingLevel: CompanionPermissionLevel?
     @State private var approvalReviewSelection: CompanionComposerApprovalReviewSelection?
+    @State private var modelSettings: CompanionAgentSettings?
+    @State private var savedModelError: String?
+    @State private var loadedModelSettingsKey: [String]?
+    @State private var modelSettingsRetry = 0
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilitySwitchControlEnabled) private var switchControlEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -334,11 +338,47 @@ struct CompanionConversationComposer: View {
     /// Keep configuration collapsed while reading as well as editing, independent of the running turn.
     @ViewBuilder private var chatControls: some View {
         if let controls = agent.chatControls, !isAsleep {
+            let hasCurrentSettings = loadedModelSettingsKey == modelSettingsKey
             CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
                 setLevel: { level in Task { await store.setLevel(level, target: target) } },
                 setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } },
-                compact: true, requestLevel: { pendingLevel = $0 })
+                compact: true, requestLevel: { pendingLevel = $0 },
+                modelDifference: agent.modelDifference(from: hasCurrentSettings ? modelSettings : nil),
+                savedModelError: hasCurrentSettings ? savedModelError : nil,
+                retrySavedModel: { modelSettingsRetry += 1 })
                 .equatable()
+                .task(id: modelSettingsKey) { await loadModelSettings() }
+        }
+    }
+
+    private var canReadModelSettings: Bool {
+        guard store.canEditSettings(target), connection.canOperate, agent.isRunning, agent.isSleepingOnDesktop != true, !isAsleep,
+              let controls = agent.chatControls, controls.showsModelMenu, let model = controls.model,
+              model != "default", controls.models.contains(where: { $0.id == model }) else { return false }
+        return true
+    }
+
+    private var modelSettingsKey: [String] {
+        [target.hostID, target.projectID, target.agentID, conversation.sessionID ?? "", agent.chatControls?.model ?? "",
+         agent.orchestrator ?? "", connection.label, String(canReadModelSettings), String(modelSettingsRetry)]
+    }
+
+    private func loadModelSettings() async {
+        modelSettings = nil
+        savedModelError = nil
+        loadedModelSettingsKey = nil
+        guard canReadModelSettings else { return }
+        let key = modelSettingsKey
+        do {
+            let settings = try await store.settings(for: target)
+            guard !Task.isCancelled, key == modelSettingsKey else { return }
+            modelSettings = settings
+            loadedModelSettingsKey = key
+        } catch is CancellationError {
+        } catch {
+            guard !Task.isCancelled, key == modelSettingsKey else { return }
+            savedModelError = error.localizedDescription
+            loadedModelSettingsKey = key
         }
     }
 

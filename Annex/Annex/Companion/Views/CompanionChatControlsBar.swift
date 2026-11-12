@@ -11,10 +11,14 @@ struct CompanionChatControlsBar: View, Equatable {
     let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
     var compact = false
     let requestLevel: @MainActor (CompanionPermissionLevel) -> Void
+    var modelDifference: CompanionModelDifference?
+    var savedModelError: String?
+    var retrySavedModel: @MainActor () -> Void = {}
     @Environment(\.companionPalette) private var palette
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
+            && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
     }
 
     var body: some View {
@@ -89,6 +93,20 @@ struct CompanionChatControlsBar: View, Equatable {
 
     private func modelMenu(_ label: String) -> some View {
         Menu {
+            if let modelDifference {
+                Section {
+                    Text("Session: \(modelDifference.sessionLabel)")
+                        .accessibilityIdentifier("companion-model-session")
+                    Text("Saved: \(modelDifference.savedLabel) (next start)")
+                        .accessibilityIdentifier("companion-model-saved")
+                }
+            }
+            if let savedModelError {
+                Section {
+                    Text("Saved model unavailable. \(savedModelError)")
+                    Button("Try again", action: retrySavedModel)
+                }
+            }
             Section("Model") {
                 ForEach(controls.models) { model in
                     Button {
