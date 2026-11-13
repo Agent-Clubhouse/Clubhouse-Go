@@ -70,6 +70,7 @@ import XCTest
             let identity = app.buttons["companion-chat-header"].frame
             let context = app.buttons["companion-context-usage"].frame
             let leading = app.buttons["header-fixture-menu"].frame
+            XCTAssertGreaterThan(identity.width, 100, "The centered pill retains readable name space, not just an ellipsis")
             XCTAssertEqual(identity.midX, app.frame.midX, accuracy: 1, "The identity centers on the screen, not the remaining toolbar space")
             XCTAssertLessThanOrEqual(identity.maxX + 4, context.minX)
             XCTAssertGreaterThanOrEqual(identity.minX - 4, leading.maxX)

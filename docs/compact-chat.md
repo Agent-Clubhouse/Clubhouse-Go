@@ -12,8 +12,9 @@ discloses a details card with the full name, desktop/project, status, Access and
 Access badge; boolean-only access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the
 identity's accessibility label still carries them.
 
-The pill's maximum width comes from the measured leading edge of the trailing context control, mirrored around the
-screen center with an 8pt gap. Long names truncate instead of letting the asymmetric toolbar shift the identity left;
+An invisible, noninteractive leading reservation mirrors the trailing context control and spacer. The principal gets an
+explicit symmetric width budget for the context control, menu, spacer, bar margin and gap; a maximum alone still lets
+the system use the long name's intrinsic width. Long names truncate instead of shifting the identity left;
 the disclosure and accessibility label retain the full name.
 
 The transcript scrolls under the floating controls with the soft scroll-edge effect; there is no band under the bar.

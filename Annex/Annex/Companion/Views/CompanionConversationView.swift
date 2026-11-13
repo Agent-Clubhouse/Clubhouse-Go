@@ -25,7 +25,7 @@ struct CompanionConversationView: View {
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
-    @State private var headerContextLeadingX: CGFloat?
+    @State private var headerContextWidth: CGFloat = 44
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -160,20 +160,25 @@ struct CompanionConversationView: View {
         .toolbar {
             if showsActions {
                 // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
+                ToolbarSpacer(.fixed, placement: .topBarLeading)
+                ToolbarItem(placement: .topBarLeading) {
+                    Color.clear.frame(width: headerContextWidth, height: 44)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+                .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
-                        // A principal wider than the centered gap is shifted left by the two trailing controls.
-                        // Constrain the pill to the symmetric gap instead, leaving the system to center it.
-                        .frame(maxWidth: max(44, 2 * ((headerContextLeadingX ?? available.frame(in: .global).midX)
-                                                     - available.frame(in: .global).midX - 8)))
+                        // Mirror the trailing context width plus the 44pt menu, fixed spacer, bar margin and gap.
+                        // Toolbar hosting views have their own global coordinates, so measure width, not origin.
+                        .frame(width: max(44, available.size.width - 2 * (headerContextWidth + 44 + 16 + 20 + 8)))
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
                     contextButton
-                        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minX } action: {
-                            headerContextLeadingX = $0
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+                            headerContextWidth = $0
                         }
                 }
                     .sharedBackgroundVisibility(.hidden)
