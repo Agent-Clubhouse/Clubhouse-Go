@@ -75,7 +75,8 @@ import XCTest
             XCTAssertLessThanOrEqual(identity.maxX + 4, context.minX)
             XCTAssertGreaterThanOrEqual(identity.minX - 4, leading.maxX)
             XCTAssertTrue(app.buttons["companion-chat-header"].label.contains("Alexandria"))
-            app.buttons["companion-chat-header"].tap()
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: identity.maxX - 12, dy: identity.maxY - 8)).tap()
             XCTAssertEqual(element(app, "companion-chat-details-name").label, "Alexandria — release coordination and simulator validation")
         }
     }
@@ -174,7 +175,8 @@ import XCTest
         XCTAssertTrue(identity.isHittable)
         assertMinimumTarget(identity, "identity")
         XCTAssertTrue(region.navigation.contains(CGPoint(x: identity.frame.midX, y: identity.frame.midY)), "Identity sits on the bar: \(identity.frame)")
-        XCTAssertEqual(identity.frame.midX, app.frame.midX, accuracy: 1, "Identity remains screen-centered while editing")
+        XCTAssertEqual(identity.frame.midX, app.frame.midX, accuracy: 1,
+                       "Identity remains screen-centered while editing: \(identity.frame), leading \(app.buttons["header-fixture-menu"].frame), context \(context.frame)")
         XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxX), pixelAligned(context.frame.minX), "Identity clears the trailing controls")
         XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxY), pixelAligned(composerTop), "Identity never reaches the composer")
         // XCUI's landscape screenshots come back rotated and half black on this runtime, so pixels are read in portrait.

@@ -26,7 +26,7 @@ struct CompanionConversationView: View {
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
-    @State private var headerContextWidth: CGFloat = 44
+    @State private var headerLeadingReservation: CGFloat = 44
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -160,27 +160,31 @@ struct CompanionConversationView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if showsActions {
-                // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
-                ToolbarSpacer(.fixed, placement: .topBarLeading)
+                // A semantic reservation avoids the native Back/blank-item AX snapshot stall on iOS 26.
                 ToolbarItem(placement: .topBarLeading) {
-                    Color.clear.frame(width: headerContextWidth, height: 44)
-                        .allowsHitTesting(false).accessibilityHidden(true)
+                    Button("Header alignment", systemImage: "circle") {}
+                        .frame(width: headerLeadingReservation, height: 44)
+                        .hidden().allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .sharedBackgroundVisibility(.hidden)
+                // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
-                        // Mirror the trailing context width plus the 44pt menu, fixed spacer, bar margin and gap.
-                        // Toolbar hosting views have their own global coordinates, so measure width, not origin.
-                        .frame(width: max(44, available.size.width - 2 * (headerContextWidth + 44 + 16 + 20 + 8)))
+                        .background {
+                            CompanionToolbarIdentityCenter { delta in
+                                // The principal centers between item groups, so double the measured correction.
+                                headerLeadingReservation = min(max(0, available.size.width / 2 - 44),
+                                    max(0, headerLeadingReservation + 2 * delta))
+                            }
+                                .allowsHitTesting(false).accessibilityHidden(true)
+                        }
+                        .frame(width: max(44, available.size.width - 2 * (44 + 44 + 16 + 20 + 8)))
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
                     contextButton
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
-                            headerContextWidth = $0
-                        }
                 }
                     .sharedBackgroundVisibility(.hidden)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
@@ -298,7 +302,8 @@ struct CompanionConversationView: View {
                 if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
                 else { Image(systemName: "chart.pie").font(.caption) }
             }
-            .frame(minWidth: 44, minHeight: 44)
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
             .companionCardGlass(Capsule(), interactive: true)
         }

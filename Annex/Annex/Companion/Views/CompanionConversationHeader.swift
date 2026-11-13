@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Uses the same versioned custom image/cache and fallback identity as agent rows and details.
 struct CompanionConversationIdentityButton: View {
@@ -53,6 +54,63 @@ struct CompanionConversationIdentityButton: View {
         .accessibilityValue(isExpanded ? (detailsLackRoom ? "Details hidden, no room while editing" : "Details expanded") : "Details collapsed")
         .accessibilityHint("Shows or hides conversation details")
         .accessibilityIdentifier(reviewPosition == nil ? "companion-chat-header" : "review-title")
+    }
+}
+
+/// Toolbar hosts have separate SwiftUI coordinate roots. Measure in the actual bar to balance its leading reservation,
+/// rather than offsetting the identity outside the native title's hit area.
+struct CompanionToolbarIdentityCenter: UIViewRepresentable {
+    let correct: (CGFloat) -> Void
+
+    func makeUIView(context: Context) -> Anchor {
+        let view = Anchor()
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
+        return view
+    }
+
+    func updateUIView(_ uiView: Anchor, context: Context) {
+        uiView.correct = correct
+        uiView.requestSample()
+    }
+
+    static func dismantleUIView(_ uiView: Anchor, coordinator: ()) {
+        uiView.correct = nil
+    }
+
+    final class Anchor: UIView {
+        var correct: ((CGFloat) -> Void)?
+        private var sampleQueued = false
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            requestSample()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            requestSample()
+        }
+
+        func requestSample() {
+            guard !sampleQueued else { return }
+            sampleQueued = true
+            // Read after UIKit's enclosing bar layout; never publish State during a layout/update pass.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                sampleQueued = false
+                guard window != nil, bounds.width > 0 else { return }
+                var ancestor = superview
+                while let view = ancestor {
+                    if let bar = view as? UINavigationBar {
+                        let delta = bar.bounds.midX - convert(bounds, to: bar).midX
+                        if abs(delta) > 0.25 { correct?(delta) }
+                        return
+                    }
+                    ancestor = view.superview
+                }
+            }
+        }
     }
 }
 

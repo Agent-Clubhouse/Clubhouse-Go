@@ -12,9 +12,13 @@ discloses a details card with the full name, desktop/project, status, Access and
 Access badge; boolean-only access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the
 identity's accessibility label still carries them.
 
-An invisible, noninteractive leading reservation mirrors the trailing context control and spacer. The principal gets an
-explicit symmetric width budget for the context control, menu, spacer, bar margin and gap; a maximum alone still lets
-the system use the long name's intrinsic width. Long names truncate instead of shifting the identity left;
+The principal has a symmetric width budget for two 44pt trailing controls, their spacer, the bar margin and a gap.
+A noninteractive UIKit background measures the identity in the actual navigation bar and balances a hidden leading
+button's reservation after layout: SwiftUI toolbar hosts have independent coordinate roots, and native leading controls
+can differ in width at large text sizes. This changes layout rather than offsetting the pill outside the native title's
+hit area. The reservation uses a hidden semantic button, not a bare color (which caused iOS 26 AX snapshot timeouts).
+Context keeps a 44pt target and bounded bar typography; its full reading remains accessible and available in settings.
+Long names truncate instead of shifting the identity left;
 the disclosure and accessibility label retain the full name.
 
 The transcript scrolls under the floating controls with the soft scroll-edge effect; there is no band under the bar.
