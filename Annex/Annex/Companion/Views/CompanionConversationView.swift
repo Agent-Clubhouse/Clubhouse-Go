@@ -14,6 +14,7 @@ struct CompanionConversationView: View {
     /// Initial value only for the recovery component's private State; normal callers leave it false.
     var initiallyShowsRecoveryDetails = false
     @State private var followPauseCount = 0
+    @State private var followSawDeceleration = false
     #endif
     @State private var followLatest = true
     @State private var atLatest = true
@@ -439,7 +440,8 @@ struct CompanionConversationView: View {
                     }
                     CompanionNativeScrollTopObserver(requested: { nativeScrollToTopRequested() },
                         pending: { readingViewport.isScrollingToTop },
-                        repaired: { traceFollow(reason: .nativeTopRepair, previous: followLatest, next: followLatest) })
+                        repaired: { traceFollow(reason: .nativeTopRepair, previous: followLatest, next: followLatest) },
+                        geometryChanged: { readingViewport.nativeMetrics = $0 })
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .frame(maxWidth: 860)
@@ -462,7 +464,8 @@ struct CompanionConversationView: View {
                 AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
                     guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                     let metrics = Self.metrics(new)
-                    let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics)
+                    let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics,
+                                                    currentViewport: readingViewport.nativeMetrics)
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
@@ -490,9 +493,8 @@ struct CompanionConversationView: View {
                         readingViewport.isRestoring = false
                         saveReadingPosition(metrics)
                     }
-                    // Offset-only keyboard/safe-area samples are not user intent. Pauses require a tracked pan,
-                    // the native scroll-to-top delegate, or explicit reading navigation.
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+                    else if !readingViewport.isInteracting && followLatest && scrolledUp { setFollowing(false, reason: .nativeUpward) }
                     // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
                     // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
                     if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
@@ -537,7 +539,7 @@ struct CompanionConversationView: View {
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")
             #if DEBUG
-            .accessibilityValue("Following: \(followLatest ? 1 : 0); pauses: \(followPauseCount)", isEnabled: tracesFollow)
+            .accessibilityValue("Following: \(followLatest ? 1 : 0); pauses: \(followPauseCount); decelerated: \(followSawDeceleration ? 1 : 0)", isEnabled: tracesFollow)
             #endif
             // Simultaneous recognition leaves links, cards and text selection in charge
             // of their own gestures. Blank transcript space also ends editing.
@@ -757,7 +759,7 @@ struct CompanionConversationView: View {
         if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
-    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, latest, restore, messageJump, mount }
+    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, nativeUpward, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
         if reason == .bottom {
@@ -795,13 +797,16 @@ struct CompanionConversationView: View {
         guard tracesFollow,
               new.normalizedOffset < old.normalizedOffset else { return }
         let prior = readingViewport.previousMetrics
-        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) historyReady=\(canRecordReadingPosition ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
+        let native = readingViewport.nativeMetrics
+        NSLog("%@", "CHAT_NATIVE_VIEWPORT container=\(native?.containerHeight ?? -1) topInset=\(native?.topInset ?? -1) bottomInset=\(native?.bottomInset ?? -1)")
+        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) priorContainer=\(prior?.containerHeight ?? -1) priorTopInset=\(prior?.topInset ?? -1) priorBottomInset=\(prior?.bottomInset ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) historyReady=\(canRecordReadingPosition ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
         #endif
     }
 
     private func traceScrollPhase(_ phase: ScrollPhase, metrics: CompanionScrollMetrics) {
         #if DEBUG
         guard tracesFollow else { return }
+        if phase == .decelerating { followSawDeceleration = true }
         let value: Int
         switch phase {
         case .idle: value = 0
@@ -815,10 +820,12 @@ struct CompanionConversationView: View {
         #endif
     }
 
-    /// Preserve a reading bookmark while frames catch up. Upward geometry alone cannot establish user intent:
-    /// keyboard/safe-area changes can arrive as a separate offset-only sample.
-    private static func scrolledUp(from old: ScrollGeometry, to new: ScrollGeometry, beforeLast: CompanionScrollMetrics?) -> Bool {
-        old.containerSize == new.containerSize && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast)
+    /// Pause on the first native upward sample, before another chunk can cancel
+    /// the jump. Width/inset/keyboard changes and shrinking content are excluded.
+    private static func scrolledUp(from old: ScrollGeometry, to new: ScrollGeometry, beforeLast: CompanionScrollMetrics?,
+                                   currentViewport: CompanionScrollMetrics?) -> Bool {
+        old.containerSize == new.containerSize
+            && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast, currentViewport: currentViewport)
     }
 
     @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {

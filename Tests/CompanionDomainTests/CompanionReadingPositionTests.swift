@@ -11,9 +11,11 @@ struct CompanionReadingPositionTests {
         for _ in 0..<20 { #expect(store.readingBookmark(for: target).viewport === viewport) }
         viewport.frames = ["message:anchor": 392...500]
         viewport.hasInitialized = true
+        viewport.nativeMetrics = .init(offset: 400, contentHeight: 1_000, containerHeight: 500)
         viewport.metrics = .init(offset: 400, contentHeight: 1_000, containerHeight: 500)
         viewport.clearGeometry()
         #expect(viewport.frames.isEmpty && viewport.metrics == nil && !viewport.hasInitialized)
+        #expect(viewport.nativeMetrics == nil)
         #expect(bookmark.position.entryID == "message:anchor" && bookmark.position.offset == 400)
         #expect(bookmark.position.shownEntries == 300 && !bookmark.position.followsLatest)
     }
@@ -61,7 +63,7 @@ struct CompanionReadingPositionTests {
         var initialLayout = old; initialLayout.contentHeight = 0
         #expect(!top.didScrollUp(from: initialLayout))
     }
-    @Test func nativeUpwardMotionIsRecognizedBeforeReachingTopIncludingDuringGrowth() {
+    @Test func nativeUpwardScrollPausesBeforeReachingTopIncludingDuringGrowth() {
         let bottom = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_000, containerHeight: 500)
         for height in [5_000.0, 5_100, 8_000] {
             let underway = CompanionScrollMetrics(offset: 4_400, contentHeight: height, containerHeight: 500)
@@ -69,7 +71,7 @@ struct CompanionReadingPositionTests {
             #expect(underway.normalizedOffset > 1, "Do not wait for the end of the native animation")
         }
     }
-    @Test func streamedLayoutRollbackIsExcludedButANativeJumpIsRecognized() {
+    @Test func streamedLayoutRollbackDoesNotPauseButANativeJumpStillDoes() {
         // Recorded iPad stream-on startup: publish the new bottom, briefly
         // restore the preceding offset, then settle at the new bottom again.
         let before = CompanionScrollMetrics(offset: 812.5, contentHeight: 1_680.5, containerHeight: 868)
@@ -81,6 +83,28 @@ struct CompanionReadingPositionTests {
         var largeGrowth = bottom; largeGrowth.contentHeight = 5_000; largeGrowth.offset = 4_132
         var largeJump = largeGrowth; largeJump.offset -= 400
         #expect(largeJump.didScrollUp(from: largeGrowth, beforeLast: before), "Growth must not hide a genuine first native step")
+    }
+    @Test(arguments: [
+        CompanionScrollMetrics(offset: 3_118.67, contentHeight: 3_372, containerHeight: 421.67, topInset: 8, bottomInset: 168.33),
+        CompanionScrollMetrics(offset: 3_118.67, contentHeight: 3_372, containerHeight: 732.67, topInset: 28, bottomInset: 168.33),
+        CompanionScrollMetrics(offset: 3_118.67, contentHeight: 3_372, containerHeight: 732.67, topInset: 8, bottomInset: 479.33)
+    ]) func deferredViewportOrInsetRollbackIsNotUserIntent(pinned: CompanionScrollMetrics) {
+        // First case is main's recorded 311pt keyboard adjustment, rounded to hundredths.
+        let before = CompanionScrollMetrics(offset: 2_807.67, contentHeight: 3_372, containerHeight: 732.67,
+                                            topInset: 8, bottomInset: 168.33)
+        var rollback = pinned
+        rollback.offset = before.normalizedOffset - rollback.topInset
+        #expect(!rollback.didScrollUp(from: pinned, beforeLast: before))
+        var nativeJump = rollback
+        nativeJump.offset -= 100
+        #expect(nativeJump.didScrollUp(from: pinned, beforeLast: before),
+                "A different upward move is not explained by that layout rollback")
+        #expect(rollback.didScrollUp(from: pinned, beforeLast: pinned),
+                "Once dimensions are stable, the same movement still recognizes non-pan user scrolling")
+        #expect(rollback.didScrollUp(from: pinned, beforeLast: pinned, currentViewport: rollback),
+                "Stable UIKit geometry must preserve non-pan intent, not disable the fallback")
+        #expect(!rollback.didScrollUp(from: pinned, beforeLast: pinned, currentViewport: before),
+                "A duplicate pinned sample cannot erase UIKit's concurrent layout change")
     }
     @Test func layoutChangesAndFollowingAStreamAreNotUpwardScrolling() {
         let bottom = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_000, containerHeight: 500)

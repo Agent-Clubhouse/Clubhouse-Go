@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 @MainActor final class CompanionReadingUITests: ReliableUITestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
@@ -97,6 +98,50 @@ import XCTest
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
     }
 
+
+    func testPointerWheelScrollPausesFollowingWhileStreaming() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "Pointer events require iPadOS")
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream",
+                             "--companion-preview-follow-trace"], attempts: 1)
+        openRiver(app)
+        let audit = app.scrollViews["companion-transcript"]
+        XCTAssertTrue((audit.value as? String)?.hasPrefix("Following: 1; pauses: ") == true)
+        audit.scroll(byDeltaX: 0, deltaY: -300)
+        XCTAssertTrue(waitFor(audit, NSPredicate { _, _ in
+            (audit.value as? String)?.hasPrefix("Following: 0; pauses: ") == true
+        }, timeout: 5), "An indirect pointer scroll must pause following without a touch pan")
+        let replies = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Streaming preview reply."))
+        let before = replies.allElementsBoundByIndex.map(\.label)
+        XCTAssertTrue(waitFor(audit, NSPredicate { _, _ in
+            replies.allElementsBoundByIndex.map(\.label) != before
+        }, timeout: 5))
+        XCTAssertTrue((audit.value as? String)?.hasPrefix("Following: 0; pauses: ") == true,
+                      "Later chunks cannot reclaim a pointer reader's position")
+    }
+
+    func testMomentumAfterAShortUpwardPanKeepsFollowingPaused() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream",
+                             "--companion-preview-follow-trace"], attempts: 1)
+        openRiver(app)
+        let audit = app.scrollViews["companion-transcript"]
+        XCTAssertTrue((audit.value as? String)?.hasPrefix("Following: 1; pauses: ") == true)
+        let viewport = transcriptViewport(app)
+        let start = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: viewport.minX + 8, dy: viewport.midY))
+        start.press(forDuration: 0.01, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 40)),
+                    withVelocity: .fast, thenHoldForDuration: 0)
+        XCTAssertTrue(waitFor(audit, NSPredicate { _, _ in
+            (audit.value as? String)?.contains("decelerated: 1") == true
+        }, timeout: 5), "The gesture must actually enter deceleration, not merely perform a held drag")
+        XCTAssertTrue((audit.value as? String)?.hasPrefix("Following: 0; pauses: ") == true)
+        let replies = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Streaming preview reply."))
+        let before = replies.allElementsBoundByIndex.map(\.label)
+        XCTAssertTrue(waitFor(audit, NSPredicate { _, _ in
+            replies.allElementsBoundByIndex.map(\.label) != before
+        }, timeout: 5))
+        XCTAssertTrue((audit.value as? String)?.hasPrefix("Following: 0; pauses: ") == true,
+                      "Streaming after momentum cannot resume following")
+    }
 
     func testNativeScrollToTopSticksWithAndWithoutStreaming() {
         for streaming in [false, true] {

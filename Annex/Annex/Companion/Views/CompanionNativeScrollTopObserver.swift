@@ -7,12 +7,14 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
     let requested: @MainActor () -> Void
     let pending: @MainActor () -> Bool
     let repaired: @MainActor () -> Void
+    let geometryChanged: @MainActor (CompanionScrollMetrics) -> Void
 
     func makeUIView(context: Context) -> Anchor { Anchor() }
     func updateUIView(_ view: Anchor, context: Context) {
         view.requested = requested
         view.pending = pending
         view.repaired = repaired
+        view.geometryChanged = geometryChanged
         if !pending() { view.stopNativeTopCheck() }
         view.connect()
     }
@@ -21,12 +23,14 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
         view.requested = nil
         view.pending = nil
         view.repaired = nil
+        view.geometryChanged = nil
     }
 
     final class Anchor: UIView, UIScrollViewDelegate {
         var requested: (@MainActor () -> Void)?
         var pending: (@MainActor () -> Bool)?
         var repaired: (@MainActor () -> Void)?
+        var geometryChanged: (@MainActor (CompanionScrollMetrics) -> Void)?
         private weak var scrollView: UIScrollView?
         private weak var originalDelegate: (any UIScrollViewDelegate)?
         private var displayLink: CADisplayLink?
@@ -52,6 +56,7 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
                         originalDelegate = scroll.delegate
                         scroll.delegate = self
                     }
+                    reportGeometry(scroll)
                     return
                 }
                 ancestor = view.superview
@@ -66,7 +71,16 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
             originalDelegate = nil
         }
 
-        func scrollViewDidScroll(_ scrollView: UIScrollView) { originalDelegate?.scrollViewDidScroll?(scrollView) }
+        private func reportGeometry(_ scroll: UIScrollView) {
+            geometryChanged?(.init(offset: scroll.contentOffset.y, contentHeight: scroll.contentSize.height,
+                containerHeight: scroll.bounds.height, topInset: scroll.adjustedContentInset.top,
+                bottomInset: scroll.adjustedContentInset.bottom))
+        }
+
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            reportGeometry(scrollView)
+            originalDelegate?.scrollViewDidScroll?(scrollView)
+        }
         func scrollViewDidZoom(_ scrollView: UIScrollView) { originalDelegate?.scrollViewDidZoom?(scrollView) }
         func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
             stopNativeTopCheck()
@@ -96,7 +110,10 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
             originalDelegate?.scrollViewDidScrollToTop?(scrollView)
             completeNativeTopIfNeeded(scrollView)
         }
-        func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) { originalDelegate?.scrollViewDidChangeAdjustedContentInset?(scrollView) }
+        func scrollViewDidChangeAdjustedContentInset(_ scrollView: UIScrollView) {
+            reportGeometry(scrollView)
+            originalDelegate?.scrollViewDidChangeAdjustedContentInset?(scrollView)
+        }
 
         func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
             let allowed = originalDelegate?.scrollViewShouldScrollToTop?(scrollView) ?? true
