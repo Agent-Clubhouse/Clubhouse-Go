@@ -490,8 +490,9 @@ struct CompanionConversationView: View {
                         readingViewport.isRestoring = false
                         saveReadingPosition(metrics)
                     }
+                    // Offset-only keyboard/safe-area samples are not user intent. Pauses require a tracked pan,
+                    // the native scroll-to-top delegate, or explicit reading navigation.
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
-                    else if !readingViewport.isInteracting && followLatest && scrolledUp { setFollowing(false, reason: .nativeUpward) }
                     // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
                     // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
                     if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
@@ -756,7 +757,7 @@ struct CompanionConversationView: View {
         if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
-    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, nativeUpward, latest, restore, messageJump, mount }
+    private enum FollowReason: String { case earlier, gesture, bottom, nativeTop, nativeTopRepair, latest, restore, messageJump, mount }
 
     private func setFollowing(_ follows: Bool, reason: FollowReason) {
         if reason == .bottom {
@@ -814,8 +815,8 @@ struct CompanionConversationView: View {
         #endif
     }
 
-    /// Pause on the first native upward sample, before another chunk can cancel
-    /// the jump. Width/inset/keyboard changes and shrinking content are excluded.
+    /// Preserve a reading bookmark while frames catch up. Upward geometry alone cannot establish user intent:
+    /// keyboard/safe-area changes can arrive as a separate offset-only sample.
     private static func scrolledUp(from old: ScrollGeometry, to new: ScrollGeometry, beforeLast: CompanionScrollMetrics?) -> Bool {
         old.containerSize == new.containerSize && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast)
     }

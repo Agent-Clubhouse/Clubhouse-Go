@@ -11,9 +11,8 @@ struct CompanionScrollMetrics: Equatable, Sendable {
     var maximumOffset: Double { max(0, contentHeight + topInset + bottomInset - containerHeight) }
     var isAtLatest: Bool { normalizedOffset >= maximumOffset - 16 }
     var isAtTrueBottom: Bool { normalizedOffset >= maximumOffset - 1 }
-    /// Native status-bar scrolling has no pan phase. Its first upward offset
-    /// must pause following before a streamed item can force the bottom again.
-    /// A resize, inset change or shrinking content can move the offset by itself.
+    /// Recognize upward geometry, excluding immediate resize/inset changes and shrinking content.
+    /// This does not prove user intent: deferred keyboard/safe-area adjustments can look identical.
     func didScrollUp(from old: Self, beforeLast: Self? = nil) -> Bool {
         guard old.containerHeight == containerHeight, old.topInset == topInset, old.bottomInset == bottomInset,
               old.maximumOffset > 0, contentHeight >= old.contentHeight, normalizedOffset < old.normalizedOffset else { return false }

@@ -61,7 +61,7 @@ struct CompanionReadingPositionTests {
         var initialLayout = old; initialLayout.contentHeight = 0
         #expect(!top.didScrollUp(from: initialLayout))
     }
-    @Test func nativeUpwardScrollPausesBeforeReachingTopIncludingDuringGrowth() {
+    @Test func nativeUpwardMotionIsRecognizedBeforeReachingTopIncludingDuringGrowth() {
         let bottom = CompanionScrollMetrics(offset: 4_500, contentHeight: 5_000, containerHeight: 500)
         for height in [5_000.0, 5_100, 8_000] {
             let underway = CompanionScrollMetrics(offset: 4_400, contentHeight: height, containerHeight: 500)
@@ -69,7 +69,7 @@ struct CompanionReadingPositionTests {
             #expect(underway.normalizedOffset > 1, "Do not wait for the end of the native animation")
         }
     }
-    @Test func streamedLayoutRollbackDoesNotPauseButANativeJumpStillDoes() {
+    @Test func streamedLayoutRollbackIsExcludedButANativeJumpIsRecognized() {
         // Recorded iPad stream-on startup: publish the new bottom, briefly
         // restore the preceding offset, then settle at the new bottom again.
         let before = CompanionScrollMetrics(offset: 812.5, contentHeight: 1_680.5, containerHeight: 868)

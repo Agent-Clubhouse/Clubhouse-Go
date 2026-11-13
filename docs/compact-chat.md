@@ -82,6 +82,11 @@ placement is already compact, and keyboard presentation does not change the widt
 composer, this keeps the latest streamed text readable alongside a trailing tool card. Larger windows keep their existing
 scrollable clearance; following and reading anchors do not change.
 
+Following pauses for an actual upward pan, the native status-bar scroll-to-top delegate, or explicit reading navigation.
+Offset changes alone do not prove user intent: UIKit can deliver a keyboard/safe-area adjustment after the resize, with
+unchanged dimensions and insets (#384). Opt-in Debug preview follow tracing also exposes a cumulative pause count on the
+transcript's accessibility value, so a transient false pause cannot be hidden by recovery before the next UI snapshot.
+
 At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, so a prominent review button opens the
 pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
 through the same `store.canApprove` gate and full-event review as the transcript (#345).
