@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import Vision
 @testable import ClubhouseGo
 
 @MainActor private final class SessionModelSettingsService: CompanionService {
@@ -7,6 +8,8 @@ import SwiftUI
     var reads: [CompanionAgentSettings] = []
     var savedModel = "sonnet"
     var refusesSave = false
+    var refusesRead = false
+    var failedReads = 0
     var savedName: String?
     var savedEmoji: String?
     var holdNextRead = false
@@ -29,6 +32,10 @@ import SwiftUI
             holdNextRead = false
             await withCheckedContinuation { pendingRead = $0 }
         }
+        if refusesRead {
+            failedReads += 1
+            throw CompanionServiceError.unavailable("Settings refresh failed")
+        }
         reads.append(result)
         return result
     }
@@ -42,6 +49,74 @@ import SwiftUI
 }
 
 @MainActor final class CompanionSessionModelTests: XCTestCase {
+    func testFailedRereadHidesTheStaleModelDifferenceAndShowsErrorWithRetry() async throws {
+        let service = SessionModelSettingsService()
+        let target = CompanionPreviewService.target
+        try await withSettingsForm(service: service, target: target) { store, window, initial in
+            let before = try await self.renderedText(window, stage: "Before refresh")
+            XCTAssertTrue(before.contains("Saved") && before.contains(where: { $0.contains("Sonnet") }),
+                          "The rendered form must initially show the proven Session/Saved difference")
+            service.savedModel = "opus"
+            service.holdNextRead = true
+            service.refusesRead = true
+            var hosts = initial
+            let project = try XCTUnwrap(hosts[0].projects.firstIndex { $0.id == target.projectID })
+            let agent = try XCTUnwrap(hosts[0].projects[project].agents.firstIndex { $0.id == target })
+            hosts[0].projects[project].agents[agent].savedModel = "opus"
+            store.apply(.hosts(hosts))
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while service.pendingRead == nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let pending = try XCTUnwrap(service.pendingRead)
+            let during = try await self.renderedText(window, stage: "While refresh is pending")
+            XCTAssertFalse(during.contains("Saved"), "The old comparison must disappear before the read completes")
+            service.pendingRead = nil
+            pending.resume()
+            let failureDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while service.failedReads == 0, ContinuousClock.now < failureDeadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(service.failedReads, 1)
+            let after = try await self.renderedText(window, stage: "After failed refresh")
+            XCTAssertFalse(after.contains("Saved"), "A failed refresh must not restore the stale comparison")
+            XCTAssertTrue(after.contains(where: { $0.contains("Settings refresh failed") }), "Show the refresh error")
+            XCTAssertTrue(after.contains("Retry"), "Offer an explicit retry without removing the form")
+            XCTAssertTrue(after.contains("Model") && after.contains(where: { $0.contains("Sonnet") }),
+                          "Keep the existing settings visible, without claiming a difference")
+            XCTAssertEqual(service.reads.count, 1, "The failed refresh must not start a read loop")
+        }
+    }
+
+    private func renderedText(_ window: UIWindow, stage: String) async throws -> [String] {
+        func find(_ view: UIView) -> UIScrollView? {
+            if let scroll = view as? UIScrollView, scroll.contentSize.height > scroll.bounds.height + 100 { return scroll }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        window.layoutIfNeeded()
+        let scroll = try XCTUnwrap(find(window))
+        let maxOffset = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
+        var result: [String] = []
+        for offset in Array(stride(from: CGFloat(0), through: maxOffset, by: 400)) + [maxOffset] {
+            scroll.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
+            window.layoutIfNeeded()
+            try await Task.sleep(for: .milliseconds(150))
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "\(stage)-\(Int(offset))"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = false
+            try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
+            result += request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []
+        }
+        return result
+    }
+
     func testOpenSettingsFormRefreshesWhenTheDesktopSavedModelChanges() async throws {
         let service = SessionModelSettingsService()
         try await withSettingsForm(service: service, target: CompanionPreviewService.target) { store, window, initial in

@@ -194,6 +194,7 @@ struct CompanionAgentSettingsForm: View {
     var focusContext = false
     @Environment(\.companionPalette) private var palette
     @State private var settings: CompanionAgentSettings?
+    @State private var loadedSettingsKey: String?
     @State private var loadError: String?
     @State private var saveError: String?
     @State private var saving = false
@@ -317,6 +318,12 @@ struct CompanionAgentSettingsForm: View {
                 Label(saveError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-error")
             }
+            if let loadError {
+                Label(loadError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
+                    .accessibilityIdentifier("agent-settings-refresh-error")
+                Button("Retry") { Task { await load() } }
+                    .accessibilityIdentifier("agent-settings-refresh-retry")
+            }
             if let contextResetNotice = settings.contextWindowReset?.message {
                 Label(contextResetNotice, systemImage: "info.circle").font(.subheadline)
                     .accessibilityIdentifier("agent-settings-context-reset-notice")
@@ -425,7 +432,7 @@ struct CompanionAgentSettingsForm: View {
             }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             if !hides("model", settings) {
-            let difference = agent?.modelDifference(from: settings)
+            let difference = loadedSettingsKey == refreshKey ? agent?.modelDifference(from: settings) : nil
             if let difference {
                 LabeledContent("Session", value: difference.sessionLabel)
                     .accessibilityIdentifier("agent-settings-model-session")
@@ -666,15 +673,18 @@ struct CompanionAgentSettingsForm: View {
 
     private func load() async {
         let key = refreshKey
+        loadedSettingsKey = nil
+        loadError = nil
         do {
             let loaded = try await store.settings(for: target)
             guard !Task.isCancelled, key == refreshKey else { return }
             apply(loaded.keepingOptions(of: settings), preservingDrafts: true)
+            loadedSettingsKey = key
             loadError = nil
         } catch is CancellationError {
         } catch {
             guard !Task.isCancelled, key == refreshKey else { return }
-            if settings == nil { loadError = error.localizedDescription }
+            loadError = error.localizedDescription
         }
     }
 

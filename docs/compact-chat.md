@@ -51,6 +51,8 @@ read failures and a retry stay inside the submenu. Successful phone saves invali
 changes to the saved model/provider and Dispatcher settings invalidate it too, independently of the live model.
 An open Agent settings form uses the same revision and saved-model identity to refresh its baseline and
 comparison without replacing unsaved Name or Emoji text, including edits made while the read is in flight.
+While that baseline is stale, Session/Saved comparison rows are hidden. A failed refresh keeps the form and
+drafts visible with an error and Retry, rather than continuing to display an outdated model difference.
 Model's status lines stay together in its section header; no global menu ordering is imposed, so Permissions
 and Effort retain their existing ordering.
 No rows are added to the collapsed composer.
