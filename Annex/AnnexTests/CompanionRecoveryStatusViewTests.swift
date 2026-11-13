@@ -62,7 +62,7 @@ import SwiftUI
                 let controller = UIHostingController(rootView:
                     CompanionRecoveryStatusView(status: status, onRetry: { _ in })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.magenta)
+                        .background(Color(uiColor: .magenta))
                         .companionTheme(.clubhouse)
                         .environment(\.colorScheme, dark ? .dark : .light))
                 window.rootViewController = controller; window.makeKeyAndVisible()
