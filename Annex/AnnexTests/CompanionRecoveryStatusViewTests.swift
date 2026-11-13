@@ -50,6 +50,46 @@ import SwiftUI
         XCTAssertEqual(size(status: status).height, 0)
     }
 
+    func testRecoveryCardsLeaveBackgroundVisibleAtBothEdges() throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        let previousKeyWindow = scene.windows.first(where: \.isKeyWindow)
+        window.frame = CGRect(x: 0, y: 0, width: 390, height: 100)
+        defer { window.isHidden = true; window.rootViewController = nil; previousKeyWindow?.makeKey() }
+        for dark in [false, true] {
+            for connection in [CompanionConnection.offline, .reconnecting, .connected] {
+                let status = CompanionRecoveryStatus(connection: connection, isLoading: false, requiresResync: true, error: nil)
+                let controller = UIHostingController(rootView:
+                    CompanionRecoveryStatusView(status: status, onRetry: { _ in })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.magenta)
+                        .companionTheme(.clubhouse)
+                        .environment(\.colorScheme, dark ? .dark : .light))
+                window.rootViewController = controller; window.makeKeyAndVisible()
+                window.layoutIfNeeded(); controller.view.layoutIfNeeded()
+                let format = UIGraphicsImageRendererFormat(); format.scale = 1
+                let image = UIGraphicsImageRenderer(bounds: controller.view.bounds, format: format).image { _ in
+                    controller.view.drawHierarchy(in: controller.view.bounds, afterScreenUpdates: true)
+                }
+                let cgImage = try XCTUnwrap(image.cgImage)
+                let width = cgImage.width, height = cgImage.height
+                var bytes = [UInt8](repeating: 0, count: width * height * 4)
+                try bytes.withUnsafeMutableBytes { buffer in
+                    let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                        bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+                    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+                }
+                for x in [2, width - 3] {
+                    let index = (height / 2 * width + x) * 4
+                    XCTAssertGreaterThan(bytes[index], 250)
+                    XCTAssertLessThan(bytes[index + 1], 5, "Recovery must not paint a full-width tinted band (\(status.phase), dark: \(dark))")
+                    XCTAssertGreaterThan(bytes[index + 2], 250)
+                }
+            }
+        }
+    }
+
     func testFullErrorDetailsCanBeHostedAtAccessibilitySize() {
         let error = String(repeating: "Synthetic history error with full explanation.\n", count: 40)
         let status = CompanionRecoveryStatus(connection: .failed("Synthetic connection error"), isLoading: false,

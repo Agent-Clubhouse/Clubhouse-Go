@@ -32,6 +32,37 @@ import XCTest
         composer.typeText(draft)
     }
 
+    func testOfflineHeaderKeepsFloatingGlassInLightAndDark() {
+        recoveryAppearance("--companion-header-offline", title: "Offline")
+    }
+
+    func testReconnectingHeaderKeepsFloatingGlassInLightAndDark() {
+        recoveryAppearance("--companion-header-reconnecting", title: "Reconnecting…")
+    }
+
+    func testRefreshRequiredHeaderKeepsFloatingGlassInLightAndDark() {
+        for light in [false, true] {
+            let app = launch(light ? ["--companion-header-light"] : [])
+            waitAndTap(app.buttons["header-fixture-menu"], until: app.buttons["header-fixture-refresh"], attempts: 1)
+            app.buttons["header-fixture-refresh"].tap()
+            XCTAssertTrue(app.staticTexts["Conversation needs a refresh"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["companion-recovery-retry"].isHittable)
+            capture(app, "\(light ? "light" : "dark") refresh required")
+        }
+    }
+
+    private func recoveryAppearance(_ flag: String, title: String) {
+        for light in [false, true] {
+            let app = launch([flag] + (light ? ["--companion-header-light"] : []))
+            let status = app.staticTexts[title]
+            XCTAssertTrue(status.waitForExistence(timeout: 5))
+            capture(app, "\(light ? "light" : "dark") \(title)")
+            XCTAssertTrue(app.buttons["companion-recovery-details"].isHittable)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Recovery \(title) hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        }
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
     /// glass must not restyle it. The 50pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.

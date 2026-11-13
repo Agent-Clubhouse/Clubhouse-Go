@@ -126,3 +126,7 @@ history request in flight. Details shows the full connection and conversation er
 large refresh panel and the in-transcript loading/failure views; it starts no work itself, and command gating is
 unchanged. Retry actions are bound to the page that presented them, and Details closes when that page changes target or
 becomes inactive. Operation warnings and the wrong-machine notice (#350) stay separate.
+
+Recovery uses an inset, rounded card-glass surface rather than a full-width tinted strip. The navigation background
+stays explicitly hidden even when the status row separates the transcript from the bar. Progress and refresh icons
+are vertically centered with the headline in both the single-row and wrapping layouts, in light and dark appearance.

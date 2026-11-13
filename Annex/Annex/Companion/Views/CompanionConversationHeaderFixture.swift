@@ -30,6 +30,10 @@ struct CompanionConversationHeaderFixture: View {
                             Task { await updateImage() }
                         }
                         .accessibilityIdentifier("header-fixture-image")
+                        Button("Require conversation refresh") {
+                            store.apply(.resyncRequired(hostID: target.hostID))
+                        }
+                        .accessibilityIdentifier("header-fixture-refresh")
                     } label: { Label("Header fixture", systemImage: "photo") }
                     .accessibilityValue("Synthetic profile image version \(imageVersion)")
                     .accessibilityIdentifier("header-fixture-menu")
@@ -71,6 +75,9 @@ struct CompanionConversationHeaderFixture: View {
                     text: "Reading marker \(index). " + String(repeating: "Synthetic transcript content for glass and scroll reachability. ", count: 4)))
             }
             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "header-fixture"))
+            if arguments.contains("--companion-header-offline") { host.connection = .offline }
+            if arguments.contains("--companion-header-reconnecting") { host.connection = .reconnecting }
+            store.apply(.hosts([host]))
             ready = true
         }
     }

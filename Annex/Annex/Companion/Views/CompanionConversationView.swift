@@ -155,6 +155,7 @@ struct CompanionConversationView: View {
         }
         .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if showsActions {
                 // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
