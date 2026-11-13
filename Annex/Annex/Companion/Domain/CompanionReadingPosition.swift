@@ -107,6 +107,16 @@ enum CompanionAssistantNavigation {
         return targets.last { (frames[$0]?.lowerBound ?? .infinity) < viewportTop - 1 }
     }
 
+    static func nextDestination(in targets: [String], frames: [String: ClosedRange<Double>], metrics: CompanionScrollMetrics) -> String? {
+        guard !metrics.isAtTrueBottom,
+              let id = destination(in: targets, frames: frames, viewportTop: metrics.normalizedOffset, forward: true),
+              let frame = frames[id] else { return nil }
+        let visibleBottom = metrics.normalizedOffset + max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset)
+        let destinationOffset = min(max(0, frame.lowerBound), metrics.maximumOffset)
+        guard frame.upperBound > visibleBottom + 1, abs(destinationOffset - metrics.normalizedOffset) > 1 else { return nil }
+        return id
+    }
+
     static func previous(in targets: [String], before current: String?) -> String? {
         guard let current, let index = targets.firstIndex(of: current) else { return targets.last }
         return index > 0 ? targets[index - 1] : nil

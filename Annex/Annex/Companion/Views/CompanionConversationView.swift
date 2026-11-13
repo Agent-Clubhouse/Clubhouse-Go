@@ -470,11 +470,6 @@ struct CompanionConversationView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollPosition($readingScrollPosition)
-            // Only crossing a message boundary redraws the navigation label, not every viewport pixel.
-            .onScrollGeometryChange(for: String?.self, of: { geometry in
-                CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
-                    viewportTop: Self.metrics(geometry).normalizedOffset, forward: true)
-            }) { _, next in nextAssistantMessageID = next }
             .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
             .defaultScrollAnchor(.bottom, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
@@ -496,6 +491,7 @@ struct CompanionConversationView: View {
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
@@ -533,9 +529,8 @@ struct CompanionConversationView: View {
                 AnnexTelemetry.shared.measurePerformance(.readingPreference, messageCount: conversation.items.count) {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
-                    nextAssistantMessageID = CompanionAssistantNavigation.destination(in: stops, frames: frames,
-                        viewportTop: readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset, forward: true)
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
                     guard !readingViewport.isScrollingToTop, !readingViewport.preserveBookmarkUntilUserAction,
@@ -556,6 +551,7 @@ struct CompanionConversationView: View {
                     }
                 }
             }
+            .onChange(of: stops) { _, _ in updateNextAssistantMessage(in: stops) }
             .background {
                 CompanionReadingTouchObserver {
                     cancelNativeScrollToTop()
@@ -575,10 +571,11 @@ struct CompanionConversationView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
             .overlay(alignment: .bottomTrailing) {
-                CompanionTranscriptNavigation(hasPrevious: !stops.isEmpty, hasNext: nextAssistantMessageID != nil, followsLatest: followLatest,
+                let next = nextAssistantMessageID
+                CompanionTranscriptNavigation(hasPrevious: !stops.isEmpty, hasNext: next != nil, followsLatest: followLatest,
                                               showsLatest: showsLatestControl,
                     previous: { jump(stops: stops, forward: false, proxy: proxy) },
-                    next: { jump(stops: stops, forward: true, proxy: proxy) })
+                    next: { jump(to: next, forward: true, proxy: proxy) })
                     .padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
@@ -747,10 +744,22 @@ struct CompanionConversationView: View {
         }
     }
 
+    private func updateNextAssistantMessage(in stops: [String]) {
+        guard let metrics = readingViewport.metrics,
+              abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
+        let next = CompanionAssistantNavigation.nextDestination(in: stops, frames: readingViewport.frames, metrics: metrics)
+        // Only a changed destination invalidates controls, not each viewport pixel.
+        if nextAssistantMessageID != next { nextAssistantMessageID = next }
+    }
+
     private func jump(stops: [String], forward: Bool, proxy: ScrollViewProxy) {
         let offset = readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset
-        guard let id = CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
-                                                                viewportTop: offset, forward: forward) else {
+        jump(to: CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
+                                                          viewportTop: offset, forward: forward), forward: forward, proxy: proxy)
+    }
+
+    private func jump(to id: String?, forward: Bool, proxy: ScrollViewProxy) {
+        guard let id else {
             if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
             else {
                 setFollowing(true, reason: .latest)

@@ -182,4 +182,17 @@ struct CompanionReadingPositionTests {
         #expect(CompanionAssistantNavigation.next(in: targets, after: targets.first) == targets.last)
         #expect(CompanionAssistantNavigation.next(in: targets, after: targets.last) == nil)
     }
+
+    @Test(arguments: [400.0, 740]) func nextResumesFollowingForAVisibleOrClampedDestination(offset: Double) {
+        let metrics = CompanionScrollMetrics(offset: offset, contentHeight: 1_000, containerHeight: 300, topInset: 20, bottomInset: 40)
+        let targets = ["a", "b", "c"]
+        let frames: [String: ClosedRange<Double>] = ["a": 0...500, "b": 600...650, "c": 900...950]
+        #expect(CompanionAssistantNavigation.destination(in: targets, frames: frames, viewportTop: metrics.normalizedOffset, forward: true) != nil)
+        #expect(CompanionAssistantNavigation.nextDestination(in: targets, frames: frames, metrics: metrics) == nil)
+    }
+
+    @Test func nextStillTargetsAnOffscreenMessage() {
+        let metrics = CompanionScrollMetrics(offset: 100, contentHeight: 1_000, containerHeight: 300, topInset: 20, bottomInset: 40)
+        #expect(CompanionAssistantNavigation.nextDestination(in: ["a", "b"], frames: ["a": 0...100, "b": 600...650], metrics: metrics) == "b")
+    }
 }
