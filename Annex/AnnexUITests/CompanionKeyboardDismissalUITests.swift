@@ -130,12 +130,18 @@ import UIKit
         XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 5))
         XCTAssertGreaterThan(replies.count, 1, "The live fixture must exercise more than one text slice")
         let composer = element(app, "companion-composer")
+        let followAudit = app.scrollViews["companion-transcript"]
+        let beforeKeyboard = followAudit.value as? String
+        XCTAssertTrue(beforeKeyboard?.hasPrefix("Following: 1; pauses: ") == true,
+                      "The opt-in follow audit must start while following")
         focus(composer, in: app); composer.typeText("Keep editing while streaming")
         let before = replies.allElementsBoundByIndex.map(\.label)
         XCTAssertTrue(waitFor(replies.firstMatch, NSPredicate { _, _ in
             replies.allElementsBoundByIndex.map(\.label) != before
         }, timeout: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(2))
+        XCTAssertEqual(followAudit.value as? String, beforeKeyboard,
+                       "Following must never pause across keyboard presentation, even if it recovers before this snapshot")
         XCTAssertTrue(app.keyboards.firstMatch.exists, "Programmatic following must never dismiss the keyboard")
         XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
         // Tap real selectable text, rather than the blank gutter used above.
@@ -184,6 +190,8 @@ import UIKit
         assertDismissed(app, draft: "Keep editing while streaming")
         focus(composer, in: app); transcriptPoint(app).tap()
         assertDismissed(app, draft: "Keep editing while streaming")
+        XCTAssertEqual(followAudit.value as? String, beforeKeyboard,
+                       "Repeated keyboard presentation and dismissal must not add a transient follow pause")
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(river.waitForExistence(timeout: 5))
         waitAndTap(river, until: composer)
