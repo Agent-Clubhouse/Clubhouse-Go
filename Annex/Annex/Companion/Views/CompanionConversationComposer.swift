@@ -360,7 +360,8 @@ struct CompanionConversationComposer: View {
 
     private var modelSettingsKey: [String] {
         [target.hostID, target.projectID, target.agentID, conversation.sessionID ?? "", agent.chatControls?.model ?? "",
-         agent.orchestrator ?? "", connection.label, String(canReadModelSettings), String(modelSettingsRetry)]
+         agent.orchestrator ?? "", connection.label, String(canReadModelSettings), String(modelSettingsRetry),
+         store.settingsRevisions[target]?.uuidString ?? ""]
     }
 
     private func loadModelSettings() async {

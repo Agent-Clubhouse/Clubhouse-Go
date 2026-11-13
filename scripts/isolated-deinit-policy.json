@@ -77,6 +77,7 @@
           "selection": "CompanionTarget ?",
           "sendRequests": "[ String : CompanionSendRequest ]",
           "service": "any CompanionService",
+          "settingsRevisions": "[ CompanionTarget : UUID ]",
           "sleepRefreshes": "Set < CompanionTarget >",
           "sleepRequests": "Set < CompanionTarget >",
           "spawnError": "String ?",

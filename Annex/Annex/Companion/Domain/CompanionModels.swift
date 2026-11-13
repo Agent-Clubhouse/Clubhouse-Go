@@ -344,6 +344,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     /// The durable agent's catalog lifecycle, never inferred from a chat turn ending.
     var isSleepingOnDesktop: Bool?
     var model: String?
+    /// The catalog's saved next-start model, separate from the live projection's `model`.
+    var savedModel: String?
     var capabilities: CompanionCapabilities = []
     /// `chat`, `pty` or `headless` while the agent runs; nil when the desktop doesn't say (a sleeping agent).
     var executionMode: String?

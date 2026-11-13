@@ -1524,6 +1524,7 @@ import ClubhouseTransport
                                    exitCode: value["exitCode"]?.integer.map(Int.init),
                                    turnStartedAt: projection?.turnStartedAt, contextUsage: projection?.contextUsage)
         Self.applyIdentity(value, icon: icon, to: &agent)
+        if !isQuick { agent.savedModel = value["model"]?.string }
         if !isQuick {
             switch value["status"]?.string {
             case "sleeping": agent.isSleepingOnDesktop = true

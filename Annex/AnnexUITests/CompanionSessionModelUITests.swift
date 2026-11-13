@@ -15,6 +15,41 @@ import XCTest
         shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
 
+    func testPermissionsAndEffortOrderingDoNotChangeWhenModelsDiffer() {
+        var plain: [[String]] = []
+        for differs in [false, true] {
+            var actual: [[String]] = []
+            for menu in ["companion-permissions-menu", "companion-effort-menu"] {
+                let app = launchApp(["--companion-preview"] + (differs ? ["--companion-preview-model-difference"] : []))
+                let row = element(app, "agent-preview-studio-river")
+                XCTAssertTrue(scrollTo(row, in: app))
+                let composer = element(app, "companion-composer")
+                waitAndTap(row, until: composer)
+                composer.tap()
+                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+                waitAndTap(app.buttons["companion-level-menu"], until: app.buttons[menu])
+                let labels: [String]
+                if menu == "companion-permissions-menu" {
+                    labels = ["companion-level-plan", "companion-level-ask", "companion-level-auto_edit", "companion-level-auto", "companion-level-full_access"]
+                    waitAndTap(app.buttons[menu], until: app.buttons[labels[0]])
+                } else {
+                    labels = ["Default", "Low", "Medium", "High", "Extra high"]
+                    waitAndTap(app.buttons[menu], until: app.buttons["Low"])
+                }
+                let buttons = labels.map { label in
+                    menu == "companion-permissions-menu" ? app.buttons[label] :
+                        app.buttons.matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", label, label + ",")).firstMatch
+                }
+                XCTAssertTrue(buttons.allSatisfy(\.exists))
+                actual.append(buttons.sorted { $0.frame.midY < $1.frame.midY }.map(\.label))
+                capture(app, "Menu ordering \(menu), models \(differs ? "different" : "equal")")
+                app.terminate()
+            }
+            if differs { XCTAssertEqual(actual, plain, "Session/Saved rows must not reorder sibling menus") }
+            else { plain = actual }
+        }
+    }
+
     func testSessionAndSavedAppearOnlyForProvenDifference() {
         var plainComposerHeight: CGFloat?
         for differs in [false, true] {
@@ -40,17 +75,19 @@ import XCTest
             let sonnet = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Sonnet")).firstMatch
             waitAndTap(model, until: sonnet)
             capture(app, differs ? "Session and Saved - Model submenu (preview)" : "Plain Model submenu - equal models (preview)")
-            XCTAssertEqual(text(app, "Session: Opus").exists, differs)
-            XCTAssertEqual(text(app, "Saved: Sonnet (next start)").exists, differs)
+            let status = app.descendants(matching: .any).matching(NSPredicate(
+                format: "label CONTAINS %@ AND label CONTAINS %@", "Session: Opus", "Saved: Sonnet (next start)"
+            )).firstMatch
+            XCTAssertEqual(status.exists, differs, app.debugDescription)
             if differs {
-                for label in ["Session: Opus", "Saved: Sonnet (next start)"] {
-                    let frame = text(app, label).frame
-                    XCTAssertFalse(frame.isEmpty, label)
-                    XCTAssertTrue(app.frame.contains(frame), label)
-                    XCTAssertLessThanOrEqual(frame.maxY, app.keyboards.firstMatch.frame.minY, "\(label) is visible above the keyboard")
-                }
+                let frame = status.frame
+                XCTAssertFalse(frame.isEmpty)
+                XCTAssertTrue(app.frame.contains(frame))
+                XCTAssertLessThanOrEqual(frame.maxY, app.keyboards.firstMatch.frame.minY, "Both model status lines are visible above the keyboard")
+            } else {
+                XCTAssertTrue(text(app, "Model").exists)
             }
-            XCTAssertTrue(text(app, "Model").exists, "The existing model choices remain available")
+            XCTAssertTrue(sonnet.exists, "The existing model choices remain available")
 
             // The menu makes toolbar elements non-hittable; dismiss outside it before using the toolbar.
             let ring = app.buttons["companion-context-usage"]

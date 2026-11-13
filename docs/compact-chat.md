@@ -47,7 +47,11 @@ When the session and saved model are distinct exact choices in the live model ca
 Equal IDs, unresolved defaults, missing values and unlisted alias/full-ID pairs keep the single Model UI.
 Labels are presentation only, never identity or an alias table. Saved settings are read only for a visible live
 conversation with a listed model, an enabled model menu and the existing durable-settings/connection capabilities;
-read failures and a retry stay inside the submenu. No rows are added to the collapsed composer.
+read failures and a retry stay inside the submenu. Successful phone saves invalidate the per-target read; catalog
+changes to the saved model/provider and Dispatcher settings invalidate it too, independently of the live model.
+Model's status lines stay together in its section header; no global menu ordering is imposed, so Permissions
+and Effort retain their existing ordering.
+No rows are added to the collapsed composer.
 
 The pinned desktop contract (`8bd00f0c`) does not export its renderer's `startModel`. Full desktop parity needs
 `MobileChatControls.startModel: string | null` in `src/shared/mobile-control.ts`, emitted by

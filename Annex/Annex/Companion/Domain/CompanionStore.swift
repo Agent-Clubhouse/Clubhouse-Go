@@ -21,6 +21,7 @@ import Observation
     private(set) var sleepRefreshes: Set<CompanionTarget> = []
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
+    private(set) var settingsRevisions: [CompanionTarget: UUID] = [:]
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     /// The `wrong_machine` refusal behind a chat's error, while it shows.
     private(set) var wrongMachines: [CompanionTarget: CompanionWrongMachine] = [:]
@@ -1057,7 +1058,9 @@ import Observation
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
-        return try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        settingsRevisions[target] = UUID()
+        return saved
     }
 
     func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }
@@ -1103,11 +1106,20 @@ import Observation
     }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String) async throws -> CompanionDispatcherSettings {
         try requireDispatcherConnection(hostID)
-        return try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
+        let saved = try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
+        invalidateDispatcherSettings(hostID: hostID)
+        return saved
     }
     func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String) async throws -> CompanionDispatcherSettings {
         try requireDispatcherConnection(hostID)
-        return try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
+        let saved = try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
+        invalidateDispatcherSettings(hostID: hostID)
+        return saved
+    }
+    private func invalidateDispatcherSettings(hostID: String) {
+        if let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id {
+            settingsRevisions[target] = UUID()
+        }
     }
     private func requireDispatcherConnection(_ hostID: String) throws {
         guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
@@ -1141,6 +1153,7 @@ import Observation
         do {
             try requireDispatcherConnection(hostID)
             let outcome = try await service.resetDispatcher(prompt, clientCommandID: UUID().uuidString)
+            invalidateDispatcherSettings(hostID: hostID)
             dispatcherResetNotices[hostID] = outcome.message
         } catch CompanionDispatcherSettingsError.stale(let fresh) {
             let changed = CompanionDispatcherResetPrompt.changes(prompt.reset, from: asked, to: fresh)
@@ -1357,6 +1370,19 @@ import Observation
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
             for host in incoming {
+                if let previous = hosts.first(where: { $0.id == host.id }) {
+                    let oldAgents = Dictionary(previous.allAgents.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+                    for agent in host.allAgents where !agent.isQuick {
+                        guard let old = oldAgents[agent.id] else { continue }
+                        let dispatcherModelsChanged = agent.isDispatcher &&
+                            (host.dispatcherSettings?.models != previous.dispatcherSettings?.models ||
+                             host.dispatcherSettings?.behavior != previous.dispatcherSettings?.behavior ||
+                             host.dispatcherSettings?.notHonored != previous.dispatcherSettings?.notHonored)
+                        if agent.savedModel != old.savedModel || agent.orchestrator != old.orchestrator || dispatcherModelsChanged {
+                            settingsRevisions[agent.id] = UUID()
+                        }
+                    }
+                }
                 if let oldEpoch = hosts.first(where: { $0.id == host.id })?.controlEpoch, host.controlEpoch != oldEpoch {
                     let prefix = "\(host.id):"
                     grantAnswerAttempts = grantAnswerAttempts.filter { !$0.key.hasPrefix(prefix) }
@@ -1498,6 +1524,7 @@ import Observation
         if !removedHosts.isEmpty {
             gone.formUnion(conversations.keys.filter { removedHosts.contains($0.hostID) })
             gone.formUnion(pendingCommands.filter { removedHosts.contains($0.hostID) })
+            gone.formUnion(settingsRevisions.keys.filter { removedHosts.contains($0.hostID) })
         }
         for previous in hosts {
             guard let current = byID[previous.id] else { continue }
@@ -1520,6 +1547,7 @@ import Observation
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
             sleepRequests.remove(target); sleepRefreshes.remove(target)
             confirmedSleepCommands[target] = nil; providerFlows[target] = nil
+            settingsRevisions[target] = nil
         }
     }
 
