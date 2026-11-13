@@ -323,7 +323,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 let bounds = transcript.frame.intersection(app.frame)
                 let top = bounds.minY + 12
                 var bottom = min(bounds.maxY, composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
-                let latest = app.buttons["Latest"]
+                let latest = app.pausedChatNavigation
                 if latest.exists { bottom = min(bottom, latest.frame.minY - 12) }
                 return CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bottom - top))
             }
@@ -333,7 +333,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             // Waiting for the total link count to settle can prevent every tap as new runs arrive.
             let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.midX, dy: viewport.minY + viewport.height * 0.3))
             from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: viewport.height * 0.4)))
-            XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
+            XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
             // Existing links precede appended runs. Reveal one instead of chasing the newest index.
             let candidate = links.firstMatch
             // The generic helper's fixed screen band can accept a link above this viewport.

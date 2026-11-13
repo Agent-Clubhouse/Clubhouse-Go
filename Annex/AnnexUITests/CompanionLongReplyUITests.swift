@@ -54,7 +54,7 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         let end = app.staticTexts["End of the long reply."]
         let start = app.staticTexts["Start of the long reply."]
         let lastApproval = app.staticTexts["Edit Docs/Companion.md"]
-        let latest = app.buttons["Latest"]
+        let latest = app.pausedChatNavigation
         XCTAssertTrue(end.waitForExistence(timeout: 15), "The conversation opens at its newest items, just after the long reply")
         XCTAssertTrue(lastApproval.isHittable, "The final approval after the reply must be in the actual viewport")
         XCTAssertFalse(latest.exists, "The latest indicator starts hidden at the bottom")
@@ -64,7 +64,7 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
         tapChatStatusBar(in: app)
         XCTAssertTrue(latest.waitForExistence(timeout: 10), "After the status bar's scroll to the top, Latest is offered")
         XCTAssertTrue(top.isHittable, "Native scroll-to-top must reach the actual first row")
-        waitAndTap(latest, untilGone: latest, timeout: 10, "Latest must return from the top to the newest items")
+        navigateToChatEnd(app)
         XCTAssertTrue(end.waitForExistence(timeout: 10), "Latest must show the end of the reply")
         XCTAssertTrue(lastApproval.isHittable, "Latest must return to the actual last row")
 
@@ -75,7 +75,7 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
             XCTAssertTrue(latest.waitForExistence(timeout: 5), "Away from the latest, Latest is offered")
             // Back down: drag partway, then jump the rest with Latest, which crosses unrealised rows in one go.
             fling(to: start, up: false, in: app, "Round \(round): the start of the long reply must be reachable")
-            waitAndTap(latest, untilGone: latest, timeout: 10, "Round \(round): Latest must return to the newest items")
+            navigateToChatEnd(app)
             XCTAssertTrue(end.waitForExistence(timeout: 10), "Round \(round): Latest must show the end of the reply")
             let elapsed = Date().timeIntervalSince(began)
             XCTContext.runActivity(named: "Round \(round) took \(String(format: "%.1f", elapsed)) s") { _ in }

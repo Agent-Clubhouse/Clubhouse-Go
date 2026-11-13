@@ -1,5 +1,12 @@
 import XCTest
 
+extension XCUIApplication {
+    var pausedChatNavigation: XCUIElement {
+        buttons.matching(NSPredicate(format: "identifier == %@ AND value == %@",
+                                    "companion-next-message", "Reading earlier messages")).firstMatch
+    }
+}
+
 /// Primitives for hosted macOS runners, where an element lookup can take 15–20 s, a launch 90 s, and a tap or
 /// long-press is sometimes lost. They retry the gesture, never the assertion, and every wait is bounded.
 ///
@@ -68,6 +75,27 @@ class ReliableUITestCase: XCTestCase {
     func checkTimeLeft(_ step: @autoclosure () -> String, file: StaticString = #filePath, line: UInt = #line) {
         guard Date() > deadline else { return }
         XCTFail("Ran out of time before \(step()); the test is within \(Int(Self.allowanceMargin)) s of its allowance", file: file, line: line)
+    }
+
+    /// Advance through the remaining assistant stops, then use the same down control's Latest action.
+    func navigateToChatEnd(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<40 {
+            checkTimeLeft("advancing to the chat end", file: file, line: line)
+            let down = app.pausedChatNavigation
+            if !down.exists { return }
+            let isLatest = down.label == "Latest"
+            if !isLatest { XCTAssertEqual(down.label, "Next message", file: file, line: line) }
+            let frame = down.frame
+            XCTAssertFalse(frame.isEmpty, file: file, line: line)
+            XCTAssertTrue(app.frame.contains(frame), "Down navigation stays inside the screen", file: file, line: line)
+            // Streaming can invalidate the AX activation point while the visible frame remains valid.
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+            if isLatest {
+                XCTAssertTrue(down.waitForNonExistence(timeout: 10), "Latest resumes following at the true bottom", file: file, line: line)
+                return
+            }
+        }
+        XCTFail("Down navigation must reach Latest within the fixture's remaining assistant messages", file: file, line: line)
     }
 
     /// Taps `element` until `expected` appears, tapping again only while `element` is still there and hittable.
