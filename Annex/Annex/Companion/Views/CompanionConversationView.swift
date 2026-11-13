@@ -18,6 +18,7 @@ struct CompanionConversationView: View {
     #endif
     @State private var followLatest = true
     @State private var atLatest = true
+    @State private var nextAssistantMessageID: String?
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var confirmCancel = false
     @State private var confirmSleep = false
@@ -25,6 +26,7 @@ struct CompanionConversationView: View {
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
+    @State private var headerLeadingReservation: CGFloat = 44
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -155,16 +157,35 @@ struct CompanionConversationView: View {
         }
         .navigationTitle(agent.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if showsActions {
+                // A semantic reservation avoids the native Back/blank-item AX snapshot stall on iOS 26.
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Header alignment", systemImage: "circle") {}
+                        .frame(width: headerLeadingReservation, height: 44)
+                        .hidden().allowsHitTesting(false).accessibilityHidden(true)
+                }
+                .sharedBackgroundVisibility(.hidden)
                 // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
+                        .background {
+                            CompanionToolbarIdentityCenter { delta in
+                                // The principal centers between item groups, so double the measured correction.
+                                headerLeadingReservation = min(max(0, available.size.width / 2 - 44),
+                                    max(0, headerLeadingReservation + 2 * delta))
+                            }
+                                .allowsHitTesting(false).accessibilityHidden(true)
+                        }
+                        .frame(width: max(44, available.size.width - 2 * (44 + 44 + 16 + 20 + 8)))
                 }
                 .sharedBackgroundVisibility(.hidden)
-                ToolbarItem(placement: .topBarTrailing) { contextButton }
+                ToolbarItem(placement: .topBarTrailing) {
+                    contextButton
+                }
                     .sharedBackgroundVisibility(.hidden)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .topBarTrailing) {
@@ -281,7 +302,8 @@ struct CompanionConversationView: View {
                 if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
                 else { Image(systemName: "chart.pie").font(.caption) }
             }
-            .frame(minWidth: 44, minHeight: 44)
+            .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
             .companionCardGlass(Capsule(), interactive: true)
         }
@@ -469,6 +491,7 @@ struct CompanionConversationView: View {
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
                     atLatest = metrics.isAtTrueBottom
@@ -507,6 +530,7 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
                     guard !readingViewport.isScrollingToTop, !readingViewport.preserveBookmarkUntilUserAction,
@@ -527,6 +551,7 @@ struct CompanionConversationView: View {
                     }
                 }
             }
+            .onChange(of: stops) { _, _ in updateNextAssistantMessage(in: stops) }
             .background {
                 CompanionReadingTouchObserver {
                     cancelNativeScrollToTop()
@@ -546,28 +571,12 @@ struct CompanionConversationView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
             .overlay(alignment: .bottomTrailing) {
-                GlassEffectContainer {
-                    HStack(spacing: 8) {
-                        if !stops.isEmpty {
-                            Button { jump(stops: stops, forward: false, proxy: proxy) } label: { Image(systemName: "chevron.up") }
-                                .accessibilityLabel("Previous assistant message")
-                                .accessibilityIdentifier("companion-previous-message")
-                                .buttonBorderShape(.circle)
-                            Button { jump(stops: stops, forward: true, proxy: proxy) } label: { Image(systemName: "chevron.down") }
-                                .accessibilityLabel("Next assistant message")
-                                .accessibilityIdentifier("companion-next-message")
-                                .buttonBorderShape(.circle)
-                        }
-                        if showsLatestControl {
-                            Button {
-                                setFollowing(true, reason: .latest)
-                                readingBookmark.position.followsLatest = true
-                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
-                            } label: { Label("Latest", systemImage: "arrow.down") }
-                        }
-                    }
-                    .buttonStyle(.glass).controlSize(.large)
-                }.padding(8)
+                let next = nextAssistantMessageID
+                CompanionTranscriptNavigation(hasPrevious: !stops.isEmpty, hasNext: next != nil, followsLatest: followLatest,
+                                              showsLatest: showsLatestControl,
+                    previous: { jump(stops: stops, forward: false, proxy: proxy) },
+                    next: { jump(to: next, forward: true, proxy: proxy) })
+                    .padding(8)
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
                 if followLatest && !readingViewport.isScrollingToTop {
@@ -735,11 +744,28 @@ struct CompanionConversationView: View {
         }
     }
 
+    private func updateNextAssistantMessage(in stops: [String]) {
+        guard let metrics = readingViewport.metrics,
+              abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
+        let next = CompanionAssistantNavigation.nextDestination(in: stops, frames: readingViewport.frames, metrics: metrics)
+        // Only a changed destination invalidates controls, not each viewport pixel.
+        if nextAssistantMessageID != next { nextAssistantMessageID = next }
+    }
+
     private func jump(stops: [String], forward: Bool, proxy: ScrollViewProxy) {
         let offset = readingViewport.metrics?.normalizedOffset ?? readingBookmark.position.offset
-        guard let id = CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
-                                                                viewportTop: offset, forward: forward) else {
+        jump(to: CompanionAssistantNavigation.destination(in: stops, frames: readingViewport.frames,
+                                                          viewportTop: offset, forward: forward), forward: forward, proxy: proxy)
+    }
+
+    private func jump(to id: String?, forward: Bool, proxy: ScrollViewProxy) {
+        guard let id else {
             if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
+            else {
+                setFollowing(true, reason: .latest)
+                readingBookmark.position.followsLatest = true
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+            }
             return
         }
         setFollowing(false, reason: .messageJump)
@@ -972,6 +998,42 @@ private struct CompanionOfferedWidth: ViewModifier {
         func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
             subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
         }
+    }
+}
+
+private struct CompanionTranscriptNavigation: View {
+    let hasPrevious: Bool
+    let hasNext: Bool
+    let followsLatest: Bool
+    let showsLatest: Bool
+    let previous: () -> Void
+    let next: () -> Void
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if hasPrevious {
+                Button(action: previous) { icon("chevron.up") }
+                    .accessibilityLabel("Previous assistant message")
+                    .accessibilityIdentifier("companion-previous-message")
+            }
+            if hasPrevious || showsLatest {
+                Button(action: next) { icon("chevron.down") }
+                    .accessibilityLabel(hasNext ? "Next message" : "Latest")
+                    .accessibilityValue(followsLatest ? "Following latest" : "Reading earlier messages")
+                    .accessibilityHint(hasNext ? "Jumps to the next assistant message" : "Jumps to the end and follows new replies")
+                    .accessibilityIdentifier("companion-next-message")
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Color(palette.label))
+    }
+
+    private func icon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.body.weight(.semibold))
+            .frame(width: 44, height: 44)
+            .companionCardGlass(Circle(), interactive: true)
     }
 }
 

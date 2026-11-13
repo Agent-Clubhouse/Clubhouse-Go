@@ -30,6 +30,17 @@ struct CompanionConversationHeaderFixture: View {
                             Task { await updateImage() }
                         }
                         .accessibilityIdentifier("header-fixture-image")
+                        Button("Require conversation refresh") {
+                            store.apply(.resyncRequired(hostID: target.hostID))
+                        }
+                        .accessibilityIdentifier("header-fixture-refresh")
+                        if arguments.contains("--companion-header-held-tail") {
+                            Button("Append held reply") {
+                                store.apply(.upsert(target, .message(.init(id: "header-fixture-incoming", role: .assistant,
+                                    text: "Held incoming tail.")), sequence: nil))
+                            }
+                            .accessibilityIdentifier("header-fixture-append")
+                        }
                     } label: { Label("Header fixture", systemImage: "photo") }
                     .accessibilityValue("Synthetic profile image version \(imageVersion)")
                     .accessibilityIdentifier("header-fixture-menu")
@@ -66,11 +77,21 @@ struct CompanionConversationHeaderFixture: View {
             host.dispatcher = nil
             store.apply(.hosts([host]))
             await store.load(target)
-            let items = (1...18).map { index in
+            var items = (1...18).map { index in
                 CompanionTimelineItem.message(.init(id: "header-fixture-\(index)", role: index % 4 == 0 ? .user : .assistant,
                     text: "Reading marker \(index). " + String(repeating: "Synthetic transcript content for glass and scroll reachability. ", count: 4)))
             }
+            if arguments.contains("--companion-header-held-tail") {
+                items = [
+                    .message(.init(id: "header-fixture-held-reply", role: .assistant,
+                        text: String(repeating: "Held stationary reply paragraph.\n\n", count: 160))),
+                    .message(.init(id: "header-fixture-held-end", role: .user, text: "Held final row."))
+                ]
+            }
             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "header-fixture"))
+            if arguments.contains("--companion-header-offline") { host.connection = .offline }
+            if arguments.contains("--companion-header-reconnecting") { host.connection = .reconnecting }
+            store.apply(.hosts([host]))
             ready = true
         }
     }

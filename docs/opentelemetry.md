@@ -274,6 +274,23 @@ cannot attribute them to the report's current interaction, and they do not recov
 Actual layout, AttributeGraph evaluation, render-server/GPU work, keyboard delivery and
 keystroke-to-screen latency still require a scoped Instruments/device profile.
 
+### Framebriar typing report d34a1c15
+
+The November 11 report's narrow 15:11-15:12 device windows (build `bccc900e`) show a real scheduling signal:
+the 15:12:42 checkpoint has 14 completed composer edits, mean 38.53 ms / maximum 279.26 ms, alongside
+main-actor delay up to 593.19 ms and display-link callback gaps up to 377.83 ms. The preceding checkpoint
+has a 667.46 ms callback gap. Viewport summaries report 133-150 laid-out entries versus three visible;
+individual instrumented body, timeline and geometry handlers are short (maxima 3.02, 1.82 and 0.127 ms).
+These aggregates do not identify the stalled work or establish that offscreen rows caused it.
+
+Unchanged main `ea4e01c5` passes the hosted composer-isolation controls. Its existing offline Release fixture
+on an iPhone 17 / iOS 26.0 simulator retained all 100 native and draft characters: typing alone produced four
+body/timeline passes rather than one per edit (next-turn maximum 45.33 ms), and 100 edits with 50 staggered
+stream updates produced 54 passes (next-turn maximum 18.29 ms). Callback gaps still reached 99.66 / 87.43 ms.
+This synthetic simulator run does not reproduce or disprove device input latency. Track the device evidence
+and remaining framework work in [#271](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/271);
+there is no justified production performance change from these logs alone.
+
 ## Report delivery and local diagnostics preparation
 
 A successful submission commits the reviewed report to the SDK's durable local queue. Go wakes its

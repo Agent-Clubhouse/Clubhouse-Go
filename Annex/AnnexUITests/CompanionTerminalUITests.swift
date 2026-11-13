@@ -35,6 +35,40 @@ final class CompanionTerminalUITests: ReliableUITestCase {
         return output
     }
 
+    func testDoneHasAccessibleContrastOnDarkTerminal() throws {
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        element(app, "terminal-keyboard").tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        screenshot(app, "Terminal Done contrast")
+        try app.performAccessibilityAudit(for: .contrast) { issue in
+            // Audit the reported navigation control, not selectable ANSI output.
+            guard let element = issue.element else { return false }
+            return element.identifier != "terminal-done" && element.label != "Done"
+        }
+    }
+
+    func testDraggingOutputDismissesKeyboardAndKeepsInputAndSelection() {
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.typeText("echo before gesture\n")
+        waitForOutput(output, containing: "\nbefore gesture\n")
+        let start = output.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.92))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        screenshot(app, "Terminal swipe-down keyboard dismissal")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Dragging terminal output dismisses its input keyboard")
+        output.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.typeText("echo after gesture\n")
+        waitForOutput(output, containing: "\nafter gesture\n")
+        output.press(forDuration: 1.2)
+        XCTAssertTrue(app.menuItems["Copy"].waitForExistence(timeout: 5) || app.buttons["Copy"].exists)
+    }
+
     func testProjectTerminalEchoesTypingAndOffersTheKeyBar() {
         let app = launchApp(["--companion-preview"])
         let output = openProjectTerminal(app)

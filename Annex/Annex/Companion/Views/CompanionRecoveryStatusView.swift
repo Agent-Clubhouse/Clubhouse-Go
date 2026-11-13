@@ -36,7 +36,9 @@ struct CompanionRecoveryStatusView: View {
             .font(.subheadline)
             .foregroundStyle(Color(palette.label))
             .padding(.horizontal, 12)
-            .background(Color(status.isInProgress ? palette.card : palette.warning).opacity(status.isInProgress ? 1 : 0.12))
+            .companionCardGlass(RoundedRectangle(cornerRadius: 20))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
             .accessibilityElement(children: .contain)
             // Keep identifiers on leaves: a container identifier can mask child selectors (#311).
             .sheet(isPresented: $showsDetails) {
@@ -47,7 +49,7 @@ struct CompanionRecoveryStatusView: View {
     }
 
     private func headline(wrapping: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .center, spacing: 8) {
             if status.isInProgress {
                 ProgressView().controlSize(.small).accessibilityHidden(true)
             } else {

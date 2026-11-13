@@ -79,6 +79,7 @@ The Store audit is transitive, not inferred from its empty deinit: `providerFlow
 | `CompanionTelemetry` | main_actor | Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here. |
 | `CompanionTerminalFocus` | arc_only | Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view. |
 | `CompanionTerminalKeyInput` | main_actor | UIView/UIKeyInput subclass, session and UIKit superclass state; preserve isolation. |
+| `CompanionToolbarIdentityCenter.Anchor` | main_actor | UIView layout state and SwiftUI State callback; queued samples capture weakly, dismantle clears callback. |
 | `CompanionTerminalSession` | main_actor | Injected terminal-channel protocol can own main-only objects; preserve isolation. |
 | `CompanionTerminalUIView` | main_actor | UIView subclass strongly owns key-input view, layers and UI state; preserve isolation. |
 | `CompanionTranscriptExpansion` | arc_only | Dictionary owns only ARC-safe CompanionPartExpansion values. |

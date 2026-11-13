@@ -59,7 +59,10 @@ struct CompanionTerminalScreenView: View {
             .toolbarColorScheme(colors.background.luminance < 0.4 ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.accessibilityIdentifier("terminal-done")
+                    Button { dismiss() } label: {
+                        Text("Done").foregroundStyle(Color(colors.foreground))
+                    }
+                    .accessibilityIdentifier("terminal-done")
                 }
                 if let session {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -77,6 +80,7 @@ struct CompanionTerminalScreenView: View {
                 }
             }
         }
+        .tint(Color(colors.foreground))
         .sensoryFeedback(.success, trigger: copied) { _, now in now }
         .task(id: copied) {
             guard copied else { return }

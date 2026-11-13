@@ -513,6 +513,11 @@
       "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
       "reason": "UIView superclass owns main-only UIKit state, even though explicit references are weak."
     },
+    "CompanionToolbarIdentityCenter.Anchor": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionConversationHeader.swift",
+      "reason": "UIView superclass owns UIKit layout state and the correction callback captures SwiftUI State. Coalesced main-queue samples capture the view weakly; dismantle clears the callback. Preserve UIKit/MainActor teardown."
+    },
     "CompanionComposerPasteHook.Coordinator": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",

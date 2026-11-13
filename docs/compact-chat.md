@@ -12,6 +12,15 @@ discloses a details card with the full name, desktop/project, status, Access and
 Access badge; boolean-only access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the
 identity's accessibility label still carries them.
 
+The principal has a symmetric width budget for two 44pt trailing controls, their spacer, the bar margin and a gap.
+A noninteractive UIKit background measures the identity in the actual navigation bar and balances a hidden leading
+button's reservation after layout: SwiftUI toolbar hosts have independent coordinate roots, and native leading controls
+can differ in width at large text sizes. This changes layout rather than offsetting the pill outside the native title's
+hit area. The reservation uses a hidden semantic button, not a bare color (which caused iOS 26 AX snapshot timeouts).
+Context keeps a 44pt target and bounded bar typography; its full reading remains accessible and available in settings.
+Long names truncate instead of shifting the identity left;
+the disclosure and accessibility label retain the full name.
+
 The transcript scrolls under the floating controls with the soft scroll-edge effect; there is no band under the bar.
 The pill may hang just below the bar, so the top bar adds 8pt of clearance: status rows, banners and the first message
 start below it, while scrolled content passes beneath.
@@ -126,3 +135,7 @@ history request in flight. Details shows the full connection and conversation er
 large refresh panel and the in-transcript loading/failure views; it starts no work itself, and command gating is
 unchanged. Retry actions are bound to the page that presented them, and Details closes when that page changes target or
 becomes inactive. Operation warnings and the wrong-machine notice (#350) stay separate.
+
+Recovery uses an inset, rounded card-glass surface rather than a full-width tinted strip. The navigation background
+stays explicitly hidden even when the status row separates the transcript from the bar. Progress and refresh icons
+are vertically centered with the headline in both the single-row and wrapping layouts, in light and dark appearance.

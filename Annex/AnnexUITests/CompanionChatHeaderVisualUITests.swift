@@ -32,6 +32,55 @@ import XCTest
         composer.typeText(draft)
     }
 
+    func testOfflineHeaderKeepsFloatingGlassInLightAndDark() {
+        recoveryAppearance("--companion-header-offline", title: "Offline")
+    }
+
+    func testReconnectingHeaderKeepsFloatingGlassInLightAndDark() {
+        recoveryAppearance("--companion-header-reconnecting", title: "Reconnecting…")
+    }
+
+    func testRefreshRequiredHeaderKeepsFloatingGlassInLightAndDark() {
+        for light in [false, true] {
+            let app = launch(light ? ["--companion-header-light"] : [])
+            waitAndTap(app.buttons["header-fixture-menu"], until: app.buttons["header-fixture-refresh"], attempts: 1)
+            app.buttons["header-fixture-refresh"].tap()
+            XCTAssertTrue(app.staticTexts["Conversation needs a refresh"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.buttons["companion-recovery-retry"].isHittable)
+            capture(app, "\(light ? "light" : "dark") refresh required")
+        }
+    }
+
+    private func recoveryAppearance(_ flag: String, title: String) {
+        for light in [false, true] {
+            let app = launch([flag] + (light ? ["--companion-header-light"] : []))
+            let status = app.staticTexts[title]
+            XCTAssertTrue(status.waitForExistence(timeout: 5))
+            capture(app, "\(light ? "light" : "dark") \(title)")
+            XCTAssertTrue(app.buttons["companion-recovery-details"].isHittable)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Recovery \(title) hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        }
+    }
+
+    func testLongIdentityIsScreenCenteredAndClearsBothSides() {
+        for light in [false, true] {
+            let app = launch(["--companion-header-long-name"] + (light ? ["--companion-header-light"] : []))
+            capture(app, "\(light ? "light" : "dark") long identity centered")
+            let identity = app.buttons["companion-chat-header"].frame
+            let context = app.buttons["companion-context-usage"].frame
+            let leading = app.buttons["header-fixture-menu"].frame
+            XCTAssertGreaterThan(identity.width, 100, "The centered pill retains readable name space, not just an ellipsis")
+            XCTAssertEqual(identity.midX, app.frame.midX, accuracy: 1, "The identity centers on the screen, not the remaining toolbar space")
+            XCTAssertLessThanOrEqual(identity.maxX + 4, context.minX)
+            XCTAssertGreaterThanOrEqual(identity.minX - 4, leading.maxX)
+            XCTAssertTrue(app.buttons["companion-chat-header"].label.contains("Alexandria"))
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: identity.maxX - 12, dy: identity.maxY - 8)).tap()
+            XCTAssertEqual(element(app, "companion-chat-details-name").label, "Alexandria — release coordination and simulator validation")
+        }
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
     /// glass must not restyle it. The 50pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.
@@ -126,6 +175,8 @@ import XCTest
         XCTAssertTrue(identity.isHittable)
         assertMinimumTarget(identity, "identity")
         XCTAssertTrue(region.navigation.contains(CGPoint(x: identity.frame.midX, y: identity.frame.midY)), "Identity sits on the bar: \(identity.frame)")
+        XCTAssertEqual(identity.frame.midX, app.frame.midX, accuracy: 1,
+                       "Identity remains screen-centered while editing: \(identity.frame), leading \(app.buttons["header-fixture-menu"].frame), context \(context.frame)")
         XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxX), pixelAligned(context.frame.minX), "Identity clears the trailing controls")
         XCTAssertLessThanOrEqual(pixelAligned(identity.frame.maxY), pixelAligned(composerTop), "Identity never reaches the composer")
         // XCUI's landscape screenshots come back rotated and half black on this runtime, so pixels are read in portrait.
