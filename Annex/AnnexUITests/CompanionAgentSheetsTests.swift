@@ -77,7 +77,17 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertTrue(confirmation.exists)
         // Compact iOS 26 popovers omit Cancel; the sheet's toolbar Cancel closes the entire form.
         if confirmation.buttons["Cancel"].exists { confirmation.buttons["Cancel"].tap() }
-        else { app.otherElements["PopoverDismissRegion"].tap() }
+        else {
+            let dismissRegion = app.otherElements["PopoverDismissRegion"]
+            let navigation = app.navigationBars["New agent"].frame
+            // The region's center can also activate a form picker behind the dismissed popover.
+            let point = CGPoint(x: navigation.minX + 8, y: navigation.maxY + 12)
+            XCTAssertTrue(dismissRegion.frame.contains(point), "Dismiss inside the native background")
+            XCTAssertFalse(confirmation.frame.contains(point), "Dismiss outside the Access confirmation")
+            XCTContext.runActivity(named: "Dismiss Access in the form margin at \(point)") { _ in
+                app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x, dy: point.y)).tap()
+            }
+        }
         XCTAssertTrue(confirmAuto.waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["New agent"].exists, "Cancelling Access keeps the new-agent sheet open")
         XCTAssertTrue(access.exists, "Cancelling Access keeps its picker")
