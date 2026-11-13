@@ -72,8 +72,15 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         app.buttons["Auto"].tap()
         let confirmAuto = app.buttons["Use Auto"]
         XCTAssertTrue(confirmAuto.waitForExistence(timeout: 5), "Raising to Auto asks first")
-        app.buttons["Cancel"].tap()
+        let popover = app.popovers.containing(.button, identifier: "Use Auto").firstMatch
+        let confirmation = popover.exists ? popover : app.sheets.containing(.button, identifier: "Use Auto").firstMatch
+        XCTAssertTrue(confirmation.exists)
+        // Compact iOS 26 popovers omit Cancel; the sheet's toolbar Cancel closes the entire form.
+        if confirmation.buttons["Cancel"].exists { confirmation.buttons["Cancel"].tap() }
+        else { app.otherElements["PopoverDismissRegion"].tap() }
         XCTAssertTrue(confirmAuto.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["New agent"].exists, "Cancelling Access keeps the new-agent sheet open")
+        XCTAssertTrue(access.exists, "Cancelling Access keeps its picker")
         XCTAssertTrue(access.label.contains("Ask first") || (access.value as? String) == "Ask first", "Cancel keeps the desktop default")
         access.tap()
         app.buttons["Full access"].tap()

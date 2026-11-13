@@ -217,8 +217,12 @@ import FramebriarUI
         let window = UIWindow(windowScene: scene)
         let config = try Configuration(gameID: "scene-fixture")
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let network = SceneHTTP(), enrollment = SceneEnrollment(), source = AnnexTelemetry()
+        let enrollment = SceneEnrollment(), source = AnnexTelemetry()
+        var feedbackReleases: [XCTestExpectation] = []
         CompanionSceneTestSupport.makeFeedback = {
+            let released = self.expectation(description: "Feedback client and telemetry transport released")
+            feedbackReleases.append(released)
+            let network = SceneHTTP(released: released)
             let client = try! Client(configuration: config, transport: network, enrollmentStore: enrollment,
                                      feedbackStore: FileFeedbackStore(directory: directory))
             return CompanionFeedback.compose(client: client, source: source, telemetryTransport: network, observeAppLifecycle: false)
@@ -233,6 +237,7 @@ import FramebriarUI
             try? FileManager.default.removeItem(at: directory)
         }
         for _ in 0..<5 {
+            let previousRelease = feedbackReleases.last
             let lifetime = CompanionStateLifetime { CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false) }
             let runtime = lifetime.value
             runtimes.append(WeakSceneObject(runtime))
@@ -242,19 +247,19 @@ import FramebriarUI
             window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: lifetime).environment(\.scenePhase, .active))
             window.makeKeyAndVisible()
             try await wait { runtimes.last?.value?.restoredHostIDs != nil }
-            try await wait("Previous runtimes must deallocate") { runtimes.dropLast().allSatisfy { $0.value == nil } }
-            try await wait("Previous feedback presenters must deallocate") { presenters.dropLast().allSatisfy { $0.value == nil } }
-            try await wait("Previous feedback clients and telemetry bridges must deallocate") {
-                clients.dropLast().allSatisfy { $0.value == nil } && bridges.dropLast().allSatisfy { $0.value == nil }
-            }
+            if let previousRelease { await fulfillment(of: [previousRelease], timeout: 30) }
+            XCTAssertTrue(runtimes.dropLast().allSatisfy { $0.value == nil }, "Previous runtimes must deallocate")
+            XCTAssertTrue(presenters.dropLast().allSatisfy { $0.value == nil }, "Previous feedback presenters must deallocate")
+            XCTAssertTrue(clients.dropLast().allSatisfy { $0.value == nil }, "Previous feedback clients must deallocate")
+            XCTAssertTrue(bridges.dropLast().allSatisfy { $0.value == nil }, "Previous telemetry bridges must deallocate")
         }
         window.rootViewController = nil
         window.isHidden = true
-        try await wait("All runtimes must deallocate after unmounting") { runtimes.allSatisfy { $0.value == nil } }
-        try await wait("All feedback presenters must deallocate after unmounting") { presenters.allSatisfy { $0.value == nil } }
-        try await wait("All feedback clients and telemetry bridges must deallocate after unmounting") {
-            clients.allSatisfy { $0.value == nil } && bridges.allSatisfy { $0.value == nil }
-        }
+        await fulfillment(of: [try XCTUnwrap(feedbackReleases.last)], timeout: 30)
+        XCTAssertTrue(runtimes.allSatisfy { $0.value == nil }, "All runtimes must deallocate after unmounting")
+        XCTAssertTrue(presenters.allSatisfy { $0.value == nil }, "All feedback presenters must deallocate after unmounting")
+        XCTAssertTrue(clients.allSatisfy { $0.value == nil }, "All feedback clients must deallocate after unmounting")
+        XCTAssertTrue(bridges.allSatisfy { $0.value == nil }, "All telemetry bridges must deallocate after unmounting")
     }
 
     func testRuntimeReleaseStopsAnActiveTransportLoop() async throws {
@@ -562,6 +567,10 @@ nonisolated private final class SceneEnrollment: EnrollmentStore, @unchecked Sen
     func save(_ record: EnrollmentRecord, scope: String) throws { lock.withLock { self.record = record } }
 }
 private actor SceneHTTP: HTTPTransport {
+    // A per-runtime transport cannot release until both the Client and telemetry graph release it.
+    private let released: XCTestExpectation?
+    init(released: XCTestExpectation? = nil) { self.released = released }
+    deinit { released?.fulfill() }
     private(set) var reportIDs: [String] = []
     func send(_ request: URLRequest) throws -> HTTPResponse {
         let path = request.url!.path
