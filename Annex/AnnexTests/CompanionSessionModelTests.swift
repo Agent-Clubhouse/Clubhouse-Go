@@ -7,6 +7,10 @@ import SwiftUI
     var reads: [CompanionAgentSettings] = []
     var savedModel = "sonnet"
     var refusesSave = false
+    var savedName: String?
+    var savedEmoji: String?
+    var holdNextRead = false
+    var pendingRead: CheckedContinuation<Void, Never>?
     func events() -> AsyncStream<CompanionEvent> { preview.events() }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { try await preview.history(for: target) }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { try await preview.send(request) }
@@ -19,6 +23,12 @@ import SwiftUI
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         var result = try await preview.settings(for: target)
         result.model.value = savedModel
+        if let savedName { result.name.value = savedName }
+        if let savedEmoji { result.emoji.value = savedEmoji }
+        if holdNextRead {
+            holdNextRead = false
+            await withCheckedContinuation { pendingRead = $0 }
+        }
         reads.append(result)
         return result
     }
@@ -32,6 +42,101 @@ import SwiftUI
 }
 
 @MainActor final class CompanionSessionModelTests: XCTestCase {
+    func testOpenSettingsFormRefreshesWhenTheDesktopSavedModelChanges() async throws {
+        let service = SessionModelSettingsService()
+        try await withSettingsForm(service: service, target: CompanionPreviewService.target) { store, window, initial in
+            let target = CompanionPreviewService.target
+            let agent = try XCTUnwrap(store.agent(for: target))
+            XCTAssertNotNil(agent.modelDifference(from: service.reads.last))
+            var hosts = initial
+            let project = try XCTUnwrap(hosts[0].projects.firstIndex { $0.id == target.projectID })
+            let index = try XCTUnwrap(hosts[0].projects[project].agents.firstIndex { $0.id == target })
+            for model in ["opus", "sonnet"] {
+                let before = service.reads.count
+                let revision = store.settingsRevisions[target]
+                service.savedModel = model
+                hosts[0].projects[project].agents[index].savedModel = model
+                store.apply(.hosts(hosts))
+                XCTAssertNotEqual(store.settingsRevisions[target], revision)
+                try await self.waitForRead(service, after: before)
+                XCTAssertEqual(service.reads.last?.model.value, model)
+                XCTAssertEqual(agent.modelDifference(from: service.reads.last) == nil, model == "opus")
+                window.layoutIfNeeded()
+            }
+        }
+    }
+
+    func testOpenSettingsFormPreservesEditsMadeBeforeAndDuringTheReread() async throws {
+        let service = SessionModelSettingsService()
+        let target = CompanionPreviewService.sleepingTarget
+        try await withSettingsForm(service: service, target: target) { store, window, _ in
+            let name = try await self.textField("Name", in: window)
+            let emoji = try await self.textField("None", in: window)
+            XCTAssertTrue(name.becomeFirstResponder())
+            name.insertText(" draft")
+            let draft = try XCTUnwrap(name.text)
+            let before = service.reads.count
+            service.savedName = "Desktop name"
+            service.savedEmoji = "X"
+            service.savedModel = "opus"
+            service.holdNextRead = true
+            _ = try await store.updateSettings(.init(model: "opus"), target: target)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while service.pendingRead == nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let pending = try XCTUnwrap(service.pendingRead)
+            name.insertText(" mid-read")
+            pending.resume()
+            service.pendingRead = nil
+            try await self.waitForRead(service, after: before)
+            let appliedDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while emoji.text != "X", ContinuousClock.now < appliedDeadline {
+                window.layoutIfNeeded()
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(emoji.text, "X", "Unedited fields adopt the new saved baseline")
+            XCTAssertEqual(name.text, draft + " mid-read", "The reread must not replace the user's unsaved text")
+            XCTAssertTrue(name.isFirstResponder)
+        }
+    }
+
+    private func withSettingsForm(service: SessionModelSettingsService, target: CompanionTarget,
+                                  probe: (CompanionStore, UIWindow, [CompanionHost]) async throws -> Void) async throws {
+        let store = CompanionStore(service: service)
+        var hosts = CompanionPreviewService.hosts(now: Date(), contextWindow: true)
+        for project in hosts[0].projects.indices {
+            for agent in hosts[0].projects[project].agents.indices {
+                hosts[0].projects[project].agents[agent].savedModel = "sonnet"
+            }
+        }
+        store.apply(.hosts(hosts))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let original = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView: CompanionAgentSettingsSheet(store: store, target: target))
+        window.makeKeyAndVisible()
+        defer { service.pendingRead?.resume(); service.pendingRead = nil; window.isHidden = true; window.rootViewController = nil; original?.makeKey(); store.stop() }
+        try await waitForRead(service, after: 0)
+        try await probe(store, window, hosts)
+    }
+
+    private func textField(_ placeholder: String, in window: UIWindow) async throws -> UITextField {
+        func find(_ view: UIView) -> UITextField? {
+            if let field = view as? UITextField, field.placeholder == placeholder { return field }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while ContinuousClock.now < deadline {
+            window.layoutIfNeeded()
+            if let field = find(window) { return field }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        return try XCTUnwrap(find(window), "The settings form must render the \(placeholder) editor")
+    }
+
     func testSuccessfulSavedModelEditInvalidatesTheVisibleComposer() async throws {
         try await assertVisibleComposerRefreshes(desktopChange: false)
     }

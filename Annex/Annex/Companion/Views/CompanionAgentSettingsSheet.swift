@@ -213,7 +213,7 @@ struct CompanionAgentSettingsForm: View {
     private func hides(_ setting: String, _ settings: CompanionAgentSettings) -> Bool {
         showsDispatcherSettings && settings.notHonored.contains(setting)
     }
-    /// Re-read when the snapshot changes the lifecycle, identity, Access or orchestration.
+    /// Re-read when the snapshot or a successful phone save changes the saved baseline.
     private var refreshKey: String {
         let sleeping = agent?.isSleepingOnDesktop
         let lifecycle = sleeping == true ? "asleep" : sleeping == false ? "awake" : "unknown"
@@ -223,6 +223,8 @@ struct CompanionAgentSettingsForm: View {
         values.append(agent?.parentAgentID ?? "")
         values.append(agent?.orchestrator ?? "")
         values.append(agent?.access?.rawValue ?? "")
+        values.append(agent?.savedModel ?? "")
+        values.append(store.settingsRevisions[target]?.uuidString ?? "")
         return values.joined(separator: "|")
     }
 
@@ -663,11 +665,15 @@ struct CompanionAgentSettingsForm: View {
     }
 
     private func load() async {
+        let key = refreshKey
         do {
             let loaded = try await store.settings(for: target)
-            apply(loaded.keepingOptions(of: settings))
+            guard !Task.isCancelled, key == refreshKey else { return }
+            apply(loaded.keepingOptions(of: settings), preservingDrafts: true)
             loadError = nil
+        } catch is CancellationError {
         } catch {
+            guard !Task.isCancelled, key == refreshKey else { return }
             if settings == nil { loadError = error.localizedDescription }
         }
     }
@@ -695,10 +701,12 @@ struct CompanionAgentSettingsForm: View {
         }
     }
 
-    private func apply(_ loaded: CompanionAgentSettings) {
+    private func apply(_ loaded: CompanionAgentSettings, preservingDrafts: Bool = false) {
+        let keepName = preservingDrafts && settings.map { nameDraft != $0.name.value } == true
+        let keepEmoji = preservingDrafts && settings.map { emojiDraft != ($0.emoji.value ?? "") } == true
         settings = loaded
-        nameDraft = loaded.name.value
-        emojiDraft = loaded.emoji.value ?? ""
+        if !keepName { nameDraft = loaded.name.value }
+        if !keepEmoji { emojiDraft = loaded.emoji.value ?? "" }
     }
 }
 
