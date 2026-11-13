@@ -78,9 +78,9 @@ struct CompanionTerminalScreenView: View {
                         .accessibilityIdentifier("terminal-menu")
                     }
                 }
-                .tint(Color(colors.foreground))
             }
         }
+        .tint(Color(colors.foreground))
         .sensoryFeedback(.success, trigger: copied) { _, now in now }
         .task(id: copied) {
             guard copied else { return }
