@@ -82,6 +82,14 @@ placement is already compact, and keyboard presentation does not change the widt
 composer, this keeps the latest streamed text readable alongside a trailing tool card. Larger windows keep their existing
 scrollable clearance; following and reading anchors do not change.
 
+Keyboard/safe-area layout can publish a new bottom, then return to the preceding layout's offset in a separate
+same-dimensions sample (#384). The existing rollback exclusion covers container and inset changes as well as content
+height. UIKit's current bounds/insets also reject stale SwiftUI samples during concurrent layout, even if duplicate
+pinned samples have displaced the before-last geometry. Unexplained upward geometry still pauses non-pan input once
+the reported viewport matches UIKit; tracked pans and native status-bar delegation keep
+their explicit paths. Opt-in Debug follow tracing exposes cumulative pause and deceleration audits, so transient false
+pauses cannot be hidden by recovery before the next UI snapshot.
+
 At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, so a prominent review button opens the
 pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
 through the same `store.canApprove` gate and full-event review as the transcript (#345).

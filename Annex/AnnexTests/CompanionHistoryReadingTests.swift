@@ -32,8 +32,9 @@ import UIKit
         var allowsTop = true
         var topRequests = 0
         var scrolls = 0
+        var scrolled: (@MainActor (UIScrollView) -> Void)?
         func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool { topRequests += 1; return allowsTop }
-        func scrollViewDidScroll(_ scrollView: UIScrollView) { scrolls += 1 }
+        func scrollViewDidScroll(_ scrollView: UIScrollView) { scrolls += 1; scrolled?(scrollView) }
     }
 
     private func transcript(_ view: UIView) -> UIScrollView? {
@@ -57,13 +58,23 @@ import UIKit
         scroll.delegate = original
         let anchor = CompanionNativeScrollTopObserver.Anchor()
         var requests = 0
+        var nativeMetrics: CompanionScrollMetrics?
+        anchor.geometryChanged = { nativeMetrics = $0 }
         anchor.requested = { requests += 1 }
         scroll.addSubview(anchor)
         controller.view.addSubview(scroll)
         window.makeKeyAndVisible()
         defer { anchor.disconnect(); window.isHidden = true; window.rootViewController = nil }
+        scroll.contentInset = UIEdgeInsets(top: 8, left: 0, bottom: 100, right: 0)
+        scroll.bounds.size.height -= 50
         scroll.contentOffset.y = 500
         XCTAssertTrue(scroll.delegate === anchor)
+        nativeMetrics = nil
+        original.scrolled = { scroll in
+            XCTAssertEqual(nativeMetrics, CompanionScrollMetrics(offset: scroll.contentOffset.y, contentHeight: scroll.contentSize.height,
+                containerHeight: scroll.bounds.height, topInset: scroll.adjustedContentInset.top, bottomInset: scroll.adjustedContentInset.bottom),
+                "The native viewport must be available before SwiftUI processes its forwarded scroll callback")
+        }
         let before = original.scrolls
         scroll.delegate?.scrollViewDidScroll?(scroll)
         XCTAssertEqual(original.scrolls, before + 1, "Unintercepted SwiftUI delegate callbacks must still be delivered")

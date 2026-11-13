@@ -11,15 +11,18 @@ struct CompanionScrollMetrics: Equatable, Sendable {
     var maximumOffset: Double { max(0, contentHeight + topInset + bottomInset - containerHeight) }
     var isAtLatest: Bool { normalizedOffset >= maximumOffset - 16 }
     var isAtTrueBottom: Bool { normalizedOffset >= maximumOffset - 1 }
-    /// Native status-bar scrolling has no pan phase. Its first upward offset
-    /// must pause following before a streamed item can force the bottom again.
-    /// A resize, inset change or shrinking content can move the offset by itself.
-    func didScrollUp(from old: Self, beforeLast: Self? = nil) -> Bool {
+    /// Unexplained upward motion covers non-pan input, but concurrent layout is not user intent.
+    func didScrollUp(from old: Self, beforeLast: Self? = nil, currentViewport: Self? = nil) -> Bool {
         guard old.containerHeight == containerHeight, old.topInset == topInset, old.bottomInset == bottomInset,
               old.maximumOffset > 0, contentHeight >= old.contentHeight, normalizedOffset < old.normalizedOffset else { return false }
-        // A size update can publish its bottom offset, briefly return to the
-        // pre-layout offset, then settle. That rollback is not a native jump.
-        if let beforeLast, beforeLast.contentHeight != old.contentHeight,
+        if let currentViewport,
+           abs(containerHeight - currentViewport.containerHeight) > 1 || abs(topInset - currentViewport.topInset) > 1
+            || abs(bottomInset - currentViewport.bottomInset) > 1 { return false }
+        // Content, keyboard and safe-area layout can publish a new bottom, then briefly roll back to the
+        // pre-layout offset in a separate sample whose dimensions are unchanged. That is not a native jump.
+        if let beforeLast,
+           beforeLast.contentHeight != old.contentHeight || beforeLast.containerHeight != old.containerHeight
+            || beforeLast.topInset != old.topInset || beforeLast.bottomInset != old.bottomInset,
            abs(normalizedOffset - beforeLast.normalizedOffset) <= 1 { return false }
         return true
     }
@@ -131,6 +134,7 @@ enum CompanionAssistantNavigation {
     var frames: [String: ClosedRange<Double>] = [:]
     var metrics: CompanionScrollMetrics?
     var previousMetrics: CompanionScrollMetrics?
+    var nativeMetrics: CompanionScrollMetrics?
     var frameContentHeight: Double?
     var isInteracting = false
     var isScrollingToTop = false
@@ -168,6 +172,7 @@ enum CompanionAssistantNavigation {
         frames = [:]
         metrics = nil
         previousMetrics = nil
+        nativeMetrics = nil
         frameContentHeight = nil
         isInteracting = false
         isScrollingToTop = false

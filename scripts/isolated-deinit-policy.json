@@ -615,7 +615,7 @@
     "CompanionReadingViewport": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
-      "reason": "Gesture/scroll metrics and frame ranges plus a bounded restoration value (UUIDs, Doubles, Int, closed outcome) and a Bool native-top ownership flag; no task, UI object or callback ownership.",
+      "reason": "Gesture/scroll metrics, including numeric SwiftUI/UIKit viewport snapshots, and frame ranges plus a bounded restoration value (UUIDs, Doubles, Int, closed outcome) and a Bool native-top ownership flag; no task, UI object or callback ownership.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
@@ -629,6 +629,7 @@
           "isRestoring": "Bool",
           "isScrollingToTop": "Bool",
           "metrics": "CompanionScrollMetrics ?",
+          "nativeMetrics": "CompanionScrollMetrics ?",
           "preserveBookmarkUntilUserAction": "Bool",
           "previousMetrics": "CompanionScrollMetrics ?",
           "restoration": "CompanionReadingRestoration ?",
@@ -754,7 +755,7 @@
     "CompanionNativeScrollTopObserver.Anchor": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionNativeScrollTopObserver.swift",
-      "reason": "UIView delegate adapter owns MainActor view callbacks, a display link and UIKit superclass state, with weak scroll/delegate references. Its display-link target references the anchor weakly. Dismantle invalidates the link, restores the original delegate and clears callbacks. Preserve isolated UIKit teardown."
+      "reason": "UIView delegate adapter owns MainActor view/status/geometry callbacks, a display link and UIKit superclass state, with weak scroll/delegate references. Its display-link target references the anchor weakly. Dismantle invalidates the link, restores the original delegate and clears callbacks. Preserve isolated UIKit teardown."
     },
     "CompanionNativeScrollTopObserver.FrameTarget": {
       "policy": "main_actor",
