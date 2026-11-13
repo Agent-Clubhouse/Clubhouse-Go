@@ -12,6 +12,10 @@ discloses a details card with the full name, desktop/project, status, Access and
 Access badge; boolean-only access reads "Auto or Full access" (#342). Status and Access are not shown permanently; the
 identity's accessibility label still carries them.
 
+The pill's maximum width comes from the measured leading edge of the trailing context control, mirrored around the
+screen center with an 8pt gap. Long names truncate instead of letting the asymmetric toolbar shift the identity left;
+the disclosure and accessibility label retain the full name.
+
 The transcript scrolls under the floating controls with the soft scroll-edge effect; there is no band under the bar.
 The pill may hang just below the bar, so the top bar adds 8pt of clearance: status rows, banners and the first message
 start below it, while scrolled content passes beneath.

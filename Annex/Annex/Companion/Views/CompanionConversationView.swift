@@ -25,6 +25,7 @@ struct CompanionConversationView: View {
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
     @State private var headerDetailsLackRoom = false
+    @State private var headerContextLeadingX: CGFloat?
     @State private var keyboardVisible = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
@@ -163,9 +164,18 @@ struct CompanionConversationView: View {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
+                        // A principal wider than the centered gap is shifted left by the two trailing controls.
+                        // Constrain the pill to the symmetric gap instead, leaving the system to center it.
+                        .frame(maxWidth: max(44, 2 * ((headerContextLeadingX ?? available.frame(in: .global).midX)
+                                                     - available.frame(in: .global).midX - 8)))
                 }
                 .sharedBackgroundVisibility(.hidden)
-                ToolbarItem(placement: .topBarTrailing) { contextButton }
+                ToolbarItem(placement: .topBarTrailing) {
+                    contextButton
+                        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minX } action: {
+                            headerContextLeadingX = $0
+                        }
+                }
                     .sharedBackgroundVisibility(.hidden)
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
                 ToolbarItem(placement: .topBarTrailing) {
