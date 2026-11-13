@@ -42,6 +42,30 @@ its confirmation, and is disabled under the same capability/connection/pending r
 will be sent to the running agent." caption is gone; Send's accessibility hint says what sending does. Queue-only,
 offline and loading explanations stay.
 
+When the session and saved model are distinct exact choices in the live model catalog, the Model submenu shows
+"Session: <model>" and "Saved: <model> (next start)". Agent settings labels the same two values Session and Saved.
+Equal IDs, unresolved defaults, missing values and unlisted alias/full-ID pairs keep the single Model UI.
+Labels are presentation only, never identity or an alias table. Saved settings are read only for a visible live
+conversation with a listed model, an enabled model menu and the existing durable-settings/connection capabilities;
+read failures and a retry stay inside the submenu. Successful phone saves invalidate the per-target read; catalog
+changes to the saved model/provider and Dispatcher settings invalidate it too, independently of the live model.
+An open Agent settings form uses the same revision and saved-model identity to refresh its baseline and
+comparison without replacing unsaved Name or Emoji text, including edits made while the read is in flight.
+While that baseline is stale, Session/Saved comparison rows are hidden. A failed refresh keeps the form and
+drafts visible with an error and Retry, rather than continuing to display an outdated model difference.
+Model's status lines stay together in its section header; no global menu ordering is imposed, so Permissions
+and Effort retain their existing ordering.
+No rows are added to the collapsed composer.
+
+The pinned desktop contract (`8bd00f0c`) does not export its renderer's `startModel`. Full desktop parity needs
+`MobileChatControls.startModel: string | null` in `src/shared/mobile-control.ts`, emitted by
+`src/main/services/mobile-control.ts`'s `chatControls(events, caps)` in the chat snapshot/page's `chatControls`.
+It must mirror the desktop chat store: reset to `session_started.model ?? null`, fill an unset value from the
+first non-null `session_info.model` or `model_changed.modelId`, and preserve it across later model changes.
+Go must not infer it from
+whatever bounded history happens to arrive. Comparing `model` to that field would reproduce the desktop's
+`sessionModelLine` gate for alias/full-ID cases; it would not resolve a saved provider-default model by itself.
+
 The slash menu uses the remaining keyboard-safe height after the fixed composer controls, activity line and a readable
 44pt transcript band. Its commands keep 44pt targets; when the full list will not fit, it scrolls without dismissing the
 keyboard. Hardware-keyboard highlighting scrolls the selected command into view. Larger windows keep the complete list

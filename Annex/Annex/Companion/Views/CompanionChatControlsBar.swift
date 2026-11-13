@@ -11,10 +11,14 @@ struct CompanionChatControlsBar: View, Equatable {
     let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
     var compact = false
     let requestLevel: @MainActor (CompanionPermissionLevel) -> Void
+    var modelDifference: CompanionModelDifference?
+    var savedModelError: String?
+    var retrySavedModel: @MainActor () -> Void = {}
     @Environment(\.companionPalette) private var palette
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
+            && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
     }
 
     var body: some View {
@@ -89,7 +93,7 @@ struct CompanionChatControlsBar: View, Equatable {
 
     private func modelMenu(_ label: String) -> some View {
         Menu {
-            Section("Model") {
+            Section(modelSectionTitle) {
                 ForEach(controls.models) { model in
                     Button {
                         guard model.id != controls.model else { return }
@@ -101,6 +105,9 @@ struct CompanionChatControlsBar: View, Equatable {
                     .accessibilityLabel([model.label, modelDetail(model)].compactMap { $0 }.joined(separator: ", "))
                     .accessibilityAddTraits(model.id == controls.model ? .isSelected : [])
                 }
+                if savedModelError != nil {
+                    Button("Try again", action: retrySavedModel)
+                }
             }
             note
         } label: {
@@ -110,6 +117,14 @@ struct CompanionChatControlsBar: View, Equatable {
         .disabled(!enabled || !controls.showsModelMenu)
         .accessibilityLabel("Model: \(label)")
         .accessibilityIdentifier("companion-model-menu")
+    }
+
+    private var modelSectionTitle: String {
+        if let modelDifference {
+            return "Model\nSession: \(modelDifference.sessionLabel)\nSaved: \(modelDifference.savedLabel) (next start)"
+        }
+        if let savedModelError { return "Model\nSaved model unavailable. \(savedModelError)" }
+        return "Model"
     }
 
     private var effortMenu: some View {

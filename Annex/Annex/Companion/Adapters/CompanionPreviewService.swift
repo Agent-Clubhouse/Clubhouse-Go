@@ -795,6 +795,9 @@ import ClubhouseTransport
             result.orchestration?.autoHelpersEffective = !sleeping
         }
         #if DEBUG
+        if target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-model-difference") {
+            result.model.value = "sonnet"
+        }
         if sleeping, ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only") {
             result.orchestration = Self.reportOnlyPolicy
             result.parentAgentID = Self.target.agentID

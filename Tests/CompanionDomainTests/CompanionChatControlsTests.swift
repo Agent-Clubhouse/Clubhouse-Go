@@ -122,6 +122,54 @@ struct CompanionChatControlsFoldingTests {
 }
 
 struct CompanionChatControlsPresentationTests {
+    @Test func sessionAndSavedModelsNeedDistinctExactCatalogChoices() {
+        let controls = CompanionChatControls(model: "opus", models: [
+            .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")
+        ])
+        #expect(controls.modelDifference(savedModel: "opus") == nil)
+        #expect(controls.modelDifference(savedModel: "sonnet") == .init(sessionLabel: "Opus", savedLabel: "Sonnet"))
+        #expect(controls.modelDifference(savedModel: "claude-opus-4-6") == nil, "A full ID may name the session's alias")
+        #expect(controls.modelDifference(savedModel: nil) == nil)
+        #expect(controls.modelDifference(savedModel: "") == nil)
+        #expect(controls.modelDifference(savedModel: "default") == nil, "The provider's default isn't resolved")
+
+        var unresolved = controls
+        unresolved.model = nil
+        #expect(unresolved.modelDifference(savedModel: "sonnet") == nil)
+        unresolved.model = "claude-opus-4-6"
+        #expect(unresolved.modelDifference(savedModel: "sonnet") == nil, "Both IDs must be in the same catalog")
+        unresolved.model = "opus"
+        unresolved.models = []
+        #expect(unresolved.modelDifference(savedModel: "sonnet") == nil)
+        unresolved.models = controls.models + [.init(id: "default", label: "Default")]
+        #expect(unresolved.modelDifference(savedModel: "default") == nil, "A listed default still doesn't name its model")
+        unresolved.model = "default"
+        #expect(unresolved.modelDifference(savedModel: "sonnet") == nil)
+    }
+
+    @Test @MainActor func modelDifferenceRequiresTheSameRunningProviderAndAnHonoredSetting() async throws {
+        let service = CompanionPreviewService()
+        var settings = try await service.settings(for: CompanionPreviewService.target)
+        var agent = try #require(CompanionPreviewService.hosts(now: Date())[0].projects.flatMap(\.agents).first { $0.id == CompanionPreviewService.target })
+        settings.model.value = "sonnet"
+        #expect(agent.modelDifference(from: settings) != nil)
+        #expect(agent.modelDifference(from: nil) == nil)
+        settings.sleeping = true
+        #expect(agent.modelDifference(from: settings) == nil)
+        settings.sleeping = false
+        settings.resolvedOrchestrator = "another-provider"
+        #expect(agent.modelDifference(from: settings) == nil)
+        settings.resolvedOrchestrator = "claude-code"
+        settings.notHonored = ["model"]
+        #expect(agent.modelDifference(from: settings) == nil)
+        settings.notHonored = []
+        agent.isSleepingOnDesktop = true
+        #expect(agent.modelDifference(from: settings) == nil)
+        agent.isSleepingOnDesktop = false
+        agent.status = .sleeping
+        #expect(agent.modelDifference(from: settings) == nil)
+    }
+
     @Test func levelsAreTheCurrentOnePlusLiveOnesInLadderOrder() {
         var controls = CompanionChatControls(level: .autoEdit, liveLevels: [.fullAccess, .plan])
         #expect(controls.levels == [.plan, .autoEdit, .fullAccess], "The current level stays listed even if it can't be re-entered")

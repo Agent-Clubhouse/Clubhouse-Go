@@ -106,6 +106,35 @@ import Testing
 
     // MARK: Catalog events
 
+    @Test func catalogSavedModelRemainsSeparateFromTheLiveProjectionAndInvalidatesOnlyOnSettingsChanges() async throws {
+        let harness = try await Harness.start { transport in
+            await transport.setAgents(.array([.object([
+                "id": .string("agent"), "name": .string("Agent"), "status": .string("idle"),
+                "model": .string("sonnet"),
+            ])]))
+        }
+        defer { harness.stop() }
+        try await harness.loadSession(Harness.chatSnapshot(events: [
+            Harness.chatEvent("s1", sequence: 2, type: "session_started", data: ["model": .string("opus")]),
+        ]))
+        try await harness.waitUntil { harness.store.agent(for: harness.target)?.model == "opus" }
+        #expect(harness.store.agent(for: harness.target)?.savedModel == "sonnet")
+        let previousRevision = harness.store.settingsRevisions[harness.target]
+        func catalog(_ savedModel: String, status: String) -> [String: AnnexJSON] {
+            ["agents": .object(["project": .array([.object([
+                "id": .string("agent"), "name": .string("Agent \(status)"), "status": .string(status),
+                "model": .string(savedModel),
+            ])])])]
+        }
+        await harness.transport.emit(harness.snapshotEvent(catalog("sonnet", status: "working")))
+        try await harness.waitUntil { harness.store.agent(for: harness.target)?.name == "Agent working" }
+        #expect(harness.store.settingsRevisions[harness.target] == previousRevision, "Routine status updates must not refetch settings")
+        await harness.transport.emit(harness.snapshotEvent(catalog("opus", status: "idle")))
+        try await harness.waitUntil { harness.store.agent(for: harness.target)?.savedModel == "opus" }
+        #expect(harness.store.settingsRevisions[harness.target] != previousRevision)
+        #expect(harness.store.agent(for: harness.target)?.model == "opus", "The live model projection must remain authoritative")
+    }
+
     @Test func themeChangesApplyFromTheSnapshotAndLater() async throws {
         let harness = try await Harness.start()
         defer { harness.stop() }

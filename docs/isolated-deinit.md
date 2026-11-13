@@ -18,6 +18,10 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Session/Saved model refresh (#276) adds only `settingsRevisions: [CompanionTarget: UUID]` to Store.
+Both keys and values are Sendable value identifiers; the map owns no callbacks, UI objects, tasks or cleanup work.
+Only that stored-property surface changes; Store's existing ARC-only teardown and constructor captures remain unchanged.
+
 Desktop updates (#359) add only Sendable update/review snapshots, String versions/epochs/notices, command-id sets and an optional restart-mode enum to Host, Store and LiveService. Grant rows include an optional String snapshot epoch. Store's request/cancel retry map uses a value key containing only the host id, epoch and optional request id. Its attempt values contain only String/optional String command ids, previous/observed request ids and initial/target versions, so authoritative status can retire resolved outcomes. Terminal shutdown clears retry, receipt and epoch state; Store's Bool admission fence prevents late events or command replies from restoring it. These are explicit shutdown actions, not deinit work. PreviewService adds a Bool fixture flag and reuses its value-only host snapshots. No new callbacks, UI owners, deinit work or constructor captures are introduced; their ARC-only policies remain unchanged.
 
 An empty nonisolated deinit can release fields on the thread performing the last release. It is not a universal workaround. UI owners and unknown callback/protocol owners retain compiler-generated isolated teardown so their fields still release on MainActor. This leaves those runtime paths vulnerable to the old allocation bug if the missing production combination occurs.

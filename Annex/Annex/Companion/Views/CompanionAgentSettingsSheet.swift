@@ -194,6 +194,7 @@ struct CompanionAgentSettingsForm: View {
     var focusContext = false
     @Environment(\.companionPalette) private var palette
     @State private var settings: CompanionAgentSettings?
+    @State private var loadedSettingsKey: String?
     @State private var loadError: String?
     @State private var saveError: String?
     @State private var saving = false
@@ -213,7 +214,7 @@ struct CompanionAgentSettingsForm: View {
     private func hides(_ setting: String, _ settings: CompanionAgentSettings) -> Bool {
         showsDispatcherSettings && settings.notHonored.contains(setting)
     }
-    /// Re-read when the snapshot changes the lifecycle, identity, Access or orchestration.
+    /// Re-read when the snapshot or a successful phone save changes the saved baseline.
     private var refreshKey: String {
         let sleeping = agent?.isSleepingOnDesktop
         let lifecycle = sleeping == true ? "asleep" : sleeping == false ? "awake" : "unknown"
@@ -223,6 +224,8 @@ struct CompanionAgentSettingsForm: View {
         values.append(agent?.parentAgentID ?? "")
         values.append(agent?.orchestrator ?? "")
         values.append(agent?.access?.rawValue ?? "")
+        values.append(agent?.savedModel ?? "")
+        values.append(store.settingsRevisions[target]?.uuidString ?? "")
         return values.joined(separator: "|")
     }
 
@@ -314,6 +317,12 @@ struct CompanionAgentSettingsForm: View {
             if let saveError {
                 Label(saveError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-error")
+            }
+            if let loadError {
+                Label(loadError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
+                    .accessibilityIdentifier("agent-settings-refresh-error")
+                Button("Retry") { Task { await load() } }
+                    .accessibilityIdentifier("agent-settings-refresh-retry")
             }
             if let contextResetNotice = settings.contextWindowReset?.message {
                 Label(contextResetNotice, systemImage: "info.circle").font(.subheadline)
@@ -423,8 +432,13 @@ struct CompanionAgentSettingsForm: View {
             }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             if !hides("model", settings) {
-            Picker("Model", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
-                ForEach(models) { Text($0.label).tag($0.id) }
+            let difference = loadedSettingsKey == refreshKey ? agent?.modelDifference(from: settings) : nil
+            if let difference {
+                LabeledContent("Session", value: difference.sessionLabel)
+                    .accessibilityIdentifier("agent-settings-model-session")
+            }
+            Picker(difference == nil ? "Model" : "Saved", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
+                ForEach(models) { Text(difference == nil ? $0.label : "\($0.label) (next start)").tag($0.id) }
             }
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
@@ -658,12 +672,19 @@ struct CompanionAgentSettingsForm: View {
     }
 
     private func load() async {
+        let key = refreshKey
+        loadedSettingsKey = nil
+        loadError = nil
         do {
             let loaded = try await store.settings(for: target)
-            apply(loaded.keepingOptions(of: settings))
+            guard !Task.isCancelled, key == refreshKey else { return }
+            apply(loaded.keepingOptions(of: settings), preservingDrafts: true)
+            loadedSettingsKey = key
             loadError = nil
+        } catch is CancellationError {
         } catch {
-            if settings == nil { loadError = error.localizedDescription }
+            guard !Task.isCancelled, key == refreshKey else { return }
+            loadError = error.localizedDescription
         }
     }
 
@@ -690,10 +711,12 @@ struct CompanionAgentSettingsForm: View {
         }
     }
 
-    private func apply(_ loaded: CompanionAgentSettings) {
+    private func apply(_ loaded: CompanionAgentSettings, preservingDrafts: Bool = false) {
+        let keepName = preservingDrafts && settings.map { nameDraft != $0.name.value } == true
+        let keepEmoji = preservingDrafts && settings.map { emojiDraft != ($0.emoji.value ?? "") } == true
         settings = loaded
-        nameDraft = loaded.name.value
-        emojiDraft = loaded.emoji.value ?? ""
+        if !keepName { nameDraft = loaded.name.value }
+        if !keepEmoji { emojiDraft = loaded.emoji.value ?? "" }
     }
 }
 
