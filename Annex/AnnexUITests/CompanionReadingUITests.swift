@@ -16,6 +16,73 @@ import XCTest
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
 
+    private func transcriptViewport(_ app: XCUIApplication) -> CGRect {
+        // The scroll view's AX bounds can stay unchanged as the landscape keyboard
+        // moves its content. Measure the unobscured window between the real bars.
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = element(app, "companion-composer-region").frame.minY
+        return CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
+    }
+
+    private func assertNewestLineVisible(_ app: XCUIApplication, state: String) {
+        let end = app.staticTexts["End of the long reply."]
+        let viewport = transcriptViewport(app)
+        screenshot(app, state)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "\(state) hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        XCTAssertTrue(end.exists)
+        XCTAssertTrue(pixelContains(viewport, end.frame), "\(state): newest line \(end.frame) must fit in viewport \(viewport)")
+        XCTAssertFalse(app.buttons["Latest"].exists, "A viewport resize must not pause following")
+    }
+
+    func testRotationKeepsNewestLineInsideViewportWhileFollowing() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls",
+                             "--companion-preview-context-window", "--companion-preview-long-reply", "--companion-preview-follow-trace"], attempts: 1)
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.waitForExistence(timeout: 15))
+        assertNewestLineVisible(app, state: "Portrait tail")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
+        assertNewestLineVisible(app, state: "Rotated landscape tail")
+        openSoftwareKeyboard(composer, in: app)
+        composer.typeText("Rotation draft")
+        assertNewestLineVisible(app, state: "Rotated landscape editing tail")
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.height > app.frame.width }, timeout: 5))
+        assertNewestLineVisible(app, state: "Rotated portrait editing tail")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
+        assertNewestLineVisible(app, state: "Rotated landscape with keyboard already open")
+        XCTAssertEqual(composer.value as? String, "Rotation draft")
+    }
+
+    func testRotationPreservesAScrolledUpReader() {
+        let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"], attempts: 1)
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        openRiver(app)
+        let viewport = transcriptViewport(app)
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.minX + 8, dy: viewport.minY + 40))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: viewport.height / 2)),
+                    withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertTrue(app.buttons["Latest"].waitForExistence(timeout: 5))
+        // An explicit message jump aligns the entry selected by that reader, avoiding an
+        // assertion about text reflow inside the preceding paragraph.
+        app.buttons["companion-previous-message"].tap()
+        let markers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).allElementsBoundByIndex
+        guard let candidate = markers.first(where: { pixelContains(transcriptViewport(app), $0.frame) }) else {
+            XCTFail("The scrolled-up reader needs a visible marker"); return
+        }
+        let anchor = app.staticTexts[candidate.label]
+        let distance = anchor.frame.minY - transcriptViewport(app).minY
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
+        screenshot(app, "Scrolled-up reader after landscape rotation")
+        XCTAssertTrue(anchor.exists && pixelContains(transcriptViewport(app), anchor.frame))
+        XCTAssertEqual(anchor.frame.minY - transcriptViewport(app).minY, distance, accuracy: 4)
+        XCTAssertTrue(app.buttons["Latest"].exists, "Rotation cannot reclaim a reader's viewport")
+    }
+
     private func openSoftwareKeyboard(_ composer: XCUIElement, in app: XCUIApplication) {
         composer.tap()
         let keyboard = app.keyboards.firstMatch
