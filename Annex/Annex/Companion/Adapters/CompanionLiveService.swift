@@ -1108,6 +1108,7 @@ import ClubhouseTransport
                     hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID, epoch: epoch).filter { !resolved.contains($0.id) }
                     snapshotEpochs[hostID] = epoch
                 applyAppUpdate(payload["appUpdate"], hostID: hostID)
+                applyDispatcherPresence(payload["dispatcherPresence"], hostID: hostID)
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 let dispatcherBefore = dispatcherCatalog[hostID]
                 if let dispatcher = payload["dispatcher"] { rememberDispatcher(dispatcher, hostID: hostID) }
@@ -1199,6 +1200,9 @@ import ClubhouseTransport
                                       agentID: payload["agentId"]?.string, agent: payload["agent"], mcpOff: CompanionDispatcherMCPOff(json: payload), hostID: hostID)
                 scheduleRefresh(hostID: hostID)
                 await refreshDispatcherSettings(hostID: hostID, force: true)
+            case "dispatcher:presence":
+                applyDispatcherPresence(payload, hostID: hostID)
+                emitHosts()
             default: break
             }
         }
@@ -1271,6 +1275,11 @@ import ClubhouseTransport
                 hosts[hostID]?.canOrchestrate = newCapabilities?.supportsOrchestration == true
                 hosts[hostID]?.canEditDispatcherSettings = newCapabilities?.supportsDispatcherSettings == true
                 if newCapabilities?.supportsDispatcherSettings != true { hosts[hostID]?.dispatcherSettings = nil }
+                if newCapabilities?.supportsDispatcherPresence != true {
+                    hosts[hostID]?.dispatcherPresence = nil
+                    hosts[hostID]?.dispatcherPresenceReceivedAt = nil
+                    hosts[hostID]?.dispatcherPresenceError = nil
+                }
                 hosts[hostID]?.terminal = Self.terminalSupport(newCapabilities)
                 if let dispatcher = newCapabilities?.dispatcher, newCapabilities?.supportsDispatcher == true {
                     dispatcherFlags[hostID] = (dispatcher.enabled, dispatcher.flagOn)
@@ -1302,6 +1311,26 @@ import ClubhouseTransport
             hosts[hostID]?.connection = .failed(Self.readableError(error))
         }
         emitHosts()
+    }
+
+    private func applyDispatcherPresence(_ value: AnnexJSON?, hostID: String) {
+        // The socket's first snapshot can beat the REST capability refresh. This is read-only data.
+        guard !knownCapabilities.contains(hostID) || capabilities[hostID]?.supportsDispatcherPresence == true else { return }
+        guard let value else {
+            hosts[hostID]?.dispatcherPresence = nil
+            hosts[hostID]?.dispatcherPresenceReceivedAt = nil
+            hosts[hostID]?.dispatcherPresenceError = nil
+            return
+        }
+        do {
+            hosts[hostID]?.dispatcherPresence = try value.decode(CompanionDispatcherPresence.self)
+            hosts[hostID]?.dispatcherPresenceReceivedAt = Date()
+            hosts[hostID]?.dispatcherPresenceError = nil
+        } catch {
+            hosts[hostID]?.dispatcherPresence = nil
+            hosts[hostID]?.dispatcherPresenceReceivedAt = nil
+            hosts[hostID]?.dispatcherPresenceError = "Dispatcher presence could not be read. Reconnect to refresh it."
+        }
     }
 
     private func applyAppUpdate(_ value: AnnexJSON?, hostID: String) {
