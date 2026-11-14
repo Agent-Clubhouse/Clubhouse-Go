@@ -208,7 +208,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             ("companion-sender-avatar-sender-preview-3", "willow avatar"),
             ("companion-sender-avatar-sender-preview-0", "Cedar avatar"),
             ("companion-sender-avatar-sender-preview-1", "Maple avatar"),
-            ("companion-sender-avatar-relay-1-0", "Dispatcher avatar"),
+            ("companion-sender-avatar-relay-1-0", "Dispatcher controller avatar"),
             ("companion-sender-avatar-relay-1-1", "Reviewer avatar")
         ] {
             let avatar = any.matching(identifier: id).firstMatch
