@@ -392,7 +392,7 @@ extension CompanionStore {
                 items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .grantRequest(request)))
             }
             // The Dispatcher is listed with its own name in place of a project's.
-            let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcher?.liveAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
+            let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcherAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
             for (place, agents) in places {
                 for agent in agents where agent.status.needsYou {
                     let conversation = conversation(for: agent.id)

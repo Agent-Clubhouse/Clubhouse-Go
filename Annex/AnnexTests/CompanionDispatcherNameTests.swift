@@ -49,6 +49,19 @@ import ClubhouseTransport
         #expect(navigation.dispatcherTitle(hosts: [mcpOff]) == "Navi", "MCP-off retains the agent's known identity")
     }
 
+    @Test func exactControllerSnapshotNameNeedsNoSettingsToNameTheChat() throws {
+        let named = host(name: "Dispatcher controller")
+        #expect(named.dispatcherSettings == nil)
+        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        navigation.update(hosts: [named])
+        #expect(navigation.dispatcherTitle(hosts: [named]) == "Dispatcher controller")
+        #expect(named.dispatcher?.agent?.displayName == "Dispatcher controller")
+        let desktop = try #require(navigation.dispatcherDesktops.first)
+        #expect(desktop.accessibilityLabel == "Dispatcher controller on studio")
+        let cached = try JSONDecoder().decode(CompanionDispatcherDesktop.self, from: JSONEncoder().encode(desktop))
+        #expect(cached.displayName == "Dispatcher controller")
+    }
+
     @Test func placeCaptionsKeepTheDispatcherRoleAlongsideTheAgentName() {
         let named = host()
         let agent = named.dispatcher!.agent!
@@ -119,6 +132,13 @@ import ClubhouseTransport
         try await awaitTitle("Echo")
         store.hosts[1].dispatcher?.agent?.name = "Atlas"
         try await awaitTitle("Atlas")
+        store.hosts[1].dispatcher?.agent?.name = "Dispatcher controller"
+        try await awaitTitle("Dispatcher controller")
+        var settings = CompanionPreviewService.previewDispatcherSettings
+        settings.agentID = hosts[1].dispatcher!.agent!.id.agentID
+        settings.identity.name = "Echo"
+        store.hosts[1].dispatcherSettings = settings
+        try await awaitTitle("Echo")
         store.selection = hosts[0].dispatcher?.agent?.id
         try await awaitTitle("Navi")
     }

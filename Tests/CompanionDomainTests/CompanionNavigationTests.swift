@@ -145,6 +145,8 @@ import Testing
         let restored = try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: legacy)
         #expect(restored.first?.displayName == "Dispatcher")
         #expect(restored.first?.accessibilityLabel == "Dispatcher on Studio Mac")
+        let controllerCache = Data(#"[{"id":"mac","name":"Studio Mac","displayName":"Dispatcher controller"}]"#.utf8)
+        #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: controllerCache).first?.accessibilityLabel == "Dispatcher controller on Studio Mac", "Older caches also stored the snapshot's chosen chat name, not presence")
         var navigation = CompanionNavigation(startScreen: .dispatcher, cached: restored)
         navigation.update(hosts: [named])
         #expect(navigation.dispatcherDesktops.first?.displayName == "Navi")

@@ -151,7 +151,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
         let expected = [
-            "Dispatcher: Finish the reconnect fix and open a PR. Report back when it's in review.",
+            "Dispatcher controller: Finish the reconnect fix and open a PR. Report back when it's in review.",
             "Reviewer: The reconnect tests pass. The PR is ready for review.",
             "Clubhouse: All helper updates have been delivered.",
             "Another agent: The review notes are attached to the PR."
@@ -175,7 +175,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         4 updates, oldest first:
 
         --- 1 of 4 ---
-        [TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.
+        [TASK:dsp-42] [FROM:Dispatcher controller] Finish the reconnect fix and open a PR. Report back when it's in review.
 
         --- 2 of 4 ---
         [FROM:Reviewer] The reconnect tests pass. The PR is ready for review.
@@ -282,6 +282,69 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
+    func testSnapshotChatNameIsPreservedBeforeSettingsLoad() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        waitAndTap(switcher, until: studio)
+        screenshot(app, "The snapshot chosen chat name needs no settings read")
+        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
+        studio.tap()
+        XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
+        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
+    }
+
+    func testSettingsChatNameOverridesTheSnapshotChatName() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
+                             "--companion-preview-named-dispatchers", "--companion-preview-dispatcher-settings"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        waitAndTap(switcher, until: studio)
+        XCTAssertEqual(studio.label, "Navi on Studio Mac")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
+        screenshot(app, "Chosen Dispatcher chat name from settings")
+        studio.tap()
+        XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
+        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Navi,"))
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
+        let name = element(app, "dispatcher-name")
+        waitAndTap(settings, until: element(app, "dispatcher-behavior-standard"), timeout: 10)
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        XCTAssertEqual(name.value as? String, "Navi")
+        screenshot(app, "Chosen Dispatcher chat name in settings")
+    }
+
+    func testAnExplicitControllerChatNameIsNotTreatedAsALegacyRoleLabel() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
+                             "--companion-preview-dispatcher-settings", "--companion-preview-chosen-controller-name"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        waitAndTap(switcher, until: studio)
+        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac", "The authoritative chosen name is preserved")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook", "The snapshot name is authoritative without settings too")
+        studio.tap()
+        XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
+        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
+        let name = element(app, "dispatcher-name")
+        waitAndTap(settings, until: element(app, "dispatcher-behavior-standard"), timeout: 10)
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        XCTAssertEqual(name.value as? String, "Dispatcher controller")
+        screenshot(app, "An explicit controller chat name is preserved")
+    }
+
     func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -300,6 +363,26 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(visible.contains("Link unavailable"), "The native menu must not truncate the offline row's link state")
         XCTAssertTrue(visible.contains("last seen"), "Last seen remains visible alongside the link state")
         screenshot(app, "Other computers' Dispatchers")
+    }
+
+    func testLegacyControllerPresenceKeepsThePairedChatNameAndDefaultsUnknownRemoteNames() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
+                             "--companion-preview-dispatcher-presence", "--companion-preview-controller-presence"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        XCTAssertEqual(switcher.label, "Echo on Travel MacBook")
+        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
+        waitAndTap(switcher, until: travel)
+        XCTAssertEqual(travel.label, "Echo on Travel MacBook, Working · Link active")
+        XCTAssertTrue(app.buttons["dispatcher-remote-preview-office"].label.hasPrefix("Dispatcher on Office Mac, Offline · Link unavailable"))
+        XCTAssertEqual(app.buttons["dispatcher-remote-preview-mini"].label, "Dispatcher on Mac mini, Asleep · Link paused")
+        XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Off · Link active")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Dispatcher controller")).firstMatch.exists)
+        screenshot(app, "Legacy presence uses chat names not controller roles")
+        app.buttons["dispatcher-desktop-preview-studio"].tap()
+        XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
     func testPresenceMergesAPairedRemoteWithoutDuplicatingOrDisablingItsRow() {
@@ -462,7 +545,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")
         let part = element(app, "companion-routed-relay-1-0")
-        XCTAssertTrue(part.exists && part.label.hasPrefix("Dispatcher:"), "Captioned with who sent it")
+        XCTAssertTrue(part.exists && part.label.hasPrefix("Dispatcher controller:"), "Captioned with the actual controller sender")
         screenshot(app, "Relayed task")
     }
 }

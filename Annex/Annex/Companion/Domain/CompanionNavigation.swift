@@ -20,7 +20,7 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
         guard let dispatcher = host.dispatcher, dispatcher.isVisible else { return nil }
         id = host.id
         name = host.name
-        displayName = dispatcher.displayName
+        displayName = host.dispatcherDisplayName
         target = dispatcher.liveAgent?.id
     }
 
@@ -31,7 +31,7 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         // Older preferences cached only the machine name.
-        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? CompanionDispatcher.name
+        displayName = CompanionDispatcher.chatDisplayName(try container.decodeIfPresent(String.self, forKey: .displayName))
         target = try container.decodeIfPresent(CompanionTarget.self, forKey: .target)
     }
 }
@@ -60,7 +60,7 @@ struct CompanionNavigation {
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     /// Resolve from the visible desktop's current catalog, rather than a cached desktop label or another chat.
     func dispatcherTitle(hosts: [CompanionHost]) -> String {
-        hosts.first { $0.id == dispatcherHostID }?.dispatcher?.displayName ?? CompanionDispatcher.name
+        hosts.first { $0.id == dispatcherHostID }?.dispatcherDisplayName ?? CompanionDispatcher.name
     }
     var visibleAgent: CompanionTarget? { paths[tab]?.last?.agent ?? (tab == .dispatcher && (paths[tab] ?? []).isEmpty ? dispatcherTarget : nil) }
     mutating func interact() { awaitingFirstReport = false; pendingDispatcherLink = nil }

@@ -141,11 +141,23 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var dispatcherPresenceReceivedAt: Date?
     var dispatcherPresenceError: String?
 
+    /// The snapshot's chosen chat identity, with settings supplying any later rename.
+    var dispatcherAgent: CompanionAgent? {
+        guard var agent = dispatcher?.liveAgent else { return nil }
+        let chosen = dispatcherSettings.flatMap { $0.agentID == agent.id.agentID ? $0.identity.name : nil }
+        if let chosen {
+            agent.name = chosen
+        } else {
+            agent.name = agent.displayName
+        }
+        return agent
+    }
+    var dispatcherDisplayName: String { dispatcherAgent?.displayName ?? CompanionDispatcher.name }
     /// Every listed agent, including a Dispatcher retained under the MCP-off contract.
-    var allAgents: [CompanionAgent] { projects.flatMap(\.agents) + (dispatcher?.liveAgent.map { [$0] } ?? []) }
+    var allAgents: [CompanionAgent] { projects.flatMap(\.agents) + (dispatcherAgent.map { [$0] } ?? []) }
     /// The agent behind a target: in its project, or the Dispatcher.
     func agent(for target: CompanionTarget) -> CompanionAgent? {
-        if let agent = dispatcher?.liveAgent, agent.id == target { return agent }
+        if let agent = dispatcherAgent, agent.id == target { return agent }
         return projects.first { $0.id == target.projectID }?.agents.first { $0.id == target }
     }
     /// The target is the Dispatcher's, by the project id the desktop gives it.
@@ -162,6 +174,12 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
 /// It shows as a pinned row above the projects while it's on.
 struct CompanionDispatcher: Sendable, Equatable {
     static let name = "Dispatcher"
+    static let controllerName = "Dispatcher controller"
+    nonisolated static func chatDisplayName(_ value: String?, fromPresence: Bool = false) -> String {
+        let name = value ?? ""
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || (fromPresence && trimmed == controllerName) ? Self.name : name
+    }
     static let defaultProjectID = "__dispatcher__"
     /// The desktop's Settings › Dispatcher notes.
     static let flagOffNote = "Turn on Dispatcher in Settings > Experimental on the desktop first."
@@ -378,9 +396,9 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var access: CompanionPermissionLevel?
     /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.
     var isDispatcher = false
-    /// An unnamed Dispatcher keeps its feature label until the desktop supplies its name.
+    /// Snapshot and settings names are chosen chat identities, even when they match a controller role.
     var displayName: String {
-        isDispatcher && name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? CompanionDispatcher.name : name
+        isDispatcher ? CompanionDispatcher.chatDisplayName(name) : name
     }
     /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
     var orchestration: CompanionOrchestration?
