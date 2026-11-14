@@ -402,7 +402,8 @@ import XCTest
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer, attempts: 1)
         XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "The pinned approval shares the space")
-        XCTAssertFalse(app.scrollViews["companion-grant-footer-scroll"].exists, "No grants use the ordinary composer layout")
+        XCTAssertTrue(app.scrollViews["companion-grant-footer-scroll"].exists, "Approvals reuse the combined request/composer layout")
+        XCTAssertFalse(element(app, "companion-chat-grant-requests").exists, "No Clubhouse grant card is fabricated")
         XCTAssertTrue(app.buttons["companion-interrupt"].exists, "The fixture is Working before typing")
         XCTAssertEqual(composer.label, "Steering message")
         XCTAssertEqual(app.buttons["companion-send"].label, "Send steering message")
@@ -436,9 +437,22 @@ import XCTest
                 try check("\(count) lines", grows: true)
             }
         }
-        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "The approval doesn't disappear to make space")
+        let review = app.buttons["companion-review-approval"]
+        if !app.buttons["Deny"].exists || !app.buttons["Allow once"].exists {
+            XCTAssertTrue(review.isEnabled && review.isHittable, "The bounded approval stays reachable beside the long draft")
+            assertMinimumTarget(review, "Review")
+            let close = app.buttons["companion-approval-review-close"]
+            waitAndTap(review, until: close, attempts: 1)
+            let viewport = app.scrollViews["companion-approval-review-scroll"]
+            XCTAssertTrue(viewport.buttons["Deny"].isEnabled && viewport.buttons["Allow once"].isEnabled)
+            waitAndTap(close, untilGone: close, attempts: 1)
+            XCTAssertEqual(composer.value as? String, draft, "Review preserves the entire draft")
+            if !app.keyboards.firstMatch.exists { focus(composer, in: app) }
+        } else {
+            XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "The approval doesn't disappear to make space")
+        }
         // The pinned request itself, not just some approval: its text and each decision's enabled state.
-        let approvals = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: "))
+        let approvals = app.otherElements.matching(identifier: "companion-pinned-decision")
         XCTAssertEqual(approvals.count, 1)
         let approval = approvals.firstMatch
         func pinned() -> [String] {
@@ -446,7 +460,12 @@ import XCTest
                 + approval.buttons.allElementsBoundByIndex.map { "\($0.label): \($0.isEnabled ? "enabled" : "disabled")" }
         }
         let pinnedBefore = pinned()
-        XCTAssertTrue(pinnedBefore.contains("Allow once: enabled") && pinnedBefore.contains("Deny: enabled"), "\(pinnedBefore)")
+        XCTAssertTrue(
+            app.buttons["Deny"].exists && app.buttons["Allow once"].exists
+                ? pinnedBefore.contains("Allow once: enabled") && pinnedBefore.contains("Deny: enabled")
+                : review.isEnabled,
+            "\(pinnedBefore)"
+        )
 
         // Opening Options keeps the whole draft and sends nothing.
         waitAndTap(app.buttons["companion-level-menu"], until: app.buttons["companion-permissions-menu"], attempts: 1)
