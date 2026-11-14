@@ -28,6 +28,28 @@ wins in its existing badge only while the session is running. Ended sessions use
 against the latest snapshot while cached settings are stale.
 A desktop without this capability is read-only for saved Access, not a boolean fallback.
 
+### Linked projects
+
+The optional mobile v1 `projectLinks` capability is pinned at desktop
+`7b9425f1f1b6f028541d99ee2908c2a945e49edd`. One connected capable desktop supplies the
+network-wide full replacement; the phone never unions replicas or infers links from names or remotes.
+References match the paired host's lowercased identity fingerprint and desktop-local project ID.
+Unknown machines/projects are ignored. Unlinking and catalog removal split derived entries, and
+groups omitted under `projectLinksTruncated` remain unlinked. No link state is persisted.
+
+Home, search, project pages and Needs you share the derived groups. Machine sections/labels retain
+qualified agent and action targets. A linked project is pinned if any member is pinned and idle
+only when every member is idle; pin, inactive, terminal, Changes and Wake actions remain
+machine-specific. New agent requires an explicit machine for a multi-member group. Review keeps
+its existing filters and uses the linked project label.
+
+`AnnexContractProjectLinksTests` and `AnnexContractProjectLinksDomainTests` consume the desktop's
+accepted/manual/Keep separate/unlink and sequenced replay fixtures, plus empty/truncated variants.
+`CompanionLinkedProjectTests` covers identity collisions, unknown members, disappearance,
+source failover, non-union replacement and Home state. `CompanionLinkedProjectUITests` uses
+`--companion-preview-linked-projects` for two preview desktops, project navigation, explicit
+spawn destination, Needs you and a desktop-reported unlink. It never contacts a real desktop.
+
 ### Composer keyboards
 
 `CompanionPinnedDecisionUITests` uses the DEBUG-only `--companion-preview-pinned-decisions` stream: two approvals

@@ -22,6 +22,12 @@ Pinned-decision preview streaming (#387) adds only `pinnedDecisionStep: Int?` to
 This numeric history-start gate owns no callback, UI object, task, or teardown work. Its existing ARC-only
 policy and constructor captures remain unchanged; the surface fingerprint includes the new value.
 
+Linked projects (#389) add only `projectLinksSourceID: String?` to Store, selecting one connected
+desktop's authoritative full set. Host's link payloads contain Sendable arrays of String-only
+group/reference structs and an optional Bool truncation marker; derived project entries are value
+snapshots, not retained UI owners. LiveService and PreviewService add no stored fields or constructor
+captures. No callbacks, tasks, UI objects, deinit work or teardown policy changes are introduced.
+
 Session/Saved model refresh (#276) adds only `settingsRevisions: [CompanionTarget: UUID]` to Store.
 Both keys and values are Sendable value identifiers; the map owns no callbacks, UI objects, tasks or cleanup work.
 Only that stored-property surface changes; Store's existing ARC-only teardown and constructor captures remain unchanged.

@@ -69,6 +69,7 @@
           "pendingCommands": "Set < CompanionTarget >",
           "pendingFinishedRemovals": "Set < CompanionTarget >",
           "pendingProjectStates": "[ CompanionProjectTarget : CompanionProjectState ]",
+          "projectLinksSourceID": "String ?",
           "projectStateError": "String ?",
           "providerFlows": "[ CompanionTarget : CompanionProviderFlow ]",
           "readingBookmarks": "[ CompanionTarget : CompanionReadingBookmark ]",

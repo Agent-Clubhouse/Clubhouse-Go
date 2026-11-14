@@ -854,23 +854,10 @@ struct CompanionNeedsYouView: View {
             }
             ForEach(store.attentionProjects(items)) { project in
                 Section {
-                    ForEach(project.items) { item in
-                    CompanionAttentionCard(item: item, store: store, decisions: decisions, multipleHosts: store.hosts.count > 1)
-                        .listRowBackground(CompanionCardBackground())
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            if let option = swipeOption(item, kind: .allowOnce) {
-                                Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))
-                            }
-                            }
-                        } header: {
-                            Text(project.name).textCase(nil)
-                            .accessibilityIdentifier("needs-you-project-\(project.id.hostID)-\(project.id.projectID)")
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            if let option = swipeOption(item, kind: .rejectOnce) {
-                                Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
-                            }
-                        }
+                    ForEach(project.items) { item in attentionRow(item) }
+                } header: {
+                    Text(project.name).textCase(nil)
+                        .accessibilityIdentifier("needs-you-project-\(project.id.hostID)-\(project.id.projectID)")
                 }
             }
             ForEach(availability.unavailableHosts) { host in
@@ -899,6 +886,21 @@ struct CompanionNeedsYouView: View {
         .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.grantRequestNotice ?? "") }
+    }
+
+    private func attentionRow(_ item: CompanionAttentionItem) -> some View {
+        CompanionAttentionCard(item: item, store: store, decisions: decisions, multipleHosts: store.hosts.count > 1)
+            .listRowBackground(CompanionCardBackground())
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                if let option = swipeOption(item, kind: .allowOnce) {
+                    Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))
+                }
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                if let option = swipeOption(item, kind: .rejectOnce) {
+                    Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
+                }
+            }
     }
 
     @ViewBuilder private func unavailableNotice(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
@@ -1253,7 +1255,7 @@ struct CompanionAgentsView: View {
                 ForEach(agents) { agent in
                     NavigationLink(value: agent.id) {
                         CompanionAgentListRow(agent: agent, hostTag: store.hosts.count > 1 ? names[agent.id.hostID] : nil,
-                                              detail: store.host(for: agent.id)?.placeName(for: agent.id),
+                                              detail: store.projectName(for: agent.id),
                                               parentLine: parentLines[agent.id])
                     }
                     .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
@@ -1308,7 +1310,7 @@ struct CompanionSearchView: View {
                         let host = store.host(for: agent.id)
                         NavigationLink(value: agent.id) {
                             CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
-                                                  detail: host?.placeName(for: agent.id), parentLine: parentLines[agent.id])
+                                                  detail: store.projectName(for: agent.id), parentLine: parentLines[agent.id])
                         }
                         .opacity(host?.connection.canOperate == false ? 0.5 : 1)
                         .listRowBackground(CompanionCardBackground())

@@ -41,16 +41,14 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
         screenshot(app, "Unlinked projects split on Home")
     }
 
-    func testSpawningRequiresChoosingTheMachineAndProjectPickerHasOneLinkedEntry() {
+    func testSpawningRequiresChoosingTheMachine() {
         let app = launchApp(arguments, attempts: 1)
         let newAgent = app.buttons.matching(NSPredicate(format: "label == %@", "New agent in Clubhouse")).firstMatch
         XCTAssertTrue(scrollUntilExists(newAgent, in: app) && scrollTo(newAgent, in: app))
         waitAndTap(newAgent, until: element(app, "spawn-machine-picker"))
         XCTAssertFalse(app.buttons["Start agent"].exists, "No concrete machine has been chosen")
         XCTAssertFalse(app.buttons["Create"].isEnabled)
-        waitAndTap(element(app, "spawn-project-picker"), until: app.buttons["Clubhouse"])
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@", "Clubhouse")).count, 1)
-        app.buttons["Clubhouse"].tap()
+        XCTAssertEqual(element(app, "spawn-project-picker").label, "Run on Clubhouse")
         let machine = element(app, "spawn-machine-picker")
         waitAndTap(machine, until: app.buttons["Travel MacBook"])
         app.buttons["Travel MacBook"].tap()

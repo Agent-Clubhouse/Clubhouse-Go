@@ -19,6 +19,7 @@ struct CompanionProjectPage: View {
                         Section {
                             Label(entry.label(for: member), systemImage: "desktopcomputer")
                                 .font(.headline)
+                                .accessibilityElement(children: .combine)
                                 .accessibilityIdentifier("project-page-machine-\(member.host.id)")
                                 .listRowBackground(Color.clear)
                         }
@@ -79,14 +80,6 @@ private struct CompanionMachineProjectSections: View {
                     .listRowBackground(Color.clear)
             }
         }
-        .sheet(isPresented: $waking, onDismiss: {
-            guard let wake = pendingWake else { return }
-            pendingWake = nil
-            Task { await store.wake(wake.target, message: wake.message) }
-        }) {
-            CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
-        }
-        .task(id: canOperate) { if canOperate { await loadChanges() } }
     }
 
     // MARK: Sections
@@ -113,6 +106,13 @@ private struct CompanionMachineProjectSections: View {
             .lineLimit(1).minimumScaleFactor(0.8)
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+            .sheet(isPresented: $waking, onDismiss: {
+                guard let wake = pendingWake else { return }
+                pendingWake = nil
+                Task { await store.wake(wake.target, message: wake.message) }
+            }) {
+                CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
+            }
             terminalButton
         }
     }
@@ -225,6 +225,7 @@ private struct CompanionMachineProjectSections: View {
             .disabled(!canOperate)
             .accessibilityIdentifier("project-changes")
             .listRowBackground(CompanionCardBackground())
+            .task(id: canOperate) { if canOperate { await loadChanges() } }
         } footer: {
             Text("The project folder's uncommitted files. Read-only: commit and push on your desktop.")
         }

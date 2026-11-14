@@ -72,11 +72,11 @@ struct CompanionPreviewRoot: View {
                                 Button("Disconnect desktop") { report(connection: .offline) }
                                 Button("Reconnect desktop") { report(connection: .connected) }
                             }
-                            if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects") {
-                                Section("Preview desktop reports") {
-                                    Button("Report projects unlinked") { reportProjectLinks(linked: false) }
-                                    Button("Report projects linked") { reportProjectLinks(linked: true) }
-                                }
+                        }
+                        if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects") {
+                            Section("Preview desktop reports") {
+                                Button("Report projects unlinked") { reportProjectLinks(linked: false) }
+                                Button("Report projects linked") { reportProjectLinks(linked: true) }
                             }
                         }
                         CompanionBuildInfoSection()

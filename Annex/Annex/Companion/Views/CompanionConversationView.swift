@@ -343,7 +343,7 @@ struct CompanionConversationView: View {
     private var contextName: String {
         guard let host = store.host(for: target) else { return "Desktop unavailable" }
         // The Dispatcher has no project; its own name stands in.
-        return "\(host.name) / \(host.placeName(for: target) ?? "Project")"
+        return "\(host.name) / \(store.projectName(for: target) ?? "Project")"
     }
 
     /// The production callback, also invoked directly by hosted routing tests. No presentation state is exposed.
