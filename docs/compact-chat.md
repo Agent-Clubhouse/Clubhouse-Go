@@ -106,9 +106,26 @@ the reported viewport matches UIKit; tracked pans and native status-bar delegati
 their explicit paths. Opt-in Debug follow tracing exposes cumulative pause and deceleration audits, so transient false
 pauses cannot be hidden by recovery before the next UI snapshot.
 
-At accessibility text sizes the pinned Deny/Allow bar would squeeze the draft, so a prominent review button opens the
-pending request in a sheet with the transcript's approval card. Opening or closing it sends nothing, and Allow goes
-through the same `store.canApprove` gate and full-event review as the transcript (#345).
+Pending CLI approvals and structured questions share one bounded card above the composer (#387). The oldest request
+appears first by its request timestamp, with transcript-order ties, including older requests recovered outside a history
+tail. Undated legacy requests retain transcript order ahead of dated requests. Previous/next controls and a request
+position select one item, never a growing stack. Submitting stays
+in the same queue until the store settles it. Ordinary-height cards offer the existing one-off decisions and More for
+lasting options, with the same confirmation and full-event Allow gate (#345). Compact-height and accessibility text
+use Review instead of squeezing decision labels beside the draft. A short keyboard-safe footer (less than 360pt)
+also forces Review even for a one-line draft, so small phones use the compact form with the keyboard up.
+Review reuses the complete scrollable approval
+sheet or question card; opening/closing it sends nothing. VoiceOver announces newly pending requests.
+
+Inline requests remain readable history, without duplicate actionable decisions. Show in chat reveals the original
+request, loading its transcript window when necessary; this explicit navigation pauses following. Tray arrival,
+removal, and height changes are only container/inset changes, not reading intent. All response callbacks bind the
+target, desktop epoch, session, and exact presented request, and retain the existing reconnect/explicit retry guards.
+An answer on another device settles the same retained history item and removes it from the pending queue. Selection
+stays on its request when other requests settle, falling back to the oldest when that selected request settles.
+Desktop parity follows Agent-Clubhouse/Clubhouse#3472 (`7ea65d7a`); the phone intentionally uses only `i of N`, not a second `N pending`
+line, and history remains read-only instead of desktop's expandable Answer here actions. Compact Review and the label
+Show in chat are the native phone equivalents of desktop's bounded card and Show in conversation.
 
 Clubhouse grant requests are separate cards pinned above the composer, not CLI approvals or helper requests (#357).
 They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same
@@ -116,8 +133,12 @@ They show the same details, complete arguments, reason, Allow effect and offered
 space above the composer. Otherwise a compact pinned row names the requester and summarizes the request; Review opens
 the complete, scrollable sheet without sending a decision. Decisions stack when their full labels cannot fit side by
 side. The native draft scrolls to the caret when it must shrink to keep Review and the composer above the keyboard.
-If a landscape keyboard leaves less room than the minimum footer, the footer scrolls with Review first.
-Chats without pending Clubhouse grants use the ordinary composer directly, without the measured grant footer.
+The combined footer's order is **Clubhouse grants, selected CLI approval/question, activity, composer**; a pending
+agent's redundant "Waiting for approval" activity line is omitted while its request is shown. It reuses
+the original two concrete requests/composer layout slots. Grant and decision cards share the available request budget;
+compact controls retain 44pt targets. If a landscape keyboard leaves less room than the minimum footer, that footer
+scrolls rather than overlapping controls. The composer stays mounted even as requests arrive or disappear; without
+requests the same layout preserves the ordinary composer's transcript clearance.
 Answering on either surface removes the request from both.
 Desktop-update grants keep the shared explicit Restart now / When idle choice before Allow once; stale-epoch rows
 remain subject to `store.canAnswer`.

@@ -30,6 +30,13 @@ A desktop without this capability is read-only for saved Access, not a boolean f
 
 ### Composer keyboards
 
+`CompanionPinnedDecisionUITests` uses the DEBUG-only `--companion-preview-pinned-decisions` stream: two approvals
+and one structured question arrive after streaming starts; decisions succeed only in this synthetic mode. It covers
+continued visibility after 30 more tool updates, one actionable request, oldest-first paging, answering/dismissal,
+Show in chat outside the transcript window, small-phone keyboard clearance, landscape, and AX5. Store failure tests
+cover queue/resolution filtering, exact-request/session/epoch binding and reconnect-blocked explicit retries; hosted
+approval review tests exercise the same production callbacks and submitting state. No fixture contacts a desktop.
+
 `CompanionComposerReturnKeyTests` covers the platform-independent Return decision, modifiers, disabled sends,
 composition and repeats. Hosted `CompanionComposerReturnTests` sends synthesized `UIPress`/`UIKey` events to the
 real SwiftUI composer's native `UITextView`, covering send eligibility, slash precedence, Shift+Return selection

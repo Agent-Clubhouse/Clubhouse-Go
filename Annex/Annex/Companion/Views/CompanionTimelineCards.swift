@@ -641,7 +641,7 @@ struct CompanionApprovalCard: View {
     /// "1 of 3" when several approvals are waiting.
     var queuePosition: String?
     let canRespond: Bool
-    /// When the bar above the composer carries Deny and Allow once, the card keeps only the other options.
+    /// The transcript is history only while the combined footer owns the decisions.
     var actionsArePinned = false
     /// The desktop takes lasting options ("Allow always") from the phone (`permissions.persistentApprovals`).
     var persistentApprovals = false
@@ -649,7 +649,6 @@ struct CompanionApprovalCard: View {
     @Environment(\.companionFullEventPresenter) private var fullEventPresenter
     private var canAllow: Bool { fullEventPresenter?.canApprove(approval) ?? !approval.isIncomplete }
     @State private var showDetails = false
-    @State private var confirming: CompanionApprovalOption?
     @Environment(\.companionPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -697,12 +696,12 @@ struct CompanionApprovalCard: View {
                     }.font(.caption).foregroundStyle(.secondary)
                 }
                 if live {
-                    ViewThatFits(in: .horizontal) {
-                        HStack { decisionButtons }
-                        VStack(alignment: .leading) { decisionButtons }
+                    if actionsArePinned {
+                        Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
+                    } else {
+                        CompanionApprovalActions(approval: approval, canRespond: canRespond, canAllow: canAllow,
+                                                 persistentApprovals: persistentApprovals, respond: respond)
                     }
-                    .disabled(!canRespond)
-                    persistentOptions
                 } else if approval.resolution == .submitting {
                     ProgressView("Sending decision…").font(.subheadline)
                 }
@@ -713,6 +712,47 @@ struct CompanionApprovalCard: View {
                 .stroke(live ? Color(palette.warning).opacity(0.7) : Color(palette.separator), lineWidth: 1.5))
             .accessibilityElement(children: .contain)
         }
+    }
+    /// The request's own title, else the tool asking.
+    private var requestTitle: String { approval.title ?? approval.toolName }
+    private func title(expired: Bool) -> String {
+        switch approval.resolution {
+        case .pending: expired ? "Request expired" : "Your approval is needed"
+        case .submitting: "Sending your decision"
+        case .allowed: "Allowed"
+        case .denied: "Denied"
+        case .expired: "Request expired"
+        case .cancelled: "Request withdrawn"
+        case .uncertain: "Decision delivery unknown — refresh to check"
+        }
+    }
+}
+
+/// Full review and the compact tray share option availability, confirmation, and allow gating.
+struct CompanionApprovalActions: View {
+    let approval: CompanionApproval
+    let canRespond: Bool
+    let canAllow: Bool
+    let persistentApprovals: Bool
+    var compact = false
+    let respond: (CompanionApprovalOption) -> Void
+    @State private var confirming: CompanionApprovalOption?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if compact {
+                HStack { decisionButtons }
+                    .lineLimit(1)
+                    .frame(height: 44)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack { decisionButtons }
+                    VStack(alignment: .leading) { decisionButtons }
+                }
+            }
+            if !compact { persistentOptions }
+        }
+        .disabled(!canRespond)
         .confirmationDialog(confirming.map { "\($0.label)?" } ?? "", isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
                             titleVisibility: .visible, presenting: confirming) { option in
             Button(option.label) { respond(option) }
@@ -722,19 +762,42 @@ struct CompanionApprovalCard: View {
                  : "The agent won't ask again for \(option.scope ?? "this"). You can change this on your desktop.")
         }
     }
+    private var primaryOptions: [CompanionApprovalOption] {
+        if !compact { return approval.options.filter(\.isOneOff) }
+        return [approval.options.first { $0.kind == .allowOnce }, approval.options.first { $0.kind == .rejectOnce }]
+            .compactMap { $0 }
+    }
     @ViewBuilder private var decisionButtons: some View {
-        if actionsArePinned {
-            Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
-        }
-        ForEach(approval.options.filter { $0.isOneOff && (!actionsArePinned || ($0.kind != .allowOnce && $0.kind != .rejectOnce)) }) { option in
+        ForEach(primaryOptions) { option in
             if option.kind == .allowOnce {
-                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel().disabled(!canAllow)
+                Button { respond(option) } label: {
+                    Label(option.label, systemImage: "checkmark").frame(minHeight: compact ? 28 : nil)
+                }
+                .buttonStyle(.borderedProminent).companionProminentLabel().disabled(!canAllow)
             } else {
-                Button(option.label, systemImage: "xmark", role: .destructive) { respond(option) }.buttonStyle(.bordered)
+                Button(role: .destructive) { respond(option) } label: {
+                    Label(option.label, systemImage: "xmark").frame(minHeight: compact ? 28 : nil)
+                }
+                .buttonStyle(.bordered)
             }
         }
         if approval.options.isEmpty {
             Text("Review this request on desktop.").font(.caption).foregroundStyle(.secondary)
+        }
+        let additional = approval.options.filter { !primaryOptions.contains($0) }
+        if compact, !additional.isEmpty {
+            Menu("More", systemImage: "ellipsis") {
+                ForEach(additional) { option in
+                    if option.isAnswerable(persistentApprovals: persistentApprovals) {
+                        Button(option.label) { choose(option) }.disabled(option.allows && !canAllow)
+                    } else {
+                        Text("\(option.label) — choose on desktop")
+                    }
+                }
+            }
+                .labelStyle(.iconOnly)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityIdentifier("companion-approval-more")
         }
     }
     /// Options that change the agent's permissions for good ("Allow always"). The desktop lists them with the rest, numbered.
@@ -746,7 +809,7 @@ struct CompanionApprovalCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(answerable, id: \.element.id) { _, option in
                     Button {
-                        if option.needsConfirmation { confirming = option } else { respond(option) }
+                        choose(option)
                     } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(option.label)
@@ -780,17 +843,7 @@ struct CompanionApprovalCard: View {
             .accessibilityIdentifier("companion-approval-persistent")
         }
     }
-    /// The request's own title, else the tool asking.
-    private var requestTitle: String { approval.title ?? approval.toolName }
-    private func title(expired: Bool) -> String {
-        switch approval.resolution {
-        case .pending: expired ? "Request expired" : "Your approval is needed"
-        case .submitting: "Sending your decision"
-        case .allowed: "Allowed"
-        case .denied: "Denied"
-        case .expired: "Request expired"
-        case .cancelled: "Request withdrawn"
-        case .uncertain: "Decision delivery unknown — refresh to check"
-        }
+    private func choose(_ option: CompanionApprovalOption) {
+        if option.needsConfirmation { confirming = option } else { respond(option) }
     }
 }

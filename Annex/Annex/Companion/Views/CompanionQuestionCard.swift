@@ -3,6 +3,7 @@ import SwiftUI
 struct CompanionQuestionCard: View {
     let question: CompanionQuestion
     var canRespond: Bool
+    var actionsArePinned = false
     var respond: ([String: CompanionAnswer]) -> Void
     @State private var selections: [String: Set<String>] = [:]
     @State private var text: [String: String] = [:]
@@ -19,6 +20,12 @@ struct CompanionQuestionCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(prompt.text).font(.subheadline.weight(.semibold))
                     ForEach(prompt.options) { option in
+                        if actionsArePinned {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(option.label)
+                                if let detail = option.detail { Text(detail).font(.caption).foregroundStyle(.secondary) }
+                            }
+                        } else {
                         Button {
                             var selected = selections[prompt.id] ?? []
                             if prompt.allowsMultiple {
@@ -38,8 +45,9 @@ struct CompanionQuestionCard: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(selections[prompt.id]?.contains(option.id) == true ? .isSelected : [])
+                        }
                     }
-                    if prompt.allowsFreeText {
+                    if prompt.allowsFreeText && !actionsArePinned {
                         TextField("Your answer", text: Binding(get: { text[prompt.id] ?? "" }, set: { text[prompt.id] = $0; selections[prompt.id] = [] }), axis: .vertical)
                             .textFieldStyle(.roundedBorder).lineLimit(2...6)
                             .accessibilityLabel("Answer: \(prompt.text)")
@@ -48,15 +56,20 @@ struct CompanionQuestionCard: View {
                 .disabled(question.resolution != .pending || !canRespond)
             }
             if question.resolution == .pending {
+                if actionsArePinned {
+                    Label("Answer below", systemImage: "arrow.down").font(.subheadline).foregroundStyle(.secondary)
+                } else {
                 Button("Send answers", systemImage: "arrow.up") { respond(answers) }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!canRespond || !CompanionStore.validAnswers(answers, for: question))
                     .accessibilityIdentifier("send-answers-\(question.id)")
+                }
             } else if question.resolution == .submitting { ProgressView("Sending answers…") }
         }
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
+        .onChange(of: question.prompts) { _, _ in selections = [:]; text = [:] }
     }
     private var answers: [String: CompanionAnswer] {
         guard question.canAnswerOnPhone else { return [:] }

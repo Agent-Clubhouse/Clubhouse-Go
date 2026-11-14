@@ -4,8 +4,8 @@ import ClubhouseTransport
 @testable import CompanionDomain
 
 @Suite @MainActor struct CompanionChatProjectorTests {
-    private func event(_ type: String, seq: Int64, session: String = "session-a", data: [String: AnnexJSON]) -> AnnexJSON {
-        .object(["v": .integer(2), "agentId": .string("agent"), "sessionId": .string(session), "seq": .integer(seq), "ts": .integer(1_700_000_000_000), "type": .string(type), "data": .object(data)])
+    private func event(_ type: String, seq: Int64, session: String = "session-a", timestamp: Int64 = 1_700_000_000_000, data: [String: AnnexJSON]) -> AnnexJSON {
+        .object(["v": .integer(2), "agentId": .string("agent"), "sessionId": .string(session), "seq": .integer(seq), "ts": .integer(timestamp), "type": .string(type), "data": .object(data)])
     }
 
     @Test func finalMessageReplacesChunksAndReplayIsIgnored() {
@@ -52,6 +52,26 @@ import ClubhouseTransport
         projection.apply(event("permission_request", seq: 2, data: ["requestId": .string("pending"), "title": .string("Approval"), "options": .array([])]), allowOlderPending: true)
         #expect(projection.lastSequence == 40)
         #expect(projection.items.contains { $0.id == "approval:pending" })
+    }
+
+    @Test func recoveredDecisionsKeepDesktopTimestampOrderAndResolveFromOtherDevices() {
+        var projection = CompanionChatProjector()
+        projection.apply(event("permission_request", seq: 40, timestamp: 3_000, data: ["requestId": .string("recent")]))
+        projection.apply(event("permission_request", seq: 2, timestamp: 1_000, data: ["requestId": .string("older")]), allowOlderPending: true)
+        projection.apply(event("question", seq: 1, timestamp: 500, data: ["requestId": .string("oldest")]), allowOlderPending: true)
+        projection.apply(event("question", seq: 3, timestamp: 1_000, data: ["requestId": .string("tie")]), allowOlderPending: true)
+        var queue = CompanionPendingDecision.pending(in: projection.items)
+        #expect(queue.map(\.id) == ["question:oldest", "approval:older", "question:tie", "approval:recent"])
+
+        projection.apply(event("question_resolved", seq: 41, data: ["requestId": .string("oldest")]))
+        queue = CompanionPendingDecision.pending(in: projection.items)
+        #expect(queue.map(\.id) == ["approval:older", "question:tie", "approval:recent"])
+        #expect(CompanionPendingDecision.selected(in: queue, id: "approval:recent")?.id == "approval:recent")
+        projection.apply(event("permission_resolved", seq: 42, data: ["requestId": .string("recent"), "decision": .string("allow")]))
+        queue = CompanionPendingDecision.pending(in: projection.items)
+        #expect(CompanionPendingDecision.selected(in: queue, id: "approval:recent")?.id == "approval:older")
+        #expect(projection.items.map(\.id) == ["approval:recent", "approval:older", "question:oldest", "question:tie"],
+                "Resolved requests stay in history; only the pending queue changes")
     }
 
     @Test func toolAppendUpdatesKeepOriginalInputAndName() {

@@ -29,7 +29,6 @@ struct CompanionConversationComposer: View {
     let dismissals: Int
     @State private var showRefreshing = false
     @State private var pendingLevel: CompanionPermissionLevel?
-    @State private var approvalReviewSelection: CompanionComposerApprovalReviewSelection?
     @State private var modelSettings: CompanionAgentSettings?
     @State private var savedModelError: String?
     @State private var loadedModelSettingsKey: [String]?
@@ -47,7 +46,6 @@ struct CompanionConversationComposer: View {
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
     private var connection: CompanionConnection { store.host(for: target)?.connection ?? .offline }
-    private var canRespond: Bool { store.canOperate(target) && agent.capabilities.contains(.approve) && !store.pendingCommands.contains(target) }
     private var isAsleep: Bool { agent.capabilities.contains(.wake) && (agent.status == .sleeping || agent.status == .stopped) }
     private var attachmentLimits: CompanionAttachmentLimits? { store.attachmentLimits(for: target) }
     /// Text, images, or both.
@@ -71,65 +69,8 @@ struct CompanionConversationComposer: View {
             draft.wrappedValue = text
         })
     }
-    /// Direct decisions stay pinned at ordinary sizes; large text uses the prominent review action below.
-    @ViewBuilder private var pinnedApprovalBar: some View {
-        if !dynamicTypeSize.isAccessibilitySize, let approval = store.pinnedApproval(for: target) {
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Text(approval.title ?? approval.toolName).lineLimit(1)
-                    if let position = CompanionChatActivity.queuePosition(of: approval, in: conversation.items) {
-                        Text(position).foregroundStyle(.tertiary).fixedSize()
-                    }
-                }
-                .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 8)
-                if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
-                    Button(deny.label) { Task { await store.respond(approval, option: deny, target: target) } }
-                        .buttonStyle(.bordered)
-                }
-                if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
-                    Button(allow.label) { Task { await store.respond(approval, option: allow, target: target) } }
-                        .buttonStyle(.borderedProminent).companionProminentLabel()
-                        .disabled(!store.canApprove(approval, target: target))
-                }
-            }
-            .buttonBorderShape(.capsule)
-            .disabled(!canRespond)
-            .padding(8)
-            .glassEffect(.regular, in: .capsule)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Approval needed: \(approval.title ?? approval.toolName)")
-        }
-    }
-
-    /// Keep the pending request prominent without compressing large textual decisions beside the draft.
-    @ViewBuilder private var approvalReviewButton: some View {
-        if let approval = store.pinnedApproval(for: target) {
-            let position = CompanionChatActivity.queuePosition(of: approval, in: conversation.items)
-            Button { approvalReviewSelection = .init(target: target, approvalID: approval.id) } label: {
-                Image(systemName: "hand.raised.fill").font(.system(size: 20))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(.circle)
-            }
-            .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-            .tint(Color(palette.warning))
-            .foregroundStyle(Color(CompanionPalette.glyph(on: palette.warning)))
-            .overlay(alignment: .topTrailing) {
-                // A distinct pending badge, so the cue does not rely on warning color alone.
-                Image(systemName: "exclamationmark.circle.fill").font(.system(size: 12))
-                    .foregroundStyle(Color(palette.label), Color(palette.card))
-                    .accessibilityHidden(true)
-                    .allowsHitTesting(false)
-            }
-            .accessibilityLabel("Review approval: \(approval.title ?? approval.toolName)\(position.map { ", \($0)" } ?? "")")
-            .accessibilityHint("Opens the complete request and available decisions. Opening does not send a decision.")
-            .accessibilityIdentifier("companion-review-approval")
-        }
-    }
-
     var body: some View {
         composerLayout {
-            pinnedApprovalBar
             if isAsleep {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(agent.hasSession == false ? "\(agent.name) is sleeping. Start a new session, or send a message to start one."
@@ -177,9 +118,6 @@ struct CompanionConversationComposer: View {
                     }
                     .frame(maxWidth: .infinity)
                     HStack(alignment: .bottom, spacing: 6) {
-                        if dynamicTypeSize.isAccessibilitySize {
-                            approvalReviewButton.frame(height: actionRowHeight)
-                        }
                         chatControls.frame(height: actionRowHeight)
                         if let limits = attachmentLimits {
                             CompanionAttachButton(store: store, target: target, limits: limits).frame(height: actionRowHeight)
@@ -245,9 +183,6 @@ struct CompanionConversationComposer: View {
             Text(level == .fullAccess
                  ? "\(agent.name) will edit files and run commands without asking you first."
                  : "\(agent.name) will decide for itself what needs your approval.")
-        }
-        .sheet(isPresented: Binding(get: { approvalReviewSelection != nil }, set: { if !$0 { approvalReviewSelection = nil } })) {
-            CompanionComposerApprovalReviewSheet(store: store, target: target, selection: $approvalReviewSelection)
         }
         .onAppear {
             #if DEBUG
@@ -611,6 +546,7 @@ struct CompanionComposerLayout: Layout {
 struct CompanionComposerApprovalReviewSelection: Equatable {
     let target: CompanionTarget
     let approvalID: String
+    var presentation: CompanionDecisionPresentation? = nil
 }
 
 /// Review presentation and actions always resolve the selected request against the current conversation.
@@ -623,10 +559,29 @@ struct CompanionComposerApprovalReviewSheet: View {
 
     var currentApproval: CompanionApproval? {
         guard let selection, selection.target == target else { return nil }
+        if let presentation = selection.presentation,
+           store.host(for: target)?.controlEpoch != presentation.epoch
+            || store.conversation(for: target).sessionID != presentation.sessionID { return nil }
         return store.conversation(for: target).items.lazy.compactMap { item -> CompanionApproval? in
             if case .approval(let approval) = item, approval.id == selection.approvalID { return approval }
             return nil
         }.first
+    }
+
+    var currentDecision: CompanionPendingDecision? {
+        guard let selection, selection.target == target else { return nil }
+        if let presentation = selection.presentation {
+            guard store.host(for: target)?.controlEpoch == presentation.epoch,
+                  store.conversation(for: target).sessionID == presentation.sessionID else { return nil }
+            return store.conversation(for: target).items.compactMap { item -> CompanionPendingDecision? in
+                switch item {
+                case .approval(let approval): .approval(approval)
+                case .question(let question): .question(question)
+                default: nil
+                }
+            }.first { $0.id == presentation.decision.id }
+        }
+        return currentApproval.map(CompanionPendingDecision.approval)
     }
 
     func queuePosition(at date: Date) -> String? {
@@ -647,17 +602,40 @@ struct CompanionComposerApprovalReviewSheet: View {
         await store.respond(approval, option: originalOption, target: target)
     }
 
+    func respond(_ presentation: CompanionDecisionPresentation, option: CompanionApprovalOption) async {
+        guard selection?.target == target, selection?.presentation?.decision.id == presentation.decision.id else { return }
+        await store.respond(presentation, option: option)
+    }
+
+    func answer(_ presentation: CompanionDecisionPresentation, answers: [String: CompanionAnswer]) async {
+        guard selection?.target == target, selection?.presentation?.decision.id == presentation.decision.id else { return }
+        await store.answer(presentation, answers: answers)
+    }
+
     var body: some View {
         NavigationStack {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         CompanionDecisionNoticesView(store: store, notices: store.decisionNotices(for: target))
-                        if let approval = currentApproval {
-                            let originalRequestID = approval.id
+                        if let decision = currentDecision {
+                            let presentation = store.decisionPresentation(decision, target: target)
+                            switch decision {
+                            case .approval(let approval):
                             CompanionApprovalCard(approval: approval, queuePosition: queuePosition(at: context.date),
                                 canRespond: canRespond, persistentApprovals: store.canAnswerPersistentApprovals(target),
-                                respond: { option in Task { await respond(to: originalRequestID, option: option) } })
+                                respond: { option in Task {
+                                    if selection?.presentation != nil { await respond(presentation, option: option) }
+                                    else { await respond(to: approval.id, option: option) }
+                                } })
+                            case .question(let question):
+                                CompanionQuestionCard(question: question,
+                                    canRespond: store.canOperate(target) && store.agent(for: target)?.capabilities.contains(.answer) == true
+                                        && !store.pendingCommands.contains(target)) { answers in
+                                    Task { await answer(presentation, answers: answers) }
+                                }
+                                .id(question.id)
+                            }
                         } else {
                             Text("This approval is no longer available.")
                                 .accessibilityIdentifier("companion-approval-review-unavailable")
@@ -670,9 +648,10 @@ struct CompanionComposerApprovalReviewSheet: View {
                     .padding()
                 }
             }
+            .accessibilityIdentifier("companion-approval-review-scroll")
             // The card's Allow and full-event review use the same store.canApprove gate as the transcript.
             .companionContentPreviews(store: store, target: target)
-            .navigationTitle("Review approval")
+            .navigationTitle(isQuestion ? "Review question" : "Review approval")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -682,5 +661,9 @@ struct CompanionComposerApprovalReviewSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+    private var isQuestion: Bool {
+        if case .question = selection?.presentation?.decision { return true }
+        return false
     }
 }

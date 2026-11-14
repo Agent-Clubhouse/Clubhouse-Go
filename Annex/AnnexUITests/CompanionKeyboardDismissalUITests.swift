@@ -148,36 +148,49 @@ import UIKit
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
         let viewport = transcriptViewport(app)
         // The final slice, not merely an older visible fragment, must keep a full line readable at Latest.
-        let live = replies.allElementsBoundByIndex.last
+        func newestNode(in node: XCUIElementSnapshot, matching predicate: (XCUIElementSnapshot) -> Bool) -> XCUIElementSnapshot? {
+            for child in node.children.reversed() {
+                if let match = newestNode(in: child, matching: predicate) { return match }
+            }
+            return predicate(node) ? node : nil
+        }
+        func newestTextFrame(in node: XCUIElementSnapshot) -> CGRect? {
+            newestNode(in: node) { $0.elementType == .staticText && $0.label.contains("Streaming preview reply.") }?.frame
+        }
+        // A stream can create another rich-text slice between queries. Measure the latest text, tool and controls atomically.
+        let snapshot = try app.snapshot()
+        let live = newestTextFrame(in: snapshot)
         XCTContext.runActivity(named: "Streaming viewport \(viewport), keyboard \(app.keyboards.firstMatch.frame), transcript \(transcript)") { _ in }
         if live == nil { screenshot(app, "Stream viewport missing live text") }
         XCTAssertNotNil(live, "A streamed text fragment must be visible while typing")
         guard let live else { return }
         screenshot(app, "Streaming text while editing")
         let lineHeight = ceil(UIFont.preferredFont(forTextStyle: .body).lineHeight)
-        let liveFrame = live.frame
+        let liveFrame = live
         let lastLine = CGRect(x: liveFrame.minX, y: liveFrame.maxY - lineHeight, width: liveFrame.width, height: lineHeight)
-        XCTAssertTrue(live.isHittable && pixelContains(viewport, lastLine), "The newest streamed line stays fully visible while following: \(lastLine) in \(viewport)")
-        let newestItem = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-activity-tool:live-")).allElementsBoundByIndex.last
+        XCTAssertTrue(pixelContains(viewport, lastLine), "The newest streamed line stays fully visible while following: \(lastLine) in \(viewport)")
+        let newestItem = newestNode(in: snapshot) { $0.elementType == .button && $0.identifier.hasPrefix("companion-activity-tool:live-") }
         XCTAssertNotNil(newestItem, "The live fixture must also exercise a trailing tool card")
         if let newestItem {
-            XCTAssertTrue(newestItem.isHittable && pixelContains(viewport, newestItem.frame), "The newest tool item stays visible above the composer")
-            let disclosure = newestItem.images["chevron.down"]
-            XCTAssertTrue(disclosure.exists)
-            for jump in [app.buttons["companion-previous-message"], app.buttons["companion-next-message"]] {
-                XCTAssertFalse(jump.frame.intersects(newestItem.frame), "Jump buttons must not cover the newest card's interactive target")
-                XCTAssertFalse(jump.frame.intersects(disclosure.frame), "The newest card's disclosure stays clear of jump buttons")
+            XCTAssertTrue(pixelContains(viewport, newestItem.frame), "The newest tool item stays visible above the composer")
+            let disclosure = newestNode(in: newestItem) {
+                $0.elementType == .image && ($0.identifier == "chevron.down" || $0.label == "chevron.down")
+            }
+            XCTAssertNotNil(disclosure)
+            for id in ["companion-previous-message", "companion-next-message"] {
+                let jump = newestNode(in: snapshot) { $0.identifier == id }
+                XCTAssertNotNil(jump)
+                if let jump {
+                    XCTAssertFalse(jump.frame.intersects(newestItem.frame), "Jump buttons must not cover the newest card's interactive target")
+                    if let disclosure {
+                        XCTAssertFalse(jump.frame.intersects(disclosure.frame), "The newest card's disclosure stays clear of jump buttons")
+                    }
+                }
             }
         }
         XCTAssertTrue(app.keyboards.firstMatch.exists)
         XCTAssertEqual(composer.value as? String, "Keep editing while streaming")
         // Streaming can append a new slice between queries, making the earlier element index stale.
-        func newestTextFrame(in node: XCUIElementSnapshot) -> CGRect? {
-            for child in node.children.reversed() {
-                if let frame = newestTextFrame(in: child) { return frame }
-            }
-            return node.elementType == .staticText && node.label.contains("Streaming preview reply.") ? node.frame : nil
-        }
         guard let tapText = newestTextFrame(in: try app.snapshot()) else {
             XCTFail("The latest streamed text must still exist before tapping"); return
         }

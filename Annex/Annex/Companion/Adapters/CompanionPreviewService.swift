@@ -33,6 +33,7 @@ import ClubhouseTransport
     private let showsHelperIdentity: Bool
     private let showsHelperTree: Bool
     private let showsQuestions: Bool
+    private var pinnedDecisionStep: Int?
     private let showsContextWindow: Bool
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
@@ -145,6 +146,13 @@ import ClubhouseTransport
                 hosts[0].canAnswerGrantRequests = true
                 hosts[0].grantRequests = Self.grantRequests
             }
+            if Self.showsPinnedDecisions {
+                for project in hosts[0].projects.indices {
+                    if let index = hosts[0].projects[project].agents.firstIndex(where: { $0.id == Self.target }) {
+                        hosts[0].projects[project].agents[index].capabilities.insert(.answer)
+                    }
+                }
+            }
             if self.showsAppUpdate {
                 hosts[0].canUpdateApp = true
                 hosts[0].canAnswerGrantRequests = true
@@ -194,6 +202,27 @@ import ClubhouseTransport
         while true {
             try? await Task.sleep(for: .milliseconds(400))
             step += 1
+            #if DEBUG
+            if Self.showsPinnedDecisions, let previous = pinnedDecisionStep {
+                let pinnedStep = previous + 1
+                pinnedDecisionStep = pinnedStep
+                if pinnedStep == 20 {
+                    for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
+                        continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: "Synthetic request for \(title). Full context stays in chat.",
+                            title: title, deadline: .now.addingTimeInterval(600), options: [
+                                .init(id: "allow", label: "Allow once", kind: .allowOnce),
+                                .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
+                                .init(id: "deny", label: "Deny", kind: .rejectOnce)
+                            ])), sequence: nil))
+                    }
+                    continuation?.yield(.upsert(Self.target, .question(.init(id: "pinned-question", prompts: [
+                        .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
+                              allowsMultiple: false, allowsFreeText: false)
+                    ])), sequence: nil))
+                }
+                continuation?.yield(.upsert(Self.target, .notice(id: "pinned-progress-\(pinnedStep)", text: "Synthetic tool updates: \(pinnedStep)"), sequence: nil))
+            }
+            #endif
             let run = step / 10
             let output = "Step \(step % 10) of 10\nLog: `build/test-log.txt`"
             var updates = [CompanionTool(id: "live-\(run)", name: "swift test", summary: "", output: output, state: step % 10 == 9 ? .completed : .running,
@@ -421,6 +450,9 @@ import ClubhouseTransport
         .message(.init(id: "parent-reply", role: .assistant, text: "I’ll review the helper’s changes next."))
     ]
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        #if DEBUG
+        if Self.showsPinnedDecisions, target == Self.target, pinnedDecisionStep == nil { pinnedDecisionStep = 0 }
+        #endif
         #if DEBUG && canImport(UIKit)
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-messages"), target == Self.target {
             return .init(items: Self.helperMessageHistory)
@@ -641,8 +673,21 @@ import ClubhouseTransport
     }
     func setModel(_ model: String, effort: CompanionEffortChoice?, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func setLevel(_ level: CompanionPermissionLevel, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
-    func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
-    func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if Self.showsPinnedDecisions {
+            continuation?.yield(.upsert(target, .notice(id: "pinned-response-\(approvalID)", text: "Synthetic decision: \(approvalID) / \(optionID)"), sequence: nil))
+            return
+        }
+        #endif
+        throw previewError
+    }
+    func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if Self.showsPinnedDecisions { return }
+        #endif
+        throw previewError
+    }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw previewError }
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
@@ -700,6 +745,7 @@ import ClubhouseTransport
     }
     #if DEBUG
     private static var showsGrantRequests: Bool { ProcessInfo.processInfo.arguments.contains("--companion-preview-grant-requests") }
+    private static var showsPinnedDecisions: Bool { ProcessInfo.processInfo.arguments.contains("--companion-preview-pinned-decisions") }
     #else
     private static let showsGrantRequests = false
     #endif
