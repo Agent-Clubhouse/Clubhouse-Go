@@ -19,6 +19,7 @@ import Testing
         #expect(feature.presetLevels == ["minimum", "easy", "medium", "hard", "maximum"])
         #expect(feature.presetProviders == ["claude-code", "codex-cli", "copilot-cli"])
         #expect(feature.autoCandidates == ["claude-code", "codex-cli", "copilot-cli"])
+        #expect(feature.lastResortCandidates == ["copilot-cli"] && feature.copilotAuto == true)
         var fields = try #require(raw.object)
         fields["helperRouting"] = nil
         #expect(try !AnnexJSON.object(fields).decode(AnnexCapabilities.self).supportsHelperRouting)
@@ -111,11 +112,12 @@ import Testing
     @Test func encodesAcceptedUpdatesAndRetainsFreshSettingsInStaleReceipt() throws {
         for item in try ContractFixtures.cases("commands/helperRouting.update.json") {
             let raw = try #require(item["request"])
-            if item["name"]?.string?.hasPrefix("accepted") == true, raw["copilotAuto"] == nil {
+            if item["name"]?.string?.hasPrefix("accepted") == true {
                 let update = try raw.decode(AnnexHelperRoutingUpdate.self)
                 let command = AnnexCommand(commandID: try #require(raw["commandId"]?.string), epoch: try #require(raw["epoch"]?.string), kind: .updateHelperRouting(update))
                 #expect(try JSONDecoder().decode(AnnexJSON.self, from: command.encoded()) == raw)
             }
+
             let receipt = try #require(item["response"]?["body"]).decode(AnnexCommandReceipt.self)
             if receipt.error?.code == "helper_routing_stale" {
                 let fresh = try CompanionHelperRouting(json: #require(receipt.settings))
@@ -123,6 +125,34 @@ import Testing
             }
             if receipt.status == .completed { _ = try CompanionHelperRouting(json: #require(receipt.result)) }
         }
+    }
+
+    @Test func copilotPolicyAndNewReasonsUseServerWordsAndRemainBackwardCompatible() throws {
+        let capability = try #require(try ContractFixtures.body("capabilities.json").decode(AnnexCapabilities.self).helperRouting)
+        var page = try page()
+        #expect(page.copilotAuto == true)
+        #expect(page.autoCandidateText("copilot-cli", capability: capability) == "Auto candidate (last resort)")
+        #expect(page.autoCandidateText("codex-cli", capability: capability) == "Auto candidate")
+        for (family, code, words) in [
+            ("reason", "last_resort_unmeasured", "Its quota is unknown. No provider with readable plan usage was eligible"),
+            ("skipped", "auto_disabled", "Turned off for Auto in Settings"),
+            ("skipped", "mapping_changed", "The mapping changed while this start was being prepared")
+        ] {
+            #expect(page.label(family, code) == words)
+            page.labels[family]?[code] = "New desktop wording"
+            #expect(page.label(family, code) == "New desktop wording")
+        }
+        page.copilotAuto = false
+        #expect(page.autoCandidateText("copilot-cli", capability: capability) == "New desktop wording")
+        page.providers["copilot-cli"]?.autoCandidate = false
+        #expect(page.autoCandidateText("copilot-cli", capability: capability) == "Preset only. Auto doesn’t choose this provider.")
+        var legacy = try #require(ContractFixtures.body("helper-routing.json", "bare").object)
+        legacy["copilotAuto"] = nil
+        #expect(try CompanionHelperRouting(json: .object(legacy)).copilotAuto == nil)
+        let decision = try #require(CompanionHelperRoutingDecision(json: ContractFixtures.json("helper-routing-auto.json")["settingsRouting"]?["copilotLastResort"]))
+        #expect(decision.reason == "last_resort_unmeasured")
+        #expect(decision.reasonText(labels: page.labels) == decision.displayReason)
+        #expect(decision.quota["copilot-cli"]?.state == "unknown")
     }
 
     @Test func helperDetailsUseDisplayAndRowsAndRequestsKeepCodes() throws {

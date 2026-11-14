@@ -2,6 +2,9 @@ import Foundation
 #if canImport(ClubhouseTransport)
 import ClubhouseTransport
 #endif
+#if canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 import Observation
 
 nonisolated struct CompanionHelperRouting: Sendable, Equatable {
@@ -49,11 +52,19 @@ nonisolated struct CompanionHelperRouting: Sendable, Equatable {
     var agent: Agent?
     var auto: CompanionHelperAuto?
     var serverTime: Date?
+    var copilotAuto: Bool?
     var nextRefreshDelay: Double? { CompanionHelperQuota.nextRefreshDelay(providers.values.compactMap(\.quota)) }
     static func label(_ labels: Labels, family: String, code: String) -> String {
         labels[family]?[code] ?? labels["generic"]?["unknownCode"] ?? "Other"
     }
     func label(_ family: String, _ code: String) -> String { Self.label(labels, family: family, code: code) }
+    func autoCandidateText(_ id: String, capability: AnnexCapabilities.HelperRouting) -> String {
+        guard providers[id]?.autoCandidate == true, capability.autoCandidates?.contains(id) != false else {
+            return "Preset only. Auto doesn’t choose this provider."
+        }
+        if id == "copilot-cli", copilotAuto == false { return label("skipped", "auto_disabled") }
+        return capability.lastResortCandidates?.contains(id) == true ? "Auto candidate (last resort)" : "Auto candidate"
+    }
 }
 
 /// Codes in snapshots, with desktop-owned display text only in agent settings. No second context notice.

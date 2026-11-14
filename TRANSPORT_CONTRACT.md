@@ -34,6 +34,13 @@ Persistence is opt-in. Complete saved pairing (verified host, alias, RSA private
 
 Read `.capabilities` and require `controlAvailable == true` before enabling commands. A capability re-read that is refused (non-2xx, unreadable, or a version/epoch/`controlAuth` downgrade) withdraws command authority until a valid document is read again; a request lost in transit leaves the confirmed authority in place. Commands carry its epoch and a stable `commandID`. Receipts `.completed`, `.rejected`, `.failed` distinguish dispatch acknowledgement, rejection and possible partial effects. Transport errors after dispatch become `commandOutcomeUnknown(commandID:)`, including cancellation: never label a lost reply as safely not sent. No automatic command retries or offline mutation queue. Repeated local IDs return the prior receipt or the same uncertainty, and changed content rejects. Bounded command ledger rejects capacity exhaustion instead of silently evicting uncertainty. Entries expire with the server retention horizon (at most one hour); command objects carry their creation time and are rejected as unknown if reused after that horizon. Reconcile before creating any new command after unknown outcomes. Disconnect invalidates pending reads and pre-dispatch work, so a late capability response cannot restore command authority. A definitive receipt received after disconnect still resolves a dispatched command; cancelling an already dispatched command cannot establish that it did not execute.
 
+## Helper routing
+
+Helper routing uses the desktop's labels and saved decision display text, including `last_resort_unmeasured`,
+`auto_disabled` and `mapping_changed`. `autoCandidates` and `lastResortCandidates` distinguish normal Auto
+candidates from unmeasured last resorts. The advertised `copilotAuto` switch is an independent app-wide
+boolean; changing it neither enables Auto nor changes explicit Copilot starts or presets.
+
 ## Events and replay
 
 AnnexEnvelope retains `{type,payload,seq?,replayed?}` and top-level replay controls (`oldestAvailable`, `lastSeq`, `fromSeq`, `toSeq`, `count`, `epoch`). Integers retain Int64 precision. The existing desktop uses top-level controls, not nested payloads.

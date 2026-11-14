@@ -10,6 +10,30 @@ nonisolated struct CompanionIconCatalog: Sendable, Equatable {
     var agents: [String: CompanionIconReference] = [:]
 
     var references: Set<CompanionIconReference> { Set(projects.values).union(agents.values) }
+
+    func applyingSnapshot(_ snapshot: AnnexEnvelope, usesReferences: Bool, host: String, store: CompanionIconStore) async -> Self {
+        let omitted = Set(snapshot.snapshotTruncated?.omitted ?? [])
+        if usesReferences {
+            var result = self
+            if !omitted.contains("iconRefs") { result.applyReferences(snapshot.payload?["iconRefs"], host: host) }
+            await store.setReferences(result.references, for: host)
+            return result
+        }
+        var result = await Self.inline(projects: omitted.contains("projectIcons") ? nil : snapshot.payload?["projectIcons"],
+                                       agents: omitted.contains("agentIcons") ? nil : snapshot.payload?["agentIcons"],
+                                       host: host, store: store)
+        if omitted.contains("projectIcons") { result.projects = projects }
+        if omitted.contains("agentIcons") { result.agents = agents }
+        await store.setReferences(result.references, for: host)
+        return result
+    }
+
+    static func omissionNotice(_ snapshot: AnnexEnvelope, usesReferences: Bool) -> String? {
+        let usedFields: Set<String> = usesReferences ? ["iconRefs"] : ["agentIcons", "projectIcons"]
+        guard snapshot.snapshotTruncated?.omitted.contains(where: usedFields.contains) == true else { return nil }
+        return "Some images were left out of the latest desktop update to keep it small. Previously loaded images are kept when available."
+    }
+
     /// Only object submaps establish absence. Missing/null/invalid maps are unknown.
     mutating func applyReferences(_ value: AnnexJSON?, host: String) {
         if case .object(let entries)? = value?["projects"] {

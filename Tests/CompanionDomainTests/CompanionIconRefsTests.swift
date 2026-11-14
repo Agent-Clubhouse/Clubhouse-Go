@@ -6,6 +6,52 @@ import Testing
 @testable import CompanionDomain
 
 @Suite struct CompanionIconRefsTests {
+    @Test func annexSnapshotRefsSurviveTruncationButCompleteMapsChangeAndRemoveIcons() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = CompanionIconStore(directory: root)
+        let initial = AnnexEnvelope(type: "snapshot", payload: try #require(ContractFixtures.json("snapshot-icon-refs.json")["value"]))
+        var catalog = await CompanionIconCatalog().applyingSnapshot(initial, usesReferences: true, host: "host", store: store)
+        #expect(catalog.agents.count == 2 && catalog.projects.count == 1)
+        let before = catalog
+        let agent = try #require(catalog.agents["durable_chat"])
+        let route = try ContractFixtures.json("icon-route.json")
+        let base64 = try #require(route["imageBase64"]?.string)
+        let data = try #require(Data(base64Encoded: base64))
+        await store.setFetcher(for: "host") { _, _ in .init(status: 200, contentType: "image/png", data: data, version: agent.version) }
+        #expect(await store.image(for: agent, points: 32) != nil)
+
+        guard case .object(var payload)? = try ContractFixtures.json("snapshot-truncated.json")["value"],
+              case .object(var marker)? = payload["snapshotTruncated"] else { Issue.record("Missing truncation"); return }
+        for omitted in [["canvasState", "appCanvasState"], ["agentIcons", "projectIcons"], ["iconRefs"]] {
+            marker["omitted"] = .array(omitted.map(AnnexJSON.string))
+            payload["snapshotTruncated"] = .object(marker)
+            payload["agentIcons"] = .object([:]); payload["projectIcons"] = .object([:])
+            // A declared omission is unknown even if an empty placeholder is sent.
+            payload["iconRefs"] = omitted == ["iconRefs"] ? .object(["agents": .object([:]), "projects": .object([:])]) : nil
+            let snapshot = AnnexEnvelope(type: "snapshot", payload: .object(payload))
+            catalog = await catalog.applyingSnapshot(snapshot, usesReferences: true, host: "host", store: store)
+            #expect(catalog == before)
+            #expect(await store.image(for: agent, points: 32) != nil)
+            #expect((CompanionIconCatalog.omissionNotice(snapshot, usesReferences: true) != nil) == (omitted == ["iconRefs"]))
+        }
+        let changed = try ContractFixtures.json("snapshot-icon-refs-changed.json")
+        #expect(changed["before"]?["version"]?.string == agent.version)
+        let replacement = AnnexEnvelope(type: "snapshot", payload: .object([
+            "iconRefs": .object(["agents": .object(["durable_chat": try #require(changed["changed"])]), "projects": .object([:])])
+        ]))
+        catalog = await catalog.applyingSnapshot(replacement, usesReferences: true, host: "host", store: store)
+        #expect(catalog.agents["durable_chat"]?.version == changed["changed"]?["version"]?.string)
+        #expect(catalog.agents["durable_dispatcher"] == nil && catalog.projects.isEmpty)
+        #expect(await store.image(for: agent, points: 32) == nil, "A complete replacement retires the old association")
+        let removed = AnnexEnvelope(type: "snapshot", payload: .object([
+            "iconRefs": .object(["agents": .object([:]), "projects": .object([:])])
+        ]))
+        catalog = await catalog.applyingSnapshot(removed, usesReferences: true, host: "host", store: store)
+        #expect(catalog.references.isEmpty && changed["removed"] == .null)
+        #expect(CompanionIconCatalog.omissionNotice(removed, usesReferences: true) == nil)
+    }
+
     static func fixture(_ name: String) throws -> AnnexJSON {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Fixtures/IconRefs")
         return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root.appendingPathComponent(name)))
@@ -125,12 +171,18 @@ extension CompanionIconRefsTests {
         await h.transport.emit(h.snapshotEvent(["dispatcher": dispatcher, "iconRefs": .object(["agents": .object(["agent": image, "dispatcher": image]), "projects": .object(["project": image])]), "agentIcons": .object([:]), "projectIcons": .object([:])]))
         try await h.waitUntil { h.host?.projects.first?.agents.first?.icon != nil && h.host?.dispatcher?.liveAgent?.icon != nil }
         let before = h.host?.projects.first?.agents.first?.icon
-        await h.transport.emit(h.snapshotEvent(["agentIcons": .object([:]), "projectIcons": .object([:]), "snapshotTruncated": .object(["omitted": .array([.string("iconRefs")])])]))
+        guard case .object(var truncation)? = try ContractFixtures.json("snapshot-truncated.json")["value"]?["snapshotTruncated"] else {
+            Issue.record("Missing truncation"); return
+        }
+        truncation["omitted"] = .array([.string("iconRefs")])
+        await h.transport.emit(h.snapshotEvent(["agentIcons": .object([:]), "projectIcons": .object([:]), "snapshotTruncated": .object(truncation)]))
         try await h.refreshCatalog()
         #expect(h.host?.projects.first?.agents.first?.icon == before)
         #expect(h.host?.dispatcher?.liveAgent?.icon != nil)
+        #expect(h.host?.snapshotTruncationNotice != nil)
         await h.transport.emit(h.snapshotEvent(["iconRefs": .object(["agents": .object([:]), "projects": .object([:])])]))
         try await h.waitUntil { h.host?.projects.first?.agents.first?.icon == nil && h.host?.dispatcher?.liveAgent?.icon == nil }
+        #expect(h.host?.snapshotTruncationNotice == nil)
         #expect(h.host?.connection == .connected)
     }
 }

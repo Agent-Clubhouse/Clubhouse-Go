@@ -7,6 +7,54 @@ import Testing
 /// Regression coverage for go-icon-cache/frame-over-limit-audit's canvas and omitted-text cases.
 /// Incoming payloads are the desktop's canonical fixture; only its documented variable seq is filled.
 @MainActor struct AnnexContractFrameLimitTests {
+    @Test func omittedInlineIconsKeepCachedAgentAndProjectAvatarsUntilCompleteReplacement() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let icons = CompanionIconStore(directory: root)
+        let h = try await LiveServiceHarness.start(iconStore: icons)
+        defer { h.stop() }
+        let data = try CompanionIconStoreTests.png()
+        let image = AnnexJSON.string("data:image/png;base64," + data.base64EncodedString())
+        let maps: [String: AnnexJSON] = [
+            "agentIcons": .object(["agent": image]), "projectIcons": .object(["project": image])
+        ]
+        await h.transport.emit(h.snapshotEvent(maps))
+        try await h.waitUntil { h.host?.projects.first?.agents.first?.icon != nil && h.host?.projects.first?.icon != nil }
+        let agent = try #require(h.host?.projects.first?.agents.first?.icon)
+        let project = try #require(h.host?.projects.first?.icon)
+        #expect(await icons.image(for: agent, points: 32) != nil)
+        #expect(await icons.image(for: project, points: 32) != nil)
+
+        let fixture = try #require(ContractFixtures.json("snapshot-truncated.json")["value"])
+        var canvasOnly = maps
+        canvasOnly["snapshotTruncated"] = fixture["snapshotTruncated"]
+        canvasOnly["helperRoutingRevision"] = .string("canvas-only")
+        await h.transport.emit(h.snapshotEvent(canvasOnly))
+        try await h.waitUntil { h.host?.helperRoutingRevision == "canvas-only" }
+        #expect(h.host?.snapshotTruncationNotice == nil)
+
+        for fields in [["agentIcons"], ["projectIcons"], ["agentIcons", "projectIcons"]] {
+            guard case .object(var marker)? = fixture["snapshotTruncated"] else { Issue.record("Missing truncation"); return }
+            marker["omitted"] = .array(fields.map(AnnexJSON.string))
+            var omitted = maps
+            for field in fields { omitted[field] = .object([:]) }
+            omitted["snapshotTruncated"] = .object(marker)
+            let revision = fields.joined(separator: "-")
+            omitted["helperRoutingRevision"] = .string(revision)
+            await h.transport.emit(h.snapshotEvent(omitted))
+            try await h.waitUntil { h.host?.helperRoutingRevision == revision }
+            #expect(h.host?.projects.first?.agents.first?.icon == agent)
+            #expect(h.host?.projects.first?.icon == project)
+            #expect(h.host?.snapshotTruncationNotice != nil)
+            #expect(h.host?.connection == .connected && h.store.canOperate(h.target))
+            #expect(await icons.image(for: agent, points: 32) != nil)
+            #expect(await icons.image(for: project, points: 32) != nil)
+        }
+        await h.transport.emit(h.snapshotEvent(["agentIcons": .object([:]), "projectIcons": .object([:])]))
+        try await h.waitUntil { h.host?.projects.first?.agents.first?.icon == nil && h.host?.projects.first?.icon == nil }
+        #expect(h.host?.snapshotTruncationNotice == nil)
+    }
+
     private func history(final: Bool = false) -> AnnexJSON {
         let events: [AnnexJSON] = [
             LiveServiceHarness.chatEvent(
@@ -83,6 +131,7 @@ import Testing
             .message(.init(type: "helper_routing:changed", payload: .object(["revision": .string("frame-limit-fixture-done")]))))
         try await h.waitUntil { h.host?.helperRoutingRevision == "frame-limit-fixture-done" }
         #expect(h.store.conversation(for: h.target) == before)
+        #expect(h.host?.snapshotTruncationNotice == nil)
         #expect(h.host?.connection == .connected && h.store.canOperate(h.target))
 
         await h.transport.emit(LiveServiceHarness.chatEvent("session_fixture", sequence: 7, type: "turn_ended", data: [:]).transportEvent)

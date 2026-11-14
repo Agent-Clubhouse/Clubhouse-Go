@@ -128,4 +128,30 @@ import Testing
         #expect(await h.transport.executed.isEmpty)
         #expect(await h.transport.readRoutes.allSatisfy { $0.name != "helperRouting" })
     }
+    @Test func copilotToggleWritesOnlyAdvertisedAppScopeAndUsesFreshResult() async throws {
+        let h = try await start(); defer { h.stop() }
+        for enabled in [false, true] {
+            let item = try commandCase(enabled ? "accepted Copilot Auto opt-in" : "accepted Copilot Auto opt-out")
+            let request = try #require(item["request"]).decode(AnnexHelperRoutingUpdate.self)
+            let receipt = try #require(item["response"]?["body"]).decode(AnnexCommandReceipt.self)
+            await h.transport.enqueue(.receipt(receipt))
+            let reads = await h.transport.readRoutes.count
+            let saved = try await h.store.updateHelperRouting(request, hostID: LiveServiceHarness.hostID)
+            #expect(saved.copilotAuto == enabled)
+            #expect(await h.transport.readRoutes.count == reads)
+        }
+        #expect(await serviceErrorText {
+            _ = try await h.store.updateHelperRouting(.init(revision: "r", scope: "project", projectId: "p", auto: .off, copilotAuto: false), hostID: LiveServiceHarness.hostID)
+        } != nil)
+        guard case .object(var feature)? = try ContractFixtures.body("capabilities.json")["helperRouting"] else {
+            Issue.record("Missing helper routing capability"); return
+        }
+        feature["copilotAuto"] = nil
+        await h.transport.setFeature("helperRouting", .object(feature))
+        try await h.refreshCatalog()
+        #expect(await serviceErrorText {
+            _ = try await h.store.updateHelperRouting(.init(revision: "r", copilotAuto: true), hostID: LiveServiceHarness.hostID)
+        } != nil)
+        #expect(await h.transport.executed.count == 2)
+    }
 }

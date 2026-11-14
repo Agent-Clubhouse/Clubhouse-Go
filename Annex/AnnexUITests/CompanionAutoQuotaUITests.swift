@@ -79,6 +79,24 @@ import XCTest
         XCTAssertFalse(app.staticTexts["Healthy"].exists)
         capture(app, "Unknown stale quota (preview)")
     }
+    func testCopilotIsALastResortAndRefusedOptOutKeepsServerValue() {
+        let app = launchApp(["--companion-preview", "--companion-preview-auto-quota"])
+        openPresets(app)
+        let candidate = element(app, "helper-auto-candidate-copilot-cli")
+        XCTAssertTrue(scrollUntilExists(candidate, in: app) && scrollTo(candidate, in: app))
+        XCTAssertTrue(candidate.label.contains("Auto candidate (last resort)"))
+        let toggle = app.switches["helper-auto-copilot"]
+        XCTAssertTrue(scrollUntilExists(toggle, in: app) && scrollTo(toggle, in: app))
+        XCTAssertEqual(toggle.value as? String, "1")
+        XCTAssertTrue(toggle.isEnabled)
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        let error = element(app, "helper-presets-error")
+        XCTAssertTrue(scrollUntilExists(error, in: app, up: false) && scrollTo(error, in: app, up: false))
+        XCTAssertTrue(error.label.contains("Preview only"))
+        XCTAssertTrue(scrollUntilExists(toggle, in: app) && scrollTo(toggle, in: app))
+        XCTAssertEqual(toggle.value as? String, "1")
+        XCTAssertTrue(candidate.label.contains("Auto candidate (last resort)"))
+    }
     func testProjectOffAndNotOrchestratingPreserveSavedAgentOn() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota"])
         openPresets(app)

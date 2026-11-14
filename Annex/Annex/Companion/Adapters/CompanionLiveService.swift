@@ -531,6 +531,7 @@ import ClubhouseTransport
               let feature = capabilities[hostID]?.helperRouting,
               feature.scopes.contains(update.scope),
               (update.auto == nil || feature.modes.contains("auto")),
+              (update.copilotAuto == nil || (feature.copilotAuto == true && update.scope == "app")),
               ((update.cells == nil && update.reset == nil) || feature.canEditPresets),
               (update.scope == "app" || (update.scope == "project" && update.projectId != nil && update.auto != nil && update.cells == nil && update.reset == nil)),
               update.cells?.allSatisfy({ feature.difficulties.contains($0.difficulty) }) != false else {
@@ -1117,18 +1118,10 @@ import ClubhouseTransport
                 if payload["ptyHost"]?["platform"]?.string == "win32" { windowsHosts.insert(hostID) } else { windowsHosts.remove(hostID) }
                 let generation = eventGenerations[hostID]
                 let usesRefs = envelope.iconReferencesEnabled ?? ((capabilities[hostID]?.iconRefs?.version ?? 0) >= 1 || payload["iconRefs"] != nil)
-                let icons: CompanionIconCatalog
-                if usesRefs {
-                    var current = iconCatalog[hostID] ?? .init()
-                    current.applyReferences(payload["iconRefs"], host: hostID)
-                    await iconStore.setReferences(current.references, for: hostID)
-                    icons = current
-                } else {
-                    await iconStore.setReferences([], for: hostID)
-                    icons = await CompanionIconCatalog.inline(projects: payload["projectIcons"], agents: payload["agentIcons"], host: hostID, store: iconStore)
-                }
+                let icons = await (iconCatalog[hostID] ?? .init()).applyingSnapshot(envelope, usesReferences: usesRefs, host: hostID, store: iconStore)
                 guard eventGenerations[hostID] == generation, hosts[hostID] != nil else { return }
                 iconCatalog[hostID] = icons
+                hosts[hostID]?.snapshotTruncationNotice = CompanionIconCatalog.omissionNotice(envelope, usesReferences: usesRefs)
                 applyCatalog(payload, hostID: hostID)
                 // Only the WebSocket snapshot lists helper requests; a REST refresh keeps the last list.
                 if let requests = payload["helperRequests"] { hosts[hostID]?.helperRequests = Self.helperRequests(from: requests, hostID: hostID).filter { !consumedHelperRequests.contains($0.slot) } }

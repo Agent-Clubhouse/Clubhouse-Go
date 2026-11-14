@@ -77,7 +77,19 @@ nonisolated public struct AnnexEnvelope: Codable, Sendable, Equatable {
         self.toSeq = toSeq; self.count = count; self.epoch = epoch; self.tc = tc
     }
     public var snapshotSequence: Int64? { lastSeq ?? payload?["lastSeq"]?.integer }
+    public var snapshotTruncated: AnnexSnapshotTruncation? {
+        guard type == "snapshot", let value = payload?["snapshotTruncated"] else { return nil }
+        return try? value.decode(AnnexSnapshotTruncation.self)
+    }
     public var replayUpperBound: Int64? { toSeq ?? payload?["toSeq"]?.integer }
+}
+
+/// Omitted snapshot fields are unknown, not empty. Bytes describes the original frame.
+nonisolated public struct AnnexSnapshotTruncation: Decodable, Sendable, Equatable {
+    public let version: Int
+    public let reason: String
+    public let omitted: [String]
+    public let bytes: Int64
 }
 
 nonisolated public enum AnnexConnectionState: Sendable, Equatable {

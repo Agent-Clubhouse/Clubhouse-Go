@@ -66,6 +66,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var projects: [CompanionProject]
     /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
     var hasLoadedCatalog = false
+    var snapshotTruncationNotice: String?
     var richContentAvailable = false
     /// The desktop says what a chat link names and lists folders (`chatLinks` v1).
     var canResolveLinks = false

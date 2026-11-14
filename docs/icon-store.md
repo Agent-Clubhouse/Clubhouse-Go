@@ -19,6 +19,15 @@ are unknown and preserve previous associations, including overflow marked by
 `snapshotTruncated.omitted`. Invalid entries in a complete map draw initials and are
 not fetched. REST catalogs preserve the last snapshot's associations.
 
+`snapshotTruncated` reports the original frame size and the fields omitted to stay
+under the desktop's 8 MiB target. Omitted inline `agentIcons`/`projectIcons` retain
+their previous associations too, even when the snapshot sends empty maps.
+A later complete map can still remove or replace an image. With negotiated icon
+references, only omitted `iconRefs` matters; inline maps are unused.
+Settings > Your desktops > Connection details shows a quiet image-omission note
+until the next complete update. Canvas-only omissions and oversized `canvas:state`
+markers show no notice: Go does not use canvases or fetch their recovery routes.
+
 Authenticated icon reads use the existing pinned transport, with a separate 72 KiB
 streaming budget. Admission checks the strong quoted ETag's lowercase SHA-256 against
 the body, canonical MIME and actual ImageIO type, exact advertised byte count and
