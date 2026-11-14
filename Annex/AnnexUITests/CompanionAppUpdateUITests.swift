@@ -118,19 +118,19 @@ import XCTest
         XCTAssertTrue(app.buttons["Forget desktop"].waitForExistence(timeout: 5))
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
         else {
-            app.navigationBars["Settings"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            XCTAssertTrue(app.buttons["Forget desktop"].waitForNonExistence(timeout: 5))
+            waitAndTap(app.otherElements["PopoverDismissRegion"], untilGone: app.buttons["Forget desktop"])
         }
         XCTAssertTrue(app.staticTexts["app-update-status"].exists, "Cancelling forget retains the desktop")
     }
 
-    func testCheckFlowsThroughLiveDownloadToRestartAndOwnReview() {
+    func testCheckFlowsThroughLiveDownloadToRestartAndOwnReview() throws {
         let app = openUpdate(state: "none")
         waitAndTap(app.buttons["app-update-check"], until: app.buttons["Checking…"])
         XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
         attach(app, "Desktop update - checking")
-        let indicator = app.buttons["app-update-preview-studio"]
-        XCTAssertTrue(indicator.waitForExistence(timeout: 10))
+        let indicators = app.buttons.matching(identifier: "app-update-preview-studio")
+        XCTAssertTrue(indicators.firstMatch.waitForExistence(timeout: 10))
+        let indicator = try XCTUnwrap(indicators.allElementsBoundByIndex.first(where: \.isHittable))
         waitAndTap(indicator, until: app.navigationBars["Desktop update"])
         XCTAssertTrue(app.progressIndicators["app-update-progress"].exists)
         XCTAssertFalse(app.buttons["app-update-check"].exists)
