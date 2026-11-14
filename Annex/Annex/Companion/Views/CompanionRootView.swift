@@ -375,6 +375,10 @@ struct CompanionHomeView: View {
                     // Start in the project at the top of Home, not the desktop's first.
                     if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id) }
                 }
+                // The toolbar owns the glass; hosted shortcut content must not add automatic button chrome.
+                .buttonStyle(.plain)
+                .buttonBorderShape(.circle)
+                .foregroundStyle(.tint)
                 .disabled(!store.hosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
                 .keyboardShortcut("n", modifiers: .command)
             }
