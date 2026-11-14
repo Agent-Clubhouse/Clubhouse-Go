@@ -529,7 +529,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollTo(body, in: app, up: false, maxSwipes: 8), "Bring the relayed sender and body on screen")
         XCTAssertFalse(text(app, containing: "[TASK:").exists, "Without its tags")
         let part = element(app, "companion-routed-relay-1-0")
-        XCTAssertTrue(part.exists && part.label.hasPrefix("Dispatcher:"), "Captioned with who sent it")
+        XCTAssertTrue(part.exists && part.label.hasPrefix("Dispatcher controller:"), "Captioned with the actual controller sender")
         screenshot(app, "Relayed task")
     }
 }
