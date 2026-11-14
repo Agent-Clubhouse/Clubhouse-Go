@@ -36,12 +36,14 @@ nonisolated public struct AnnexHelperRoutingUpdate: Decodable, Sendable, Equatab
     }
     public var projectId: String?
     public var auto: AutoValue?
+    public var copilotAuto: Bool?
     public var revision: String
     public var scope: String
     public var cells: [Cell]?
     public var reset: Reset?
-    public init(revision: String, scope: String = "app", cells: [Cell]? = nil, reset: Reset? = nil, projectId: String? = nil, auto: AutoValue? = nil) {
+    public init(revision: String, scope: String = "app", cells: [Cell]? = nil, reset: Reset? = nil, projectId: String? = nil, auto: AutoValue? = nil, copilotAuto: Bool? = nil) {
         self.projectId = projectId; self.auto = auto
+        self.copilotAuto = copilotAuto
         self.revision = revision; self.scope = scope; self.cells = cells; self.reset = reset
     }
     public init(from decoder: Decoder) throws {
@@ -52,12 +54,14 @@ nonisolated public struct AnnexHelperRoutingUpdate: Decodable, Sendable, Equatab
         reset = try c.decodeIfPresent(Reset.self, forKey: .reset)
         projectId = try c.decodeIfPresent(String.self, forKey: .projectId)
         auto = c.contains(.auto) ? try c.decode(AutoValue.self, forKey: .auto) : nil
+        copilotAuto = try c.decodeIfPresent(Bool.self, forKey: .copilotAuto)
     }
-    private enum CodingKeys: String, CodingKey { case revision, scope, cells, reset, projectId, auto }
+    private enum CodingKeys: String, CodingKey { case revision, scope, cells, reset, projectId, auto, copilotAuto }
     var fields: [String: AnnexJSON] {
         var fields: [String: AnnexJSON] = ["revision": .string(revision), "scope": .string(scope)]
         if let projectId { fields["projectId"] = .string(projectId) }
         if let auto { fields["auto"] = auto.json }
+        if let copilotAuto { fields["copilotAuto"] = .bool(copilotAuto) }
         if let cells { fields["cells"] = .array(cells.map(\.json)) }
         if let reset { fields["reset"] = reset.json }
         return fields
@@ -76,6 +80,8 @@ extension AnnexCapabilities {
         public let levels: [String]?
         public let presetProviders: [String]?
         public let autoCandidates: [String]?
+        public let lastResortCandidates: [String]?
+        public let copilotAuto: Bool?
         public var presetLevels: [String] { levels ?? difficulties }
         public let reasons: [String]
         public let fallbacks: [String]

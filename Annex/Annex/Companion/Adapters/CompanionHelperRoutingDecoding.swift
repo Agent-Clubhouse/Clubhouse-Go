@@ -34,6 +34,7 @@ extension CompanionHelperRouting {
                             models: models ?? [], cells: cells, quota: CompanionHelperQuota(json: raw["quota"]))
         }
         auto = CompanionHelperAuto(json: json["auto"])
+        copilotAuto = json["copilotAuto"]?.boolOrNil
         serverTime = json["serverTime"].flatMap(CompanionLiveService.date(from:))
         if let usable = json["agent"]?["usable"]?.boolOrNil { agent = .init(usable: usable, reason: json["agent"]?["reason"]?.string) }
     }

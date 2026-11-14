@@ -23,7 +23,9 @@ extension CompanionPreviewService {
         page.serverTime = Date(timeIntervalSince1970: 1800000000)
         page.providers["claude-code"] = .init(autoEligible: true, models: [], cells: [:], quota: .init(json: previewRoutingJSON(modelWindowJSON)))
         page.providers["codex-cli"]?.quota = .init(json: previewRoutingJSON(staleQuotaJSON))
-        page.providers["copilot-cli"] = .init(autoEligible: false, reason: "auto_not_supported", models: [], cells: [:], quota: .init(state: "unknown", unknownReason: "not_supported"))
+        page.providers["copilot-cli"]?.autoCandidate = true
+        page.providers["copilot-cli"]?.quota = .init(state: "unknown", unknownReason: "not_supported")
+        page.copilotAuto = true
         var scopes: [String: CompanionHelperAuto.Scope] = ["app": .init(value: .enabled(true), editable: true, choices: [])]
         page.auto = .init(effective: true, source: "app", scopes: scopes)
         if agentID == dispatcherTarget.agentID {
@@ -80,6 +82,9 @@ extension CompanionPreviewService {
       "commands": [
         "helperRouting.update"
       ],
+      "copilotAuto": true,
+      "autoCandidates": ["claude-code", "codex-cli", "copilot-cli"],
+      "lastResortCandidates": ["copilot-cli"],
       "difficulties": [
         "easy",
         "medium",
@@ -121,6 +126,7 @@ extension CompanionPreviewService {
         "fair_rotation",
         "better_quota_tier",
         "unknown_fallback",
+        "last_resort_unmeasured",
         "sticky",
         "default_order"
       ],
@@ -132,6 +138,8 @@ extension CompanionPreviewService {
       "skipped": [
         "cli_disabled",
         "cli_unavailable",
+        "auto_disabled",
+        "mapping_changed",
         "auto_not_supported",
         "no_valid_mapping",
         "cooling_down",
@@ -195,6 +203,7 @@ extension CompanionPreviewService {
         "fair_rotation": "Its turn among providers with the same usage",
         "lower_load": "Fewer helpers running on this provider",
         "lower_pressure": "Less of this provider’s weekly limit is used",
+        "last_resort_unmeasured": "Its quota is unknown. No provider with readable plan usage was eligible",
         "only_candidate": "The only provider available",
         "persona_pinned": "Set by the persona",
         "preset_on_cli": "From the helper settings for this difficulty",
@@ -203,6 +212,8 @@ extension CompanionPreviewService {
       },
       "skipped": {
         "auto_not_supported": "Auto doesn’t support this provider yet",
+        "auto_disabled": "Turned off for Auto in Settings",
+        "mapping_changed": "The mapping changed while this start was being prepared",
         "cli_disabled": "Turned off in Settings",
         "cli_unavailable": "Not available on this computer",
         "cooling_down": "It failed to start recently",

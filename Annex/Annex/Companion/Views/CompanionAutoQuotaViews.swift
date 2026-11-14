@@ -35,6 +35,26 @@ struct CompanionHelperAutoSection: View {
             if let reason = policy.reasonText(labels: screen.settings?.labels ?? [:]) {
                 Text(reason).accessibilityIdentifier("helper-auto-reason")
             }
+            if let page = screen.settings, let capability = host?.helperRouting {
+                ForEach((capability.autoCandidates ?? page.providers.filter { $0.value.autoCandidate }.keys.sorted()), id: \.self) { id in
+                    LabeledContent(host?.providers.first { $0.id == id }?.name ?? id,
+                                   value: page.autoCandidateText(id, capability: capability))
+                        .accessibilityIdentifier("helper-auto-candidate-\(id)")
+                }
+                if scopeID == "app", capability.copilotAuto == true, let copilotAuto = page.copilotAuto {
+                    Toggle("Allow Copilot as a last resort", isOn: Binding(get: { copilotAuto }, set: { value in
+                        Task {
+                            await screen.save { revision in
+                                try await store.updateHelperRouting(.init(revision: revision, copilotAuto: value), hostID: hostID)
+                            }
+                        }
+                    }))
+                    .disabled(!canEdit)
+                    .accessibilityIdentifier("helper-auto-copilot")
+                    Text("Copilot’s plan usage is unknown. Auto uses it only when no provider with readable plan usage is eligible.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             // No persona row: personas were retired (Clubhouse #2901), so that scope never says anything.
             ForEach(["app", "project", "agent"], id: \.self) { id in
                 if let scope = policy.scopes[id] {

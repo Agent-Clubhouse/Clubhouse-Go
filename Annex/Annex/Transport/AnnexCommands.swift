@@ -196,7 +196,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearFinishedQuick(let project): v["projectId"] = .string(project)
         case .setDispatcherEnabled(let enabled): v["enabled"] = .bool(enabled)
         case .updateHelperRouting(let update):
-            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil else { throw AnnexTransportError.malformedResponse }
+            guard !update.revision.isEmpty, update.cells?.isEmpty == false || update.reset != nil || update.auto != nil || update.copilotAuto != nil else { throw AnnexTransportError.malformedResponse }
             v.merge(update.fields) { _, new in new }
         case .updateDispatcher(let update):
             guard update.isValid else { throw AnnexTransportError.malformedResponse }

@@ -85,8 +85,6 @@ import Testing
                 // Personas and Clubhouse Mode were retired (Clubhouse #2901). The desktop still accepts `persona: null` as a
                 // no-op for older phones, but this phone never sends either field.
                 if Self.retiredUpdateFields.contains(where: { request[$0] != nil }) { continue }
-                // This fixture sync also includes the desktop's separate Copilot Auto setting, not exposed by this phone.
-                if type == "helperRouting.update", request["copilotAuto"] != nil { continue }
                 guard let kind = Self.kind(from: request) else { Issue.record("No phone command for \(type) \(item["name"]?.string ?? "")"); continue }
                 let command = AnnexCommand(commandID: try #require(request["commandId"]?.string), epoch: try #require(request["epoch"]?.string), kind: kind)
                 var expected = request

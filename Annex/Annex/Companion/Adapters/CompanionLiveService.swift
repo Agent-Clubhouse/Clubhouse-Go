@@ -531,6 +531,7 @@ import ClubhouseTransport
               let feature = capabilities[hostID]?.helperRouting,
               feature.scopes.contains(update.scope),
               (update.auto == nil || feature.modes.contains("auto")),
+              (update.copilotAuto == nil || (feature.copilotAuto == true && update.scope == "app")),
               ((update.cells == nil && update.reset == nil) || feature.canEditPresets),
               (update.scope == "app" || (update.scope == "project" && update.projectId != nil && update.auto != nil && update.cells == nil && update.reset == nil)),
               update.cells?.allSatisfy({ feature.difficulties.contains($0.difficulty) }) != false else {

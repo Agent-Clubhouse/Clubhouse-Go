@@ -138,8 +138,8 @@ struct CompanionHelperPresetsView: View {
                 Button("Reset provider presets") { reset(.init(provider: id)) }.disabled(!canEdit)
             }
         } header: { Text(providerName(id)) } footer: {
-            if !provider.autoCandidate || host?.helperRouting?.autoCandidates?.contains(id) == false {
-                Text("Preset only. Auto doesn’t choose this provider.")
+            if let capability = host?.helperRouting {
+                Text(page.autoCandidateText(id, capability: capability))
                     .accessibilityIdentifier("helper-preset-only-\(id)")
             }
         }
