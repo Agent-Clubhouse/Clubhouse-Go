@@ -64,6 +64,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var endpoint: String
     var connection: CompanionConnection
     var projects: [CompanionProject]
+    var canLinkProjects = false
+    var projectLinks: AnnexProjectLinks?
+    var projectLinksError: String?
     /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
     var hasLoadedCatalog = false
     var snapshotTruncationNotice: String?

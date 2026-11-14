@@ -8,6 +8,11 @@ import Observation
     // Concrete service/persistence ownership is reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     var hosts: [CompanionHost] = []
+    private var projectLinksSourceID: String?
+    var projectLinks: AnnexProjectLinks? {
+        let eligible = hosts.filter { $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }
+        return (eligible.first { $0.id == projectLinksSourceID } ?? eligible.first)?.projectLinks
+    }
     var selection: CompanionTarget?
     var drafts: [CompanionTarget: String] = [:] {
         didSet { draftPersistence?.save(drafts) }
@@ -1406,6 +1411,9 @@ import Observation
             }
             clearRemovedChats(in: hosts)
             self.hosts = hosts
+            if !hosts.contains(where: { $0.id == projectLinksSourceID && $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }) {
+                projectLinksSourceID = hosts.first { $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }?.id
+            }
             for target in sleepRequests {
                 guard confirmedSleepCommands[target] == nil else { continue }
                 guard let host = host(for: target), host.connection.canOperate else { continue }

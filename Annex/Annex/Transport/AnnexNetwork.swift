@@ -2,6 +2,28 @@ import Foundation
 import CryptoKit
 import Security
 
+/// Full, display-only replacement from one network member. Never union replicas.
+nonisolated public struct AnnexProjectLinks: Codable, Sendable, Equatable {
+    public struct Reference: Codable, Hashable, Sendable {
+        public var machine: String
+        public var projectId: String
+        public init(machine: String, projectId: String) { self.machine = machine; self.projectId = projectId }
+    }
+    public struct Group: Codable, Sendable, Equatable {
+        public var id: String
+        public var projects: [Reference]
+        public var name: String?
+        public init(id: String, projects: [Reference], name: String? = nil) {
+            self.id = id; self.projects = projects; self.name = name
+        }
+    }
+    public var projectLinks: [Group]
+    public var projectLinksTruncated: Bool?
+    public init(projectLinks: [Group], projectLinksTruncated: Bool? = nil) {
+        self.projectLinks = projectLinks; self.projectLinksTruncated = projectLinksTruncated
+    }
+}
+
 /// A pairing is an immutable stamp made by the desktop that accepted the join.
 nonisolated public struct AnnexNetworkPairing: Codable, Sendable, Equatable {
     public let id: String

@@ -106,7 +106,7 @@ extension CompanionStore {
             (host.dispatcher?.liveAgent.map { [CompanionReviewEntry(agent: $0, hostName: host.name, projectName: CompanionDispatcher.name)] } ?? [])
             + host.projects.flatMap { project in
                 project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }
-                    .map { CompanionReviewEntry(agent: $0, hostName: host.name, projectName: project.name) }
+                    .map { CompanionReviewEntry(agent: $0, hostName: host.name, projectName: projectName(for: $0.id) ?? project.name) }
             }
         }
     }

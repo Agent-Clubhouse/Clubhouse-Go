@@ -169,6 +169,12 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     }
 }
 
+struct CompanionAttentionProject: Identifiable {
+    var id: CompanionProjectTarget
+    var name: String
+    var items: [CompanionAttentionItem]
+}
+
 /// A row in the conversation: either one timeline item or a run of read-only tool calls folded together.
 enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     case item(CompanionTimelineItem)
@@ -341,6 +347,24 @@ enum CompanionTimelineFolding {
 }
 
 extension CompanionStore {
+    /// Keep the queue's first occurrence order, so the project with the most urgent item stays first.
+    func attentionProjects(_ items: [CompanionAttentionItem]) -> [CompanionAttentionProject] {
+        let entries = projectEntries
+        var groups: [CompanionAttentionProject] = []
+        var positions: [CompanionProjectTarget: Int] = [:]
+        for item in items {
+            let target = CompanionProjectTarget(hostID: item.agent.id.hostID, projectID: item.agent.id.projectID)
+            let entry = entries.first { $0.members.contains { $0.id == target } }
+            let id = entry?.id ?? target
+            if let index = positions[id] { groups[index].items.append(item) }
+            else {
+                positions[id] = groups.count
+                groups.append(.init(id: id, name: entry?.project.name ?? item.projectName, items: [item]))
+            }
+        }
+        return groups
+    }
+
     /// Every agent on every desktop, the Dispatchers included.
     var allAgents: [CompanionAgent] { hosts.flatMap(\.allAgents) }
 
@@ -360,11 +384,11 @@ extension CompanionStore {
         var items: [CompanionAttentionItem] = []
         for host in hosts where host.connection.canOperate {
             for request in helperRequests(on: host, now: now) {
-                guard let agent = host.agent(for: request.agentTarget), let place = host.placeName(for: agent.id) else { continue }
+                guard let agent = host.agent(for: request.agentTarget), let place = projectName(for: agent.id) else { continue }
                 items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .helperRequest(request)))
             }
             for request in grantRequests(on: host, now: now) {
-                guard let agent = host.agent(for: request.agentTarget), let place = host.placeName(for: agent.id) else { continue }
+                guard let agent = host.agent(for: request.agentTarget), let place = projectName(for: agent.id) else { continue }
                 items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: .grantRequest(request)))
             }
             // The Dispatcher is listed with its own name in place of a project's.
@@ -380,7 +404,7 @@ extension CompanionStore {
                     else if let pendingQuestion { kind = .question(pendingQuestion) }
                     else if agent.status == .failed { kind = .failure }
                     else { kind = .unreviewed }
-                    items.append(.init(agent: agent, hostName: host.name, projectName: place, kind: kind))
+                    items.append(.init(agent: agent, hostName: host.name, projectName: projectName(for: agent.id) ?? place, kind: kind))
                 }
             }
         }

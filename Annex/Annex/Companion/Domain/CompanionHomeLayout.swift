@@ -112,11 +112,16 @@ struct CompanionHomeLayout: Sendable, Equatable {
         for entry in ordered {
             let tree = CompanionAgentTree.build(entry.project.agents, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
             let running = entry.project.agents.contains(where: isAwake)
-            let state = shared(entry)
-            let isPinned = state?.pinned ?? rule.pinned.contains(entry.orderKey)
-            // The desktop's flag already leaves running projects out; checking again covers a change still on its way.
-            let isIdle = state.map { $0.idle && !running }
-                ?? rule.isIdle(entry.orderKey, running: running, lastActivity: projectActivity(entry.id), now: now)
+            let states = entry.members.map { member in
+                let single = CompanionProjectEntry(host: member.host, project: member.project)
+                let state = shared(single)
+                let pinned = state?.pinned ?? rule.pinned.contains(single.orderKey)
+                let idle = state.map { $0.idle && !running }
+                    ?? rule.isIdle(single.orderKey, running: running, lastActivity: projectActivity(single.id), now: now)
+                return (pinned: pinned, idle: idle)
+            }
+            let isPinned = states.contains { $0.pinned }
+            let isIdle = !isPinned && states.allSatisfy { $0.idle }
             let group = CompanionProjectGroup(entry: entry, isPinned: isPinned, isIdle: isIdle,
                                               tree: tree)
             if isPinned { pinned.append(group) } else if isIdle { idle.append(group) } else { active.append(group) }

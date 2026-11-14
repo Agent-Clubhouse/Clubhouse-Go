@@ -8,8 +8,52 @@ struct CompanionProjectPage: View {
     var preferences: CompanionPreferences
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
-    @State private var waking = false
     @State private var hold: [CompanionTarget]?
+
+    var body: some View {
+        let entry = store.projectEntry(containing: project)
+        List {
+            if let entry {
+                ForEach(entry.members) { member in
+                    if entry.isLinked {
+                        Section {
+                            Label(entry.label(for: member), systemImage: "desktopcomputer")
+                                .font(.headline)
+                                .accessibilityIdentifier("project-page-machine-\(member.host.id)")
+                                .listRowBackground(Color.clear)
+                        }
+                    }
+                    CompanionMachineProjectSections(store: store, preferences: preferences, project: member.id,
+                                                     spawnProject: entry.isLinked ? entry.id : member.id, hold: hold, onNewAgent: onNewAgent)
+                }
+            } else {
+                ContentUnavailableView("Project unavailable", systemImage: "folder",
+                                       description: Text("This project is no longer on its desktop, or the desktop is offline."))
+                    .listRowBackground(Color.clear)
+            }
+        }
+        .companionListStyle()
+        .onScrollPhaseChange { _, phase in
+            if phase == .idle { hold = nil }
+            else if hold == nil { hold = entry?.project.agents.map(\.id) }
+        }
+        .navigationTitle(entry?.project.name ?? "Project")
+        .toolbar {
+            if let entry, !entry.isLinked, store.hosts.count > 1 {
+                ToolbarItem(placement: .topBarTrailing) { CompanionHostTag(name: entry.host.name) }
+            }
+        }
+    }
+}
+
+private struct CompanionMachineProjectSections: View {
+    @Bindable var store: CompanionStore
+    var preferences: CompanionPreferences
+    let project: CompanionProjectTarget
+    let spawnProject: CompanionProjectTarget
+    var hold: [CompanionTarget]?
+    var onNewAgent: (CompanionProjectTarget) -> Void
+    @State private var waking = false
     /// The agent and message from Wake with a message, held until the sheet has gone. Opening the chat while the
     /// sheet is still dismissing left its timeline blank on iOS 26.5 until it was scrolled.
     @State private var pendingWake: (target: CompanionTarget, message: String)?
@@ -23,7 +67,7 @@ struct CompanionProjectPage: View {
     private var canOperate: Bool { host?.connection.canOperate == true }
 
     var body: some View {
-        List {
+        Group {
             if let details {
                 actions
                 finished
@@ -33,17 +77,6 @@ struct CompanionProjectPage: View {
                 ContentUnavailableView("Project unavailable", systemImage: "folder",
                                        description: Text("This project is no longer on its desktop, or the desktop is offline."))
                     .listRowBackground(Color.clear)
-            }
-        }
-        .companionListStyle()
-        .onScrollPhaseChange { _, phase in
-            if phase == .idle { hold = nil }
-            else if hold == nil { hold = agentTree?.all.map(\.id) }
-        }
-        .navigationTitle(details?.name ?? "Project")
-        .toolbar {
-            if let host, store.hosts.count > 1 {
-                ToolbarItem(placement: .topBarTrailing) { CompanionHostTag(name: host.name) }
             }
         }
         .sheet(isPresented: $waking, onDismiss: {
@@ -62,7 +95,7 @@ struct CompanionProjectPage: View {
         let sleeping = store.sleepingAgents(in: project)
         return Section {
             HStack(spacing: 10) {
-                Button { onNewAgent(project) } label: {
+                Button { onNewAgent(spawnProject) } label: {
                     Label("New agent", systemImage: "plus").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent).companionProminentLabel()

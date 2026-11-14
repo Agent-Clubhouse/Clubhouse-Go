@@ -10,6 +10,7 @@ struct CompanionSpawnSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.companionPalette) private var palette
     @State private var project: CompanionProjectTarget?
+    @State private var entryID: CompanionProjectTarget?
     @State private var prompt = ""
     @State private var provider = ""
     @State private var model = ""
@@ -24,9 +25,7 @@ struct CompanionSpawnSheet: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if effectiveKind == .durable { durableForm } else { quickForm }
-            }
+            formContent
             .companionBackground()
             .navigationTitle(supportsDurable ? "New agent" : "New quick agent")
             .navigationBarTitleDisplayMode(.inline)
@@ -58,7 +57,7 @@ struct CompanionSpawnSheet: View {
                 Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
             }
             .onAppear {
-                project = initialProject
+                selectEntry(initialProject)
                 if store.uncertainSpawnRequest == nil { store.spawnError = nil }
                 if store.uncertainCreateRequest == nil { store.createError = nil }
                 kind = supportsDurable ? .durable : .quick
@@ -67,6 +66,23 @@ struct CompanionSpawnSheet: View {
             .task(id: durableProject) { await loadOptions() }
         }
         .presentationDetents([.large])
+        .onChange(of: store.projectEntries) { reconcileSelection($1) }
+    }
+
+    @ViewBuilder private var formContent: some View {
+        if project == nil {
+            Form {
+                Section("Project") { projectMenu }
+                Section("Machine") { machinePicker }
+            }
+            .scrollContentBackground(.hidden)
+        } else if effectiveKind == .durable { durableForm } else { quickForm }
+    }
+
+    private func reconcileSelection(_ entries: [CompanionProjectEntry]) {
+        guard let project else { return }
+        if let entry = entries.first(where: { $0.members.contains { $0.id == project } }) { entryID = entry.id }
+        else { self.project = nil }
     }
 
     /// Durable or Quick, with the desktop's help text.
@@ -131,31 +147,55 @@ struct CompanionSpawnSheet: View {
     }
 
     private var chips: some View {
-        HStack(spacing: 8) {
-            projectMenu
-            Button { showOptions.toggle() } label: {
-                chip(systemImage: "slider.horizontal.3", text: optionsLabel)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                projectMenu
+                Button { showOptions.toggle() } label: {
+                    chip(systemImage: "slider.horizontal.3", text: optionsLabel)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Runs on and model, \(optionsLabel)")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Runs on and model, \(optionsLabel)")
+            if selectedEntry?.isLinked == true { machinePicker }
         }
     }
 
     private var projectMenu: some View {
             Menu {
-                Picker("Run on", selection: $project) {
-                    ForEach(store.hosts) { host in
-                        Section(host.name) {
-                            ForEach(host.projects) { item in
-                                Text(item.name).tag(Optional(CompanionProjectTarget(hostID: host.id, projectID: item.id)))
-                            }
-                        }
+                Picker("Project", selection: Binding(get: { selectedEntry?.id }, set: { if let id = $0 { selectEntry(id) } })) {
+                    ForEach(store.projectEntries) { entry in
+                        Text(entry.isLinked ? entry.project.name : "\(entry.project.name) · \(entry.host.name)").tag(Optional(entry.id))
                     }
                 }
             } label: {
                 chip(systemImage: "folder", text: selectedProjectName)
             }
             .accessibilityLabel("Run on \(selectedProjectName)")
+            .accessibilityIdentifier("spawn-project-picker")
+    }
+
+    private var selectedEntry: CompanionProjectEntry? {
+        store.projectEntry(containing: entryID ?? initialProject)
+    }
+
+    private func selectEntry(_ id: CompanionProjectTarget) {
+        let entry = store.projectEntry(containing: id)
+        entryID = entry?.id
+        project = entry?.isLinked == true ? nil : entry?.id
+        provider = ""
+        model = ""
+    }
+
+    private var machinePicker: some View {
+        Picker("Machine", selection: $project) {
+            Text("Choose a machine").tag(Optional<CompanionProjectTarget>.none)
+            ForEach(selectedEntry?.members ?? []) { member in
+                Text((selectedEntry?.label(for: member) ?? member.host.name) + (member.host.connection.canOperate ? "" : " · Offline"))
+                    .tag(Optional(member.id))
+                    .disabled(!member.host.connection.canOperate || !member.host.canSpawn)
+            }
+        }
+        .accessibilityIdentifier("spawn-machine-picker")
     }
 
     private func chip(systemImage: String, text: String) -> some View {
@@ -240,7 +280,9 @@ struct CompanionSpawnSheet: View {
         }
     }
 
-    private var supportsDurable: Bool { selectedHost?.canCreateDurable == true }
+    private var supportsDurable: Bool {
+        selectedHost?.canCreateDurable ?? (selectedEntry?.members.contains { $0.host.canCreateDurable } == true)
+    }
     private var effectiveKind: Kind { supportsDurable ? kind : .quick }
     /// The project to read create options for, while the durable form is offered.
     private var durableProject: CompanionProjectTarget? { supportsDurable ? project : nil }
@@ -264,7 +306,10 @@ struct CompanionSpawnSheet: View {
     private var durableForm: some View {
         Form {
             Section { kindPicker }
-            Section { LabeledContent("Project") { projectMenu } }
+            Section {
+                LabeledContent("Project") { projectMenu }
+                if selectedEntry?.isLinked == true { machinePicker }
+            }
             // Problems show at the top, next to Create in the toolbar, rather than below a long form.
             if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
                 Section {
@@ -472,8 +517,7 @@ struct CompanionSpawnSheet: View {
     private var offersOrchestration: Bool { selectedHost?.canOrchestrate == true }
     private var selectedHost: CompanionHost? { store.hosts.first { $0.id == project?.hostID } }
     private var selectedProjectName: String {
-        guard let host = selectedHost, let name = host.projects.first(where: { $0.id == project?.projectID })?.name else { return "Choose a project" }
-        return store.hosts.count > 1 ? "\(name) · \(host.name)" : name
+        selectedEntry?.project.name ?? "Choose a project"
     }
     private var optionsLabel: String {
         let providerName = selectedHost?.providers.first { $0.id == provider }?.name ?? nonempty(provider)
