@@ -42,13 +42,17 @@ qualified agent and action targets. A linked project is pinned if any member is 
 only when every member is idle; pin, inactive, terminal, Changes and Wake actions remain
 machine-specific. New agent requires an explicit machine for a multi-member group. Review keeps
 its existing filters and uses the linked project label.
+Offline or failed members retain their labeled place in a linked Home group, but their cached
+agent trees are hidden. Multiple projects on one machine use machine-plus-project option labels.
 
 `AnnexContractProjectLinksTests` and `AnnexContractProjectLinksDomainTests` consume the desktop's
 accepted/manual/Keep separate/unlink and sequenced replay fixtures, plus empty/truncated variants.
 `CompanionLinkedProjectTests` covers identity collisions, unknown members, disappearance,
 source failover, non-union replacement and Home state. `CompanionLinkedProjectUITests` uses
 `--companion-preview-linked-projects` for two preview desktops, project navigation, explicit
-spawn destination, Needs you and a desktop-reported unlink. It never contacts a real desktop.
+spawn destination, Needs you and a desktop-reported unlink. It also checks a disconnected member
+with `--companion-preview-dispatcher-controls`, and disambiguated project option submenus with
+`--companion-preview-linked-projects-same-machine`. It never contacts a real desktop.
 
 ### Composer keyboards
 

@@ -528,13 +528,16 @@ struct CompanionHomeView: View {
         return Section {
             if entry.isLinked {
                 ForEach(entry.members) { member in
-                    Text(entry.label(for: member)).font(.subheadline.weight(.semibold))
+                    Text(isListed(member.host) ? entry.label(for: member) : "\(entry.label(for: member)) · \(member.host.connection.label)")
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color(palette.secondaryLabel))
                         .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
                         .listRowBackground(Color.clear)
-                    projectRows(tree: CompanionAgentTree.build(member.project.agents, sort: preferences.projectSort,
-                                                               held: hold?.agents[entry.id], lastActivity: store.lastActivity(of:)),
-                                projectID: "\(member.host.id)-\(member.project.id)", parentLines: parentLines)
+                    if isListed(member.host) {
+                        projectRows(tree: CompanionAgentTree.build(member.project.agents, sort: preferences.projectSort,
+                                                                   held: hold?.agents[entry.id], lastActivity: store.lastActivity(of:)),
+                                    projectID: "\(member.host.id)-\(member.project.id)", parentLines: parentLines)
+                    }
                 }
             } else {
                 projectRows(tree: group.tree, projectID: projectID, parentLines: parentLines)
@@ -597,7 +600,7 @@ struct CompanionHomeView: View {
                 ForEach(group.entry.members) { member in
                     let entry = CompanionProjectEntry(host: member.host, project: member.project)
                     let state = store.sharedProjectState(member.id)
-                    Menu(member.host.name) {
+                    Menu(group.entry.label(for: member)) {
                         projectMenuItems(.init(entry: entry,
                                                isPinned: state?.pinned ?? preferences.pinnedProjects.contains(entry.orderKey),
                                                isIdle: state?.idle ?? false, tree: group.tree))

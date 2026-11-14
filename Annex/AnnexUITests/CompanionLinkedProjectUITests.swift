@@ -63,6 +63,36 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
     }
 
+    func testDisconnectedMemberKeepsItsPlaceWithoutShowingCachedAgents() {
+        let app = launchApp(arguments + ["--companion-preview-dispatcher-controls"], attempts: 1)
+        let cedar = element(app, "agent-preview-studio-cedar")
+        XCTAssertTrue(scrollUntilExists(cedar, in: app) && scrollTo(cedar, in: app))
+        waitAndTap(app.buttons["Settings"], until: app.buttons["Disconnect desktop"])
+        app.buttons["Disconnect desktop"].tap()
+        app.buttons["Done"].tap()
+        let studio = element(app, "project-machine-preview-studio-clubhouse")
+        XCTAssertTrue(scrollUntilExists(studio, in: app) && scrollTo(studio, in: app))
+        XCTAssertTrue(waitFor(studio, NSPredicate(format: "label CONTAINS %@", "Offline"), timeout: 5))
+        XCTAssertFalse(cedar.exists, "The offline machine's cached agent tree is not live Home content")
+        let laptop = element(app, "project-machine-preview-laptop-notes")
+        XCTAssertTrue(scrollUntilExists(laptop, in: app))
+        XCTAssertTrue(scrollUntilExists(element(app, "agent-preview-laptop-river"), in: app))
+        XCTAssertFalse(element(app, "open-project-preview-laptop-notes").exists, "Disconnecting does not unlink the group")
+        screenshot(app, "Linked Home retains offline member without stale agents")
+    }
+
+    func testProjectOptionsDisambiguateTwoProjectsOnTheSameMachine() {
+        let app = launchApp(arguments + ["--companion-preview-linked-projects-same-machine"], attempts: 1)
+        let menu = element(app, "project-menu-preview-studio-clubhouse")
+        XCTAssertTrue(scrollUntilExists(menu, in: app) && scrollTo(menu, in: app))
+        waitAndTap(menu, until: app.buttons["Studio Mac · Clubhouse"])
+        XCTAssertTrue(app.buttons["Studio Mac · Docs"].exists)
+        XCTAssertTrue(app.buttons["Travel MacBook"].exists)
+        app.buttons["Studio Mac · Docs"].tap()
+        XCTAssertTrue(app.buttons["Pin project"].waitForExistence(timeout: 5))
+        screenshot(app, "Project options distinguish same-machine members")
+    }
+
     func testNeedsYouUsesOneProjectHeadingWithMachineLabels() {
         let app = launchApp(arguments, attempts: 1)
         app.tabBars.buttons["Needs you"].tap()

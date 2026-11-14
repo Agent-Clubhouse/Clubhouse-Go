@@ -46,6 +46,17 @@ import Testing
         #expect(removedProject.count == 2 && removedProject.allSatisfy { !$0.isLinked })
     }
 
+    @Test func membersOnOneMachineKeepDistinctProjectLabels() throws {
+        var studio = host(a)
+        studio.projects.append(.init(id: "docs", name: "Docs", agents: []))
+        let entries = CompanionLinkedProjects.entries(hosts: [studio, host(b)], links: [
+            link([(a, "app"), (a, "docs"), (b, "app")])
+        ])
+        let group = try #require(entries.first)
+        #expect(entries.count == 1)
+        #expect(group.members.map { group.label(for: $0) } == ["Studio · App", "Studio · Docs", "Laptop"])
+    }
+
     @Test func unlinkAndMembershipReplacementSplitCleanlyAndTruncationLeavesOmittedProjectsUnlinked() {
         let store = CompanionStore(service: CompanionPreviewService())
         var hosts = [host(a), host(b), host("third")]
