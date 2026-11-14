@@ -112,7 +112,9 @@ tail. Undated legacy requests retain transcript order ahead of dated requests. P
 position select one item, never a growing stack. Submitting stays
 in the same queue until the store settles it. Ordinary-height cards offer the existing one-off decisions and More for
 lasting options, with the same confirmation and full-event Allow gate (#345). Compact-height and accessibility text
-use Review instead of squeezing decision labels beside the draft. Review reuses the complete scrollable approval
+use Review instead of squeezing decision labels beside the draft. A short keyboard-safe footer (less than 360pt)
+also forces Review even for a one-line draft, so small phones use the compact form with the keyboard up.
+Review reuses the complete scrollable approval
 sheet or question card; opening/closing it sends nothing. VoiceOver announces newly pending requests.
 
 Inline requests remain readable history, without duplicate actionable decisions. Show in chat reveals the original

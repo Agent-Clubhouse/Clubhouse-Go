@@ -5,6 +5,7 @@ struct CompanionConversationPendingDecisions: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
     let maximumHeight: CGFloat
+    let compactHeight: Bool
     let showInChat: (String) -> Void
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
@@ -16,7 +17,7 @@ struct CompanionConversationPendingDecisions: View {
             if let decision = CompanionPendingDecision.selected(in: queue, id: selectedID),
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
-                let compact = maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
+                let compact = compactHeight || maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 0) {
                         HStack(spacing: 4) {

@@ -25,7 +25,8 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
                         maximumHeight: max(0, maximumHeight - composerHeight) / 2)
                     CompanionConversationPendingDecisions(store: store, target: target,
                         maximumHeight: max(0, maximumHeight - composerHeight)
-                            / (store.grantRequests(for: target).isEmpty ? 1 : 2), showInChat: showInChat)
+                            / (store.grantRequests(for: target).isEmpty ? 1 : 2),
+                        compactHeight: maximumHeight < 360, showInChat: showInChat)
                 }
                 VStack(spacing: 0) { composer }
                 .environment(\.companionComposerFitsGrantFooter, true)

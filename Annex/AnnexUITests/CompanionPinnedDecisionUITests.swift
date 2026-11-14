@@ -103,6 +103,10 @@ import XCTest
         composer.typeText("Keep this draft")
         awaitApproval(app)
         assertPinned(app, keyboard: true)
+        if app.frame.width < 390 {
+            XCTAssertFalse(app.buttons["Allow once"].exists, "Small phones use compact Review while the keyboard is up")
+            XCTAssertFalse(app.buttons["Deny"].exists)
+        }
         XCTAssertEqual(composer.value as? String, "Keep this draft")
         XCTAssertTrue((app.scrollViews["companion-transcript"].value as? String)?.hasPrefix("Following: 1; pauses: 0") == true)
         capture(app, "Small phone: pending approval above composer and keyboard")
