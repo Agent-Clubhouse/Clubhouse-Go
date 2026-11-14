@@ -179,11 +179,43 @@ import ClubhouseTransport
                 hosts[0].canEditDispatcherSettings = true
                 hosts[0].dispatcherSettings = Self.previewDispatcherSettings
             }
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects"),
+               let project = hosts[0].projects.first(where: { $0.id == "clubhouse" }) {
+                hosts[0].projects = [project]
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects-same-machine") {
+                    hosts[0].projects.append(.init(id: "docs", name: "Docs", agents: []))
+                }
+                hosts[1].connection = .connected
+                hosts[1].projects[0].name = project.name
+                hosts[1].projects[0].agents[0].status = .approval
+                hosts[1].canSpawn = true
+                for index in hosts.indices {
+                    hosts[index].canLinkProjects = true
+                    hosts[index].hasLoadedCatalog = true
+                    hosts[index].projectLinks = Self.previewProjectLinks
+                }
+            }
+            #endif
             self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }
         }
+
     }
+    static var previewProjectLinks: AnnexProjectLinks {
+        var projects: [AnnexProjectLinks.Reference] = [
+            .init(machine: "preview-studio", projectId: "clubhouse"),
+            .init(machine: "preview-laptop", projectId: "notes")
+        ]
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects-same-machine") {
+            projects.append(.init(machine: "preview-studio", projectId: "docs"))
+        }
+        #endif
+        return .init(projectLinks: [.init(id: "preview-linked-clubhouse", projects: projects)])
+    }
+
     /// River orchestrates: it asks to start a helper, and to dispose Cedar, which has work that would be lost.
     /// (Not a sleeping agent: those start folded on Home.)
     static let helperRequests: [CompanionHelperRequest] = [

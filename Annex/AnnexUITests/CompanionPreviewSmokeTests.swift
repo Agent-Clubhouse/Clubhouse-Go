@@ -416,7 +416,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
     /// Mobile activity groups all four routine calls and keeps their links available on expansion;
     /// the approval card shows its own title, "1 of 2", and the persistent option the desktop answers;
-    /// the header shows what the agent waits on and its context fill.
+    /// the pinned summary names the oldest request and the header shows context fill.
     func testExploredFoldAndApprovalCardMatchDesktop() {
         let app = launchApp(["--companion-preview"])
         openRiver(app)
@@ -424,22 +424,23 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         XCTAssertEqual(composer.placeholderValue, "Message River… / for commands", "The placeholder names the agent and offers / commands, like the desktop")
 
-        // Header: what River waits on, and how full its context is.
-        let activity = app.staticTexts.matching(identifier: "companion-chat-activity").firstMatch
-        XCTAssertTrue(activity.waitForExistence(timeout: 5))
-        XCTAssertEqual(activity.label, "River, Run xcodebuild", "The activity line names the oldest waiting request")
+        let summary = app.staticTexts["companion-pinned-decision-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 5))
+        XCTAssertEqual(summary.label, "Run xcodebuild", "The pinned summary names the oldest waiting request")
+        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 2")
+        XCTAssertFalse(app.staticTexts["companion-chat-activity"].exists, "The pinned request replaces the redundant activity line")
         let context = app.buttons["companion-context-usage"]
         XCTAssertTrue(context.exists)
         XCTAssertEqual(context.label, "Context and plan limits")
         XCTAssertEqual(context.value as? String, "Latest reported context: 42% full")
 
-        // The approval card: the request's title, its place in the queue, and the desktop-only option.
-        let position = app.staticTexts.matching(identifier: "companion-approval-position").firstMatch
-        if !position.waitForExistence(timeout: 5) {
-            scrollUntilExists(position, in: app, maxSwipes: 3, wait: 0.5)
-        }
+        // Review retains the full card and scoped persistent action without duplicating transcript decisions.
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        let review = app.scrollViews["companion-approval-review-scroll"]
+        let position = review.staticTexts.matching(identifier: "companion-approval-position").firstMatch
         XCTAssertTrue(position.exists, "Two waiting approvals must show their count")
-        XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The card uses the request's title")
+        XCTAssertTrue(review.staticTexts["Run xcodebuild"].exists, "The card uses the request's title")
         let any = app.descendants(matching: .any)
         XCTAssertTrue(any.matching(NSPredicate(format: "label CONTAINS 'Always allow' AND label CONTAINS 'xcodebuild:*'")).firstMatch.exists,
                       "Persistent options stay listed, with their scope")
@@ -450,6 +451,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         approvalShot.name = "Approval card with title, count and persistent option"
         approvalShot.lifetime = .keepAlways
         add(approvalShot)
+        waitAndTap(close, untilGone: close, attempts: 1)
 
         // The explored fold sits above the replies: scroll up to it.
         let fold = app.buttons.matching(identifier: "companion-activity-tool:tool-1").firstMatch
@@ -696,9 +698,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
 
     /// The desktop composer's pills (#155): level, model and effort menus with the desktop's labels, a confirmation
-    /// before raising to Full access, and "Always allow" as a confirmed secondary action. Preview refuses every change.
+    /// before raising to Full access, and "Always allow" as a confirmed secondary action. Controls refuse changes;
+    /// the existing pinned-decision fixture acknowledges only the exact synthetic approval option.
     func testChatControlsMenusAndPersistentApproval() {
-        let app = launchApp(["--companion-preview"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-pinned-decisions"], attempts: 1)
         openRiver(app, attempts: 1)
         let any = app.descendants(matching: .any)
         func item(_ label: String) -> XCUIElement { app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch }
@@ -757,8 +760,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(previewError.waitForExistence(timeout: 5))
         dismissError.tap()
 
-        // Always allow: a secondary action, confirmed first.
-        let always = app.buttons["companion-approval-option-allow-always"]
+        // Always allow lives in the pinned request's full Review card and still requires confirmation.
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        let review = app.scrollViews["companion-approval-review-scroll"]
+        let always = review.buttons["companion-approval-option-allow-always"]
+        XCTAssertTrue(always.waitForExistence(timeout: 5))
+        XCTAssertTrue(always.label.contains("xcodebuild:*"), "The offered lasting option preserves its scope")
         scrollTo(always, in: app, maxSwipes: 4)
         XCTAssertTrue(always.isHittable, "Always allow is tappable on a desktop that takes it")
         always.tap()
@@ -769,7 +777,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         approvalShot.lifetime = .keepAlways
         add(approvalShot)
         confirmAlways.tap()
-        XCTAssertTrue(previewError.waitForExistence(timeout: 5), "Preview must never claim the approval was sent")
+        XCTAssertTrue(review.staticTexts["Allowed"].waitForExistence(timeout: 5))
+        waitAndTap(close, untilGone: close, attempts: 1)
+        let receipt = app.staticTexts["Synthetic decision: approval-1 / allow-always"]
+        XCTAssertTrue(scrollUntilExists(receipt, in: app), "The synthetic service receives the original approval and persistent option IDs")
+        XCTAssertFalse(previewError.exists, "The fixture acknowledges only a synthetic decision, without contacting a desktop")
     }
 
     /// Helper requests show in Needs you with the desktop's line. A dispose with work at risk is "Dispose anyway",

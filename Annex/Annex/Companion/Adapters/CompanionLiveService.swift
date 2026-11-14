@@ -1102,6 +1102,7 @@ import ClubhouseTransport
                     await onNetwork?(hostID, snapshot)
                 }
             case "snapshot":
+                applyProjectLinks(payload, hostID: hostID)
                     // Publish approval rows and their epoch atomically, before icon work can yield to a capability refresh.
                     let epoch = envelope.controlEpoch ?? envelope.epoch
                     let resolved = resolvedGrantRequests[hostID] ?? []
@@ -1135,6 +1136,9 @@ import ClubhouseTransport
                 emitHosts()
                 await refreshHelperRoutingLabels(hostID: hostID)
                 if dispatcherChanged { await refreshDispatcherSettings(hostID: hostID) }
+            case "project-links:changed":
+                applyProjectLinks(payload, hostID: hostID)
+                emitHosts()
             case "helper_routing:changed":
                 if let revision = payload["revision"]?.string {
                     hosts[hostID]?.helperRoutingRevision = revision
@@ -1251,6 +1255,11 @@ import ClubhouseTransport
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
                 hosts[hostID]?.canAnswerGrantRequests = newCapabilities?.supportsGrantRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
+                hosts[hostID]?.canLinkProjects = newCapabilities?.supportsProjectLinks == true
+                if newCapabilities?.supportsProjectLinks != true {
+                    hosts[hostID]?.projectLinks = nil
+                    hosts[hostID]?.projectLinksError = nil
+                }
                 hosts[hostID]?.canSyncFinishedQuick = newCapabilities?.supportsFinishedQuickAgents == true
                 hosts[hostID]?.attachments = newCapabilities.flatMap(Self.attachmentLimits)
                 hosts[hostID]?.canRevokeSession = rawCaps?["pairing"]?["sessionRevokePath"]?.string == "/api/v1/mobile/pairing"
@@ -1323,6 +1332,21 @@ import ClubhouseTransport
             hosts[hostID]?.dispatcherPresence = nil
             hosts[hostID]?.dispatcherPresenceReceivedAt = nil
             hosts[hostID]?.dispatcherPresenceError = "Dispatcher presence could not be read. Reconnect to refresh it."
+        }
+    }
+
+    private func applyProjectLinks(_ payload: AnnexJSON, hostID: String) {
+        guard payload["projectLinks"] != nil else {
+            hosts[hostID]?.projectLinks = nil
+            hosts[hostID]?.projectLinksError = nil
+            return
+        }
+        do {
+            hosts[hostID]?.projectLinks = try payload.decode(AnnexProjectLinks.self)
+            hosts[hostID]?.projectLinksError = nil
+        } catch {
+            hosts[hostID]?.projectLinks = nil
+            hosts[hostID]?.projectLinksError = "The desktop sent project links this phone cannot read. Projects are shown separately."
         }
     }
 

@@ -48,9 +48,13 @@ struct CompanionAgentTree: Sendable, Equatable {
                       held: [CompanionTarget]? = nil, lastActivity: (CompanionAgent) -> Date?) -> Self {
         var ordered = CompanionAgentOrdering.ordered(agents, sort: sort, lastActivity: lastActivity)
         if let held { ordered = CompanionListHold.apply(ordered, order: held, id: \.id) }
-        let byID = Dictionary(ordered.indices.filter { !ordered[$0].isQuick }.map { (ordered[$0].id.agentID, $0) },
+        let byID = Dictionary(ordered.indices.filter { !ordered[$0].isQuick }.map { (ordered[$0].id, $0) },
                               uniquingKeysWith: { first, _ in first })
-        var parents = ordered.map { $0.isQuick ? nil : $0.parentAgentID.flatMap { byID[$0] } }
+        var parents = ordered.map { agent in
+            agent.isQuick ? nil : agent.parentAgentID.flatMap {
+                byID[CompanionTarget(hostID: agent.id.hostID, projectID: agent.id.projectID, agentID: $0)]
+            }
+        }
         // A functional graph has at most one cycle per walk. Mark every cycle member as a root,
         // retaining incoming links (desktop x↔y, z→x becomes x→z and y).
         var done = Array(repeating: false, count: ordered.count)

@@ -1,6 +1,7 @@
 #if DEBUG
 import SwiftUI
 import FramebriarUI
+import ClubhouseTransport
 
 struct CompanionPreviewRoot: View {
     @State private var store = CompanionStore(service: CompanionPreviewService(streamsUpdates: ProcessInfo.processInfo.arguments.contains("--companion-preview-stream"),
@@ -72,6 +73,12 @@ struct CompanionPreviewRoot: View {
                                 Button("Reconnect desktop") { report(connection: .connected) }
                             }
                         }
+                        if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects") {
+                            Section("Preview desktop reports") {
+                                Button("Report projects unlinked") { reportProjectLinks(linked: false) }
+                                Button("Report projects linked") { reportProjectLinks(linked: true) }
+                            }
+                        }
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
@@ -87,6 +94,13 @@ struct CompanionPreviewRoot: View {
         guard let index = hosts.firstIndex(where: { $0.id == CompanionPreviewService.dispatcherTarget.hostID }) else { return }
         if let enabled { hosts[index].dispatcher?.enabled = enabled }
         if let connection { hosts[index].connection = connection }
+        store.apply(.hosts(hosts))
+    }
+    private func reportProjectLinks(linked: Bool) {
+        var hosts = store.hosts
+        for index in hosts.indices {
+            hosts[index].projectLinks = linked ? CompanionPreviewService.previewProjectLinks : .init(projectLinks: [])
+        }
         store.apply(.hosts(hosts))
     }
 }

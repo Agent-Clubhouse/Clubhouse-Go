@@ -454,6 +454,16 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAgentState: Bool { (agentState?.version ?? 0) >= 1 }
     /// Project pins, inactive marks and the idle rule, owned by the desktop (`projectState` v1).
     public let projectState: Feature?
+    public struct ProjectLinks: Decodable, Sendable {
+        public let version: Int
+        public let snapshotField: String
+        public let event: String
+        public var isSupported: Bool {
+            version >= 1 && snapshotField == "projectLinks" && event == "project-links:changed"
+        }
+    }
+    public let projectLinks: ProjectLinks?
+    public var supportsProjectLinks: Bool { projectLinks?.isSupported == true }
     /// "Finished, waiting on you", owned by the desktop (`finishedQuickAgents` v1).
     public let finishedQuickAgents: Feature?
     /// Durable agents can be created (`agent.create` with create options v1). Older desktops offer quick agents only.
@@ -647,6 +657,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         providerControl = optional(.providerControl)
         agentState = optional(.agentState)
         projectState = optional(.projectState)
+        projectLinks = optional(.projectLinks)
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
         access = optional(.access)
@@ -668,7 +679,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
-        case grantRequests, appUpdate, snapshotTruncation
+        case grantRequests, appUpdate, snapshotTruncation, projectLinks
     }
 }
 
