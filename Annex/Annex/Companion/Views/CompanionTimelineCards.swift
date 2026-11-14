@@ -740,9 +740,15 @@ struct CompanionApprovalActions: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
+            if compact {
                 HStack { decisionButtons }
-                VStack(alignment: .leading) { decisionButtons }
+                    .lineLimit(1)
+                    .frame(height: 44)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack { decisionButtons }
+                    VStack(alignment: .leading) { decisionButtons }
+                }
             }
             if !compact { persistentOptions }
         }
@@ -756,19 +762,39 @@ struct CompanionApprovalActions: View {
                  : "The agent won't ask again for \(option.scope ?? "this"). You can change this on your desktop.")
         }
     }
+    private var primaryOptions: [CompanionApprovalOption] {
+        if !compact { return approval.options.filter(\.isOneOff) }
+        return [approval.options.first { $0.kind == .allowOnce }, approval.options.first { $0.kind == .rejectOnce }]
+            .compactMap { $0 }
+    }
     @ViewBuilder private var decisionButtons: some View {
-        ForEach(approval.options.filter { $0.isOneOff }) { option in
+        ForEach(primaryOptions) { option in
             if option.kind == .allowOnce {
-                Button(option.label, systemImage: "checkmark") { respond(option) }.buttonStyle(.borderedProminent).companionProminentLabel().disabled(!canAllow)
+                Button { respond(option) } label: {
+                    Label(option.label, systemImage: "checkmark").frame(minHeight: compact ? 28 : nil)
+                }
+                .buttonStyle(.borderedProminent).companionProminentLabel().disabled(!canAllow)
             } else {
-                Button(option.label, systemImage: "xmark", role: .destructive) { respond(option) }.buttonStyle(.bordered)
+                Button(role: .destructive) { respond(option) } label: {
+                    Label(option.label, systemImage: "xmark").frame(minHeight: compact ? 28 : nil)
+                }
+                .buttonStyle(.bordered)
             }
         }
         if approval.options.isEmpty {
             Text("Review this request on desktop.").font(.caption).foregroundStyle(.secondary)
         }
-        if compact, approval.options.contains(where: { !$0.isOneOff }) {
-            Menu("More", systemImage: "ellipsis") { persistentOptions }
+        let additional = approval.options.filter { !primaryOptions.contains($0) }
+        if compact, !additional.isEmpty {
+            Menu("More", systemImage: "ellipsis") {
+                ForEach(additional) { option in
+                    if option.isAnswerable(persistentApprovals: persistentApprovals) {
+                        Button(option.label) { choose(option) }.disabled(option.allows && !canAllow)
+                    } else {
+                        Text("\(option.label) — choose on desktop")
+                    }
+                }
+            }
                 .labelStyle(.iconOnly)
                 .frame(minWidth: 44, minHeight: 44)
                 .accessibilityIdentifier("companion-approval-more")
@@ -783,7 +809,7 @@ struct CompanionApprovalActions: View {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(answerable, id: \.element.id) { _, option in
                     Button {
-                        if option.needsConfirmation { confirming = option } else { respond(option) }
+                        choose(option)
                     } label: {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(option.label)
@@ -816,5 +842,8 @@ struct CompanionApprovalActions: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("companion-approval-persistent")
         }
+    }
+    private func choose(_ option: CompanionApprovalOption) {
+        if option.needsConfirmation { confirming = option } else { respond(option) }
     }
 }

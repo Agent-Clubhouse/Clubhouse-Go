@@ -36,10 +36,8 @@ import XCTest
         }
     }
     private func awaitManyUpdates(_ app: XCUIApplication) {
-        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in
-            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic tool updates: "))
-                .allElementsBoundByIndex.contains { (Int($0.label.components(separatedBy: ": ").last ?? "") ?? 0) >= 50 }
-        }, timeout: 25), "At least 30 tool updates must arrive after the approval")
+        XCTAssertTrue(app.staticTexts["companion-notice-notice:pinned-progress-50"].waitForExistence(timeout: 25),
+                      "At least 30 tool updates must arrive after the approval")
     }
 
     func testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow() {
@@ -121,9 +119,14 @@ import XCTest
         assertPinned(app)
         let close = app.buttons["companion-approval-review-close"]
         waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
-        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].exists)
-        let allow = app.buttons["Allow once"]
-        XCTAssertTrue(scrollTo(allow, in: app) && allow.isEnabled && allow.isHittable)
+        let review = app.scrollViews["companion-approval-review-scroll"]
+        XCTAssertTrue(review.exists)
+        let allow = review.buttons["Allow once"]
+        for _ in 0..<8 {
+            if allow.exists && allow.isHittable && pixelContains(review.frame, allow.frame) { break }
+            review.swipeUp(velocity: .slow)
+        }
         capture(app, "AX5 landscape: scrollable approval decisions")
+        XCTAssertTrue(allow.isEnabled && allow.isHittable, "The review's decision stays reachable: \(allow.frame), \(review.frame)")
     }
 }

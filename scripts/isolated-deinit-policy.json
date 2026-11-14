@@ -456,7 +456,7 @@
     "CompanionPreviewService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
-      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged. Reviewed #338 addition: sentHosts is an array of CompanionHost value structs (the hosts last yielded), used to re-yield Dispatcher settings changes, and showsDispatcherSettings is a Bool; no callbacks or UI references.",
+      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #387 addition: pinnedDecisionStep is an optional Int counting synthetic updates after history opens, without callbacks or UI references. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged. Reviewed #338 addition: sentHosts is an array of CompanionHost value structs (the hosts last yielded), used to re-yield Dispatcher settings changes, and showsDispatcherSettings is a Bool; no callbacks or UI references.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -465,6 +465,7 @@
         "properties": {
           "continuation": "AsyncStream < CompanionEvent > . Continuation ?",
           "editedHelperPresets": "CompanionHelperRouting ?",
+          "pinnedDecisionStep": "Int ?",
           "sentHosts": "[ CompanionHost ]",
           "showsAppUpdate": "Bool",
           "showsAutoQuota": "Bool",

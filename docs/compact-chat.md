@@ -124,7 +124,8 @@ They show the same details, complete arguments, reason, Allow effect and offered
 space above the composer. Otherwise a compact pinned row names the requester and summarizes the request; Review opens
 the complete, scrollable sheet without sending a decision. Decisions stack when their full labels cannot fit side by
 side. The native draft scrolls to the caret when it must shrink to keep Review and the composer above the keyboard.
-The combined footer's order is **Clubhouse grants, selected CLI approval/question, activity, composer**. It reuses
+The combined footer's order is **Clubhouse grants, selected CLI approval/question, activity, composer**; a pending
+agent's redundant "Waiting for approval" activity line is omitted while its request is shown. It reuses
 the original two concrete requests/composer layout slots. Grant and decision cards share the available request budget;
 compact controls retain 44pt targets. If a landscape keyboard leaves less room than the minimum footer, that footer
 scrolls rather than overlapping controls. The composer stays mounted even as requests arrive or disappear; without

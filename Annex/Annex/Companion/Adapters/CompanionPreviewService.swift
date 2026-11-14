@@ -33,6 +33,7 @@ import ClubhouseTransport
     private let showsHelperIdentity: Bool
     private let showsHelperTree: Bool
     private let showsQuestions: Bool
+    private var pinnedDecisionStep: Int?
     private let showsContextWindow: Bool
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
@@ -202,22 +203,24 @@ import ClubhouseTransport
             try? await Task.sleep(for: .milliseconds(400))
             step += 1
             #if DEBUG
-            if Self.showsPinnedDecisions, step == 20 {
-                for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
-                    continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: "Synthetic request for \(title). Full context stays in chat.",
-                        title: title, deadline: .now.addingTimeInterval(600), options: [
-                            .init(id: "allow", label: "Allow once", kind: .allowOnce),
-                            .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
-                            .init(id: "deny", label: "Deny", kind: .rejectOnce)
-                        ])), sequence: nil))
+            if Self.showsPinnedDecisions, let previous = pinnedDecisionStep {
+                let pinnedStep = previous + 1
+                pinnedDecisionStep = pinnedStep
+                if pinnedStep == 20 {
+                    for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
+                        continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: "Synthetic request for \(title). Full context stays in chat.",
+                            title: title, deadline: .now.addingTimeInterval(600), options: [
+                                .init(id: "allow", label: "Allow once", kind: .allowOnce),
+                                .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
+                                .init(id: "deny", label: "Deny", kind: .rejectOnce)
+                            ])), sequence: nil))
+                    }
+                    continuation?.yield(.upsert(Self.target, .question(.init(id: "pinned-question", prompts: [
+                        .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
+                              allowsMultiple: false, allowsFreeText: false)
+                    ])), sequence: nil))
                 }
-                if Self.showsPinnedDecisions {
-                        continuation?.yield(.upsert(Self.target, .notice(id: "pinned-progress-\(step)", text: "Synthetic tool updates: \(step)"), sequence: nil))
-                }
-                continuation?.yield(.upsert(Self.target, .question(.init(id: "pinned-question", prompts: [
-                    .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
-                          allowsMultiple: false, allowsFreeText: false)
-                ])), sequence: nil))
+                continuation?.yield(.upsert(Self.target, .notice(id: "pinned-progress-\(pinnedStep)", text: "Synthetic tool updates: \(pinnedStep)"), sequence: nil))
             }
             #endif
             let run = step / 10
@@ -447,6 +450,9 @@ import ClubhouseTransport
         .message(.init(id: "parent-reply", role: .assistant, text: "I’ll review the helper’s changes next."))
     ]
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        #if DEBUG
+        if Self.showsPinnedDecisions, target == Self.target, pinnedDecisionStep == nil { pinnedDecisionStep = 0 }
+        #endif
         #if DEBUG && canImport(UIKit)
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-helper-messages"), target == Self.target {
             return .init(items: Self.helperMessageHistory)

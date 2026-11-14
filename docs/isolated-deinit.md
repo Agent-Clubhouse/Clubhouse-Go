@@ -18,6 +18,10 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Pinned-decision preview streaming (#387) adds only `pinnedDecisionStep: Int?` to PreviewService.
+This numeric history-start gate owns no callback, UI object, task, or teardown work. Its existing ARC-only
+policy and constructor captures remain unchanged; the surface fingerprint includes the new value.
+
 Session/Saved model refresh (#276) adds only `settingsRevisions: [CompanionTarget: UUID]` to Store.
 Both keys and values are Sendable value identifiers; the map owns no callbacks, UI objects, tasks or cleanup work.
 Only that stored-property surface changes; Store's existing ARC-only teardown and constructor captures remain unchanged.

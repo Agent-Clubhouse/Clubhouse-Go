@@ -20,7 +20,7 @@ import XCTest
         for id in ["empty", "partial"] {
             XCTAssertFalse(app.buttons["send-answers-\(id)"].exists, "Inline history has no second answer surface")
             waitAndTap(app.buttons["companion-review-approval"], until: close)
-            let notice = app.staticTexts["desktop-answer-\(id)"]
+            let notice = app.scrollViews["companion-approval-review-scroll"].staticTexts["desktop-answer-\(id)"]
             XCTAssertTrue(notice.exists)
             XCTAssertEqual(notice.label, "Answer this question on the desktop. This phone can't show all of its prompts.")
             XCTAssertFalse(app.buttons["send-answers-\(id)"].isEnabled)

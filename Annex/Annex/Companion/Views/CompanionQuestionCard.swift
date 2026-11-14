@@ -69,6 +69,7 @@ struct CompanionQuestionCard: View {
         .padding(18).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
+        .onChange(of: question.prompts) { _, _ in selections = [:]; text = [:] }
     }
     private var answers: [String: CompanionAnswer] {
         guard question.canAnswerOnPhone else { return [:] }

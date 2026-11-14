@@ -648,6 +648,7 @@ struct CompanionComposerApprovalReviewSheet: View {
                     .padding()
                 }
             }
+            .accessibilityIdentifier("companion-approval-review-scroll")
             // The card's Allow and full-event review use the same store.canApprove gate as the transcript.
             .companionContentPreviews(store: store, target: target)
             .navigationTitle(isQuestion ? "Review question" : "Review approval")

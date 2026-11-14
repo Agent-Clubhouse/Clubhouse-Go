@@ -273,7 +273,11 @@ struct CompanionConversationView: View {
     @ViewBuilder private func composerBar(maximumHeight: CGFloat = .infinity, compactHeight: Bool) -> some View {
         if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
             CompanionComposerLayout(spacing: 0, maximumHeight: maximumHeight) {
-                activityLine
+                VStack(spacing: 0) {
+                    if agent.status != .approval || CompanionPendingDecision.pending(in: conversation.items).isEmpty {
+                        activityLine
+                    }
+                }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 20)
                 CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
@@ -629,13 +633,19 @@ struct CompanionConversationView: View {
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
             .task(id: decisionChatJump?.id) {
                 guard let request = decisionChatJump else { return }
-                let allEntries = CompanionTimelineWindow(rows: rows, limit: .max).entries
+                let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
                 guard let index = allEntries.firstIndex(where: { $0.id == request.itemID }) else { return }
                 setFollowing(false, reason: .messageJump)
                 shownEntries = max(shownEntries, allEntries.count - index)
-                await Task.yield()
-                guard !Task.isCancelled else { return }
-                proxy.scrollTo(request.itemID, anchor: .top)
+                let saved = CompanionReadingPosition(followsLatest: false, entryID: request.itemID,
+                    offset: readingBookmark.position.offset, shownEntries: shownEntries)
+                readingBookmark.position = saved
+                readingViewport.isRestoring = true
+                readingViewport.restoreOffset = nil
+                let restoration = CompanionReadingRestoration(revision: conversation.historyRevision,
+                    startedAt: ProcessInfo.processInfo.systemUptime)
+                readingViewport.restoration = restoration
+                await restoreReadingPosition(saved, id: restoration.id)
             }
             .onDisappear {
                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab

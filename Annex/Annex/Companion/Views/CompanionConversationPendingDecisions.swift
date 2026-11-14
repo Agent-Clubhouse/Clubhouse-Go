@@ -19,11 +19,13 @@ struct CompanionConversationPendingDecisions: View {
                 let compact = maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
                             Text(decision.summary).font(.caption.weight(.semibold)).lineLimit(1)
                                 .accessibilityIdentifier("companion-pinned-decision-summary")
                             if queue.count > 1 {
                                 Text("\(index + 1) of \(queue.count)").font(.caption2.monospacedDigit())
+                                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                                    .fixedSize()
                                     .accessibilityLabel("Request \(index + 1) of \(queue.count)")
                                     .accessibilityIdentifier("companion-pinned-decision-position")
                             }
@@ -53,6 +55,7 @@ struct CompanionConversationPendingDecisions: View {
                             .accessibilityIdentifier("companion-review-approval")
                     }
                     .labelStyle(.iconOnly)
+                    .font(.system(size: 18))
                     .buttonBorderShape(.capsule)
                     .controlSize(.regular)
                     .buttonStyle(DecisionButtonStyle())
@@ -81,7 +84,7 @@ struct CompanionConversationPendingDecisions: View {
         .onChange(of: store.host(for: target)?.controlEpoch) { _, _ in resetPresentation() }
         .onChange(of: store.conversation(for: target).sessionID) { _, _ in resetPresentation() }
         .onChange(of: pendingIDs, initial: true) { old, new in
-            if let added = new.first(where: { !old.contains($0) }),
+            if let added = old == new ? new.first : new.first(where: { !old.contains($0) }),
                let decision = CompanionPendingDecision.pending(in: store.conversation(for: target).items).first(where: { $0.id == added }) {
                 AccessibilityNotification.Announcement("\(isApproval(decision) ? "Approval" : "Question") needed: \(decision.summary). Review above the message box.").post()
             }
