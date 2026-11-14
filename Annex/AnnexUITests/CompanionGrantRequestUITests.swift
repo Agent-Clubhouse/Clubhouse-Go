@@ -151,10 +151,7 @@ import XCTest
         XCTAssertTrue(scrollTo(indicator, in: app))
         waitAndTap(indicator, until: app.navigationBars["Desktop update"])
         app.buttons["app-update-request"].tap()
-        let alert = app.alerts.firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 5))
-        waitAndTap(alert.buttons["Request update"], untilGone: alert)
-        XCTAssertTrue(app.buttons["app-update-cancel"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["app-update-working-agents"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
         waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
         let summary = app.staticTexts["Update Clubhouse to 1.1.0"]
@@ -170,17 +167,11 @@ import XCTest
         XCTAssertTrue(app.tabBars.buttons["Dispatcher"].isSelected)
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
 
-        let allow = button("grant-request-allow", "Allow once", in: app)
+        let allow = app.buttons["app-update-restart-when-idle"]
         revealChatAnswer(allow, in: app)
-        XCTAssertFalse(allow.isEnabled, "Chat must not allow an update without choosing its restart mode")
-        let picker = app.buttons["app-update-mode"]
-        XCTAssertTrue(picker.isHittable)
-        picker.tap()
-        XCTAssertTrue(app.buttons["Restart now"].exists && app.buttons["When idle"].exists)
-        app.buttons["Restart now"].tap()
-        XCTAssertTrue(allow.isEnabled)
-        picker.tap()
-        app.buttons["When idle"].tap()
+        XCTAssertTrue(app.buttons["app-update-restart-now"].exists && app.buttons["app-update-decline"].exists)
+        XCTAssertTrue(app.staticTexts["app-update-working-agents"].exists)
+        XCTAssertFalse(app.buttons["grant-request-allow"].exists, "Updates never offer a generic or lasting Allow")
         XCTAssertTrue(allow.isEnabled)
         attach(app, "Grant request: desktop update mode in chat")
         waitAndTap(allow, untilGone: allow)

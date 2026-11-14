@@ -34,6 +34,7 @@ struct CompanionPreviewRoot: View {
     @State private var feedback: CompanionFeedbackPresenter? = ProcessInfo.processInfo.arguments.contains("--companion-preview-feedback")
         ? CompanionFeedbackPresenter(model: FramebriarShakePreview.fixtureModel(enrolled: true).0) : nil
     @State private var settingsCapture: CompanionFeedbackSettingsCapture?
+    @State private var desktopToForget: CompanionHost?
     var body: some View {
         if CompanionConversationHeaderFixture.isEnabled {
             CompanionConversationHeaderFixture()
@@ -61,6 +62,21 @@ struct CompanionPreviewRoot: View {
             .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
                 NavigationStack {
                     Form {
+                        if store.hosts.contains(where: \.canUpdateApp) {
+                            Section("Your desktops") {
+                                ForEach(store.hosts.filter(\.canUpdateApp)) { host in
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        Label(host.name, systemImage: "desktopcomputer").font(.headline)
+                                        CompanionAppUpdateLink(store: store, host: host)
+                                        DisclosureGroup("Connection details") {
+                                            CompanionDesktopConnectionActions(host: host,
+                                                retry: { Task { await store.reconnect(hostID: host.id) } },
+                                                forget: { desktopToForget = host })
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         CompanionPlanLimitsLink(store: store)
                         CompanionHelperPresetLinks(store: store)
                         CompanionStartScreenPicker(preferences: preferences)
@@ -82,6 +98,14 @@ struct CompanionPreviewRoot: View {
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
+                    .confirmationDialog("Forget \(desktopToForget?.name ?? "desktop")?",
+                        isPresented: Binding(get: { desktopToForget != nil }, set: { if !$0 { desktopToForget = nil } }),
+                        titleVisibility: .visible) {
+                        Button("Forget desktop", role: .destructive) {
+                            store.apply(.hosts(store.hosts.filter { $0.id != desktopToForget?.id }))
+                            desktopToForget = nil
+                        }
+                    } message: { Text("This removes access from this device. Running agents are unaffected.") }
                     .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil } } }
                 }
             }

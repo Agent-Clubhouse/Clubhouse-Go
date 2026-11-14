@@ -42,6 +42,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         /// Answers a Clubhouse grant request (`grantRequests` v1): an Ask-first call or an agent's `request_grant` ask.
         case answerGrant(requestID: String, answer: GrantAnswer, updateMode: AnnexUpdateMode? = nil)
         case requestAppUpdate
+        case checkAppUpdate
         case cancelAppUpdate(requestID: String)
     }
     /// What `grant.answer` takes. Offer only those the request's `answers` list.
@@ -74,7 +75,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .update(let update): update.agentID
         case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
              .setDispatcherEnabled, .updateHelperRouting, .updateDispatcher, .setDispatcherModels, .clearDispatcherChat, .forgetDispatcherEverything,
-             .answerGrant, .requestAppUpdate, .cancelAppUpdate:
+             .answerGrant, .requestAppUpdate, .checkAppUpdate, .cancelAppUpdate:
             nil
         }
     }
@@ -108,6 +109,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .forgetDispatcherEverything: "dispatcher.forgetEverything"
         case .answerGrant: "grant.answer"
         case .requestAppUpdate: "app.update.request"
+        case .checkAppUpdate: "app.update.check"
         case .cancelAppUpdate: "app.update.cancel"
         }
     }
@@ -207,7 +209,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .clearDispatcherChat(let expectedState), .forgetDispatcherEverything(let expectedState):
             guard !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
             v["expectedState"] = .string(expectedState)
-        case .requestAppUpdate: break
+        case .requestAppUpdate, .checkAppUpdate: break
         case .cancelAppUpdate(let request):
             guard !request.isEmpty, request.count <= 256 else { throw AnnexTransportError.malformedResponse }
             v["requestId"] = .string(request)
@@ -551,6 +553,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAppUpdate: Bool {
         appUpdate?.isSupported == true && supportsGrantRequests
             && commands.contains("app.update.request") && commands.contains("app.update.cancel")
+    }
+    public var supportsAppUpdateCheck: Bool {
+        supportsAppUpdate && appUpdate?.commands.contains("app.update.check") == true && commands.contains("app.update.check")
     }
     /// Grant requests are listed and can be answered (`grant.answer` with grant requests v1).
     public var supportsGrantRequests: Bool { commands.contains("grant.answer") && (grantRequests?.version ?? 0) >= 1 }

@@ -1,48 +1,160 @@
 import XCTest
 
 @MainActor final class CompanionAppUpdateUITests: ReliableUITestCase {
-    func testQAIndicatorShowsTheAvailableVersion() {
-        let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
-        let home = app.tabBars.buttons["Home"]
-        XCTAssertTrue(home.waitForExistence(timeout: 15))
-        waitAndTap(home, until: app.navigationBars["Clubhouse"])
-        let indicator = app.buttons["app-update-preview-studio"]
-        XCTAssertTrue(scrollTo(indicator, in: app))
-        XCTAssertTrue(indicator.label.contains("1.0.0"), indicator.label)
-        XCTAssertTrue(indicator.label.contains("1.1.0"), indicator.label)
+    private func openUpdate(state: String = "ready", dispatcherOff: Bool = false, supportsCheck: Bool = true, checkRunning: Bool = false) -> XCUIApplication {
+        let app = launchApp(["--companion-preview", "--companion-preview-app-update"]
+            + (dispatcherOff ? ["--companion-preview-app-update-dispatcher-off"] : [])
+            + (supportsCheck ? [] : ["--companion-preview-app-update-no-check"])
+            + (checkRunning ? ["--companion-preview-app-update-check-running"] : []),
+            environment: ["COMPANION_PREVIEW_APP_UPDATE_STATE": state])
+        waitAndTap(app.tabBars.buttons["Home"], until: app.navigationBars["Clubhouse"])
+        if state == "none" || state == "unsupported" {
+            app.buttons["Settings"].tap()
+            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["app-update-preview-studio"].exists, "Version information is not an update button")
+        } else {
+            let indicator = app.buttons["app-update-preview-studio"]
+            XCTAssertTrue(scrollTo(indicator, in: app))
+            XCTAssertTrue(indicator.label.contains("1.0.0"))
+            if state != "unsupported" { XCTAssertTrue(indicator.label.contains("1.1.0")) }
+            if state == "ready" {
+                XCTAssertTrue(indicator.label.contains("Restart to update"))
+                attach(app, "Home - restart update entry point")
+            }
+            waitAndTap(indicator, until: app.navigationBars["Desktop update"])
+        }
+        XCTAssertTrue(scrollTo(app.staticTexts["app-update-status"], in: app, up: false))
+        return app
     }
 
-    func testIndicatorRequestAndExplicitModeBeforeAllowOnce() {
-        let app = launchApp(["--companion-preview", "--companion-preview-app-update"])
-        let home = app.tabBars.buttons["Home"]
-        XCTAssertTrue(home.waitForExistence(timeout: 15))
-        waitAndTap(home, until: app.navigationBars["Clubhouse"])
-        let indicator = app.buttons["app-update-preview-studio"]
-        XCTAssertTrue(scrollTo(indicator, in: app))
-        XCTAssertTrue(indicator.label.contains("Update ready on"))
-        waitAndTap(indicator, until: app.navigationBars["Desktop update"])
+    private func attach(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func testReadyRequestPresentsOwnInterruptionReviewAndRestartWhenIdleWithoutLeavingTheScreen() {
+        let app = openUpdate()
         let request = app.buttons["app-update-request"]
-        XCTAssertTrue(request.waitForExistence(timeout: 5))
-        request.tap()
-        let alert = app.alerts.firstMatch
-        XCTAssertTrue(alert.waitForExistence(timeout: 5))
-        XCTAssertTrue(alert.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Stopped agents will not resume")).firstMatch.exists)
-        waitAndTap(alert.buttons["Request update"], untilGone: alert)
-        XCTAssertTrue(app.buttons["app-update-cancel"].waitForExistence(timeout: 5))
-        app.navigationBars.buttons.firstMatch.tap()
-        let needsYou = app.tabBars.buttons["Needs you"]
-        waitAndTap(needsYou, until: app.navigationBars["Needs you"])
-        let allow = app.buttons["grant-request-allow"].firstMatch
-        XCTAssertTrue(scrollTo(allow, in: app))
-        XCTAssertFalse(allow.isEnabled, "An update's Allow once must not send a generic approval")
-        let picker = app.buttons["app-update-mode"]
-        XCTAssertTrue(scrollTo(picker, in: app))
-        picker.tap()
-        app.buttons["When idle"].tap()
-        XCTAssertTrue(scrollTo(allow, in: app))
-        XCTAssertTrue(allow.isEnabled)
-        let summary = app.staticTexts["Update Clubhouse to 1.1.0"]
-        waitAndTap(allow, untilGone: summary)
-        XCTAssertFalse(app.buttons["grant-request-allow"].firstMatch.exists)
+        XCTAssertEqual(request.label, "Restart to update to 1.1.0")
+        attach(app, "Desktop update - ready")
+        let review = app.staticTexts["app-update-working-agents"]
+        waitAndTap(request, until: review)
+        XCTAssertTrue(review.label.contains("River"))
+        attach(app, "Desktop update - interruption review")
+        let whenIdle = app.buttons["app-update-restart-when-idle"]
+        XCTAssertTrue(scrollTo(app.buttons["app-update-decline"], in: app))
+        XCTAssertTrue(app.buttons["app-update-restart-now"].exists)
+        XCTAssertTrue(app.buttons["app-update-decline"].exists)
+        XCTAssertFalse(app.buttons["grant-request-allow"].exists)
+        XCTAssertTrue(app.navigationBars["Desktop update"].exists)
+        attach(app, "Desktop update - approval choices")
+        waitAndTap(whenIdle, untilGone: whenIdle)
+        XCTAssertTrue(scrollTo(app.staticTexts["app-update-request-state"], in: app, up: false))
+        XCTAssertTrue(app.staticTexts["app-update-request-state"].label.contains("Waiting for every agent"))
+        attach(app, "Desktop update - waiting for idle")
+        let cancel = app.buttons["app-update-cancel"]
+        waitAndTap(cancel, untilGone: cancel)
+        XCTAssertEqual(app.staticTexts["app-update-request-state"].label, "Update request cancelled.")
+    }
+
+    func testRestartNowAndCancelAreExplicitChoices() {
+        for choice in ["app-update-restart-now", "app-update-decline"] {
+            let app = openUpdate()
+            waitAndTap(app.buttons["app-update-request"], until: app.staticTexts["app-update-working-agents"])
+            let button = app.buttons[choice]
+            XCTAssertTrue(scrollTo(button, in: app))
+            waitAndTap(button, untilGone: button)
+            let status = app.staticTexts["app-update-request-state"]
+            XCTAssertTrue(scrollTo(status, in: app, up: false))
+            XCTAssertTrue(status.label.contains(choice == "app-update-restart-now" ? "Restarting" : "cancelled"))
+            if choice == "app-update-restart-now" { attach(app, "Desktop update - restarting") }
+            XCTAssertFalse(app.buttons["app-update-cancel"].exists)
+        }
+    }
+
+    func testDownloadingAvailableNoneAndUnsupportedHaveClearStatusWithoutDeadActions() {
+        for state in ["downloading", "available", "none", "unsupported"] {
+            let app = openUpdate(state: state)
+            let status = app.staticTexts["app-update-status"]
+            XCTAssertTrue(status.exists)
+            XCTAssertFalse(app.buttons["app-update-request"].exists)
+            XCTAssertEqual(app.buttons["app-update-check"].exists, state == "none" || state == "available")
+            switch state {
+            case "downloading":
+                XCTAssertTrue(status.label.contains("47.5%"))
+                XCTAssertTrue(app.progressIndicators["app-update-progress"].exists)
+                XCTAssertTrue(app.staticTexts["Restart will be available when the download finishes."].exists)
+            case "available":
+                XCTAssertTrue(status.label.contains("1.1.0"))
+                XCTAssertTrue(app.staticTexts["Restart will be available when the download finishes."].exists)
+            case "none": XCTAssertEqual(status.label, "No update known (running 1.0.0)")
+            default: XCTAssertTrue(app.staticTexts["This installation cannot self-update."].exists)
+            }
+            attach(app, "Desktop update - \(state)")
+        }
+    }
+
+    func testDispatcherOffOffersExplicitEnableBeforeRequestingRestart() {
+        let app = openUpdate(dispatcherOff: true)
+        XCTAssertFalse(app.buttons["app-update-request"].exists)
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "needs the Dispatcher on")).firstMatch.exists)
+        attach(app, "Desktop update - Dispatcher off")
+        waitAndTap(app.buttons["app-update-enable-dispatcher"], until: app.buttons["app-update-request"])
+        XCTAssertFalse(app.buttons["app-update-restart-now"].exists, "Enabling is not a restart request or approval")
+        waitAndTap(app.buttons["app-update-request"], until: app.staticTexts["app-update-working-agents"])
+    }
+
+    func testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation() {
+        let app = openUpdate(state: "none")
+        XCTAssertEqual(app.staticTexts["app-update-status"].label, "No update known (running 1.0.0)")
+        XCTAssertFalse(app.images["arrow.down.circle"].exists)
+        let details = app.buttons["Connection details"]
+        waitAndTap(details, until: app.buttons["desktop-connection-forget"])
+        XCTAssertTrue(app.buttons["desktop-connection-retry"].exists)
+        attach(app, "Settings desktop - tinted Retry and red Forget - bf215c26")
+        app.buttons["desktop-connection-forget"].tap()
+        XCTAssertTrue(app.buttons["Forget desktop"].waitForExistence(timeout: 5))
+        if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
+        else {
+            waitAndTap(app.otherElements["PopoverDismissRegion"], untilGone: app.buttons["Forget desktop"])
+        }
+        XCTAssertTrue(app.staticTexts["app-update-status"].exists, "Cancelling forget retains the desktop")
+    }
+
+    func testCheckFlowsThroughLiveDownloadToRestartAndOwnReview() throws {
+        let app = openUpdate(state: "none")
+        waitAndTap(app.buttons["app-update-check"], until: app.buttons["Checking…"])
+        XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
+        attach(app, "Desktop update - checking")
+        let indicators = app.buttons.matching(identifier: "app-update-preview-studio")
+        XCTAssertTrue(indicators.firstMatch.waitForExistence(timeout: 10))
+        let indicator = try XCTUnwrap(indicators.allElementsBoundByIndex.first(where: \.isHittable))
+        waitAndTap(indicator, until: app.navigationBars["Desktop update"])
+        XCTAssertTrue(app.progressIndicators["app-update-progress"].exists)
+        XCTAssertFalse(app.buttons["app-update-check"].exists)
+        attach(app, "Desktop update - live check download")
+        let restart = app.buttons["app-update-request"]
+        XCTAssertTrue(restart.waitForExistence(timeout: 15))
+        XCTAssertEqual(restart.label, "Restart to update to 1.1.0")
+        waitAndTap(restart, until: app.staticTexts["app-update-working-agents"])
+        XCTAssertTrue(scrollTo(app.buttons["app-update-decline"], in: app))
+        XCTAssertTrue(app.buttons["app-update-restart-now"].exists)
+        XCTAssertTrue(app.buttons["app-update-restart-when-idle"].exists)
+        XCTAssertTrue(app.navigationBars["Desktop update"].exists)
+    }
+
+    func testOlderDesktopHidesCheckAndAlreadyCheckingIsDisabled() {
+        for state in ["none", "available"] {
+            let app = openUpdate(state: state, supportsCheck: false)
+            XCTAssertFalse(app.buttons["app-update-check"].exists)
+            attach(app, "Desktop update - older host \(state)")
+        }
+        let app = openUpdate(state: "none", checkRunning: true)
+        waitAndTap(app.buttons["app-update-check"], until: app.buttons["Already checking"])
+        XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
+        XCTAssertEqual(app.staticTexts["app-update-check-error"].label, "A desktop update check is already running.")
+        attach(app, "Desktop update - already checking")
     }
 }

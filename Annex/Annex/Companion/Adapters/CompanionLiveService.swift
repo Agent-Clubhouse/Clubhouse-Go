@@ -53,6 +53,9 @@ import ClubhouseTransport
     private var requestedUpdateVersions: [String: String] = [:]
     private var updateEpochChanged: Set<String> = []
     private var snapshotEpochs: [String: String] = [:]
+    private var appUpdateCheckRevisions: [CompanionCommandKey: UUID] = [:]
+    private var pendingEvents: [String: [AnnexTransportEvent]] = [:]
+    private var eventDrainTasks: [String: Task<Void, Never>] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
     /// Called when a host stops answering at its saved address while the app is active.
@@ -659,6 +662,30 @@ import ClubhouseTransport
     func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
         try await appUpdateCommand(.cancelAppUpdate(requestID: requestID), hostID: hostID, id: clientCommandID)
     }
+    func checkAppUpdate(hostID: String, clientCommandID: String) async throws {
+        guard capabilities[hostID]?.supportsAppUpdateCheck == true else {
+            throw CompanionServiceError.unavailable("This desktop cannot check for updates from your phone.")
+        }
+        let epoch = capabilities[hostID]?.epoch
+        let generation = eventGenerations[hostID]
+        let key = CompanionCommandKey(hostID: hostID, commandID: clientCommandID)
+        let revision = appUpdateCheckRevisions[key] ?? hosts[hostID]?.appUpdateRevision
+        appUpdateCheckRevisions[key] = revision
+        let receipt = try await execute(.checkAppUpdate, id: clientCommandID, hostID: hostID, validateReceipt: false)
+        guard eventGenerations[hostID] == generation, capabilities[hostID]?.epoch == epoch else {
+            throw CompanionServiceError.rejected("The desktop connection changed. Refresh its update status.")
+        }
+        if receipt.error?.code == "update_check_running" {
+            throw CompanionAppUpdateCheckRunning(message: receipt.error?.message ?? "An update check is already running.")
+        }
+        if let error = Self.receiptError(receipt) { throw error }
+        guard let result = receipt.result else { throw AnnexTransportError.malformedResponse }
+        _ = try result.decode(AnnexAppUpdate.self)
+        if hosts[hostID]?.appUpdateRevision == revision {
+            applyAppUpdate(result, hostID: hostID)
+            emitHosts()
+        }
+    }
     private func appUpdateCommand(_ kind: AnnexCommand.Kind, hostID: String, id: String) async throws {
         guard capabilities[hostID]?.supportsAppUpdate == true else {
             throw CompanionServiceError.unavailable("This desktop cannot apply updates from your phone.")
@@ -843,6 +870,7 @@ import ClubhouseTransport
         dispatcherFlags.removeValue(forKey: hostID)
         dispatcherMCPOff.removeValue(forKey: hostID)
         requestedUpdateVersions.removeValue(forKey: hostID)
+        appUpdateCheckRevisions = appUpdateCheckRevisions.filter { $0.key.hostID != hostID }
         snapshotEpochs.removeValue(forKey: hostID)
         updateEpochChanged.remove(hostID)
         projections = projections.filter { $0.key.hostID != hostID }
@@ -868,9 +896,11 @@ import ClubhouseTransport
         requestedUpdateVersions.removeAll()
         updateEpochChanged.removeAll()
         snapshotEpochs.removeAll()
+        appUpdateCheckRevisions.removeAll()
         resolvedGrantRequests.removeAll()
         for id in hosts.keys {
             hosts[id]?.canUpdateApp = false
+            hosts[id]?.canCheckAppUpdate = false
             hosts[id]?.appUpdate = nil
             hosts[id]?.appUpdateError = nil
             hosts[id]?.appUpdateOutcome = nil
@@ -895,6 +925,8 @@ import ClubhouseTransport
         streamDiagnostics.disconnect(hostID: hostID)
         eventGenerations.removeValue(forKey: hostID)
         eventTasks.removeValue(forKey: hostID)?.cancel()
+        eventDrainTasks.removeValue(forKey: hostID)?.cancel()
+        pendingEvents.removeValue(forKey: hostID)
         cancelRefresh(hostID: hostID)
     }
 
@@ -913,8 +945,9 @@ import ClubhouseTransport
             do {
                 for try await event in stream {
                     guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
-                    await self?.receive(event, hostID: hostID)
+                    self?.enqueue(event, hostID: hostID, generation: generation)
                 }
+                await self?.eventDrainTasks[hostID]?.value
                 guard !Task.isCancelled, self?.eventGenerations[hostID] == generation else { return }
                 self?.subscriptionEnded(hostID: hostID, error: AnnexTransportError.disconnected)
             } catch {
@@ -923,6 +956,74 @@ import ClubhouseTransport
             }
         }
         return generation
+    }
+
+    private static func canCoalesceSnapshots(_ previous: AnnexEnvelope, _ latest: AnnexEnvelope) -> Bool {
+        guard previous.epoch == latest.epoch, previous.controlEpoch == latest.controlEpoch,
+              previous.iconReferencesEnabled == latest.iconReferencesEnabled,
+              case .object(let older)? = previous.payload, case .object(let newer)? = latest.payload,
+              older["snapshotTruncated"] == nil, newer["snapshotTruncated"] == nil,
+              Set(older.keys) == Set(newer.keys) else { return false }
+        func hasMap(_ value: AnnexJSON?) -> Bool {
+            if case .object(_)? = value { return true }
+            return false
+        }
+        return ["agentIcons", "projectIcons"].allSatisfy { hasMap(older[$0]) == hasMap(newer[$0]) }
+            && ["agents", "projects"].allSatisfy {
+                hasMap(older["iconRefs"]?[$0]) == hasMap(newer["iconRefs"]?[$0])
+            }
+    }
+
+    private func enqueue(_ event: AnnexTransportEvent, hostID: String, generation: UUID) {
+        switch event {
+        case .connection(.disconnected), .connection(.suspended), .resyncRequired:
+            resolvedGrantRequests[hostID] = nil
+        default: break
+        }
+        if case .message(let envelope) = event, let payload = envelope.payload {
+            switch envelope.type {
+            case "app_update:changed":
+                applyAppUpdate(payload, hostID: hostID, isEvent: true)
+                emitHosts()
+                return
+            case "snapshot":
+                // These independent headers stay in wire order, ahead of slow icon/catalog work.
+                let epoch = envelope.controlEpoch ?? envelope.epoch
+                let resolved = resolvedGrantRequests[hostID] ?? []
+                let requests = payload[capabilities[hostID]?.grantRequests?.snapshotField ?? "grantRequests"] ?? .array([])
+                hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID, epoch: epoch).filter { !resolved.contains($0.id) }
+                snapshotEpochs[hostID] = epoch
+                applyAppUpdate(payload["appUpdate"], hostID: hostID)
+                emitHosts()
+                if case .message(let previous)? = pendingEvents[hostID]?.last, previous.type == "snapshot",
+                   Self.canCoalesceSnapshots(previous, envelope) {
+                    pendingEvents[hostID]?.removeLast()
+                }
+            case "grant_request:opened":
+                if let id = payload["requestId"]?.string { resolvedGrantRequests[hostID]?.remove(id) }
+            case "grant_request:resolved":
+                dropGrantRequests(payload["requestIds"].arrayValue.compactMap(\.string), hostID: hostID)
+            default: break
+            }
+        }
+        // Transport emits connected before every snapshot, not just on a new socket.
+        if case .connection(.connected) = event,
+           case .message(let previous)? = pendingEvents[hostID]?.last, previous.type == "snapshot" { return }
+        guard (pendingEvents[hostID]?.count ?? 0) < 256 else {
+            subscriptionEnded(hostID: hostID, error: AnnexTransportError.queueOverflow)
+            return
+        }
+        pendingEvents[hostID, default: []].append(event)
+        guard eventDrainTasks[hostID] == nil else { return }
+        eventDrainTasks[hostID] = Task { [weak self] in
+            while !Task.isCancelled, self?.eventGenerations[hostID] == generation,
+                  let event = self?.pendingEvents[hostID]?.first {
+                self?.pendingEvents[hostID]?.removeFirst()
+                await self?.receive(event, hostID: hostID)
+            }
+            guard self?.eventGenerations[hostID] == generation else { return }
+            self?.eventDrainTasks[hostID] = nil
+        }
     }
 
     private func subscriptionEnded(hostID: String, error: Error) {
@@ -1063,7 +1164,6 @@ import ClubhouseTransport
                 hosts[hostID]?.connection = .connecting
             case .disconnected, .suspended:
                 cancelRefresh(hostID: hostID)
-                resolvedGrantRequests[hostID] = nil
                 hosts[hostID]?.connection = .offline
                 emit(.resyncRequired(hostID: hostID))
             case .reconnecting:
@@ -1088,7 +1188,6 @@ import ClubhouseTransport
         case .resyncRequired:
             clearFullReviews(hostID: hostID)
             // The next snapshot is whole; events missed since may have reopened a request.
-            resolvedGrantRequests[hostID] = nil
             hosts[hostID]?.connection = .synchronizing
             emit(.resyncRequired(hostID: hostID)); emitHosts()
             needsCatchUp.insert(hostID)
@@ -1103,13 +1202,6 @@ import ClubhouseTransport
                 }
             case "snapshot":
                 applyProjectLinks(payload, hostID: hostID)
-                    // Publish approval rows and their epoch atomically, before icon work can yield to a capability refresh.
-                    let epoch = envelope.controlEpoch ?? envelope.epoch
-                    let resolved = resolvedGrantRequests[hostID] ?? []
-                    let requests = payload[capabilities[hostID]?.grantRequests?.snapshotField ?? "grantRequests"] ?? .array([])
-                    hosts[hostID]?.grantRequests = Self.grantRequests(from: requests, hostID: hostID, epoch: epoch).filter { !resolved.contains($0.id) }
-                    snapshotEpochs[hostID] = epoch
-                applyAppUpdate(payload["appUpdate"], hostID: hostID)
                 applyDispatcherPresence(payload["dispatcherPresence"], hostID: hostID)
                 if let quick = payload["quickAgents"] { quickCatalog[hostID] = quick }
                 let dispatcherBefore = dispatcherCatalog[hostID]
@@ -1145,16 +1237,6 @@ import ClubhouseTransport
                     emitHosts()
                     await refreshHelperRoutingLabels(hostID: hostID)
                 }
-            // Each is followed by a snapshot with the rows, so the list itself always comes from the snapshot.
-            case "grant_request:opened":
-                // The same id again: a lasting Allow that couldn't be saved. Its row comes back with the next snapshot.
-                if let id = payload["requestId"]?.string { resolvedGrantRequests[hostID]?.remove(id) }
-            case "grant_request:resolved":
-                // Answered anywhere, expired or withdrawn. Ids never seen are fine.
-                dropGrantRequests(payload["requestIds"].arrayValue.compactMap(\.string), hostID: hostID)
-            case "app_update:changed":
-                applyAppUpdate(payload, hostID: hostID)
-                emitHosts()
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
                 if let theme = Self.theme(from: payload, terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme; emitHosts() }
@@ -1244,6 +1326,7 @@ import ClubhouseTransport
                 capabilities[hostID] = newCapabilities
                 if let epoch = newCapabilities?.epoch { hosts[hostID]?.controlEpoch = epoch }
                 hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
+                hosts[hostID]?.canCheckAppUpdate = newCapabilities?.supportsAppUpdateCheck == true
                 reconcileUpdateOutcome(hostID: hostID)
                 hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
                 hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
@@ -1350,7 +1433,9 @@ import ClubhouseTransport
         }
     }
 
-    private func applyAppUpdate(_ value: AnnexJSON?, hostID: String) {
+    private func applyAppUpdate(_ value: AnnexJSON?, hostID: String, isEvent: Bool = false) {
+        hosts[hostID]?.appUpdateRevision = UUID()
+        if isEvent { hosts[hostID]?.appUpdateEventRevision = UUID() }
         guard let value else { hosts[hostID]?.appUpdate = nil; return }
         do {
             let update = try value.decode(AnnexAppUpdate.self)
