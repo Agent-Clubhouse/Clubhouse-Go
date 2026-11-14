@@ -494,6 +494,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     }
     public struct IconRefs: Decodable, Sendable { public let version: Int }
     public let iconRefs: IconRefs?
+    public struct SnapshotTruncation: Decodable, Sendable {
+        public let version: Int
+        public let canvasPaths: [String: String]
+    }
+    public let snapshotTruncation: SnapshotTruncation?
     public let permissions: Permissions?
     /// Agents' orchestration policy in the catalog and settings, and `orchestration` on `agent.create` and `agent.update` (`orchestration` v1).
     public let orchestration: Feature?
@@ -636,6 +641,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         slashCommands = optional(.slashCommands)
         chatLinks = optional(.chatLinks)
         iconRefs = optional(.iconRefs)
+        snapshotTruncation = optional(.snapshotTruncation)
         permissions = optional(.permissions)
         orchestration = optional(.orchestration)
         contextWindow = optional(.contextWindow)
@@ -650,7 +656,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
-        case grantRequests, appUpdate
+        case grantRequests, appUpdate, snapshotTruncation
     }
 }
 

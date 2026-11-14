@@ -410,6 +410,10 @@ struct CompanionSettingsSheet: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
                                     Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
+                                    if let notice = host.snapshotTruncationNotice {
+                                        Text(notice).font(.caption).foregroundStyle(.secondary)
+                                            .accessibilityIdentifier("snapshot-truncation-\(host.id)")
+                                    }
                                     // Explicit styles keep each action independent inside this List row.
                                     // Automatic row activation can otherwise invoke sibling buttons too.
                                     Button("Retry") { Task { await runtime.store.reconnect(hostID: host.id) } }

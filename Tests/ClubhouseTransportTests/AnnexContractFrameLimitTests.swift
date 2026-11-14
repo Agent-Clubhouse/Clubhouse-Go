@@ -4,6 +4,22 @@ import Testing
 @testable import ClubhouseTransport
 
 @MainActor struct AnnexContractFrameLimitWireTests {
+    @Test func snapshotTruncationDecodesOriginalSizeAndOmittedFields() throws {
+        let payload = try #require(AnnexContract.json("snapshot-truncated.json")["value"])
+        let frame = AnnexEnvelope(type: "snapshot", payload: payload)
+        let truncation = try #require(frame.snapshotTruncated)
+        #expect(truncation.version == 1 && truncation.reason == "frame_limit")
+        #expect(truncation.bytes == 9 * 1024 * 1024)
+        #expect(truncation.omitted == ["canvasState", "appCanvasState"])
+        #expect(AnnexEnvelope(type: "canvas:state", payload: payload).snapshotTruncated == nil)
+        #expect(AnnexEnvelope(type: "snapshot").snapshotTruncated == nil)
+        let capability = try #require(try AnnexContract.json("capabilities.json")["response"]?["body"]).decode(AnnexCapabilities.self)
+        #expect(capability.snapshotTruncation?.version == 1)
+        #expect(capability.snapshotTruncation?.canvasPaths == [
+            "app": "/api/v1/mobile/canvas", "project": "/api/v1/mobile/canvas/{projectId}"
+        ])
+    }
+
     @Test func canvasOmissionMarkersDecodeWithoutInventingAnEmptyState() throws {
         let fixture = try AnnexContract.json("frames-over-limit.json")
         var cursor = AnnexReplayCursor()

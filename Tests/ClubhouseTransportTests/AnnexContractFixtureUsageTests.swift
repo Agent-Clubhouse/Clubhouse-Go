@@ -9,10 +9,7 @@ import Testing
         "chat-snapshot-errors.json": "Read failures use synthetic transport responses, not this recorded error matrix.",
         "dispatcher-requests.json": "Dispatcher request cases have no dedicated phone contract test.",
         "pairing-revoke.json": "Revocation uses synthetic transport/registry cases, not this recorded response.",
-        "pairing.json": "Pairing tests use throwaway real identities; the recording has redacted credentials.",
-        "snapshot-icon-refs-changed.json": "Icon-reference transitions use the separately pinned IconRefs corpus.",
-        "snapshot-icon-refs.json": "Icon-reference opt-in uses the separately pinned IconRefs corpus.",
-        "snapshot-truncated.json": "Snapshot omission handling uses synthetic events, not this recorded snapshot."
+        "pairing.json": "Pairing tests use throwaway real identities; the recording has redacted credentials."
     ]
 
     @Test func everyIndexedFixtureHasAContractTestReferenceOrAnExplicitException() throws {

@@ -1,12 +1,13 @@
 import XCTest
 import SwiftUI
 import UIKit
+import ClubhouseTransport
 @testable import ClubhouseGo
 
 /// Exercise the actual pinned Dispatcher row and routed sender view, including a decodable image.
 /// Domain tests cover selection; the image case separately asserts profile pixels in both consumers.
 @MainActor final class CompanionAvatarRenderingTests: XCTestCase {
-    func testDispatcherCustomColourEmojiAndImageRenderInRowAndSender() async throws {
+    func testDispatcherCustomColourEmojiAndImageSurviveIconOmittedSnapshot() async throws {
         let cacheHost = "dispatcher-avatar-test-" + UUID().uuidString
         do {
             try await checkDispatcherRendering(cacheHost: cacheHost)
@@ -27,15 +28,31 @@ import UIKit
             UIColor.cyan.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
         }
-        let iconRef = await CompanionIconStore.shared.ingest(dataURL: "data:image/png;base64," + icon.base64EncodedString(), host: cacheHost, kind: .agent, id: host.dispatcher!.liveAgent!.id.agentID)
-        let reference = try XCTUnwrap(iconRef)
+        let agentID = try XCTUnwrap(host.dispatcher?.liveAgent?.id.agentID)
+        let initialSnapshot = AnnexEnvelope(type: "snapshot", payload: .object([
+            "agentIcons": .object([agentID: .string("data:image/png;base64," + icon.base64EncodedString())])
+        ]))
+        var catalog = await CompanionIconCatalog().applyingSnapshot(initialSnapshot, usesReferences: false, host: cacheHost, store: .shared)
+        let reference = try XCTUnwrap(catalog.agents[agentID])
         let decoded = await CompanionIconStore.shared.image(for: reference, points: 32)
         XCTAssertNotNil(decoded, "The image case must actually decode through the bounded store")
-        for appearance in ["Colour", "Emoji", "Image"] {
+        for appearance in ["Colour", "Emoji", "Image", "Icon-omitted snapshot"] {
+            let showsImage = appearance == "Image" || appearance == "Icon-omitted snapshot"
             var agent = try XCTUnwrap(host.dispatcher?.liveAgent)
+            if appearance == "Icon-omitted snapshot" {
+                let omitted = AnnexEnvelope(type: "snapshot", payload: .object([
+                    "agentIcons": .object([:]), "projectIcons": .object([:]),
+                    "snapshotTruncated": .object([
+                        "version": .integer(1), "reason": .string("frame_limit"), "bytes": .integer(9 * 1024 * 1024),
+                        "omitted": .array([.string("agentIcons"), .string("projectIcons")])
+                    ])
+                ]))
+                catalog = await catalog.applyingSnapshot(omitted, usesReferences: false, host: cacheHost, store: .shared)
+                XCTAssertEqual(catalog.agents[agentID], reference, "The snapshot must not turn omitted icons into removed images")
+            }
             agent.color = "rose"
             agent.emoji = appearance == "Colour" ? nil : "🧭" // Image also tests coexistence in both consumers.
-            agent.icon = appearance == "Image" ? reference : nil
+            agent.icon = showsImage ? catalog.agents[agentID] : nil
             host.dispatcher?.agent = agent
             let message = CompanionMessage(id: "dispatcher-appearance", role: .user, text: "Update from the Dispatcher.", source: "mcp",
                                            routed: [.init(sender: .init(agentID: agent.id.agentID, name: "Dispatcher"), text: "Update from the Dispatcher.")])
@@ -62,7 +79,7 @@ import UIKit
             }
             window.makeKeyAndVisible()
             let image: UIImage
-            if appearance == "Image" {
+            if showsImage {
                 image = try await expectProfilePixels(in: hosting.view)
             } else {
                 try await Task.sleep(for: .milliseconds(100))
