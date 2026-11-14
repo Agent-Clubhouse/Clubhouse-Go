@@ -10,6 +10,7 @@ extension CompanionChatControls {
         guard let json, case .object = json else { return nil }
         self.init()
         model = json["model"]?.string
+        startModel = json["startModel"]?.string
         modelUnknown = json["modelUnknown"].boolValue
         effort = json["effort"]?.string
         effortIsDefault = json["effortIsDefault"].boolValue
@@ -38,6 +39,7 @@ extension CompanionChatControls {
         switch type {
         case "session_started":
             context = nil
+            startModel = nil
             model = data["model"]?.string ?? model; modelUnknown = false
             level = data["level"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)) ?? level
             models = []; efforts = []; levelNames = [:]; awaitingEfforts = false

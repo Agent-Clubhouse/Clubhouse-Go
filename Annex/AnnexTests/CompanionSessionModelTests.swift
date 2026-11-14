@@ -49,6 +49,31 @@ import Vision
 }
 
 @MainActor final class CompanionSessionModelTests: XCTestCase {
+    func testAuthoritativeBaselineAllowsComposerSettingsReadsForAnUnlistedLiveModel() async throws {
+        let service = SessionModelSettingsService()
+        let store = CompanionStore(service: service)
+        let target = CompanionPreviewService.target
+        var hosts = CompanionPreviewService.hosts(now: Date())
+        let project = try XCTUnwrap(hosts[0].projects.firstIndex { $0.id == target.projectID })
+        let index = try XCTUnwrap(hosts[0].projects[project].agents.firstIndex { $0.id == target })
+        hosts[0].projects[project].agents[index].chatControls?.model = "custom-opus"
+        hosts[0].projects[project].agents[index].chatControls?.startModel = "sonnet"
+        store.apply(.hosts(hosts))
+        let agent = try XCTUnwrap(store.agent(for: target))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let original = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView:
+            CompanionConversationComposer(store: store, agent: agent, memory: CompanionComposerMemory(),
+                focusRequests: 0, confirmCancel: .constant(false), dismissals: 0))
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil; original?.makeKey(); store.stop() }
+        try await waitForRead(service, after: 0)
+        XCTAssertEqual(agent.modelDifference(from: service.reads.last), .init(sessionLabel: "custom-opus", savedLabel: "Sonnet"))
+    }
+
     func testFailedRereadHidesTheStaleModelDifferenceAndShowsErrorWithRetry() async throws {
         let service = SessionModelSettingsService()
         let target = CompanionPreviewService.target

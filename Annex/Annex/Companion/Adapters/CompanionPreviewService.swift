@@ -291,6 +291,17 @@ import ClubhouseTransport
                 }
             }
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-model")
+            || ProcessInfo.processInfo.arguments.contains("--companion-preview-model-alias") {
+            for project in hosts[0].projects.indices {
+                for agent in hosts[0].projects[project].agents.indices where hosts[0].projects[project].agents[agent].id == target {
+                    hosts[0].projects[project].agents[agent].chatControls?.startModel =
+                        ProcessInfo.processInfo.arguments.contains("--companion-preview-start-model") ? "sonnet" : "opus"
+                }
+            }
+        }
+        #endif
         if helperTree {
             for p in hosts[0].projects.indices {
                 for i in hosts[0].projects[p].agents.indices {
@@ -803,6 +814,12 @@ import ClubhouseTransport
         #if DEBUG
         if target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-model-difference") {
             result.model.value = "sonnet"
+        }
+        if target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-start-model") {
+            result.model.value = "claude-sonnet-5-5"
+        }
+        if target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-model-alias") {
+            result.model.value = "claude-opus-5-5"
         }
         if sleeping, ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only") {
             result.orchestration = Self.reportOnlyPolicy

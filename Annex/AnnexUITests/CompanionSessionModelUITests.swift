@@ -52,8 +52,13 @@ import XCTest
 
     func testSessionAndSavedAppearOnlyForProvenDifference() {
         var plainComposerHeight: CGFloat?
-        for differs in [false, true] {
-            let app = launchApp(["--companion-preview"] + (differs ? ["--companion-preview-model-difference"] : []))
+        for (arguments, differs, savedLabel): ([String], Bool, String) in [
+            ([], false, "Opus"),
+            (["--companion-preview-model-difference"], true, "Sonnet"),
+            (["--companion-preview-start-model"], true, "claude-sonnet-5-5"),
+            (["--companion-preview-model-alias"], false, "claude-opus-5-5")
+        ] {
+            let app = launchApp(["--companion-preview"] + arguments)
             let row = element(app, "agent-preview-studio-river")
             XCTAssertTrue(scrollTo(row, in: app))
             let composer = element(app, "companion-composer")
@@ -65,7 +70,7 @@ import XCTest
                 plainComposerHeight = region.frame.height
             }
             XCTAssertFalse(text(app, "Session: Opus").exists)
-            XCTAssertFalse(text(app, "Saved: Sonnet (next start)").exists)
+            XCTAssertFalse(text(app, "Saved: \(savedLabel) (next start)").exists)
             composer.tap()
             XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
 
@@ -76,7 +81,7 @@ import XCTest
             waitAndTap(model, until: sonnet)
             capture(app, differs ? "Session and Saved - Model submenu (preview)" : "Plain Model submenu - equal models (preview)")
             let status = app.descendants(matching: .any).matching(NSPredicate(
-                format: "label CONTAINS %@ AND label CONTAINS %@", "Session: Opus", "Saved: Sonnet (next start)"
+                format: "label CONTAINS %@ AND label CONTAINS %@", "Session: Opus", "Saved: \(savedLabel) (next start)"
             )).firstMatch
             XCTAssertEqual(status.exists, differs, app.debugDescription)
             if differs {
@@ -97,10 +102,10 @@ import XCTest
             waitAndTap(ring, until: element(app, "companion-context-reading-note"))
             XCTAssertTrue(scrollTo(picker, in: app))
             if differs {
-                XCTAssertTrue(picker.label.contains("Saved") && picker.label.contains("Sonnet") && picker.label.contains("(next start)"), picker.label)
+                XCTAssertTrue(picker.label.contains("Saved") && picker.label.contains(savedLabel) && picker.label.contains("(next start)"), picker.label)
                 XCTAssertTrue(element(app, "agent-settings-model-session").exists)
             } else {
-                XCTAssertTrue(picker.label.contains("Model") && picker.label.contains("Opus"), picker.label)
+                XCTAssertTrue(picker.label.contains("Model") && picker.label.contains(savedLabel), picker.label)
                 XCTAssertFalse(element(app, "agent-settings-model-session").exists)
             }
             XCTAssertFalse(picker.isEnabled, "Saved model changes remain locked while running")

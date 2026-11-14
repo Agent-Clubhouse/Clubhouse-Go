@@ -53,6 +53,24 @@ struct CompanionChatControlsDecodingTests {
 }
 
 struct CompanionChatControlsFoldingTests {
+    @Test func authoritativeStartModelSurvivesLiveChangesButNotAnotherRun() throws {
+        var controls = try #require(CompanionChatControls(snapshot: json(#"{"model":"opus","startModel":"opus"}"#)))
+        controls.apply(type: "model_changed", data: json(#"{"modelId":"sonnet"}"#))
+        #expect(controls.model == "sonnet" && controls.startModel == "opus")
+        controls.apply(type: "session_info", data: json(#"{"model":"sonnet"}"#))
+        #expect(controls.startModel == "opus")
+        controls.apply(type: "session_started", data: json(#"{"model":"sonnet"}"#))
+        #expect(controls.startModel == nil, "A new run waits for its authoritative snapshot, not the old baseline")
+        controls.apply(type: "model_changed", data: json(#"{"modelId":"opus"}"#))
+        #expect(controls.startModel == nil, "Bounded events must never invent a missing desktop baseline")
+        var projector = CompanionChatProjector()
+        projector.sessionID = "s1"
+        projector.controls = controls
+        projector.controls.startModel = "sonnet"
+        projector.apply(event("session_info", 1, session: "s2", #"{"model":"opus"}"#))
+        #expect(projector.controls.startModel == nil)
+    }
+
     @Test func sessionEventsFoldLikeTheDesktopChatStore() {
         var projector = CompanionChatProjector()
         projector.apply(event("session_started", 1, #"{"model":"opus","level":"plan","capabilities":{"modelSwitch":"live","effortSwitch":"per_turn","effortDefault":true,"liveLevels":["plan","ask"]}}"#))
@@ -122,6 +140,38 @@ struct CompanionChatControlsFoldingTests {
 }
 
 struct CompanionChatControlsPresentationTests {
+    @Test func sessionModelLineMatchesTheDesktopOpeningModelAndAliasCases() {
+        var controls = CompanionChatControls(model: "opus", startModel: "sonnet", models: [
+            .init(id: "opus", label: "Opus 5.5"), .init(id: "sonnet", label: "Sonnet 5.5")
+        ])
+        #expect(controls.modelDifference(savedModel: "sonnet") == .init(sessionLabel: "Opus 5.5", savedLabel: "Sonnet 5.5"))
+        #expect(controls.modelDifference(savedModel: "default") == .init(sessionLabel: "Opus 5.5", savedLabel: "Default model"))
+        #expect(controls.modelDifference(savedModel: nil) == .init(sessionLabel: "Opus 5.5", savedLabel: "Default model"))
+        #expect(controls.modelDifference(savedModel: "claude-sonnet-5-5", savedLabel: "Sonnet 5.5") == .init(sessionLabel: "Opus 5.5", savedLabel: "Sonnet 5.5"))
+        #expect(controls.modelDifference(savedModel: "opus") == nil, "Desktop nowAndNextStart omits an equal next-start label")
+
+        controls.startModel = "opus"
+        #expect(controls.modelDifference(savedModel: "claude-opus-5-5", savedLabel: "claude-opus-5-5") == nil,
+                "Desktop alias case: unchanged opus does not differ from its saved full ID")
+        #expect(controls.modelDifference(savedModel: "sonnet") != nil, "A saved edit remains provably different even without a session change")
+        controls.startModel = nil
+        #expect(controls.modelDifference(savedModel: "claude-sonnet-5-5") == nil, "Missing baseline retains conservative catalog proof")
+        controls.model = nil
+        #expect(controls.modelDifference(savedModel: "sonnet") == nil)
+        controls.model = ""
+        #expect(controls.modelDifference(savedModel: "sonnet") == nil)
+    }
+
+    @Test func sessionModelLineHandlesUnlistedModelsWithoutAddingAnAliasTable() {
+        let controls = CompanionChatControls(model: "custom-live", startModel: "custom-start")
+        #expect(controls.modelDifference(savedModel: "custom-start") == .init(sessionLabel: "custom-live", savedLabel: "custom-start"))
+        #expect(controls.modelDifference(savedModel: "custom-live") == nil)
+        let aliases = CompanionChatControls(model: "opus", models: [
+            .init(id: "opus", label: "Opus"), .init(id: "claude-opus-5-5", label: "Opus")
+        ])
+        #expect(aliases.modelDifference(savedModel: "claude-opus-5-5") == nil, "Equal display labels must not add a next-start line")
+    }
+
     @Test func sessionAndSavedModelsNeedDistinctExactCatalogChoices() {
         let controls = CompanionChatControls(model: "opus", models: [
             .init(id: "opus", label: "Opus"), .init(id: "sonnet", label: "Sonnet")

@@ -438,7 +438,10 @@ struct CompanionAgentSettingsForm: View {
                     .accessibilityIdentifier("agent-settings-model-session")
             }
             Picker(difference == nil ? "Model" : "Saved", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
-                ForEach(models) { Text(difference == nil ? $0.label : "\($0.label) (next start)").tag($0.id) }
+                ForEach(models) { option in
+                    let label = option.id == settings.model.value ? difference?.savedLabel ?? option.label : option.label
+                    Text(difference == nil ? label : "\(label) (next start)").tag(option.id)
+                }
             }
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
