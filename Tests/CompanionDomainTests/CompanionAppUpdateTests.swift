@@ -66,6 +66,23 @@ private actor UpdateDesktop: AnnexTransporting {
         update = value
         continuation?.yield(.message(.init(type: "app_update:changed", payload: value)))
     }
+    func floodProgressWithSnapshots(count: Int) throws {
+        guard case .object(var payload)? = try ContractFixtures.json("snapshot.json")["frame"]?["payload"] else {
+            throw AnnexTransportError.malformedResponse
+        }
+        payload["grantRequests"] = rows
+        for index in 0..<count {
+            let value = AnnexJSON.object(["state": .string("downloading"), "currentVersion": .string("1.0.0"),
+                "availableVersion": .string("1.1.0"), "downloadProgress": .number(Double(index) * 99 / Double(count - 1)),
+                "reason": .null, "request": .null])
+            try change(value)
+            continuation?.yield(.connection(.connected))
+            payload["appUpdate"] = value
+            var envelope = AnnexEnvelope(type: "snapshot", payload: .object(payload), epoch: epoch)
+            envelope.controlEpoch = epoch
+            continuation?.yield(.message(envelope))
+        }
+    }
     func setLostReply(_ value: Bool) { lostReply = value }
     func pauseCapabilities() { holdCapabilities = true }
     func releaseCapabilities() { holdCapabilities = false; capabilityGate?.resume(); capabilityGate = nil }
@@ -138,6 +155,7 @@ private actor UpdateDesktop: AnnexTransporting {
             let expected = try value.decode(AnnexAppUpdate.self)
             try await desktop.change(value)
             try await wait { store.hosts.first?.appUpdate == expected }
+            #expect(store.hosts.first?.hasAppUpdateAffordance == (expected.state == .available || expected.state == .downloading || expected.state == .ready))
             #expect(CompanionAppUpdateText.indicator(expected, desktop: "Studio Mac").contains("Studio Mac"))
             if let request = expected.request {
                 #expect(!CompanionAppUpdateText.requestState(request).isEmpty)
@@ -145,10 +163,52 @@ private actor UpdateDesktop: AnnexTransporting {
                 await store.cancelAppUpdate(hostID: Self.id)
                 #expect(await desktop.sent.count == before + (request.canCancel ? 1 : 0))
             }
+
         }
         try await desktop.change(.object(["state": .string("future")]))
         try await wait { store.hosts.first?.appUpdateError != nil }
         #expect(store.hosts.first?.appUpdate == nil)
+    }
+
+    @Test func progressFloodBypassesBlockedIconsAndQueuedSnapshotsCannotRegressIt() async throws {
+        let icons = CompanionIconStore()
+        let (service, store, desktop) = try await connect(iconStore: icons)
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        let (entered, enteredContinuation) = AsyncStream<Void>.makeStream()
+        let release = DispatchSemaphore(value: 0)
+        let blocker = Task.detached { await icons.qaHoldActor(entered: enteredContinuation, release: release) }
+        for await _ in entered { break }
+        defer { release.signal() }
+        try await desktop.snapshot()
+        try await Task.sleep(for: .milliseconds(50))
+        let start = ContinuousClock.now
+        try await desktop.floodProgressWithSnapshots(count: 512)
+        try await wait { store.hosts.first?.appUpdate?.downloadProgress == 99 }
+        #expect(start.duration(to: .now) < .seconds(1), "512 progress events and snapshots must reach the view model within one second, while icons are still blocked")
+        let latest = try #require(store.hosts.first?.appUpdate)
+        #expect(CompanionAppUpdateText.status(latest).contains("99%"))
+        #expect(store.hosts.first?.connection == .connected, "Coalescing must not overflow the bounded event queue")
+        release.signal()
+        await blocker.value
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(store.hosts.first?.appUpdate == latest, "Finishing the older snapshot cannot roll progress back")
+    }
+
+    @Test func inlineApprovalCorrelatesRequestVersionAndEpochInsteadOfSelectingAnUnrelatedGrant() throws {
+        var host = CompanionHost(id: "desktop", name: "Desktop", endpoint: "local", connection: .connected, projects: [])
+        host.canUpdateApp = true
+        host.controlEpoch = "epoch"
+        host.appUpdate = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["appUpdate"]).decode(AnnexAppUpdate.self)
+        let rows = try #require(ContractFixtures.json("snapshot-app-update-approval.json")["grantRequest"])
+        host.grantRequests = CompanionLiveService.grantRequests(from: .array([rows]), hostID: host.id, epoch: "epoch")
+        #expect(host.appUpdateApproval?.id == host.appUpdate?.request?.requestId)
+        host.controlEpoch = "other-epoch"
+        #expect(host.appUpdateApproval == nil)
+        host.controlEpoch = "epoch"
+        let request = try #require(host.appUpdate?.request)
+        host.appUpdate = .init(state: .ready, currentVersion: "1.0.0", availableVersion: "2.0.0",
+            request: .init(requestId: request.requestId, state: .pendingApproval, version: "2.0.0"))
+        #expect(host.appUpdateApproval == nil)
     }
 
     @Test func approvalRequiresModeAndNonUpdateAnswersStillUseTheOldShape() async throws {

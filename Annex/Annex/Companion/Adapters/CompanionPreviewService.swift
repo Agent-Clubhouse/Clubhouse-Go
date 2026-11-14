@@ -172,6 +172,17 @@ import ClubhouseTransport
                 hosts[0].controlEpoch = "preview-update-epoch"
                 hosts[0].dispatcher = Self.dispatcher(now: Date())
                 hosts[0].appUpdate = Self.previewAppUpdate()
+                if let raw = ProcessInfo.processInfo.environment["COMPANION_PREVIEW_APP_UPDATE_STATE"],
+                   let state = AnnexAppUpdate.State(rawValue: raw) {
+                    hosts[0].appUpdate = .init(state: state, currentVersion: "1.0.0",
+                        availableVersion: state == .none || state == .unsupported ? nil : "1.1.0",
+                        downloadProgress: state == .downloading ? 47.5 : state == .ready ? 100 : 0,
+                        reason: state == .unsupported ? "This installation cannot self-update." : nil)
+                }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-app-update-dispatcher-off") {
+                    hosts[0].dispatcher?.enabled = false
+                    hosts[0].dispatcher?.canToggle = true
+                }
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-report-only"),
                let project = hosts[0].projects.firstIndex(where: { $0.id == Self.sleepingTarget.projectID }),
@@ -791,6 +802,11 @@ import ClubhouseTransport
         guard showsAppUpdate else { throw previewError }
         sentHosts[0].grantRequests = []
         sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: requestID, state: .cancelled, version: "1.1.0"))
+        continuation?.yield(.hosts(sentHosts))
+    }
+    func setDispatcher(enabled: Bool, hostID: String, clientCommandID: String) async throws {
+        guard showsAppUpdate, let index = sentHosts.firstIndex(where: { $0.id == hostID }) else { throw previewError }
+        sentHosts[index].dispatcher?.enabled = enabled
         continuation?.yield(.hosts(sentHosts))
     }
     private static func previewAppUpdate(request: AnnexAppUpdate.Request? = nil) -> AnnexAppUpdate {

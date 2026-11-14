@@ -5,7 +5,7 @@ struct CompanionAppUpdateLink: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var body: some View {
-        if host.canUpdateApp {
+        if host.hasAppUpdateAffordance {
             NavigationLink {
                 CompanionAppUpdateView(store: store, hostID: host.id)
             } label: {
@@ -13,6 +13,18 @@ struct CompanionAppUpdateLink: View {
                       systemImage: "arrow.down.circle")
             }
             .accessibilityIdentifier("app-update-\(host.id)")
+        } else if host.canUpdateApp, let update = host.appUpdate {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(CompanionAppUpdateText.status(update))
+                    .accessibilityIdentifier("app-update-status")
+                if update.state != .none {
+                    Text("Running \(update.currentVersion)").font(.caption).foregroundStyle(.secondary)
+                }
+                if let reason = update.reason { Text(reason).font(.caption).foregroundStyle(.secondary) }
+            }
+        } else if host.canUpdateApp {
+            Text(host.appUpdateError ?? "Desktop update status is not available yet.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -20,7 +32,6 @@ struct CompanionAppUpdateLink: View {
 struct CompanionAppUpdateView: View {
     @Bindable var store: CompanionStore
     let hostID: String
-    @State private var confirmingRequest = false
     private var host: CompanionHost? { store.hosts.first { $0.id == hostID } }
     var body: some View {
         let notices = (store.decisionNotices[hostID] ?? []).filter { $0.target == nil }
@@ -29,8 +40,19 @@ struct CompanionAppUpdateView: View {
             if let host, host.canUpdateApp {
                 if let update = host.appUpdate {
                     Section {
-                        Text(CompanionAppUpdateText.indicator(update, desktop: host.name)).font(.headline)
-                        if update.state == .downloading { ProgressView(value: update.downloadProgress, total: 100) }
+                        Text(CompanionAppUpdateText.status(update)).font(.headline)
+                            .accessibilityIdentifier("app-update-status")
+                        Text("Running \(update.currentVersion) on \(host.name)").font(.subheadline).foregroundStyle(.secondary)
+                        if update.state == .downloading {
+                            ProgressView(value: update.downloadProgress, total: 100)
+                                .accessibilityIdentifier("app-update-progress")
+                        }
+                        if update.state == .downloading || update.state == .available {
+                            Text("Restart will be available when the download finishes.")
+                        }
+                        if update.state == .none {
+                            Text("No newer update is known. Check for updates on the desktop.")
+                        }
                         if let reason = update.reason { Text(reason) }
                         if let request = update.request {
                             Text(CompanionAppUpdateText.requestState(request))
@@ -38,7 +60,10 @@ struct CompanionAppUpdateView: View {
                             if let expires = request.expiresAt {
                                 Text("Deadline: \(expires)").font(.caption).foregroundStyle(.secondary)
                             }
-                            if request.canCancel {
+                            if request.state == .pendingApproval && host.appUpdateApproval == nil {
+                                ProgressView("Waiting for the desktop's interruption review…")
+                            }
+                            if request.canCancel && host.appUpdateApproval == nil {
                                 Button("Cancel update request", role: .destructive) {
                                     Task { await store.cancelAppUpdate(hostID: hostID) }
                                 }
@@ -46,19 +71,42 @@ struct CompanionAppUpdateView: View {
                                 .disabled(!host.connection.canOperate || store.appUpdateInFlight.contains(hostID))
                             }
                         }
-                        if update.canRequest {
-                            Button("Request update") { confirmingRequest = true }
+                        if update.canRequest, let version = update.availableVersion {
+                            if host.canRequestAppUpdate {
+                                Button("Restart to update to \(version)") {
+                                    Task { await store.requestAppUpdate(hostID: hostID) }
+                                }
+                                .buttonStyle(.borderedProminent).companionProminentLabel().controlSize(.large)
                                 .accessibilityIdentifier("app-update-request")
                                 .disabled(!host.connection.canOperate || store.appUpdateInFlight.contains(hostID))
+                            } else {
+                                Text("Requesting a restart needs the Dispatcher on and available. You can also use the desktop update banner.")
+                                if let dispatcher = host.dispatcher, !dispatcher.enabled {
+                                    if let blocker = dispatcher.turnOnBlocker { Text(blocker) }
+                                    else {
+                                        Button("Turn on Dispatcher") {
+                                            Task { await store.setDispatcher(enabled: true, hostID: hostID) }
+                                        }
+                                        .accessibilityIdentifier("app-update-enable-dispatcher")
+                                        .disabled(!host.connection.canOperate || store.dispatcherSwitching.contains(hostID))
+                                    }
+                                }
+                                if let error = store.dispatcherErrors[hostID] { Text(error).foregroundStyle(.red) }
+                            }
                         }
                         if let outcome = host.appUpdateOutcome { Text(outcome) }
+                    }
+                    if let approval = host.appUpdateApproval {
+                        Section("Restart to update to \(approval.update?.version ?? update.availableVersion ?? update.currentVersion)") {
+                            CompanionGrantRequestActions(request: approval, store: store, showsOpenChat: false)
+                        }
                     }
                     Section("Before restarting") {
                         Text(CompanionAppUpdateText.restart)
                         Text("Queued turns and messages still being delivered count as work. Headless runs end and do not resume. Terminal idle detection uses recent output, not a guarantee of task completion.")
                         Text(CompanionAppUpdateText.platform)
                         Text(CompanionAppUpdateText.pairing)
-                        Text("Requesting only asks for approval in Needs you. It does not check for or download updates, enable the Dispatcher, or run a paid prompt.")
+                        Text("Requesting shows your restart choices here. It does not check for or download updates, enable the Dispatcher, or run a paid prompt.")
                     }
                 }
                 if let error = store.appUpdateErrors[hostID] ?? host.appUpdateError {
@@ -70,12 +118,5 @@ struct CompanionAppUpdateView: View {
             }
         }
         .navigationTitle("Desktop update")
-        .alert("Request update on \(host?.name ?? "desktop")?", isPresented: $confirmingRequest) {
-            Button("Request update") { Task { await store.requestAppUpdate(hostID: hostID) } }
-                .disabled(host?.connection.canOperate != true || store.appUpdateInFlight.contains(hostID))
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This only creates an approval in Needs you. \(CompanionAppUpdateText.restart)")
-        }
     }
 }

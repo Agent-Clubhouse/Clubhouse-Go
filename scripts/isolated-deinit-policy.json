@@ -248,6 +248,8 @@
           "dispatcherMCPOff": "[ String : CompanionDispatcherMCPOff ]",
           "eventGenerations": "[ String : UUID ]",
           "eventTasks": "[ String : Task < Void , Never > ]",
+          "eventDrainTasks": "[ String : Task < Void , Never > ]",
+          "pendingEvents": "[ String : [ AnnexTransportEvent ] ]",
           "expiredCommandIDs": "Set < CompanionCommandKey >",
           "fullReviews": "[ CompanionTarget : [ String : ( reference : CompanionEventReference , digest : String , epoch : String ) ] ]",
           "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",
