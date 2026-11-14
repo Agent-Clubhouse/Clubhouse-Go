@@ -46,6 +46,10 @@ import Observation
     private var grantAnswerAttempts: [String: (answer: CompanionGrantRequest.Answer, mode: AnnexUpdateMode?, commandID: String)] = [:]
     private(set) var appUpdateInFlight: Set<String> = []
     private(set) var appUpdateErrors: [String: String] = [:]
+    private(set) var appUpdateChecksInFlight: Set<String> = []
+    private(set) var appUpdateCheckErrors: [String: String] = [:]
+    private var appUpdateCheckAttempts: [String: (epoch: String?, commandID: String)] = [:]
+    private var appUpdateChecksAlreadyRunning: [String: UUID] = [:]
     private(set) var decisionNotices: [String: [CompanionDecisionNotice]] = [:]
     private struct AppUpdateAttemptKey: Hashable {
         var hostID: String
@@ -131,6 +135,10 @@ import Observation
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
         appUpdateErrors.removeAll()
+        appUpdateChecksInFlight.removeAll()
+        appUpdateCheckErrors.removeAll()
+        appUpdateCheckAttempts.removeAll()
+        appUpdateChecksAlreadyRunning.removeAll()
         decisionNotices.removeAll()
         grantAnswerAttempts.removeAll()
         grantRequestsInFlight.removeAll()
@@ -138,6 +146,7 @@ import Observation
         grantRequestNotice = nil
         for index in hosts.indices {
             hosts[index].canUpdateApp = false
+            hosts[index].canCheckAppUpdate = false
             hosts[index].appUpdate = nil
             hosts[index].appUpdateError = nil
             hosts[index].appUpdateOutcome = nil
@@ -771,6 +780,46 @@ import Observation
         if let index = hosts.firstIndex(where: { $0.id == request.hostID }) { hosts[index].grantRequests.removeAll { $0.id == request.id } }
     }
 
+    func isAlreadyCheckingAppUpdate(hostID: String) -> Bool {
+        appUpdateChecksAlreadyRunning[hostID] != nil
+    }
+    func checkAppUpdate(hostID: String) async {
+        guard !isShutDown else { return }
+        guard let host = hosts.first(where: { $0.id == hostID }), host.canCheckAppUpdate else {
+            appUpdateCheckErrors[hostID] = "This desktop cannot check for updates from your phone."
+            return
+        }
+        guard host.connection.canOperate else {
+            appUpdateCheckErrors[hostID] = "Checking was blocked while reconnecting. Check again after the desktop reconnects."
+            return
+        }
+        guard !appUpdateChecksInFlight.contains(hostID), !isAlreadyCheckingAppUpdate(hostID: hostID) else {
+            appUpdateCheckErrors[hostID] = "Already checking."
+            return
+        }
+        let attempt = appUpdateCheckAttempts[hostID] ?? (epoch: host.controlEpoch, commandID: UUID().uuidString)
+        appUpdateCheckAttempts[hostID] = attempt
+        appUpdateChecksInFlight.insert(hostID)
+        appUpdateCheckErrors[hostID] = nil
+        defer { appUpdateChecksInFlight.remove(hostID) }
+        do {
+            try await service.checkAppUpdate(hostID: hostID, clientCommandID: attempt.commandID)
+            if appUpdateCheckAttempts[hostID]?.commandID == attempt.commandID {
+                appUpdateCheckAttempts[hostID] = nil
+            }
+        } catch {
+            guard appUpdateCheckAttempts[hostID]?.commandID == attempt.commandID,
+                  let current = hosts.first(where: { $0.id == hostID }), current.controlEpoch == attempt.epoch else { return }
+            if error is CompanionAppUpdateCheckRunning {
+                appUpdateChecksAlreadyRunning[hostID] = current.appUpdateEventRevision
+            }
+            switch error {
+            case CompanionServiceError.uncertain: break
+            default: appUpdateCheckAttempts[hostID] = nil
+            }
+            appUpdateCheckErrors[hostID] = error.localizedDescription
+        }
+    }
     func requestAppUpdate(hostID: String) async {
         let action = CompanionDecisionNotice.Action.requestUpdate
         guard let host = appUpdateHost(hostID: hostID, action: action) else { return }
@@ -1394,7 +1443,20 @@ import Observation
                     grantRequestErrors = grantRequestErrors.filter { !$0.key.hasPrefix(prefix) }
                     appUpdateErrors[host.id] = nil
                 }
+                let previous = hosts.first { $0.id == host.id }
+                if previous?.controlEpoch != host.controlEpoch || !host.canCheckAppUpdate {
+                    appUpdateCheckAttempts[host.id] = nil
+                    appUpdateChecksAlreadyRunning[host.id] = nil
+                    appUpdateCheckErrors[host.id] = nil
+                } else if let revision = appUpdateChecksAlreadyRunning[host.id], revision != host.appUpdateEventRevision {
+                    appUpdateChecksAlreadyRunning[host.id] = nil
+                    appUpdateCheckErrors[host.id] = nil
+                }
             }
+            let incomingIDs = Set(incoming.map(\.id))
+            appUpdateCheckAttempts = appUpdateCheckAttempts.filter { incomingIDs.contains($0.key) }
+            appUpdateChecksAlreadyRunning = appUpdateChecksAlreadyRunning.filter { incomingIDs.contains($0.key) }
+            appUpdateCheckErrors = appUpdateCheckErrors.filter { incomingIDs.contains($0.key) }
             reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }

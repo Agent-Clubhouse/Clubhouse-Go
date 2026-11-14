@@ -13,6 +13,7 @@ import ClubhouseTransport
         let store = CompanionStore(service: CompanionPreviewService())
         var host = CompanionHost(id: "fixture", name: "Studio", endpoint: "local", connection: .connected, projects: [])
         host.canUpdateApp = true
+        host.canCheckAppUpdate = true
         let values = try fixture("app-update-statuses")["values"].arrayValue
         XCTAssertFalse(values.isEmpty)
         var states = Set<String>()
@@ -87,6 +88,35 @@ import ClubhouseTransport
             XCTAssertEqual(store.hosts.first?.appUpdate?.request?.state,
                            mode == nil ? .cancelled : mode == .now ? .restarting : .waitingForIdle)
         }
+
+    }
+
+    func testCheckingFlowsIntoLiveDownloadAndReadyInTheHostedViewWithoutCreatingAnApproval() async throws {
+        let service = CompanionPreviewService()
+        service.showsAppUpdate = true
+        service.appUpdateInitialState = AnnexAppUpdate.State.none
+        let store = CompanionStore(service: service)
+        store.start()
+        defer { store.stop() }
+        try await wait { store.hosts.first?.appUpdate?.state == AnnexAppUpdate.State.none }
+        let host = try XCTUnwrap(store.hosts.first)
+        XCTAssertTrue(host.canCheckAppUpdate)
+        let checking = Task { await store.checkAppUpdate(hostID: host.id) }
+        try await wait { store.appUpdateChecksInFlight.contains(host.id) }
+        let controller = UIHostingController(rootView: CompanionAppUpdateView(store: store, hostID: host.id))
+        XCTAssertGreaterThan(controller.sizeThatFits(in: CGSize(width: 320, height: 874)).height, 44)
+        for _ in 0..<300 {
+            if store.hosts.first?.appUpdate?.state == .downloading { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(store.hosts.first?.appUpdate?.state, .downloading)
+        XCTAssertTrue(store.appUpdateChecksInFlight.contains(host.id))
+        XCTAssertNil(store.hosts.first?.appUpdateApproval)
+        await checking.value
+        XCTAssertEqual(store.hosts.first?.appUpdate?.state, .ready)
+        XCTAssertEqual(store.hosts.first?.appUpdate?.downloadProgress, 100)
+        XCTAssertTrue(store.appUpdateChecksInFlight.isEmpty)
+        XCTAssertNil(store.hosts.first?.appUpdateApproval)
     }
 
     private func wait(_ condition: () -> Bool) async throws {

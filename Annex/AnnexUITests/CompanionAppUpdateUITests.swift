@@ -1,9 +1,11 @@
 import XCTest
 
 @MainActor final class CompanionAppUpdateUITests: ReliableUITestCase {
-    private func openUpdate(state: String = "ready", dispatcherOff: Bool = false) -> XCUIApplication {
+    private func openUpdate(state: String = "ready", dispatcherOff: Bool = false, supportsCheck: Bool = true, checkRunning: Bool = false) -> XCUIApplication {
         let app = launchApp(["--companion-preview", "--companion-preview-app-update"]
-            + (dispatcherOff ? ["--companion-preview-app-update-dispatcher-off"] : []),
+            + (dispatcherOff ? ["--companion-preview-app-update-dispatcher-off"] : [])
+            + (supportsCheck ? [] : ["--companion-preview-app-update-no-check"])
+            + (checkRunning ? ["--companion-preview-app-update-check-running"] : []),
             environment: ["COMPANION_PREVIEW_APP_UPDATE_STATE": state])
         waitAndTap(app.tabBars.buttons["Home"], until: app.navigationBars["Clubhouse"])
         if state == "none" || state == "unsupported" {
@@ -78,7 +80,7 @@ import XCTest
             let status = app.staticTexts["app-update-status"]
             XCTAssertTrue(status.exists)
             XCTAssertFalse(app.buttons["app-update-request"].exists)
-            XCTAssertFalse(app.buttons["Check for updates"].exists)
+            XCTAssertEqual(app.buttons["app-update-check"].exists, state == "none" || state == "available")
             switch state {
             case "downloading":
                 XCTAssertTrue(status.label.contains("47.5%"))
@@ -116,9 +118,43 @@ import XCTest
         XCTAssertTrue(app.buttons["Forget desktop"].waitForExistence(timeout: 5))
         if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
         else {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+            app.navigationBars["Settings"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
             XCTAssertTrue(app.buttons["Forget desktop"].waitForNonExistence(timeout: 5))
         }
         XCTAssertTrue(app.staticTexts["app-update-status"].exists, "Cancelling forget retains the desktop")
+    }
+
+    func testCheckFlowsThroughLiveDownloadToRestartAndOwnReview() {
+        let app = openUpdate(state: "none")
+        waitAndTap(app.buttons["app-update-check"], until: app.buttons["Checking…"])
+        XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
+        attach(app, "Desktop update - checking")
+        let indicator = app.buttons["app-update-preview-studio"]
+        XCTAssertTrue(indicator.waitForExistence(timeout: 10))
+        waitAndTap(indicator, until: app.navigationBars["Desktop update"])
+        XCTAssertTrue(app.progressIndicators["app-update-progress"].exists)
+        XCTAssertFalse(app.buttons["app-update-check"].exists)
+        attach(app, "Desktop update - live check download")
+        let restart = app.buttons["app-update-request"]
+        XCTAssertTrue(restart.waitForExistence(timeout: 15))
+        XCTAssertEqual(restart.label, "Restart to update to 1.1.0")
+        waitAndTap(restart, until: app.staticTexts["app-update-working-agents"])
+        XCTAssertTrue(scrollTo(app.buttons["app-update-decline"], in: app))
+        XCTAssertTrue(app.buttons["app-update-restart-now"].exists)
+        XCTAssertTrue(app.buttons["app-update-restart-when-idle"].exists)
+        XCTAssertTrue(app.navigationBars["Desktop update"].exists)
+    }
+
+    func testOlderDesktopHidesCheckAndAlreadyCheckingIsDisabled() {
+        for state in ["none", "available"] {
+            let app = openUpdate(state: state, supportsCheck: false)
+            XCTAssertFalse(app.buttons["app-update-check"].exists)
+            attach(app, "Desktop update - older host \(state)")
+        }
+        let app = openUpdate(state: "none", checkRunning: true)
+        waitAndTap(app.buttons["app-update-check"], until: app.buttons["Already checking"])
+        XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
+        XCTAssertEqual(app.staticTexts["app-update-check-error"].label, "A desktop update check is already running.")
+        attach(app, "Desktop update - already checking")
     }
 }

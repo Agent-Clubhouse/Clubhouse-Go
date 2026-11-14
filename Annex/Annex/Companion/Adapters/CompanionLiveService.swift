@@ -53,6 +53,7 @@ import ClubhouseTransport
     private var requestedUpdateVersions: [String: String] = [:]
     private var updateEpochChanged: Set<String> = []
     private var snapshotEpochs: [String: String] = [:]
+    private var appUpdateCheckRevisions: [CompanionCommandKey: UUID] = [:]
     private var pendingEvents: [String: [AnnexTransportEvent]] = [:]
     private var eventDrainTasks: [String: Task<Void, Never>] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
@@ -661,6 +662,30 @@ import ClubhouseTransport
     func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
         try await appUpdateCommand(.cancelAppUpdate(requestID: requestID), hostID: hostID, id: clientCommandID)
     }
+    func checkAppUpdate(hostID: String, clientCommandID: String) async throws {
+        guard capabilities[hostID]?.supportsAppUpdateCheck == true else {
+            throw CompanionServiceError.unavailable("This desktop cannot check for updates from your phone.")
+        }
+        let epoch = capabilities[hostID]?.epoch
+        let generation = eventGenerations[hostID]
+        let key = CompanionCommandKey(hostID: hostID, commandID: clientCommandID)
+        let revision = appUpdateCheckRevisions[key] ?? hosts[hostID]?.appUpdateRevision
+        appUpdateCheckRevisions[key] = revision
+        let receipt = try await execute(.checkAppUpdate, id: clientCommandID, hostID: hostID, validateReceipt: false)
+        guard eventGenerations[hostID] == generation, capabilities[hostID]?.epoch == epoch else {
+            throw CompanionServiceError.rejected("The desktop connection changed. Refresh its update status.")
+        }
+        if receipt.error?.code == "update_check_running" {
+            throw CompanionAppUpdateCheckRunning(message: receipt.error?.message ?? "An update check is already running.")
+        }
+        if let error = Self.receiptError(receipt) { throw error }
+        guard let result = receipt.result else { throw AnnexTransportError.malformedResponse }
+        _ = try result.decode(AnnexAppUpdate.self)
+        if hosts[hostID]?.appUpdateRevision == revision {
+            applyAppUpdate(result, hostID: hostID)
+            emitHosts()
+        }
+    }
     private func appUpdateCommand(_ kind: AnnexCommand.Kind, hostID: String, id: String) async throws {
         guard capabilities[hostID]?.supportsAppUpdate == true else {
             throw CompanionServiceError.unavailable("This desktop cannot apply updates from your phone.")
@@ -845,6 +870,7 @@ import ClubhouseTransport
         dispatcherFlags.removeValue(forKey: hostID)
         dispatcherMCPOff.removeValue(forKey: hostID)
         requestedUpdateVersions.removeValue(forKey: hostID)
+        appUpdateCheckRevisions = appUpdateCheckRevisions.filter { $0.key.hostID != hostID }
         snapshotEpochs.removeValue(forKey: hostID)
         updateEpochChanged.remove(hostID)
         projections = projections.filter { $0.key.hostID != hostID }
@@ -870,9 +896,11 @@ import ClubhouseTransport
         requestedUpdateVersions.removeAll()
         updateEpochChanged.removeAll()
         snapshotEpochs.removeAll()
+        appUpdateCheckRevisions.removeAll()
         resolvedGrantRequests.removeAll()
         for id in hosts.keys {
             hosts[id]?.canUpdateApp = false
+            hosts[id]?.canCheckAppUpdate = false
             hosts[id]?.appUpdate = nil
             hosts[id]?.appUpdateError = nil
             hosts[id]?.appUpdateOutcome = nil
@@ -939,7 +967,7 @@ import ClubhouseTransport
         if case .message(let envelope) = event, let payload = envelope.payload {
             switch envelope.type {
             case "app_update:changed":
-                applyAppUpdate(payload, hostID: hostID)
+                applyAppUpdate(payload, hostID: hostID, isEvent: true)
                 emitHosts()
                 return
             case "snapshot":
@@ -1281,6 +1309,7 @@ import ClubhouseTransport
                 capabilities[hostID] = newCapabilities
                 if let epoch = newCapabilities?.epoch { hosts[hostID]?.controlEpoch = epoch }
                 hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
+                hosts[hostID]?.canCheckAppUpdate = newCapabilities?.supportsAppUpdateCheck == true
                 reconcileUpdateOutcome(hostID: hostID)
                 hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
                 hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
@@ -1387,7 +1416,9 @@ import ClubhouseTransport
         }
     }
 
-    private func applyAppUpdate(_ value: AnnexJSON?, hostID: String) {
+    private func applyAppUpdate(_ value: AnnexJSON?, hostID: String, isEvent: Bool = false) {
+        hosts[hostID]?.appUpdateRevision = UUID()
+        if isEvent { hosts[hostID]?.appUpdateEventRevision = UUID() }
         guard let value else { hosts[hostID]?.appUpdate = nil; return }
         do {
             let update = try value.decode(AnnexAppUpdate.self)

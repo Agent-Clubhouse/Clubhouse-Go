@@ -26,6 +26,10 @@
         },
         "properties": {
           "appUpdateAttempts": "[ AppUpdateAttemptKey : AppUpdateAttempt ]",
+          "appUpdateCheckAttempts": "[ String : ( epoch : String ? , commandID : String ) ]",
+          "appUpdateCheckErrors": "[ String : String ]",
+          "appUpdateChecksAlreadyRunning": "[ String : UUID ]",
+          "appUpdateChecksInFlight": "Set < String >",
           "appUpdateErrors": "[ String : String ]",
           "appUpdateInFlight": "Set < String >",
           "attachmentDrafts": "[ CompanionTarget : [ CompanionImageAttachment ] ]",
@@ -240,6 +244,7 @@
           }
         },
         "properties": {
+          "appUpdateCheckRevisions": "[ CompanionCommandKey : UUID ]",
           "buffers": "[ CompanionTarget : [ AnnexJSON ] ]",
           "capabilities": "[ String : AnnexCapabilities ]",
           "consumedHelperRequests": "Set < String >",
@@ -467,6 +472,7 @@
         "nestedValueProperties": {},
         "properties": {
           "continuation": "AsyncStream < CompanionEvent > . Continuation ?",
+          "appUpdateInitialState": "AnnexAppUpdate . State ?",
           "editedHelperPresets": "CompanionHelperRouting ?",
           "pinnedDecisionStep": "Int ?",
           "sentHosts": "[ CompanionHost ]",

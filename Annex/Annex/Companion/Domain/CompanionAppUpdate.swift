@@ -41,11 +41,17 @@ nonisolated enum CompanionAppUpdateText {
 
 }
 
+nonisolated struct CompanionAppUpdateCheckRunning: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
 extension CompanionHost {
     var hasAppUpdateAffordance: Bool {
         guard canUpdateApp, let state = appUpdate?.state else { return false }
         return state == .available || state == .downloading || state == .ready
     }
+
     var appUpdateApproval: CompanionGrantRequest? {
         guard canUpdateApp, let request = appUpdate?.request, request.state == .pendingApproval else { return nil }
         return grantRequests.first {

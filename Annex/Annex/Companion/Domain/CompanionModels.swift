@@ -114,7 +114,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var grantRequests: [CompanionGrantRequest] = []
     var controlEpoch: String?
     var canUpdateApp = false
+    var canCheckAppUpdate = false
     var appUpdate: AnnexAppUpdate?
+    var appUpdateRevision = UUID()
+    var appUpdateEventRevision = UUID()
     var appUpdateError: String?
     var appUpdateOutcome: String?
     /// The desktop offers `projectState` v1 with `project.setPinned` and `project.setInactive`.
@@ -918,6 +921,7 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, clientCommandID: String) async throws
     func answerGrantRequest(_ request: CompanionGrantRequest, answer: CompanionGrantRequest.Answer, updateMode: AnnexUpdateMode?, clientCommandID: String) async throws
     func requestAppUpdate(hostID: String, clientCommandID: String) async throws
+    func checkAppUpdate(hostID: String, clientCommandID: String) async throws
     func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws
     /// The project root's uncommitted files. Read-only.
     func changes(for project: CompanionProjectTarget) async throws -> CompanionChanges
@@ -1049,6 +1053,9 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     }
     func requestAppUpdate(hostID: String, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop cannot request updates from your phone.")
+    }
+    func checkAppUpdate(hostID: String, clientCommandID: String) async throws {
+        throw CompanionServiceError.unavailable("This desktop cannot check for updates from your phone.")
     }
     func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
         throw CompanionServiceError.unavailable("This desktop cannot cancel updates from your phone.")

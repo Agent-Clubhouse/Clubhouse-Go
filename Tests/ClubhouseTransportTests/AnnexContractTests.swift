@@ -12,7 +12,8 @@ import Testing
         "commands/quick.dismiss.json", "commands/quick.clear.json", "commands/dispatcher.setEnabled.json", "commands/helperRouting.update.json",
         "commands/agent.providerPreview.json", "commands/agent.providerChange.json", "commands/grant.answer.json",
         "commands/dispatcher.update.json", "commands/dispatcher.setModels.json", "commands/dispatcher.clearChat.json",
-        "commands/dispatcher.forgetEverything.json", "commands/app.update.request.json", "commands/app.update.cancel.json"
+        "commands/dispatcher.forgetEverything.json", "commands/app.update.request.json", "commands/app.update.cancel.json",
+        "commands/app.update.check.json"
     ]
     private static var commandTypes: [String] {
         commandFiles.map { String($0.dropFirst("commands/".count).dropLast(".json".count)) }
@@ -304,6 +305,7 @@ import Testing
             .answerGrant(requestID: id, answer: $0, updateMode: s("updateMode").flatMap(AnnexUpdateMode.init(rawValue:)))
         } }
         case "app.update.request": return .requestAppUpdate
+        case "app.update.check": return .checkAppUpdate
         case "app.update.cancel": return s("requestId").map { .cancelAppUpdate(requestID: $0) }
         default: return nil
         }
@@ -359,6 +361,7 @@ import Testing
             .forgetDispatcherEverything(expectedState: "opaque"),
             .answerGrant(requestID: "grant_r", answer: .allowLasting),
             .requestAppUpdate,
+            .checkAppUpdate,
             .cancelAppUpdate(requestID: "grant_r"),
             .updateHelperRouting(.init(revision: "r", cells: [.init(provider: "codex-cli", difficulty: "easy", model: "m", effort: nil)], reset: .init(provider: "codex-cli", difficulty: "easy"))),
         ]

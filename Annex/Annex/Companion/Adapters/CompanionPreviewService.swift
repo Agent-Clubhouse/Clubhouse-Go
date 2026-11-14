@@ -38,6 +38,7 @@ import ClubhouseTransport
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
     private var sentHosts: [CompanionHost] = []
+    var appUpdateInitialState: AnnexAppUpdate.State? = ProcessInfo.processInfo.environment["COMPANION_PREVIEW_APP_UPDATE_STATE"].flatMap(AnnexAppUpdate.State.init(rawValue:))
     /// Settings > Dispatcher on its preview Dispatcher (`--companion-preview-dispatcher-settings`). Set before `events()`.
     var showsDispatcherSettings: Bool = {
         #if DEBUG
@@ -168,12 +169,12 @@ import ClubhouseTransport
             }
             if self.showsAppUpdate {
                 hosts[0].canUpdateApp = true
+                hosts[0].canCheckAppUpdate = !ProcessInfo.processInfo.arguments.contains("--companion-preview-app-update-no-check")
                 hosts[0].canAnswerGrantRequests = true
                 hosts[0].controlEpoch = "preview-update-epoch"
                 hosts[0].dispatcher = Self.dispatcher(now: Date())
                 hosts[0].appUpdate = Self.previewAppUpdate()
-                if let raw = ProcessInfo.processInfo.environment["COMPANION_PREVIEW_APP_UPDATE_STATE"],
-                   let state = AnnexAppUpdate.State(rawValue: raw) {
+                if let state = appUpdateInitialState {
                     hosts[0].appUpdate = .init(state: state, currentVersion: "1.0.0",
                         availableVersion: state == .none || state == .unsupported ? nil : "1.1.0",
                         downloadProgress: state == .downloading ? 47.5 : state == .ready ? 100 : 0,
@@ -797,6 +798,25 @@ import ClubhouseTransport
         sentHosts[0].grantRequests = [request]
         sentHosts[0].appUpdate = Self.previewAppUpdate(request: .init(requestId: request.id, state: .pendingApproval, version: "1.1.0"))
         continuation?.yield(.hosts(sentHosts))
+    }
+    func checkAppUpdate(hostID: String, clientCommandID: String) async throws {
+        guard showsAppUpdate, let index = sentHosts.firstIndex(where: { $0.id == hostID }),
+              sentHosts[index].canCheckAppUpdate, let update = sentHosts[index].appUpdate else { throw previewError }
+        if update.state == .downloading || update.state == .ready { return }
+        guard update.state != .unsupported else { throw CompanionServiceError.unavailable(update.reason ?? "Updates are unsupported.") }
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-app-update-check-running") {
+            throw CompanionAppUpdateCheckRunning(message: "A desktop update check is already running.")
+        }
+        try await Task.sleep(for: .seconds(3))
+        let version = update.availableVersion ?? "1.1.0"
+        for (state, progress, delay) in [(AnnexAppUpdate.State.downloading, 0.0, 4), (.downloading, 50.0, 1), (.ready, 100.0, 0)] {
+            sentHosts[index].appUpdate = .init(state: state, currentVersion: update.currentVersion,
+                                             availableVersion: version, downloadProgress: progress)
+            sentHosts[index].appUpdateRevision = UUID()
+            sentHosts[index].appUpdateEventRevision = UUID()
+            continuation?.yield(.hosts(sentHosts))
+            if delay > 0 { try await Task.sleep(for: .seconds(delay)) }
+        }
     }
     func cancelAppUpdate(hostID: String, requestID: String, clientCommandID: String) async throws {
         guard showsAppUpdate else { throw previewError }

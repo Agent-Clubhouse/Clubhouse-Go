@@ -1,6 +1,28 @@
 import SwiftUI
 import ClubhouseTransport
 
+struct CompanionAppUpdateCheckAction: View {
+    @Bindable var store: CompanionStore
+    let host: CompanionHost
+    var body: some View {
+        if host.canCheckAppUpdate, let update = host.appUpdate {
+            if update.state == .none || update.state == .available {
+                let checking = store.appUpdateChecksInFlight.contains(host.id)
+                let alreadyChecking = store.isAlreadyCheckingAppUpdate(hostID: host.id)
+                Button(alreadyChecking ? "Already checking" : checking ? "Checking…" : "Check for updates") {
+                    Task { await store.checkAppUpdate(hostID: host.id) }
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("app-update-check")
+                .disabled(!host.connection.canOperate || checking || alreadyChecking)
+            }
+            if let error = store.appUpdateCheckErrors[host.id] {
+                Text(error).foregroundStyle(.red).accessibilityIdentifier("app-update-check-error")
+            }
+        }
+    }
+}
+
 struct CompanionAppUpdateLink: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
@@ -21,6 +43,7 @@ struct CompanionAppUpdateLink: View {
                     Text("Running \(update.currentVersion)").font(.caption).foregroundStyle(.secondary)
                 }
                 if let reason = update.reason { Text(reason).font(.caption).foregroundStyle(.secondary) }
+                CompanionAppUpdateCheckAction(store: store, host: host)
             }
         } else if host.canUpdateApp {
             Text(host.appUpdateError ?? "Desktop update status is not available yet.")
@@ -51,8 +74,9 @@ struct CompanionAppUpdateView: View {
                             Text("Restart will be available when the download finishes.")
                         }
                         if update.state == .none {
-                            Text("No newer update is known. Check for updates on the desktop.")
+                            if !host.canCheckAppUpdate { Text("Check for updates on the desktop.") }
                         }
+                        CompanionAppUpdateCheckAction(store: store, host: host)
                         if let reason = update.reason { Text(reason) }
                         if let request = update.request {
                             Text(CompanionAppUpdateText.requestState(request))
@@ -60,6 +84,7 @@ struct CompanionAppUpdateView: View {
                             if let expires = request.expiresAt {
                                 Text("Deadline: \(expires)").font(.caption).foregroundStyle(.secondary)
                             }
+
                             if request.state == .pendingApproval && host.appUpdateApproval == nil {
                                 ProgressView("Waiting for the desktop's interruption review…")
                             }
