@@ -46,6 +46,7 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
         let now = try Date.ISO8601FormatStyle().parse("2026-11-14T08:05:00Z")
         #expect(remote.machineId == "remote" && remote.address == "dispatcher@office")
         #expect(remote.stateText(now: now).hasPrefix("Offline, last seen "))
+        #expect(remote.detailText(now: now).hasPrefix("Offline · Link active\nlast seen "))
         for (state, word) in [("online", "Online"), ("working", "Working"), ("asleep", "Asleep"),
                               ("off", "Off"), ("unknown", "Unknown"), ("future", "Unknown")] {
             remote.state = state
@@ -90,7 +91,7 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
             #expect(rows.first?.desktop?.target == desktop.target, "Pairing retains selection authority")
             #expect(rows.first?.presence?.state == "offline")
             #expect(rows.first?.label == "Navi on Office Mac")
-            #expect(rows.first?.accessibilityLabel.contains("Offline, last seen") == true)
+            #expect(rows.first?.accessibilityLabel.contains("last seen") == true)
             #expect(rows.first?.accessibilityLabel.contains("Link active") == true)
             #expect(rows.first?.accessibilityLabel.contains("dispatcher@office") == false)
         }

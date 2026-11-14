@@ -33,13 +33,25 @@ struct CompanionDispatcherPresence: Decodable, Equatable, Sendable {
             case "asleep": return "Asleep"
             case "off": return "Off"
             case "offline":
-                guard let lastSeen,
-                      let date = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(lastSeen))
-                        ?? (try? Date.ISO8601FormatStyle().parse(lastSeen)) else { return "Offline" }
-                let relative = RelativeDateTimeFormatter().localizedString(for: date, relativeTo: now)
-                return "Offline, last seen \(relative)"
+                return lastSeenText(now: now).map { "Offline, \($0)" } ?? "Offline"
             default: return "Unknown"
             }
+        }
+
+        func detailText(now: Date = Date()) -> String {
+            if let seen = lastSeenText(now: now) {
+                return "Offline · \(link.text)\n\(seen)"
+            }
+            return "\(stateText(now: now)) · \(link.text)"
+        }
+
+        private func lastSeenText(now: Date) -> String? {
+            guard state == "offline", let lastSeen,
+                  let date = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(lastSeen))
+                    ?? (try? Date.ISO8601FormatStyle().parse(lastSeen)) else { return nil }
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .abbreviated
+            return "last seen \(formatter.localizedString(for: date, relativeTo: now))"
         }
 
         var symbol: String {
@@ -62,7 +74,7 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
     var desktop: CompanionDispatcherDesktop?
     var presence: CompanionDispatcherPresence.Remote?
     var label: String { presence?.label ?? desktop?.accessibilityLabel ?? CompanionDispatcher.name }
-    var detail: String? { presence.map { "\($0.stateText()) · \($0.link.text)" } }
+    var detail: String? { presence?.detailText() }
     var accessibilityLabel: String { [label, detail].compactMap { $0 }.joined(separator: ", ") }
 
     static func rows(desktops: [CompanionDispatcherDesktop], hosts: [CompanionHost]) -> [Self] {

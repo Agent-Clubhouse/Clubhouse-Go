@@ -38,13 +38,17 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         add(attachment)
     }
 
-    private func assertMachineSubtitles(_ app: XCUIApplication) throws {
-        // Menu buttons combine their accessibility children; OCR checks the visible subtitles.
+    private func visibleText(_ app: XCUIApplication) throws -> [String] {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
         try VNImageRequestHandler(cgImage: XCTUnwrap(app.screenshot().image.cgImage)).perform([request])
-        let text = try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
+        return try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
+    }
+
+    private func assertMachineSubtitles(_ app: XCUIApplication) throws {
+        // Menu buttons combine their accessibility children; OCR checks the visible subtitles.
+        let text = try visibleText(app)
         XCTAssertTrue(text.contains("Studio Mac"), "The menu renders the Studio machine subtitle")
         XCTAssertTrue(text.contains("Travel MacBook"), "The selected entry also renders its machine subtitle")
     }
@@ -278,19 +282,23 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
-    func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() {
+    func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         XCTAssertTrue(switcher.waitForExistence(timeout: 15), "One paired Dispatcher plus remotes still has a chooser")
         let office = app.buttons["dispatcher-remote-preview-office"]
         waitAndTap(switcher, until: office)
-        XCTAssertTrue(office.label.hasPrefix("Atlas on Office Mac, Offline, last seen "))
+        XCTAssertTrue(office.label.hasPrefix("Atlas on Office Mac, Offline · Link unavailable"))
+        XCTAssertTrue(office.label.contains("last seen "))
         XCTAssertTrue(office.label.contains("Link unavailable"))
         XCTAssertFalse(office.isEnabled, "An unpaired Dispatcher cannot be selected")
         let mini = app.buttons["dispatcher-remote-preview-mini"]
         XCTAssertEqual(mini.label, "Navi on Mac mini, Asleep · Link paused")
         XCTAssertFalse(mini.isEnabled)
         XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Off · Link active")
+        let visible = try visibleText(app).joined(separator: " ")
+        XCTAssertTrue(visible.contains("Link unavailable"), "The native menu must not truncate the offline row's link state")
+        XCTAssertTrue(visible.contains("last seen"), "Last seen remains visible alongside the link state")
         screenshot(app, "Other computers' Dispatchers")
     }
 
