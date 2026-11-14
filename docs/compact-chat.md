@@ -75,7 +75,9 @@ in v1 chat snapshots/pages. The desktop folds the full session to produce it; Go
 whatever bounded history happens to arrive. Live model changes preserve the authoritative baseline;
 a new session/run clears it and requests one current-chat page with a one-event limit for a previously loaded
 target. The response supplies only the authoritative baseline and cannot replace newer live models/lists.
-Session/run, history-read and host-connection keys discard stale replies. Missing/null baselines and failed reads
+Session/run, history-read and host-connection keys discard stale replies. The connection key changes on transport
+disconnect/reconnect and resync events, even when automatic reconnect retains the same event subscription;
+duplicate connected snapshots on the same socket do not invalidate it. Missing/null baselines and failed reads
 never start a retry loop; failures expose the existing conversation resync/Refresh path.
 A moved session can name a saved full ID
 or "Default model" for the next start without guessing the provider's resolved default.

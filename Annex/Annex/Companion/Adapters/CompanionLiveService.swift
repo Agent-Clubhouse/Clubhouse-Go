@@ -14,6 +14,7 @@ import ClubhouseTransport
     private var knownCapabilities: Set<String> = []
     private var projections: [CompanionTarget: CompanionChatProjector] = [:]
     private var fullReviews: [CompanionTarget: [String: (reference: CompanionEventReference, digest: String, epoch: String)]] = [:]
+    /// Gates connection-scoped reads across disconnects, transport resyncs and desktop epoch changes.
     private var reviewGenerations: [String: UUID] = [:]
     private var readOnly: Set<CompanionTarget> = []
     private var eventTasks: [String: Task<Void, Never>] = [:]
@@ -1392,7 +1393,8 @@ import ClubhouseTransport
 
     private func scheduleStartModelRefresh(for target: CompanionTarget, projection: CompanionChatProjector) {
         guard !isSuspended, capabilities[target.hostID]?.supportsModelSwitch == true,
-              let generation = eventGenerations[target.hostID], let historyGeneration = historyGenerations[target],
+              eventGenerations[target.hostID] != nil,
+              let generation = reviewGenerations[target.hostID], let historyGeneration = historyGenerations[target],
               projection.controls.startModel == nil, let session = projection.sessionID,
               let startSequence = projection.sessionStartSequence else { return }
         Task { [weak self] in
@@ -1403,13 +1405,13 @@ import ClubhouseTransport
 
     private func refreshStartModel(for target: CompanionTarget, sessionID: String, startSequence: Int,
                                    connectionGeneration: UUID, historyGeneration: UUID) async {
-        guard !isSuspended, eventGenerations[target.hostID] == connectionGeneration, let transport = transports[target.hostID],
+        guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, let transport = transports[target.hostID],
               historyGenerations[target] == historyGeneration,
               let previous = projections[target], previous.sessionID == sessionID,
               previous.sessionStartSequence == startSequence, previous.controls.startModel == nil else { return }
         do {
             let snapshot = try await transport.read(.chatHistory(agentID: target.agentID, sessionID: nil, beforeSeq: nil, limit: 1))
-            guard !isSuspended, eventGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
+            guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
                   hosts[target.hostID]?.agent(for: target) != nil,
                   var projection = projections[target], projection.sessionID == sessionID,
                   projection.sessionStartSequence == startSequence, projection.controls.startModel == nil else { return }
@@ -1425,7 +1427,7 @@ import ClubhouseTransport
             emitHosts()
         } catch is CancellationError {
         } catch {
-            guard !isSuspended, eventGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
+            guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
                   projections[target]?.sessionID == sessionID, projections[target]?.sessionStartSequence == startSequence else { return }
             emit(.resyncRequired(hostID: target.hostID))
         }

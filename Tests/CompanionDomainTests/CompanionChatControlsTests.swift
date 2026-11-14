@@ -625,13 +625,14 @@ private actor ControlsTransport: AnnexTransporting {
         ])
     }
 
-    private func start() async throws -> LiveServiceHarness {
+    private func start(configure: (ScriptedAnnexTransport) async -> Void = { _ in }) async throws -> LiveServiceHarness {
         let harness = try await LiveServiceHarness.start { transport in
             await transport.setCapability("chatControls", .object(["version": .integer(1)]))
             await transport.addCommands(["chat.setModel", "chat.setLevel"])
             await transport.setAgents(.array([.object([
                 "id": .string("agent"), "name": .string("Agent"), "status": .string("running"), "executionMode": .string("chat")
             ])]))
+            await configure(transport)
         }
         try await harness.loadSession(LiveServiceHarness.chatSnapshot(fields: ["chatControls": controls("opus", "opus")]))
         try await harness.waitUntil { harness.store.agent(for: harness.target)?.chatControls?.startModel == "opus" }
@@ -643,6 +644,78 @@ private actor ControlsTransport: AnnexTransporting {
             "agentId": .string("agent"), "event": event
         ]))))
         try await harness.waitUntil { harness.store.conversation(for: harness.target).lastSequence == event["seq"]?.integer.map(Int.init) }
+    }
+
+    @Test func automaticReconnectDiscardsPendingBaselineFromEarlierConnection() async throws {
+        let harness = try await start { transport in
+            await transport.setFeature("agentState", .object(["version": .integer(1)]))
+            await transport.setRead("other", .object(["agents": .array([.object([
+                "agentId": .string("agent"), "status": .string("running"), "sessionState": .string("idle")
+            ])])]))
+        }
+        defer { harness.stop() }
+        await harness.transport.pauseNextRead("chatHistory")
+        await harness.transport.setRead("chatHistory", LiveServiceHarness.chatSnapshot(fields: [
+            "chatControls": controls("sonnet", "sonnet")
+        ]))
+        try await emit(LiveServiceHarness.chatEvent("s1", sequence: 2, type: "session_started", data: [
+            "model": .string("sonnet")
+        ]), to: harness)
+        try await harness.waitUntil { await harness.transport.isReadPaused("chatHistory") }
+        await harness.transport.emit(.connection(.reconnecting(attempt: 1, delaySeconds: 0)))
+        try await harness.waitUntil { harness.host?.connection == .reconnecting }
+        try await harness.refreshCatalog()
+        try await emit(LiveServiceHarness.chatEvent("s1", sequence: 4, type: "session_info", data: [
+            "model": .string("opus"), "models": try #require(controls("opus", "opus")["models"])
+        ]), to: harness)
+        await harness.transport.resumeRead("chatHistory")
+        try await Task.sleep(for: .milliseconds(100))
+        let live = try #require(harness.store.agent(for: harness.target)?.chatControls)
+        #expect(live.model == "opus")
+        #expect(live.startModel == nil, "An earlier connection's delayed read cannot restore its baseline after automatic reconnect")
+        #expect(live.modelDifference(savedModel: "claude-opus-5-5", savedLabel: "Opus 5.5") == nil,
+                "An obsolete sonnet baseline must not create a false alias/full-ID difference")
+        #expect(await harness.transport.subscriptionCount == 1, "Automatic reconnect retains the original subscription")
+    }
+
+    @Test(arguments: ["reconnecting", "resync", "snapshot"])
+    func pendingBaselineTracksConnectionChangesRatherThanSubscriptionIdentity(change: String) async throws {
+        let harness = try await start { transport in
+            await transport.setFeature("agentState", .object(["version": .integer(1)]))
+            await transport.setRead("other", .object(["agents": .array([.object([
+                "agentId": .string("agent"), "status": .string("running"), "sessionState": .string("idle")
+            ])])]))
+        }
+        defer { harness.stop() }
+        await harness.transport.pauseNextRead("chatHistory")
+        await harness.transport.setRead("chatHistory", LiveServiceHarness.chatSnapshot(fields: [
+            "chatControls": controls("sonnet", "sonnet")
+        ]))
+        try await emit(LiveServiceHarness.chatEvent("s1", sequence: 2, type: "session_started", data: [
+            "model": .string("sonnet")
+        ]), to: harness)
+        try await harness.waitUntil { await harness.transport.isReadPaused("chatHistory") }
+        switch change {
+        case "reconnecting":
+            await harness.transport.emit(.connection(.reconnecting(attempt: 1, delaySeconds: 0)))
+            try await harness.waitUntil { harness.host?.connection == .reconnecting }
+        case "resync":
+            try await harness.refreshCatalog()
+        default:
+            await harness.transport.emit(.connection(.connected))
+        }
+        try await emit(LiveServiceHarness.chatEvent("s1", sequence: 4, type: "session_info", data: [
+            "model": .string("opus"), "models": try #require(controls("opus", "opus")["models"])
+        ]), to: harness)
+        await harness.transport.resumeRead("chatHistory")
+        try await Task.sleep(for: .milliseconds(100))
+        let live = try #require(harness.store.agent(for: harness.target)?.chatControls)
+        #expect(live.model == "opus")
+        #expect(live.startModel == (change == "snapshot" ? "sonnet" : nil),
+                "Either reconnecting or resync alone invalidates a read; a duplicate connected snapshot does not")
+        #expect(await harness.transport.subscriptionCount == 1)
+        #expect(await harness.transport.readRoutes.filter { $0.name == "chatHistory" }.count == 1,
+                "Invalidation does not launch another baseline read")
     }
 
     @Test(arguments: ["s1", "s2"])
