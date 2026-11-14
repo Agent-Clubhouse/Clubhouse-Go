@@ -356,9 +356,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         // The phone may confirm a persistent rule first.
         let confirm = app.buttons.matching(NSPredicate(format: "(label == 'Always allow' OR label BEGINSWITH 'Allow and don') AND NOT (identifier BEGINSWITH 'companion-approval-option')")).firstMatch
         if confirm.waitForExistence(timeout: 5) { confirm.tap() }
-        XCTAssertTrue(waitForMore(rules, than: rulesBefore), "Always allow must send the rule to the CLI")
+        let reviewTitle = app.scrollViews["companion-approval-review-scroll"].staticTexts["companion-approval-title"]
+        XCTAssertTrue(waitFor(reviewTitle, NSPredicate(format: "label == 'Allowed'"), timeout: 30),
+                      "The review must acknowledge the persistent decision before closing")
         let closeReview = app.buttons["companion-approval-review-close"]
-        if closeReview.exists { waitAndTap(closeReview, untilGone: closeReview) }
+        waitAndTap(closeReview, untilGone: closeReview)
+        XCTAssertTrue(waitForMore(rules, than: rulesBefore), "Always allow must send the rule to the CLI")
         screenshot(app, "Always allow reached the CLI")
 
         send(app, "ask")

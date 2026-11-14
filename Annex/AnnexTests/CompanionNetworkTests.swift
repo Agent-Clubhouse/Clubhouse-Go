@@ -183,10 +183,6 @@ extension CompanionNetworkTests {
         await runtime.start()
         try await runtime.pair(host: memberA.trustedHost(), pin: "123456", name: "Studio", remember: true)
         #expect(await eventually { runtime.store.hosts.count == 2 && runtime.store.hosts.allSatisfy { $0.connection == .connected } })
-        #expect(await eventually {
-            let saved = await pairings.loadAll()
-            return saved.count == 2 && saved.allSatisfy { $0.network?.needsIntroduction == false }
-        }, "Both membership exchanges must finish before exercising replacement; malformed acknowledgements leave reconciliation pending")
         let repaired = memberB.keepingPairing(id: "new-desktop", joinedAt: "2026-11-08T10:01:00.000Z")
         let removal = AnnexNetworkRemoval(fingerprint: memberB.fingerprint, removedAt: "2026-11-08T12:00:00.000Z", pairingId: "desktop", joinedAt: memberB.joinedAt)
         try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
@@ -215,6 +211,10 @@ extension CompanionNetworkTests {
         }
         try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
         #expect(await eventually { await ioA.identityReads > sourceReadsBefore })
+        #expect(await eventually {
+            let saved = await pairings.loadAll()
+            return saved.count == 2 && saved.allSatisfy { $0.network?.needsIntroduction == false }
+        }, "Replacement membership exchanges must complete; malformed acknowledgements leave reconciliation pending")
         await runtime.service.suspend()
         runtime.store.stop()
         await registry.disconnectAll()
