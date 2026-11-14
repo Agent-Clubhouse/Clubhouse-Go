@@ -68,13 +68,27 @@ import SwiftUI
         let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
         let memory = CompanionComposerMemory()
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previousWindow = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
         let controller = UIHostingController(rootView: AnyView(EmptyView()))
         window.frame = scene.screen.bounds; window.rootViewController = controller; window.makeKeyAndVisible()
-        defer { window.isHidden = true; window.rootViewController = nil }
-        func mount() {
+        defer { window.isHidden = true; window.rootViewController = nil; previousWindow?.makeKey() }
+        var disappeared: XCTestExpectation?
+        func mount() async {
+            let appeared = expectation(description: "The composer mounted")
+            disappeared = expectation(description: "The composer unmounted")
             controller.rootView = AnyView(CompanionConversationComposer(store: store, agent: agent,
-                memory: memory, focusRequests: 0, confirmCancel: .constant(false), dismissals: 0))
+                memory: memory, focusRequests: 0, confirmCancel: .constant(false), dismissals: 0)
+                .onAppear { appeared.fulfill() }
+                .onDisappear { disappeared?.fulfill() })
+            await fulfillment(of: [appeared], timeout: 5)
+            controller.view.layoutIfNeeded()
+        }
+        func unmount() async throws {
+            let didDisappear = try XCTUnwrap(disappeared)
+            controller.rootView = AnyView(EmptyView())
+            await fulfillment(of: [didDisappear], timeout: 5)
+            controller.view.layoutIfNeeded()
         }
         func find(_ view: UIView) -> UITextView? {
             (view as? UITextView) ?? view.subviews.lazy.compactMap(find).first
@@ -82,22 +96,19 @@ import SwiftUI
         for replacement in ["z", ""] {
             store.drafts[target] = "abcdef"
             memory.selection = .init(lowerUTF16: 4, upperUTF16: 6)
-            mount()
-            try await Task.sleep(for: .milliseconds(200))
+            await mount()
             let original = try XCTUnwrap(find(window))
             XCTAssertEqual(original.text, "abcdef")
             XCTAssertTrue(original.becomeFirstResponder())
             original.selectedRange = NSRange(location: 4, length: 2)
             try await Task.sleep(for: .milliseconds(50))
             XCTAssertEqual(original.selectedRange, NSRange(location: 4, length: 2))
-            controller.rootView = AnyView(EmptyView())
-            try await Task.sleep(for: .milliseconds(100))
+            try await unmount()
             XCTAssertEqual(memory.selection, .init(lowerUTF16: 4, upperUTF16: 6))
             XCTAssertEqual(memory.selectionDraft, "abcdef")
             // A send, restore or external clear can replace the draft while its tab is unmounted.
             store.drafts[target] = replacement
-            mount()
-            try await Task.sleep(for: .milliseconds(200))
+            await mount()
             let remounted = try XCTUnwrap(find(window))
             XCTAssertEqual(remounted.text, replacement)
             XCTAssertEqual(remounted.selectedRange, NSRange(location: replacement.utf16.count, length: 0))
@@ -105,8 +116,7 @@ import SwiftUI
             remounted.insertText("q")
             try await Task.sleep(for: .milliseconds(50))
             XCTAssertEqual(store.drafts[target], replacement + "q")
-            controller.rootView = AnyView(EmptyView())
-            try await Task.sleep(for: .milliseconds(100))
+            try await unmount()
         }
     }
 

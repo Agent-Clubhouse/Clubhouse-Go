@@ -347,6 +347,75 @@ private actor FakeTerminalTransport: AnnexTransporting {
     return events
 }
 
+@MainActor @Test func previewShellReportsItsScopeAndTheLatestPhoneSize() async throws {
+    let channel = CompanionPreviewTerminalChannel(scope: .project(.init(hostID: "preview", projectID: "fixture")))
+    let stream = channel.events()
+    await channel.open(cols: 40, rows: 10)
+    try await channel.send("pwd\rwhoami\rstty size\r")
+    await channel.resize(cols: 55, rows: 13)
+    try await channel.send("stty size\r")
+    await channel.close()
+    let events = await collect(stream, count: .max)
+    #expect(events.first == .opened(cwd: "/Users/river/fixture", snapshot: nil, cols: nil, rows: nil))
+    let output = events.compactMap { if case .output(let text) = $0 { text } else { nil } }.joined()
+    #expect(output.contains("\r\n/Users/river/fixture\r\n"))
+    #expect(output.contains("\r\nriver\r\n"))
+    #expect(output.contains("\r\n10 40\r\n") && output.contains("\r\n13 55\r\n"),
+            "The preview must exercise the same resize feedback as a desktop shell")
+}
+
+@MainActor @Test func previewShellEditsPasteAndInterruptsWithoutExecutingOnADesktop() async throws {
+    let target = CompanionTarget(hostID: "preview", projectID: "fixture", agentID: "worker")
+    let channel = CompanionPreviewTerminalChannel(scope: .agentShell(target))
+    let stream = channel.events()
+    await channel.open(cols: 80, rows: 24)
+    try await channel.send("echo worx")
+    try await channel.send("\u{7F}ld\r")
+    try await channel.send("discard\u{03}\r")
+    try await channel.send("\u{1B}[A")
+    try await channel.send("\u{1B}[200~echo pasted\u{1B}[201~\r")
+    try await channel.send("ls\rcolors\rclear\rmissing\r")
+    try await channel.send("\u{08}\t\u{01}exit\r")
+    await #expect(throws: CompanionServiceError.self) { try await channel.send("pwd\r") }
+    await channel.close()
+    let events = await collect(stream, count: .max)
+    #expect(events.first == .opened(cwd: "/Users/river/fixture/.clubhouse/agents/worker",
+                                   snapshot: nil, cols: nil, rows: nil))
+    let output = events.compactMap { if case .output(let text) = $0 { text } else { nil } }.joined()
+    #expect(output.contains("\r\nworld\r\n") && output.contains("\r\npasted\r\n"))
+    #expect(output.contains("^C\r\n") && !output.contains("command not found: discard"))
+    #expect(output.contains("Package.swift") && output.contains("\u{1B}[31m"))
+    #expect(output.contains("\u{1B}[2J\u{1B}[H") && output.contains("command not found: missing"))
+    #expect(events.last == .exited(code: 0))
+}
+
+@MainActor @Test func previewAgentAttachSuppliesADesktopSizedSnapshotAndReopeningClearsShellInput() async throws {
+    let target = CompanionTarget(hostID: "preview", projectID: "fixture", agentID: "worker")
+    let attach = CompanionPreviewTerminalChannel(scope: .agentPTY(target))
+    let stream = attach.events()
+    await attach.open(cols: 20, rows: 5)
+    await attach.close()
+    let events = await collect(stream, count: .max)
+    let opened = try #require(events.first)
+    guard case .opened(let cwd, let snapshot, let cols, let rows) = opened else {
+        Issue.record("Expected a preview attachment snapshot")
+        return
+    }
+    #expect(cwd == nil && cols == 80 && rows == 24)
+    let text = try #require(snapshot)
+    #expect(screen(text, cols: 80, rows: 24).plainText().contains("Tidy the release checklist"))
+    let shell = CompanionPreviewTerminalChannel(scope: .agentShell(target))
+    let shellStream = shell.events()
+    await shell.open(cols: 80, rows: 24)
+    try await shell.send("unfinished")
+    await shell.open(cols: 80, rows: 24)
+    try await shell.send("echo fresh\r")
+    await shell.close()
+    let shellEvents = await collect(shellStream, count: .max)
+    let output = shellEvents.compactMap { if case .output(let text) = $0 { text } else { nil } }.joined()
+    #expect(output.contains("\r\nfresh\r\n") && !output.contains("command not found: unfinishedecho"))
+}
+
 @MainActor @Test func liveAttachStitchesOutputOntoTheSnapshot() async {
     let transport = FakeTerminalTransport()
     let channel = CompanionLiveTerminalChannel(transport: transport, scope: .agentPTY(.init(hostID: "h", projectID: "p", agentID: "agent")))

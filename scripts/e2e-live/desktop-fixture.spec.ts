@@ -373,6 +373,7 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
             }, { projectPath: projectDir, agentId: request.agentId ?? agents.echo }); break;
             case 'command': result = await observer!.command(request.fields); break;
             case 'settings': result = await observer!.request('GET', `/api/v1/mobile/agents/${request.agentId}/settings`); break;
+            case 'dispatcherSettings': result = await observer!.request('GET', '/api/v1/mobile/dispatcher/settings'); break;
             case 'mcp': result = await callMcp(request.agentId, request.target, request.tool, request.args ?? {}, fixtureAgentIds, electronApp.process().pid!); break;
             case 'wire': {
               // Replay the actual server buffer, independently of the phone's UI catch-up assertion.

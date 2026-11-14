@@ -220,10 +220,9 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            let hasRequests = !store.grantRequests(for: target).isEmpty
-                || !CompanionPendingDecision.pending(in: conversation.items).isEmpty
+            // A short editing viewport must fit the composer before reserving transcript space.
             CompanionConversationGrantFooter(store: store, target: target,
-                maximumHeight: max(44, available.size.height - Self.headerPillClearance - (hasRequests ? 0 : 44)),
+                maximumHeight: max(44, available.size.height),
                 showInChat: { decisionChatJump = .init(itemID: $0) }) {
                     composerBar(compactHeight: available.size.height < 360)
             }

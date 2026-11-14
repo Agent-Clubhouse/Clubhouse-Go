@@ -158,7 +158,8 @@ import XCTest
         var composerTop = editor.frame.minY
         for id in ["companion-level-menu", "companion-attach", "companion-interrupt", "companion-send"] {
             let button = app.buttons[id]
-            XCTAssertTrue(button.isEnabled && button.isHittable, id)
+            XCTAssertTrue(button.isEnabled && button.isHittable,
+                          "\(id): enabled=\(button.isEnabled), hittable=\(button.isHittable), frame=\(button.frame), region=\(region.content)")
             assertMinimumTarget(button, id)
             XCTAssertTrue(pixelContains(region.content, button.frame), "\(id): \(button.frame), region \(region.content)")
             composerTop = min(composerTop, button.frame.minY)
@@ -291,6 +292,9 @@ import XCTest
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(waitFor(app.windows.firstMatch, NSPredicate { _, _ in app.windows.firstMatch.frame.width > app.windows.firstMatch.frame.height }, timeout: 5))
         focus(app)
+        capture(app, "landscape keyboard up")
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Landscape keyboard hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
         let composerTop = assertEditingLayout(app, largeText: false)
         let room = composerTop - app.navigationBars.firstMatch.frame.maxY
         XCTAssertLessThan(room, 100, "This case needs a window too short for the details: \(room)pt")
