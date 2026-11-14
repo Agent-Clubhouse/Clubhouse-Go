@@ -9,6 +9,7 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
     let maximumHeight: CGFloat
+    var showInChat: (String) -> Void = { _ in }
     @ViewBuilder var composer: Composer
     @State private var composerHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
@@ -22,6 +23,9 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
                 VStack(spacing: 0) {
                     CompanionConversationGrantRequests(store: store, target: target,
                         maximumHeight: max(0, maximumHeight - composerHeight) / 2)
+                    CompanionConversationPendingDecisions(store: store, target: target,
+                        maximumHeight: max(0, maximumHeight - composerHeight)
+                            / (store.grantRequests(for: target).isEmpty ? 1 : 2), showInChat: showInChat)
                 }
                 VStack(spacing: 0) { composer }
                 .environment(\.companionComposerFitsGrantFooter, true)
@@ -54,7 +58,7 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
 
         private func sizes(width: CGFloat?, subviews: Subviews) -> (CGSize, CGSize)? {
             guard subviews.count == 2 else {
-                assertionFailure("Grant footer requires its two concrete grant/composer containers")
+                assertionFailure("Conversation footer requires its two concrete requests/composer containers")
                 return nil
             }
             let grants = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))

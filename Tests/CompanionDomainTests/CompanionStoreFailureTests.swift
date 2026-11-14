@@ -216,6 +216,71 @@ import Testing
         return value.resolution
     }
 
+    @Test func pinnedDecisionQueueIsChronologicalBoundedAndKeepsSubmitting() {
+        var second = approval; second.id = "second"; second.resolution = .submitting
+        var expired = approval; expired.id = "expired"; expired.deadline = .distantPast
+        var cancelled = approval; cancelled.id = "cancelled"; cancelled.resolution = .cancelled
+        var answered = question; answered.id = "answered"; answered.resolution = .answered
+        let items: [CompanionTimelineItem] = [.approval(approval), .question(question), .approval(second),
+            .approval(expired), .approval(cancelled), .question(answered)]
+        let queue = CompanionPendingDecision.pending(in: items)
+        #expect(queue.map(\.id) == ["approval:p", "question:q", "approval:second"])
+        #expect(CompanionPendingDecision.selected(in: queue, id: nil) == .approval(approval))
+        #expect(CompanionPendingDecision.selected(in: queue, id: "question:q") == .question(question))
+        #expect(CompanionPendingDecision.selected(in: queue, id: "removed") == .approval(approval))
+        #expect(queue.last?.isSubmitting == true)
+        #expect(CompanionPendingDecision.selected(in: [], id: "removed") == nil)
+    }
+
+    @Test(arguments: ["epoch", "session", "changed", "removed", "answered"])
+    func pinnedCallbacksRejectReplacedRequests(_ replacement: String) async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.controlEpoch = "before" })
+        store.apply(.timeline(target, items: [.approval(approval), .question(question)], sequence: 1, reset: true, sessionID: "before"))
+        let approvalPresentation = store.decisionPresentation(.approval(approval), target: target)
+        let questionPresentation = store.decisionPresentation(.question(question), target: target)
+        var changedApproval = approval, changedQuestion = question
+        switch replacement {
+        case "epoch": store.apply(.hosts([host { $0.controlEpoch = "after" }]))
+        case "session":
+            store.apply(.timeline(target, items: [.approval(approval), .question(question)], sequence: 2, reset: true, sessionID: "after"))
+        case "changed":
+            changedApproval.summary = "A different action"
+            changedQuestion.prompts[0].text = "A different question"
+            store.apply(.timeline(target, items: [.approval(changedApproval), .question(changedQuestion)], sequence: 2, reset: true, sessionID: "before"))
+        case "removed": store.apply(.timeline(target, items: [], sequence: 2, reset: true, sessionID: "before"))
+        default:
+            changedApproval.resolution = .allowed; changedQuestion.resolution = .answered
+            store.apply(.timeline(target, items: [.approval(changedApproval), .question(changedQuestion)], sequence: 2, reset: true, sessionID: "before"))
+        }
+        await store.respond(approvalPresentation, option: allow)
+        await store.answer(questionPresentation, answers: ["color": .text("red")])
+        #expect(service.responses.isEmpty && service.answered.isEmpty)
+        #expect(store.currentDecision(for: approvalPresentation) == nil)
+        #expect(store.currentDecision(for: questionPresentation) == nil)
+    }
+
+    @Test func pinnedReconnectBlockRequiresAnExplicitRetryAndSettledCallbacksCannotSubmitTwice() async {
+        let service = ScriptedCompanionService()
+        let store = makeStore(service, host: host { $0.connection = .synchronizing; $0.controlEpoch = "same" })
+        store.apply(.timeline(target, items: [.approval(approval), .question(question)], sequence: 1, reset: true, sessionID: "same"))
+        let approvalPresentation = store.decisionPresentation(.approval(approval), target: target)
+        let questionPresentation = store.decisionPresentation(.question(question), target: target)
+        await store.respond(approvalPresentation, option: allow)
+        await store.answer(questionPresentation, answers: ["color": .text("red")])
+        #expect(service.responses.isEmpty && service.answered.isEmpty)
+        #expect(store.decisionNotices(for: target).count == 2)
+        store.apply(.hosts([host { $0.controlEpoch = "same" }]))
+        #expect(service.responses.isEmpty && service.answered.isEmpty)
+        await store.respond(approvalPresentation, option: allow)
+        await store.answer(questionPresentation, answers: ["color": .text("red")])
+        await store.respond(approvalPresentation, option: allow)
+        await store.answer(questionPresentation, answers: ["color": .text("red")])
+        #expect(service.responses == ["p"] && service.answered == ["q"])
+        #expect(store.decisionNotices(for: target).isEmpty)
+        #expect(CompanionPendingDecision.pending(in: store.conversation(for: target).items).isEmpty)
+    }
+
     @Test(arguments: [CompanionConnection.connecting, .synchronizing])
     func anApprovalDuringReconnectExplainsTheBlockAndWaitsForAnotherTap(_ connection: CompanionConnection) async {
         let service = ScriptedCompanionService()

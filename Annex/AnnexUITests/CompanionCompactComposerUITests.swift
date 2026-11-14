@@ -81,7 +81,13 @@ import XCTest
         if layout["companion-attach"] != nil { ids.insert("companion-attach", at: 1) }
         if working { ids.insert("companion-interrupt", at: ids.count - 1) }
         if dismissButton { ids.append("companion-dismiss-keyboard") }
-        if reviewButton { ids.insert("companion-review-approval", at: 0) }
+        if reviewButton {
+            let review = try XCTUnwrap(layout["companion-review-approval"])
+            XCTAssertTrue(pixelContains(region, review), "\(state): approval review stays visible", file: file, line: line)
+            XCTAssertLessThanOrEqual(review.maxY, composerRegion.minY, "\(state): review stays above the composer", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).width, 44, file: file, line: line)
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).height, 44, file: file, line: line)
+        }
         XCTAssertEqual(layout["companion-interrupt"] != nil, working, "\(state): Interrupt shows only while Working", file: file, line: line)
         XCTAssertEqual(layout["companion-dismiss-keyboard"] != nil, dismissButton, "\(state): assistive dismiss", file: file, line: line)
         var previous: (id: String, frame: CGRect)?
@@ -257,7 +263,7 @@ import XCTest
         XCTAssertFalse(send.isEnabled, "An empty draft cannot steer")
         try assertRow(app, working: true, state: "working empty unfocused", reviewButton: largestText)
         if largestText {
-            // The transcript's card still has its own decisions; only the pinned bar above the composer goes.
+            // The inline history has no duplicate decisions; the bounded tray opens the shared review.
             XCTAssertFalse(app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch.exists,
                            "Large text reviews the approval instead of pinning decisions")
             reviewApprovalWithoutAnswering(app, editing: false)

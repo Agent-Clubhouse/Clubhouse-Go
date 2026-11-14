@@ -144,6 +144,95 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.service.responses.first?.optionID, "deny-incomplete")
     }
 
+    func testPinnedReviewUsesOneSubmittingStateAndDismissalDoesNotCancelOrResubmit() async throws {
+        let first = request("first"), second = request("second")
+        let fixture = ReviewFixture([first, second], selected: first.id)
+        defer { fixture.tearDown() }
+        let presentation = fixture.store.decisionPresentation(.approval(first), target: fixture.target)
+        fixture.selection = .init(target: fixture.target, approvalID: first.id, presentation: presentation)
+        let sheet = fixture.sheet
+        let option = try XCTUnwrap(first.options.first)
+        let arrived = expectation(description: "Pinned response arrived")
+        fixture.service.holdsResponse = true
+        fixture.service.responseArrived = { arrived.fulfill() }
+        let sending = Task { await sheet.respond(presentation, option: option) }
+        await fulfillment(of: [arrived], timeout: 1)
+        let queue = CompanionPendingDecision.pending(in: fixture.store.conversation(for: fixture.target).items)
+        XCTAssertEqual(queue.count, 2)
+        XCTAssertTrue(queue[0].isSubmitting)
+        XCTAssertEqual(sheet.currentApproval?.resolution, .submitting)
+        await fixture.store.respond(presentation, option: option)
+        await sheet.respond(presentation, option: option)
+        sheet.close()
+        await sheet.respond(presentation, option: option)
+        XCTAssertEqual(fixture.service.commands, ["respond"])
+        fixture.tearDown()
+        await sending.value
+        XCTAssertEqual(CompanionPendingDecision.pending(in: fixture.store.conversation(for: fixture.target).items).map(\.id), ["approval:second"])
+    }
+
+    func testPinnedReviewEpochReplacementAndReconnectRetryUseActualStoreGuards() async throws {
+        let approval = request("epoch")
+        let fixture = ReviewFixture([approval], selected: approval.id)
+        defer { fixture.tearDown() }
+        var hosts = fixture.store.hosts
+        hosts[0].controlEpoch = "first"
+        fixture.store.apply(.hosts(hosts))
+        let original = fixture.store.decisionPresentation(.approval(approval), target: fixture.target)
+        fixture.selection = .init(target: fixture.target, approvalID: approval.id, presentation: original)
+        let sheet = fixture.sheet
+        let option = try XCTUnwrap(approval.options.first)
+        hosts[0].connection = .synchronizing
+        fixture.store.apply(.hosts(hosts))
+        await sheet.respond(original, option: option)
+        XCTAssertEqual(fixture.store.decisionNotices(for: fixture.target).count, 1)
+        hosts[0].connection = .connected
+        fixture.store.apply(.hosts(hosts))
+        XCTAssertTrue(fixture.service.commands.isEmpty, "Reconnect sends nothing automatically")
+        hosts[0].controlEpoch = "second"
+        fixture.store.apply(.hosts(hosts))
+        XCTAssertNil(sheet.currentDecision)
+        await sheet.respond(original, option: option)
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+        let current = fixture.store.decisionPresentation(.approval(approval), target: fixture.target)
+        fixture.selection = .init(target: fixture.target, approvalID: approval.id, presentation: current)
+        await fixture.sheet.respond(current, option: option)
+        XCTAssertEqual(fixture.service.commands, ["respond"])
+        XCTAssertEqual(fixture.sheet.currentApproval?.resolution, .allowed)
+    }
+
+    func testPinnedQuestionReviewDismissalAnswerAndWithdrawalShareTheQueue() async {
+        let fixture = ReviewFixture([], selected: "question")
+        defer { fixture.tearDown() }
+        var question = CompanionQuestion(id: "question", prompts: [
+            .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
+                  allowsMultiple: false, allowsFreeText: false)])
+        var hosts = fixture.store.hosts
+        for project in hosts[0].projects.indices {
+            if let index = hosts[0].projects[project].agents.firstIndex(where: { $0.id == fixture.target }) {
+                hosts[0].projects[project].agents[index].capabilities.insert(.answer)
+            }
+        }
+        fixture.store.apply(.hosts(hosts))
+        fixture.store.apply(.timeline(fixture.target, items: [.question(question)], sequence: 2, reset: true, sessionID: "synthetic-review"))
+        let presentation = fixture.store.decisionPresentation(.question(question), target: fixture.target)
+        fixture.selection = .init(target: fixture.target, approvalID: question.id, presentation: presentation)
+        let sheet = fixture.sheet
+        XCTAssertEqual(sheet.currentDecision, .question(question))
+        sheet.close()
+        await sheet.answer(presentation, answers: ["color": .text("red")])
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+        fixture.selection = .init(target: fixture.target, approvalID: question.id, presentation: presentation)
+        await fixture.sheet.answer(presentation, answers: ["color": .text("red")])
+        XCTAssertEqual(fixture.service.commands, ["answer"])
+        XCTAssertTrue(CompanionPendingDecision.pending(in: fixture.store.conversation(for: fixture.target).items).isEmpty)
+        question.resolution = .cancelled
+        fixture.store.apply(.upsert(fixture.target, .question(question), sequence: 3))
+        await fixture.sheet.answer(presentation, answers: ["color": .text("red")])
+        XCTAssertEqual(fixture.sheet.currentDecision, .question(question))
+        XCTAssertEqual(fixture.service.commands, ["answer"])
+    }
+
     private func request(_ id: String) -> CompanionApproval {
         .init(id: id, toolName: "Synthetic tool", summary: "Synthetic approval", title: "Review \(id)",
               deadline: .now.addingTimeInterval(300), options: [.init(id: "allow-\(id)", label: "Allow once", kind: .allowOnce)])
@@ -218,6 +307,9 @@ import ClubhouseTransport
             await withCheckedContinuation { continuation in waiting = continuation; responseArrived?() }
         } else { responseArrived?() }
         if refusesResponse { throw CompanionServiceError.rejected("Synthetic refusal") }
+    }
+    func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
+        commands.append("answer")
     }
     func tearDown() {
         responseArrived = nil

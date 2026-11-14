@@ -28,6 +28,8 @@ struct CompanionConversationView: View {
     @State private var headerDetailsLackRoom = false
     @State private var headerLeadingReservation: CGFloat = 44
     @State private var keyboardVisible = false
+    @State private var decisionChatJump: DecisionChatJump?
+    private struct DecisionChatJump: Equatable { let id = UUID(); let itemID: String }
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
     @State private var shownEntries = Self.initialEntryLimit
@@ -218,14 +220,12 @@ struct CompanionConversationView: View {
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
-            if store.grantRequests(for: target).isEmpty {
-                composerBar(maximumHeight: max(44, available.size.height - Self.headerPillClearance - 44),
-                            compactHeight: available.size.height < 360)
-            } else {
-                CompanionConversationGrantFooter(store: store, target: target,
-                    maximumHeight: max(44, available.size.height - Self.headerPillClearance)) {
+            let hasRequests = !store.grantRequests(for: target).isEmpty
+                || !CompanionPendingDecision.pending(in: conversation.items).isEmpty
+            CompanionConversationGrantFooter(store: store, target: target,
+                maximumHeight: max(44, available.size.height - Self.headerPillClearance - (hasRequests ? 0 : 44)),
+                showInChat: { decisionChatJump = .init(itemID: $0) }) {
                     composerBar(compactHeight: available.size.height < 360)
-                }
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
@@ -430,12 +430,11 @@ struct CompanionConversationView: View {
                                 .accessibilityIdentifier("companion-show-earlier")
                         }
                     }
-                    let pinnedID = store.pinnedApproval(for: target)?.id
                     let items = conversation.items
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
                     ForEach(entries) { entry in
                         VStack(alignment: .leading, spacing: 22) {
-                            timelineEntry(entry, pinnedApprovalID: pinnedID, items: items)
+                            timelineEntry(entry, items: items)
                             if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
                         }
                         .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
@@ -628,6 +627,16 @@ struct CompanionConversationView: View {
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
+            .task(id: decisionChatJump?.id) {
+                guard let request = decisionChatJump else { return }
+                let allEntries = CompanionTimelineWindow(rows: rows, limit: .max).entries
+                guard let index = allEntries.firstIndex(where: { $0.id == request.itemID }) else { return }
+                setFollowing(false, reason: .messageJump)
+                shownEntries = max(shownEntries, allEntries.count - index)
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                proxy.scrollTo(request.itemID, anchor: .top)
+            }
             .onDisappear {
                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
                 // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
@@ -854,9 +863,9 @@ struct CompanionConversationView: View {
             && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast, currentViewport: currentViewport)
     }
 
-    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
+    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, items: [CompanionTimelineItem]) -> some View {
         switch entry {
-        case .row(let row): timelineRow(row, pinnedApprovalID: pinnedApprovalID, items: items)
+        case .row(let row): timelineRow(row, items: items)
         case .slice(let message, let slice):
             messageView(message, slice: slice)
             if slice.isLast && message.role == .assistant {
@@ -873,9 +882,9 @@ struct CompanionConversationView: View {
            slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
     }
 
-    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
+    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
         switch row {
-        case .item(let item): timelineItem(item, pinnedApprovalID: pinnedApprovalID, items: items)
+        case .item(let item): timelineItem(item, items: items)
         case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
         case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
         case .routed(let message, let index):
@@ -883,7 +892,7 @@ struct CompanionConversationView: View {
         }
     }
 
-    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, pinnedApprovalID: String?, items: [CompanionTimelineItem]) -> some View {
+    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, items: [CompanionTimelineItem]) -> some View {
         switch item {
         case .message(let message):
             messageView(message)
@@ -895,12 +904,12 @@ struct CompanionConversationView: View {
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
             CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
-                                  canRespond: canRespond, actionsArePinned: approval.id == pinnedApprovalID,
+                                  canRespond: canRespond, actionsArePinned: true,
                                   persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
                 Task { await store.respond(approval, option: option, target: target) }
             }
         case .question(let question):
-            CompanionQuestionCard(question: question, canRespond: store.canOperate(target) && agent.capabilities.contains(.answer) && !store.pendingCommands.contains(target)) { answers in
+            CompanionQuestionCard(question: question, canRespond: false, actionsArePinned: true) { answers in
                 Task { await store.answer(question, answers: answers, target: target) }
             }
         case .notice(_, let text):
