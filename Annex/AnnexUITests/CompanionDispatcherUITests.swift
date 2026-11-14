@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 
 /// The desktop's Dispatcher (#2533) on the preview desktop (`--companion-preview-dispatcher`): its pinned row above
 /// the projects, its chat with no project actions, its settings, and the task it relayed in River's chat.
@@ -35,6 +36,17 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func assertMachineSubtitles(_ app: XCUIApplication) throws {
+        // Menu buttons combine their accessibility children; OCR checks the visible subtitles.
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: XCTUnwrap(app.screenshot().image.cgImage)).perform([request])
+        let text = try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
+        XCTAssertTrue(text.contains("Studio Mac"), "The menu renders the Studio machine subtitle")
+        XCTAssertTrue(text.contains("Travel MacBook"), "The selected entry also renders its machine subtitle")
     }
 
     func testPinnedRowOpensTheDispatchersChatAndSettings() {
@@ -247,7 +259,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Home start screen preference")
     }
 
-    func testDesktopSwitcherUsesDispatcherNamesAndMachineSubtitles() {
+    func testDesktopSwitcherUsesDispatcherNamesAndMachineSubtitles() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -257,17 +269,16 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let studio = app.buttons["dispatcher-desktop-preview-studio"]
         let travel = app.buttons["dispatcher-desktop-preview-laptop"]
         waitAndTap(switcher, until: studio)
+        screenshot(app, "Dispatcher names with machine subtitles")
         XCTAssertEqual(studio.label, "Navi on Studio Mac")
         XCTAssertEqual(travel.label, "Echo on Travel MacBook")
-        XCTAssertTrue(app.staticTexts["Studio Mac"].exists, "The menu shows the machine as secondary text")
-        XCTAssertTrue(app.staticTexts["Travel MacBook"].exists)
-        screenshot(app, "Dispatcher names with machine subtitles")
+        try assertMachineSubtitles(app)
         studio.tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
         XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
-    func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() {
+    func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         var composer: XCUIElement { app.textFields.matching(identifier: "companion-composer").firstMatch }
@@ -287,6 +298,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(travel.label, "Dispatcher on Travel MacBook", "Unnamed Dispatchers remain distinguishable")
         XCTAssertEqual(studio.label, "Dispatcher on Studio Mac")
         screenshot(app, "Unnamed Dispatchers with machine subtitles")
+        try assertMachineSubtitles(app)
         travel.tap()
         let travelHeader = app.descendants(matching: .any).matching(identifier: "companion-chat-header")
             .matching(NSPredicate(format: "label CONTAINS %@", "Travel MacBook / Dispatcher")).firstMatch

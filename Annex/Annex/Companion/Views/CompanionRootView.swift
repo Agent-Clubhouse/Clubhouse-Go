@@ -190,14 +190,11 @@ struct CompanionRootView: View {
                                 mirrorSelection()
                             } label: {
                                 if desktop.id == navigation.dispatcherHostID {
-                                    Label {
-                                        Text(desktop.displayName)
-                                        Text(desktop.name)
-                                    } icon: { Image(systemName: "checkmark") }
+                                    Label(desktop.displayName, systemImage: "checkmark")
                                 } else {
                                     Text(desktop.displayName)
-                                    Text(desktop.name)
                                 }
+                                Text(desktop.name)
                             }
                             .accessibilityLabel(desktop.accessibilityLabel)
                             .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
