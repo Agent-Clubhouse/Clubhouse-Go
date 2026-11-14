@@ -655,6 +655,7 @@ struct CompanionApproval: Identifiable, Sendable, Equatable {
     /// The pending permission can arrive separately from an in-progress tool update.
     var toolCallID: String? = nil
     var eventReference: CompanionEventReference?
+    var requestedAt: Date? = nil
     var isIncomplete: Bool { eventReference?.truncation != nil || summary.hasPrefix("Incomplete input:") }
     func isExpired(at date: Date) -> Bool { deadline.map { $0 <= date } ?? false }
 }
@@ -701,6 +702,7 @@ struct CompanionQuestion: Identifiable, Sendable, Equatable {
     }
     var desktopAnswerMessage: String? { canAnswerOnPhone ? nil : "Answer this question on the desktop. This phone can't show all of its prompts." }
     var resolution: Resolution = .pending
+    var requestedAt: Date? = nil
 }
 
 enum CompanionAnswer: Sendable, Equatable {

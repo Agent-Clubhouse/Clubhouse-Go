@@ -107,7 +107,9 @@ their explicit paths. Opt-in Debug follow tracing exposes cumulative pause and d
 pauses cannot be hidden by recovery before the next UI snapshot.
 
 Pending CLI approvals and structured questions share one bounded card above the composer (#387). The oldest request
-appears first; previous/next controls and a request position select one item, never a growing stack. Submitting stays
+appears first by its request timestamp, with transcript-order ties, including older requests recovered outside a history
+tail. Undated legacy requests retain transcript order ahead of dated requests. Previous/next controls and a request
+position select one item, never a growing stack. Submitting stays
 in the same queue until the store settles it. Ordinary-height cards offer the existing one-off decisions and More for
 lasting options, with the same confirmation and full-event Allow gate (#345). Compact-height and accessibility text
 use Review instead of squeezing decision labels beside the draft. Review reuses the complete scrollable approval
@@ -117,6 +119,11 @@ Inline requests remain readable history, without duplicate actionable decisions.
 request, loading its transcript window when necessary; this explicit navigation pauses following. Tray arrival,
 removal, and height changes are only container/inset changes, not reading intent. All response callbacks bind the
 target, desktop epoch, session, and exact presented request, and retain the existing reconnect/explicit retry guards.
+An answer on another device settles the same retained history item and removes it from the pending queue. Selection
+stays on its request when other requests settle, falling back to the oldest when that selected request settles.
+Desktop parity follows Agent-Clubhouse/Clubhouse#3472 (`7ea65d7a`); the phone intentionally uses only `i of N`, not a second `N pending`
+line, and history remains read-only instead of desktop's expandable Answer here actions. Compact Review and the label
+Show in chat are the native phone equivalents of desktop's bounded card and Show in conversation.
 
 Clubhouse grant requests are separate cards pinned above the composer, not CLI approvals or helper requests (#357).
 They show the same details, complete arguments, reason, Allow effect and offered answers as Needs you, through the same

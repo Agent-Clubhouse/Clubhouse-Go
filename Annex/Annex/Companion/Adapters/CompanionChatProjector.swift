@@ -192,7 +192,8 @@ struct CompanionChatProjector {
                                    summary: data["description"]?.string ?? data["title"]?.string ?? "Review the requested action",
                                    title: data["title"]?.string.flatMap { $0.isEmpty ? nil : $0 },
                                    detail: detail.isEmpty ? Self.inputSummary(data["rawInput"]) : detail, options: options,
-                                   toolCallID: data["toolCallId"]?.string, eventReference: CompanionEventReference(event: event))))
+                                   toolCallID: data["toolCallId"]?.string, eventReference: CompanionEventReference(event: event),
+                                   requestedAt: time)))
             status = .approval
         case "permission_resolved":
             guard let requestID = data["requestId"]?.string,
@@ -211,7 +212,8 @@ struct CompanionChatProjector {
                 }
                 return .init(id: id, text: prompt, options: options, allowsMultiple: value["multiSelect"].boolValue, allowsFreeText: value["allowFreeText"].boolValue)
             }
-            upsert(.question(.init(id: requestID, prompts: prompts, hasUnreadablePrompts: prompts.count != suppliedPrompts.count))); status = .waiting
+            upsert(.question(.init(id: requestID, prompts: prompts, hasUnreadablePrompts: prompts.count != suppliedPrompts.count,
+                                  requestedAt: time))); status = .waiting
         case "question_resolved":
             guard let requestID = data["requestId"]?.string,
                   let index = itemIndices["question:\(requestID)"], case .question(var question) = items[index] else { return }

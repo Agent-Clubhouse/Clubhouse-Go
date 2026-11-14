@@ -1,6 +1,6 @@
 import Foundation
 
-/// Transcript order is the request order; submitting stays visible until the store settles it.
+/// Requests recovered outside the transcript tail still precede newer requests; submitting stays until settled.
 enum CompanionPendingDecision: Equatable, Identifiable {
     case approval(CompanionApproval)
     case question(CompanionQuestion)
@@ -23,8 +23,14 @@ enum CompanionPendingDecision: Equatable, Identifiable {
         case .question(let value): value.resolution == .submitting
         }
     }
+    private var requestedAt: Date? {
+        switch self {
+        case .approval(let value): value.requestedAt
+        case .question(let value): value.requestedAt
+        }
+    }
     static func pending(in items: [CompanionTimelineItem], at date: Date = .now) -> [Self] {
-        items.compactMap { item in
+        let pending: [Self] = items.compactMap { item in
             switch item {
             case .approval(let value) where value.resolution == .submitting
                 || (value.resolution == .pending && !value.isExpired(at: date)): .approval(value)
@@ -32,6 +38,12 @@ enum CompanionPendingDecision: Equatable, Identifiable {
             default: nil
             }
         }
+        // Undated legacy requests retain transcript order ahead of dated requests; equal dates retain transcript ties.
+        return pending.enumerated().sorted {
+            let left = $0.element.requestedAt ?? .distantPast
+            let right = $1.element.requestedAt ?? .distantPast
+            return left == right ? $0.offset < $1.offset : left < right
+        }.map(\.element)
     }
     static func selected(in queue: [Self], id: String?) -> Self? {
         queue.first { $0.id == id } ?? queue.first
