@@ -213,11 +213,18 @@ private actor UpdateDesktop: AnnexTransporting {
         for code in ["dispatcher_unavailable", "update_approval_capacity"] {
             try await wait { store.hosts.first?.connection == .connected }
             await desktop.setFailure(code)
+            await desktop.pauseCapabilities()
+            let before = await desktop.sent.count
             await store.requestAppUpdate(hostID: Self.id)
+            #expect(await desktop.sent.count == before + 1, "The refusal must come from a newly sent request")
             let recorded = try #require(ContractFixtures.cases("commands/app.update.request.json").first {
                 $0["response"]?["body"]?["error"]?["code"]?.string == code
             })
             #expect(store.appUpdateErrors[Self.id] == recorded["response"]?["body"]?["error"]?["message"]?.string)
+            // A refused command reconnects. Observe that new cycle, not the preceding connected snapshot.
+            try await wait { await desktop.capabilitiesArePaused && store.hosts.first?.connection == .synchronizing }
+            await desktop.releaseCapabilities()
+            try await wait { store.hosts.first?.connection == .connected && store.hosts.first?.appUpdate?.canRequest == true }
         }
     }
 

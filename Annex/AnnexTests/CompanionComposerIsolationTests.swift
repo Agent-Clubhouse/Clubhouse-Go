@@ -16,8 +16,10 @@ import SwiftUI
         let agent = try XCTUnwrap(hosts[0].dispatcher?.agent)
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
+        let appeared = expectation(description: "The conversation has appeared")
         let controller = UIHostingController(rootView: NavigationStack {
             CompanionConversationView(store: store, agent: agent)
+                .onAppear { appeared.fulfill() }
         }.environment(\.scenePhase, .active))
         window.frame = scene.screen.bounds; window.rootViewController = controller; window.makeKeyAndVisible()
         let previousProbe = CompanionConversationBuildProbe.record
@@ -25,13 +27,20 @@ import SwiftUI
             CompanionConversationBuildProbe.record = previousProbe
             window.isHidden = true; window.rootViewController = nil
         }
-        try await Task.sleep(for: .milliseconds(300))
+        await fulfillment(of: [appeared], timeout: 10)
+        controller.view.layoutIfNeeded()
         func find(_ view: UIView) -> UITextView? {
             (view as? UITextView) ?? view.subviews.lazy.compactMap(find).first
         }
         let input = try XCTUnwrap(find(window))
+        let keyboardShown = expectation(forNotification: UIResponder.keyboardDidShowNotification, object: nil)
         XCTAssertTrue(input.becomeFirstResponder())
-        try await Task.sleep(for: .milliseconds(300))
+        await fulfillment(of: [keyboardShown], timeout: 10)
+        // Exclude the keyboard's initial safe-area/layout transition, not any edit-triggered rebuild.
+        controller.view.layoutIfNeeded()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
         var bodies = 0, timelines = 0
         CompanionConversationBuildProbe.record = { kind, current in
             guard current == target else { return }
