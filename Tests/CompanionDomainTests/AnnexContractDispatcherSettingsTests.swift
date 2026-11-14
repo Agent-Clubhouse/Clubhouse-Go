@@ -117,6 +117,17 @@ import Testing
         #expect(!byHand.isEmpty)
     }
 
+    @Test func rawDispatcherAgentSettingsAlsoPreserveTheSavedChatName() throws {
+        guard case .object(var value) = try ContractFixtures.body("agent-settings-dispatcher.json"),
+              case .object(var settings)? = value["settings"], case .object(var name)? = settings["name"] else {
+            Issue.record("Missing raw agent settings name"); return
+        }
+        name["value"] = .string("Dispatcher controller")
+        settings["name"] = .object(name)
+        value["settings"] = .object(settings)
+        #expect(try CompanionAgentSettings(json: .object(value)).name.value == "Dispatcher controller")
+    }
+
     @Test func theDesktopsWordsForEachReset() throws {
         let settings = try CompanionDispatcherSettings(json: try ContractFixtures.body("dispatcher-settings.json", "byHand"))
         let clear = try #require(CompanionDispatcherResetPrompt(.clearChat, settings: settings, hostID: "h"))

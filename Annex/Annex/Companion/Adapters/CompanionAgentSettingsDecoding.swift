@@ -63,7 +63,7 @@ extension CompanionAgentSettings {
         func string(_ key: String) -> String? { settings[key]?["value"]?.string }
         state = json["state"]?.string ?? "sleeping"
         sleeping = json["sleeping"].boolValue
-        self.name = .init(value: json["isDispatcher"].boolValue == true ? CompanionDispatcher.chatDisplayName(name) : name, editable: editable("name"))
+        self.name = .init(value: name, editable: editable("name"))
         color = .init(value: string("color") ?? "indigo", editable: editable("color"))
         emoji = .init(value: string("emoji"), editable: editable("emoji"))
         hasImageIcon = settings["hasImageIcon"].boolValue
