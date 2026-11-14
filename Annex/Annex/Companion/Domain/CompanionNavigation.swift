@@ -11,13 +11,28 @@ enum CompanionStartScreen: String, CaseIterable, Sendable {
 struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
     var id: String
     var name: String
+    var displayName: String
     var target: CompanionTarget?
+
+    var accessibilityLabel: String { "\(displayName) on \(name)" }
 
     init?(host: CompanionHost) {
         guard let dispatcher = host.dispatcher, dispatcher.isVisible else { return nil }
         id = host.id
         name = host.name
+        displayName = dispatcher.displayName
         target = dispatcher.liveAgent?.id
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, displayName, target }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        // Older preferences cached only the machine name.
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName) ?? CompanionDispatcher.name
+        target = try container.decodeIfPresent(CompanionTarget.self, forKey: .target)
     }
 }
 
@@ -91,7 +106,10 @@ struct CompanionNavigation {
                 dispatcherDesktops.append(desktop)
             }
         }
-        dispatcherDesktops.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        dispatcherDesktops.sort {
+            let order = $0.displayName.localizedStandardCompare($1.displayName)
+            return (order == .orderedSame ? $0.name.localizedStandardCompare($1.name) : order) == .orderedAscending
+        }
         if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }) { dispatcherHostID = dispatcherDesktops.first?.id }
         if awaitingFirstReport, hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
             awaitingFirstReport = false

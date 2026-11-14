@@ -724,7 +724,7 @@ struct CompanionAgentSettingsForm: View {
 struct CompanionDispatcherSwitch: View {
     @Bindable var store: CompanionStore
     let hostID: String
-    /// The desktop's name, when more than one is paired.
+    /// The Dispatcher name and its desktop, when more than one is paired.
     var label: String?
     @Environment(\.companionPalette) private var palette
 

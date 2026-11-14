@@ -247,11 +247,32 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Home start screen preference")
     }
 
+    func testDesktopSwitcherUsesDispatcherNamesAndMachineSubtitles() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        XCTAssertEqual(switcher.label, "Echo on Travel MacBook", "Dispatcher names, not machines, determine the initial order")
+        XCTAssertTrue(app.navigationBars["Echo"].exists)
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
+        waitAndTap(switcher, until: studio)
+        XCTAssertEqual(studio.label, "Navi on Studio Mac")
+        XCTAssertEqual(travel.label, "Echo on Travel MacBook")
+        XCTAssertTrue(app.staticTexts["Studio Mac"].exists, "The menu shows the machine as secondary text")
+        XCTAssertTrue(app.staticTexts["Travel MacBook"].exists)
+        screenshot(app, "Dispatcher names with machine subtitles")
+        studio.tap()
+        XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
+    }
+
     func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         var composer: XCUIElement { app.textFields.matching(identifier: "companion-composer").firstMatch }
         XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        XCTAssertEqual(switcher.label, "Dispatcher on Studio Mac")
         XCTAssertTrue(element(app, "companion-chat-header").label.contains("Studio Mac / Dispatcher"))
         composer.tap()
         composer.typeText("For Studio")
@@ -260,24 +281,29 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
         XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 10))
         screenshot(app, "Dispatcher long reply away from latest")
-        waitAndTap(switcher, until: app.buttons["Travel MacBook"])
-        app.buttons["Travel MacBook"].tap()
+        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        waitAndTap(switcher, until: travel)
+        XCTAssertEqual(travel.label, "Dispatcher on Travel MacBook", "Unnamed Dispatchers remain distinguishable")
+        XCTAssertEqual(studio.label, "Dispatcher on Studio Mac")
+        screenshot(app, "Unnamed Dispatchers with machine subtitles")
+        travel.tap()
         let travelHeader = app.descendants(matching: .any).matching(identifier: "companion-chat-header")
             .matching(NSPredicate(format: "label CONTAINS %@", "Travel MacBook / Dispatcher")).firstMatch
         XCTAssertTrue(travelHeader.waitForExistence(timeout: 10) && travelHeader.isHittable)
         XCTAssertNotEqual(composer.value as? String, "For Studio", "B starts with its own empty draft")
         composer.tap()
         composer.typeText("For Travel")
-        waitAndTap(switcher, until: app.buttons["Studio Mac"])
-        app.buttons["Studio Mac"].tap()
+        waitAndTap(switcher, until: studio)
+        studio.tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "For Studio"), timeout: 5))
         XCTAssertTrue(app.pausedChatNavigation.exists, "A keeps its scroll position away from the latest")
         tab(app, "Home").tap()
         tab(app, "Dispatcher").tap()
         XCTAssertTrue(app.pausedChatNavigation.exists, "Switching tabs keeps A’s scroll position too")
         screenshot(app, "Dispatcher restored after tab and desktop switches")
-        waitAndTap(switcher, until: app.buttons["Travel MacBook"])
-        app.buttons["Travel MacBook"].tap()
+        waitAndTap(switcher, until: travel)
+        travel.tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "For Travel"), timeout: 5))
     }
 

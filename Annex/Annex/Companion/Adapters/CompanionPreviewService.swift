@@ -93,6 +93,12 @@ import ClubhouseTransport
                 hosts[1].dispatcher = Self.dispatcher(now: Date())
                 let hostID = hosts[1].id
                 hosts[1].dispatcher?.agent?.id.hostID = hostID
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-named-dispatchers") {
+                    hosts[0].dispatcher?.agent?.name = "Navi"
+                    hosts[1].dispatcher?.agent?.name = "Echo"
+                }
+                #endif
             }
             #if DEBUG
             // Synthetic Needs you states; no desktop connection or commands are made by this preview service.
