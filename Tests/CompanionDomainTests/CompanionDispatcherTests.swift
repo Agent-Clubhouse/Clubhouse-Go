@@ -18,8 +18,8 @@ private func dispatcherFeature(enabled: Bool = true, flagOn: Bool = true, newLay
 }
 
 /// The snapshot's `dispatcher`, with its agent in the catalog's shape.
-private func dispatcherSnapshot(status: String = "running", detailed: AnnexJSON? = nil) -> AnnexJSON {
-    var agent: [String: AnnexJSON] = ["id": .string(dispatcherID), "name": .string("Dispatcher"), "kind": .string("durable"), "status": .string(status),
+private func dispatcherSnapshot(name: String = "Dispatcher", status: String = "running", detailed: AnnexJSON? = nil) -> AnnexJSON {
+    var agent: [String: AnnexJSON] = ["id": .string(dispatcherID), "name": .string(name), "kind": .string("durable"), "status": .string(status),
                                       "projectId": .string(dispatcherProject), "isDispatcher": .bool(true), "color": .string("cyan"),
                                       "freeAgentMode": .bool(true), "lastActivityAt": .integer(1_760_000_000_000)]
     if let detailed { agent["detailedStatus"] = detailed }
@@ -87,14 +87,14 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
 
 @Suite struct DispatcherDomainTests {
     @Test(arguments: [
-        ("Dispatcher controller", "Dispatcher"),
+        ("Dispatcher controller", "Dispatcher controller"),
         ("Navi", "Navi"),
         ("", "Dispatcher"),
         (" \n\t", "Dispatcher"),
-        (" Dispatcher controller ", "Dispatcher"),
+        (" Dispatcher controller ", " Dispatcher controller "),
         ("Dispatcher controller 2", "Dispatcher controller 2"),
     ])
-    func chatDisplayNameDoesNotUseTheControllerRole(name: String, expected: String) {
+    func chatDisplayNamePreservesChosenNamesAndDefaultsOnlyBlanks(name: String, expected: String) {
         #expect(CompanionDispatcher.chatDisplayName(name) == expected)
         var agent = CompanionAgent(id: dispatcherTarget, name: name, subtitle: "", status: .idle)
         agent.isDispatcher = true
@@ -125,9 +125,9 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(store.reviewEntries.first?.agent.name == "Navi")
 
         host.dispatcherSettings?.agentID = "another-chat"
-        #expect(host.dispatcherDisplayName == "Dispatcher", "Settings from another agent cannot supply its name")
+        #expect(host.dispatcherDisplayName == "Dispatcher controller", "Settings from another agent cannot supply its name")
         host.dispatcherSettings = nil
-        #expect(host.dispatcherDisplayName == "Dispatcher")
+        #expect(host.dispatcherDisplayName == "Dispatcher controller")
         host.dispatcher?.agent?.name = "Echo"
         #expect(host.dispatcherDisplayName == "Echo", "The catalog also carries chosen chat names")
     }
@@ -150,7 +150,7 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         chat.isDispatcher = true
         var host = CompanionHost(id: fixtureHostID, name: "Studio", endpoint: "", connection: .connected, projects: [],
                                  dispatcher: .init(enabled: true, flagOn: true, agent: chat))
-        #expect(host.dispatcherDisplayName == "Dispatcher", "Legacy catalog role names still default")
+        #expect(host.dispatcherDisplayName == "Dispatcher controller", "The snapshot already carries the chosen chat name")
         var settings = CompanionPreviewService.previewDispatcherSettings
         settings.agentID = dispatcherID
         settings.identity.name = "Dispatcher controller"
@@ -263,6 +263,28 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
 // MARK: Live service
 
 @MainActor @Suite(.serialized) struct DispatcherLiveServiceTests {
+    @Test(arguments: [
+        ("Dispatcher controller", "Dispatcher controller"),
+        (" Navi ", " Navi "),
+        ("", "Dispatcher"),
+        (" \n\t", "Dispatcher"),
+    ])
+    func snapshotChatNameIsAuthoritativeBeforeSettingsLoad(name: String, expected: String) async throws {
+        let harness = try await startWithDispatcher()
+        defer { harness.stop() }
+        try await sendSnapshot(harness, dispatcher: dispatcherSnapshot(name: name))
+        try await harness.waitUntil { harness.host?.dispatcher?.agent != nil }
+        let host = try #require(harness.host)
+        #expect(host.dispatcherSettings == nil)
+        #expect(host.dispatcher?.agent?.displayName == expected)
+        #expect(host.dispatcherDisplayName == expected)
+        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        navigation.update(hosts: [host])
+        #expect(navigation.dispatcherTitle(hosts: [host]) == expected)
+        #expect(navigation.dispatcherDesktops.first?.accessibilityLabel == "\(expected) on \(host.name)")
+        #expect(navigation.dispatcherTarget == dispatcherTarget)
+    }
+
     @Test func sendingToTheDispatcherUsesTheSnapshotsChatID() async throws {
         let harness = try await startWithDispatcher()
         defer { harness.stop() }

@@ -38,7 +38,7 @@ import ClubhouseTransport
         var unavailable = named
         unavailable.dispatcher?.enabled = false
         #expect(navigation.dispatcherTitle(hosts: [unavailable]) == "Dispatcher")
-        for name in ["", " \n\t", "Dispatcher controller"] {
+        for name in ["", " \n\t"] {
             let unnamed = host(name: name)
             #expect(unnamed.dispatcher?.agent?.displayName == "Dispatcher")
             #expect(navigation.dispatcherTitle(hosts: [unnamed]) == "Dispatcher")
@@ -47,6 +47,19 @@ import ClubhouseTransport
         mcpOff.dispatcher?.enabled = false
         mcpOff.dispatcher?.mcpOff = .init(json: .object(["offReason": .string("mcp_off"), "running": .bool(false)]))
         #expect(navigation.dispatcherTitle(hosts: [mcpOff]) == "Navi", "MCP-off retains the agent's known identity")
+    }
+
+    @Test func exactControllerSnapshotNameNeedsNoSettingsToNameTheChat() throws {
+        let named = host(name: "Dispatcher controller")
+        #expect(named.dispatcherSettings == nil)
+        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        navigation.update(hosts: [named])
+        #expect(navigation.dispatcherTitle(hosts: [named]) == "Dispatcher controller")
+        #expect(named.dispatcher?.agent?.displayName == "Dispatcher controller")
+        let desktop = try #require(navigation.dispatcherDesktops.first)
+        #expect(desktop.accessibilityLabel == "Dispatcher controller on studio")
+        let cached = try JSONDecoder().decode(CompanionDispatcherDesktop.self, from: JSONEncoder().encode(desktop))
+        #expect(cached.displayName == "Dispatcher controller")
     }
 
     @Test func placeCaptionsKeepTheDispatcherRoleAlongsideTheAgentName() {
@@ -120,7 +133,7 @@ import ClubhouseTransport
         store.hosts[1].dispatcher?.agent?.name = "Atlas"
         try await awaitTitle("Atlas")
         store.hosts[1].dispatcher?.agent?.name = "Dispatcher controller"
-        try await awaitTitle("Dispatcher")
+        try await awaitTitle("Dispatcher controller")
         var settings = CompanionPreviewService.previewDispatcherSettings
         settings.agentID = hosts[1].dispatcher!.agent!.id.agentID
         settings.identity.name = "Echo"

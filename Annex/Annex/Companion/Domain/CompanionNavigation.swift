@@ -13,7 +13,6 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
     var name: String
     var displayName: String
     var target: CompanionTarget?
-    var nameIsChosen = false
 
     var accessibilityLabel: String { "\(displayName) on \(name)" }
 
@@ -23,18 +22,16 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
         name = host.name
         displayName = host.dispatcherDisplayName
         target = dispatcher.liveAgent?.id
-        nameIsChosen = host.dispatcherAgent?.dispatcherNameIsChosen == true
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, displayName, target, nameIsChosen }
+    private enum CodingKeys: String, CodingKey { case id, name, displayName, target }
 
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
-        nameIsChosen = try container.decodeIfPresent(Bool.self, forKey: .nameIsChosen) ?? false
         // Older preferences cached only the machine name.
-        displayName = CompanionDispatcher.chatDisplayName(try container.decodeIfPresent(String.self, forKey: .displayName), isChosen: nameIsChosen)
+        displayName = CompanionDispatcher.chatDisplayName(try container.decodeIfPresent(String.self, forKey: .displayName))
         target = try container.decodeIfPresent(CompanionTarget.self, forKey: .target)
     }
 }

@@ -307,7 +307,7 @@ import Testing
         await harness.transport.emit(harness.snapshotEvent(["dispatcher": .object(value)]))
         try await harness.waitUntil { harness.host?.dispatcher?.agent != nil }
         let target = try #require(harness.host?.dispatcher?.agent?.id)
-        #expect(harness.store.agent(for: target)?.name == "Dispatcher")
+        #expect(harness.store.agent(for: target)?.name == "Dispatcher controller", "The snapshot name is already authoritative before settings load")
         await harness.transport.setRead("dispatcherSettings", try ContractFixtures.body("dispatcher-settings.json", "byHand"))
         _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
         try await harness.waitUntil { harness.store.agent(for: target)?.name == "Robin" }
@@ -317,7 +317,7 @@ import Testing
         await harness.transport.enqueue(.completed(result))
         let settings = try await harness.store.updateDispatcher(.init(behavior: "thorough"), hostID: hostID)
         try await harness.waitUntil { harness.store.agent(for: target)?.name == settings.identity.name }
-        #expect(harness.host?.dispatcherAgent?.id == target, "Display role mapping never changes the chat id")
+        #expect(harness.host?.dispatcherAgent?.id == target, "Name updates never change the chat id")
     }
 
     @Test func dispatcherChangedKeepsTheSettingsCurrentAndDropsThemWhenOff() async throws {

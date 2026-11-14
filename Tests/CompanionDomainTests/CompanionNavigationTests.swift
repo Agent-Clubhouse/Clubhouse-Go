@@ -123,7 +123,7 @@ import Testing
     }
 
     @Test func unnamedAndLoadingDispatchersKeepMachineDisambiguation() throws {
-        for name in ["", " \n\t", "Dispatcher controller"] {
+        for name in ["", " \n\t"] {
             var a = host("a")
             a.dispatcher?.agent?.name = name
             var b = host("b")
@@ -146,7 +146,7 @@ import Testing
         #expect(restored.first?.displayName == "Dispatcher")
         #expect(restored.first?.accessibilityLabel == "Dispatcher on Studio Mac")
         let controllerCache = Data(#"[{"id":"mac","name":"Studio Mac","displayName":"Dispatcher controller"}]"#.utf8)
-        #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: controllerCache).first?.accessibilityLabel == "Dispatcher on Studio Mac")
+        #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: controllerCache).first?.accessibilityLabel == "Dispatcher controller on Studio Mac", "Older caches also stored the snapshot's chosen chat name, not presence")
         var navigation = CompanionNavigation(startScreen: .dispatcher, cached: restored)
         navigation.update(hosts: [named])
         #expect(navigation.dispatcherDesktops.first?.displayName == "Navi")

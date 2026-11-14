@@ -112,19 +112,20 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
         #expect(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [a, b]).first?.presence?.state == "asleep")
     }
 
-    @Test func legacyControllerPresenceCannotRenameAPairedChatOrAnInformationalRow() throws {
+    @Test(arguments: ["Navi", "Dispatcher controller"])
+    func legacyControllerPresenceCannotRenameAPairedChatOrAnInformationalRow(chatName: String) throws {
         var source = try host("source", state: "working", received: Date())
         source.dispatcherPresence?.remotes[0].dispatcherName = "Dispatcher controller"
         source.dispatcherPresence?.remotes[0].label = "Dispatcher controller on Office Mac"
         let remote = try #require(source.dispatcherPresence?.remotes.first)
         var chat = CompanionAgent(id: .init(hostID: "remote", projectID: "__dispatcher__", agentID: "chat"),
-                                  name: "Navi", subtitle: "", status: .idle)
+                                  name: chatName, subtitle: "", status: .idle)
         chat.isDispatcher = true
         let paired = CompanionHost(id: "remote", name: "Office Mac", endpoint: "", connection: .connected, projects: [],
                                    dispatcher: .init(enabled: true, flagOn: true, agent: chat))
         let desktop = try #require(CompanionDispatcherDesktop(host: paired))
         let merged = try #require(CompanionDispatcherSwitcherRow.rows(desktops: [desktop], hosts: [source]).first)
-        #expect(merged.label == "Navi on Office Mac", "Beta.4 presence names its controller, not this paired chat")
+        #expect(merged.label == "\(chatName) on Office Mac", "Beta.4 presence cannot override the paired chat's chosen name")
         #expect(merged.presence?.state == remote.state && merged.desktop?.target == chat.id)
         let informational = try #require(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first)
         #expect(informational.label == "Dispatcher on Office Mac", "No chosen remote chat name was supplied")

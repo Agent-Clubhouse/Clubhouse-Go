@@ -30,7 +30,7 @@ struct CompanionDispatcherPresence: Decodable, Equatable, Sendable {
             let text = label.trimmingCharacters(in: .whitespacesAndNewlines)
             // Beta.4 presence published the controller name without the chosen chat name.
             if text.isEmpty || text == "\(CompanionDispatcher.controllerName) on \(machineName)" {
-                return "\(CompanionDispatcher.chatDisplayName(dispatcherName)) on \(machineName)"
+                return "\(CompanionDispatcher.chatDisplayName(dispatcherName, fromPresence: true)) on \(machineName)"
             }
             return text
         }
@@ -99,8 +99,8 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
         var rows = desktops.map { Self(id: $0.id, desktop: $0, presence: reports.removeValue(forKey: $0.id)?.remote) }
         rows += reports.values.map { Self(id: $0.remote.id, presence: $0.remote) }
         return rows.sorted {
-            let name = ($0.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($0.presence?.dispatcherName))
-                .localizedStandardCompare($1.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($1.presence?.dispatcherName))
+            let name = ($0.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($0.presence?.dispatcherName, fromPresence: true))
+                .localizedStandardCompare($1.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($1.presence?.dispatcherName, fromPresence: true))
             if name != .orderedSame { return name == .orderedAscending }
             let machine = ($0.presence?.machineName ?? $0.desktop?.name ?? "")
                 .localizedStandardCompare($1.presence?.machineName ?? $1.desktop?.name ?? "")

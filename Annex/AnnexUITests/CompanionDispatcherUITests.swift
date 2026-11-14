@@ -282,30 +282,23 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
-    func testControllerCatalogNameUsesDispatcherOnChatSurfaces() {
+    func testSnapshotChatNameIsPreservedBeforeSettingsLoad() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
-                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
-                             "--companion-preview-dispatcher-settings"])
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         XCTAssertTrue(switcher.waitForExistence(timeout: 15))
         let studio = app.buttons["dispatcher-desktop-preview-studio"]
         waitAndTap(switcher, until: studio)
-        screenshot(app, "Dispatcher controller catalog name in switcher")
-        XCTAssertEqual(studio.label, "Dispatcher on Studio Mac")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher on Travel MacBook")
+        screenshot(app, "The snapshot chosen chat name needs no settings read")
+        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
         studio.tap()
-        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Dispatcher on Studio Mac")
-        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher,"))
-        let settings = app.buttons["Agent settings"]
-        waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
-        let name = element(app, "dispatcher-name")
-        waitAndTap(settings, until: element(app, "dispatcher-behavior-standard"), timeout: 10)
-        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
-        XCTAssertEqual(name.value as? String, "Dispatcher")
+        XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
+        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
     }
 
-    func testSettingsChatNameOverridesTheControllerCatalogName() {
+    func testSettingsChatNameOverridesTheSnapshotChatName() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
                              "--companion-preview-named-dispatchers", "--companion-preview-dispatcher-settings"])
@@ -314,7 +307,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let studio = app.buttons["dispatcher-desktop-preview-studio"]
         waitAndTap(switcher, until: studio)
         XCTAssertEqual(studio.label, "Navi on Studio Mac")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher on Travel MacBook")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
         screenshot(app, "Chosen Dispatcher chat name from settings")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
@@ -338,7 +331,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let studio = app.buttons["dispatcher-desktop-preview-studio"]
         waitAndTap(switcher, until: studio)
         XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac", "The authoritative chosen name is preserved")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher on Travel MacBook", "An unchosen catalog role still defaults")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook", "The snapshot name is authoritative without settings too")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
         XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
