@@ -562,9 +562,19 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public let projectID: String
         /// Settings > Dispatcher's route and commands (`settings` v1). Absent on desktops before Clubhouse #3206.
         public let settings: Feature?
+        public struct Presence: Decodable, Sendable, Equatable {
+            public let version: Int
+            public let snapshotField: String
+            public let event: String
+            public var isSupported: Bool {
+                version == 1 && snapshotField == "dispatcherPresence" && event == "dispatcher:presence"
+            }
+        }
+        public let presence: Presence?
         public init(version: Int = 1, enabled: Bool, flagOn: Bool, newLayout: Bool = true, projectID: String = Self.defaultProjectID, settings: Feature? = nil) {
             self.version = version; self.enabled = enabled; self.flagOn = flagOn; self.newLayout = newLayout; self.projectID = projectID
             self.settings = settings
+            self.presence = nil
         }
         /// A malformed block reads as off rather than failing the whole capability document.
         public init(from decoder: Decoder) throws {
@@ -575,11 +585,13 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
             newLayout = (try? c.decode(Bool.self, forKey: .newLayout)) ?? true
             projectID = (try? c.decode(String.self, forKey: .projectId)).flatMap { $0.isEmpty ? nil : $0 } ?? Self.defaultProjectID
             settings = (try? c.decodeIfPresent(Feature.self, forKey: .settings)) ?? nil
+            presence = (try? c.decodeIfPresent(Presence.self, forKey: .presence)) ?? nil
         }
-        private enum CodingKeys: String, CodingKey { case version, enabled, flagOn, newLayout, projectId, settings }
+        private enum CodingKeys: String, CodingKey { case version, enabled, flagOn, newLayout, projectId, settings, presence }
     }
     public let dispatcher: Dispatcher?
     public var supportsDispatcher: Bool { (dispatcher?.version ?? 0) >= 1 }
+    public var supportsDispatcherPresence: Bool { dispatcher?.presence?.isSupported == true }
     /// The phone can turn the Dispatcher on and off (`dispatcher.setEnabled`).
     public var supportsDispatcherToggle: Bool { supportsDispatcher && commands.contains("dispatcher.setEnabled") }
     /// Image upload limits. Absent on desktops that can't take images: send text only.

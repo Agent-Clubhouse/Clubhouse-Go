@@ -101,6 +101,20 @@ import ClubhouseTransport
                 #endif
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-presence") {
+                hosts[0].dispatcherPresence = .init(remotes: [
+                    .init(machineId: "preview-laptop", machineName: "Travel MacBook", dispatcherName: "Echo",
+                          label: "Echo on Travel MacBook", state: "working", link: .init(state: "active")),
+                    .init(machineId: "preview-office", machineName: "Office Mac", dispatcherName: "Atlas",
+                          label: "Atlas on Office Mac", state: "offline",
+                          lastSeen: Date().addingTimeInterval(-300).ISO8601Format(), link: .init(state: "unavailable")),
+                    .init(machineId: "preview-mini", machineName: "Mac mini", dispatcherName: "Navi",
+                          label: "Navi on Mac mini", state: "asleep", link: .init(state: "paused")),
+                    .init(machineId: "preview-off", machineName: "Workshop Mac", dispatcherName: nil,
+                          label: "Dispatcher on Workshop Mac", state: "off", link: .init(state: "active"))
+                ])
+                hosts[0].dispatcherPresenceReceivedAt = Date()
+            }
             // Synthetic Needs you states; no desktop connection or commands are made by this preview service.
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-needs-you") {
                 let scenario = ProcessInfo.processInfo.environment["COMPANION_NEEDS_YOU_SCENARIO"] ?? "one-offline"

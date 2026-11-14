@@ -278,6 +278,40 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(switcher.label, "Navi on Studio Mac")
     }
 
+    func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-presence"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15), "One paired Dispatcher plus remotes still has a chooser")
+        let office = app.buttons["dispatcher-remote-preview-office"]
+        waitAndTap(switcher, until: office)
+        XCTAssertTrue(office.label.hasPrefix("Atlas on Office Mac, Offline, last seen "))
+        XCTAssertTrue(office.label.contains("Link unavailable"))
+        XCTAssertFalse(office.isEnabled, "An unpaired Dispatcher cannot be selected")
+        let mini = app.buttons["dispatcher-remote-preview-mini"]
+        XCTAssertEqual(mini.label, "Navi on Mac mini, Asleep · Link paused")
+        XCTAssertFalse(mini.isEnabled)
+        XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Off · Link active")
+        screenshot(app, "Other computers' Dispatchers")
+    }
+
+    func testPresenceMergesAPairedRemoteWithoutDuplicatingOrDisablingItsRow() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
+                             "--companion-preview-dispatcher-presence"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
+        waitAndTap(switcher, until: travel)
+        XCTAssertEqual(travel.label, "Echo on Travel MacBook, Working · Link active")
+        XCTAssertTrue(travel.isEnabled)
+        XCTAssertFalse(app.buttons["dispatcher-remote-preview-laptop"].exists)
+        app.buttons["dispatcher-desktop-preview-studio"].tap()
+        XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
+        waitAndTap(switcher, until: travel)
+        travel.tap()
+        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 5), "Merged paired rows retain their navigation")
+    }
+
     func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
         let switcher = app.buttons["dispatcher-desktop-switcher"]

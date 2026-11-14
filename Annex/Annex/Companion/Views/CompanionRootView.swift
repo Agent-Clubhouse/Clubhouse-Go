@@ -157,6 +157,9 @@ struct CompanionRootView: View {
     /// Retain each desktop’s editor state; hidden conversations unmount their transcript content.
     /// The store’s per-target reading bookmark restores the visible transcript after tab or desktop switches.
     private var dispatcherRoot: some View {
+        let rows = CompanionDispatcherSwitcherRow.rows(desktops: navigation.dispatcherDesktops, hosts: store.hosts)
+        let errors = store.hosts.compactMap(\.dispatcherPresenceError)
+        return
         ZStack {
             ForEach(navigation.dispatcherDesktops) { desktop in
                 let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
@@ -181,24 +184,40 @@ struct CompanionRootView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                if navigation.dispatcherDesktops.count > 1 {
+                if rows.count > 1 || !errors.isEmpty {
                     Menu {
-                        ForEach(navigation.dispatcherDesktops) { desktop in
-                            Button {
-                                navigation.chooseDispatcher(hostID: desktop.id)
-                                preferences.lastHostID = desktop.id
-                                mirrorSelection()
-                            } label: {
-                                if desktop.id == navigation.dispatcherHostID {
-                                    Label(desktop.displayName, systemImage: "checkmark")
-                                } else {
-                                    Text(desktop.displayName)
+                        ForEach(rows) { row in
+                            if let desktop = row.desktop {
+                                Button {
+                                    navigation.chooseDispatcher(hostID: desktop.id)
+                                    preferences.lastHostID = desktop.id
+                                    mirrorSelection()
+                                } label: {
+                                    if let presence = row.presence {
+                                        Label(row.label, systemImage: desktop.id == navigation.dispatcherHostID ? "checkmark" : presence.symbol)
+                                        if let detail = row.detail { Text(detail) }
+                                    } else {
+                                        if desktop.id == navigation.dispatcherHostID {
+                                            Label(desktop.displayName, systemImage: "checkmark")
+                                        } else {
+                                            Text(desktop.displayName)
+                                        }
+                                        Text(desktop.name)
+                                    }
                                 }
-                                Text(desktop.name)
+                                .accessibilityLabel(row.accessibilityLabel)
+                                .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
+                            } else if let presence = row.presence {
+                                Button {} label: {
+                                    Label(row.label, systemImage: presence.symbol)
+                                    if let detail = row.detail { Text(detail) }
+                                }
+                                .disabled(true)
+                                .accessibilityLabel(row.accessibilityLabel)
+                                .accessibilityIdentifier("dispatcher-remote-\(row.id)")
                             }
-                            .accessibilityLabel(desktop.accessibilityLabel)
-                            .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
                         }
+                        ForEach(Array(errors.enumerated()), id: \.offset) { _, error in Text(error) }
                     } label: {
                         Label(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.displayName ?? CompanionDispatcher.name,
                               systemImage: "chevron.up.chevron.down")

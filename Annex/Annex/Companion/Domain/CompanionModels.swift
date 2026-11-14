@@ -132,6 +132,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// The desktop's app-wide Dispatcher (`dispatcher` v1). Nil on desktops without one. Kept out of `projects`, so it
     /// never sorts, pins, idles or spawns like a project.
     var dispatcher: CompanionDispatcher?
+    var dispatcherPresence: CompanionDispatcherPresence?
+    /// Local receipt time of the entire report, not the remote's offline-only lastSeen.
+    var dispatcherPresenceReceivedAt: Date?
+    var dispatcherPresenceError: String?
 
     /// Every listed agent, including a Dispatcher retained under the MCP-off contract.
     var allAgents: [CompanionAgent] { projects.flatMap(\.agents) + (dispatcher?.liveAgent.map { [$0] } ?? []) }
