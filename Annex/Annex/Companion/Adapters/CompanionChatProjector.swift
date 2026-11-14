@@ -7,6 +7,8 @@ import ClubhouseTransport
 /// `lastSequence` is session-local; Annex's global websocket sequence never enters it.
 struct CompanionChatProjector {
     var sessionID: String?
+    /// Identifies the current run even when it restarts inside the same session.
+    var sessionStartSequence: Int?
     var lastSequence = 0
     private(set) var items: [CompanionTimelineItem] = []
     private var itemIndices: [String: Int] = [:]
@@ -62,6 +64,7 @@ struct CompanionChatProjector {
             queuedContentParts = [:]
             sessionQueue = nil; runtimeOwnedMessageIDs = []
             controls = .init(); effortsSequence = 0; slashCommands = []
+            sessionStartSequence = nil
         }
         guard allowOlderPending || sequence > lastSequence else { return }
         lastSequence = max(lastSequence, Int(sequence))
@@ -73,6 +76,7 @@ struct CompanionChatProjector {
         case "session_started", "session_info":
             // Another run in the same session can follow a crash with no session_ended (or resumed flag).
             if type == "session_started" {
+                sessionStartSequence = Int(sequence)
                 settleQueuedMessages()
                 status = .idle; turnStartedAt = nil; finishStreams()
             }

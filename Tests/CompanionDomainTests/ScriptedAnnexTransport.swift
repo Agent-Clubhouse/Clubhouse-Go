@@ -182,12 +182,13 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     var sessionID: String?
     var projectID: String?
     var agentID: String?
+    var limit: Int?
     init(_ route: AnnexReadRoute) {
         name = ScriptedAnnexTransport.key(route)
         switch route {
         case .chatContent(_, let ref, let path): mediaRef = ref; filePath = path
         case .chatLink(_, let link): href = link
-        case .chatHistory(_, let session, _, _): sessionID = session
+        case .chatHistory(_, let session, _, let limit): sessionID = session; self.limit = limit
         case .helperRouting(let project, let agent): projectID = project; agentID = agent
         default: break
         }

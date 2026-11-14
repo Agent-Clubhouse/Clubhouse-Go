@@ -54,7 +54,9 @@ extension CompanionAgent {
     func modelDifference(from settings: CompanionAgentSettings?) -> CompanionModelDifference? {
         guard isRunning, isSleepingOnDesktop != true, let settings, !settings.sleeping,
               !settings.notHonored.contains("model"), orchestrator == settings.resolvedOrchestrator else { return nil }
-        return chatControls?.modelDifference(savedModel: settings.model.value, savedLabel: settings.modelLabel)
+        let sessionLabel = settings.options.models(for: settings.resolvedOrchestrator)
+            .first { $0.id == chatControls?.model }?.label
+        return chatControls?.modelDifference(savedModel: settings.model.value, savedLabel: settings.modelLabel, sessionLabel: sessionLabel)
     }
 }
 
@@ -153,15 +155,15 @@ nonisolated struct CompanionChatControls: Sendable, Equatable {
     }
 
     /// Match the desktop's sessionModelLine, retaining proven catalog differences for saved edits and older desktops.
-    func modelDifference(savedModel: String?, savedLabel: String? = nil) -> CompanionModelDifference? {
-        guard let model, !model.isEmpty else { return nil }
+    func modelDifference(savedModel: String?, savedLabel: String? = nil, sessionLabel: String? = nil) -> CompanionModelDifference? {
+        guard let model, !model.isEmpty, model != savedModel else { return nil }
         let session = models.first { $0.id == model }
         let saved = models.first { $0.id == savedModel }
         let movedFromStart = startModel.map { !$0.isEmpty && $0 != model } ?? false
         let catalogDifference = model != savedModel && model != "default" && savedModel != "default"
             && session != nil && saved != nil
         guard movedFromStart || catalogDifference else { return nil }
-        let sessionLabel = session?.label ?? model
+        let sessionLabel = session?.label ?? sessionLabel ?? model
         let savedID = savedModel.flatMap { !$0.isEmpty && $0 != "default" ? $0 : nil }
         let nextLabel = savedID.map { saved?.label ?? savedLabel ?? $0 } ?? "Default model"
         // nowAndNextStart omits the next-start line when both display labels name the same model.

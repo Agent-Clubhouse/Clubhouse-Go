@@ -54,6 +54,7 @@ offline and loading explanations stay.
 When the desktop's optional `chatControls.startModel` proves the live model moved from its opening model,
 or the session and saved model are distinct exact choices in the live model catalog, the Model submenu shows
 "Session: <model>" and "Saved: <model> (next start)". Agent settings labels the same two values Session and Saved.
+Exact identical live and saved IDs never differ, regardless of the opening model or display labels.
 An unchanged opening alias does not establish a difference from a saved full ID. Equal display labels omit the
 next-start comparison, matching the desktop's `sessionModelLine` / `nowAndNextStart`. Missing or null `startModel`
 retains the conservative catalog-only comparison; unresolved defaults and unlisted IDs alone prove nothing.
@@ -72,7 +73,11 @@ No rows are added to the collapsed composer.
 The pinned desktop contract (`8c0029a1`) exports optional `MobileChatControls.startModel: string | null`
 in v1 chat snapshots/pages. The desktop folds the full session to produce it; Go never infers it from
 whatever bounded history happens to arrive. Live model changes preserve the authoritative baseline;
-a new session/run clears it until its fresh snapshot arrives. A moved session can name a saved full ID
+a new session/run clears it and requests one current-chat page with a one-event limit for a previously loaded
+target. The response supplies only the authoritative baseline and cannot replace newer live models/lists.
+Session/run, history-read and host-connection keys discard stale replies. Missing/null baselines and failed reads
+never start a retry loop; failures expose the existing conversation resync/Refresh path.
+A moved session can name a saved full ID
 or "Default model" for the next start without guessing the provider's resolved default.
 
 The slash menu uses the remaining keyboard-safe height after the fixed composer controls, activity line and a readable
