@@ -81,7 +81,7 @@ import Testing
         #expect(byHand.notHonored == ["runtime", "freeAgentMode", "access"], "Models chosen by hand are offered")
     }
 
-    @Test(arguments: [("Dispatcher controller", "Dispatcher"), ("Navi", "Navi"), (" \n\t", "Dispatcher")])
+    @Test(arguments: [("Dispatcher controller", "Dispatcher controller"), ("Navi", "Navi"), (" \n\t", "Dispatcher")])
     func settingsNameUsesTheChatDisplayRole(name: String, expected: String) throws {
         guard case .object(var value) = try ContractFixtures.body("dispatcher-settings.json", "on"),
               case .object(var identity)? = value["identity"], case .object(var field)? = identity["name"] else {

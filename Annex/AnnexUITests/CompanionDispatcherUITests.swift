@@ -329,6 +329,29 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         screenshot(app, "Chosen Dispatcher chat name in settings")
     }
 
+    func testAnExplicitControllerChatNameIsNotTreatedAsALegacyRoleLabel() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
+                             "--companion-preview-dispatcher-settings", "--companion-preview-chosen-controller-name"])
+        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
+        let studio = app.buttons["dispatcher-desktop-preview-studio"]
+        waitAndTap(switcher, until: studio)
+        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac", "The authoritative chosen name is preserved")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher on Travel MacBook", "An unchosen catalog role still defaults")
+        studio.tap()
+        XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
+        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
+        XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
+        let settings = app.buttons["Agent settings"]
+        waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
+        let name = element(app, "dispatcher-name")
+        waitAndTap(settings, until: element(app, "dispatcher-behavior-standard"), timeout: 10)
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        XCTAssertEqual(name.value as? String, "Dispatcher controller")
+        screenshot(app, "An explicit controller chat name is preserved")
+    }
+
     func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]

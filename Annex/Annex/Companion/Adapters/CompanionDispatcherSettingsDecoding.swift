@@ -26,7 +26,7 @@ extension CompanionDispatcherSettings {
                                 return Role(id: id, label: role["label"]?.string ?? id, help: role["help"]?.string, pick: pick)
                             } ?? [])
         let identity = json["identity"]
-        self.identity = .init(name: CompanionDispatcher.chatDisplayName(name), nameEditable: editable(identity?["name"]), maxNameLength: identity?["name"]?["maxLength"]?.int ?? 40,
+        self.identity = .init(name: CompanionDispatcher.chatDisplayName(name, isChosen: true), nameEditable: editable(identity?["name"]), maxNameLength: identity?["name"]?["maxLength"]?.int ?? 40,
                               color: identity?["color"]?["value"]?.string, colorEditable: editable(identity?["color"]),
                               emoji: identity?["emoji"]?["value"]?.string, emojiEditable: editable(identity?["emoji"]),
                               hasImageIcon: identity?["hasImageIcon"].boolValue ?? false)

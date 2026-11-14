@@ -145,6 +145,33 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(message.text == "[FROM:Dispatcher controller] Work is ready.")
     }
 
+    @MainActor @Test func anExplicitControllerChatNameSurvivesProjectionAndCachedNavigation() throws {
+        var chat = CompanionAgent(id: dispatcherTarget, name: "Dispatcher controller", subtitle: "", status: .waiting)
+        chat.isDispatcher = true
+        var host = CompanionHost(id: fixtureHostID, name: "Studio", endpoint: "", connection: .connected, projects: [],
+                                 dispatcher: .init(enabled: true, flagOn: true, agent: chat))
+        #expect(host.dispatcherDisplayName == "Dispatcher", "Legacy catalog role names still default")
+        var settings = CompanionPreviewService.previewDispatcherSettings
+        settings.agentID = dispatcherID
+        settings.identity.name = "Dispatcher controller"
+        host.dispatcherSettings = settings
+        let agent = try #require(host.agent(for: dispatcherTarget))
+        #expect(agent.name == "Dispatcher controller" && agent.displayName == "Dispatcher controller")
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.hosts = [host]
+        #expect(store.attentionItems().first?.agent.displayName == "Dispatcher controller")
+        #expect(store.reviewEntries.first?.agent.displayName == "Dispatcher controller")
+        #expect(CompanionSenderResolver(agents: host.allAgents).resolve(.init(agentID: dispatcherID, name: "Old name"))?.name == "Dispatcher controller")
+
+        let desktop = try #require(CompanionDispatcherDesktop(host: host))
+        let restored = try JSONDecoder().decode(CompanionDispatcherDesktop.self, from: JSONEncoder().encode(desktop))
+        #expect(restored.displayName == "Dispatcher controller" && restored.target == dispatcherTarget)
+        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: [restored])
+        navigation.update(hosts: [host])
+        #expect(navigation.dispatcherTitle(hosts: [host]) == "Dispatcher controller")
+        #expect(CompanionDispatcherSwitcherRow.rows(desktops: [desktop], hosts: []).first?.label == "Dispatcher controller on Studio")
+    }
+
     @Test func policyDecodesConnectToDispatcherAndCrossProjectHelpers() throws {
         let policy = try #require(CompanionOrchestration(json: try json(#"""
         {"orchestrate":true,"crossProjectHelpers":true,"connectToDispatcher":true,"sources":{"crossProjectHelpers":"agent","connectToDispatcher":"persona"}}

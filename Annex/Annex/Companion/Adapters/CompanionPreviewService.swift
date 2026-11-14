@@ -187,6 +187,9 @@ import ClubhouseTransport
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-named-dispatchers") {
                     hosts[0].dispatcherSettings?.identity.name = "Navi"
                 }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-chosen-controller-name") {
+                    hosts[0].dispatcherSettings?.identity.name = "Dispatcher controller"
+                }
                 #endif
             }
             self.sentHosts = hosts

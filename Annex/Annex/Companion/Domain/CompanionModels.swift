@@ -141,7 +141,12 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var dispatcherAgent: CompanionAgent? {
         guard var agent = dispatcher?.liveAgent else { return nil }
         let chosen = dispatcherSettings.flatMap { $0.agentID == agent.id.agentID ? $0.identity.name : nil }
-        agent.name = CompanionDispatcher.chatDisplayName(chosen ?? agent.name)
+        if let chosen {
+            agent.name = chosen
+            agent.dispatcherNameIsChosen = true
+        } else {
+            agent.name = agent.displayName
+        }
         return agent
     }
     var dispatcherDisplayName: String { dispatcherAgent?.displayName ?? CompanionDispatcher.name }
@@ -167,9 +172,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
 struct CompanionDispatcher: Sendable, Equatable {
     static let name = "Dispatcher"
     static let controllerName = "Dispatcher controller"
-    nonisolated static func chatDisplayName(_ value: String?) -> String {
+    nonisolated static func chatDisplayName(_ value: String?, isChosen: Bool = false) -> String {
         let name = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty || name == controllerName ? Self.name : name
+        return name.isEmpty || (!isChosen && name == controllerName) ? Self.name : name
     }
     static let defaultProjectID = "__dispatcher__"
     /// The desktop's Settings › Dispatcher notes.
@@ -387,9 +392,11 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
     var access: CompanionPermissionLevel?
     /// The desktop's app-wide Dispatcher (`isDispatcher`). It has no project, Changes or helpers settings.
     var isDispatcher = false
+    /// Settings identity is authoritative, even when the user chooses the controller's fixed role name.
+    var dispatcherNameIsChosen = false
     /// The controller's fixed role name is not the Dispatcher chat's name.
     var displayName: String {
-        isDispatcher ? CompanionDispatcher.chatDisplayName(name) : name
+        isDispatcher ? CompanionDispatcher.chatDisplayName(name, isChosen: dispatcherNameIsChosen) : name
     }
     /// The Orchestrate card's policy, from the catalog. Nil from desktops without `orchestration` v1, and for quick agents.
     var orchestration: CompanionOrchestration?

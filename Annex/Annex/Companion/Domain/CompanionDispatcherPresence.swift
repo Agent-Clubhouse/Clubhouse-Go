@@ -99,8 +99,8 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
         var rows = desktops.map { Self(id: $0.id, desktop: $0, presence: reports.removeValue(forKey: $0.id)?.remote) }
         rows += reports.values.map { Self(id: $0.remote.id, presence: $0.remote) }
         return rows.sorted {
-            let name = CompanionDispatcher.chatDisplayName($0.desktop?.displayName ?? $0.presence?.dispatcherName)
-                .localizedStandardCompare(CompanionDispatcher.chatDisplayName($1.desktop?.displayName ?? $1.presence?.dispatcherName))
+            let name = ($0.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($0.presence?.dispatcherName))
+                .localizedStandardCompare($1.desktop?.displayName ?? CompanionDispatcher.chatDisplayName($1.presence?.dispatcherName))
             if name != .orderedSame { return name == .orderedAscending }
             let machine = ($0.presence?.machineName ?? $0.desktop?.name ?? "")
                 .localizedStandardCompare($1.presence?.machineName ?? $1.desktop?.name ?? "")
