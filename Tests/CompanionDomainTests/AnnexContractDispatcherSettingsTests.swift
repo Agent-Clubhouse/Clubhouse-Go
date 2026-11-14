@@ -81,6 +81,20 @@ import Testing
         #expect(byHand.notHonored == ["runtime", "freeAgentMode", "access"], "Models chosen by hand are offered")
     }
 
+    @Test(arguments: [("Dispatcher controller", "Dispatcher"), ("Navi", "Navi"), (" \n\t", "Dispatcher")])
+    func settingsNameUsesTheChatDisplayRole(name: String, expected: String) throws {
+        guard case .object(var value) = try ContractFixtures.body("dispatcher-settings.json", "on"),
+              case .object(var identity)? = value["identity"], case .object(var field)? = identity["name"] else {
+            Issue.record("Missing settings identity"); return
+        }
+        field["value"] = .string(name)
+        identity["name"] = .object(field)
+        value["identity"] = .object(identity)
+        let settings = try CompanionDispatcherSettings(json: .object(value))
+        #expect(settings.identity.name == expected)
+        #expect(CompanionDispatcherResetPrompt(.clearChat, settings: settings, hostID: "host")?.name == expected)
+    }
+
     @Test func everyAcceptedCommandResultDecodesAsTheSettings() throws {
         var checked = 0
         for file in ["commands/dispatcher.update.json", "commands/dispatcher.setModels.json"] {
@@ -270,6 +284,30 @@ import Testing
     }
 
     // MARK: Live changes
+
+    @Test func settingsReadsAndUpdateResultsProjectTheChosenChatNameOntoTheCatalog() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        guard case .object(var value)? = try ContractFixtures.json("snapshot-dispatcher.json")["value"],
+              case .object(var agent)? = value["agent"] else { Issue.record("No Dispatcher agent"); return }
+        agent["name"] = .string("Dispatcher controller")
+        value["agent"] = .object(agent)
+        await harness.transport.emit(harness.snapshotEvent(["dispatcher": .object(value)]))
+        try await harness.waitUntil { harness.host?.dispatcher?.agent != nil }
+        let target = try #require(harness.host?.dispatcher?.agent?.id)
+        #expect(harness.store.agent(for: target)?.name == "Dispatcher")
+        await harness.transport.setRead("dispatcherSettings", try ContractFixtures.body("dispatcher-settings.json", "byHand"))
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.agent(for: target)?.name == "Robin" }
+        #expect(harness.host?.dispatcherDisplayName == "Robin")
+
+        let result = try self.result("commands/dispatcher.update.json", "accepted")
+        await harness.transport.enqueue(.completed(result))
+        let settings = try await harness.store.updateDispatcher(.init(behavior: "thorough"), hostID: hostID)
+        try await harness.waitUntil { harness.store.agent(for: target)?.name == settings.identity.name }
+        #expect(harness.host?.dispatcherAgent?.id == target, "Display role mapping never changes the chat id")
+    }
 
     @Test func dispatcherChangedKeepsTheSettingsCurrentAndDropsThemWhenOff() async throws {
         let harness = try await start()

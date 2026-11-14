@@ -698,7 +698,7 @@ struct CompanionDispatcherRow: View {
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
-        if let agent = host.dispatcher?.liveAgent {
+        if let agent = host.dispatcherAgent {
             Button { openAgent(agent.id) } label: {
                 CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: host.dispatcher?.statusNote ?? activity(agent))
             }

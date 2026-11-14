@@ -1903,7 +1903,7 @@ import ClubhouseTransport
             var agent = catalogAgent(entry, target: .init(hostID: hostID, projectID: state.projectID, agentID: id), isQuick: false,
                                      meta: meta?[id], icon: icons?[id])
             agent.isDispatcher = true
-            if entry["name"]?.string?.isEmpty != false { agent.name = CompanionDispatcher.name }
+            agent.name = CompanionDispatcher.chatDisplayName(entry["name"]?.string)
             // Its orchestration is the desktop's, and locked.
             agent.orchestration = nil
             if let off = state.mcpOff {

@@ -26,6 +26,15 @@ struct CompanionDispatcherPresence: Decodable, Equatable, Sendable {
         var link: Link
         var id: String { machineId }
 
+        var chatLabel: String {
+            let text = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Beta.4 presence published the controller name without the chosen chat name.
+            if text.isEmpty || text == "\(CompanionDispatcher.controllerName) on \(machineName)" {
+                return "\(CompanionDispatcher.chatDisplayName(dispatcherName)) on \(machineName)"
+            }
+            return text
+        }
+
         func stateText(now: Date = Date()) -> String {
             switch state {
             case "online": return "Online"
@@ -73,7 +82,7 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
     var id: String
     var desktop: CompanionDispatcherDesktop?
     var presence: CompanionDispatcherPresence.Remote?
-    var label: String { presence?.label ?? desktop?.accessibilityLabel ?? CompanionDispatcher.name }
+    var label: String { desktop?.accessibilityLabel ?? presence?.chatLabel ?? CompanionDispatcher.name }
     var detail: String? { presence?.detailText() }
     var accessibilityLabel: String { [label, detail].compactMap { $0 }.joined(separator: ", ") }
 
@@ -90,8 +99,8 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
         var rows = desktops.map { Self(id: $0.id, desktop: $0, presence: reports.removeValue(forKey: $0.id)?.remote) }
         rows += reports.values.map { Self(id: $0.remote.id, presence: $0.remote) }
         return rows.sorted {
-            let name = ($0.presence?.dispatcherName ?? $0.desktop?.displayName ?? CompanionDispatcher.name)
-                .localizedStandardCompare($1.presence?.dispatcherName ?? $1.desktop?.displayName ?? CompanionDispatcher.name)
+            let name = CompanionDispatcher.chatDisplayName($0.desktop?.displayName ?? $0.presence?.dispatcherName)
+                .localizedStandardCompare(CompanionDispatcher.chatDisplayName($1.desktop?.displayName ?? $1.presence?.dispatcherName))
             if name != .orderedSame { return name == .orderedAscending }
             let machine = ($0.presence?.machineName ?? $0.desktop?.name ?? "")
                 .localizedStandardCompare($1.presence?.machineName ?? $1.desktop?.name ?? "")

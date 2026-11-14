@@ -123,7 +123,7 @@ import Testing
     }
 
     @Test func unnamedAndLoadingDispatchersKeepMachineDisambiguation() throws {
-        for name in ["", " \n\t"] {
+        for name in ["", " \n\t", "Dispatcher controller"] {
             var a = host("a")
             a.dispatcher?.agent?.name = name
             var b = host("b")
@@ -145,6 +145,8 @@ import Testing
         let restored = try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: legacy)
         #expect(restored.first?.displayName == "Dispatcher")
         #expect(restored.first?.accessibilityLabel == "Dispatcher on Studio Mac")
+        let controllerCache = Data(#"[{"id":"mac","name":"Studio Mac","displayName":"Dispatcher controller"}]"#.utf8)
+        #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: controllerCache).first?.accessibilityLabel == "Dispatcher on Studio Mac")
         var navigation = CompanionNavigation(startScreen: .dispatcher, cached: restored)
         navigation.update(hosts: [named])
         #expect(navigation.dispatcherDesktops.first?.displayName == "Navi")

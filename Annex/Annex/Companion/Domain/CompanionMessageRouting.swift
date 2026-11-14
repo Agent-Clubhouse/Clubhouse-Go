@@ -115,7 +115,7 @@ struct CompanionSenderIdentity: Sendable, Equatable {
 
 extension CompanionSenderIdentity {
     init(agent: CompanionAgent) {
-        self.init(id: agent.id.agentID, name: agent.name, color: agent.color, emoji: agent.emoji, icon: agent.icon, isQuick: agent.isQuick)
+        self.init(id: agent.id.agentID, name: agent.displayName, color: agent.color, emoji: agent.emoji, icon: agent.icon, isQuick: agent.isQuick)
     }
 }
 
@@ -146,7 +146,7 @@ struct CompanionSenderResolver: Sendable, Equatable {
             for agent in other.allAgents {
                 var identity = CompanionSenderIdentity(agent: agent)
                 identity.id = AnnexAgentAddress(agentID: agent.id.agentID, machine: machine).formatted
-                identity.name = Self.name(agent.name, on: other.name)
+                identity.name = Self.name(agent.displayName, on: other.name)
                 remote[identity.id] = identity
             }
         }

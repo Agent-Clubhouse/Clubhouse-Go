@@ -38,7 +38,7 @@ import ClubhouseTransport
         var unavailable = named
         unavailable.dispatcher?.enabled = false
         #expect(navigation.dispatcherTitle(hosts: [unavailable]) == "Dispatcher")
-        for name in ["", " \n\t"] {
+        for name in ["", " \n\t", "Dispatcher controller"] {
             let unnamed = host(name: name)
             #expect(unnamed.dispatcher?.agent?.displayName == "Dispatcher")
             #expect(navigation.dispatcherTitle(hosts: [unnamed]) == "Dispatcher")
@@ -119,6 +119,13 @@ import ClubhouseTransport
         try await awaitTitle("Echo")
         store.hosts[1].dispatcher?.agent?.name = "Atlas"
         try await awaitTitle("Atlas")
+        store.hosts[1].dispatcher?.agent?.name = "Dispatcher controller"
+        try await awaitTitle("Dispatcher")
+        var settings = CompanionPreviewService.previewDispatcherSettings
+        settings.agentID = hosts[1].dispatcher!.agent!.id.agentID
+        settings.identity.name = "Echo"
+        store.hosts[1].dispatcherSettings = settings
+        try await awaitTitle("Echo")
         store.selection = hosts[0].dispatcher?.agent?.id
         try await awaitTitle("Navi")
     }

@@ -111,6 +111,33 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
         b.dispatcherPresenceReceivedAt = now.addingTimeInterval(1)
         #expect(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [a, b]).first?.presence?.state == "asleep")
     }
+
+    @Test func legacyControllerPresenceCannotRenameAPairedChatOrAnInformationalRow() throws {
+        var source = try host("source", state: "working", received: Date())
+        source.dispatcherPresence?.remotes[0].dispatcherName = "Dispatcher controller"
+        source.dispatcherPresence?.remotes[0].label = "Dispatcher controller on Office Mac"
+        let remote = try #require(source.dispatcherPresence?.remotes.first)
+        var chat = CompanionAgent(id: .init(hostID: "remote", projectID: "__dispatcher__", agentID: "chat"),
+                                  name: "Navi", subtitle: "", status: .idle)
+        chat.isDispatcher = true
+        let paired = CompanionHost(id: "remote", name: "Office Mac", endpoint: "", connection: .connected, projects: [],
+                                   dispatcher: .init(enabled: true, flagOn: true, agent: chat))
+        let desktop = try #require(CompanionDispatcherDesktop(host: paired))
+        let merged = try #require(CompanionDispatcherSwitcherRow.rows(desktops: [desktop], hosts: [source]).first)
+        #expect(merged.label == "Navi on Office Mac", "Beta.4 presence names its controller, not this paired chat")
+        #expect(merged.presence?.state == remote.state && merged.desktop?.target == chat.id)
+        let informational = try #require(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first)
+        #expect(informational.label == "Dispatcher on Office Mac", "No chosen remote chat name was supplied")
+        #expect(informational.accessibilityLabel == "Dispatcher on Office Mac, Working · Link active")
+
+        source.dispatcherPresence?.remotes[0].dispatcherName = "Echo"
+        source.dispatcherPresence?.remotes[0].label = "Echo on Office Mac"
+        #expect(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first?.label == "Echo on Office Mac")
+        source.dispatcherPresence?.remotes[0].label = ""
+        #expect(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first?.label == "Echo on Office Mac")
+        source.dispatcherPresence?.remotes[0].dispatcherName = nil
+        #expect(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first?.label == "Dispatcher on Office Mac")
+    }
 }
 
 @MainActor @Suite(.serialized) struct CompanionDispatcherPresenceLiveTests {

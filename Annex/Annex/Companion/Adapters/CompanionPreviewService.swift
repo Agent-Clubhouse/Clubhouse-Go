@@ -101,6 +101,11 @@ import ClubhouseTransport
                 #endif
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-controller-name") {
+                for index in hosts.indices {
+                    hosts[index].dispatcher?.agent?.name = "Dispatcher controller"
+                }
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-presence") {
                 hosts[0].dispatcherPresence = .init(remotes: [
                     .init(machineId: "preview-laptop", machineName: "Travel MacBook", dispatcherName: "Echo",
@@ -114,6 +119,14 @@ import ClubhouseTransport
                           label: "Dispatcher on Workshop Mac", state: "off", link: .init(state: "active"))
                 ])
                 hosts[0].dispatcherPresenceReceivedAt = Date()
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-controller-presence"),
+                   var presence = hosts[0].dispatcherPresence {
+                    for index in presence.remotes.indices {
+                        presence.remotes[index].dispatcherName = "Dispatcher controller"
+                        presence.remotes[index].label = "Dispatcher controller on \(presence.remotes[index].machineName)"
+                    }
+                    hosts[0].dispatcherPresence = presence
+                }
             }
             // Synthetic Needs you states; no desktop connection or commands are made by this preview service.
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-needs-you") {
@@ -170,6 +183,11 @@ import ClubhouseTransport
             if self.showsDispatcherSettings, hosts[0].dispatcher != nil {
                 hosts[0].canEditDispatcherSettings = true
                 hosts[0].dispatcherSettings = Self.previewDispatcherSettings
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-named-dispatchers") {
+                    hosts[0].dispatcherSettings?.identity.name = "Navi"
+                }
+                #endif
             }
             self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
@@ -362,13 +380,13 @@ import ClubhouseTransport
     /// Exercise queue joins through the real projector, including dispatch with no delivered user_message.
     static let relayedTask: CompanionTimelineItem = {
         let texts = [
-            "[TASK:dsp-42] [FROM:Dispatcher] Finish the reconnect fix and open a PR. Report back when it's in review.",
+            "[TASK:dsp-42] [FROM:Dispatcher controller] Finish the reconnect fix and open a PR. Report back when it's in review.",
             "[FROM:Reviewer] The reconnect tests pass. The PR is ready for review.",
             "[Clubhouse] All helper updates have been delivered.",
             "The review notes are attached to the PR."
         ]
         let parts: [CompanionRoutedMessagePart] = [
-            .init(sender: .init(agentID: "durable_dispatcher", name: "Dispatcher"),
+            .init(sender: .init(agentID: "durable_dispatcher_controller", name: "Dispatcher controller"),
                   text: "Finish the reconnect fix and open a PR. Report back when it's in review."),
             .init(sender: .init(name: "Reviewer"), text: "The reconnect tests pass. The PR is ready for review."),
             .init(fromClubhouse: true, text: "All helper updates have been delivered."),
