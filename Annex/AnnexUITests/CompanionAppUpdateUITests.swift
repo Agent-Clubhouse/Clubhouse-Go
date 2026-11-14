@@ -89,7 +89,7 @@ import XCTest
             case "available":
                 XCTAssertTrue(status.label.contains("1.1.0"))
                 XCTAssertTrue(app.staticTexts["Restart will be available when the download finishes."].exists)
-            case "none": XCTAssertEqual(status.label, "Up to date (1.0.0)")
+            case "none": XCTAssertEqual(status.label, "No update known (running 1.0.0)")
             default: XCTAssertTrue(app.staticTexts["This installation cannot self-update."].exists)
             }
             attach(app, "Desktop update - \(state)")
@@ -108,7 +108,7 @@ import XCTest
 
     func testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation() {
         let app = openUpdate(state: "none")
-        XCTAssertEqual(app.staticTexts["app-update-status"].label, "Up to date (1.0.0)")
+        XCTAssertEqual(app.staticTexts["app-update-status"].label, "No update known (running 1.0.0)")
         XCTAssertFalse(app.images["arrow.down.circle"].exists)
         let details = app.buttons["Connection details"]
         waitAndTap(details, until: app.buttons["desktop-connection-forget"])

@@ -31,7 +31,7 @@ import ClubhouseTransport
             }
             switch update.state {
             case .none:
-                XCTAssertEqual(CompanionAppUpdateText.status(update), "Up to date (\(update.currentVersion))")
+                XCTAssertEqual(CompanionAppUpdateText.status(update), "No update known (running \(update.currentVersion))")
                 XCTAssertFalse(host.canRequestAppUpdate)
             case .downloading:
                 XCTAssertTrue(CompanionAppUpdateText.status(update).contains("%"))

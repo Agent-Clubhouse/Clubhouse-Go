@@ -811,7 +811,7 @@ import Observation
             guard appUpdateCheckAttempts[hostID]?.commandID == attempt.commandID,
                   let current = hosts.first(where: { $0.id == hostID }), current.controlEpoch == attempt.epoch else { return }
             if error is CompanionAppUpdateCheckRunning {
-                appUpdateChecksAlreadyRunning[hostID] = current.appUpdateEventRevision
+                appUpdateChecksAlreadyRunning[hostID] = current.appUpdateRevision
             }
             switch error {
             case CompanionServiceError.uncertain: break
@@ -1117,7 +1117,15 @@ import Observation
         return saved
     }
 
-    func reconnect(hostID: String) async { await service.reconnect(hostID: hostID) }
+    func reconnect(hostID: String) async {
+        clearAlreadyCheckingAppUpdate(hostID: hostID)
+        await service.reconnect(hostID: hostID)
+    }
+
+    private func clearAlreadyCheckingAppUpdate(hostID: String) {
+        guard appUpdateChecksAlreadyRunning.removeValue(forKey: hostID) != nil else { return }
+        appUpdateCheckErrors[hostID] = nil
+    }
 
     // MARK: Dispatcher (#2533)
 
@@ -1448,9 +1456,9 @@ import Observation
                     appUpdateCheckAttempts[host.id] = nil
                     appUpdateChecksAlreadyRunning[host.id] = nil
                     appUpdateCheckErrors[host.id] = nil
-                } else if let revision = appUpdateChecksAlreadyRunning[host.id], revision != host.appUpdateEventRevision {
-                    appUpdateChecksAlreadyRunning[host.id] = nil
-                    appUpdateCheckErrors[host.id] = nil
+                } else if let revision = appUpdateChecksAlreadyRunning[host.id],
+                          revision != host.appUpdateRevision || previous?.connection != host.connection {
+                    clearAlreadyCheckingAppUpdate(hostID: host.id)
                 }
             }
             let incomingIDs = Set(incoming.map(\.id))
@@ -1518,6 +1526,7 @@ import Observation
             conversations[target, default: .init()].sessionID = sessionID
             reconcileDecisionNotices(authoritativeTarget: replacesTimeline ? target : nil)
         case .resyncRequired(let hostID):
+            clearAlreadyCheckingAppUpdate(hostID: hostID)
             fullReviews = fullReviews.filter { $0.key.hostID != hostID }
             fetchedReviews = fetchedReviews.filter { $0.key.hostID != hostID }
             fullReviewFailures = fullReviewFailures.filter { $0.key.hostID != hostID }

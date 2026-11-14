@@ -13,7 +13,7 @@ nonisolated enum CompanionAppUpdateText {
         case .available: "Update available on \(desktop)"
         case .downloading: "Update downloading on \(desktop)"
         case .unsupported: "Updates unavailable on \(desktop)"
-        case .none: "Up to date on \(desktop)"
+        case .none: "No update known on \(desktop)"
         }
         if let available = update.availableVersion {
             return "\(status): \(available) (running \(update.currentVersion))"
@@ -25,7 +25,7 @@ nonisolated enum CompanionAppUpdateText {
         case .ready: "Update ready: \(update.availableVersion ?? update.currentVersion)"
         case .available: "Update available: \(update.availableVersion ?? update.currentVersion)"
         case .downloading: "Downloading \(update.availableVersion ?? update.currentVersion): \(update.downloadProgress.formatted(.number.precision(.fractionLength(0...1))))%"
-        case .none: "Up to date (\(update.currentVersion))"
+        case .none: "No update known (running \(update.currentVersion))"
         case .unsupported: "Updates unavailable"
         }
     }

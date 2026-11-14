@@ -158,6 +158,105 @@ private actor UpdateDesktop: AnnexTransporting {
 
 @Suite @MainActor struct CompanionAppUpdateTests {
     static let id = "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef"
+
+    @Test func alreadyCheckingRecoversFromUnchangedSnapshotWithoutAutomaticallyChecking() async throws {
+        let (service, store, desktop) = try await connect()
+        defer { store.stop(); service.remove(hostID: Self.id) }
+        try await desktop.checkFrame(0)
+        try await wait { store.hosts.first?.appUpdate?.state == AnnexAppUpdate.State.none }
+        let none = try #require(store.hosts.first?.appUpdate)
+        await desktop.setFailure("update_check_running")
+        await store.checkAppUpdate(hostID: Self.id)
+        #expect(store.isAlreadyCheckingAppUpdate(hostID: Self.id))
+        await desktop.setFailure(nil)
+        let revision = try #require(store.hosts.first?.appUpdateRevision)
+        try await desktop.snapshot()
+        try await wait { store.hosts.first?.appUpdateRevision != revision }
+        #expect(!store.isAlreadyCheckingAppUpdate(hostID: Self.id))
+        #expect(store.hosts.first?.appUpdate == none)
+        #expect(store.appUpdateCheckErrors.isEmpty)
+        #expect(await desktop.sent.count == 1, "A fresh unchanged snapshot only restores an explicit action")
+        await store.checkAppUpdate(hostID: Self.id)
+        #expect(await desktop.sent.count == 2)
+    }
+
+    @Test func alreadyCheckingRecoversFromSameEpochReconnectWithoutAutomaticallyChecking() async throws {
+        guard case .object(var caps) = try ContractFixtures.body("capabilities.json") else {
+            throw AnnexTransportError.malformedResponse
+        }
+        caps["epoch"] = .string("epoch")
+        let capabilities = AnnexJSON.object(caps)
+        let h = try await LiveServiceHarness.start { await $0.setRead("capabilities", capabilities) }
+        defer { h.stop() }
+        let none: AnnexJSON = .object(["state": .string("none"), "currentVersion": .string("1.0.0"),
+            "availableVersion": .null, "downloadProgress": .integer(0), "reason": .null, "request": .null])
+        await h.transport.emit(h.snapshotEvent(["appUpdate": none]))
+        try await h.waitUntil { h.host?.appUpdate?.state == AnnexAppUpdate.State.none }
+        await h.transport.enqueue(.rejected(code: "update_check_running", message: "An update check is already running."))
+        await h.store.checkAppUpdate(hostID: Self.id)
+        #expect(h.store.isAlreadyCheckingAppUpdate(hostID: Self.id))
+        let connections = await h.transport.connectCount
+        await h.store.reconnect(hostID: Self.id)
+        try await h.waitUntil { await h.transport.connectCount > connections && h.host?.connection == .connected }
+        #expect(!h.store.isAlreadyCheckingAppUpdate(hostID: Self.id))
+        #expect(h.host?.controlEpoch == "epoch")
+        #expect(await h.transport.executed.count == 1, "Same-epoch reconnect never sends another check")
+    }
+
+    @Test func noneStatusIsNeutralBeforeCheckingWhileCheckingAndAfterFailure() throws {
+        let fixture = try #require(ContractFixtures.json("app-update-statuses.json")["values"].arrayValue.first {
+            $0["state"]?.string == "none"
+        }).decode(AnnexAppUpdate.self)
+        let reasons: [String?] = [nil, "Checking without a known version.", "The last check failed."]
+        for reason in reasons {
+            let update = AnnexAppUpdate(state: .none, currentVersion: fixture.currentVersion, reason: reason)
+            #expect(CompanionAppUpdateText.status(update) == "No update known (running \(fixture.currentVersion))")
+            #expect(CompanionAppUpdateText.indicator(update, desktop: "Studio") == "No update known on Studio (running \(fixture.currentVersion))")
+        }
+    }
+
+    @Test(arguments: ["truncated", "missing root", "missing agent scope", "complete removal"])
+    func queuedCompleteIconMapDistinguishesOmissionFromRemoval(omission: String) async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let icons = CompanionIconStore(directory: root)
+        let h = try await LiveServiceHarness.start(iconStore: icons) {
+            await $0.setCapability("iconRefs", .object(["version": .integer(1)]))
+        }
+        defer { h.stop() }
+        let (entered, continuation) = AsyncStream<Void>.makeStream()
+        let release = DispatchSemaphore(value: 0)
+        let blocker = Task.detached { await icons.qaHoldActor(entered: continuation, release: release) }
+        for await _ in entered { break }
+        defer { release.signal() }
+        await h.transport.emit(h.snapshotEvent([:]))
+        try await Task.sleep(for: .milliseconds(50))
+        let image = try #require(CompanionIconRefsTests.fixture("icon-images.json")["images"].arrayValue.first)
+        await h.transport.emit(h.snapshotEvent(["iconRefs": .object([
+            "agents": .object(["agent": image]), "projects": .object([:])
+        ])]))
+        var latest: [String: AnnexJSON] = ["agents": .object(["project": .array([
+            .object(["id": .string("agent"), "name": .string("Latest snapshot"), "status": .string("idle")])
+        ])])]
+        if omission == "truncated" {
+            latest["snapshotTruncated"] = .object(["version": .integer(1), "reason": .string("frame_limit"),
+                "omitted": .array([.string("iconRefs")]), "bytes": .integer(9437184)])
+        } else if omission == "missing agent scope" {
+            latest["iconRefs"] = .object(["projects": .object([:])])
+        } else if omission == "complete removal" {
+            latest["iconRefs"] = .object(["agents": .object([:]), "projects": .object([:])])
+        }
+        await h.transport.emit(h.snapshotEvent(latest))
+        try await Task.sleep(for: .milliseconds(50))
+        release.signal()
+        await blocker.value
+        try await h.waitUntil { h.host?.projects.first?.agents.first?.name == "Latest snapshot" }
+        let expectedVersion = omission == "complete removal" ? nil : image["version"]?.string
+        #expect(h.host?.projects.first?.agents.first?.icon?.version == expectedVersion,
+                "An omitted icon map must retain the preceding queued complete map")
+        #expect((h.host?.snapshotTruncationNotice != nil) == (omission == "truncated"))
+    }
+
     private func wait(_ condition: () async -> Bool) async throws {
         for _ in 0..<400 {
             if await condition() { return }
@@ -230,7 +329,7 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(store.hosts.first?.appUpdate == (try AnnexJSON.object(ready).decode(AnnexAppUpdate.self)))
     }
 
-    @Test func alreadyCheckingStaysDisabledAcrossSnapshotsUntilARealUpdateEventAndOtherRefusalsShowTheDesktopMessage() async throws {
+    @Test func alreadyCheckingWaitsForFreshStatusAndOtherRefusalsShowTheDesktopMessage() async throws {
         let (service, store, desktop) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.id) }
         try await desktop.checkFrame(0)
@@ -239,9 +338,6 @@ private actor UpdateDesktop: AnnexTransporting {
         await store.checkAppUpdate(hostID: Self.id)
         #expect(store.isAlreadyCheckingAppUpdate(hostID: Self.id))
         #expect(store.appUpdateCheckErrors[Self.id]?.isEmpty == false)
-        try await desktop.snapshot()
-        try await Task.sleep(for: .milliseconds(50))
-        #expect(store.isAlreadyCheckingAppUpdate(hostID: Self.id), "An unrelated snapshot does not mean the desktop finished checking")
         await store.checkAppUpdate(hostID: Self.id)
         #expect(await desktop.sent.count == 1)
         try await desktop.checkFrame(1)

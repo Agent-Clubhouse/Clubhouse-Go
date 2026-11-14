@@ -958,6 +958,22 @@ import ClubhouseTransport
         return generation
     }
 
+    private static func canCoalesceSnapshots(_ previous: AnnexEnvelope, _ latest: AnnexEnvelope) -> Bool {
+        guard previous.epoch == latest.epoch, previous.controlEpoch == latest.controlEpoch,
+              previous.iconReferencesEnabled == latest.iconReferencesEnabled,
+              case .object(let older)? = previous.payload, case .object(let newer)? = latest.payload,
+              older["snapshotTruncated"] == nil, newer["snapshotTruncated"] == nil,
+              Set(older.keys) == Set(newer.keys) else { return false }
+        func hasMap(_ value: AnnexJSON?) -> Bool {
+            if case .object(_)? = value { return true }
+            return false
+        }
+        return ["agentIcons", "projectIcons"].allSatisfy { hasMap(older[$0]) == hasMap(newer[$0]) }
+            && ["agents", "projects"].allSatisfy {
+                hasMap(older["iconRefs"]?[$0]) == hasMap(newer["iconRefs"]?[$0])
+            }
+    }
+
     private func enqueue(_ event: AnnexTransportEvent, hostID: String, generation: UUID) {
         switch event {
         case .connection(.disconnected), .connection(.suspended), .resyncRequired:
@@ -979,7 +995,8 @@ import ClubhouseTransport
                 snapshotEpochs[hostID] = epoch
                 applyAppUpdate(payload["appUpdate"], hostID: hostID)
                 emitHosts()
-                if case .message(let previous)? = pendingEvents[hostID]?.last, previous.type == "snapshot" {
+                if case .message(let previous)? = pendingEvents[hostID]?.last, previous.type == "snapshot",
+                   Self.canCoalesceSnapshots(previous, envelope) {
                     pendingEvents[hostID]?.removeLast()
                 }
             case "grant_request:opened":
