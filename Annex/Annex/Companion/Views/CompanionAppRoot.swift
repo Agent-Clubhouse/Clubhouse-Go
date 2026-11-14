@@ -407,21 +407,9 @@ struct CompanionSettingsSheet: View {
                             }
                             Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
                             DisclosureGroup("Connection details") {
-                                VStack(alignment: .leading, spacing: 10) {
-                                    Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
-                                    Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
-                                    // Explicit styles keep each action independent inside this List row.
-                                    // Automatic row activation can otherwise invoke sibling buttons too.
-                                    Button("Retry") { Task { await runtime.store.reconnect(hostID: host.id) } }
-                                        .buttonStyle(.borderless)
-                                    if runtime.sessionHosts.contains(host.id), host.canRevokeSession {
-                                        Button("End session pairing", role: .destructive) { hostToEnd = host }
-                                            .buttonStyle(.borderless)
-                                            .disabled(!host.connection.canOperate)
-                                    }
-                                    Button("Forget on this device", role: .destructive) { hostToForget = host }
-                                        .buttonStyle(.borderless)
-                                }.padding(.vertical, 8)
+                                CompanionDesktopConnectionActions(host: host, isSessionOnly: runtime.sessionHosts.contains(host.id),
+                                    retry: { Task { await runtime.store.reconnect(hostID: host.id) } },
+                                    forget: { hostToForget = host }, endSession: { hostToEnd = host })
                             }.font(.subheadline)
                         }.padding(.vertical, 6).disabled(removingHostID == host.id)
                     }
@@ -500,6 +488,34 @@ struct CompanionSettingsSheet: View {
     }
 }
 
+
+struct CompanionDesktopConnectionActions: View {
+    let host: CompanionHost
+    var isSessionOnly = false
+    var retry: () -> Void
+    var forget: () -> Void
+    var endSession: () -> Void = {}
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
+            Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
+            // Borderless keeps sibling actions independent inside one List row.
+            Button("Retry", action: retry)
+                .buttonStyle(.borderless).foregroundStyle(Color(palette.tint))
+                .accessibilityIdentifier("desktop-connection-retry")
+            if isSessionOnly, host.canRevokeSession {
+                Button("End session pairing", role: .destructive, action: endSession)
+                    .buttonStyle(.borderless).foregroundStyle(.red)
+                    .disabled(!host.connection.canOperate)
+            }
+            Button("Forget on this device", role: .destructive, action: forget)
+                .buttonStyle(.borderless).foregroundStyle(.red)
+                .accessibilityIdentifier("desktop-connection-forget")
+        }.padding(.vertical, 8)
+    }
+}
 
 struct CompanionBuildInfoSection: View {
     private let version = CompanionBuildInfo.version()

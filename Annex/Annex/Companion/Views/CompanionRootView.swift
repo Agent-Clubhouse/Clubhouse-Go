@@ -333,7 +333,7 @@ struct CompanionHomeView: View {
                 .listRowBackground(Color.clear)
             } else {
                 summary
-                ForEach(store.hosts.filter { $0.canUpdateApp && $0.appUpdate?.state != AnnexAppUpdate.State.none }) { host in
+                ForEach(store.hosts.filter(\.hasAppUpdateAffordance)) { host in
                     CompanionAppUpdateLink(store: store, host: host)
                 }
                 ForEach(store.hosts.filter { !isListed($0) }) { host in offlineCard(host) }
@@ -1100,7 +1100,6 @@ struct CompanionGrantRequestActions: View {
     var showsOpenChat = true
     @Environment(\.companionOpenAgent) private var openAgent
     @Environment(\.companionPalette) private var palette
-    @State private var updateMode: AnnexUpdateMode?
 
     var body: some View {
         let busy = store.grantRequestsInFlight.contains(request.slot)
@@ -1133,13 +1132,6 @@ struct CompanionGrantRequestActions: View {
                      : "Working agents: " + update.workingAgents.map { "\($0.name) (\($0.agentId))" }.joined(separator: ", "))
                     .font(.subheadline).accessibilityIdentifier("app-update-working-agents")
                 Text(CompanionAppUpdateText.platform).font(.caption).foregroundStyle(.secondary)
-                Picker("Restart mode", selection: $updateMode) {
-                    Text("Choose restart mode").tag(Optional<AnnexUpdateMode>.none)
-                    Text("Restart now").tag(Optional(AnnexUpdateMode.now))
-                    Text("When idle").tag(Optional(AnnexUpdateMode.whenIdle))
-                }
-                .accessibilityIdentifier("app-update-mode")
-                .disabled(!store.canAnswer(request))
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { decisions(busy: busy) }
@@ -1164,24 +1156,38 @@ struct CompanionGrantRequestActions: View {
                 .accessibilityIdentifier("grant-request-open-chat")
             }
         }
-        .onChange(of: store.hosts.first { $0.id == request.hostID }?.controlEpoch) { _, _ in updateMode = nil }
     }
 
     @ViewBuilder private func decisions(busy: Bool) -> some View {
-        if request.canDecline {
-            Button { Task { await store.answer(request, with: .decline) } } label: {
-                Text("Decline").fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+        if request.update != nil {
+            if request.allowAnswer == .allowOnce {
+                Button("Restart now") { Task { await store.answer(request, with: .allowOnce, updateMode: .now) } }
+                    .buttonStyle(.borderedProminent).companionProminentLabel()
+                    .accessibilityIdentifier("app-update-restart-now")
+                Button("Restart when idle") { Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) } }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("app-update-restart-when-idle")
             }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("grant-request-decline")
-        }
-        if let allow = request.allowAnswer {
-            Button { Task { await store.answer(request, with: allow, updateMode: updateMode) } } label: {
-                Text(busy ? "Sending…" : allow.label).fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+            if request.canDecline {
+                Button("Cancel", role: .cancel) { Task { await store.answer(request, with: .decline) } }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("app-update-decline")
             }
-            .buttonStyle(.borderedProminent).companionProminentLabel()
-            .accessibilityIdentifier("grant-request-allow")
-            .disabled(request.isAppUpdate && updateMode == nil)
+        } else {
+            if request.canDecline {
+                Button { Task { await store.answer(request, with: .decline) } } label: {
+                    Text("Decline").fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("grant-request-decline")
+            }
+            if let allow = request.allowAnswer {
+                Button { Task { await store.answer(request, with: allow) } } label: {
+                    Text(busy ? "Sending…" : allow.label).fixedSize(horizontal: true, vertical: true).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent).companionProminentLabel()
+                .accessibilityIdentifier("grant-request-allow")
+            }
         }
     }
 }
