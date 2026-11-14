@@ -189,15 +189,22 @@ struct CompanionRootView: View {
                                 preferences.lastHostID = desktop.id
                                 mirrorSelection()
                             } label: {
-                                if desktop.id == navigation.dispatcherHostID { Label(desktop.name, systemImage: "checkmark") }
-                                else { Text(desktop.name) }
+                                if desktop.id == navigation.dispatcherHostID {
+                                    Label(desktop.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(desktop.displayName)
+                                }
+                                Text(desktop.name)
                             }
+                            .accessibilityLabel(desktop.accessibilityLabel)
+                            .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
                         }
                     } label: {
-                        Label(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.name ?? "Desktop",
+                        Label(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.displayName ?? CompanionDispatcher.name,
                               systemImage: "chevron.up.chevron.down")
                             .font(.subheadline).lineLimit(1)
                     }
+                    .accessibilityLabel(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.accessibilityLabel ?? CompanionDispatcher.name)
                     .accessibilityIdentifier("dispatcher-desktop-switcher")
                 } else {
                     Button("Settings", systemImage: "gearshape") { navigation.interact(); onSettings() }

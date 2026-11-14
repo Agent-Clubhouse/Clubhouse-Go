@@ -93,6 +93,63 @@ import Testing
         #expect(navigation.tab == .home, "Removing paired desktops removes their tabs")
     }
 
+    @Test func dispatcherLabelsSortByAgentThenMachineAndRefreshOnRename() throws {
+        var studio = host("studio")
+        studio.name = "Studio Mac"
+        studio.dispatcher?.agent?.name = "Navi"
+        var travel = host("travel")
+        travel.name = "Travel MacBook"
+        travel.dispatcher?.agent?.name = "Echo"
+        var navigation = CompanionNavigation(startScreen: .dispatcher, lastHostID: studio.id)
+        navigation.update(hosts: [studio, travel])
+        #expect(navigation.dispatcherDesktops.map(\.displayName) == ["Echo", "Navi"])
+        #expect(navigation.dispatcherDesktops.map(\.name) == ["Travel MacBook", "Studio Mac"])
+        #expect(navigation.dispatcherDesktops.map(\.accessibilityLabel) == ["Echo on Travel MacBook", "Navi on Studio Mac"])
+        #expect(navigation.dispatcherTitle(hosts: [studio, travel]) == "Navi")
+
+        travel.dispatcher?.agent?.name = "Navi"
+        navigation.update(hosts: [travel, studio])
+        #expect(navigation.dispatcherDesktops.map(\.id) == ["studio", "travel"], "Duplicate names sort by machine")
+        #expect(Set(navigation.dispatcherDesktops.map(\.accessibilityLabel)).count == 2)
+
+        studio.dispatcher?.agent?.name = "Atlas"
+        studio.name = "Renamed Mac"
+        navigation.update(hosts: [travel, studio])
+        let selected = try #require(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID })
+        #expect(selected.displayName == "Atlas" && selected.name == "Renamed Mac")
+        #expect(selected.accessibilityLabel == "Atlas on Renamed Mac")
+        #expect(navigation.dispatcherDesktops.map(\.id) == ["studio", "travel"])
+        #expect(navigation.dispatcherTitle(hosts: [studio, travel]) == selected.displayName)
+    }
+
+    @Test func unnamedAndLoadingDispatchersKeepMachineDisambiguation() throws {
+        for name in ["", " \n\t"] {
+            var a = host("a")
+            a.dispatcher?.agent?.name = name
+            var b = host("b")
+            b.dispatcher?.agent = nil
+            var navigation = CompanionNavigation(startScreen: .dispatcher)
+            navigation.update(hosts: [b, a])
+            #expect(navigation.dispatcherDesktops.map(\.displayName) == ["Dispatcher", "Dispatcher"])
+            #expect(navigation.dispatcherDesktops.map(\.accessibilityLabel) == ["Dispatcher on a", "Dispatcher on b"])
+        }
+    }
+
+    @Test func dispatcherCachePreservesDisplayFieldsAndReadsOlderMachineOnlyEntries() throws {
+        var named = host()
+        named.dispatcher?.agent?.name = "Navi"
+        let desktop = try #require(CompanionDispatcherDesktop(host: named))
+        let data = try JSONEncoder().encode([desktop])
+        #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: data) == [desktop])
+        let legacy = Data(#"[{"id":"mac","name":"Studio Mac"}]"#.utf8)
+        let restored = try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: legacy)
+        #expect(restored.first?.displayName == "Dispatcher")
+        #expect(restored.first?.accessibilityLabel == "Dispatcher on Studio Mac")
+        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: restored)
+        navigation.update(hosts: [named])
+        #expect(navigation.dispatcherDesktops.first?.displayName == "Navi")
+    }
+
     @Test func linksFromEveryTabRouteToOneDispatcherAndCleanOldCopies() throws {
         var navigation = CompanionNavigation(startScreen: .home)
         navigation.update(hosts: [host()])

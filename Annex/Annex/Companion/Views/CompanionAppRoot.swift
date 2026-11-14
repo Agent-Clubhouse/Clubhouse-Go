@@ -433,7 +433,7 @@ struct CompanionSettingsSheet: View {
                 if !dispatcherHosts.isEmpty {
                     Section("Dispatcher") {
                         ForEach(dispatcherHosts) { host in
-                            CompanionDispatcherSwitch(store: runtime.store, hostID: host.id, label: dispatcherHosts.count > 1 || runtime.store.hosts.count > 1 ? host.name : nil)
+                            CompanionDispatcherSwitch(store: runtime.store, hostID: host.id, label: dispatcherHosts.count > 1 || runtime.store.hosts.count > 1 ? "\(host.dispatcher?.displayName ?? CompanionDispatcher.name) on \(host.name)" : nil)
                         }
                     }
                 }
