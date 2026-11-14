@@ -240,6 +240,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(agent.capabilities.isSuperset(of: [.chat, .approve, .answer, .steer, .cancel, .images, .removeQueued]))
         let controls = try #require(agent.chatControls)
         #expect(controls.model == "opus" && controls.effort == "high" && controls.currentLevel == .ask && controls.effortReported)
+        #expect(controls.startModel == "opus")
         #expect(controls.models.map(\.id) == ["opus", "sonnet"] && controls.efforts == ["low", "medium", "high"])
         #expect(controls.liveLevels == [.plan, .ask, .autoEdit, .fullAccess] && controls.levelNames[.ask] == "default")
         #expect(agent.contextUsage?.size == 200_000 && agent.model == "opus")
@@ -248,6 +249,37 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         #expect(slash.map(\.name) == ["compact", "review", "frontend-design"])
         #expect(slash[0].startOnly && slash[0].inputHint == "<optional custom summarization instructions>" && slash[0].description != nil)
         #expect(!slash[1].startOnly && slash[1].inputHint == "<pr>")
+    }
+
+    @Test(arguments: ["snapshot", "page"])
+    func authoritativeStartModelDecodesFromFullAndBoundedChat(shape: String) async throws {
+        let recorded = try ContractFixtures.body("chat-start-model.json", shape)
+        let harness = try await LiveServiceHarness.start(configure: { transport in
+            await transport.setCapability("chatControls", .object(["version": .integer(1)]))
+            await transport.addCommands(["chat.setModel", "chat.setLevel"])
+            await transport.setAgents(.array([.object([
+                "id": .string("agent"), "name": .string("Agent"), "status": .string("running"), "executionMode": .string("chat")
+            ])]))
+        })
+        defer { harness.stop() }
+        for baseline: AnnexJSON? in [.string("opus"), .null, nil] {
+            guard case .object(var body) = recorded, case .object(var controls)? = body["chatControls"] else {
+                Issue.record("Missing recorded chat controls")
+                return
+            }
+            controls["startModel"] = baseline
+            body["chatControls"] = .object(controls)
+            try await harness.loadSession(.object(body))
+            try await harness.waitUntil {
+                let live = harness.store.agent(for: harness.target)?.chatControls
+                return live?.model == "sonnet" && live?.startModel == baseline?.string
+            }
+            let live = try #require(harness.store.agent(for: harness.target)?.chatControls)
+            #expect(live.startModel == baseline?.string)
+            #expect(live.model == "sonnet", "A bounded page contains only model_changed, not the opening model")
+            #expect(live.modelDifference(savedModel: "opus") == .init(sessionLabel: "Sonnet", savedLabel: "Opus"))
+            #expect((live.modelDifference(savedModel: "claude-opus-5-5") != nil) == (baseline?.string != nil))
+        }
     }
 
     @Test func sleepingChatSnapshotIsReadOnlyAndOffersAWake() async throws {

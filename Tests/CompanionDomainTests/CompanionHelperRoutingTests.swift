@@ -33,6 +33,7 @@ import Testing
             #expect(!page.revision.isEmpty)
             #expect(page.providers["copilot-cli"]?.cells.count == 5)
             #expect(page.label("reason", "preset_on_cli") == "From the helper settings for this difficulty")
+            #expect(page.label("skipped", "mapping_changed") == "The mapping changed while this start was being prepared")
             #expect(page.label("reason", "future_reason") == page.labels["generic"]?["unknownCode"])
         }
         let stale = try #require(page("stalePreset").providers["codex-cli"]?.cells["hard"])

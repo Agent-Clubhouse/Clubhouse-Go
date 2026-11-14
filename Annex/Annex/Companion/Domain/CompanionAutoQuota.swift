@@ -23,6 +23,7 @@ nonisolated struct CompanionHelperQuota: Sendable, Equatable {
     struct Window: Sendable, Equatable {
         var usedPercent: Double?
         var resetsAt: Date?
+        var limitReached: Bool?
     }
     struct ModelWindow: Sendable, Equatable {
         var name: String

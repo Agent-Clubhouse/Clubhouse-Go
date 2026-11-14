@@ -54,7 +54,9 @@ extension CompanionAgent {
     func modelDifference(from settings: CompanionAgentSettings?) -> CompanionModelDifference? {
         guard isRunning, isSleepingOnDesktop != true, let settings, !settings.sleeping,
               !settings.notHonored.contains("model"), orchestrator == settings.resolvedOrchestrator else { return nil }
-        return chatControls?.modelDifference(savedModel: settings.model.value)
+        let sessionLabel = settings.options.models(for: settings.resolvedOrchestrator)
+            .first { $0.id == chatControls?.model }?.label
+        return chatControls?.modelDifference(savedModel: settings.model.value, savedLabel: settings.modelLabel, sessionLabel: sessionLabel)
     }
 }
 
@@ -108,6 +110,8 @@ nonisolated struct CompanionChatContext: Sendable, Equatable {
 /// A live session's model, effort and level, and what the phone may switch them to.
 nonisolated struct CompanionChatControls: Sendable, Equatable {
     var model: String?
+    /// The desktop's authoritative opening model; older snapshots leave the baseline unknown.
+    var startModel: String?
     /// The session runs the provider's default model and hasn't named it yet ("Default model").
     var modelUnknown = false
     var effort: String?
@@ -150,12 +154,21 @@ nonisolated struct CompanionChatControls: Sendable, Equatable {
         return modelUnknown ? "Default model" : nil
     }
 
-    /// Only distinct choices in the same live catalog prove a difference. Labels and unlisted aliases don't.
-    func modelDifference(savedModel: String?) -> CompanionModelDifference? {
-        guard let model, let savedModel, model != savedModel, model != "default", savedModel != "default",
-              let session = models.first(where: { $0.id == model }),
-              let saved = models.first(where: { $0.id == savedModel }) else { return nil }
-        return .init(sessionLabel: session.label, savedLabel: saved.label)
+    /// Match the desktop's sessionModelLine, retaining proven catalog differences for saved edits and older desktops.
+    func modelDifference(savedModel: String?, savedLabel: String? = nil, sessionLabel: String? = nil) -> CompanionModelDifference? {
+        guard let model, !model.isEmpty, model != savedModel else { return nil }
+        let session = models.first { $0.id == model }
+        let saved = models.first { $0.id == savedModel }
+        let movedFromStart = startModel.map { !$0.isEmpty && $0 != model } ?? false
+        let catalogDifference = model != savedModel && model != "default" && savedModel != "default"
+            && session != nil && saved != nil
+        guard movedFromStart || catalogDifference else { return nil }
+        let sessionLabel = session?.label ?? sessionLabel ?? model
+        let savedID = savedModel.flatMap { !$0.isEmpty && $0 != "default" ? $0 : nil }
+        let nextLabel = savedID.map { saved?.label ?? savedLabel ?? $0 } ?? "Default model"
+        // nowAndNextStart omits the next-start line when both display labels name the same model.
+        guard sessionLabel != nextLabel else { return nil }
+        return .init(sessionLabel: sessionLabel, savedLabel: nextLabel)
     }
     /// "High effort", "High effort (default)" or "Default effort".
     var effortLabel: String {

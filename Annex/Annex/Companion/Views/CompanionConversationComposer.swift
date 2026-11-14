@@ -354,12 +354,14 @@ struct CompanionConversationComposer: View {
     private var canReadModelSettings: Bool {
         guard store.canEditSettings(target), connection.canOperate, agent.isRunning, agent.isSleepingOnDesktop != true, !isAsleep,
               let controls = agent.chatControls, controls.showsModelMenu, let model = controls.model,
-              model != "default", controls.models.contains(where: { $0.id == model }) else { return false }
+              !model.isEmpty,
+              controls.startModel?.isEmpty == false || (model != "default" && controls.models.contains(where: { $0.id == model })) else { return false }
         return true
     }
 
     private var modelSettingsKey: [String] {
         [target.hostID, target.projectID, target.agentID, conversation.sessionID ?? "", agent.chatControls?.model ?? "",
+         agent.chatControls?.startModel ?? "",
          agent.orchestrator ?? "", connection.label, String(canReadModelSettings), String(modelSettingsRetry),
          store.settingsRevisions[target]?.uuidString ?? ""]
     }

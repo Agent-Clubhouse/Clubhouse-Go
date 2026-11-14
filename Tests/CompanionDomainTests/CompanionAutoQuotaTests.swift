@@ -39,6 +39,9 @@ import Testing
             #expect(quota.state == value["state"]?.string && quota.unknownReason == value["unknownReason"]?.string)
             #expect(quota.modelWindows.map(\.name) == value["modelWindows"].arrayValue.compactMap { $0["name"]?.string })
         }
+        let exhausted = try #require(CompanionHelperQuota(json: cases["exhausted"]))
+        #expect(exhausted.weekly?.limitReached == true && exhausted.weekly?.usedPercent == 96)
+        #expect(exhausted.fiveHour?.limitReached == nil, "Older windows do not report the optional reached-limit flag")
         for (_, item) in full {
             let raw = try #require(item["response"])
             let quotas = raw["providers"].map { value -> [CompanionHelperQuota] in

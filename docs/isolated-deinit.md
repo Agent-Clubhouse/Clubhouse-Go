@@ -21,6 +21,11 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 Session/Saved model refresh (#276) adds only `settingsRevisions: [CompanionTarget: UUID]` to Store.
 Both keys and values are Sendable value identifiers; the map owns no callbacks, UI objects, tasks or cleanup work.
 Only that stored-property surface changes; Store's existing ARC-only teardown and constructor captures remain unchanged.
+The follow-up run-baseline refresh adds only an optional Int sequence to the value-type chat projector.
+Its one-shot task captures LiveService weakly plus target/session/sequence values; no new class storage,
+UI owner, task cleanup or teardown policy is introduced.
+Automatic-reconnect invalidation reuses LiveService's existing `reviewGenerations` value map, already rotated
+on disconnects, transport resyncs and desktop epoch changes; it adds no stored properties.
 
 Desktop updates (#359) add only Sendable update/review snapshots, String versions/epochs/notices, command-id sets and an optional restart-mode enum to Host, Store and LiveService. Grant rows include an optional String snapshot epoch. Store's request/cancel retry map uses a value key containing only the host id, epoch and optional request id. Its attempt values contain only String/optional String command ids, previous/observed request ids and initial/target versions, so authoritative status can retire resolved outcomes. Terminal shutdown clears retry, receipt and epoch state; Store's Bool admission fence prevents late events or command replies from restoring it. These are explicit shutdown actions, not deinit work. PreviewService adds a Bool fixture flag and reuses its value-only host snapshots. No new callbacks, UI owners, deinit work or constructor captures are introduced; their ARC-only policies remain unchanged.
 

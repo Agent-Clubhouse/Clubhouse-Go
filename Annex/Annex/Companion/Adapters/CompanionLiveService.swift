@@ -14,6 +14,7 @@ import ClubhouseTransport
     private var knownCapabilities: Set<String> = []
     private var projections: [CompanionTarget: CompanionChatProjector] = [:]
     private var fullReviews: [CompanionTarget: [String: (reference: CompanionEventReference, digest: String, epoch: String)]] = [:]
+    /// Gates connection-scoped reads across disconnects, transport resyncs and desktop epoch changes.
     private var reviewGenerations: [String: UUID] = [:]
     private var readOnly: Set<CompanionTarget> = []
     private var eventTasks: [String: Task<Void, Never>] = [:]
@@ -150,9 +151,13 @@ import ClubhouseTransport
                 // Live events received while HTTP was in flight are applied after its snapshot.
                 let buffered = buffers.removeValue(forKey: target) ?? []
                 var needsRefresh = false
+                var startedDuringRead = false
                 for event in buffered {
-                    if event["sessionId"]?.string == projection.sessionID { projection.apply(event) }
-                    else if event["sessionId"]?.string != previousSessionID || projection.sessionID == previousSessionID {
+                    if event["sessionId"]?.string == projection.sessionID {
+                        let previousStart = projection.sessionStartSequence
+                        projection.apply(event)
+                        if projection.sessionStartSequence != previousStart { startedDuringRead = true }
+                    } else if event["sessionId"]?.string != previousSessionID || projection.sessionID == previousSessionID {
                         // Cross-session sequence numbers cannot establish whether a
                         // different session began before or after the HTTP snapshot.
                         needsRefresh = true
@@ -167,6 +172,7 @@ import ClubhouseTransport
                 projections[target] = projection
                 updateAgent(target, projection: projection)
                 emitHosts()
+                if startedDuringRead { scheduleStartModelRefresh(for: target, projection: projection) }
                 return .init(items: projection.items, hasEarlierMessages: snapshot["truncated"].boolValue, lastSequence: projection.lastSequence, sessionID: projection.sessionID,
                              contentRoots: Self.contentRoots(from: snapshot, windows: windowsHosts.contains(target.hostID)),
                              capabilities: availableCapabilities(projection.capabilities, target: target))
@@ -1385,6 +1391,48 @@ import ClubhouseTransport
         emitHosts()
     }
 
+    private func scheduleStartModelRefresh(for target: CompanionTarget, projection: CompanionChatProjector) {
+        guard !isSuspended, capabilities[target.hostID]?.supportsModelSwitch == true,
+              eventGenerations[target.hostID] != nil,
+              let generation = reviewGenerations[target.hostID], let historyGeneration = historyGenerations[target],
+              projection.controls.startModel == nil, let session = projection.sessionID,
+              let startSequence = projection.sessionStartSequence else { return }
+        Task { [weak self] in
+            await self?.refreshStartModel(for: target, sessionID: session, startSequence: startSequence,
+                                         connectionGeneration: generation, historyGeneration: historyGeneration)
+        }
+    }
+
+    private func refreshStartModel(for target: CompanionTarget, sessionID: String, startSequence: Int,
+                                   connectionGeneration: UUID, historyGeneration: UUID) async {
+        guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, let transport = transports[target.hostID],
+              historyGenerations[target] == historyGeneration,
+              let previous = projections[target], previous.sessionID == sessionID,
+              previous.sessionStartSequence == startSequence, previous.controls.startModel == nil else { return }
+        do {
+            let snapshot = try await transport.read(.chatHistory(agentID: target.agentID, sessionID: nil, beforeSeq: nil, limit: 1))
+            guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
+                  hosts[target.hostID]?.agent(for: target) != nil,
+                  var projection = projections[target], projection.sessionID == sessionID,
+                  projection.sessionStartSequence == startSequence, projection.controls.startModel == nil else { return }
+            guard snapshot["sessionId"]?.string == sessionID, !snapshot["readOnly"].boolValue else {
+                emit(.resyncRequired(hostID: target.hostID))
+                return
+            }
+            guard let startModel = CompanionChatControls(snapshot: snapshot["chatControls"])?.startModel else { return }
+            // Only the full-session baseline is needed; a tail page must not replace newer live model/list events.
+            projection.controls.startModel = startModel
+            projections[target] = projection
+            updateAgent(target, projection: projection)
+            emitHosts()
+        } catch is CancellationError {
+        } catch {
+            guard !isSuspended, reviewGenerations[target.hostID] == connectionGeneration, historyGenerations[target] == historyGeneration,
+                  projections[target]?.sessionID == sessionID, projections[target]?.sessionStartSequence == startSequence else { return }
+            emit(.resyncRequired(hostID: target.hostID))
+        }
+    }
+
     /// Chat pages of one event each, a few at a time. A page that fails is skipped: that agent keeps the catalog's status.
     static func chatStates(_ agentIDs: [String], transport: any AnnexTransporting) async throws -> [String: LiveState] {
         try await withThrowingTaskGroup(of: (String, AnnexJSON?).self) { group in
@@ -1595,6 +1643,8 @@ import ClubhouseTransport
         // Its start (with the capabilities) may have arrived before the agent was listed, so re-read the snapshot.
         if let session = projection.sessionID, session != oldSession, readOnly.remove(target) != nil {
             Task { _ = try? await history(for: target) }
+        } else if event["type"]?.string == "session_started" {
+            scheduleStartModelRefresh(for: target, projection: projection)
         }
         let changed = updateAgent(target, projection: projection)
         emit(projection.liveUpdate(for: event, target: target, previousSessionID: oldSession))

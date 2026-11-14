@@ -5,6 +5,41 @@ import Testing
 @testable import ClubhouseTransport
 
 @MainActor struct AnnexContractChatPagesWireTests {
+    @Test func recordedFullEventFetchBindsTheReviewedPermissionDigest() async throws {
+        let fixture = try AnnexContract.json("chat-full-event.json")
+        let fetch = try #require(fixture["fetch"])
+        let body = try #require(fetch["response"]?["body"])
+        let agent = try #require(body["agentId"]?.string)
+        let session = try #require(body["sessionId"]?.string)
+        let sequence = try #require(body["seq"]?.integer)
+        let capabilities = try AnnexContract.json("capabilities.json")["response"]?["body"]
+        let request = try #require(fixture["approveWithDigest"]?["request"])
+        let command = AnnexCommand(commandID: "fixture-review", epoch: try #require(capabilities?["epoch"]?.string),
+                                   kind: .permission(agentID: agent, sessionID: session,
+                                                     requestID: try #require(request["requestId"]?.string),
+                                                     optionID: try #require(request["optionId"]?.string),
+                                                     reviewedDigest: try #require(request["reviewedDigest"]?.string)))
+        guard case .object(var receipt)? = fixture["approveWithDigest"]?["response"]?["body"] else {
+            Issue.record("Missing recorded approval receipt")
+            return
+        }
+        receipt["epoch"] = .string(command.epoch)
+        receipt["commandId"] = .string(command.commandID)
+        let io = AnnexContractIO([
+            try AnnexContract.response(AnnexContract.json("capabilities.json")["response"]),
+            try AnnexContract.response(fetch["response"]),
+            .init(status: 200, data: try AnnexContract.encode(.object(receipt)))
+        ])
+        let transport = try await annexContractTransport(io)
+        _ = try await transport.read(.capabilities)
+        let full = try await transport.fullEvent(agentID: agent, sessionID: session, sequence: sequence)
+        #expect(full.event == body["event"] && full.digest == request["reviewedDigest"]?.string)
+        #expect(try await transport.execute(command).status == .completed)
+        let requests = await io.requests
+        #expect(requests[1].url?.path == "/api/v1/mobile/agents/durable_chat/chat/events/8")
+        #expect(try JSONDecoder().decode(AnnexJSON.self, from: #require(requests[2].httpBody))["reviewedDigest"] == .string(full.digest))
+    }
+
     @Test func completePageEventsDecodeLosslesslyAndDeduplicateThroughTheRealCursor() throws {
         let pages = try AnnexContract.json("chat-pages.json")
         let forms = try #require(pages["smallestForms"])
@@ -39,12 +74,12 @@ import Testing
         }
     }
 
-    @Test func syncedIconFixturesMatchEveryPinnedByteAndSourceCommit() throws {
+    @Test func syncedIconFixturesPreserveTheIndependentlyPinnedIconContract() throws {
         let root = AnnexContract.directory.deletingLastPathComponent().appendingPathComponent("IconRefs")
         let source = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root.appendingPathComponent("SOURCE.json")))
         let syncedSource = try AnnexContract.json("SOURCE.json")
-        #expect(source["commit"] == syncedSource["commit"])
-        #expect(syncedSource["commit"]?.string == "8bd00f0cf2f40d75af153c49b8e4485726eaeee9")
+        #expect(source["commit"]?.string == "8bd00f0cf2f40d75af153c49b8e4485726eaeee9")
+        #expect(syncedSource["commit"]?.string == "8c0029a1da3def25c51fbf149fb26459a39e6c92")
         guard case .object(let hashes)? = source["files"] else {
             Issue.record("Missing icon fixture hashes")
             return
@@ -53,8 +88,15 @@ import Testing
         for (file, hash) in hashes {
             let pinned = try Data(contentsOf: root.appendingPathComponent(file))
             let synced = try AnnexContract.data(file)
-            #expect(synced == pinned, "\(file) changed from the pinned icon contract")
-            #expect(SHA256.hash(data: synced).map { String(format: "%02x", $0) }.joined() == hash.string)
+            #expect(SHA256.hash(data: pinned).map { String(format: "%02x", $0) }.joined() == hash.string)
+            if file == "capabilities.json" {
+                let old = try JSONDecoder().decode(AnnexJSON.self, from: pinned)
+                let current = try JSONDecoder().decode(AnnexJSON.self, from: synced)
+                let icons = try #require(old["response"]?["body"]?["iconRefs"])
+                #expect(current["response"]?["body"]?["iconRefs"] == icons)
+            } else {
+                #expect(synced == pinned, "\(file) changed from the pinned icon contract")
+            }
         }
     }
 }

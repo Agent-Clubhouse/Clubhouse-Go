@@ -27,7 +27,8 @@ extension CompanionHelperQuota.Window {
     nonisolated init?(json: AnnexJSON?) {
         guard let json, case .object = json else { return nil }
         let percent: Double? = switch json["usedPercent"] { case .integer(let value)?: Double(value); case .number(let value)?: value; default: nil }
-        self.init(usedPercent: percent.flatMap { $0.isFinite && $0 >= 0 && $0 <= 100 ? $0 : nil }, resetsAt: json["resetsAt"].flatMap(CompanionLiveService.date(from:)))
+        self.init(usedPercent: percent.flatMap { $0.isFinite && $0 >= 0 && $0 <= 100 ? $0 : nil }, resetsAt: json["resetsAt"].flatMap(CompanionLiveService.date(from:)),
+                  limitReached: json["limitReached"]?.boolOrNil)
     }
 }
 extension CompanionHelperQuota {
