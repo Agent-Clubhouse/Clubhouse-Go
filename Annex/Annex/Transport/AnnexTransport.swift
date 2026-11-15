@@ -324,6 +324,9 @@ public actor AnnexTransport: AnnexTransporting {
             guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
                 throw AnnexTransportError.unsupportedCapability(command.type)
             }
+            if case .create(let create) = command.kind, create.isManaged, !capabilities.supportsManagedCreate {
+                throw AnnexTransportError.unsupportedCapability("managedCreate")
+            }
             if case .permission(let agent, let session, let request, _, let digest?) = command.kind {
                 guard capabilities.supportsFullEvents, let review = fullEventReviews[digest], review.agent == agent, review.session == session,
                       review.request == request, review.epoch == command.epoch, review.generation == generation else {

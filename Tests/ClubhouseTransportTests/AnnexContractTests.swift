@@ -267,7 +267,8 @@ import Testing
             return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"),
                                  freeAgentMode: b("freeAgentMode"), useWorktree: b("useWorktree"), mcpIDs: strings("mcpIds"),
                                  branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName"),
-                                 orchestration: orchestration(r["orchestration"]), access: s("access")))
+                                 orchestration: orchestration(r["orchestration"]), access: s("access"),
+                                 managedSelection: b("managed") == true ? (b("blank") == true ? .blank : s("templateId").map(AnnexAgentCreate.ManagedSelection.template)) : (b("managed") == false ? .plain : nil)))
         case "agent.update":
             guard let a = s("agentId") else { return nil }
             func clearable(_ key: String) -> AnnexAgentUpdate.Clearable? { switch r[key] { case .string(let v)?: .set(v); case .null?: .clear; default: nil } }

@@ -36,6 +36,16 @@ extension CompanionCreateOptions {
             throw AnnexTransportError.malformedResponse
         }
         options = CompanionAgentOptions(json: json)
+        if let block = json["managed"], let defaultOn = block["defaultOn"]?.boolOrNil {
+            let templates = block["templates"].arrayValue.compactMap { row -> CompanionManagedTemplate? in
+                guard let id = row["id"]?.string, let name = row["name"]?.string,
+                      let description = row["description"]?.string, let builtin = row["builtin"]?.boolOrNil else { return nil }
+                return .init(id: id, name: name, description: description, builtin: builtin,
+                             orchestrator: row["orchestrator"]?.string, model: row["model"]?.string,
+                             access: row["access"]?.string.flatMap(CompanionPermissionLevel.init(rawValue:)))
+            }
+            managed = .init(defaultOn: defaultOn, templates: templates)
+        }
         mcpCatalog = json["mcp"]?["catalog"].arrayValue.compactMap { value -> CompanionMCPOption? in
             guard let id = value["id"]?.string else { return nil }
             return .init(id: id, name: value["name"]?.string ?? id, description: value["description"]?.string)
