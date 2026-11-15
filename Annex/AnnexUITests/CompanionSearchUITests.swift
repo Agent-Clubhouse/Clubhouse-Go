@@ -5,6 +5,13 @@ import XCTest
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
+    private func screenshot(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func openSearch(_ extra: [String] = []) -> XCUIApplication {
         let app = launchApp(["--companion-preview", "--companion-preview-start-agents"] + extra, attempts: 1)
         XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 15), "Legacy Agents restoration lands in Search")
