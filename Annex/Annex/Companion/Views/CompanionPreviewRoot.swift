@@ -59,7 +59,10 @@ struct CompanionPreviewRoot: View {
             $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
         },
                           isPreview: !ProcessInfo.processInfo.arguments.contains("--companion-preview-hide-banner"))
-            .task { CompanionUnicodeFocusFixture.seed(store) }
+            .task {
+                await CompanionWakeFocusDiagnostics.prepare()
+                CompanionUnicodeFocusFixture.seed(store)
+            }
             .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
                 NavigationStack {
                     Form {

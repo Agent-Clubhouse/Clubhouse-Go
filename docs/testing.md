@@ -188,19 +188,33 @@ not the full application's sheet hierarchy or a regression/revert proof of the h
 For a bounded native trace, launch the Debug app with **both** `--companion-preview` and
 `--companion-preview-wake-focus-diagnostics`. Up to 64 samples per presentation record focus-binding
 observations, native editing notifications, attached native inputs' responder/window state, key-window
-and scene lifecycle, presentation completion, and keyboard frames/durations. No message content is read,
-no view is inserted and no focus is changed. The selector observer owns only value metadata; its
-teardown review is recorded in the deinit policy. The UI diagnostic case exercises this opt-in path;
+and scene lifecycle, presentation completion, and keyboard frames/durations. Producers capture closed
+typed records (at most eight windows, 256 visited views and 16 inputs per window) and append to the
+shared `CompanionDiagnosticTrace` 64-slot ring under its short lock. They perform no encoding, output
+or writer scheduling on MainActor. Preview setup starts the writer through an `@concurrent` function;
+only its utility queue encodes JSON and writes through an independently opened `O_NONBLOCK` descriptor.
+An unavailable/full writer drops records and coalesces a numeric drop count; it never falls back to
+blocking stdout. The 64-sample presentation cap remains separate from the ring bound.
+Window scans start at the top presented controller, not the underlying project hierarchy; native
+editing notifications also capture their exact input object's closed metadata independently of the scan.
+No message content is read, no view is inserted and no focus is changed. The selector observer owns only
+value metadata and the Sendable writer; its teardown review is recorded in the deinit policy.
+The UI diagnostic case exercises this opt-in path;
 other scenario tests leave native diagnostics off. Export the app's stdout with
 `xcrun xcresulttool export diagnostics --path <result.xcresult> --output-path <directory>`:
-the `WAKE_FOCUS` lines are in `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt`,
-not necessarily the `xcodebuild` console.
+the `WAKE_FOCUS` JSON lines are in `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt`,
+not necessarily the `xcodebuild` console. Records contain closed event cases, numeric OS-version
+components, native input kinds and capture-time elapsed seconds; output order/timing must not be used
+as callback timing. A nonzero drop count or a missing output descriptor limits what the trace proves;
+a partial nonblocking write can leave a truncated JSON line, which must be treated as lost.
 
-The final-source passing iPhone 17 / iOS 26.0 trace observed the assignment during presentation before
+The initial revision's passing iPhone 17 / iOS 26.0 trace observed the assignment during presentation before
 an attached input was found, completion at 0.661 s, native begin-editing at 0.738 s and a software
 keyboard did-show frame at 1.215 s. The iPad trace observed those latter events at 0.669/0.757/1.224 s.
 Their 20/18 samples stayed within the cap and contained no message text. These demonstrate successful
-deferred focus in those attempts, not the failed runtime's mechanism. Local Xcode 26.0.1 (17A400) has no iOS 26.5 runtime.
+deferred focus in those attempts, not the failed runtime's mechanism. That revision used synchronous
+stdout and could perturb the observed timing; the revised producer path uses the nonblocking writer above.
+Local Xcode 26.0.1 (17A400) has no iOS 26.5 runtime.
 Hardware-keyboard connect/disconnect was not driven: supported `simctl` IO exposes no such control,
 and shared Simulator preferences were not changed. `GCKeyboard.coalesced` is logged only as
 `hardwareKeyboardReported`; XCTest injection and a software keyboard appearing do not establish
@@ -222,9 +236,26 @@ native presentation probes took 1.08/6.08 s on iPhone and 1.17/6.17 s on iPad. N
 the reported missing keyboard. The full UI-class gate is not claimed green. The owned phone was
 deleted before the iPad was created; both exact simulator UUIDs were deleted and their absence verified.
 
+The hosted `testBlockedStdoutNeverDelaysWakeDiagnosticProducers` redirects the actual stdout descriptor
+to a full blocking pipe, with a one-second background rescue. It exercises appearance, focus observation,
+native keyboard notification and more than 64 capture attempts, requiring producers to finish within
+250 ms and retaining exactly 64 samples. The unavailable independent PTY must drop all records rather
+than fall back to stdout. Reintroducing synchronous `print` failed that duration assertion at 1.096 s;
+the print was removed before final qualification. This regression prevents diagnostic-induced blocking,
+not the still-unreproduced #246 defect.
+
+After rebasing onto `617e8ba1`, the revised writer passed the hosted bundle (160 passed, 3 existing skips),
+the seven affected Wake UI cases (7 passed), strict xcresult verification for both bundles, all 20 deinit
+script tests and the binary gate (33 ARC-only, 1 deferred-main-actor, 19 isolated paths). The metadata
+regression also verifies the native notification input's closed output shape and excludes a populated
+synthetic draft. The exported UI trace retained native first-responder/window and keyboard metadata;
+17 records were intact and three writes were reported dropped, including one truncated JSON line.
+Those losses are not interpreted as absent native events. Owned simulators were used sequentially,
+deleted by exact UUID and verified absent. No focus fix or new #246 reproduction is claimed.
+
 Next capture: run the animated no-tap case on the original 26.5 (23F77) configuration without automatic
 test retries, retain its xcresult/recording and app stdout before artifact expiry, and correlate
-`focus-requested`, presentation completion, native begin/end editing, scene/key-window ownership and
+`focusRequested`, presentation completion, native begin/end editing, scene/key-window ownership and
 keyboard did-show/frame events. Also record the actual hardware-keyboard connection and software-keyboard
 toggle state. Without a failure-side trace or a controlled reproduction, no focus fix is justified.
 

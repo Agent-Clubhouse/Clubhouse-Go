@@ -327,12 +327,12 @@ struct CompanionWakeSheet: View {
                 #endif
                 focused = true
                 #if DEBUG
-                CompanionWakeFocusDiagnostics.snapshot("focus-requested", focused: focused)
+                CompanionWakeFocusDiagnostics.snapshot(.focusRequested(focused))
                 #endif
             }
             #if DEBUG
             .onChange(of: focused) { _, value in
-                CompanionWakeFocusDiagnostics.snapshot("focus-changed", focused: value)
+                CompanionWakeFocusDiagnostics.snapshot(.focusChanged(value))
             }
             .onDisappear { CompanionWakeFocusDiagnostics.end() }
             #endif
