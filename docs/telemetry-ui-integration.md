@@ -373,3 +373,5 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 - [ ] At least one tab, toolbar, menu item, sheet-open and decision action is observed through the telemetry bridge with the expected screen/control.
 - [ ] A dashboard query groups app.action logs by screen and control.
 - [ ] The last integration PR closes #433.
+
+The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the prepared #443 and managed-create surfaces. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.

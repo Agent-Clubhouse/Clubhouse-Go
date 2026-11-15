@@ -5,7 +5,7 @@ import Foundation
 nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
     public enum Screen: String, Codable, CaseIterable, Sendable {
         case home, dispatcher, needsYou, agents, search, project, conversation
-        case agentDetails, agentSettings, newAgent, wakeAgent, review, archive, changes
+        case agentDetails, agentSettings, newAgent, workspaceTools, projectInfo, wakeAgent, review, archive, changes
         case settings, desktopSettings, dispatcherSettings, planLimits, helperPresets
         case feedback, feedbackEnrollment, feedbackDiagnostics, connectionDiagnostics, diagnosticsExport
         case welcome, pairing, providerSignIn, terminal, content, markdownFile
@@ -26,7 +26,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case retry, reconnect, refresh, copy, share, forgetDesktop, revokeSession, checkForUpdates, restartForUpdate
         case selectDesktop, selectProject, selectProvider, selectModel, selectRuntime, selectAccess, selectColor
         case selectContextWindow, resetContextWindow, selectAutoSleep, selectHelperPreset, selectBehavior
-        case renameAgent, selectEmoji
+        case renameAgent, selectEmoji, openWorkspaceTools, selectMCP, toggleWorktree, toggleHelpers
         case expandHelpers, expandQuietAgents, expandSleepingAgents, expandFinishedAgents
         case connectDesktop, scanPairingCode, enterPairingAddress, trustDesktop, pairDesktop
         case enrollFeedback, clearFeedback, sendHeldFeedback, clearHeldFeedback, prepareDiagnosticsReport
