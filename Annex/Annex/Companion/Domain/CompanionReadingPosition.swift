@@ -127,10 +127,45 @@ enum CompanionAssistantNavigation {
     }
 }
 
+struct CompanionReadingLayoutContext: Hashable {
+    let width: Double
+    let dynamicType: Int
+    let boldText: Bool?
+    let locale: String
+    let rightToLeft: Bool
+    let displayScale: Double
+    let horizontalRegular: Bool?
+    let verticalRegular: Bool?
+    let lineSpacing: Double
+    let minimumScaleFactor: Double
+    let allowsTightening: Bool
+    let palette: CompanionPalette
+}
+
+/// Absolute offsets are reusable only in the content generation, layout and window that produced them.
+struct CompanionReadingCoordinateContext: Equatable {
+    let historyRevision: UUID
+    let itemsRevision: UUID
+    let sessionID: String?
+    let shownEntries: Int
+    let layout: CompanionReadingLayoutContext?
+
+    init(conversation: CompanionConversation, shownEntries: Int, layout: CompanionReadingLayoutContext? = nil) {
+        historyRevision = conversation.historyRevision
+        itemsRevision = conversation.itemsRevision
+        sessionID = conversation.sessionID
+        self.shownEntries = shownEntries
+        self.layout = layout
+    }
+}
+
 @MainActor final class CompanionReadingBookmark {
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
-    var position = CompanionReadingPosition()
+    var position = CompanionReadingPosition() {
+        didSet { if position != oldValue { coordinateContext = nil } }
+    }
+    var coordinateContext: CompanionReadingCoordinateContext?
     var hasMounted = false
     // One holder per target, rather than a discarded actor-isolated allocation on every View init.
     let viewport = CompanionReadingViewport()

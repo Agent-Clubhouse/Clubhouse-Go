@@ -35,6 +35,250 @@ If the requested top has made no upward progress after two display intervals, or
 
 The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. The unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0, but later stress reproduced animation cancellation even after the synchronous handoff. The underlying animation mechanism remains unproven; the bounded repair does not claim to identify it. #252 remains open for device confirmation.
 
+## Returning to a saved reader (#287)
+
+**Cached returns seed only matching data, window and layout coordinates;
+changed, unknown or unavailable coordinates use the bottom-then-restore
+fallback.** On unchanged
+`617e8ba1`, a real-window hosted fixture and independent simulator compositor
+recording both show the newest markers before the saved reader returns. This is
+not just a pre-layout geometry sample: the recording visibly shows markers
+11/12 or 99/100, then 2/3. No physical-device observation is claimed.
+
+The bound `ScrollPosition` originally retained its bottom request across a managed
+tab's content unmount, and a newly mounted conversation view also initialized at bottom.
+The history-revision task applied the saved following/window choice, yielded for
+layout, then delivered the entry-relative restoration. The initial bound position
+therefore won before that later delivery.
+
+A loaded transcript now seeds its initial position and following choice from the
+bookmark only if the saved entry actually exists and its recorded coordinate
+context still matches: item revision, history revision, session ID, shown-entry
+limit and layout environment. These revisions deliberately reject even mutations
+that would not move the entry. A timeline window retains that entry's whole row; slice
+identity is also checked before seeding. The context is recorded with accepted
+bookmark geometry, not inferred merely from a matching entry string.
+The offered container width and typography are measured outside the content
+initializer. Layout provenance includes Dynamic Type, bold text, locale/direction,
+display scale, size classes, line spacing, minimum scale, tightening and the
+RGB-only palette. Unknown inherited fonts, line limits or text case reject
+absolute seeding; current themes supply colors, not font metrics. Viewport height
+is not a top-origin content coordinate: keyboard/navigation insets continue
+through the existing restoration logic.
+
+The bound `ScrollPosition` now belongs to the mounted scrolling leaf, rather
+than a retained ancestor. Its layout identity is used only through initial
+placement and then frozen: rotation, width changes and Dynamic Type do not
+remount a live transcript or its composer. Managed tabs prepare while unmounted
+and invalidate the seed on hidden coordinate changes. New/following chats still
+initialize at bottom.
+
+The saved expanded history window initializes independently of seed eligibility.
+The bottom fallback starts with that window and retained row already laid out;
+its bottom size-change anchor lasts through initial restoration. Restoring the
+following choice therefore cannot insert older rows above an already presented
+fallback offset. Temporary bottom-follow state does not replace the saved
+bookmark's reading choice.
+No transcript is hidden, no product delay is added, and all history-revision
+gates and the bounded restoration/retry path remain authoritative.
+
+`CompanionReturnFrameTests` uses the real production view in a screen-sized
+`UIWindow` and `TabView`, short (12-message) and long (100-message) transcripts,
+and a new-view remount. A `CADisplayLink` samples the native scroll layer's
+presentation bounds and each ancestor's presentation opacity. Unmounted,
+non-presented and empty-layout samples are excluded. Every presented unchanged cached
+sample must already be within two points of the saved 600-point offset, not
+merely arrive there eventually. The final regression fails both tests with the
+product diff reversed and passes with it applied.
+
+The coordinate-context regressions additionally append ten messages to a hidden
+200-message chat, enlarge the first message in a hidden 12-message chat through
+a full-history revision, and replace the session while reusing entry strings.
+Append and history replacement cover both retained tabs and new-view remounts.
+Every presented frame must be either the saved entry in the **current** layout
+or the native true bottom, within two points; merely avoiding the old offset is
+not enough. With the prior `55b293c7` view restored byte-for-byte, all three new
+methods fail on presented offset 600 before the correct 195.3 or 1,686.7 arrives.
+The additional bookmark context field is unused by that control's original view.
+
+The existing lost-command, touch-during-retry and exhaustion controls explicitly
+disable only initial seeding through the DEBUG restore probe. Otherwise a
+successful initial placement legitimately issues no retry command, so their
+delivery-loss hook would never run. Their original retry, cancellation,
+bookmark-preservation and final-offset assertions are unchanged.
+
+An independent `simctl recordVideo` capture includes a rendered case/tick label.
+`scripts/verify-reading-return-video.swift` decodes every compositor frame and
+recognizes the case and numbered paragraphs. It rejects bottom markers in cached
+returns, and requires readable short and long cases so an empty recording cannot
+pass. The unchanged-product recording fails this pixel check; the fixed recording
+passes. Display-link times include Debug rendering and observation overhead and
+are not phone latency measurements.
+
+| iPhone 17 / iOS 26.0, initial seed qualification | First presented offset / time | First saved-position sample |
+| --- | --- | --- |
+| Reverted, cached short | 4,388.3 / 251.6 ms | 600 / 400.6 ms |
+| Fixed, cached short | 600 / 247.4 ms | First presented sample |
+| Reverted, cached long | 39,999 / 342.6 ms | 600 / 634.8 ms |
+| Fixed, cached long | 600 / 355.8 ms | First presented sample |
+| Reverted, new-view cached remount | 4,388.3 / 276.6 ms | 600 / 436.4 ms |
+| Fixed, new-view cached remount | 600 / 272.3 ms | First presented sample |
+| Fixed, unavailable short history | 4,388.3 / 505.0 ms | 600 / 658.1 ms |
+| Fixed, unavailable long history | 39,999 / 585.5 ms | 600 / 735.8 ms |
+
+| iPad Pro 11-inch (M4) / iOS 26.0, initial seed qualification | First presented offset / time | First saved-position sample |
+| --- | --- | --- |
+| Cached short | 600 / 412.1 ms | First presented sample |
+| Cached long | 600 / 487.9 ms | First presented sample |
+| New-view cached remount | 600 / 422.9 ms | First presented sample |
+| Unavailable short history | 1,905.5 / 635.7 ms | 600 / 934.4 ms |
+| Unavailable long history | 22,057.5 / 727.2 ms | 600 / 1,024.6 ms |
+
+The fixed iPhone video has 764 decoded frames, including 140 readable short and
+87 readable long cached frames; the iPad has 898, including 130 short and 55 long.
+Neither contains a recognized cached bottom marker. This pixel check complements
+the presentation-layer assertions, rather than treating an offscreen layout
+sample as proof of a visible jump.
+
+| Coordinate-context correction, iPhone / iOS 26.0 | First presented bottom / time | First current saved-entry sample |
+| --- | --- | --- |
+| Hidden append, retained tab | 63,030.7 / 435.5 ms | 195.3 / 816.4 ms |
+| Hidden append, new-view remount | 63,030.7 / 886.7 ms | 195.3 / 1,223.5 ms |
+| Hidden history prefix growth, retained tab | 5,475 / 245.2 ms | 1,686.7 / 557.5 ms |
+| Hidden history prefix growth, new-view remount | 5,475 / 274.1 ms | 1,686.7 / 440.4 ms |
+| Reused entry in replacement session | 5,475 / 248.2 ms | 1,686.7 / 412.1 ms |
+
+| Coordinate-context correction, iPad / iOS 26.0 | First presented bottom / time | First current saved-entry sample |
+| --- | --- | --- |
+| Hidden append, retained tab | 34,936 / 579.1 ms | 142 / 1,207.3 ms |
+| Hidden append, new-view remount | 34,936 / 995.9 ms | 142 / 1,911.4 ms |
+| Hidden history prefix growth, retained tab | 2,555.5 / 386.7 ms | 1,250 / 976.1 ms |
+| Hidden history prefix growth, new-view remount | 2,555.5 / 417.8 ms | 1,250 / 713.2 ms |
+| Reused entry in replacement session | 2,555.5 / 407.7 ms | 1,250 / 708.0 ms |
+
+These are intentional changed-context fallback frames, not successful no-jump
+restorations. Every sampled frame is at that native bottom or the current saved
+entry; none is at the stale 600-point offset. Repeating the exact new tests with
+the prior view presents 600 first and fails. The longer remount setup includes
+building the retained history window; no timing threshold is used to pass. The
+iPad append/remount sequence restores after 1.91 seconds, of which about 0.92
+seconds presents the bottom. Its unchanged cached short/long/remount cases still
+present 600 from their first sample; cold short/long restore at 933/1,009 ms.
+
+For unavailable history, the fixture transfers a bookmark captured from real
+laid-out entries to a fresh store, holds its history response for 300 ms, then
+delivers the same transcript. This deliberately distinguishes the missing-entry
+path from a refresh that still has cached content. Empty/offscreen samples before
+delivery are not counted as presented transcript frames. Once content arrives,
+the original bottom-then-restore behavior remains measurable. No initial position
+is invented for content that is not available. The same fallback is intentional
+when cached content changes while hidden (including an append that shifts the
+window, replacement history that reflows earlier rows, and a session replacement
+that reuses entry strings), when width or typography changes, when inherited
+typography is unknown, when the shown window differs, or when a bookmark has
+no recorded/matching coordinate context. These paths can present true-bottom frames
+before the existing entry-relative restore; they must not seed the old absolute
+offset into a changed layout. Keep #287 open: those fallback paths and
+physical-device confirmation remain outstanding. Session identity now gates
+only initial absolute seeding; the existing entry-relative fallback's use of a
+same-string bookmark across a session replacement is unchanged.
+
+Selected committed [iPhone frames](evidence/287-iphone-frames.jpg),
+[iPad frames](evidence/287-ipad-frames.jpg) and the
+[raw display-link samples](evidence/287-frame-samples.json) retain the
+before/after/revert provenance. The frame file records video timestamps and
+SHA-256 identifiers; the screenshots are comparison sheets derived from those
+recordings, not fresh model-tree snapshots. Those recordings predate the
+coordinate-context correction; its separate
+[presented-frame samples](evidence/287-coordinate-context-samples.json) retain
+the current-source, prior-view revert and iPad results.
+
+### Layout-context correction and controls
+
+The accepted-geometry fixture first scrolls the actual native transcript, waits
+for a paused bookmark with provenance, then hides it. Permanent presented-frame
+cases change Dynamic Type from large to accessibility1, reduce offered width by
+60 points on iPhone or 240 on iPad (retained tab and remount), apply an unknown inherited font, and return
+to a saved 300-entry window after appending ten messages to a 200-message chat.
+Each changed-context frame must be the current saved entry or native true
+bottom, never an arbitrary stale offset. Unchanged cached cases retain the
+stronger all-presented-frames-at-saved-position assertion.
+
+With the prior `18c4aa6a` view, the accepted-geometry controls present 600 before
+1,078.7 (Dynamic Type), 600 before 688 (width), and 71,933.3 before 12,000
+(expanded window); all three methods fail. Reverting only the layout predicate
+in the final initial-only architecture also fails both layout methods on actual
+stale 600-point presentation samples.
+An initializer-only revert under the new leaf/bottom-anchor architecture passed
+the expanded-window frame case: that second mechanism compensates before
+presentation. It is not an independent failing initializer proof. Earlier
+synthetic-bookmark controls without accepted provenance are not positive controls.
+
+The reported `testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry`
+failure was reproduced on the unchanged prior view: marker 165 at 14,516.3 rather
+than 209.7. The corrected candidate passes it. A narrower window-initializer
+control once failed the second reopen (14,419.7 rather than 209.7), but another
+passed both reopens; the evidence supports the corrected return path, not a
+deterministic sole-cause attribution to that initializer.
+
+Live-layout controls use 200 messages, an in-flight reply and a focused composer
+with a draft and nonempty caret selection. Presented samples retain the same
+native scroll identity; restoration, composer identity/focus, draft/selection,
+streaming state and native-top ownership survive. They protect lifecycle, not
+perfect live reflow. Strict live-offset probes fail similarly on the prior and
+current view: rotation takes intermediate steps toward the reader, rotation
+with keyboard/following can stop short of native bottom, and a Dynamic Type tick
+mixes old presentation bounds with new model geometry. Those observations are
+tracked separately in #422; this change adds no live remount and makes no
+no-wrong-frame claim for live reflow or performance-budget claim.
+
+| Layout correction, first presented offset/time → first saved-entry offset/time | iPhone | iPad |
+| --- | --- | --- |
+| Unchanged short cache | 600 / 257 ms, already saved | 600 / 388 ms, already saved |
+| Hidden Dynamic Type | 10,175 / 243 ms → 1,078.7 / 538 ms | 4,905.5 / 392 ms → 1,092 / 677 ms |
+| Hidden width, retained tab | 5,436.3 / 277 ms → 688 / 427 ms | 2,697.5 / 398 ms → 732 / 717 ms |
+| Expanded window after hidden append/remount | 83,632.3 / 946 ms → 12,000 / 1,294 ms | 46,807.5 / 1,085 ms → 12,000 / 1,682 ms |
+| Unavailable long history | 39,999 / 577 ms → 600 / 895 ms | 22,057.5 / 688 ms → 600 / 983 ms |
+
+These are new display-link observations, not the historical compositor-video
+timings above. Corrected iPad short cold history happened to restore before its
+first presented sample (600 at 628 ms); that is not a guaranteed cold-path fix.
+The [layout-context samples](evidence/287-layout-context-samples.json) retain
+source hashes, every display-link sample, prior-source/revert outcomes and the
+failed first iPad run. That run passed nine methods and failed three fixture/
+platform controls: 834→774 points did not cross a paragraph wrapping boundary,
+and windowed iPad scenes rejected public rotation with `UISceneError 101`.
+The corrected iPad fixture retains the positive entry-movement assertion while
+using 834→594 points. Phone and live-width values are unchanged; iPad rotation
+methods explicitly skip, while live width/type still protects mounted ownership.
+
+The initial qualification passed 1,547 package tests, 159 hosted tests
+(three skips), all 22 selected reading/restore/keyboard/long-reply UI tests
+(one skip), and the two iPad matrix tests. Those result bundles passed
+`verify-xcresult.py --no-retries-in`. The deinit policy's 20 tests and binary gate
+also passed, retaining 32 ARC-only, one deferred-main-actor and 19 reviewed
+isolated paths. An earlier fixed-build UI batch timed out querying the exact
+long Dispatcher draft after returning from Home. Its unchanged-functional-code
+single-test control and the final full fixed-source batch passed; the earlier
+failure's cause is unclassified and is not claimed fixed by this change.
+
+After the coordinate-context correction, rebased onto main `2d6f50f9`, all 1,547
+package tests, 165 hosted tests (three skips), 22 affected UI tests (one skip) and
+the single five-method/ten-case iPad frame run passed. All final xcresults passed
+strict no-retry verification. The 20 deinit tests and current Debug binary gate
+passed with 33 ARC-only, one deferred-main-actor and 19 reviewed isolated paths.
+Only ReadingBookmark's added value-only context field required an ownership
+surface review; no policy mode or teardown protection was relaxed.
+
+The layout-context correction then passed the full 172-test hosted suite (three
+existing skips), all 22 affected UI tests (one existing skip), 1,547 package tests
+and the 20-test deinit suite with the same 33/1/19 binary gate. The approved
+corrected iPad pass passed ten methods / sixteen cases with two explicit
+windowed-rotation skips; its result and the full phone result pass strict
+no-retry verification. Only iPad-specific fixture branches changed after phone
+qualification; product hashes and phone behavior are unchanged. All three exact
+private simulator UUIDs, including the first failed iPad fixture, were deleted.
+
 ## Test plan
 
 - Domain: mixed runs/order/keys; all tool kinds; running status; failure/permission split and rejoin; tool image boundary; short/long routed rows; helper questions/notices; pending queues and failed/uncertain delivery; attachment counts; no Markdown slices or links for collapsed traffic; expansion persistence; structured terminal exit codes; assistant/question navigation boundaries; bookmark prepend/resize; Latest drag/keyboard/bounce geometry.

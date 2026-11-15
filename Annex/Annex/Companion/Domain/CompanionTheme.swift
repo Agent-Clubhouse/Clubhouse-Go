@@ -98,7 +98,7 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
 }
 
 /// Phone colors derived from a desktop theme for one appearance.
-struct CompanionPalette: Sendable, Equatable {
+struct CompanionPalette: Sendable, Hashable {
     var isDark: Bool
     /// True when the theme's mode matches the iPhone appearance, so its own backgrounds and text are used.
     var usesThemeGrounds: Bool

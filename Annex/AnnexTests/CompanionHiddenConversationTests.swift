@@ -73,6 +73,8 @@ import UIKit
         try await exercise(hidden: .tab, dropFirstRestore: true, timeoutRestore: true)
     }
     private func exercise(hidden: Hidden, dropFirstRestore: Bool, touchDuringRestore: Bool = false, timeoutRestore: Bool = false) async throws {
+        CompanionReadingRestoreProbe.allowsInitialPosition = !dropFirstRestore
+        defer { CompanionReadingRestoreProbe.allowsInitialPosition = true }
         let service = CompanionPreviewService(showsLongReply: true, showsDispatcher: true, showsMultipleDispatchers: true)
         let store = CompanionStore(service: service)
         var events = service.events().makeAsyncIterator()
