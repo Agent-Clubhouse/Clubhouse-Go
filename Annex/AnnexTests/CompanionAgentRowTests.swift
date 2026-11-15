@@ -144,17 +144,23 @@ import SwiftUI
         unknown.id.projectID = "unknown"
         unknown.access = .autoEdit
         for (name, theme, scheme, type) in variants {
-            let content = VStack(alignment: .leading, spacing: 16) {
-                Text("Agent rows").font(.largeTitle.bold())
-                Text("Known default hidden; exception and unknown shown").font(.caption)
-                CompanionAgentListRow(agent: river)
-                Divider()
-                CompanionAgentListRow(agent: cedar)
-                Divider()
-                CompanionAgentListRow(agent: unknown)
-                Spacer(minLength: 0)
+            let content = ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if type.isAccessibilitySize {
+                        Text("Agent rows").font(.headline)
+                        CompanionAgentListRow(agent: unknown)
+                    } else {
+                        Text("Agent rows").font(.largeTitle.bold())
+                        Text("Known default hidden; exception and unknown shown").font(.caption)
+                        CompanionAgentListRow(agent: river)
+                        Divider()
+                        CompanionAgentListRow(agent: cedar)
+                        Divider()
+                        CompanionAgentListRow(agent: unknown)
+                    }
+                }
+                .padding(20)
             }
-            .padding(20)
             .environment(\.companionAgentRowContext, context)
             .dynamicTypeSize(type)
             .companionBackground()
@@ -179,5 +185,11 @@ import SwiftUI
             .sizeThatFits(in: CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude))
         XCTAssertLessThanOrEqual(accessible.width, 320)
         XCTAssertGreaterThan(accessible.height, standard.height, "Accessibility type expands vertically, not into metadata")
+        var short = unknown
+        short.name = "A"
+        short.subtitle = ""
+        let shortAccessible = UIHostingController(rootView: CompanionAgentListRow(agent: short).dynamicTypeSize(.accessibility3))
+            .sizeThatFits(in: CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude))
+        XCTAssertGreaterThan(accessible.height, shortAccessible.height, "Long names and tasks wrap at accessibility sizes")
     }
 }
