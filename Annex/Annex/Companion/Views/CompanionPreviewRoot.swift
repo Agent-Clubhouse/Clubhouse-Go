@@ -26,7 +26,16 @@ struct CompanionPreviewRoot: View {
         if !ProcessInfo.processInfo.arguments.contains("--companion-preview-keep-preferences") {
             UserDefaults.standard.removePersistentDomain(forName: suite)
         }
-        let preferences = CompanionPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
+        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-agents") {
+            defaults.set("agents", forKey: "companion.lastTab")
+        }
+        let preferences = CompanionPreferences(defaults: defaults)
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-search-recents") {
+            for (project, agent) in [("clubhouse", "juniper"), ("website", "maple"), ("clubhouse", "cedar")] {
+                preferences.recordOpenedAgent(.init(hostID: "preview-studio", projectID: project, agentID: agent))
+            }
+        }
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-dispatch") { preferences.lastTab = .dispatcher }
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-home") { preferences.lastTab = .home }
         return preferences

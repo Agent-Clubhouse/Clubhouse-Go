@@ -1,7 +1,7 @@
 import SwiftUI
 import ClubhouseTransport
 
-/// Tab bar on iPhone (Home, Dispatch, Needs you, Agents and Search), a sidebar on iPad.
+/// Tab bar on iPhone (Home, Dispatch, Needs you and Search), a sidebar on iPad.
 /// Each tab keeps its own navigation stack; `store.selection` mirrors the agent on screen.
 struct CompanionRootView: View {
     @Bindable var store: CompanionStore
@@ -57,11 +57,8 @@ struct CompanionRootView: View {
                 stack(.needsYou) { CompanionNeedsYouView(store: store, decisions: decisions) }
             }
             .badge(store.needsYouCount)
-            Tab("Agents", systemImage: "sparkles", value: CompanionTab.agents) {
-                stack(.agents) { CompanionAgentsView(store: store, onNewAgent: { spawnProject = $0 }) }
-            }
             Tab(value: CompanionTab.search, role: .search) {
-                stack(.search) { CompanionSearchView(store: store, agentSort: preferences.projectSort) }
+                stack(.search) { CompanionSearchView(store: store, recentAgents: preferences.recentAgents, agentSort: preferences.projectSort) }
             }
         }
         .tabViewStyle(.sidebarAdaptable)
@@ -152,6 +149,7 @@ struct CompanionRootView: View {
     private func mirrorSelection() {
         if preferences.lastTab != navigation.tab { preferences.lastTab = navigation.tab }
         let target = navigation.visibleAgent
+        if let target { preferences.recordOpenedAgent(target) }
         if store.selection != target { store.selection = target }
         if let hostID = target?.hostID, preferences.lastHostID != hostID { preferences.lastHostID = hostID }
     }
@@ -1247,90 +1245,53 @@ struct CompanionGrantRequestActions: View {
     }
 }
 
-// MARK: - Agents
-
-/// One flat list of every agent on every paired desktop.
-struct CompanionAgentsView: View {
-    @Bindable var store: CompanionStore
-    var onNewAgent: (CompanionProjectTarget) -> Void
-    @State private var filter: Filter = .all
-    @Environment(\.companionPalette) private var palette
-
-    typealias Filter = CompanionAgentFilter
-
-    var body: some View {
-        let agents = store.agentsNeedsYouFirst().filter { filter.matches($0.status) }
-        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts, includingLocal: true)
-        let names = Dictionary(store.hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
-        List {
-            Section {
-                CompanionChips(options: Filter.allCases.map { ($0, $0 == .needsYou && store.needsYouCount > 0 ? "Needs you · \(store.needsYouCount)" : $0.label) },
-                               selection: $filter)
-                    .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
-            }
-            Section {
-                ForEach(agents) { agent in
-                    NavigationLink(value: agent.id) {
-                        CompanionAgentListRow(agent: agent, hostTag: store.hosts.count > 1 ? names[agent.id.hostID] : nil,
-                                              detail: store.projectName(for: agent.id),
-                                              parentLine: parentLines[agent.id])
-                    }
-                    .accessibilityIdentifier("agent-\(agent.id.hostID)-\(agent.id.agentID)")
-                    .listRowBackground(CompanionCardBackground())
-                }
-            }
-            if agents.isEmpty {
-                ContentUnavailableView("No agents", systemImage: "sparkles",
-                                       description: Text(store.hosts.isEmpty ? "Pair a desktop to see its agents." : "No agents match this filter."))
-                    .listRowBackground(Color.clear)
-            }
-        }
-        .companionListStyle()
-        .navigationTitle("Agents")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("New agent", systemImage: "plus") {
-                    if let entry = store.projectEntries.first(where: \.canSpawn) { onNewAgent(entry.id) }
-                }
-                .disabled(!store.hosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
-            }
-        }
-    }
-}
-
 // MARK: - Search
 
 /// Agent names and tasks, and projects, across every paired desktop. Offline desktops' results stay, dimmed.
 struct CompanionSearchView: View {
     @Bindable var store: CompanionStore
+    var recentAgents: [CompanionTarget] = []
     /// Projects' agents follow the Home sort.
     var agentSort: CompanionProjectSort = .recent
     @State private var query = ""
+    @State private var filter: CompanionAgentFilter = .all
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
         let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts, includingLocal: true)
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let agents = trimmed.isEmpty ? [] : store.allAgents.filter { "\($0.name) \($0.subtitle)".localizedCaseInsensitiveContains(trimmed) }
+        let agents = trimmed.isEmpty ? store.agentsNeedsYouFirst().filter { filter.matches($0.status) }
+            : store.allAgents.filter { "\($0.name) \($0.subtitle)".localizedCaseInsensitiveContains(trimmed) }
+        let recent = recentAgents.compactMap { store.agent(for: $0) }.filter { filter.matches($0.status) }
         let projects = trimmed.isEmpty ? [] : store.projectEntries.filter { $0.project.name.localizedCaseInsensitiveContains(trimmed) }
         List {
             if trimmed.isEmpty {
-                ContentUnavailableView("Search your agents", systemImage: "magnifyingglass",
-                                       description: Text("Find agents by name or task, and projects, on every paired desktop."))
-                    .listRowBackground(Color.clear)
+                Section {
+                    CompanionChips(options: CompanionAgentFilter.allCases.map { value in
+                        (value, value == .sleeping ? "Asleep" : (value == .needsYou && store.needsYouCount > 0 ? "Needs you · \(store.needsYouCount)" : value.label))
+                    }, selection: $filter)
+                    .accessibilityIdentifier("companion-search-filters")
+                    .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                }
+                if !recent.isEmpty {
+                    Section("Recent") {
+                        ForEach(recent) { agent in
+                            agentRow(agent, parentLine: parentLines[agent.id], identifier: "search-recent-\(agent.id.hostID)-\(agent.id.agentID)")
+                        }
+                    }
+                }
+                if agents.isEmpty {
+                    ContentUnavailableView("No agents", systemImage: "sparkles",
+                                           description: Text(store.hosts.isEmpty ? "Pair a desktop to see its agents." : "No agents match this filter."))
+                        .listRowBackground(Color.clear)
+                }
             } else if agents.isEmpty && projects.isEmpty {
                 ContentUnavailableView.search(text: trimmed).listRowBackground(Color.clear)
             }
             if !agents.isEmpty {
-                Section("Agents") {
+                Section(trimmed.isEmpty ? "All agents · \(agents.count)" : "Agents") {
                     ForEach(agents) { agent in
-                        let host = store.host(for: agent.id)
-                        NavigationLink(value: agent.id) {
-                            CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
-                                                  detail: store.projectName(for: agent.id), parentLine: parentLines[agent.id])
-                        }
-                        .opacity(host?.connection.canOperate == false ? 0.5 : 1)
-                        .listRowBackground(CompanionCardBackground())
+                        agentRow(agent, parentLine: parentLines[agent.id], identifier: "agent-\(agent.id.hostID)-\(agent.id.agentID)")
                     }
                 }
             }
@@ -1356,6 +1317,17 @@ struct CompanionSearchView: View {
         .companionListStyle()
         .navigationTitle("Search")
         .searchable(text: $query, prompt: "Agents, tasks and projects")
+    }
+
+    private func agentRow(_ agent: CompanionAgent, parentLine: String?, identifier: String) -> some View {
+        let host = store.host(for: agent.id)
+        return NavigationLink(value: agent.id) {
+            CompanionAgentListRow(agent: agent, hostTag: host?.connection.canOperate == false ? "Offline" : (store.hosts.count > 1 ? host?.name : nil),
+                                  detail: store.projectName(for: agent.id), parentLine: parentLine)
+        }
+        .accessibilityIdentifier(identifier)
+        .opacity(host?.connection.canOperate == false ? 0.5 : 1)
+        .listRowBackground(CompanionCardBackground())
     }
 }
 

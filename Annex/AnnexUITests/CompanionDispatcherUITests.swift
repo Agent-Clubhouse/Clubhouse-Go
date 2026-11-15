@@ -183,7 +183,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     func testPinnedRowOpensTheDispatchersChatAndSettings() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"])
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "The fixture restores Dispatch")
-        XCTAssertTrue(tab(app, "Agents").exists, "All five tabs remain available")
+        XCTAssertFalse(tab(app, "Agents").exists, "Agents has moved into Search")
         let sidebar = app.buttons["ToggleSideBar"]
         if sidebar.exists {
             sidebar.tap()
@@ -359,8 +359,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.buttons["Done"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         XCTAssertFalse(tab(app, "Dispatch").exists)
-        tab(app, "Agents").tap()
-        XCTAssertTrue(app.navigationBars["Agents"].waitForExistence(timeout: 5), "The off fallback runs only once")
+        tab(app, "Search").tap()
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5), "The off fallback runs only once")
         tab(app, "Home").tap()
         app.buttons["Settings"].tap()
         app.buttons["Report Dispatcher on"].tap()
@@ -376,7 +376,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15), "A fresh launch starts on Home")
         if app.tabBars.firstMatch.exists {
             let labels = app.tabBars.buttons.allElementsBoundByIndex.map(\.label)
-            XCTAssertEqual(labels, ["Home", "Dispatch", "Needs you", "Agents", "Search"])
+            XCTAssertEqual(labels, ["Home", "Dispatch", "Needs you", "Search"])
         }
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
@@ -398,7 +398,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
             }
         }
         // Search expands the bar around the previous tab, so exercise it last.
-        for title in ["Dispatch", "Needs you", "Agents", "Home", "Search"] {
+        for title in ["Dispatch", "Needs you", "Home", "Search"] {
             let selected = tab(app, title)
             XCTAssertTrue(selected.waitForExistence(timeout: 10))
             selected.tap()
@@ -420,12 +420,13 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.launch()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
         XCTAssertFalse(tab(app, "Dispatch").exists, "The current desktop report supersedes the cached tab")
+        screenshot(app, "Unavailable Dispatch falls back to Home")
         tab(app, "Needs you").tap()
         XCTAssertTrue(app.navigationBars["Needs you"].waitForExistence(timeout: 5))
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(tab(app, "Needs you").isSelected, "Foregrounding does not reapply restoration")
-        screenshot(app, "Unavailable Dispatch falls back to Home")
+        screenshot(app, "Foregrounding preserves Needs you after Dispatch fallback")
     }
 
     func testTabBarAppearanceMatrix() {
@@ -441,7 +442,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
             let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"] + flags,
                                 allowance: 360, attempts: 1)
             XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
-            for title in ["Home", "Dispatch", "Needs you", "Agents", "Search"] {
+            for title in ["Home", "Dispatch", "Needs you", "Search"] {
                 XCTAssertTrue(tab(app, title).isHittable, "\(title) is reachable in \(name)")
             }
             screenshot(app, "Tabs \(name) Home")

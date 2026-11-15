@@ -31,9 +31,9 @@ import XCTest
             XCTAssertTrue(scrollUntilExists(open, in: app) && scrollIntoClearArea(open, in: app))
             tapVisibleRow(open, in: app, until: element(app, "companion-chat-grant-requests"))
         } else {
-            let agents = app.tabBars.buttons["Agents"]
-            XCTAssertTrue(agents.waitForExistence(timeout: 15))
-            waitAndTap(agents, until: app.navigationBars["Agents"])
+            let search = app.tabBars.buttons["Search"]
+            XCTAssertTrue(search.waitForExistence(timeout: 15))
+            waitAndTap(search, until: app.navigationBars["Search"])
             let river = element(app, "agent-preview-studio-river")
             XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
             waitAndTap(river, until: element(app, "companion-chat-grant-requests"))
