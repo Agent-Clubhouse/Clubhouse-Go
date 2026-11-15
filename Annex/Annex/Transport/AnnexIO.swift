@@ -250,7 +250,7 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
                 do {
                     try await clock.sleep(.seconds(10))
                     completion.resolve(.failure(URLError(.timedOut)))
-                    task.cancel(with: .goingAway, reason: nil)
+                    close()
                 } catch { }
             }
             defer { deadline.cancel() }
@@ -263,12 +263,20 @@ nonisolated private final class URLSessionAnnexWebSocket: AnnexWebSocket, Sendab
                 }
             } onCancel: {
                 completion.resolve(.failure(CancellationError()))
-                task.cancel(with: .goingAway, reason: nil)
+                close()
             }
 
         }
     }
-    func close() { task.cancel(with: .goingAway, reason: nil) }
+    func close() {
+        #if DEBUG
+        telemetry.record(.websocket, event: .socketCancelStarted)
+        #endif
+        task.cancel(with: .goingAway, reason: nil)
+        #if DEBUG
+        telemetry.record(.websocket, event: .socketCancelCompleted)
+        #endif
+    }
 }
 
 /// Races timeout, callback and cancellation without double-resuming or relying

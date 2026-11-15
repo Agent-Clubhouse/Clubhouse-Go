@@ -24,6 +24,10 @@ nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case iconHit, iconMiss, iconFailure, iconEviction
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
+    #if DEBUG
+    case scenePhaseObserved, transitionQueued, transitionWaiting, transitionStarted, transitionCompleted
+    case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted
+    #endif
 }
 nonisolated public enum AnnexDiagnosticIdentifier: String, CaseIterable, Sendable {
     case peerInstanceID = "peer.service.instance.id"

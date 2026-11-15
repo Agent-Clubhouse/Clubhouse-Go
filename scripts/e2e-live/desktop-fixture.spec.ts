@@ -244,6 +244,69 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
   let observer: Awaited<ReturnType<typeof observeDesktop>> | undefined;
   let icons: Awaited<ReturnType<typeof createIconFixture>> | undefined;
   try {
+    // Passive TLS-upgrade audit: opaque peer ordinals distinguish duplicate phone sockets without exposing identities.
+    await electronApp.evaluate(() => {
+      const https = process.getBuiltinModule('https') as typeof import('node:https');
+      const root = globalThis as any;
+      root.__phoneConnectionAudit = [];
+      root.__phoneHistoryAudit = [];
+      const peers = new Map<string, number>();
+      const agents = new Map<string, number>();
+      root.__phoneHistoryAgentOrdinal = (id?: string) =>
+        typeof id === 'string' ? agents.get(encodeURIComponent(id)) ?? null : null;
+      const peerOrdinal = (socket: any) => {
+        const identity = socket.getPeerCertificate().subject?.CN;
+        if (typeof identity !== 'string' || !identity) return null;
+        if (!peers.has(identity)) peers.set(identity, peers.size + 1);
+        return peers.get(identity);
+      };
+      const prototype = https.Server.prototype as any, emit = prototype.emit;
+      prototype.emit = function (event: string, ...args: any[]) {
+        const request = args[0];
+        if (event === 'upgrade' && request?.url?.startsWith('/ws')) {
+          const socket = args[1];
+          const row = { socket: root.__phoneConnectionAudit.length + 1, peer: peerOrdinal(socket),
+            mobile: new URL(request.url, 'https://fixture.invalid').searchParams.get('client') === 'mobile',
+            upgradedAt: Date.now() / 1000, accepted: false, closedAt: null as number | null };
+          root.__phoneConnectionAudit.push(row);
+          const write = socket.write;
+          socket.write = function (...parts: any[]) {
+            const bytes = typeof parts[0] === 'string' ? Buffer.from(parts[0]) : parts[0];
+            if (Buffer.isBuffer(bytes) && bytes.toString('ascii', 0, 12).startsWith('HTTP/1.1 101')) row.accepted = true;
+            return write.apply(this, parts);
+          };
+          socket.once('close', () => { row.closedAt = Date.now() / 1000; });
+        }
+        if (event === 'request' && request?.method === 'GET') {
+          const route = new URL(request.url, 'https://fixture.invalid');
+          const match = /^\/api\/v1\/mobile\/agents\/([^/]+)\/chat$/.exec(route.pathname);
+          if (match) {
+            const id = match[1];
+            if (!agents.has(id)) agents.set(id, agents.size + 1);
+            const response = args[1];
+            const row = { request: root.__phoneHistoryAudit.length + 1, agent: agents.get(id),
+              peer: peerOrdinal(request.socket), historyPage: route.searchParams.has('sessionId') || route.searchParams.has('beforeSeq'),
+              receivedAt: Date.now() / 1000, headersAt: null as number | null, finishedAt: null as number | null,
+              closedAt: null as number | null, status: null as number | null, bytes: 0 };
+            root.__phoneHistoryAudit.push(row);
+            const writeHead = response.writeHead, write = response.write, end = response.end;
+            const count = (chunk: any) => {
+              if (typeof chunk === 'string') row.bytes += Buffer.byteLength(chunk);
+              else if (Buffer.isBuffer(chunk) || chunk instanceof Uint8Array) row.bytes += chunk.byteLength;
+            };
+            response.writeHead = function (...parts: any[]) {
+              row.headersAt = Date.now() / 1000; row.status = parts[0];
+              return writeHead.apply(this, parts);
+            };
+            response.write = function (...parts: any[]) { count(parts[0]); return write.apply(this, parts); };
+            response.end = function (...parts: any[]) { count(parts[0]); return end.apply(this, parts); };
+            response.once('finish', () => { row.finishedAt = Date.now() / 1000; });
+            response.once('close', () => { row.closedAt = Date.now() / 1000; });
+          }
+        }
+        return emit.call(this, event, ...args);
+      };
+    });
     const agents = await window.evaluate(async (projectPath) => {
       const ch = (window as any).clubhouse;
       await ch.project.add(projectPath);
@@ -359,11 +422,35 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               result = { agentId: helperId }; break;
             }
             case 'checkpoint': result = observer!.lastSequence(); break;
-            case 'phoneDisconnected':
+            case 'historyEvidence': {
+              const trace = await electronApp.evaluate((_, ids) => {
+                const root = globalThis as any;
+                return { echoAgent: root.__phoneHistoryAgentOrdinal(ids.echo), requests: root.__phoneHistoryAudit };
+              }, agents);
+              result = { capturedAt: Date.now() / 1000, ...trace };
+              writeFile(path.join(FIXTURE_DIR, 'phone-history.json'), evidence(result));
+              log(`Phone history evidence: ${evidence(result)}`);
+              break;
+            }
+            case 'phoneDisconnected': {
               // The observer is the sole remaining WebSocket. Prove the phone disconnected before changing state.
-              await expect.poll(async () => (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount,
-                { timeout: 20_000 }).toBe(1);
-              result = 'ok'; break;
+              const startedAt = Date.now() / 1000;
+              let observedAt: number | null = null;
+              try {
+                await expect.poll(async () => {
+                  const count = (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount;
+                  if (count === 1) observedAt = Date.now() / 1000;
+                  return count;
+                }, { timeout: 20_000 }).toBe(1);
+              } finally {
+                const connectedCount = (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount;
+                const connections = await electronApp.evaluate(() => (globalThis as any).__phoneConnectionAudit);
+                const diagnostic = { startedAt, observedAt, completedAt: Date.now() / 1000, connectedCount, connections };
+                writeFile(path.join(FIXTURE_DIR, 'phone-disconnect.json'), evidence(diagnostic));
+                log(`Phone disconnect evidence: ${evidence(diagnostic)}`);
+              }
+              result = { observedAt }; break;
+            }
             case 'setEnabled': result = await window.evaluate(on => (window as any).clubhouse.dispatcher.setEnabled(on), request.enabled); break;
             case 'state': result = await window.evaluate(() => (window as any).clubhouse.dispatcher.get()); break;
             case 'policy': result = await window.evaluate(async ({ projectPath, agentId }) => {
@@ -400,6 +487,13 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
     }
     log('stop requested');
   } finally {
+    writeFile(path.join(FIXTURE_DIR, 'phone-history.json'), evidence({
+      capturedAt: Date.now() / 1000,
+      ...await electronApp.evaluate((_, echoID) => {
+        const root = globalThis as any;
+        return { echoAgent: root.__phoneHistoryAgentOrdinal(echoID), requests: root.__phoneHistoryAudit };
+      }, fixtureAgentIds.values().next().value),
+    }));
     if (icons) writeFile(path.join(FIXTURE_DIR, 'icon-wire.json'), evidence(await icons.state()));
     // Read only this launch's profile. Project Annex diagnostics onto a closed schema: never copy raw metadata
     // (peer certificates, fingerprints, tokens and request bodies have no place in the nightly artifacts).

@@ -157,8 +157,20 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let composer = composer(app)
         waitAndTap(row, until: composer, timeout: 15, "Selecting the agent must open its chat", file: file, line: line)
         let fresh = app.buttons["companion-wake-newSession"], wake = app.buttons["companion-wake"]
-        if fresh.waitForExistence(timeout: 5) { fresh.tap() } else if wake.exists { wake.tap() }
-        XCTAssertTrue(fresh.waitForNonExistence(timeout: 30) && wake.waitForNonExistence(timeout: 30),
+        let controls = app.buttons["companion-level-menu"], recovery = app.buttons["companion-recovery-details"]
+        // The composer shell appears before history gives a sleeping agent its Wake capability.
+        let ready = waitFor(app, NSPredicate { _, _ in
+            !recovery.exists && ((fresh.exists && fresh.isEnabled) || (wake.exists && wake.isEnabled)
+                                || (controls.exists && controls.isEnabled))
+        }, timeout: 30)
+        if !ready { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertTrue(ready, "Initial history must settle into an enabled Wake or live chat control", file: file, line: line)
+        if fresh.exists { fresh.tap() } else if wake.exists { wake.tap() }
+        let awake = waitFor(app, NSPredicate { _, _ in
+            !fresh.exists && !wake.exists && !recovery.exists && controls.exists && controls.isEnabled
+        }, timeout: 30)
+        if !awake { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertTrue(awake,
                       "The desktop must wake the agent", file: file, line: line)
         // A request an earlier, failed attempt left waiting would hold the next turn.
         let leftover = app.buttons["Deny"]
@@ -170,10 +182,49 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let composer = composer(app)
         XCTAssertTrue(composer.waitForExistence(timeout: 15), file: file, line: line)
         composer.tap()
+        let before = composer.value as? String ?? ""
+        let expected = before == composer.placeholderValue ? message : before + message
         composer.typeText(message)
         let send = app.buttons["companion-send"]
-        XCTAssertTrue(send.wait(for: \.isEnabled, toEqual: true, timeout: 30), "Send must enable for a live agent", file: file, line: line)
+        // Draft commitment and command readiness share the existing Send budget; neither retries the input.
+        let enabled = waitFor(app, NSPredicate { _, _ in
+            composer.value as? String == expected && send.isEnabled
+        }, timeout: 30)
+        if !enabled { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertEqual(composer.value as? String, expected, "The typed draft must be committed before Send", file: file, line: line)
+        XCTAssertTrue(enabled, "Send must enable for a live agent", file: file, line: line)
         send.tap()
+    }
+
+    private func captureChatReadiness(_ app: XCUIApplication, file: StaticString, line: UInt) {
+        func state(_ identifier: String) -> String {
+            let control = element(app, identifier)
+            return "exists=\(control.exists), enabled=\(control.exists && control.isEnabled)"
+        }
+        let attachment = XCTAttachment(string: """
+            capturedAt=\(Date().timeIntervalSince1970)
+            app.state=\(String(describing: app.state))
+            draftLength=\((composer(app).value as? String)?.utf16.count ?? 0)
+            Send: \(state("companion-send"))
+            Wake: \(state("companion-wake"))
+            NewSession: \(state("companion-wake-newSession"))
+            LiveControls: \(state("companion-level-menu"))
+            Recovery: \(state("companion-recovery-details"))
+            PendingDecision: \(state("companion-pinned-decision"))
+            """)
+        attachment.name = "Chat readiness evidence"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        do {
+            let evidence = try dispatcherFixture("historyEvidence", file: file, line: line)
+            let data = try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys])
+            let fixture = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            fixture.name = "Fixture chat-history requests and responses (opaque IDs)"
+            fixture.lifetime = .keepAlways
+            add(fixture)
+        } catch {
+            XCTFail("Could not capture fixture history evidence: \(error)", file: file, line: line)
+        }
     }
 
     /// Selects a text field's contents and types over them.
@@ -188,6 +239,25 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Waits until `query` has more than `count` matches.
     private func waitForMore(_ query: XCUIElementQuery, than count: Int, timeout: TimeInterval = 30) -> Bool {
         query.element(boundBy: count).waitForExistence(timeout: timeout)
+    }
+
+    private func answerSQLiteQuestion(_ app: XCUIApplication) {
+        // #392 makes transcript question options read-only; the actionable form belongs to Review request.
+        let review = app.buttons.matching(NSPredicate(format: "identifier == 'companion-review-approval' AND label BEGINSWITH 'Review question:'")).firstMatch
+        XCTAssertTrue(review.waitForExistence(timeout: 30), "The structured question must arrive")
+        let sheet = app.scrollViews["companion-approval-review-scroll"]
+        waitAndTap(review, until: sheet, timeout: 30, attempts: 1)
+        let sqlite = sheet.buttons["SQLite"]
+        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "Review offers the structured SQLite choice")
+        XCTAssertTrue(scrollTo(sqlite, in: app, maxSwipes: 3))
+        sqlite.tap()
+        let answers = sheet.buttons["Send answers"]
+        XCTAssertTrue(scrollTo(answers, in: app, maxSwipes: 3))
+        XCTAssertTrue(answers.isEnabled, "The selected structured answer can be sent")
+        answers.tap()
+        XCTAssertTrue(sheet.staticTexts["Answered"].waitForExistence(timeout: 30), "The review acknowledges the answer")
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(close, untilGone: close, attempts: 1)
     }
 
     private func backToHome(_ app: XCUIApplication) {
@@ -215,6 +285,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let deadline = Date().addingTimeInterval(60)
         while Date() < deadline {
             if let data = try? Data(contentsOf: done), let reply = try? JSONSerialization.jsonObject(with: data) as? [String: Any], reply["id"] as? String == id {
+                if op == "phoneDisconnected", let diagnostic = try? String(contentsOf: dir.appending(path: "phone-disconnect.json"), encoding: .utf8) {
+                    let attachment = XCTAttachment(string: diagnostic)
+                    attachment.name = "Fixture socket-disconnect evidence (opaque peer IDs)"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
                 XCTAssertNil(reply["error"], "Fixture \(op): \(reply["error"] ?? "")", file: file, line: line)
                 let result = reply["result"] ?? NSNull()
                 if op == "command", let response = result as? [String: Any],
@@ -255,6 +331,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 15)
         XCTAssertTrue(scrollUntilExists(element(app, "dispatcher-behavior-standard"), in: app, maxSwipes: 8),
                       "Settings > Dispatcher loads its Behavior section")
+    }
+
+    private func dispatcherChatID() throws -> String {
+        // The desktop IPC state's agentId is the hidden worker; mobile routes take the chat's id (#3036).
+        let response = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
+        XCTAssertEqual(response["status"] as? Int, 200)
+        let body = try XCTUnwrap(response["body"] as? [String: Any])
+        return try XCTUnwrap(body["agentId"] as? String)
     }
 
     /// Toggle once and wait for the authoritative setting, without retrying the gesture.
@@ -349,7 +433,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         // #392 moved persistent decisions out of transcript cards into Review request.
         let review = app.buttons["companion-review-approval"]
         let always = app.buttons["companion-approval-option-allow_always"]
-        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30)
+        XCTAssertTrue(review.waitForExistence(timeout: 30), "The fresh permission request must arrive before opening its review")
+        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30, attempts: 1)
         XCTAssertTrue(always.waitForExistence(timeout: 30), "Allow and don't ask again is offered for the CLI's suggested rule")
         scrollTo(always, in: app, maxSwipes: 3)
         always.tap()
@@ -365,13 +450,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Always allow reached the CLI")
 
         send(app, "ask")
-        let sqlite = app.buttons["SQLite"]
-        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "The structured question must arrive")
-        scrollTo(sqlite, in: app, maxSwipes: 3)
-        sqlite.tap()
-        let answers = app.buttons["Send answers"]
-        scrollTo(answers, in: app, maxSwipes: 3)
-        answers.tap()
+        answerSQLiteQuestion(app)
         let answered = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'answers:' AND label CONTAINS 'SQLite'")).firstMatch
         XCTAssertTrue(answered.waitForExistence(timeout: 30), "The answer must reach the CLI")
     }
@@ -668,8 +747,31 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("setEnabled", ["enabled": false])
         XCTAssertTrue(row.waitForNonExistence(timeout: 30))
 
+        let pressedHomeAt = Date().timeIntervalSince1970
+        var backgroundObservedAt: TimeInterval?
+        var disconnectObservedAt: TimeInterval?
+        func attachBackgroundEvidence() {
+            let attachment = XCTAttachment(string: """
+                app.state=\(String(describing: app.state))
+                timestampUnit=Unix seconds
+                PressHome=\(pressedHomeAt)
+                runningBackgroundObserved=\(backgroundObservedAt.map(String.init(describing:)) ?? "not observed")
+                disconnectObserved=\(disconnectObservedAt.map(String.init(describing:)) ?? "not observed")
+                capturedAt=\(Date().timeIntervalSince1970)
+                """)
+            attachment.name = "Phone background lifecycle evidence"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        defer { attachBackgroundEvidence() }
         XCUIDevice.shared.press(.home)
-        try dispatcherFixture("phoneDisconnected")
+        let backgrounded = app.wait(for: .runningBackground, timeout: 30)
+        if backgrounded { backgroundObservedAt = Date().timeIntervalSince1970 }
+        attachBackgroundEvidence()
+        XCTAssertTrue(backgrounded, "The phone must really enter background before checking disconnection")
+        let disconnected = try XCTUnwrap(try dispatcherFixture("phoneDisconnected") as? [String: Any])
+        disconnectObservedAt = try XCTUnwrap(disconnected["observedAt"] as? Double)
+        attachBackgroundEvidence()
         // Stopping an agent cleans its interior replay entries. As in test9c, checkpoint after the final cleanup;
         // all five live changes and their follow-up snapshots are still checked independently below.
         let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
@@ -686,7 +788,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                 frame["type"] as? String == "snapshot" && frame["replayed"] as? Bool != true
             }, "Every change must have a follow-up snapshot")
             let payload = try XCTUnwrap(snapshot["payload"] as? [String: Any])
-            XCTAssertEqual(enabled, payload["dispatcher"] is [String: Any], "The first follow-up snapshot must match the change")
+            // Agent-Clubhouse/Clubhouse#3514: null before first creation; retained with enabled:false while off.
+            let snapshotEnabled: Bool
+            if payload["dispatcher"] is NSNull {
+                snapshotEnabled = false
+            } else {
+                let dispatcher = try XCTUnwrap(payload["dispatcher"] as? [String: Any])
+                snapshotEnabled = try XCTUnwrap(dispatcher["enabled"] as? Bool)
+            }
+            XCTAssertEqual(enabled, snapshotEnabled, "The first follow-up snapshot must match the change")
         }
         XCTAssertTrue(frames.contains { $0["type"] as? String == "dispatcher:changed" && $0["replayed"] as? Bool == true },
                       "The actual desktop replay buffer must retain Dispatcher changes")
@@ -694,8 +804,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9bDispatcherChatSettingsSleepWakeAndResume() throws {
-        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
-        let id = try XCTUnwrap(state["agentId"] as? String)
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        let id = try dispatcherChatID()
         let app = try launchPaired()
         let row = dispatcherRow(app)
         waitAndTap(row, until: composer(app), timeout: 20)
@@ -716,10 +826,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["model", "runtime", "free-agent-mode"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
         }
-        for field in ["orchestrator", "auto-sleep"] {
-            let control = element(app, "agent-settings-\(field)")
-            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8), "Dispatcher exposes \(field)")
-            XCTAssertTrue(control.isEnabled, "Dispatcher \(field) is editable even while awake")
+        // providerControl replaces the raw orchestrator menu with the guided Runs on owner.
+        for identifier in ["agent-settings-provider-flow", "agent-settings-auto-sleep"] {
+            let control = element(app, identifier)
+            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8), "Dispatcher exposes \(identifier)")
+            XCTAssertTrue(control.isEnabled, "Dispatcher \(identifier) remains available while awake")
         }
         for field in ["name", "emoji", "orchestrate"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
@@ -743,7 +854,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             XCTAssertTrue(hidden.contains { $0["setting"] as? String == field }, "Desktop explicitly marks \(field) notHonored")
         }
         screenshot(app, "Real Dispatcher settings while awake")
-        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
+        // A lazy summary may already be offscreen; only the sheet-owned Done proves dismissal.
+        let done = app.buttons["Done"]
+        waitAndTap(done, untilGone: done, attempts: 1)
         // There is no phone Sleep action. Stop through the desktop's real mobile command, as a desktop stop would.
         let stop = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.stop", "agentId": id]]) as? [String: Any])
         XCTAssertEqual(stop["status"] as? Int, 200)
@@ -753,6 +866,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         app.activate()
         XCTAssertTrue(wake.waitForExistence(timeout: 30))
         XCTAssertTrue(wake.label.contains("Resume"), "A Dispatcher with a saved session offers resume: \(wake.label)")
+        XCTAssertTrue(wake.isHittable, "The resumed chat's Wake control is not covered by Settings")
         wake.tap()
         XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
         // The fake emits assistant text only for its scripted turns (an arbitrary text gets a result only).
@@ -760,13 +874,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let replies = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'answers:' AND label CONTAINS 'SQLite'"))
         let before = replies.count
         send(app, "ask")
-        let sqlite = app.buttons["SQLite"]
-        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "Questions stream after reconnect and resume")
-        scrollTo(sqlite, in: app)
-        sqlite.tap()
-        let submit = app.buttons["Send answers"]
-        scrollTo(submit, in: app)
-        submit.tap()
+        answerSQLiteQuestion(app)
         XCTAssertTrue(waitForMore(replies, than: before), "The resumed Dispatcher's answer round trip reaches the CLI")
         screenshot(app, "Dispatcher resumed after phone reconnect")
     }
@@ -888,8 +996,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
-        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
-        let id = try XCTUnwrap(state["agentId"] as? String)
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        let id = try dispatcherChatID()
         let app = try launchPaired()
         waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
         openDispatcherSettings(app)
@@ -910,9 +1018,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["model", "runtime", "free-agent-mode"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
         }
-        let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
-        let config = try XCTUnwrap(saved["config"] as? [String: Any])
-        XCTAssertEqual(config["idleSleep"] as? Int, 15)
+        let saved = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
+        XCTAssertEqual(saved["status"] as? Int, 200)
+        let savedBody = try XCTUnwrap(saved["body"] as? [String: Any])
+        let settings = try XCTUnwrap(savedBody["settings"] as? [String: Any])
+        XCTAssertEqual((settings["idleSleep"] as? [String: Any])?["value"] as? Int, 15,
+                       "The visible Dispatcher's idle-sleep choice persists on desktop")
         let response = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
         XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])
@@ -927,7 +1038,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             command["type"] = "agent.update"; command["agentId"] = id
             let result = try XCTUnwrap(try dispatcherFixture("command", ["fields": command]) as? [String: Any])
             XCTAssertEqual(result["status"] as? Int, 409)
-            XCTAssertTrue(String(describing: result["body"]).contains("dispatcher_locked"), "Locked write: \(fields)")
+            let refusal = try XCTUnwrap(result["body"] as? [String: Any])
+            let error = try XCTUnwrap(refusal["error"] as? [String: Any])
+            XCTAssertEqual(error["code"] as? String, "dispatcher_locked", "Locked write: \(fields)")
         }
         let resetBehavior = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.update", "behavior": "standard"]]) as? [String: Any])
         XCTAssertEqual(resetBehavior["status"] as? Int, 200)

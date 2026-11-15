@@ -16,6 +16,11 @@ on:
         description: Optional space-separated CompanionLiveE2ETests methods (empty runs the full suite)
         default: ''
         required: false
+      no_retries:
+        description: Run once, including after simulator failure, and require a result without retries
+        type: boolean
+        default: false
+        required: false
 
 concurrency:
   group: e2e-nightly
@@ -98,6 +103,7 @@ jobs:
           # The workflow checked out the ref; the script builds it without fetching again.
           E2E_SKIP_DESKTOP_CHECKOUT: '1'
           E2E_ONLY_TEST: ${{ inputs.only_test }}
+          E2E_NO_RETRIES: ${{ inputs.no_retries && '1' || '0' }}
         run: |
           args=(--simulator 'iPhone 17 Pro')
           if [[ -n "$E2E_ONLY_TEST" ]]; then

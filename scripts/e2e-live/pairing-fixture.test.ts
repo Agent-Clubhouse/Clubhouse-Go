@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { test } from 'node:test';
+import { EventEmitter } from 'node:events';
+import { stripTypeScriptTypes } from 'node:module';
+import { runInNewContext } from 'node:vm';
 import { rememberPairingPin, writePairingInvitation } from './pairing-fixture.ts';
 
 const root = path.resolve(import.meta.dirname, '..', '..');
@@ -57,6 +60,7 @@ test('observer, every phone, retry and relaunch read the current one-use PIN', a
       host: '127.0.0.1', port: 43210, hostID: 'fixture-host',
       certificatePin: 'aabbcc', pin: server.status.pin, name: 'E2E Fixture Desktop',
     });
+
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     assert.equal(fs.existsSync(`${file}.pending`), false);
     assert.equal(server.pair(invitation.pin, identity), 200);
@@ -70,6 +74,93 @@ test('observer, every phone, retry and relaunch read the current one-use PIN', a
     assert.equal(fs.statSync(file).mode & 0o777, 0o600);
     return JSON.parse(fs.readFileSync(file, 'utf8')).pin;
   }).sort(), issued.sort());
+});
+
+test('passive socket and history audits preserve bytes and distinguish unfinished responses without exposing identities', () => {
+  const source = fs.readFileSync(path.join(root, 'scripts/e2e-live/desktop-fixture.spec.ts'), 'utf8');
+  const audit = source.slice(source.indexOf('    await electronApp.evaluate(() => {'),
+    source.indexOf('    const agents = await window.evaluate'));
+  class Server extends EventEmitter {}
+  class Socket extends EventEmitter {
+    identity: string | undefined;
+    writes: Buffer[] = [];
+    constructor(identity?: string) { super(); this.identity = identity; }
+    getPeerCertificate() { return { subject: { CN: this.identity } }; }
+    write(bytes: Buffer) { this.writes.push(bytes); return false; }
+  }
+  const context = {
+    process: { getBuiltinModule: () => ({ Server }) }, Buffer, URL,
+    electronApp: { evaluate: (callback: () => void) => callback() },
+  };
+  runInNewContext(stripTypeScriptTypes(audit.replace('await electronApp.evaluate', 'electronApp.evaluate')), context);
+  const server = new Server();
+  const accepted = Buffer.from('HTTP/1.1 101 Switching Protocols\r\n\r\n');
+  const refused = Buffer.from('HTTP/1.1 401 Unauthorized\r\n\r\n');
+  server.on('upgrade', (_request, socket: Socket) => socket.write(socket.identity ? accepted : refused));
+  const observer = new Socket('OBSERVER-IDENTITY-SENTINEL');
+  const first = new Socket('PHONE-IDENTITY-SENTINEL'), duplicate = new Socket('PHONE-IDENTITY-SENTINEL');
+  const unknown = new Socket();
+  for (const [socket, url] of [[observer, '/ws'], [first, '/ws?client=mobile'], [duplicate, '/ws?client=mobile'], [unknown, '/ws?client=mobile']] as const) {
+    server.emit('upgrade', { url }, socket);
+  }
+  const rows = JSON.parse(runInNewContext('JSON.stringify(globalThis.__phoneConnectionAudit)', context));
+  assert.equal(rows[0].mobile, false);
+  assert.equal(rows[1].mobile, true);
+  assert.equal(rows[1].peer, rows[2].peer);
+  assert.notEqual(rows[0].peer, rows[1].peer);
+  assert.notEqual(rows[1].socket, rows[2].socket);
+  assert.equal(rows[3].peer, null, 'An unknown identity stays explicitly unknown, without changing authentication');
+  assert.equal(rows[3].accepted, false);
+  first.emit('close');
+  const closed = JSON.parse(runInNewContext('JSON.stringify(globalThis.__phoneConnectionAudit)', context));
+  assert.equal(typeof closed[1].closedAt, 'number');
+  assert.equal(closed[2].closedAt, null, 'Closing one duplicate does not close the other');
+  const frame = Buffer.from('unchanged frame bytes');
+  assert.equal(duplicate.write(frame), false);
+  assert.deepEqual(duplicate.writes, [accepted, frame]);
+  assert.deepEqual(unknown.writes, [refused]);
+  assert.equal(JSON.stringify(closed).includes('IDENTITY-SENTINEL'), false);
+
+  class Response extends EventEmitter {
+    statusCode = 200;
+    chunks: Buffer[] = [];
+    writeHead(status: number) { this.statusCode = status; return this; }
+    write(bytes: Buffer) { this.chunks.push(bytes); return false; }
+    end(bytes: Buffer) { this.chunks.push(bytes); this.emit('finish'); this.emit('close'); return this; }
+  }
+  const answered = new Response(), neverAnswered = new Response(), declined = new Response();
+  const body = Buffer.from('PRIVATE-TRANSCRIPT-SENTINEL');
+  server.on('request', (_request, response: Response) => {
+    if (response === neverAnswered) return;
+    response.writeHead(response === declined ? 503 : 200);
+    assert.equal(response.write(body.subarray(0, 5)), false);
+    assert.equal(response.end(body.subarray(5)), response);
+  });
+  const agent = '/api/v1/mobile/agents/AGENT-IDENTITY-SENTINEL/chat';
+  server.emit('request', { method: 'GET', url: agent, socket: first }, answered);
+  server.emit('request', { method: 'GET', url: agent + '?sessionId=SESSION-SENTINEL&beforeSeq=9', socket: duplicate }, neverAnswered);
+  server.emit('request', { method: 'GET', url: agent, socket: duplicate }, declined);
+  server.emit('request', { method: 'GET', url: agent.replace('/chat', '/settings'), socket: duplicate }, new Response());
+  const requests = JSON.parse(runInNewContext('JSON.stringify(globalThis.__phoneHistoryAudit)', context));
+  assert.equal(runInNewContext('globalThis.__phoneHistoryAgentOrdinal("AGENT-IDENTITY-SENTINEL")', context), requests[0].agent);
+  assert.equal(runInNewContext('globalThis.__phoneHistoryAgentOrdinal("UNREQUESTED-SENTINEL")', context), null);
+  assert.equal(requests.length, 3, 'Unrelated requests do not enter history evidence');
+  assert.equal(requests[0].agent, requests[1].agent);
+  assert.equal(requests[0].peer, rows[1].peer);
+  assert.equal(requests[0].status, 200);
+  assert.equal(requests[0].bytes, body.length);
+  assert.equal(typeof requests[0].receivedAt, 'number');
+  assert.equal(typeof requests[0].headersAt, 'number');
+  assert.equal(typeof requests[0].finishedAt, 'number');
+  assert.equal(typeof requests[0].closedAt, 'number');
+  assert.equal(requests[1].historyPage, true);
+  for (const field of ['headersAt', 'status', 'finishedAt', 'closedAt']) {
+    assert.equal(requests[1][field], null, 'Never-answered requests remain explicitly unresolved');
+  }
+  assert.equal(requests[2].status, 503, 'Refused responses are evidence, not success');
+  assert.deepEqual(Buffer.concat(answered.chunks), body);
+  assert.deepEqual(Buffer.concat(declined.chunks), body);
+  assert.equal(JSON.stringify(requests).includes('SENTINEL'), false, 'No path, session, certificate identity or transcript leaks');
 });
 
 test('build delays, unused invitations and simulator restarts never freeze an old PIN', async t => {

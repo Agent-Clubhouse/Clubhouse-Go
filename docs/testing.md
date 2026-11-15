@@ -301,6 +301,9 @@ What the script does:
    Setup and teardown turn the fixture's Dispatcher off, its only remaining global gate, and check that the desktop reports `flagOn: true`. This also isolates a retry after a timed-out test; individual tests still explicitly enable Dispatcher when needed. Refused mobile commands attach only HTTP status and an allowlisted error code, never the response body or command content.
 
    The manual workflow's optional `only_test` input accepts space-separated method names, for example `test9cAgentDispatcherSwitchesAndRealMCPDelivery test9eDispatcherInspectsARealHelper`. Empty runs the full suite; `desktop_ref` can pin the desktop commit for a controlled comparison.
+   Set `no_retries: true` to disable both failed-test retries and the simulator-crash rerun, and require
+   `ClubhouseGoUITests` to pass the strict no-retries result verifier. The script's equivalent is `E2E_NO_RETRIES=1`.
+   The default nightly retry behavior is unchanged.
 
    Persistent approval rules are selected in Review request, not the transcript card (#392). Dispatcher tests use
    Settings > Dispatcher: desktop Agent-Clubhouse/Clubhouse#3228 and Go #358 deliberately hide raw Model, Runtime
@@ -308,6 +311,46 @@ What the script does:
    orchestration writes must still refuse. Replay is checkpointed after the final agent cleanup, since cleanup can
    remove interior entries; all five live changes and their follow-up snapshots remain independently required.
    Lazy forms are opened by their summary, then scrolled to the requested row rather than waiting for an offscreen Name.
+   Wait for a fresh permission's Review control before tapping it. Compare each Dispatcher change to the first
+   follow-up snapshot's `enabled`, not object presence: null means off before first creation, and later off snapshots
+   retain the chat record (desktop Agent-Clubhouse/Clubhouse#3514). Guided `providerControl`
+   replaces the raw orchestrator menu with Runs on. Agent routes and locked-field refusals target the chat id from
+   `GET /api/v1/mobile/dispatcher/settings`, never the desktop IPC state's hidden work-agent id; `404 agent_not_found`
+   for a hidden id is not equivalent to the required `409 dispatcher_locked` for a locked chat-field write.
+   Structured question choices also belong to Review request, not the read-only transcript. Close Settings using
+   its Done control, never an offscreen lazy summary as the disappearance sentinel.
+   Before the unchanged 20-second fixture disconnection check, verify the phone actually reaches runningBackground.
+   Lifecycle attachments record app state and PressHome/background/disconnect Unix timestamps. `phone-disconnect.json`
+   and the fixture log record accepted TLS upgrades and closes with opaque peer/socket ordinals (no fingerprints or
+   certificates), so a duplicate phone socket can be distinguished from a socket that did not close. A backgrounded
+   phone still counted as connected after that check is a suspension/close failure, not a reason to loosen replay.
+   The composer shell is not chat readiness: wait within the existing budget for an enabled Wake or live control,
+   then require the typed draft to commit and Send to enable within one shared Send budget. Readiness failures attach
+   bounded UI state plus `phone-history.json`: passive chat-snapshot/history request timings, HTTP status, byte count,
+   header/finish/close timings and opaque agent/peer/request ordinals, never paths, sessions or response contents.
+   Null response timings identify unfinished desktop responses; a missing request distinguishes a phone-side read
+   that never reached the desktop. A completed server response with a still-loading phone needs consumption/transport
+   diagnosis, not a retry, refresh or longer timeout.
+   The intermittent background socket-close failure is tracked in #416; its internal cause is unresolved.
+   DEBUG live runs opt into closed-vocabulary `[live-connect]` events for the scene phase, lifecycle queued/wait/start/
+   completion, transport disconnect entry/return and native socket cancel invocation/return. The per-launch capture
+   reserves 64 lifecycle records separately from 256 connection records, emits one explicit limit marker per group,
+   and never exports identities or arbitrary metadata. Producers only append a typed projection to a fixed 64-record
+   ring under a short lock; they never encode, schedule writer work or access a file descriptor. A utility-queue timer
+   drains it every 20ms, outside the ring lock, to an independently opened nonblocking PTY descriptor. It never changes
+   stdout's shared flags or falls back to blocking output. Full buffers, EAGAIN, partial writes and output failures
+   drop records and coalesce numeric dropped-count/total markers when output recovers; unavailable capture is not
+   success. Exhaustion markers retain their reserved state until writable output is available.
+   The hosted timing regression redirects actual stdout to a full blocking pipe, restores it in defer, and requires
+   64 producer appends within 250ms. A delayed reader rescues the synchronous-write negative control after one second.
+   Export the xcresult diagnostics and inspect the app's
+   `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt` to find the last observed boundary. A completed native
+   cancel call is not proof of a server-observed close. Asynchronous output may lose a final record at suspension
+   or termination, or contain a partial line: export retains available evidence without requiring a complete tail.
+   Missing or dropped tail events are **inconclusive**, not proof that the corresponding product boundary was skipped.
+   The synchronous producer writes at `696d5296` failed QA timing-neutrality review; nightly `43689511338` may have
+   been timing-perturbed and cannot establish the #416 internal cause. A passing run does **not** fix #416;
+   keep the real background, unchanged 20s disconnect check and every replay assertion.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):

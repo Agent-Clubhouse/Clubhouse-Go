@@ -148,6 +148,10 @@ public actor AnnexTransport: AnnexTransporting {
         loop = Task { [weak self] in await self?.run(generation: current) }
     }
     public func disconnect() async {
+        #if DEBUG
+        telemetry.record(.disconnect, event: .disconnectStarted)
+        defer { telemetry.record(.disconnect, event: .disconnectCompleted) }
+        #endif
         let oldSocket = stopConnection()
         await oldSocket?.close()
     }
