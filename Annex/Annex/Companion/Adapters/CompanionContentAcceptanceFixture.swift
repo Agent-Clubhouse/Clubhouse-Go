@@ -19,7 +19,15 @@ import UIKit
     static let linkFile = folderPath + "/notes.md"
     static let codeSpanFile = "Some Folder/notes.md"
     static let codeSpanFolder = "Some Folder/"
+    static let markdownText = "# Phone notes\r\n\r\n**Keep** trailing spaces  \r\nCaf\u{00e9} \u{1f680}\r\n\r\n- [x] Native preview\r\n\r\n![Blocked local image](./private.png)\r\n"
+    static let markdownPath = "phone-notes.md"
     static var history: CompanionHistory {
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-markdown-files") {
+            return .init(items: [
+                .message(.init(id: "markdown-file-acceptance", role: .assistant,
+                              text: "Markdown: `\(markdownPath)` and `phone-notes.markdown` and `phone-notes.mdx`. [Line](\(markdownPath):4)."))
+            ], contentRoots: .init(anyPath: true))
+        }
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-local-links") {
             return .init(items: [
                 .message(.init(id: "local-links-acceptance", role: .assistant,
@@ -34,6 +42,8 @@ import UIKit
     /// The desktop's chat-link answers for the links above and the entries of the folders it lists.
     static func resolve(_ href: String) -> CompanionLinkTarget {
         switch href {
+        case markdownPath, "phone-notes.markdown", "phone-notes.mdx":
+            return .file(path: href, name: href, kind: "text", size: markdownText.utf8.count)
         case linkHref, linkFile, folderPath + "/latest.md":
             return .file(path: linkFile, name: "notes.md", kind: "text", size: 1234)
         case folderHref:
@@ -60,6 +70,8 @@ import UIKit
     static func content(path: String) throws -> CompanionContent {
         let name = (path as NSString).lastPathComponent
         switch path {
+        case markdownPath, "phone-notes.markdown", "phone-notes.mdx":
+            return .init(kind: "text", name: name, text: markdownText, truncated: true)
         case linkFile:
             return .init(kind: "text", name: name, text: "Synthetic local link preview")
         case homeText, temporaryText:

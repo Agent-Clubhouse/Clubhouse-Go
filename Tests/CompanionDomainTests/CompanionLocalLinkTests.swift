@@ -134,6 +134,17 @@ import Testing
         #expect(await h.transport.readRoutes.compactMap(\.href).last == "/work/app/docs/screenshot.png")
     }
 
+    @Test func markdownLineTargetResolvesThePathWithoutContractMetadata() async throws {
+        let h = try await Self.harness()
+        defer { h.stop() }
+        await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "file"))
+        await h.transport.setRead("chatContent", .object(["kind": .string("text"), "name": .string("guide.md"), "text": .string("# Guide\r\n")]))
+        let content = try await h.store.content(.link("docs/guide.md:42"), target: h.target)
+        #expect(content.text == "# Guide\r\n")
+        #expect(await h.transport.readRoutes.filter { $0.name == "chatLink" }.last?.href == "docs/guide.md")
+        #expect(await h.transport.readRoutes.filter { $0.name == "chatContent" }.last?.filePath == "/work/app/docs/guide.md")
+    }
+
     @Test func missingAndNotAllowedAreNamedWithoutAmbiguity() async throws {
         let h = try await Self.harness()
         defer { h.stop() }

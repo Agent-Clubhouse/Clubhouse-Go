@@ -250,6 +250,7 @@ import Observation
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
         }
+        let reference = reference.markdownLineTarget?.reference ?? reference
         switch reference {
         case .link(let href): return try await linkContent(href, target: target)
         // A code-span path resolves like a link, so a folder lists and a missing file says so. A desktop

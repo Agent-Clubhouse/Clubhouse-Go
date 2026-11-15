@@ -227,6 +227,17 @@
       "source": "Annex/Annex/Companion/Views/CompanionContentView.swift",
       "reason": "Stateless PDFViewDelegate whose nonisolated callbacks do nothing. PDFView holds it weakly; SwiftUI owns it from makeCoordinator until dismantleUIView, which removes the document before the delegate. No stored fields, captures or teardown work, but it is a new UIKit-delegate owner with no ARC-only review; retain synthesized MainActor teardown."
     },
+    "CompanionMarkdownHTTPSOnly": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift",
+      "reason": "Stateless Foundation NSObject/URLSessionTaskDelegate guards Markdown image redirects using only request URL values and the transient URLSession completion argument. No stored fields, retained callbacks, constructor captures or UIKit owners; off-main ARC is safe. The structured loading task owns and invalidates/cancels its ephemeral session, not this delegate's deinit. Explicit nonisolated empty teardown preserves the compiler's existing nonisolated Sendable-delegate behavior.",
+      "surface": {
+        "bases": ["NSObject", "URLSessionTaskDelegate"],
+        "nestedValueProperties": {},
+        "properties": {},
+        "storageMacros": []
+      }
+    },
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
