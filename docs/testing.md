@@ -138,6 +138,10 @@ the restored range once, after finding a field with byte-identical saved text; s
 focus and user caret changes do not reapply it. Nil-selection programmatic focus still uses #414's
 end-of-draft insertion point. This is a local framework-behavior diagnosis, not a claim about other iOS versions.
 
+Revert proof: removing only the hook's native `selectedRange` assignment fails all five restored-range
+cases (25 assertions: pre/post-focus ranges and native/store/request bytes). Restoring the exact assignment
+passes all five `CompanionUnicodeFocusTests` methods without retries.
+
 `CompanionUnicodeFocusUITests` keeps byte-exact coverage of the actual app paths:
 
 | Input/path | Coverage |
