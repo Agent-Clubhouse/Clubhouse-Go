@@ -257,6 +257,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                       "Settings > Dispatcher loads its Behavior section")
     }
 
+    private func dispatcherChatID() throws -> String {
+        // The desktop IPC state's agentId is the hidden worker; mobile routes take the chat's id (#3036).
+        let response = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
+        XCTAssertEqual(response["status"] as? Int, 200)
+        let body = try XCTUnwrap(response["body"] as? [String: Any])
+        return try XCTUnwrap(body["agentId"] as? String)
+    }
+
     /// Toggle once and wait for the authoritative setting, without retrying the gesture.
     private func setSwitch(_ control: XCUIElement, on: Bool, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8, file: file, line: line), file: file, line: line)
@@ -349,7 +357,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         // #392 moved persistent decisions out of transcript cards into Review request.
         let review = app.buttons["companion-review-approval"]
         let always = app.buttons["companion-approval-option-allow_always"]
-        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30)
+        XCTAssertTrue(review.waitForExistence(timeout: 30), "The fresh permission request must arrive before opening its review")
+        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30, attempts: 1)
         XCTAssertTrue(always.waitForExistence(timeout: 30), "Allow and don't ask again is offered for the CLI's suggested rule")
         scrollTo(always, in: app, maxSwipes: 3)
         always.tap()
@@ -686,7 +695,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
                 frame["type"] as? String == "snapshot" && frame["replayed"] as? Bool != true
             }, "Every change must have a follow-up snapshot")
             let payload = try XCTUnwrap(snapshot["payload"] as? [String: Any])
-            XCTAssertEqual(enabled, payload["dispatcher"] is [String: Any], "The first follow-up snapshot must match the change")
+            // Agent-Clubhouse/Clubhouse#3514: null before first creation; retained with enabled:false while off.
+            let snapshotEnabled: Bool
+            if payload["dispatcher"] is NSNull {
+                snapshotEnabled = false
+            } else {
+                let dispatcher = try XCTUnwrap(payload["dispatcher"] as? [String: Any])
+                snapshotEnabled = try XCTUnwrap(dispatcher["enabled"] as? Bool)
+            }
+            XCTAssertEqual(enabled, snapshotEnabled, "The first follow-up snapshot must match the change")
         }
         XCTAssertTrue(frames.contains { $0["type"] as? String == "dispatcher:changed" && $0["replayed"] as? Bool == true },
                       "The actual desktop replay buffer must retain Dispatcher changes")
@@ -694,8 +711,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9bDispatcherChatSettingsSleepWakeAndResume() throws {
-        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
-        let id = try XCTUnwrap(state["agentId"] as? String)
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        let id = try dispatcherChatID()
         let app = try launchPaired()
         let row = dispatcherRow(app)
         waitAndTap(row, until: composer(app), timeout: 20)
@@ -716,10 +733,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["model", "runtime", "free-agent-mode"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
         }
-        for field in ["orchestrator", "auto-sleep"] {
-            let control = element(app, "agent-settings-\(field)")
-            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8), "Dispatcher exposes \(field)")
-            XCTAssertTrue(control.isEnabled, "Dispatcher \(field) is editable even while awake")
+        // providerControl replaces the raw orchestrator menu with the guided Runs on owner.
+        for identifier in ["agent-settings-provider-flow", "agent-settings-auto-sleep"] {
+            let control = element(app, identifier)
+            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8), "Dispatcher exposes \(identifier)")
+            XCTAssertTrue(control.isEnabled, "Dispatcher \(identifier) remains available while awake")
         }
         for field in ["name", "emoji", "orchestrate"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
@@ -888,8 +906,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
-        let state = try XCTUnwrap(try dispatcherFixture("setEnabled", ["enabled": true]) as? [String: Any])
-        let id = try XCTUnwrap(state["agentId"] as? String)
+        try dispatcherFixture("setEnabled", ["enabled": true])
+        let id = try dispatcherChatID()
         let app = try launchPaired()
         waitAndTap(dispatcherRow(app), until: composer(app), timeout: 20)
         openDispatcherSettings(app)
@@ -910,9 +928,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["model", "runtime", "free-agent-mode"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
         }
-        let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
-        let config = try XCTUnwrap(saved["config"] as? [String: Any])
-        XCTAssertEqual(config["idleSleep"] as? Int, 15)
+        let saved = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
+        XCTAssertEqual(saved["status"] as? Int, 200)
+        let savedBody = try XCTUnwrap(saved["body"] as? [String: Any])
+        let settings = try XCTUnwrap(savedBody["settings"] as? [String: Any])
+        XCTAssertEqual((settings["idleSleep"] as? [String: Any])?["value"] as? Int, 15,
+                       "The visible Dispatcher's idle-sleep choice persists on desktop")
         let response = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
         XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])
@@ -927,7 +948,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             command["type"] = "agent.update"; command["agentId"] = id
             let result = try XCTUnwrap(try dispatcherFixture("command", ["fields": command]) as? [String: Any])
             XCTAssertEqual(result["status"] as? Int, 409)
-            XCTAssertTrue(String(describing: result["body"]).contains("dispatcher_locked"), "Locked write: \(fields)")
+            let refusal = try XCTUnwrap(result["body"] as? [String: Any])
+            let error = try XCTUnwrap(refusal["error"] as? [String: Any])
+            XCTAssertEqual(error["code"] as? String, "dispatcher_locked", "Locked write: \(fields)")
         }
         let resetBehavior = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.update", "behavior": "standard"]]) as? [String: Any])
         XCTAssertEqual(resetBehavior["status"] as? Int, 200)

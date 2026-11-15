@@ -301,6 +301,9 @@ What the script does:
    Setup and teardown turn the fixture's Dispatcher off, its only remaining global gate, and check that the desktop reports `flagOn: true`. This also isolates a retry after a timed-out test; individual tests still explicitly enable Dispatcher when needed. Refused mobile commands attach only HTTP status and an allowlisted error code, never the response body or command content.
 
    The manual workflow's optional `only_test` input accepts space-separated method names, for example `test9cAgentDispatcherSwitchesAndRealMCPDelivery test9eDispatcherInspectsARealHelper`. Empty runs the full suite; `desktop_ref` can pin the desktop commit for a controlled comparison.
+   Set `no_retries: true` to disable both failed-test retries and the simulator-crash rerun, and require
+   `ClubhouseGoUITests` to pass the strict no-retries result verifier. The script's equivalent is `E2E_NO_RETRIES=1`.
+   The default nightly retry behavior is unchanged.
 
    Persistent approval rules are selected in Review request, not the transcript card (#392). Dispatcher tests use
    Settings > Dispatcher: desktop Agent-Clubhouse/Clubhouse#3228 and Go #358 deliberately hide raw Model, Runtime
@@ -308,6 +311,12 @@ What the script does:
    orchestration writes must still refuse. Replay is checkpointed after the final agent cleanup, since cleanup can
    remove interior entries; all five live changes and their follow-up snapshots remain independently required.
    Lazy forms are opened by their summary, then scrolled to the requested row rather than waiting for an offscreen Name.
+   Wait for a fresh permission's Review control before tapping it. Compare each Dispatcher change to the first
+   follow-up snapshot's `enabled`, not object presence: null means off before first creation, and later off snapshots
+   retain the chat record (desktop Agent-Clubhouse/Clubhouse#3514). Guided `providerControl`
+   replaces the raw orchestrator menu with Runs on. Agent routes and locked-field refusals target the chat id from
+   `GET /api/v1/mobile/dispatcher/settings`, never the desktop IPC state's hidden work-agent id; `404 agent_not_found`
+   for a hidden id is not equivalent to the required `409 dispatcher_locked` for a locked chat-field write.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
