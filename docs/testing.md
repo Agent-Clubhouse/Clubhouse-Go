@@ -162,6 +162,127 @@ They emit monotonic `AGENT_TREE_PHASE` markers before major operations and keep 
 `AgentTree phase timeline` attachment. Markers perform no AX queries and remain in
 stdout if a timed-out runner cannot finish an attachment.
 
+#### Unresolved agent-row long presses: #247
+
+The investigation starts from unchanged app code at `961a944d`. **No root cause or
+product fix is established.** The issue includes recorded 1.2-second presses at
+both the row center and the visible name that navigate to chat on iOS 26.5.
+In particular, the name failure after #250 has the same checked point and row
+frame as its passing retry; changing a test's selector does not fix this behavior.
+
+The historical job logs remain downloadable. The
+[center failure](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/41469238552/job/125374151856)
+requests one 1.2-second press, then spends about 32.4 seconds in the post-event
+idle wait; the passing retry spends about 0.06 seconds there. The
+[name failure](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/41487601605/job/125427668261)
+requests `(104.5, 493.8333)` within row `(16, 466.6667, 370, 74.3333)` on both
+attempts. Its synthesis activity takes longer on failure, but these framework
+activity timings do not establish the delivered touch duration, hit view,
+recognizer state, or cause. The helper-settings and quota job logs also retain
+their failed first presses and passing retries. All four referenced runs now
+list zero artifacts; the named artifact IDs return 404. The original recordings
+and failure hierarchies were therefore unavailable for independent reinspection.
+Their reported chat-navigation outcomes remain evidence recorded in #247, not
+newly observed failures in this investigation.
+
+**Gesture composition:** Home and the project agent list share
+`CompanionAgentTreeNavigationRow`: an outer HStack contains a value-based
+`NavigationLink` and, for parents, a separate borderless helper-disclosure Button.
+The link's `CompanionAgentListRow` label applies `CompanionAgentMenu.contextMenu`
+to its inner HStack after vertical padding and accessibility combination.
+There is no custom row `onTapGesture`, simultaneous/high-priority gesture, or
+agent-tree swipe action. The list style is `insetGrouped`; the project page's
+finished-run swipe actions belong to different rows. Dispatcher instead wraps
+the same inner menu row in a plain Button. This is a structural difference
+between navigation and menu targets, not proof of competing recognizers.
+
+Temporary, opt-in geometry observations measured the inner menu and outer link
+in global coordinates without installing a gesture. On iPhone 17 Pro / iOS 26.0
+(`23A343`), Xcode 26.0.1 (`17A400`), the Home Juniper frames were:
+
+| Target | Frame `(x, y, width, height)` |
+| --- | --- |
+| AX/List row | `(16, 466.6667, 370, 74.3333)` |
+| NavigationLink layout | `(32, 481.6667, 338, 44.3333)` |
+| Inner context-menu layout | `(32, 481.6667, 211.6667, 44.3333)` |
+
+| Single-press point | Containment in measured layout frames | Observed outcome |
+| --- | --- | --- |
+| Center `(201, 503.8333)` | Row, link, menu | Menu |
+| Name `(104.5, 493.8333)` | Row, link, menu | Menu |
+| Avatar `(48, 503.8333)` | Row, link, menu | Menu |
+| Interior gap `(293.5, 503.8333)` | Row and link, outside menu | Menu |
+| Trailing `(374, 503.8333)` | Row only | Menu |
+| Top inset `(201, 467.6667)` | Row only | Menu |
+| Bottom inset `(201, 540)` | Row only | Menu |
+| Leading inset `(17, 503.8333)` | Row only | Menu |
+
+The project row has the same dimensions, shifted down by 173.3333 points, with
+the same containment and outcomes. Each surface received one real
+`XCUICoordinate.press(forDuration:)` at center/name/avatar/trailing for
+each of 0.6, 1.0 and 1.5 seconds, plus the four inset/interior-gap presses at
+1.2 seconds. Three additional center and three name presses at 1.2 seconds
+followed River -> Agent details -> Agent settings -> Back -> Done -> Home.
+All **38/38** opened menus; neither navigation nor an unclassified result
+occurred. Separate normal center taps opened chat in Home and the project.
+Every press had a checked, fully visible row and retained outcome screenshot;
+there were no press or test retries. These runs used the existing preview
+fixture and `--ui-testing-fast`, as the affected CI tests do, never a desktop.
+
+On a private iPad Pro 11-inch (M4), the same 26.0 matrix also opened menus
+**38/38**, with both normal taps navigating. The typical Home row was
+`(20, 827.5, 794, 74.5)`, its link `(40, 842.5, 754, 44.5)`, and its inner
+menu `(40, 842.5, 211.5, 44.5)`. The typical project row started at `y=862`.
+Scrolling changed some rows' y origin, not their measured insets or dimensions:
+the link/menu began 20 points right and 15 points below that attempt's row
+origin. The stored per-attempt row and geometry logs retain those differences.
+
+| iPad point | Containment in measured layout frames | Observed outcome |
+| --- | --- | --- |
+| Center `(417, row.midY)` | Row and link, outside menu | Menu |
+| Name `(112.5, name.midY)` | Row, link, menu | Menu |
+| Avatar `(56, row.midY)` | Row, link, menu | Menu |
+| Interior gap `(615.5, row.midY)` | Row and link, outside menu | Menu |
+| Trailing `(802, row.midY)` | Row only | Menu |
+| Top `(417, row.minY + 1)` | Row only | Menu |
+| Bottom `(417, row.maxY - 1)` | Row only | Menu |
+| Leading `(21, row.midY)` | Row only | Menu |
+
+After removing the geometry observations, each device repeated the eight
+inset/interior-gap presses, six history presses and both normal taps. All
+**14/14** presses per device opened menus, and both taps navigated. Across both
+passes, that is **52/52** diagnostic presses and **4/4** normal taps per device;
+the observations are not necessary for those successful outcomes.
+
+The uninstrumented iPhone run passed all 60 tests in
+`CompanionAgentTreeUITests`, `CompanionAgentSheetsTests`,
+`CompanionPreviewSmokeTests`, `CompanionContextWindowUITests`,
+`CompanionAutoQuotaUITests` and `CompanionDispatcherUITests`, plus the three
+temporary control methods: **63/63** in 1743.055 seconds. The iPad baseline
+passed both tree tests, sleeping-agent settings, sessionless-agent details and
+the three controls: **7/7** in 392.576 seconds. All five result bundles
+(`iphone-probe`, `iphone-gaps`, `iphone-baseline-ui`, `ipad-probe`,
+`ipad-baseline-ui`, under `build/go-247/`, each with `.xcresult`) passed
+`python3 scripts/verify-xcresult.py <xcresult> ClubhouseGoUITests --no-retries-in ClubhouseGoUITests`.
+The temporary test and geometry observations were removed, rather than adding
+a non-reproducing diagnostic matrix to normal CI.
+
+The padding hypothesis is therefore not a deterministic explanation on this
+26.0 configuration: even points outside both measured SwiftUI layout frames
+open the menu. A layout frame must not be treated as the native menu's hit
+region. This does not rule out version-dependent routing or an intermittent
+recognition failure on 26.5, which is not installed locally. It also does not
+establish that an OS difference, runner timing, or prior navigation causes the
+failure.
+
+Keep #247 open. A matched 26.5 recurrence needs the full event path and actual
+touch timestamps, native hit-view/interaction ownership, recognizer transitions,
+and row lifetime/layout changes through touch-up, correlated with app/runner
+responsiveness. A synthesis activity's duration or the eventual navigation alone
+cannot distinguish those mechanisms. No physical-device test was performed.
+There is no proven fix to regression-test or revert-prove; production gestures,
+accessibility actions, test selectors and retry policies remain unchanged.
+
 #### Unresolved hosted investigations: #308 and #386
 
 The artifact-led pass on main `847225b2` did **not** establish a fixing change for
