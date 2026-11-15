@@ -190,6 +190,25 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         query.element(boundBy: count).waitForExistence(timeout: timeout)
     }
 
+    private func answerSQLiteQuestion(_ app: XCUIApplication) {
+        // #392 makes transcript question options read-only; the actionable form belongs to Review request.
+        let review = app.buttons.matching(NSPredicate(format: "identifier == 'companion-review-approval' AND label BEGINSWITH 'Review question:'")).firstMatch
+        XCTAssertTrue(review.waitForExistence(timeout: 30), "The structured question must arrive")
+        let sheet = app.scrollViews["companion-approval-review-scroll"]
+        waitAndTap(review, until: sheet, timeout: 30, attempts: 1)
+        let sqlite = sheet.buttons["SQLite"]
+        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "Review offers the structured SQLite choice")
+        XCTAssertTrue(scrollTo(sqlite, in: app, maxSwipes: 3))
+        sqlite.tap()
+        let answers = sheet.buttons["Send answers"]
+        XCTAssertTrue(scrollTo(answers, in: app, maxSwipes: 3))
+        XCTAssertTrue(answers.isEnabled, "The selected structured answer can be sent")
+        answers.tap()
+        XCTAssertTrue(sheet.staticTexts["Answered"].waitForExistence(timeout: 30), "The review acknowledges the answer")
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(close, untilGone: close, attempts: 1)
+    }
+
     private func backToHome(_ app: XCUIApplication) {
         let home = app.tabBars.buttons["Home"]
         if home.exists && home.isHittable { home.tap() }
@@ -215,6 +234,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let deadline = Date().addingTimeInterval(60)
         while Date() < deadline {
             if let data = try? Data(contentsOf: done), let reply = try? JSONSerialization.jsonObject(with: data) as? [String: Any], reply["id"] as? String == id {
+                if op == "phoneDisconnected", let diagnostic = try? String(contentsOf: dir.appending(path: "phone-disconnect.json"), encoding: .utf8) {
+                    let attachment = XCTAttachment(string: diagnostic)
+                    attachment.name = "Fixture socket-disconnect evidence (opaque peer IDs)"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
                 XCTAssertNil(reply["error"], "Fixture \(op): \(reply["error"] ?? "")", file: file, line: line)
                 let result = reply["result"] ?? NSNull()
                 if op == "command", let response = result as? [String: Any],
@@ -374,13 +399,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         screenshot(app, "Always allow reached the CLI")
 
         send(app, "ask")
-        let sqlite = app.buttons["SQLite"]
-        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "The structured question must arrive")
-        scrollTo(sqlite, in: app, maxSwipes: 3)
-        sqlite.tap()
-        let answers = app.buttons["Send answers"]
-        scrollTo(answers, in: app, maxSwipes: 3)
-        answers.tap()
+        answerSQLiteQuestion(app)
         let answered = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'answers:' AND label CONTAINS 'SQLite'")).firstMatch
         XCTAssertTrue(answered.waitForExistence(timeout: 30), "The answer must reach the CLI")
     }
@@ -677,8 +696,31 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         try dispatcherFixture("setEnabled", ["enabled": false])
         XCTAssertTrue(row.waitForNonExistence(timeout: 30))
 
+        let pressedHomeAt = Date().timeIntervalSince1970
+        var backgroundObservedAt: TimeInterval?
+        var disconnectObservedAt: TimeInterval?
+        func attachBackgroundEvidence() {
+            let attachment = XCTAttachment(string: """
+                app.state=\(String(describing: app.state))
+                timestampUnit=Unix seconds
+                PressHome=\(pressedHomeAt)
+                runningBackgroundObserved=\(backgroundObservedAt.map(String.init(describing:)) ?? "not observed")
+                disconnectObserved=\(disconnectObservedAt.map(String.init(describing:)) ?? "not observed")
+                capturedAt=\(Date().timeIntervalSince1970)
+                """)
+            attachment.name = "Phone background lifecycle evidence"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        defer { attachBackgroundEvidence() }
         XCUIDevice.shared.press(.home)
-        try dispatcherFixture("phoneDisconnected")
+        let backgrounded = app.wait(for: .runningBackground, timeout: 30)
+        if backgrounded { backgroundObservedAt = Date().timeIntervalSince1970 }
+        attachBackgroundEvidence()
+        XCTAssertTrue(backgrounded, "The phone must really enter background before checking disconnection")
+        let disconnected = try XCTUnwrap(try dispatcherFixture("phoneDisconnected") as? [String: Any])
+        disconnectObservedAt = try XCTUnwrap(disconnected["observedAt"] as? Double)
+        attachBackgroundEvidence()
         // Stopping an agent cleans its interior replay entries. As in test9c, checkpoint after the final cleanup;
         // all five live changes and their follow-up snapshots are still checked independently below.
         let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
@@ -761,7 +803,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             XCTAssertTrue(hidden.contains { $0["setting"] as? String == field }, "Desktop explicitly marks \(field) notHonored")
         }
         screenshot(app, "Real Dispatcher settings while awake")
-        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
+        // A lazy summary may already be offscreen; only the sheet-owned Done proves dismissal.
+        let done = app.buttons["Done"]
+        waitAndTap(done, untilGone: done, attempts: 1)
         // There is no phone Sleep action. Stop through the desktop's real mobile command, as a desktop stop would.
         let stop = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.stop", "agentId": id]]) as? [String: Any])
         XCTAssertEqual(stop["status"] as? Int, 200)
@@ -771,6 +815,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         app.activate()
         XCTAssertTrue(wake.waitForExistence(timeout: 30))
         XCTAssertTrue(wake.label.contains("Resume"), "A Dispatcher with a saved session offers resume: \(wake.label)")
+        XCTAssertTrue(wake.isHittable, "The resumed chat's Wake control is not covered by Settings")
         wake.tap()
         XCTAssertTrue(wake.waitForNonExistence(timeout: 30))
         // The fake emits assistant text only for its scripted turns (an arbitrary text gets a result only).
@@ -778,13 +823,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let replies = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'answers:' AND label CONTAINS 'SQLite'"))
         let before = replies.count
         send(app, "ask")
-        let sqlite = app.buttons["SQLite"]
-        XCTAssertTrue(sqlite.waitForExistence(timeout: 30), "Questions stream after reconnect and resume")
-        scrollTo(sqlite, in: app)
-        sqlite.tap()
-        let submit = app.buttons["Send answers"]
-        scrollTo(submit, in: app)
-        submit.tap()
+        answerSQLiteQuestion(app)
         XCTAssertTrue(waitForMore(replies, than: before), "The resumed Dispatcher's answer round trip reaches the CLI")
         screenshot(app, "Dispatcher resumed after phone reconnect")
     }

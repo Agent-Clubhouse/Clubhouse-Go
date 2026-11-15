@@ -244,6 +244,34 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
   let observer: Awaited<ReturnType<typeof observeDesktop>> | undefined;
   let icons: Awaited<ReturnType<typeof createIconFixture>> | undefined;
   try {
+    // Passive TLS-upgrade audit: opaque peer ordinals distinguish duplicate phone sockets without exposing identities.
+    await electronApp.evaluate(() => {
+      const https = process.getBuiltinModule('https') as typeof import('node:https');
+      const root = globalThis as any;
+      root.__phoneConnectionAudit = [];
+      const peers = new Map<string, number>();
+      const prototype = https.Server.prototype as any, emit = prototype.emit;
+      prototype.emit = function (event: string, ...args: any[]) {
+        const request = args[0];
+        if (event === 'upgrade' && request?.url?.startsWith('/ws')) {
+          const socket = args[1], identity = socket.getPeerCertificate().subject?.CN;
+          const hasIdentity = typeof identity === 'string' && identity.length > 0;
+          if (hasIdentity && !peers.has(identity)) peers.set(identity, peers.size + 1);
+          const row = { socket: root.__phoneConnectionAudit.length + 1, peer: hasIdentity ? peers.get(identity) : null,
+            mobile: new URL(request.url, 'https://fixture.invalid').searchParams.get('client') === 'mobile',
+            upgradedAt: Date.now() / 1000, accepted: false, closedAt: null as number | null };
+          root.__phoneConnectionAudit.push(row);
+          const write = socket.write;
+          socket.write = function (...parts: any[]) {
+            const bytes = typeof parts[0] === 'string' ? Buffer.from(parts[0]) : parts[0];
+            if (Buffer.isBuffer(bytes) && bytes.toString('ascii', 0, 12).startsWith('HTTP/1.1 101')) row.accepted = true;
+            return write.apply(this, parts);
+          };
+          socket.once('close', () => { row.closedAt = Date.now() / 1000; });
+        }
+        return emit.call(this, event, ...args);
+      };
+    });
     const agents = await window.evaluate(async (projectPath) => {
       const ch = (window as any).clubhouse;
       await ch.project.add(projectPath);
@@ -359,11 +387,25 @@ test('Clubhouse Go live E2E desktop fixture', async () => {
               result = { agentId: helperId }; break;
             }
             case 'checkpoint': result = observer!.lastSequence(); break;
-            case 'phoneDisconnected':
+            case 'phoneDisconnected': {
               // The observer is the sole remaining WebSocket. Prove the phone disconnected before changing state.
-              await expect.poll(async () => (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount,
-                { timeout: 20_000 }).toBe(1);
-              result = 'ok'; break;
+              const startedAt = Date.now() / 1000;
+              let observedAt: number | null = null;
+              try {
+                await expect.poll(async () => {
+                  const count = (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount;
+                  if (count === 1) observedAt = Date.now() / 1000;
+                  return count;
+                }, { timeout: 20_000 }).toBe(1);
+              } finally {
+                const connectedCount = (await window.evaluate(() => (window as any).clubhouse.annex.getStatus())).connectedCount;
+                const connections = await electronApp.evaluate(() => (globalThis as any).__phoneConnectionAudit);
+                const diagnostic = { startedAt, observedAt, completedAt: Date.now() / 1000, connectedCount, connections };
+                writeFile(path.join(FIXTURE_DIR, 'phone-disconnect.json'), evidence(diagnostic));
+                log(`Phone disconnect evidence: ${evidence(diagnostic)}`);
+              }
+              result = { observedAt }; break;
+            }
             case 'setEnabled': result = await window.evaluate(on => (window as any).clubhouse.dispatcher.setEnabled(on), request.enabled); break;
             case 'state': result = await window.evaluate(() => (window as any).clubhouse.dispatcher.get()); break;
             case 'policy': result = await window.evaluate(async ({ projectPath, agentId }) => {

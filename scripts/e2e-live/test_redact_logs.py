@@ -24,11 +24,11 @@ class RedactLogsTests(unittest.TestCase):
                 (fixture / name).chmod(0o600)
             secret_text = 'PIN-SENTINEL PIN-OBSERVER PIN-PREVIOUS NONCE-CURRENT NONCE-PREVIOUS'
             evidence = [{'at': '2026-11-01T20:00:00.000Z', 'event': secret_text, 'durationMs': 123.4}]
-            for name in ['desktop-annex.json', 'dispatcher-wire.json']:
+            for name in ['desktop-annex.json', 'dispatcher-wire.json', 'phone-disconnect.json']:
                 (fixture / name).write_text(json.dumps(evidence))
             (output / 'xcodebuild-test.log').write_text('[live-connect] ' + secret_text)
             subprocess.run([sys.executable, str(root / 'scripts/e2e-live/redact-logs.py'), str(fixture), str(output)], check=True)
-            for name in ['desktop-annex.json', 'dispatcher-wire.json', 'xcodebuild-test.log']:
+            for name in ['desktop-annex.json', 'dispatcher-wire.json', 'phone-disconnect.json', 'xcodebuild-test.log']:
                 text = (output / name).read_text()
                 for secret in ['PIN-SENTINEL', 'PIN-OBSERVER', 'PIN-PREVIOUS', 'NONCE-CURRENT', 'NONCE-PREVIOUS']:
                     self.assertNotIn(secret, text)

@@ -317,6 +317,13 @@ What the script does:
    replaces the raw orchestrator menu with Runs on. Agent routes and locked-field refusals target the chat id from
    `GET /api/v1/mobile/dispatcher/settings`, never the desktop IPC state's hidden work-agent id; `404 agent_not_found`
    for a hidden id is not equivalent to the required `409 dispatcher_locked` for a locked chat-field write.
+   Structured question choices also belong to Review request, not the read-only transcript. Close Settings using
+   its Done control, never an offscreen lazy summary as the disappearance sentinel.
+   Before the unchanged 20-second fixture disconnection check, verify the phone actually reaches runningBackground.
+   Lifecycle attachments record app state and PressHome/background/disconnect Unix timestamps. `phone-disconnect.json`
+   and the fixture log record accepted TLS upgrades and closes with opaque peer/socket ordinals (no fingerprints or
+   certificates), so a duplicate phone socket can be distinguished from a socket that did not close. A backgrounded
+   phone still counted as connected after that check is a suspension/close failure, not a reason to loosen replay.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
