@@ -4,16 +4,34 @@ import XCTest
 final class CompanionAgentTreeUITests: ReliableUITestCase {
     private let arguments = ["--companion-preview", "--companion-preview-helper-tree"]
     private var completedMilestones: [String] = []
+    private var phaseTimeline: [String] = []
+    private var startedAt: TimeInterval = 0
 
     private func requireMilestones(_ milestones: [String], caseID: String = #function) {
         completedMilestones = []
+        phaseTimeline = []
+        startedAt = ProcessInfo.processInfo.systemUptime
         addTeardownBlock { @MainActor [self] in
+            let attachment = XCTAttachment(string: phaseTimeline.joined(separator: "\n"))
+            attachment.name = "AgentTree phase timeline"
+            attachment.lifetime = .keepAlways
+            add(attachment)
             XCTAssertEqual(completedMilestones, milestones, "\(caseID) must complete every behavior phase")
         }
     }
 
+    private func phase(_ name: String) {
+        let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
+        let entry = "\(String(format: "%.3f", elapsed))s \(name)"
+        phaseTimeline.append(entry)
+        // stdout survives an allowance-killed runner that cannot finish its attachments.
+        print("AGENT_TREE_PHASE \(entry)")
+        XCTContext.runActivity(named: "AgentTree phase: \(name)") { _ in }
+    }
+
     private func completeMilestone(_ phase: String) {
         completedMilestones.append(phase)
+        self.phase("completed: \(phase)")
         XCTContext.runActivity(named: "AgentTree completed: \(phase)") { _ in }
     }
 
@@ -26,7 +44,9 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
     }
     func testNestedRowsCollapseRollupRelaunchAndNeedsYouNavigation() {
         requireMilestones(["initial tree assertions", "persisted tree assertions", "Needs you navigation and return"])
+        phase("initial launch")
         let app = launchApp(arguments, attempts: 1)
+        phase("initial tree lookup and geometry")
         let parent = element(app, "helpers-toggle-preview-studio-cedar")
         let child = element(app, "helpers-toggle-preview-studio-river")
         let nested = element(app, "agent-preview-studio-juniper")
@@ -39,6 +59,7 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertEqual(nested.value as? String, "Helper of River")
         XCTAssertGreaterThan(app.staticTexts["Juniper"].firstMatch.frame.minX, app.staticTexts["Cedar"].firstMatch.frame.minX)
         shot(app, "Home nested helpers expanded")
+        phase("collapse and helper rollup")
         parent.tap()
         XCTAssertTrue(child.waitForNonExistence(timeout: 5))
         XCTAssertFalse(nested.exists)
@@ -50,14 +71,18 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
 
         let sleeping = element(app, "fold-sleeping-preview-studio-clubhouse")
         let moss = element(app, "agent-preview-studio-moss")
+        phase("sleeping and finished folds")
         expandFold(sleeping, revealing: moss, in: app)
         let finished = element(app, "fold-finished-preview-studio-clubhouse")
         let quick = element(app, "agent-preview-studio-quick-willow")
         expandFold(finished, revealing: quick, in: app)
         completeMilestone("initial tree assertions")
+        phase("terminate before preference relaunch")
         app.terminate()
         app.launchArguments = arguments + ["--ui-testing-fast", "--companion-preview-keep-preferences"]
+        phase("preference relaunch")
         app.launch()
+        phase("persisted tree lookup")
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Collapsed")
         XCTAssertFalse(child.exists)
@@ -66,11 +91,13 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         completeMilestone("persisted tree assertions")
 
         // Needs you is a flat destination and still opens River while Cedar is folded.
+        phase("Needs you row lookup and navigation")
         let river = element(app, "agent-preview-studio-river")
         let composer = element(app, "companion-composer")
         XCTAssertTrue(scrollTo(river, in: app, up: false))
         tapVisibleRow(river, in: app, until: composer)
         XCTAssertTrue(app.navigationBars["River"].exists)
+        phase("return from River and verify disclosure")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollUntilExists(parent, in: app) && scrollTo(parent, in: app))
         XCTAssertEqual(parent.value as? String, "Collapsed", "Direct navigation preserves disclosure")
@@ -78,7 +105,9 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
     }
     func testProjectUsesSameTreeAndCrossProjectCaption() {
         requireMilestones(["project tree assertions", "shared disclosure and cross-project caption"])
+        phase("initial launch")
         let app = launchApp(arguments, attempts: 1)
+        phase("project navigation and tree lookup")
         let project = element(app, "open-project-preview-studio-clubhouse")
         let toggle = element(app, "helpers-toggle-preview-studio-cedar")
         XCTAssertTrue(scrollUntilExists(project, in: app) && scrollTo(project, in: app))
@@ -90,11 +119,13 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertTrue(element(app, "helpers-toggle-preview-studio-river").waitForNonExistence(timeout: 5))
         XCTAssertTrue(element(app, "agent-preview-studio-cedar").label.contains("2 helpers"))
         completeMilestone("project tree assertions")
+        phase("return home and verify shared disclosure")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertEqual(toggle.value as? String, "Collapsed", "Home and project share disclosure")
         let agents = app.buttons.matching(identifier: "Agents").firstMatch
         XCTAssertTrue(agents.waitForExistence(timeout: 5))
         agents.tap()
+        phase("cross-project helper lookup")
         let maple = element(app, "agent-preview-studio-maple")
         XCTAssertTrue(scrollUntilExists(maple, in: app) && scrollTo(maple, in: app))
         XCTAssertTrue(maple.label.contains("Helper of Cedar in Clubhouse"), maple.label)
