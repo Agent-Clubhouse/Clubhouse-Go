@@ -117,6 +117,54 @@ import Darwin
         await trace.stop()
     }
 
+    func testBlockedStdoutNeverDelaysTraceProducers() async throws {
+        let source = AnnexTelemetry()
+        source.setEnabled(true)
+        source.record(.background, event: .scenePhaseObserved)
+        let record = try XCTUnwrap(source.snapshot().records.last)
+        let trace = CompanionLiveConnectionTrace(openOutput: { -1 })
+        var descriptors: [Int32] = [-1, -1]
+        XCTAssertEqual(pipe(&descriptors), 0)
+        let readFD = descriptors[0], writeFD = descriptors[1]
+        let savedStdout = dup(STDOUT_FILENO)
+        XCTAssertGreaterThanOrEqual(savedStdout, 0)
+        defer {
+            XCTAssertEqual(dup2(savedStdout, STDOUT_FILENO), STDOUT_FILENO)
+            Darwin.close(savedStdout)
+            Darwin.close(writeFD)
+            Darwin.close(readFD)
+        }
+        let flags = fcntl(writeFD, F_GETFL)
+        XCTAssertGreaterThanOrEqual(flags, 0)
+        XCTAssertEqual(fcntl(writeFD, F_SETFL, flags | O_NONBLOCK), 0)
+        let fill = [UInt8](repeating: 120, count: 4096)
+        while fill.withUnsafeBytes({ Darwin.write(writeFD, $0.baseAddress, $0.count) }) > 0 {}
+        XCTAssertEqual(errno, EAGAIN)
+        XCTAssertEqual(fcntl(writeFD, F_SETFL, flags & ~O_NONBLOCK), 0)
+        XCTAssertEqual(fcntl(readFD, F_SETFL, fcntl(readFD, F_GETFL) | O_NONBLOCK), 0)
+        XCTAssertEqual(dup2(writeFD, STDOUT_FILENO), STDOUT_FILENO)
+        let rescued = DispatchGroup()
+        rescued.enter()
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .seconds(1)) {
+            var bytes = [UInt8](repeating: 0, count: 4096)
+            while Darwin.read(readFD, &bytes, bytes.count) > 0 {}
+            rescued.leave()
+        }
+        let started = ContinuousClock.now
+        for _ in 0..<64 { trace.append(record) }
+        let duration = started.duration(to: .now)
+        XCTAssertEqual(dup2(savedStdout, STDOUT_FILENO), STDOUT_FILENO)
+        XCTAssertLessThan(duration, .milliseconds(250), "The actual stdout FD must not stall producers")
+        await withCheckedContinuation { continuation in
+            rescued.notify(queue: .global()) { continuation.resume() }
+        }
+        await trace.drain()
+        XCTAssertEqual(trace.snapshot.outputAvailable, false)
+        XCTAssertEqual(trace.snapshot.dropped, 64)
+        XCTAssertEqual(trace.snapshot.written, 0)
+        await trace.stop()
+    }
+
     func testBuiltManifestRequiresOneScene() throws {
         let manifest = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "UIApplicationSceneManifest") as? [String: Any])
         XCTAssertEqual(manifest["UIApplicationSupportsMultipleScenes"] as? Bool, false)

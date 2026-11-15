@@ -341,6 +341,8 @@ What the script does:
    stdout's shared flags or falls back to blocking output. Full buffers, EAGAIN, partial writes and output failures
    drop records and coalesce numeric dropped-count/total markers when output recovers; unavailable capture is not
    success. Exhaustion markers retain their reserved state until writable output is available.
+   The hosted timing regression redirects actual stdout to a full blocking pipe, restores it in defer, and requires
+   64 producer appends within 250ms. A delayed reader rescues the synchronous-write negative control after one second.
    Export the xcresult diagnostics and inspect the app's
    `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt` to find the last observed boundary. A completed native
    cancel call is not proof of a server-observed close. Asynchronous output may lose a final record at suspension
