@@ -25,6 +25,7 @@
           }
         },
         "properties": {
+          "agentAccessDefaults": "[ CompanionTarget : CompanionPermissionLevel ]",
           "appUpdateAttempts": "[ AppUpdateAttemptKey : AppUpdateAttempt ]",
           "appUpdateCheckAttempts": "[ String : ( epoch : String ? , commandID : String ) ]",
           "appUpdateCheckErrors": "[ String : String ]",
@@ -73,6 +74,7 @@
           "pendingCommands": "Set < CompanionTarget >",
           "pendingFinishedRemovals": "Set < CompanionTarget >",
           "pendingProjectStates": "[ CompanionProjectTarget : CompanionProjectState ]",
+          "projectAccessDefaults": "[ CompanionProjectTarget : CompanionPermissionLevel ]",
           "projectLinksSourceID": "String ?",
           "projectStateError": "String ?",
           "providerFlows": "[ CompanionTarget : CompanionProviderFlow ]",

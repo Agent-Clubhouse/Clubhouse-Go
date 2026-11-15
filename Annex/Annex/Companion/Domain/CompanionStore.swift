@@ -27,6 +27,9 @@ import Observation
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
     private(set) var settingsRevisions: [CompanionTarget: UUID] = [:]
+    /// Learned only from reads the user already requested; listing agents never fetches settings.
+    private(set) var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
+    private(set) var agentAccessDefaults: [CompanionTarget: CompanionPermissionLevel] = [:]
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     /// The `wrong_machine` refusal behind a chat's error, while it shows.
     private(set) var wrongMachines: [CompanionTarget: CompanionWrongMachine] = [:]
@@ -131,6 +134,8 @@ import Observation
     func shutdown() {
         isShutDown = true
         stop()
+        projectAccessDefaults.removeAll()
+        agentAccessDefaults.removeAll()
         providerFlows.removeAll()
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
@@ -1034,7 +1039,12 @@ import Observation
     // MARK: Durable agents (#131, #132)
 
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
-        try await service.createOptions(for: project)
+        let options = try await service.createOptions(for: project)
+        if !isShutDown, hosts.contains(where: { $0.id == project.hostID && $0.connection.canOperate }) {
+            projectAccessDefaults[project] = options.defaultAccess
+            agentAccessDefaults = agentAccessDefaults.filter { $0.key.hostID != project.hostID || $0.key.projectID != project.projectID }
+        }
+        return options
     }
 
     /// Creates a durable agent and opens it. Its worktree is still being made when this returns.
@@ -1104,7 +1114,11 @@ import Observation
     }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard canEditSettings(target) else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
-        return try await service.settings(for: target)
+        let settings = try await service.settings(for: target)
+        if !isShutDown, hosts.contains(where: { $0.id == target.hostID && $0.connection.canOperate }) {
+            agentAccessDefaults[target] = settings.access?.defaultLevel
+        }
+        return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else {
@@ -1114,6 +1128,9 @@ import Observation
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
         let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        if !isShutDown, hosts.contains(where: { $0.id == target.hostID && $0.connection.canOperate }) {
+            agentAccessDefaults[target] = saved.access?.defaultLevel
+        }
         settingsRevisions[target] = UUID()
         return saved
     }
@@ -1432,6 +1449,9 @@ import Observation
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
+            let connected = Set(incoming.filter { $0.connection.canOperate }.map(\.id))
+            projectAccessDefaults = projectAccessDefaults.filter { connected.contains($0.key.hostID) }
+            agentAccessDefaults = agentAccessDefaults.filter { connected.contains($0.key.hostID) }
             for host in incoming {
                 if let previous = hosts.first(where: { $0.id == host.id }) {
                     let oldAgents = Dictionary(previous.allAgents.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
