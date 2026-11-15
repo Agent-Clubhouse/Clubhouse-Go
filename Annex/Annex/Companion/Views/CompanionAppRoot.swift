@@ -372,13 +372,7 @@ struct CompanionAppRoot: View {
             AnnexTelemetry.shared.setEnabled(true)
             CompanionSceneTestSupport.liveConnectionTraceInstalled = true
             let trace = CompanionLiveConnectionTrace()
-            AnnexTelemetry.shared.observeRecords { record in
-                guard let line = trace.line(for: record) else { return }
-                // Do not leave the last boundary in stdio's buffer when iOS suspends or XCTest terminates the app.
-                do { try FileHandle.standardOutput.write(contentsOf: Data((line + "\n").utf8)) }
-                catch { FileHandle.standardError.write(Data("[live-connect] output-failed\n".utf8)) }
-            }
-            print("[live-connect] bootstrap at=\(Date().timeIntervalSince1970)")
+            AnnexTelemetry.shared.observeRecords { trace.append($0) }
         }
         struct TestInvitation: Decodable { var host: String; var port: UInt16; var hostID: String; var certificatePin: String; var pin: String; var name: String? }
         do {

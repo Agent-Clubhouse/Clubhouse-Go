@@ -335,10 +335,19 @@ What the script does:
    DEBUG live runs opt into closed-vocabulary `[live-connect]` events for the scene phase, lifecycle queued/wait/start/
    completion, transport disconnect entry/return and native socket cancel invocation/return. The per-launch capture
    reserves 64 lifecycle records separately from 256 connection records, emits one explicit limit marker per group,
-   and never exports identities or arbitrary metadata. Boundary writes bypass stdio buffering so suspension or later
-   termination cannot strand them in its buffer. Export the xcresult diagnostics and inspect the app's
+   and never exports identities or arbitrary metadata. Producers only append a typed projection to a fixed 64-record
+   ring under a short lock; they never encode, schedule writer work or access a file descriptor. A utility-queue timer
+   drains it every 20ms, outside the ring lock, to an independently opened nonblocking PTY descriptor. It never changes
+   stdout's shared flags or falls back to blocking output. Full buffers, EAGAIN, partial writes and output failures
+   drop records and coalesce numeric dropped-count/total markers when output recovers; unavailable capture is not
+   success. Exhaustion markers retain their reserved state until writable output is available.
+   Export the xcresult diagnostics and inspect the app's
    `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt` to find the last observed boundary. A completed native
-   cancel call is not proof of a server-observed close. A passing run of this intermittent case does **not** fix #416;
+   cancel call is not proof of a server-observed close. Asynchronous output may lose a final record at suspension
+   or termination, or contain a partial line: export retains available evidence without requiring a complete tail.
+   Missing or dropped tail events are **inconclusive**, not proof that the corresponding product boundary was skipped.
+   The synchronous producer writes at `696d5296` failed QA timing-neutrality review; nightly `43689511338` may have
+   been timing-perturbed and cannot establish the #416 internal cause. A passing run does **not** fix #416;
    keep the real background, unchanged 20s disconnect check and every replay assertion.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 

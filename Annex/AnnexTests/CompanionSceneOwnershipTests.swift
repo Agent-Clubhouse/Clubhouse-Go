@@ -2,12 +2,13 @@ import XCTest
 import SwiftUI
 import Framebriar
 import FramebriarUI
+import Darwin
 @testable import ClubhouseTransport
 @testable import ClubhouseGo
 
 /// All reports, enrollment, defaults and desktop traffic are synthetic and local to this test.
 @MainActor final class CompanionSceneOwnershipTests: XCTestCase {
-    func testLiveConnectionTraceReservesBoundedLifecycleEvidenceWithoutIdentifiers() throws {
+    func testLiveConnectionTraceReservesBoundedLifecycleEvidenceWithoutIdentifiers() async throws {
         let source = AnnexTelemetry()
         source.setEnabled(true)
         let peer = UUID()
@@ -20,23 +21,100 @@ import FramebriarUI
         let background = try XCTUnwrap(source.snapshot().records.last)
         source.record(.command, event: .rejected)
         let excluded = try XCTUnwrap(source.snapshot().records.last)
-        let trace = CompanionLiveConnectionTrace()
-        XCTAssertNil(trace.line(for: excluded), "Command metadata is outside this diagnostic capture")
-        let line = try XCTUnwrap(trace.line(for: connection))
+        let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let trace = CompanionLiveConnectionTrace(openOutput: {
+            Darwin.open(file.path, O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK | O_CLOEXEC, 0o600)
+        })
+        addTeardownBlock { await trace.stop(); try FileManager.default.removeItem(at: file) }
+        trace.append(excluded)
+        await trace.drain()
+        XCTAssertEqual(trace.snapshot.written, 0, "Command metadata is outside this diagnostic capture")
+        trace.append(connection)
+        await trace.drain()
+        let line = try XCTUnwrap(try String(contentsOf: file, encoding: .utf8).split(separator: "\n").first)
         let data = Data(line.dropFirst("[live-connect] ".count).utf8)
         let fields = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(Set(fields.keys), ["at", "operation", "durationMs", "failure", "events"])
         XCTAssertFalse(line.lowercased().contains(peer.uuidString.lowercased()))
         XCTAssertFalse(line.contains("responseBytes"), "Arbitrary record metadata does not enter the stdout projection")
-        for _ in 1..<256 { XCTAssertNotNil(trace.line(for: connection)) }
-        XCTAssertEqual(trace.line(for: connection), "[live-connect] capture-limit group=connection")
-        XCTAssertNil(trace.line(for: connection), "Exhaustion is explicit once, not an unbounded stream of markers")
-        let reserved = try XCTUnwrap(trace.line(for: background))
-        XCTAssertTrue(reserved.contains("transitionWaiting"), "Routine spans cannot exhaust suspension evidence")
-        for _ in 1..<64 { XCTAssertNotNil(trace.line(for: background)) }
-        XCTAssertEqual(trace.line(for: background), "[live-connect] capture-limit group=lifecycle")
-        XCTAssertNil(trace.line(for: background))
-        XCTAssertNotNil(CompanionLiveConnectionTrace().line(for: background), "A fresh launch owns a fresh budget")
+        for index in 1..<256 {
+            trace.append(connection)
+            if index % 32 == 0 { await trace.drain() }
+        }
+        trace.append(connection); trace.append(connection)
+        await trace.drain()
+        for index in 0..<64 {
+            trace.append(background)
+            if index % 32 == 31 { await trace.drain() }
+        }
+        trace.append(background); trace.append(background)
+        await trace.drain()
+        let captured = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertEqual(captured.components(separatedBy: "capture-limit group=connection").count - 1, 1)
+        XCTAssertEqual(captured.components(separatedBy: "capture-limit group=lifecycle").count - 1, 1)
+        XCTAssertTrue(captured.contains("transitionWaiting"), "Routine spans cannot exhaust suspension evidence")
+        XCTAssertEqual(trace.snapshot.written, 320)
+        XCTAssertEqual(trace.snapshot.dropped, 0)
+        let fresh = CompanionLiveConnectionTrace(openOutput: { Darwin.open("/dev/null", O_WRONLY | O_NONBLOCK | O_CLOEXEC) })
+        fresh.append(background)
+        await fresh.drain()
+        XCTAssertEqual(fresh.snapshot.written, 1, "A fresh launch owns a fresh budget")
+        await fresh.stop()
+    }
+
+    func testFullTracePipeNeverBlocksProducersAndCoalescesCountedDrops() async throws {
+        var descriptors: [Int32] = [-1, -1]
+        XCTAssertEqual(pipe(&descriptors), 0)
+        let readFD = descriptors[0], writeFD = descriptors[1]
+        for descriptor in descriptors {
+            let flags = fcntl(descriptor, F_GETFL)
+            XCTAssertGreaterThanOrEqual(flags, 0)
+            XCTAssertEqual(fcntl(descriptor, F_SETFL, flags | O_NONBLOCK), 0)
+        }
+        let fill = [UInt8](repeating: 120, count: 4096)
+        while fill.withUnsafeBytes({ Darwin.write(writeFD, $0.baseAddress, $0.count) }) > 0 {}
+        XCTAssertEqual(errno, EAGAIN)
+        let trace = CompanionLiveConnectionTrace(openOutput: { writeFD })
+        addTeardownBlock { await trace.stop(); Darwin.close(readFD) }
+        let source = AnnexTelemetry()
+        source.setEnabled(true)
+        source.record(.background, event: .scenePhaseObserved)
+        let record = try XCTUnwrap(source.snapshot().records.last)
+        let started = ContinuousClock.now
+        for _ in 0..<64 { trace.append(record) }
+        XCTAssertLessThan(started.duration(to: .now), .milliseconds(250),
+                          "A blocked reader must not delay the main-actor producer")
+        await trace.drain()
+        XCTAssertEqual(trace.snapshot.buffered, 0)
+        XCTAssertEqual(trace.snapshot.written, 0)
+        XCTAssertEqual(trace.snapshot.dropped, 64)
+        XCTAssertEqual(trace.snapshot.outputAvailable, true)
+        var bytes = [UInt8](repeating: 0, count: 4096)
+        while Darwin.read(readFD, &bytes, bytes.count) > 0 {}
+        XCTAssertEqual(errno, EAGAIN)
+        await trace.drain()
+        let count = Darwin.read(readFD, &bytes, bytes.count)
+        XCTAssertGreaterThan(count, 0)
+        let marker = String(decoding: bytes.prefix(max(0, count)), as: UTF8.self)
+        XCTAssertEqual(marker.trimmingCharacters(in: .whitespacesAndNewlines),
+                       "[live-connect] dropped-count=64 total=64")
+        await trace.drain()
+        XCTAssertEqual(Darwin.read(readFD, &bytes, bytes.count), -1, "One coalesced marker, not one write per drop")
+        XCTAssertEqual(errno, EAGAIN)
+    }
+
+    func testUnavailableTraceOutputDropsWithoutBlockingFallback() async throws {
+        let source = AnnexTelemetry()
+        source.setEnabled(true)
+        source.record(.disconnect, event: .disconnectStarted)
+        let record = try XCTUnwrap(source.snapshot().records.last)
+        let trace = CompanionLiveConnectionTrace(openOutput: { -1 })
+        trace.append(record)
+        await trace.drain()
+        XCTAssertEqual(trace.snapshot.outputAvailable, false)
+        XCTAssertEqual(trace.snapshot.dropped, 1)
+        XCTAssertEqual(trace.snapshot.written, 0)
+        await trace.stop()
     }
 
     func testBuiltManifestRequiresOneScene() throws {
