@@ -127,18 +127,35 @@ enum CompanionAssistantNavigation {
     }
 }
 
-/// Absolute offsets are reusable only in the content generation and window that produced them.
+struct CompanionReadingLayoutContext: Hashable {
+    let width: Double
+    let dynamicType: Int
+    let boldText: Bool?
+    let locale: String
+    let rightToLeft: Bool
+    let displayScale: Double
+    let horizontalRegular: Bool?
+    let verticalRegular: Bool?
+    let lineSpacing: Double
+    let minimumScaleFactor: Double
+    let allowsTightening: Bool
+    let palette: CompanionPalette
+}
+
+/// Absolute offsets are reusable only in the content generation, layout and window that produced them.
 struct CompanionReadingCoordinateContext: Equatable {
     let historyRevision: UUID
     let itemsRevision: UUID
     let sessionID: String?
     let shownEntries: Int
+    let layout: CompanionReadingLayoutContext?
 
-    init(conversation: CompanionConversation, shownEntries: Int) {
+    init(conversation: CompanionConversation, shownEntries: Int, layout: CompanionReadingLayoutContext? = nil) {
         historyRevision = conversation.historyRevision
         itemsRevision = conversation.itemsRevision
         sessionID = conversation.sessionID
         self.shownEntries = shownEntries
+        self.layout = layout
     }
 }
 

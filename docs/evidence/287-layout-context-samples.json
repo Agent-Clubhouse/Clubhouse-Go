@@ -1,0 +1,2940 @@
+{
+  "baseMain": "2d6f50f9cc2f1a2abc407879c2bb569fe16a3730",
+  "priorPRHead": "18c4aa6a41092bef6b63acea0edd98c9b027c5a6",
+  "method": "Production view in a real UIWindow/TabView. CADisplayLink records native presentation bounds and ancestor presentation visibility. Return regressions require each presented unchanged-cache frame at saved y, or changed-context frame at current saved entry/native bottom within 2pt. Nonpresented samples remain in raw records. No new compositor recording or physical-device/performance claim.",
+  "controls": {
+    "prior-accepted-control": "Byte-for-byte prior view, with additive domain layout field unused by that original view. Native scroll first establishes a real paused bookmark and provenance; all three QA regression methods fail. The later known-layout assertion was not present in this old-source run.",
+    "layout-predicate-revert": "New mounted-leaf architecture retained; only current layout comparison was replaced by the saved layout. Both layout methods fail on presented stale600. Predates freezing the key after initial placement and removal of the temporary zero-height wrapper.",
+    "layout-predicate-final-revert": "Final qualified initial-only architecture, changing only the layout equality to compare against the saved layout. Both methods fail on presented600; candidate product restored hash-identically afterward.",
+    "window-initializer-final-revert": "Current initial-only architecture except shownEntries starts at default instead of bookmark window. Both expanded-frame and exact Reading UI methods pass: bottom-size anchoring compensates. This is NOT an independent failing initializer proof.",
+    "prior-live-control": "Unchanged prior view, strict live-offset diagnostics. All three methods fail on rotation/keyboard/typography geometry differences; lifecycle, identity, draft, caret, focus, streaming and following-choice assertions pass.",
+    "live-without-geometry-conditional": "Initial-only key and no zero-height conditional, strict live-offset diagnostics. Same three baseline differences as prior view; tracked in #422. Final lifecycle tests deliberately make no all-live-offsets-correct claim and additionally check native top.",
+    "invalidEarlyControls": "prior-layout-control timed out waiting for provenance; early prior-source-control layout fixtures lacked accepted provenance and passed via fallback. Neither is used as a positive layout proof. prior-source-control separately reproduced exact reported Reading UI failure and expanded-window presentation failure.",
+    "ipad-final": "First iPad run:9pass/3fail. Width834->774 did not cross a paragraph wrapping boundary, so its positive-control assertion failed while all return-frame value assertions passed. Two public rotation requests failed with UISceneError101 in the windowed scene. Retained as fixture/platform-limitation evidence, not relabeled passing.",
+    "ipad-corrected": "Approved single corrected pass: hidden-width reduction240pt while phone60pt and live iPad60pt stay unchanged. Positive entry-movement assertion retained. Two iPad rotation methods explicitly skip due windowed scene error101. All10 remaining methods pass strict no retries."
+  },
+  "sourceSHA256": {
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "393183f28f6e02593723dcdc91290e2f0066a65f2b9ac019a4be0d28439f2e4f",
+    "Annex/Annex/Companion/Domain/CompanionTheme.swift": "b5683f1fefaab0f575f0ae4409adfe4321e860c7a3955ebe78c8e1784c06392e",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "42585b20578b8adac962208d9ac8bda26031307d28738f2f87af2f53bbc97543",
+    "Annex/AnnexTests/CompanionReturnFrameTests.swift": "028533c30e1876158d42a6a1a1d98dc6e62bbff1c914a8c07ee3b1feb1d6a49d"
+  },
+  "qualifiedPhoneSourceSHA256": {
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "393183f28f6e02593723dcdc91290e2f0066a65f2b9ac019a4be0d28439f2e4f",
+    "Annex/Annex/Companion/Domain/CompanionTheme.swift": "b5683f1fefaab0f575f0ae4409adfe4321e860c7a3955ebe78c8e1784c06392e",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "42585b20578b8adac962208d9ac8bda26031307d28738f2f87af2f53bbc97543",
+    "Annex/AnnexTests/CompanionReturnFrameTests.swift": "bb91d76d25553c0c223e7a28730a6072bf454814956307301013a93d9c0a419b"
+  },
+  "phoneToPublishedTestDifference": "Only iPad test branches changed after phone qualification: width inset120 instead of30, and explicit skip of two unsupported iPad rotations. Phone behavior and all product files are unchanged.",
+  "runs": {
+    "prior-accepted-control": {
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 3,
+          "passedTests": 0,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-12-changed-dynamicType",
+          "presentedTimesMs": [
+            269.91941686719656,
+            421.4674583636224,
+            570.3421249054372,
+            717.4895000644028,
+            853.8593333214521
+          ],
+          "presentedOffsets": [
+            600.0,
+            1078.6666666666665,
+            1078.6666666666665,
+            1078.6666666666665,
+            1078.6666666666665
+          ],
+          "nativeMaximumOffsets": [
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=1 ms=45.37345841526985 offset=-1.0 presentation=-1.0 maximum=-1.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=2 ms=269.91941686719656 offset=600.0 presentation=600.0 maximum=10175.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=3 ms=421.4674583636224 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=4 ms=570.3421249054372 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=5 ms=717.4895000644028 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=6 ms=853.8593333214521 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-navigation-width",
+          "presentedTimesMs": [
+            259.34600038453937,
+            408.99320831522346,
+            557.7052501030266,
+            708.0412083305418
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=1 ms=259.34600038453937 offset=600.0 presentation=600.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=2 ms=408.99320831522346 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=3 ms=557.7052501030266 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=4 ms=708.0412083305418 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-width",
+          "presentedTimesMs": [
+            261.1070415005088,
+            414.5866665057838,
+            563.8028332032263,
+            710.975416470319,
+            861.5188747644424
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-width tick=1 ms=261.1070415005088 offset=600.0 presentation=600.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=2 ms=414.5866665057838 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=3 ms=563.8028332032263 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=4 ms=710.975416470319 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=5 ms=861.5188747644424 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-200-changed-navigation-append-window300",
+          "presentedTimesMs": [
+            980.6752083823085,
+            1156.077416613698,
+            1316.7402083054185,
+            1464.5779998973012,
+            1614.298874977976
+          ],
+          "presentedOffsets": [
+            71933.33333333333,
+            71933.33333333333,
+            12000.0,
+            12000.0,
+            12000.0
+          ],
+          "nativeMaximumOffsets": [
+            71933.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=1 ms=980.6752083823085 offset=71933.33333333333 presentation=71933.33333333333 maximum=71933.33333333333 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=2 ms=1156.077416613698 offset=71933.33333333333 presentation=71933.33333333333 maximum=83632.33333333333 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=3 ms=1316.7402083054185 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=4 ms=1464.5779998973012 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=5 ms=1614.298874977976 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        }
+      ]
+    },
+    "layout-predicate-revert": {
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 2,
+          "passedTests": 0,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-12-changed-dynamicType",
+          "presentedTimesMs": [
+            276.52470860630274,
+            432.5507082976401,
+            590.0493334047496,
+            726.4805836603045,
+            896.7641252093017
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            1078.6666666666665,
+            1078.6666666666665,
+            1078.6666666666665
+          ],
+          "nativeMaximumOffsets": [
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=1 ms=276.52470860630274 offset=600.0 presentation=600.0 maximum=10175.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=2 ms=432.5507082976401 offset=600.0 presentation=600.0 maximum=10175.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=3 ms=590.0493334047496 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=4 ms=726.4805836603045 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=5 ms=896.7641252093017 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-navigation-width",
+          "presentedTimesMs": [
+            247.0989995636046,
+            395.3280416317284,
+            553.039999678731,
+            699.4149996899068
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=1 ms=247.0989995636046 offset=600.0 presentation=600.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=2 ms=395.3280416317284 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=3 ms=553.039999678731 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=4 ms=699.4149996899068 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-width",
+          "presentedTimesMs": [
+            279.2896246537566,
+            426.14679131656885,
+            561.4059581421316,
+            695.134041365236,
+            845.68858332932
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": null,
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-width tick=1 ms=57.10037471726537 offset=-1.0 presentation=-1.0 maximum=-1.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=2 ms=279.2896246537566 offset=600.0 presentation=600.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=3 ms=426.14679131656885 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=4 ms=561.4059581421316 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=5 ms=695.134041365236 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=6 ms=845.68858332932 offset=688.0 presentation=688.0 maximum=5436.333333333333 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        }
+      ]
+    },
+    "layout-predicate-final-revert": {
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 2,
+          "passedTests": 0,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-12-changed-dynamicType",
+          "presentedTimesMs": [
+            267.91245862841606,
+            416.41445830464363,
+            570.0176251120865,
+            716.7987083084881,
+            883.024875074625
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            1078.6666666666665,
+            1078.6666666666665,
+            1078.6666666666665
+          ],
+          "nativeMaximumOffsets": [
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=1 ms=267.91245862841606 offset=600.0 presentation=600.0 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=2 ms=416.41445830464363 offset=600.0 presentation=600.0 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=3 ms=570.0176251120865 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=4 ms=716.7987083084881 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=5 ms=883.024875074625 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-navigation-width",
+          "presentedTimesMs": [
+            284.91683350875974,
+            435.1497502066195,
+            585.4155835695565,
+            734.5239166170359,
+            883.828291669488
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=1 ms=284.91683350875974 offset=600.0 presentation=600.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=2 ms=435.1497502066195 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=3 ms=585.4155835695565 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=4 ms=734.5239166170359 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=5 ms=883.828291669488 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-width",
+          "presentedTimesMs": [
+            278.66033324971795,
+            422.7903336286545,
+            572.4034169688821,
+            743.5734169557691,
+            904.8005002550781
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-width tick=1 ms=278.66033324971795 offset=600.0 presentation=600.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=2 ms=422.7903336286545 offset=600.0 presentation=600.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=3 ms=572.4034169688821 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=4 ms=743.5734169557691 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=5 ms=904.8005002550781 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        }
+      ]
+    },
+    "window-initializer-final-revert": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 2,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-200-changed-navigation-append-window300",
+          "presentedTimesMs": [
+            1062.842333689332,
+            1236.5895416587591,
+            1407.728208694607,
+            1549.851791933179,
+            1699.1019169799984,
+            1847.333500161767
+          ],
+          "presentedOffsets": [
+            71933.33333333333,
+            83632.33333333333,
+            12000.0,
+            12000.0,
+            12000.0,
+            12000.0
+          ],
+          "nativeMaximumOffsets": [
+            71933.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=1 ms=1062.842333689332 offset=71933.33333333333 presentation=71933.33333333333 maximum=71933.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=2 ms=1236.5895416587591 offset=83632.33333333333 presentation=83632.33333333333 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=3 ms=1407.728208694607 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=4 ms=1549.851791933179 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=5 ms=1699.1019169799984 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=6 ms=1847.333500161767 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        }
+      ]
+    },
+    "prior-live-control": {
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 3,
+          "passedTests": 0,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-live-rotation-following",
+          "presentedTimesMs": [
+            198.69870832189918,
+            382.2495834901929,
+            735.5560418218374,
+            964.8686666041613,
+            1125.098291784525,
+            1302.6936249807477,
+            1457.2522500529885,
+            1602.2313749417663
+          ],
+          "presentedOffsets": [
+            60530.666666666664,
+            60609.0,
+            60493.0,
+            45069.16171848774,
+            33901.666666666664,
+            33901.666666666664,
+            33901.666666666664,
+            33901.666666666664
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            60609.0,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            60530.666666666664,
+            60530.666666666664,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-following tick=1 ms=198.69870832189918 offset=60530.666666666664 presentation=60530.666666666664 maximum=60530.666666666664 entryOffset=60530.666666666664 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=2 ms=382.2495834901929 offset=60609.0 presentation=60609.0 maximum=60609.0 entryOffset=60530.666666666664 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=3 ms=735.5560418218374 offset=33901.666666666664 presentation=60493.0 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=4 ms=964.8686666041613 offset=33901.666666666664 presentation=45069.16171848774 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=5 ms=1125.098291784525 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=6 ms=1302.6936249807477 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=7 ms=1457.2522500529885 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=8 ms=1602.2313749417663 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-rotation-reading",
+          "presentedTimesMs": [
+            181.4450416713953,
+            542.2430415637791,
+            759.5149581320584,
+            909.3738747760653,
+            1067.4540833570063,
+            1221.1398747749627
+          ],
+          "presentedOffsets": [
+            600.0,
+            484.0,
+            450.2843680381775,
+            424.0,
+            424.0,
+            424.0
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            600.0,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=1 ms=181.4450416713953 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=2 ms=542.2430415637791 offset=424.0 presentation=484.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=3 ms=759.5149581320584 offset=424.0 presentation=450.2843680381775 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=4 ms=909.3738747760653 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=5 ms=1067.4540833570063 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=6 ms=1221.1398747749627 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-width-type-reading",
+          "presentedTimesMs": [
+            180.28666637837887,
+            422.5062080658972,
+            568.6351666226983,
+            718.1765832938254,
+            947.3981247283518,
+            1220.0713334605098,
+            1374.5504999533296,
+            1521.3705832138658
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0,
+            1362.6666666666667,
+            1362.6666666666667,
+            1362.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            73800.99999999999,
+            73800.99999999999,
+            73800.99999999999,
+            173301.66666666666,
+            173322.66666666666,
+            173322.66666666666,
+            173322.66666666666
+          ],
+          "entryModelOffsets": [
+            600.0,
+            687.99999999996,
+            687.99999999996,
+            687.99999999996,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=1 ms=180.28666637837887 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=2 ms=422.5062080658972 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=3 ms=568.6351666226983 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=4 ms=718.1765832938254 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=5 ms=947.3981247283518 offset=1362.6666666666667 presentation=688.0 maximum=173301.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=6 ms=1220.0713334605098 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=7 ms=1374.5504999533296 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=8 ms=1521.3705832138658 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending"
+          ]
+        }
+      ]
+    },
+    "live-without-geometry-conditional": {
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 3,
+          "passedTests": 0,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-live-rotation-following",
+          "presentedTimesMs": [
+            173.36583323776722,
+            563.5693753138185,
+            771.1465833708644,
+            922.7416249923408,
+            1075.7552916184068,
+            1217.621250078082
+          ],
+          "presentedOffsets": [
+            60530.666666666664,
+            60493.0,
+            47770.78151812156,
+            33904.23589813709,
+            33901.666666666664,
+            33901.666666666664
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            60530.666666666664,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-following tick=1 ms=173.36583323776722 offset=60530.666666666664 presentation=60530.666666666664 maximum=60530.666666666664 entryOffset=60530.666666666664 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=2 ms=563.5693753138185 offset=33901.666666666664 presentation=60493.0 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=3 ms=771.1465833708644 offset=33901.666666666664 presentation=47770.78151812156 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=4 ms=922.7416249923408 offset=33901.666666666664 presentation=33904.23589813709 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=5 ms=1075.7552916184068 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=6 ms=1217.621250078082 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-rotation-reading",
+          "presentedTimesMs": [
+            160.59716697782278,
+            536.9556252844632,
+            747.8318335488439,
+            899.8849168419838,
+            1052.756333258003,
+            1194.4836252368987
+          ],
+          "presentedOffsets": [
+            600.0,
+            484.0,
+            452.17203879356384,
+            424.0,
+            424.0,
+            424.0
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            600.0,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=1 ms=160.59716697782278 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=2 ms=536.9556252844632 offset=424.0 presentation=484.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=3 ms=747.8318335488439 offset=424.0 presentation=452.17203879356384 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=4 ms=899.8849168419838 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=5 ms=1052.756333258003 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=6 ms=1194.4836252368987 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-width-type-reading",
+          "presentedTimesMs": [
+            160.24433309212327,
+            402.7987914159894,
+            552.5548746809363,
+            698.1593747623265,
+            942.8720413707197,
+            1217.3976246267557,
+            1365.6648332253098,
+            1519.2907913587987
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0,
+            1362.6666666666667,
+            1362.6666666666667,
+            1362.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            73800.99999999999,
+            73800.99999999999,
+            73800.99999999999,
+            173301.66666666666,
+            173322.66666666666,
+            173322.66666666666,
+            173322.66666666666
+          ],
+          "entryModelOffsets": [
+            600.0,
+            687.99999999996,
+            687.99999999996,
+            687.99999999996,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=1 ms=160.24433309212327 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=2 ms=402.7987914159894 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=3 ms=552.5548746809363 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=4 ms=698.1593747623265 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=5 ms=942.8720413707197 offset=1362.6666666666667 presentation=688.0 maximum=173301.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=6 ms=1217.3976246267557 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=7 ms=1365.6648332253098 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=8 ms=1519.2907913587987 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending"
+          ]
+        }
+      ]
+    },
+    "qualification-final": {
+      "passed": 194,
+      "failed": 0,
+      "skipped": 4,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "6FB85E49-81E6-4C7C-88A2-3DDC941EB808",
+            "deviceName": "go-287-r3-private",
+            "modelName": "iPhone 17",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 199,
+          "skippedTests": 4,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "iphone-100-cached",
+          "presentedTimesMs": [
+            385.9620834700763,
+            563.342375215143,
+            713.8113337568939
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            39999.0,
+            39999.0,
+            39999.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-100-cached tick=1 ms=385.9620834700763 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-100-cached tick=2 ms=563.342375215143 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-100-cached tick=3 ms=713.8113337568939 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-100-fresh",
+          "presentedTimesMs": [
+            576.7538752406836,
+            730.1970832049847,
+            894.46737524122,
+            1044.1994168795645,
+            1190.3668334707618,
+            1348.328750114888
+          ],
+          "presentedOffsets": [
+            39999.0,
+            39999.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            39999.0,
+            39999.0,
+            39999.0,
+            39999.0,
+            39999.0,
+            39999.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-100-fresh tick=1 ms=91.89816657453775 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=2 ms=125.31825015321374 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=3 ms=141.97587501257658 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=4 ms=158.71650027111173 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=5 ms=175.30049988999963 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=6 ms=191.98479177430272 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=7 ms=208.63229176029563 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=8 ms=225.36929184570909 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=9 ms=242.08166683092713 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=10 ms=258.65862518548965 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=11 ms=275.3796251490712 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=12 ms=292.0881249010563 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=13 ms=308.7408752180636 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=14 ms=386.3739166408777 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=15 ms=576.7538752406836 offset=39999.0 presentation=39999.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=16 ms=730.1970832049847 offset=39999.0 presentation=39999.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-100-fresh tick=17 ms=894.46737524122 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-100-fresh tick=18 ms=1044.1994168795645 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-100-fresh tick=19 ms=1190.3668334707618 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-100-fresh tick=20 ms=1348.328750114888 offset=600.0 presentation=600.0 maximum=39999.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-cached",
+          "presentedTimesMs": [
+            256.7059164866805,
+            404.384458437562,
+            555.725833401084,
+            704.8035832121968,
+            854.1839583776891
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-cached tick=1 ms=256.7059164866805 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-cached tick=2 ms=404.384458437562 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-cached tick=3 ms=555.725833401084 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-cached tick=4 ms=704.8035832121968 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-cached tick=5 ms=854.1839583776891 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-cached-navigation",
+          "presentedTimesMs": [
+            344.73120840266347,
+            496.9176249578595,
+            635.2054998278618,
+            769.982208032161
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-cached-navigation tick=1 ms=344.73120840266347 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-cached-navigation tick=2 ms=496.9176249578595 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-cached-navigation tick=3 ms=635.2054998278618 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-cached-navigation tick=4 ms=769.982208032161 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-customFont",
+          "presentedTimesMs": [
+            266.55216701328754,
+            411.8361254222691,
+            583.3869585767388,
+            727.9286668635905,
+            891.4220416918397
+          ],
+          "presentedOffsets": [
+            16185.333333333334,
+            16185.333333333334,
+            1581.6666666666667,
+            1581.6666666666667,
+            1581.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            16185.333333333332,
+            16185.333333333332,
+            16185.333333333332,
+            16185.333333333332,
+            16185.333333333332
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-customFont tick=1 ms=266.55216701328754 offset=16185.333333333334 presentation=16185.333333333334 maximum=16185.333333333332 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-customFont tick=2 ms=411.8361254222691 offset=16185.333333333334 presentation=16185.333333333334 maximum=16185.333333333332 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-customFont tick=3 ms=583.3869585767388 offset=1581.6666666666667 presentation=1581.6666666666667 maximum=16185.333333333332 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-customFont tick=4 ms=727.9286668635905 offset=1581.6666666666667 presentation=1581.6666666666667 maximum=16185.333333333332 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-customFont tick=5 ms=891.4220416918397 offset=1581.6666666666667 presentation=1581.6666666666667 maximum=16185.333333333332 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-dynamicType",
+          "presentedTimesMs": [
+            243.26691636815667,
+            386.25629153102636,
+            538.1837082095444,
+            693.6036664992571,
+            847.9454163461924
+          ],
+          "presentedOffsets": [
+            10175.0,
+            10175.0,
+            1078.6666666666665,
+            1078.6666666666665,
+            1078.6666666666665
+          ],
+          "nativeMaximumOffsets": [
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0,
+            10175.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=1 ms=243.26691636815667 offset=10175.0 presentation=10175.0 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=2 ms=386.25629153102636 offset=10175.0 presentation=10175.0 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=3 ms=538.1837082095444 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=4 ms=693.6036664992571 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-dynamicType tick=5 ms=847.9454163461924 offset=1078.6666666666665 presentation=1078.6666666666665 maximum=10175.0 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.1368683772161603e-13, 402.0, 873.9999999999999) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-historyPrefix",
+          "presentedTimesMs": [
+            260.8127500861883,
+            411.35650034993887,
+            561.8622917681932,
+            720.3293335624039,
+            904.7254170291126
+          ],
+          "presentedOffsets": [
+            5475.0,
+            5475.0,
+            1686.6666666666667,
+            1686.6666666666667,
+            1686.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-historyPrefix tick=1 ms=260.8127500861883 offset=5475.0 presentation=5475.0 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-historyPrefix tick=2 ms=411.35650034993887 offset=5475.0 presentation=5475.0 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-historyPrefix tick=3 ms=561.8622917681932 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-historyPrefix tick=4 ms=720.3293335624039 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-historyPrefix tick=5 ms=904.7254170291126 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-navigation-historyPrefix",
+          "presentedTimesMs": [
+            281.5144583582878,
+            454.8411248251796,
+            596.2713332846761,
+            769.1609584726393
+          ],
+          "presentedOffsets": [
+            5475.0,
+            1686.6666666666667,
+            1686.6666666666667,
+            1686.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-navigation-historyPrefix tick=1 ms=281.5144583582878 offset=5475.0 presentation=5475.0 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-navigation-historyPrefix tick=2 ms=454.8411248251796 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-historyPrefix tick=3 ms=596.2713332846761 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-historyPrefix tick=4 ms=769.1609584726393 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-navigation-width",
+          "presentedTimesMs": [
+            268.16433342173696,
+            449.54712502658367,
+            589.5476248115301,
+            742.0933335088193,
+            888.3480834774673
+          ],
+          "presentedOffsets": [
+            5436.333333333333,
+            688.0,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=1 ms=268.16433342173696 offset=5436.333333333333 presentation=5436.333333333333 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=2 ms=449.54712502658367 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=3 ms=589.5476248115301 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=4 ms=742.0933335088193 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-navigation-width tick=5 ms=888.3480834774673 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-session",
+          "presentedTimesMs": [
+            301.35591654106975,
+            468.0396248586476,
+            605.1587914116681,
+            740.4058333486319
+          ],
+          "presentedOffsets": [
+            5475.0,
+            1686.6666666666667,
+            1686.6666666666667,
+            1686.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999,
+            5474.999999999999
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-session tick=1 ms=301.35591654106975 offset=5475.0 presentation=5475.0 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-session tick=2 ms=468.0396248586476 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-session tick=3 ms=605.1587914116681 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-session tick=4 ms=740.4058333486319 offset=1686.6666666666667 presentation=1686.6666666666667 maximum=5474.999999999999 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-changed-width",
+          "presentedTimesMs": [
+            277.0953746512532,
+            426.87062500044703,
+            577.9947913251817,
+            753.600416239351
+          ],
+          "presentedOffsets": [
+            5436.333333333333,
+            688.0,
+            688.0,
+            688.0
+          ],
+          "nativeMaximumOffsets": [
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333,
+            5436.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-changed-width tick=1 ms=277.0953746512532 offset=5436.333333333333 presentation=5436.333333333333 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-changed-width tick=2 ms=426.87062500044703 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=3 ms=577.9947913251817 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-changed-width tick=4 ms=753.600416239351 offset=688.0 presentation=688.0 maximum=5436.333333333333 entryOffset=-1.0 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-12-fresh",
+          "presentedTimesMs": [
+            507.65666645020247,
+            688.794624991715,
+            836.4822082221508,
+            997.8985413908958
+          ],
+          "presentedOffsets": [
+            4388.333333333333,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333,
+            4388.333333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-12-fresh tick=1 ms=88.86695839464664 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=2 ms=121.86374980956316 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=3 ms=138.45662493258715 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=4 ms=155.2814580500126 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=5 ms=171.8891249038279 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=6 ms=188.59062483534217 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=7 ms=205.1887083798647 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=8 ms=221.87641635537148 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=9 ms=238.53612504899502 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=10 ms=255.2120415493846 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=11 ms=271.84829162433743 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=12 ms=288.53970812633634 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=13 ms=305.1998750306666 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=14 ms=340.8000832423568 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=15 ms=507.65666645020247 offset=4388.333333333333 presentation=4388.333333333333 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-12-fresh tick=16 ms=688.794624991715 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-fresh tick=17 ms=836.4822082221508 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-12-fresh tick=18 ms=997.8985413908958 offset=600.0 presentation=600.0 maximum=4388.333333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-200-changed-append",
+          "presentedTimesMs": [
+            480.83100002259016,
+            630.0418335013092,
+            795.9224167279899,
+            943.9450418576598,
+            1094.7767086327076
+          ],
+          "presentedOffsets": [
+            63030.666666666664,
+            63030.666666666664,
+            195.33333333333331,
+            195.33333333333331,
+            195.33333333333331
+          ],
+          "nativeMaximumOffsets": [
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-200-changed-append tick=1 ms=480.83100002259016 offset=63030.666666666664 presentation=63030.666666666664 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-append tick=2 ms=630.0418335013092 offset=63030.666666666664 presentation=63030.666666666664 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-append tick=3 ms=795.9224167279899 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-append tick=4 ms=943.9450418576598 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-append tick=5 ms=1094.7767086327076 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-200-changed-navigation-append",
+          "presentedTimesMs": [
+            964.925333391875,
+            1117.271791677922,
+            1287.6076670363545,
+            1432.331083342433,
+            1587.515541817993,
+            1733.44683367759
+          ],
+          "presentedOffsets": [
+            63030.666666666664,
+            63030.666666666664,
+            195.33333333333331,
+            195.33333333333331,
+            195.33333333333331,
+            195.33333333333331
+          ],
+          "nativeMaximumOffsets": [
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664,
+            63030.666666666664
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=1 ms=964.925333391875 offset=63030.666666666664 presentation=63030.666666666664 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=2 ms=1117.271791677922 offset=63030.666666666664 presentation=63030.666666666664 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=3 ms=1287.6076670363545 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=4 ms=1432.331083342433 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=5 ms=1587.515541817993 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append tick=6 ms=1733.44683367759 offset=195.33333333333331 presentation=195.33333333333331 maximum=63030.666666666664 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 1.4210854715202004e-14, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-200-changed-navigation-append-window300",
+          "presentedTimesMs": [
+            946.3583752512932,
+            1101.7385418526828,
+            1294.0874169580638,
+            1444.6575003676116
+          ],
+          "presentedOffsets": [
+            83632.33333333333,
+            83632.33333333333,
+            12000.0,
+            12000.0
+          ],
+          "nativeMaximumOffsets": [
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333,
+            83632.33333333333
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=1 ms=946.3583752512932 offset=83632.33333333333 presentation=83632.33333333333 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=2 ms=1101.7385418526828 offset=83632.33333333333 presentation=83632.33333333333 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=3 ms=1294.0874169580638 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=iphone-200-changed-navigation-append-window300 tick=4 ms=1444.6575003676116 offset=12000.0 presentation=12000.0 maximum=83632.33333333333 entryOffset=-1.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "iphone-live-rotation-following",
+          "presentedTimesMs": [
+            172.02183324843645,
+            619.6734164841473,
+            772.0250831916928,
+            955.7162499986589,
+            1106.153208296746,
+            1253.170708194375
+          ],
+          "presentedOffsets": [
+            60609.0,
+            45453.07241976261,
+            33901.666666666664,
+            33901.666666666664,
+            33901.666666666664,
+            33901.666666666664
+          ],
+          "nativeMaximumOffsets": [
+            60609.0,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            60530.666666666664,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676,
+            34306.66666666676
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-following tick=1 ms=172.02183324843645 offset=60609.0 presentation=60609.0 maximum=60609.0 entryOffset=60530.666666666664 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=2 ms=619.6734164841473 offset=33901.666666666664 presentation=45453.07241976261 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=3 ms=772.0250831916928 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=4 ms=955.7162499986589 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=5 ms=1106.153208296746 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-following tick=6 ms=1253.170708194375 offset=33901.666666666664 presentation=33901.666666666664 maximum=34457.666666666664 entryOffset=34306.66666666676 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=false outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-rotation-reading",
+          "presentedTimesMs": [
+            171.44020833075047,
+            316.5379585698247,
+            768.7620837241411,
+            919.6887500584126,
+            1074.4262500666082,
+            1249.3011252954602,
+            1399.6165003627539
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            450.59307956695557,
+            424.0,
+            424.0,
+            424.0,
+            424.0
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            60609.0,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664,
+            34457.666666666664
+          ],
+          "entryModelOffsets": [
+            600.0,
+            600.0,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905,
+            423.99999999990905
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=1 ms=171.44020833075047 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=2 ms=316.5379585698247 offset=600.0 presentation=600.0 maximum=60609.0 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=3 ms=768.7620837241411 offset=424.0 presentation=450.59307956695557 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=4 ms=919.6887500584126 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=5 ms=1074.4262500666082 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=6 ms=1249.3011252954602 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=iphone-live-rotation-reading tick=7 ms=1399.6165003627539 offset=424.0 presentation=424.0 maximum=34457.666666666664 entryOffset=423.99999999990905 width=874.0 visible=true presented=true rect=(0.0, 98.0, 874.0, 304.0) initialized=true restoring=true outcome=pending"
+          ]
+        },
+        {
+          "case": "iphone-live-width-type-reading",
+          "presentedTimesMs": [
+            192.60841701179743,
+            434.83200017362833,
+            583.2731667906046,
+            733.1446669995785,
+            973.766625393182,
+            1249.9775001779199,
+            1392.2298336401582,
+            1534.8201668821275
+          ],
+          "presentedOffsets": [
+            600.0,
+            688.0,
+            688.0,
+            688.0,
+            688.0,
+            1362.6666666666667,
+            1362.6666666666667,
+            1362.6666666666667
+          ],
+          "nativeMaximumOffsets": [
+            60530.666666666664,
+            73800.99999999999,
+            73800.99999999999,
+            73800.99999999999,
+            173301.66666666666,
+            173322.66666666666,
+            173322.66666666666,
+            173322.66666666666
+          ],
+          "entryModelOffsets": [
+            600.0,
+            687.99999999996,
+            687.99999999996,
+            687.99999999996,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465,
+            1362.6666666665465
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=1 ms=192.60841701179743 offset=600.0 presentation=600.0 maximum=60530.666666666664 entryOffset=600.0 width=402.0 visible=true presented=true rect=(0.0, 0.0, 402.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=2 ms=434.83200017362833 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=3 ms=583.2731667906046 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=4 ms=733.1446669995785 offset=688.0 presentation=688.0 maximum=73800.99999999999 entryOffset=687.99999999996 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=5 ms=973.766625393182 offset=1362.6666666666667 presentation=688.0 maximum=173301.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=6 ms=1249.9775001779199 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=7 ms=1392.2298336401582 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=iphone-live-width-type-reading tick=8 ms=1534.8201668821275 offset=1362.6666666666667 presentation=1362.6666666666667 maximum=173322.66666666666 entryOffset=1362.6666666665465 width=342.0 visible=true presented=true rect=(30.0, 0.0, 342.0, 874.0) initialized=true restoring=false outcome=pending"
+          ]
+        }
+      ]
+    },
+    "ipad-final": {
+      "passed": 9,
+      "failed": 3,
+      "skipped": 0,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "FCA875FB-E61C-412A-B216-7831C0CFD549",
+            "deviceName": "go-287-r3-ipad",
+            "modelName": "iPad Pro 11-inch (M4)",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 3,
+          "passedTests": 9,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "ipad-100-cached",
+          "presentedTimesMs": [
+            501.5565832145512,
+            838.5470830835402
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            22057.5,
+            22057.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-100-cached tick=1 ms=501.5565832145512 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-cached tick=2 ms=838.5470830835402 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-100-fresh",
+          "presentedTimesMs": [
+            747.1475834026933,
+            1086.5122498944402,
+            1376.8354165367782,
+            1677.5080831721425,
+            2006.8118749186397
+          ],
+          "presentedOffsets": [
+            22057.5,
+            22057.5,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            22057.5,
+            22057.5,
+            22057.5,
+            22057.5,
+            22057.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-100-fresh tick=1 ms=87.22929190844297 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=2 ms=120.6519166007638 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=3 ms=137.28862488642335 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=4 ms=153.9228749461472 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=5 ms=170.58787494897842 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=6 ms=187.30158312246203 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=7 ms=203.97324999794364 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=8 ms=220.66058358177543 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=9 ms=237.26799990981817 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=10 ms=253.97345842793584 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=11 ms=270.6137918867171 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=12 ms=287.30174992233515 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=13 ms=304.0715418756008 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=14 ms=359.9597499705851 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=15 ms=747.1475834026933 offset=22057.5 presentation=22057.5 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=16 ms=1086.5122498944402 offset=22057.5 presentation=22057.5 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=17 ms=1376.8354165367782 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-100-fresh tick=18 ms=1677.5080831721425 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-100-fresh tick=19 ms=2006.8118749186397 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-cached",
+          "presentedTimesMs": [
+            385.663291439414,
+            684.1367497108877,
+            965.1986248791218
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-cached tick=1 ms=385.663291439414 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached tick=2 ms=684.1367497108877 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached tick=3 ms=965.1986248791218 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-cached-navigation",
+          "presentedTimesMs": [
+            426.87854170799255,
+            715.0920415297151,
+            998.0616248212755
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=1 ms=426.87854170799255 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=2 ms=715.0920415297151 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=3 ms=998.0616248212755 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-customFont",
+          "presentedTimesMs": [
+            394.37333308160305,
+            746.1206247098744,
+            1043.341249693185,
+            1322.8362500667572,
+            1682.4452080763876
+          ],
+          "presentedOffsets": [
+            7454.5,
+            7454.5,
+            1522.0,
+            1522.0,
+            1522.0
+          ],
+          "nativeMaximumOffsets": [
+            7454.5,
+            7454.5,
+            7454.5,
+            7454.5,
+            7454.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=1 ms=394.37333308160305 offset=7454.5 presentation=7454.5 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=2 ms=746.1206247098744 offset=7454.5 presentation=7454.5 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=3 ms=1043.341249693185 offset=1522.0 presentation=1522.0 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=4 ms=1322.8362500667572 offset=1522.0 presentation=1522.0 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=5 ms=1682.4452080763876 offset=1522.0 presentation=1522.0 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-dynamicType",
+          "presentedTimesMs": [
+            387.7503336407244,
+            670.014750212431,
+            951.6043751500547,
+            1255.3908335976303
+          ],
+          "presentedOffsets": [
+            4905.5,
+            4905.5,
+            1092.0,
+            1092.0
+          ],
+          "nativeMaximumOffsets": [
+            4905.5,
+            4905.5,
+            4905.5,
+            4905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=1 ms=387.7503336407244 offset=4905.5 presentation=4905.5 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=2 ms=670.014750212431 offset=4905.5 presentation=4905.5 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=3 ms=951.6043751500547 offset=1092.0 presentation=1092.0 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=4 ms=1255.3908335976303 offset=1092.0 presentation=1092.0 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-historyPrefix",
+          "presentedTimesMs": [
+            412.00387477874756,
+            698.0433748103678,
+            1012.9605415277183,
+            1300.0879166647792,
+            1594.7183747775853
+          ],
+          "presentedOffsets": [
+            2555.5,
+            2555.5,
+            1250.0,
+            1250.0,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=1 ms=412.00387477874756 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=2 ms=698.0433748103678 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=3 ms=1012.9605415277183 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=4 ms=1300.0879166647792 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=5 ms=1594.7183747775853 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-navigation-historyPrefix",
+          "presentedTimesMs": [
+            449.4171249680221,
+            749.0635416470468,
+            1080.970499664545
+          ],
+          "presentedOffsets": [
+            2555.5,
+            1250.0,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=1 ms=449.4171249680221 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=2 ms=749.0635416470468 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=3 ms=1080.970499664545 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-navigation-width",
+          "presentedTimesMs": [
+            464.23487504944205,
+            775.4255831241608,
+            1090.4401247389615,
+            1377.5979997590184
+          ],
+          "presentedOffsets": [
+            1905.5,
+            1905.5,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=1 ms=464.23487504944205 offset=1905.5 presentation=1905.5 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=2 ms=775.4255831241608 offset=1905.5 presentation=1905.5 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=3 ms=1090.4401247389615 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=4 ms=1377.5979997590184 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-session",
+          "presentedTimesMs": [
+            415.3807503171265,
+            711.152458563447,
+            1033.6800417862833
+          ],
+          "presentedOffsets": [
+            2555.5,
+            2555.5,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-session tick=1 ms=415.3807503171265 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-session tick=2 ms=711.152458563447 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-session tick=3 ms=1033.6800417862833 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-width",
+          "presentedTimesMs": [
+            452.9920001514256,
+            770.6907084211707
+          ],
+          "presentedOffsets": [
+            1905.5,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-width tick=1 ms=452.9920001514256 offset=1905.5 presentation=1905.5 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-width tick=2 ms=770.6907084211707 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-fresh",
+          "presentedTimesMs": [
+            611.3150417804718,
+            896.1433754302561,
+            1177.2530833259225,
+            1465.5905002728105
+          ],
+          "presentedOffsets": [
+            1905.5,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-fresh tick=1 ms=105.05304206162691 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=2 ms=121.75716692581773 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=3 ms=138.436708599329 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=4 ms=155.09300027042627 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=5 ms=171.74125043675303 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=6 ms=188.42870835214853 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=7 ms=205.09320870041847 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=8 ms=221.7306667007506 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=9 ms=238.42770839110017 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=10 ms=255.0822920165956 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=11 ms=271.743958350271 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=12 ms=288.3749585598707 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=13 ms=316.3846251554787 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=14 ms=611.3150417804718 offset=1905.5 presentation=1905.5 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=15 ms=896.1433754302561 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-fresh tick=16 ms=1177.2530833259225 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-fresh tick=17 ms=1465.5905002728105 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-append",
+          "presentedTimesMs": [
+            581.437208224088,
+            874.4580834172666,
+            1202.1473748609424,
+            1495.3950834460557,
+            1781.139874830842
+          ],
+          "presentedOffsets": [
+            34936.0,
+            34936.0,
+            142.0,
+            142.0,
+            142.0
+          ],
+          "nativeMaximumOffsets": [
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-append tick=1 ms=581.437208224088 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-append tick=2 ms=874.4580834172666 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-append tick=3 ms=1202.1473748609424 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-append tick=4 ms=1495.3950834460557 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-append tick=5 ms=1781.139874830842 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-navigation-append",
+          "presentedTimesMs": [
+            1086.7077498696744,
+            1381.642958149314,
+            1730.8022496290505,
+            2017.9955000057817,
+            2328.2062499783933
+          ],
+          "presentedOffsets": [
+            34936.0,
+            34936.0,
+            142.0,
+            142.0,
+            142.0
+          ],
+          "nativeMaximumOffsets": [
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=1 ms=1086.7077498696744 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=2 ms=1381.642958149314 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=3 ms=1730.8022496290505 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=4 ms=2017.9955000057817 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=5 ms=2328.2062499783933 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-navigation-append-window300",
+          "presentedTimesMs": [
+            1148.1242920272052,
+            1471.7267085798085,
+            1781.433291733265,
+            2107.187833636999
+          ],
+          "presentedOffsets": [
+            46807.5,
+            46807.5,
+            12000.0,
+            12000.0
+          ],
+          "nativeMaximumOffsets": [
+            46807.5,
+            46807.5,
+            46807.5,
+            46807.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=1 ms=1148.1242920272052 offset=46807.5 presentation=46807.5 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=2 ms=1471.7267085798085 offset=46807.5 presentation=46807.5 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=3 ms=1781.433291733265 offset=12000.0 presentation=12000.0 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=4 ms=2107.187833636999 offset=12000.0 presentation=12000.0 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-live-rotation-following",
+          "presentedTimesMs": [
+            297.08825005218387,
+            626.8904167227447,
+            910.8050419017673,
+            1192.0014582574368,
+            1532.2328750044107,
+            1856.6145417280495,
+            2159.7016253508627,
+            2497.316500172019,
+            2777.7170836925507,
+            3076.761791948229,
+            3355.9895418584347,
+            3653.897958341986,
+            3925.598416943103,
+            4230.595374945551,
+            4522.67170837149,
+            4823.190541937947,
+            5136.7147085256875,
+            5407.983750104904,
+            5717.453666962683,
+            5994.900583289564
+          ],
+          "presentedOffsets": [
+            33864.0,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5
+          ],
+          "nativeMaximumOffsets": [
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5
+          ],
+          "entryModelOffsets": [
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0,
+            33864.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-live-rotation-following tick=1 ms=297.08825005218387 offset=33920.5 presentation=33864.0 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=2 ms=626.8904167227447 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=3 ms=910.8050419017673 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=4 ms=1192.0014582574368 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=5 ms=1532.2328750044107 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=6 ms=1856.6145417280495 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=7 ms=2159.7016253508627 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=8 ms=2497.316500172019 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=9 ms=2777.7170836925507 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=10 ms=3076.761791948229 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=11 ms=3355.9895418584347 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=12 ms=3653.897958341986 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=13 ms=3925.598416943103 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=14 ms=4230.595374945551 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=15 ms=4522.67170837149 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=16 ms=4823.190541937947 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=17 ms=5136.7147085256875 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=18 ms=5407.983750104904 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=19 ms=5717.453666962683 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-following tick=20 ms=5994.900583289564 offset=33920.5 presentation=33920.5 maximum=33920.5 entryOffset=33864.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending"
+          ]
+        },
+        {
+          "case": "ipad-live-rotation-reading",
+          "presentedTimesMs": [
+            349.88583344966173,
+            652.5632082484663,
+            988.256458658725,
+            1270.4836251214147,
+            1554.884500335902,
+            1834.8154169507325,
+            2118.8297085464,
+            2402.016249950975,
+            2692.362541798502,
+            2987.9595418460667,
+            3269.568916875869,
+            3565.959833562374,
+            3870.6111665815115,
+            4152.202166616917,
+            4464.988125022501,
+            4766.133917029947,
+            5035.679458640516,
+            5362.682458478957,
+            5685.634749941528,
+            5972.03216701746
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5
+          ],
+          "entryModelOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=1 ms=349.88583344966173 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=2 ms=652.5632082484663 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=3 ms=988.256458658725 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=4 ms=1270.4836251214147 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=5 ms=1554.884500335902 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=6 ms=1834.8154169507325 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=7 ms=2118.8297085464 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=8 ms=2402.016249950975 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=9 ms=2692.362541798502 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=10 ms=2987.9595418460667 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=11 ms=3269.568916875869 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=12 ms=3565.959833562374 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=13 ms=3870.6111665815115 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=14 ms=4152.202166616917 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=15 ms=4464.988125022501 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=16 ms=4766.133917029947 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=17 ms=5035.679458640516 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=18 ms=5362.682458478957 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=19 ms=5685.634749941528 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-rotation-reading tick=20 ms=5972.03216701746 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending"
+          ]
+        },
+        {
+          "case": "ipad-live-width-type-reading",
+          "presentedTimesMs": [
+            339.0488335862756,
+            693.4262500144541,
+            971.2472916580737,
+            1352.4988335557282,
+            1742.4775836989284
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            1104.0
+          ],
+          "nativeMaximumOffsets": [
+            33920.5,
+            33920.5,
+            33920.5,
+            70875.0,
+            70901.0
+          ],
+          "entryModelOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            1104.0,
+            1104.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=1 ms=339.0488335862756 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=2 ms=693.4262500144541 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=3 ms=971.2472916580737 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=4 ms=1352.4988335557282 offset=1104.0 presentation=600.0 maximum=70875.0 entryOffset=1104.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=5 ms=1742.4775836989284 offset=1104.0 presentation=1104.0 maximum=70901.0 entryOffset=1104.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending"
+          ]
+        }
+      ]
+    },
+    "ipad-corrected": {
+      "passed": 10,
+      "failed": 0,
+      "skipped": 2,
+      "devices": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "568C3DFB-7436-4717-B666-55D9E9F9B2CD",
+            "deviceName": "go-287-r3-ipad-corrected",
+            "modelName": "iPad Pro 11-inch (M4)",
+            "osBuildNumber": "23A343",
+            "osVersion": "26.0",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 10,
+          "skippedTests": 2,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "cases": [
+        {
+          "case": "ipad-100-cached",
+          "presentedTimesMs": [
+            504.2404164560139,
+            817.3322081565857
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            22057.5,
+            22057.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-100-cached tick=1 ms=504.2404164560139 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-100-cached tick=2 ms=817.3322081565857 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-100-fresh",
+          "presentedTimesMs": [
+            687.842458486557,
+            982.9447083175182,
+            1273.076250217855,
+            1556.9038335233927
+          ],
+          "presentedOffsets": [
+            22057.5,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            22057.5,
+            22057.5,
+            22057.5,
+            22057.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-100-fresh tick=1 ms=88.31983339041471 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=2 ms=117.43729189038277 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=3 ms=134.08074993640184 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=4 ms=150.74712503701448 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=5 ms=167.40766679868102 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=6 ms=184.11775026470423 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=7 ms=200.78541664406657 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=8 ms=217.51383366063237 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=9 ms=234.12458365783095 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=10 ms=250.80400006845593 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=11 ms=267.45066698640585 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=12 ms=284.1182085685432 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=13 ms=300.77641690149903 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=14 ms=365.41600013151765 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=15 ms=687.842458486557 offset=22057.5 presentation=22057.5 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-100-fresh tick=16 ms=982.9447083175182 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-100-fresh tick=17 ms=1273.076250217855 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-100-fresh tick=18 ms=1556.9038335233927 offset=600.0 presentation=600.0 maximum=22057.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-cached",
+          "presentedTimesMs": [
+            388.1117501296103,
+            672.2232084721327,
+            970.9902917966247
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-cached tick=1 ms=388.1117501296103 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached tick=2 ms=672.2232084721327 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached tick=3 ms=970.9902917966247 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-cached-navigation",
+          "presentedTimesMs": [
+            445.5928751267493,
+            739.1022914089262,
+            1051.7294164747
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=1 ms=445.5928751267493 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=2 ms=739.1022914089262 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-cached-navigation tick=3 ms=1051.7294164747 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-customFont",
+          "presentedTimesMs": [
+            410.0920418277383,
+            737.0154582895339
+          ],
+          "presentedOffsets": [
+            7454.5,
+            1522.0
+          ],
+          "nativeMaximumOffsets": [
+            7454.5,
+            7454.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=1 ms=410.0920418277383 offset=7454.5 presentation=7454.5 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-customFont tick=2 ms=737.0154582895339 offset=1522.0 presentation=1522.0 maximum=7454.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-dynamicType",
+          "presentedTimesMs": [
+            391.69324981048703,
+            676.6457916237414,
+            967.0257084071636
+          ],
+          "presentedOffsets": [
+            4905.5,
+            1092.0,
+            1092.0
+          ],
+          "nativeMaximumOffsets": [
+            4905.5,
+            4905.5,
+            4905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=1 ms=391.69324981048703 offset=4905.5 presentation=4905.5 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=2 ms=676.6457916237414 offset=1092.0 presentation=1092.0 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-dynamicType tick=3 ms=967.0257084071636 offset=1092.0 presentation=1092.0 maximum=4905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-historyPrefix",
+          "presentedTimesMs": [
+            413.45408326014876,
+            703.236541710794,
+            993.5198333114386
+          ],
+          "presentedOffsets": [
+            2555.5,
+            1250.0,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=1 ms=413.45408326014876 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=2 ms=703.236541710794 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-historyPrefix tick=3 ms=993.5198333114386 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-navigation-historyPrefix",
+          "presentedTimesMs": [
+            451.32945850491524,
+            734.2331251129508,
+            1020.5647917464375
+          ],
+          "presentedOffsets": [
+            2555.5,
+            1250.0,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=1 ms=451.32945850491524 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=2 ms=734.2331251129508 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-navigation-historyPrefix tick=3 ms=1020.5647917464375 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-navigation-width",
+          "presentedTimesMs": [
+            439.1887919045985,
+            761.5669583901763
+          ],
+          "presentedOffsets": [
+            2697.5,
+            732.0
+          ],
+          "nativeMaximumOffsets": [
+            2697.5,
+            2697.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=1 ms=439.1887919045985 offset=2697.5 presentation=2697.5 maximum=2697.5 entryOffset=-1.0 width=594.0 visible=true presented=true rect=(120.0, 0.0, 594.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-navigation-width tick=2 ms=761.5669583901763 offset=732.0 presentation=732.0 maximum=2697.5 entryOffset=-1.0 width=594.0 visible=true presented=true rect=(120.0, 0.0, 594.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-session",
+          "presentedTimesMs": [
+            432.49341659247875,
+            720.7620833069086,
+            1048.2872915454209,
+            1345.1944165863097,
+            1628.5576247610152
+          ],
+          "presentedOffsets": [
+            2555.5,
+            2555.5,
+            1250.0,
+            1250.0,
+            1250.0
+          ],
+          "nativeMaximumOffsets": [
+            2555.5,
+            2555.5,
+            2555.5,
+            2555.5,
+            2555.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-session tick=1 ms=432.49341659247875 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-session tick=2 ms=720.7620833069086 offset=2555.5 presentation=2555.5 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-session tick=3 ms=1048.2872915454209 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-session tick=4 ms=1345.1944165863097 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-changed-session tick=5 ms=1628.5576247610152 offset=1250.0 presentation=1250.0 maximum=2555.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-changed-width",
+          "presentedTimesMs": [
+            398.16562505438924,
+            717.2900000587106
+          ],
+          "presentedOffsets": [
+            2697.5,
+            732.0
+          ],
+          "nativeMaximumOffsets": [
+            2697.5,
+            2697.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-changed-width tick=1 ms=398.16562505438924 offset=2697.5 presentation=2697.5 maximum=2697.5 entryOffset=-1.0 width=594.0 visible=true presented=true rect=(120.0, 0.0, 594.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-changed-width tick=2 ms=717.2900000587106 offset=732.0 presentation=732.0 maximum=2697.5 entryOffset=-1.0 width=594.0 visible=true presented=true rect=(120.0, 0.0, 594.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-12-fresh",
+          "presentedTimesMs": [
+            627.5033336132765,
+            906.9442916661501,
+            1191.0611670464277,
+            1473.4578332863748
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0
+          ],
+          "nativeMaximumOffsets": [
+            1905.5,
+            1905.5,
+            1905.5,
+            1905.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-12-fresh tick=1 ms=25.805791839957237 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=2 ms=101.5050420537591 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=3 ms=134.8815835081041 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=4 ms=151.53391705825925 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=5 ms=168.17854205146432 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=6 ms=184.84158348292112 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=7 ms=201.53308333829045 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=8 ms=218.2901669293642 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=9 ms=234.82650006189942 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=10 ms=251.50141678750515 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=11 ms=268.2010419666767 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=12 ms=284.83158349990845 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=13 ms=301.5029584057629 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=false restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=14 ms=318.3995420113206 offset=-1.0 presentation=-1.0 maximum=-1.0 entryOffset=-1.0 width=0.0 visible=false presented=false rect=(0.0, 0.0, 0.0, 0.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=15 ms=627.5033336132765 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-12-fresh tick=16 ms=906.9442916661501 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-fresh tick=17 ms=1191.0611670464277 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-12-fresh tick=18 ms=1473.4578332863748 offset=600.0 presentation=600.0 maximum=1905.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-append",
+          "presentedTimesMs": [
+            622.9093750007451,
+            920.3142914921045,
+            1238.7952501885593,
+            1553.834999911487
+          ],
+          "presentedOffsets": [
+            34936.0,
+            34936.0,
+            142.0,
+            142.0
+          ],
+          "nativeMaximumOffsets": [
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-append tick=1 ms=622.9093750007451 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-append tick=2 ms=920.3142914921045 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-append tick=3 ms=1238.7952501885593 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-append tick=4 ms=1553.834999911487 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-navigation-append",
+          "presentedTimesMs": [
+            1106.169916689396,
+            1400.2690417692065,
+            1697.1573336049914,
+            1976.6115001402795,
+            2259.211833588779
+          ],
+          "presentedOffsets": [
+            34936.0,
+            34936.0,
+            142.0,
+            142.0,
+            142.0
+          ],
+          "nativeMaximumOffsets": [
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0,
+            34936.0
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=1 ms=1106.169916689396 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=2 ms=1400.2690417692065 offset=34936.0 presentation=34936.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=3 ms=1697.1573336049914 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=4 ms=1976.6115001402795 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append tick=5 ms=2259.211833588779 offset=142.0 presentation=142.0 maximum=34936.0 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-200-changed-navigation-append-window300",
+          "presentedTimesMs": [
+            1084.8441668786108,
+            1372.7699583396316,
+            1682.0789584890008,
+            1983.0421251244843,
+            2255.4903337731957
+          ],
+          "presentedOffsets": [
+            46807.5,
+            46807.5,
+            12000.0,
+            12000.0,
+            12000.0
+          ],
+          "nativeMaximumOffsets": [
+            46807.5,
+            46807.5,
+            46807.5,
+            46807.5,
+            46807.5
+          ],
+          "entryModelOffsets": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=1 ms=1084.8441668786108 offset=46807.5 presentation=46807.5 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=false restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=2 ms=1372.7699583396316 offset=46807.5 presentation=46807.5 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=3 ms=1682.0789584890008 offset=12000.0 presentation=12000.0 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=4 ms=1983.0421251244843 offset=12000.0 presentation=12000.0 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived",
+            "RETURN_FRAME case=ipad-200-changed-navigation-append-window300 tick=5 ms=2255.4903337731957 offset=12000.0 presentation=12000.0 maximum=46807.5 entryOffset=-1.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=arrived"
+          ]
+        },
+        {
+          "case": "ipad-live-width-type-reading",
+          "presentedTimesMs": [
+            299.67645835131407,
+            673.425208311528,
+            970.344708301127,
+            1378.3070417121053,
+            1775.723499711603
+          ],
+          "presentedOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            600.0,
+            1104.0
+          ],
+          "nativeMaximumOffsets": [
+            33920.5,
+            33920.5,
+            33920.5,
+            33920.5,
+            70901.0
+          ],
+          "entryModelOffsets": [
+            600.0,
+            600.0,
+            600.0,
+            1104.0,
+            1104.0
+          ],
+          "rawDisplayLinkSamples": [
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=1 ms=299.67645835131407 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=834.0 visible=true presented=true rect=(0.0, 0.0, 834.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=2 ms=673.425208311528 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=3 ms=970.344708301127 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=600.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=4 ms=1378.3070417121053 offset=600.0 presentation=600.0 maximum=33920.5 entryOffset=1104.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=true outcome=pending",
+            "RETURN_FRAME case=ipad-live-width-type-reading tick=5 ms=1775.723499711603 offset=1104.0 presentation=1104.0 maximum=70901.0 entryOffset=1104.0 width=774.0 visible=true presented=true rect=(30.0, 0.0, 774.0, 1210.0) initialized=true restoring=false outcome=pending"
+          ]
+        }
+      ]
+    }
+  }
+}

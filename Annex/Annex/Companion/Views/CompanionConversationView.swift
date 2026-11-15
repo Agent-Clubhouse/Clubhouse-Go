@@ -2,6 +2,72 @@ import SwiftUI
 import ClubhouseTransport
 
 struct CompanionConversationView: View {
+    let store: CompanionStore
+    let agent: CompanionAgent
+    var showsActions = true
+    var isVisible: Bool? = nil
+    var reviewPosition: String? = nil
+    #if DEBUG
+    var initiallyShowsRecoveryDetails = false
+    #endif
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    @Environment(\.locale) private var locale
+    @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.lineSpacing) private var lineSpacing
+    @Environment(\.minimumScaleFactor) private var minimumScaleFactor
+    @Environment(\.allowsTightening) private var allowsTightening
+    @Environment(\.font) private var font
+    @Environment(\.lineLimit) private var lineLimit
+    @Environment(\.textCase) private var textCase
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        GeometryReader { geometry in
+            let layout = layoutContext(geometry)
+            #if DEBUG
+            CompanionConversationContent(store: store, agent: agent, showsActions: showsActions,
+                isVisible: isVisible, reviewPosition: reviewPosition, layout: layout,
+                initiallyShowsRecoveryDetails: initiallyShowsRecoveryDetails)
+            #else
+            CompanionConversationContent(store: store, agent: agent, showsActions: showsActions,
+                isVisible: isVisible, reviewPosition: reviewPosition, layout: layout)
+            #endif
+        }
+    }
+
+    private func layoutContext(_ geometry: GeometryProxy) -> CompanionReadingLayoutContext? {
+        // Unknown inherited text metrics cannot authorize an absolute position. Themes currently supply only colors.
+        guard geometry.size.width > 0,
+              font == nil || font == .body, lineLimit == nil, textCase == nil,
+              let size = DynamicTypeSize.allCases.firstIndex(of: dynamicTypeSize) else { return nil }
+        return .init(width: geometry.size.width,
+            dynamicType: size, boldText: legibilityWeight.map { $0 == .bold }, locale: locale.identifier,
+            rightToLeft: layoutDirection == .rightToLeft, displayScale: displayScale,
+            horizontalRegular: horizontalSizeClass.map { $0 == .regular },
+            verticalRegular: verticalSizeClass.map { $0 == .regular }, lineSpacing: lineSpacing,
+            minimumScaleFactor: minimumScaleFactor, allowsTightening: allowsTightening, palette: palette)
+    }
+
+    /// The production callback, also invoked directly by hosted routing tests. No presentation state is exposed.
+    var recoveryRetryAction: (CompanionRecoveryStatus.RetryAction) -> Void {
+        let presentedTarget = agent.id
+        let presentedStore = store
+        return { action in
+            Task {
+                switch action {
+                case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
+                case .refreshConversation: await presentedStore.load(presentedTarget, force: true)
+                }
+            }
+        }
+    }
+}
+
+private struct CompanionConversationContent: View {
     @Bindable var store: CompanionStore
     let agent: CompanionAgent
     /// Review keeps neighbouring chats alive; only the one on screen puts its menu in the navigation bar.
@@ -10,6 +76,7 @@ struct CompanionConversationView: View {
     var isVisible: Bool? = nil
     /// Review's selected page owns the same identity control, with its place in the pager.
     var reviewPosition: String? = nil
+    let layout: CompanionReadingLayoutContext?
     #if DEBUG
     /// Initial value only for the recovery component's private State; normal callers leave it false.
     var initiallyShowsRecoveryDetails = false
@@ -17,9 +84,10 @@ struct CompanionConversationView: View {
     @State private var followSawDeceleration = false
     #endif
     @State private var followLatest = true
+    @State private var mountedReadingLayout: CompanionReadingLayoutContext?
+    @State private var hasLockedReadingLayout = false
     @State private var atLatest = true
     @State private var nextAssistantMessageID: String?
-    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var confirmCancel = false
     @State private var confirmSleep = false
     @State private var showArchive = false
@@ -53,56 +121,61 @@ struct CompanionConversationView: View {
     @Environment(\.companionSendFeedback) private var sendFeedback
 
     init(store: CompanionStore, agent: CompanionAgent, showsActions: Bool = true,
-         isVisible: Bool? = nil, reviewPosition: String? = nil) {
+         isVisible: Bool? = nil, reviewPosition: String? = nil, layout: CompanionReadingLayoutContext?) {
         self.store = store
         self.agent = agent
         self.showsActions = showsActions
         self.isVisible = isVisible
         self.reviewPosition = reviewPosition
-        if let saved = Self.initialReadingPosition(store: store, target: agent.id, shownEntries: Self.initialEntryLimit) {
+        self.layout = layout
+        let bookmark = store.readingBookmark(for: agent.id)
+        let initialLimit = bookmark.hasMounted ? max(Self.initialEntryLimit, bookmark.position.shownEntries) : Self.initialEntryLimit
+        _shownEntries = State(initialValue: initialLimit)
+        if Self.initialReadingPosition(store: store, target: agent.id, shownEntries: initialLimit, layout: layout) != nil {
             _followLatest = State(initialValue: false)
-            _readingScrollPosition = State(initialValue: ScrollPosition(y: saved.offset))
-            _shownEntries = State(initialValue: max(Self.initialEntryLimit, saved.shownEntries))
         }
     }
 
     #if DEBUG
     init(store: CompanionStore, agent: CompanionAgent, showsActions: Bool = true,
-         isVisible: Bool? = nil, reviewPosition: String? = nil, initiallyShowsRecoveryDetails: Bool) {
-        self.init(store: store, agent: agent, showsActions: showsActions, isVisible: isVisible, reviewPosition: reviewPosition)
+         isVisible: Bool? = nil, reviewPosition: String? = nil, layout: CompanionReadingLayoutContext?,
+         initiallyShowsRecoveryDetails: Bool) {
+        self.init(store: store, agent: agent, showsActions: showsActions, isVisible: isVisible, reviewPosition: reviewPosition, layout: layout)
         self.initiallyShowsRecoveryDetails = initiallyShowsRecoveryDetails
     }
     #endif
 
-    private static func initialReadingPosition(store: CompanionStore, target: CompanionTarget, shownEntries: Int) -> CompanionReadingPosition? {
+    private static func initialReadingPosition(store: CompanionStore, target: CompanionTarget, shownEntries: Int,
+                                               layout: CompanionReadingLayoutContext?) -> CompanionReadingPosition? {
         #if DEBUG
         guard CompanionReadingRestoreProbe.allowsInitialPosition else { return nil }
         #endif
         let bookmark = store.readingBookmark(for: target)
         let saved = bookmark.position
         let conversation = store.conversation(for: target)
-        guard conversation.isLoaded, !saved.followsLatest, let entryID = saved.entryID,
+        guard let layout, conversation.isLoaded, !saved.followsLatest, let entryID = saved.entryID,
               bookmark.coordinateContext == CompanionReadingCoordinateContext(
-                conversation: conversation, shownEntries: max(shownEntries, saved.shownEntries)) else { return nil }
+                conversation: conversation, shownEntries: max(shownEntries, saved.shownEntries), layout: layout) else { return nil }
         guard let row = store.timelineRows(for: target).last(where: { $0.contains(entryID: entryID) }) else { return nil }
         // The timeline retains this entry's whole row; validate its slice without preparing the rest of the window.
         return CompanionTimelineEntry.entries(for: [row]).contains { $0.id == entryID } ? saved : nil
     }
 
     private func prepareReadingScrollPosition() {
-        if let saved = Self.initialReadingPosition(store: store, target: target, shownEntries: shownEntries) {
+        hasLockedReadingLayout = false
+        mountedReadingLayout = nil
+        shownEntries = max(shownEntries, readingBookmark.position.shownEntries)
+        if let saved = Self.initialReadingPosition(store: store, target: target, shownEntries: shownEntries, layout: layout) {
             followLatest = false
             shownEntries = max(shownEntries, saved.shownEntries)
-            readingScrollPosition = ScrollPosition(y: saved.offset)
         } else {
             followLatest = true
-            readingScrollPosition = ScrollPosition(edge: .bottom)
         }
     }
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
     private var readingCoordinateContext: CompanionReadingCoordinateContext {
-        .init(conversation: conversation, shownEntries: shownEntries)
+        .init(conversation: conversation, shownEntries: shownEntries, layout: layout)
     }
     private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
     private var target: CompanionTarget { agent.id }
@@ -399,19 +472,8 @@ struct CompanionConversationView: View {
         return "\(host.name) / \(store.projectName(for: target) ?? "Project")"
     }
 
-    /// The production callback, also invoked directly by hosted routing tests. No presentation state is exposed.
     var recoveryRetryAction: (CompanionRecoveryStatus.RetryAction) -> Void {
-        // A retained page's presented action belongs to that page, even if selection changes before its Task runs.
-        let presentedTarget = target
-        let presentedStore = store
-        return { action in
-            Task {
-                switch action {
-                case .reconnect: await presentedStore.reconnect(hostID: presentedTarget.hostID)
-                case .refreshConversation: await presentedStore.load(presentedTarget, force: true)
-                }
-            }
-        }
+        CompanionConversationView(store: store, agent: agent).recoveryRetryAction
     }
 
     private var connectionBanner: some View {
@@ -469,7 +531,9 @@ struct CompanionConversationView: View {
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
-        return ScrollViewReader { proxy in
+        let initialPosition = Self.initialReadingPosition(store: store, target: target, shownEntries: shownEntries, layout: layout)
+        return CompanionInitialReadingScrollPosition(saved: initialPosition) { readingScrollPosition, initialBottom in
+        ScrollViewReader { proxy in
             ScrollView {
                 // A plain stack of the newest entries, not a lazy one: it re-estimated row heights as you scrolled, adding
                 // and dropping rows at the screen's edge pass after pass, and stalled the main thread (#188). A long reply
@@ -527,12 +591,12 @@ struct CompanionConversationView: View {
                 .frame(maxWidth: 860)
                 .frame(maxWidth: .infinity)
             }
-            .scrollPosition($readingScrollPosition)
-            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
+            .scrollPosition(readingScrollPosition)
+            .defaultScrollAnchor(initialBottom.wrappedValue ? .bottom : .top, for: .initialOffset)
             .defaultScrollAnchor(.bottom, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
-            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
+            .defaultScrollAnchor(followLatest || initialBottom.wrappedValue ? .bottom : .top, for: .sizeChanges)
             // Your dragging stops following and reaching the latest resumes it, rather than the end marker's appear and
             // disappear: under a reply taller than the screen the lazy stack kept realising and dropping the marker as it
             // re-estimated, and each flip re-rendered the conversation, which never settled (#180). Rows loading, the
@@ -605,7 +669,7 @@ struct CompanionConversationView: View {
                     } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
                         readingViewport.isRestoring = true
                         readingViewport.restoreOffset = offset
-                        readingScrollPosition.scrollTo(y: offset)
+                        readingScrollPosition.wrappedValue.scrollTo(y: offset)
                     }
                 }
             }
@@ -682,7 +746,12 @@ struct CompanionConversationView: View {
                 if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop {
                     proxy.scrollTo("latest", anchor: .bottom)
                 }
-                else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
+                else if let restorationID { await restoreReadingPosition(saved, id: restorationID, position: readingScrollPosition) }
+                initialBottom.wrappedValue = false
+                if !Task.isCancelled, !hasLockedReadingLayout {
+                    mountedReadingLayout = layout
+                    hasLockedReadingLayout = true
+                }
             }
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
@@ -700,14 +769,16 @@ struct CompanionConversationView: View {
                 let restoration = CompanionReadingRestoration(revision: conversation.historyRevision,
                     startedAt: ProcessInfo.processInfo.systemUptime)
                 readingViewport.restoration = restoration
-                await restoreReadingPosition(saved, id: restoration.id)
+                await restoreReadingPosition(saved, id: restoration.id, position: readingScrollPosition)
             }
-            .onDisappear {
-                // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
-                // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
-                if isVisible == nil { viewport.clearGeometry() }
-            }
-
+        }
+        }
+        // Only initial placement depends on this identity. Live reflow keeps the existing native scroll view.
+        .id(hasLockedReadingLayout ? mountedReadingLayout : layout)
+        .onDisappear {
+            // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
+            // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
+            if isVisible == nil { prepareReadingScrollPosition(); viewport.clearGeometry() }
         }
     }
 
@@ -778,7 +849,7 @@ struct CompanionConversationView: View {
         if (outcome == .touch || outcome == .scrollPhase), let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
-    private func restoreReadingPosition(_ saved: CompanionReadingPosition, id: UUID) async {
+    private func restoreReadingPosition(_ saved: CompanionReadingPosition, id: UUID, position: Binding<ScrollPosition>) async {
         while readingViewport.restoration?.id == id {
             guard !Task.isCancelled else { readingViewport.finishRestoration(.taskCancelled); return }
             guard var attempt = readingViewport.restoration, attempt.outcome == nil else { return }
@@ -805,9 +876,9 @@ struct CompanionConversationView: View {
                     if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
                     priorPhase = phase
                 }) ?? true
-                if deliver { readingScrollPosition.scrollTo(y: offset) }
+                if deliver { position.wrappedValue.scrollTo(y: offset) }
                 #else
-                readingScrollPosition.scrollTo(y: offset)
+                position.wrappedValue.scrollTo(y: offset)
                 #endif
             case .wait: break
             }
@@ -889,7 +960,7 @@ struct CompanionConversationView: View {
         // Retain every pause: a later recovery must not hide a transient false state from UI checks.
         if previous && !next { followPauseCount += 1 }
         let metrics = readingViewport.metrics
-        NSLog("%@", "CHAT_FOLLOW reason=\(reason.rawValue) from=\(previous ? 1 : 0) to=\(next ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) offset=\(metrics?.normalizedOffset ?? -1) contentHeight=\(metrics?.contentHeight ?? -1) containerHeight=\(metrics?.containerHeight ?? -1) messageCount=\(conversation.items.count)")
+        NSLog("%@", "CHAT_FOLLOW reason=\(reason.rawValue) from=\(previous ? 1 : 0) to=\(next ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) offset=\(metrics?.normalizedOffset ?? -1) contentHeight=\(metrics?.contentHeight ?? -1) containerHeight=\(metrics?.containerHeight ?? -1) messageCount=\(conversation.items.count)")
         #endif
     }
 
@@ -900,7 +971,7 @@ struct CompanionConversationView: View {
         let prior = readingViewport.previousMetrics
         let native = readingViewport.nativeMetrics
         NSLog("%@", "CHAT_NATIVE_VIEWPORT container=\(native?.containerHeight ?? -1) topInset=\(native?.topInset ?? -1) bottomInset=\(native?.bottomInset ?? -1)")
-        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) priorContainer=\(prior?.containerHeight ?? -1) priorTopInset=\(prior?.topInset ?? -1) priorBottomInset=\(prior?.bottomInset ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) historyReady=\(canRecordReadingPosition ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
+        NSLog("%@", "CHAT_UP oldOffset=\(old.normalizedOffset) newOffset=\(new.normalizedOffset) oldContent=\(old.contentHeight) newContent=\(new.contentHeight) oldContainer=\(old.containerHeight) newContainer=\(new.containerHeight) oldTopInset=\(old.topInset) newTopInset=\(new.topInset) oldBottomInset=\(old.bottomInset) newBottomInset=\(new.bottomInset) priorOffset=\(prior?.normalizedOffset ?? -1) priorContent=\(prior?.contentHeight ?? -1) priorContainer=\(prior?.containerHeight ?? -1) priorTopInset=\(prior?.topInset ?? -1) priorBottomInset=\(prior?.bottomInset ?? -1) recognized=\(recognized ? 1 : 0) following=\(followLatest ? 1 : 0) interacting=\(readingViewport.isInteracting ? 1 : 0) initialized=\(readingViewport.hasInitialized ? 1 : 0) historyReady=\(canRecordReadingPosition ? 1 : 0) restoring=\(readingViewport.isRestoring ? 1 : 0) messageCount=\(conversation.items.count)")
         #endif
     }
 
@@ -917,7 +988,7 @@ struct CompanionConversationView: View {
         case .animating: value = 4
         @unknown default: value = 5
         }
-        NSLog("%@", "CHAT_PHASE phase=\(value) following=\(followLatest ? 1 : 0) userPositioned=\(readingScrollPosition.isPositionedByUser ? 1 : 0) offset=\(metrics.normalizedOffset)")
+        NSLog("%@", "CHAT_PHASE phase=\(value) following=\(followLatest ? 1 : 0) offset=\(metrics.normalizedOffset)")
         #endif
     }
 
@@ -1074,6 +1145,20 @@ private struct CompanionOfferedWidth: ViewModifier {
             subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
         }
     }
+}
+
+private struct CompanionInitialReadingScrollPosition<Content: View>: View {
+    @State private var position: ScrollPosition
+    @State private var initialBottom: Bool
+    let content: (Binding<ScrollPosition>, Binding<Bool>) -> Content
+
+    init(saved: CompanionReadingPosition?, @ViewBuilder content: @escaping (Binding<ScrollPosition>, Binding<Bool>) -> Content) {
+        _position = State(initialValue: saved.map { ScrollPosition(y: $0.offset) } ?? ScrollPosition(edge: .bottom))
+        _initialBottom = State(initialValue: saved == nil)
+        self.content = content
+    }
+
+    var body: some View { content($position, $initialBottom) }
 }
 
 private struct CompanionTranscriptNavigation: View {
