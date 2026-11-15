@@ -174,21 +174,84 @@ struct CompanionAgentTreeQuietFold: View {
     let tree: CompanionAgentTree
     let preferences: CompanionPreferences
     var parentLines: [CompanionTarget: String] = [:]
+    /// Nil preserves the original catalog-only fold; a supplied list is authoritative, including after Dismiss/Clear.
+    var finishedRuns: [CompanionFinishedRun]? = nil
+    var onDismissFinished: ((CompanionFinishedRun) -> Void)? = nil
+    var onClearFinished: (() -> Void)? = nil
+    var canOpenFinished: ((CompanionTarget) -> Bool)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.companionAgentRowContext) private var rowContext
+
+    var retainedRuns: [CompanionFinishedRun] {
+        var seen: Set<CompanionTarget> = []
+        return (finishedRuns ?? []).filter { seen.insert($0.target).inserted }
+    }
+
+    var quietRows: [CompanionAgentTreeRow] {
+        let retained = Set(retainedRuns.map(\.target))
+        return tree.sleeping + tree.finishedQuick.filter {
+            !retained.contains($0.id) && (finishedRuns == nil || !CompanionFinishedRuns.hasFinished($0.agent))
+        }
+    }
+
+    var finishedCount: Int { quietRows.count - tree.sleeping.count + retainedRuns.count }
 
     var text: String {
         var parts: [String] = []
         if !tree.sleeping.isEmpty { parts.append("\(tree.sleeping.count) sleeping") }
-        if !tree.finishedQuick.isEmpty {
-            parts.append("\(tree.finishedQuick.count) finished quick agent\(tree.finishedQuick.count == 1 ? "" : "s")")
+        if finishedCount > 0 {
+            parts.append("\(finishedCount) finished quick agent\(finishedCount == 1 ? "" : "s")")
         }
         return parts.joined(separator: " · ")
     }
 
     var body: some View {
+        let key = "quiet:\(projectID)"
+        let isOpen = preferences.expandedFolds.contains(key)
+        let catalog = Set(tree.all.map(\.id))
         if !text.isEmpty {
-            CompanionAgentTreeFold(kind: "quiet", projectID: projectID, text: text,
-                                   tree: tree, rows: tree.sleeping + tree.finishedQuick,
-                                   preferences: preferences, parentLines: parentLines)
+            Button {
+                withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
+            } label: { CompanionFoldLabel(text: text, isOpen: isOpen) }
+            .accessibilityIdentifier("fold-quiet-\(projectID)")
+            .listRowBackground(CompanionCardBackground())
+            if isOpen {
+                CompanionAgentTreeRows(tree: tree, rows: quietRows, preferences: preferences, parentLines: parentLines)
+                ForEach(retainedRuns) { run in
+                    finishedRow(run, canOpen: canOpenFinished?(run.target) ?? catalog.contains(run.target))
+                }
+                if !retainedRuns.isEmpty, let onClearFinished {
+                    Button("Clear finished runs", action: onClearFinished)
+                        .accessibilityIdentifier("finished-clear-all")
+                        .listRowBackground(CompanionCardBackground())
+                }
+            }
         }
+    }
+
+    @ViewBuilder private func finishedRow(_ run: CompanionFinishedRun, canOpen: Bool) -> some View {
+        let row = finishedNavigationRow(run, canOpen: canOpen)
+            .accessibilityIdentifier("finished-\(run.target.hostID)-\(run.target.projectID)-\(run.target.agentID)")
+            .listRowBackground(CompanionCardBackground())
+        if let onDismissFinished {
+            row
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { onDismissFinished(run) }
+                }
+                .contextMenu { Button("Dismiss", systemImage: "xmark") { onDismissFinished(run) } }
+                .accessibilityAction(named: "Dismiss") { onDismissFinished(run) }
+        } else { row }
+    }
+
+    @ViewBuilder private func finishedNavigationRow(_ run: CompanionFinishedRun, canOpen: Bool) -> some View {
+        let label = TimelineView(.periodic(from: .now, by: 60)) { context in
+            VStack(alignment: .leading, spacing: 4) {
+                if let host = rowContext.hostTag(for: run.target) { CompanionHostTag(name: host) }
+                CompanionFinishedRow(run: run, now: context.date)
+            }
+            .accessibilityElement(children: .combine)
+        }
+        if canOpen { NavigationLink(value: run.target) { label } }
+        else { label }
     }
 }

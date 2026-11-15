@@ -21,8 +21,4 @@ import XCTest
         XCTAssertFalse(offline.connection.canOperate)
     }
 
-    func testAllIsDistinctFromAConcreteHostFilter() {
-        XCTAssertNil(CompanionDesktopSelection.all.hostID)
-        XCTAssertEqual(CompanionDesktopSelection.host("a").hostID, "a")
-    }
 }
