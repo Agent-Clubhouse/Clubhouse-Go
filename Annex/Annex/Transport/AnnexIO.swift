@@ -100,6 +100,16 @@ nonisolated final class AnnexPinnedSessionDelegate: NSObject, URLSessionTaskDele
     /// Even same-host redirects can transform a POST into a GET. All redirect
     /// responses are surfaced to the caller; credentials never follow redirects.
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest) async -> URLRequest? { nil }
+    #if DEBUG
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        guard let socket = task as? URLSessionWebSocketTask else { return }
+        let trace = telemetry.begin(.websocket, parent: diagnostic)
+        trace.event(.socketTaskCompleted)
+        trace.number(.webSocketCloseCode, Double(socket.closeCode.rawValue))
+        if let error { trace.fail(error) }
+        trace.end()
+    }
+    #endif
 }
 
 nonisolated public final class PinnedAnnexIO: AnnexIO, Sendable {

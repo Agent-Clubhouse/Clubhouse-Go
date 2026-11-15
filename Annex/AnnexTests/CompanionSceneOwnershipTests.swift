@@ -117,6 +117,30 @@ import Darwin
         await trace.stop()
     }
 
+    func testNativeSocketCompletionTraceIncludesOnlyItsCloseCode() async throws {
+        let source = AnnexTelemetry()
+        source.setEnabled(true)
+        let span = source.begin(.websocket)
+        span.event(.socketTaskCompleted)
+        span.number(.webSocketCloseCode, 1001)
+        span.number(.responseBytes, 900)
+        span.identifier(.peerInstanceID, UUID())
+        span.end()
+        let record = try XCTUnwrap(source.snapshot().records.last)
+        let file = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let trace = CompanionDiagnosticTrace(openOutput: {
+            Darwin.open(file.path, O_WRONLY | O_CREAT | O_TRUNC | O_NONBLOCK | O_CLOEXEC, 0o600)
+        })
+        addTeardownBlock { await trace.stop(); try FileManager.default.removeItem(at: file) }
+        trace.append(record)
+        await trace.drain()
+        let line = try XCTUnwrap(try String(contentsOf: file, encoding: .utf8).split(separator: "\n").first)
+        let fields = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(line.dropFirst("[live-connect] ".count).utf8)) as? [String: Any])
+        XCTAssertEqual(Set(fields.keys), ["at", "operation", "durationMs", "failure", "events", "webSocketCloseCode"])
+        XCTAssertEqual(fields["webSocketCloseCode"] as? Int, 1001)
+        XCTAssertEqual(fields["events"] as? [String], ["socketTaskCompleted"])
+    }
+
     func testBlockedStdoutNeverDelaysTraceProducers() async throws {
         let source = AnnexTelemetry()
         source.setEnabled(true)
