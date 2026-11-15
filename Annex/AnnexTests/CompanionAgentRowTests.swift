@@ -174,9 +174,9 @@ import SwiftUI
             add(attachment)
         }
         let standard = UIHostingController(rootView: CompanionAgentListRow(agent: unknown).dynamicTypeSize(.large))
-            .sizeThatFits(in: CGSize(width: 320, height: .greatestFiniteMagnitude))
+            .sizeThatFits(in: CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude))
         let accessible = UIHostingController(rootView: CompanionAgentListRow(agent: unknown).dynamicTypeSize(.accessibility3))
-            .sizeThatFits(in: CGSize(width: 320, height: .greatestFiniteMagnitude))
+            .sizeThatFits(in: CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude))
         XCTAssertLessThanOrEqual(accessible.width, 320)
         XCTAssertGreaterThan(accessible.height, standard.height, "Accessibility type expands vertically, not into metadata")
     }
