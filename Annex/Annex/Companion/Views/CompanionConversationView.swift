@@ -52,6 +52,49 @@ struct CompanionConversationView: View {
     @Environment(\.companionAgentSettings) private var agentSettings
     @Environment(\.companionSendFeedback) private var sendFeedback
 
+    init(store: CompanionStore, agent: CompanionAgent, showsActions: Bool = true,
+         isVisible: Bool? = nil, reviewPosition: String? = nil) {
+        self.store = store
+        self.agent = agent
+        self.showsActions = showsActions
+        self.isVisible = isVisible
+        self.reviewPosition = reviewPosition
+        if let saved = Self.initialReadingPosition(store: store, target: agent.id) {
+            _followLatest = State(initialValue: false)
+            _readingScrollPosition = State(initialValue: ScrollPosition(y: saved.offset))
+            _shownEntries = State(initialValue: max(Self.initialEntryLimit, saved.shownEntries))
+        }
+    }
+
+    #if DEBUG
+    init(store: CompanionStore, agent: CompanionAgent, showsActions: Bool = true,
+         isVisible: Bool? = nil, reviewPosition: String? = nil, initiallyShowsRecoveryDetails: Bool) {
+        self.init(store: store, agent: agent, showsActions: showsActions, isVisible: isVisible, reviewPosition: reviewPosition)
+        self.initiallyShowsRecoveryDetails = initiallyShowsRecoveryDetails
+    }
+    #endif
+
+    private static func initialReadingPosition(store: CompanionStore, target: CompanionTarget) -> CompanionReadingPosition? {
+        #if DEBUG
+        guard CompanionReadingRestoreProbe.allowsInitialPosition else { return nil }
+        #endif
+        let bookmark = store.readingBookmark(for: target)
+        let saved = bookmark.position
+        guard store.conversation(for: target).isLoaded, !saved.followsLatest, let entryID = saved.entryID else { return nil }
+        guard let row = store.timelineRows(for: target).last(where: { $0.contains(entryID: entryID) }) else { return nil }
+        // The timeline retains this entry's whole row; validate its slice without preparing the rest of the window.
+        return CompanionTimelineEntry.entries(for: [row]).contains { $0.id == entryID } ? saved : nil
+    }
+
+    private func prepareReadingScrollPosition() {
+        if let saved = Self.initialReadingPosition(store: store, target: target) {
+            followLatest = false
+            shownEntries = max(shownEntries, saved.shownEntries)
+            readingScrollPosition = ScrollPosition(y: saved.offset)
+        } else {
+            readingScrollPosition = ScrollPosition(edge: .bottom)
+        }
+    }
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
     private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
@@ -77,8 +120,12 @@ struct CompanionConversationView: View {
         }
         .onChange(of: isVisible) { _, visible in
             if visible == false {
+                prepareReadingScrollPosition()
                 readingViewport.clearGeometry()
             }
+        }
+        .onChange(of: conversation.isLoaded ? conversation.historyRevision : nil) { _, _ in
+            if isVisible == false { prepareReadingScrollPosition() }
         }
     }
 
@@ -1073,5 +1120,7 @@ private struct CompanionReadingFrames: PreferenceKey {
 @MainActor enum CompanionReadingRestoreProbe {
     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
     static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
+    /// Fault scenarios must bypass successful initial placement to exercise the retry path.
+    static var allowsInitialPosition = true
 }
 #endif

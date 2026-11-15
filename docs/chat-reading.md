@@ -35,6 +35,102 @@ If the requested top has made no upward progress after two display intervals, or
 
 The #252 deterministic hosted control fails on unchanged main because following is still enabled immediately after that native request. The unchanged named UI test passed 10/10 on each fresh iPhone 17 and iPad Pro 11-inch (M4), iOS 26.0, but later stress reproduced animation cancellation even after the synchronous handoff. The underlying animation mechanism remains unproven; the bounded repair does not claim to identify it. #252 remains open for device confirmation.
 
+## Returning to a saved reader (#287)
+
+**Cached returns are fixed; cold-history restoration remains open.** On unchanged
+`617e8ba1`, a real-window hosted fixture and independent simulator compositor
+recording both show the newest markers before the saved reader returns. This is
+not just a pre-layout geometry sample: the recording visibly shows markers
+11/12 or 99/100, then 2/3. No physical-device observation is claimed.
+
+The bound `ScrollPosition` originally retained its bottom request across a managed
+tab's content unmount, and a newly mounted conversation view also initialized at bottom.
+The history-revision task applied the saved following/window choice, yielded for
+layout, then delivered the entry-relative restoration. The initial bound position
+therefore won before that later delivery.
+
+A loaded transcript now seeds its initial position, following choice and shown
+window from the bookmark only if the saved entry actually exists. A timeline
+window retains that entry's whole row; slice identity is checked before seeding.
+Managed tabs prepare this state while unmounted, including a history revision
+that changes while hidden. New/following chats still initialize at bottom.
+No transcript is hidden, no product delay is added, and all history-revision
+gates and the bounded restoration/retry path remain authoritative.
+
+`CompanionReturnFrameTests` uses the real production view in a screen-sized
+`UIWindow` and `TabView`, short (12-message) and long (100-message) transcripts,
+and a new-view remount. A `CADisplayLink` samples the native scroll layer's
+presentation bounds and each ancestor's presentation opacity. Unmounted,
+non-presented and empty-layout samples are excluded. Every presented cached
+sample must already be within two points of the saved 600-point offset, not
+merely arrive there eventually. The final regression fails both tests with the
+product diff reversed and passes with it applied.
+
+The existing lost-command, touch-during-retry and exhaustion controls explicitly
+disable only initial seeding through the DEBUG restore probe. Otherwise a
+successful initial placement legitimately issues no retry command, so their
+delivery-loss hook would never run. Their original retry, cancellation,
+bookmark-preservation and final-offset assertions are unchanged.
+
+An independent `simctl recordVideo` capture includes a rendered case/tick label.
+`scripts/verify-reading-return-video.swift` decodes every compositor frame and
+recognizes the case and numbered paragraphs. It rejects bottom markers in cached
+returns, and requires readable short and long cases so an empty recording cannot
+pass. The unchanged-product recording fails this pixel check; the fixed recording
+passes. Display-link times include Debug rendering and observation overhead and
+are not phone latency measurements.
+
+| iPhone 17 / iOS 26.0, final controlled run | First presented offset / time | First saved-position sample |
+| --- | --- | --- |
+| Reverted, cached short | 4,388.3 / 251.6 ms | 600 / 400.6 ms |
+| Fixed, cached short | 600 / 247.4 ms | First presented sample |
+| Reverted, cached long | 39,999 / 342.6 ms | 600 / 634.8 ms |
+| Fixed, cached long | 600 / 355.8 ms | First presented sample |
+| Reverted, new-view cached remount | 4,388.3 / 276.6 ms | 600 / 436.4 ms |
+| Fixed, new-view cached remount | 600 / 272.3 ms | First presented sample |
+| Fixed, unavailable short history | 4,388.3 / 505.0 ms | 600 / 658.1 ms |
+| Fixed, unavailable long history | 39,999 / 585.5 ms | 600 / 735.8 ms |
+
+| iPad Pro 11-inch (M4) / iOS 26.0, fixed | First presented offset / time | First saved-position sample |
+| --- | --- | --- |
+| Cached short | 600 / 412.1 ms | First presented sample |
+| Cached long | 600 / 487.9 ms | First presented sample |
+| New-view cached remount | 600 / 422.9 ms | First presented sample |
+| Unavailable short history | 1,905.5 / 635.7 ms | 600 / 934.4 ms |
+| Unavailable long history | 22,057.5 / 727.2 ms | 600 / 1,024.6 ms |
+
+The fixed iPhone video has 764 decoded frames, including 140 readable short and
+87 readable long cached frames; the iPad has 898, including 130 short and 55 long.
+Neither contains a recognized cached bottom marker. This pixel check complements
+the presentation-layer assertions, rather than treating an offscreen layout
+sample as proof of a visible jump.
+
+For unavailable history, the fixture transfers a bookmark captured from real
+laid-out entries to a fresh store, holds its history response for 300 ms, then
+delivers the same transcript. This deliberately distinguishes the missing-entry
+path from a refresh that still has cached content. Empty/offscreen samples before
+delivery are not counted as presented transcript frames. Once content arrives,
+the original bottom-then-restore behavior remains measurable. No initial position
+is invented for content that is not available, and this work does not close #287:
+the cold-history path and physical-device confirmation remain outstanding.
+
+Selected committed [iPhone frames](evidence/287-iphone-frames.jpg),
+[iPad frames](evidence/287-ipad-frames.jpg) and the
+[raw display-link samples](evidence/287-frame-samples.json) retain the
+before/after/revert provenance. The frame file records video timestamps and
+SHA-256 identifiers; the screenshots are comparison sheets derived from those
+recordings, not fresh model-tree snapshots.
+
+Final-source qualification passed 1,547 package tests, 159 hosted tests
+(three skips), all 22 selected reading/restore/keyboard/long-reply UI tests
+(one skip), and the two iPad matrix tests. All final result bundles passed
+`verify-xcresult.py --no-retries-in`. The deinit policy's 20 tests and binary gate
+also passed, retaining 32 ARC-only, one deferred-main-actor and 19 reviewed
+isolated paths. An earlier fixed-build UI batch timed out querying the exact
+long Dispatcher draft after returning from Home. Its unchanged-functional-code
+single-test control and the final full fixed-source batch passed; the earlier
+failure's cause is unclassified and is not claimed fixed by this change.
+
 ## Test plan
 
 - Domain: mixed runs/order/keys; all tool kinds; running status; failure/permission split and rejoin; tool image boundary; short/long routed rows; helper questions/notices; pending queues and failed/uncertain delivery; attachment counts; no Markdown slices or links for collapsed traffic; expansion persistence; structured terminal exit codes; assistant/question navigation boundaries; bookmark prepend/resize; Latest drag/keyboard/bounce geometry.
