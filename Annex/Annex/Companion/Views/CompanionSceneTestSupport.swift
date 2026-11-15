@@ -6,13 +6,19 @@ import os
 import Darwin
 
 /// Producers only touch the bounded ring. Encoding and nonblocking IO belong exclusively to the writer queue.
-nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
-    private struct Record: Encodable, Sendable {
+typealias CompanionLiveConnectionTrace = CompanionDiagnosticTrace
+
+nonisolated final class CompanionDiagnosticTrace: @unchecked Sendable {
+    private struct ConnectionRecord: Encodable, Sendable {
         let at: TimeInterval
         let operation: AnnexDiagnosticOperation
         let durationMs: Double
         let failure: AnnexDiagnosticFailure
         let events: [AnnexDiagnosticEvent]
+    }
+    private enum Record: Sendable {
+        case connection(ConnectionRecord)
+        case wake(CompanionWakeFocusRecord)
     }
     private enum Entry: Sendable {
         case record(Record)
@@ -48,21 +54,33 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
     }
     private let buffer = OSAllocatedUnfairLock(initialState: Buffer())
     private let output = OSAllocatedUnfairLock(initialState: Output())
-    private let queue = DispatchQueue(label: "com.Agent-Clubhouse.Go.live-trace", qos: .utility)
-    private let timer: any DispatchSourceTimer
+    private let queue = DispatchQueue(label: "com.Agent-Clubhouse.Go.diagnostic-trace", qos: .utility)
+    private let writer = OSAllocatedUnfairLock(initialState: (timer: (any DispatchSourceTimer)?.none, stopped: false))
     private let openOutput: @Sendable () -> Int32
+    private let wake: Bool
 
-    init(openOutput: @escaping @Sendable () -> Int32 = CompanionLiveConnectionTrace.openStandardOutput) {
+    init(wake: Bool = false, automaticallyStart: Bool = true,
+         openOutput: @escaping @Sendable () -> Int32 = CompanionDiagnosticTrace.openStandardOutput) {
         self.openOutput = openOutput
-        let timer = DispatchSource.makeTimerSource(queue: queue)
-        self.timer = timer
-        let buffer = buffer, output = output
-        timer.setEventHandler { Self.drain(buffer: buffer, output: output, openOutput: openOutput) }
-        timer.setCancelHandler { Self.close(output) }
-        timer.schedule(deadline: .now(), repeating: .milliseconds(20))
-        timer.resume()
+        self.wake = wake
+        if automaticallyStart { startWriter() }
     }
-    nonisolated deinit { timer.cancel() }
+    nonisolated deinit { writer.withLock { $0.timer?.cancel() } }
+
+    @concurrent func start() async { startWriter() }
+
+    private func startWriter() {
+        writer.withLock { value in
+            guard !value.stopped, value.timer == nil else { return }
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            let buffer = buffer, output = output, openOutput = openOutput, wake = wake
+            timer.setEventHandler { Self.drain(buffer: buffer, output: output, openOutput: openOutput, wake: wake) }
+            timer.setCancelHandler { Self.close(output) }
+            timer.schedule(deadline: .now(), repeating: .milliseconds(20))
+            value.timer = timer
+            timer.resume()
+        }
+    }
 
     func append(_ record: AnnexDiagnosticRecord) {
         let lifecycle = [.foreground, .background, .disconnect].contains(record.operation)
@@ -70,7 +88,7 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
             || record.events.contains(AnnexDiagnosticEvent.socketCancelCompleted.rawValue)
         guard lifecycle || [.pairing, .connection, .reconnect, .backoff, .identity, .capabilities,
                             .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
-        let value = Record(at: record.startedAt.timeIntervalSince1970, operation: record.operation,
+        let value = ConnectionRecord(at: record.startedAt.timeIntervalSince1970, operation: record.operation,
                            durationMs: record.durationMs, failure: record.failure,
                            events: record.events.prefix(32).compactMap(AnnexDiagnosticEvent.init(rawValue:)))
         buffer.withLock { buffer in
@@ -81,9 +99,17 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
                 if lifecycle { buffer.lifecycleLimit = true } else { buffer.connectionLimit = true }
             } else if buffer.count == buffer.records.count { buffer.drop() }
             else {
-                buffer.records[(buffer.head + buffer.count) % buffer.records.count] = value
+                buffer.records[(buffer.head + buffer.count) % buffer.records.count] = .connection(value)
                 buffer.count += 1
             }
+        }
+    }
+
+    func append(_ record: CompanionWakeFocusRecord) {
+        buffer.withLock { value in
+            guard value.count < value.records.count else { value.drop(); return }
+            value.records[(value.head + value.count) % value.records.count] = .wake(record)
+            value.count += 1
         }
     }
 
@@ -96,14 +122,14 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
     /// A synthetic test can wait for one writer turn without waiting for a reader or a successful write.
     func drain() async {
         await withCheckedContinuation { continuation in
-            queue.async { [buffer, output, openOutput] in
-                Self.drain(buffer: buffer, output: output, openOutput: openOutput)
+            queue.async { [buffer, output, openOutput, wake] in
+                Self.drain(buffer: buffer, output: output, openOutput: openOutput, wake: wake)
                 continuation.resume()
             }
         }
     }
     func stop() async {
-        timer.cancel()
+        writer.withLock { value in value.stopped = true; value.timer?.cancel() }
         await withCheckedContinuation { continuation in
             queue.async { [output] in Self.close(output); continuation.resume() }
         }
@@ -122,7 +148,7 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
         }
     }
     private static func drain(buffer: OSAllocatedUnfairLock<Buffer>, output: OSAllocatedUnfairLock<Output>,
-                              openOutput: @Sendable () -> Int32) {
+                              openOutput: @Sendable () -> Int32, wake: Bool) {
         let descriptor = output.withLock { value -> Int32 in
             guard !value.stopped else { return -1 }
             if !value.opened {
@@ -151,8 +177,14 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
             switch entry {
             case .record(let record):
                 do {
-                    let data = try JSONEncoder().encode(record)
-                    line = "\n[live-connect] \(String(decoding: data, as: UTF8.self))"
+                    switch record {
+                    case .connection(let value):
+                        let data = try JSONEncoder().encode(value)
+                        line = "\n[live-connect] \(String(decoding: data, as: UTF8.self))"
+                    case .wake(let value):
+                        let data = try JSONEncoder().encode(value)
+                        line = "\nWAKE_FOCUS \(String(decoding: data, as: UTF8.self))"
+                    }
                 } catch {
                     buffer.withLock { $0.drop() }
                     continue
@@ -175,7 +207,7 @@ nonisolated final class CompanionLiveConnectionTrace: @unchecked Sendable {
         }
         let drops = buffer.withLock { ($0.pendingDrops, $0.dropped) }
         // Coalesce a blocked/full writer into one pending numeric marker, not a message per lost record.
-        if drops.0 > 0, write("\n[live-connect] dropped-count=\(drops.0) total=\(drops.1)") {
+        if drops.0 > 0, write("\n\(wake ? "WAKE_FOCUS" : "[live-connect]") dropped-count=\(drops.0) total=\(drops.1)") {
             buffer.withLock { $0.pendingDrops -= drops.0 }
         }
     }

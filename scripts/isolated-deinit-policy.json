@@ -727,6 +727,22 @@
       "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
       "reason": "UIView superclass owns UIKit state, a gesture recognizer, weak UIControl collection and KVO observations of those controls. Observation callbacks capture the anchor weakly; keep UIKit and observation teardown on MainActor."
     },
+    "CompanionWakeFocusDiagnostics.Observer": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionWakeFocusDiagnostics.swift",
+      "reason": "Preview-only NSObject notification target owns Int counters, a ContinuousClock.Instant and the nonisolated Sendable CompanionDiagnosticTrace. That shared writer owns only locked typed Sendable records/output state, a thread-safe Dispatch timer/queue and a Sendable descriptor-opener closure; its deinit only cancels the timer. No UIKit fields, main-actor callbacks or deinit cleanup. MainActor begin/end explicitly register/remove selector observers; the transient transition completion captures only this UI-free observer. Empty nonisolated teardown can release these owners and NSObject base on any thread.",
+      "surface": {
+        "bases": ["NSObject"],
+        "nestedValueProperties": {},
+        "properties": {
+          "presentation": "Int",
+          "samples": "Int",
+          "started": "ContinuousClock . Instant",
+          "trace": "CompanionDiagnosticTrace"
+        },
+        "storageMacros": []
+      }
+    },
     "CompanionChatPerformance.DisplayTarget": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionChatPerformance.swift",

@@ -322,8 +322,20 @@ struct CompanionWakeSheet: View {
             .interactiveDismissDisabled(!message.isEmpty)
             .onAppear {
                 if selection == nil { selection = sleeping.first?.id }
+                #if DEBUG
+                CompanionWakeFocusDiagnostics.begin()
+                #endif
                 focused = true
+                #if DEBUG
+                CompanionWakeFocusDiagnostics.snapshot(.focusRequested(focused))
+                #endif
             }
+            #if DEBUG
+            .onChange(of: focused) { _, value in
+                CompanionWakeFocusDiagnostics.snapshot(.focusChanged(value))
+            }
+            .onDisappear { CompanionWakeFocusDiagnostics.end() }
+            #endif
         }
         .presentationDetents([.medium, .large])
     }
