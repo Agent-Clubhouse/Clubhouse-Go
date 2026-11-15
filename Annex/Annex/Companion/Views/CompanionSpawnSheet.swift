@@ -149,21 +149,19 @@ struct CompanionSpawnSheet: View {
 
     private var chips: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                projectPicker(compact: true)
-                Button { showOptions.toggle() } label: {
-                    chip(systemImage: "slider.horizontal.3", text: optionsLabel)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Runs on and model, \(optionsLabel)")
+            projectMenu
+                .padding(14)
+                .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            Button { showOptions.toggle() } label: {
+                chip(systemImage: "slider.horizontal.3", text: optionsLabel)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Runs on and model, \(optionsLabel)")
             if selectedEntry?.isLinked == true { machinePicker }
         }
     }
 
-    private var projectMenu: some View { projectPicker() }
-
-    private func projectPicker(compact: Bool = false) -> some View {
+    private var projectMenu: some View {
             Menu {
                 Picker("Project", selection: Binding(get: { selectedEntry?.id }, set: { if let id = $0 { selectEntry(id) } })) {
                     ForEach(store.projectEntries) { entry in
@@ -171,10 +169,9 @@ struct CompanionSpawnSheet: View {
                     }
                 }
             } label: {
-                if compact { chip(systemImage: "folder", text: selectedProjectName) }
-                else { pickerRow("Project", value: selectedProjectName) }
+                pickerRow("Project", value: selectedProjectName)
             }
-            .accessibilityLabel(compact ? "Run on \(selectedProjectName)" : "Project, \(selectedProjectName)")
+            .accessibilityLabel("Project, \(selectedProjectName)")
             .accessibilityIdentifier("spawn-project-picker")
     }
 

@@ -121,6 +121,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         kind.buttons["Quick"].tap()
         XCTAssertTrue(app.textFields["Agent task"].waitForExistence(timeout: 5) || app.textViews["Agent task"].waitForExistence(timeout: 1))
         XCTAssertTrue(app.staticTexts["Runs one mission, reports back, and finishes."].exists)
+        screenshot(app, "Quick agent shared row style")
     }
 
     func testWorkspaceAndToolsPreservesChangesWhenReturningToTheForm() {
