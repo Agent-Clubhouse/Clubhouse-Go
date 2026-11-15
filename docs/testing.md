@@ -324,6 +324,13 @@ What the script does:
    and the fixture log record accepted TLS upgrades and closes with opaque peer/socket ordinals (no fingerprints or
    certificates), so a duplicate phone socket can be distinguished from a socket that did not close. A backgrounded
    phone still counted as connected after that check is a suspension/close failure, not a reason to loosen replay.
+   The composer shell is not chat readiness: wait within the existing budget for an enabled Wake or live control,
+   then require the typed draft to commit and Send to enable within one shared Send budget. Readiness failures attach
+   bounded UI state plus `phone-history.json`: passive chat-snapshot/history request timings, HTTP status, byte count,
+   header/finish/close timings and opaque agent/peer/request ordinals, never paths, sessions or response contents.
+   Null response timings identify unfinished desktop responses; a missing request distinguishes a phone-side read
+   that never reached the desktop. A completed server response with a still-loading phone needs consumption/transport
+   diagnosis, not a retry, refresh or longer timeout.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):

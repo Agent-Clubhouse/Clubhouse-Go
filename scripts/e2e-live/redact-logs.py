@@ -14,7 +14,7 @@ for file in [fixture / 'invitation.json', *fixture.glob('invitation-*.json'), *f
     for key in ('pin', 'CLUBHOUSE_HOOK_NONCE'):
         if value := data.get(key):
             secrets.add(str(value))
-sources = [*output.glob('*.log'), *(fixture / name for name in ('desktop-stdout.log', 'desktop-stderr.log', 'dispatcher-wire.json', 'desktop-annex.json', 'phone-disconnect.json', 'icon-wire.json'))]
+sources = [*output.glob('*.log'), *(fixture / name for name in ('desktop-stdout.log', 'desktop-stderr.log', 'dispatcher-wire.json', 'desktop-annex.json', 'phone-disconnect.json', 'phone-history.json', 'icon-wire.json'))]
 for file in sources:
     if not file.is_file():
         continue

@@ -157,8 +157,20 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let composer = composer(app)
         waitAndTap(row, until: composer, timeout: 15, "Selecting the agent must open its chat", file: file, line: line)
         let fresh = app.buttons["companion-wake-newSession"], wake = app.buttons["companion-wake"]
-        if fresh.waitForExistence(timeout: 5) { fresh.tap() } else if wake.exists { wake.tap() }
-        XCTAssertTrue(fresh.waitForNonExistence(timeout: 30) && wake.waitForNonExistence(timeout: 30),
+        let controls = app.buttons["companion-level-menu"], recovery = app.buttons["companion-recovery-details"]
+        // The composer shell appears before history gives a sleeping agent its Wake capability.
+        let ready = waitFor(app, NSPredicate { _, _ in
+            !recovery.exists && ((fresh.exists && fresh.isEnabled) || (wake.exists && wake.isEnabled)
+                                || (controls.exists && controls.isEnabled))
+        }, timeout: 30)
+        if !ready { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertTrue(ready, "Initial history must settle into an enabled Wake or live chat control", file: file, line: line)
+        if fresh.exists { fresh.tap() } else if wake.exists { wake.tap() }
+        let awake = waitFor(app, NSPredicate { _, _ in
+            !fresh.exists && !wake.exists && !recovery.exists && controls.exists && controls.isEnabled
+        }, timeout: 30)
+        if !awake { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertTrue(awake,
                       "The desktop must wake the agent", file: file, line: line)
         // A request an earlier, failed attempt left waiting would hold the next turn.
         let leftover = app.buttons["Deny"]
@@ -170,10 +182,49 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let composer = composer(app)
         XCTAssertTrue(composer.waitForExistence(timeout: 15), file: file, line: line)
         composer.tap()
+        let before = composer.value as? String ?? ""
+        let expected = before == composer.placeholderValue ? message : before + message
         composer.typeText(message)
         let send = app.buttons["companion-send"]
-        XCTAssertTrue(send.wait(for: \.isEnabled, toEqual: true, timeout: 30), "Send must enable for a live agent", file: file, line: line)
+        // Draft commitment and command readiness share the existing Send budget; neither retries the input.
+        let enabled = waitFor(app, NSPredicate { _, _ in
+            composer.value as? String == expected && send.isEnabled
+        }, timeout: 30)
+        if !enabled { captureChatReadiness(app, file: file, line: line) }
+        XCTAssertEqual(composer.value as? String, expected, "The typed draft must be committed before Send", file: file, line: line)
+        XCTAssertTrue(enabled, "Send must enable for a live agent", file: file, line: line)
         send.tap()
+    }
+
+    private func captureChatReadiness(_ app: XCUIApplication, file: StaticString, line: UInt) {
+        func state(_ identifier: String) -> String {
+            let control = element(app, identifier)
+            return "exists=\(control.exists), enabled=\(control.exists && control.isEnabled)"
+        }
+        let attachment = XCTAttachment(string: """
+            capturedAt=\(Date().timeIntervalSince1970)
+            app.state=\(String(describing: app.state))
+            draftLength=\((composer(app).value as? String)?.utf16.count ?? 0)
+            Send: \(state("companion-send"))
+            Wake: \(state("companion-wake"))
+            NewSession: \(state("companion-wake-newSession"))
+            LiveControls: \(state("companion-level-menu"))
+            Recovery: \(state("companion-recovery-details"))
+            PendingDecision: \(state("companion-pinned-decision"))
+            """)
+        attachment.name = "Chat readiness evidence"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        do {
+            let evidence = try dispatcherFixture("historyEvidence", file: file, line: line)
+            let data = try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys])
+            let fixture = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            fixture.name = "Fixture chat-history requests and responses (opaque IDs)"
+            fixture.lifetime = .keepAlways
+            add(fixture)
+        } catch {
+            XCTFail("Could not capture fixture history evidence: \(error)", file: file, line: line)
+        }
     }
 
     /// Selects a text field's contents and types over them.

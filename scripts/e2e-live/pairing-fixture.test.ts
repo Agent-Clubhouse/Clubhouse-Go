@@ -76,7 +76,7 @@ test('observer, every phone, retry and relaunch read the current one-use PIN', a
   }).sort(), issued.sort());
 });
 
-test('passive socket audit distinguishes duplicate phones and preserves every write without exposing identities', () => {
+test('passive socket and history audits preserve bytes and distinguish unfinished responses without exposing identities', () => {
   const source = fs.readFileSync(path.join(root, 'scripts/e2e-live/desktop-fixture.spec.ts'), 'utf8');
   const audit = source.slice(source.indexOf('    await electronApp.evaluate(() => {'),
     source.indexOf('    const agents = await window.evaluate'));
@@ -120,6 +120,47 @@ test('passive socket audit distinguishes duplicate phones and preserves every wr
   assert.deepEqual(duplicate.writes, [accepted, frame]);
   assert.deepEqual(unknown.writes, [refused]);
   assert.equal(JSON.stringify(closed).includes('IDENTITY-SENTINEL'), false);
+
+  class Response extends EventEmitter {
+    statusCode = 200;
+    chunks: Buffer[] = [];
+    writeHead(status: number) { this.statusCode = status; return this; }
+    write(bytes: Buffer) { this.chunks.push(bytes); return false; }
+    end(bytes: Buffer) { this.chunks.push(bytes); this.emit('finish'); this.emit('close'); return this; }
+  }
+  const answered = new Response(), neverAnswered = new Response(), declined = new Response();
+  const body = Buffer.from('PRIVATE-TRANSCRIPT-SENTINEL');
+  server.on('request', (_request, response: Response) => {
+    if (response === neverAnswered) return;
+    response.writeHead(response === declined ? 503 : 200);
+    assert.equal(response.write(body.subarray(0, 5)), false);
+    assert.equal(response.end(body.subarray(5)), response);
+  });
+  const agent = '/api/v1/mobile/agents/AGENT-IDENTITY-SENTINEL/chat';
+  server.emit('request', { method: 'GET', url: agent, socket: first }, answered);
+  server.emit('request', { method: 'GET', url: agent + '?sessionId=SESSION-SENTINEL&beforeSeq=9', socket: duplicate }, neverAnswered);
+  server.emit('request', { method: 'GET', url: agent, socket: duplicate }, declined);
+  server.emit('request', { method: 'GET', url: agent.replace('/chat', '/settings'), socket: duplicate }, new Response());
+  const requests = JSON.parse(runInNewContext('JSON.stringify(globalThis.__phoneHistoryAudit)', context));
+  assert.equal(runInNewContext('globalThis.__phoneHistoryAgentOrdinal("AGENT-IDENTITY-SENTINEL")', context), requests[0].agent);
+  assert.equal(runInNewContext('globalThis.__phoneHistoryAgentOrdinal("UNREQUESTED-SENTINEL")', context), null);
+  assert.equal(requests.length, 3, 'Unrelated requests do not enter history evidence');
+  assert.equal(requests[0].agent, requests[1].agent);
+  assert.equal(requests[0].peer, rows[1].peer);
+  assert.equal(requests[0].status, 200);
+  assert.equal(requests[0].bytes, body.length);
+  assert.equal(typeof requests[0].receivedAt, 'number');
+  assert.equal(typeof requests[0].headersAt, 'number');
+  assert.equal(typeof requests[0].finishedAt, 'number');
+  assert.equal(typeof requests[0].closedAt, 'number');
+  assert.equal(requests[1].historyPage, true);
+  for (const field of ['headersAt', 'status', 'finishedAt', 'closedAt']) {
+    assert.equal(requests[1][field], null, 'Never-answered requests remain explicitly unresolved');
+  }
+  assert.equal(requests[2].status, 503, 'Refused responses are evidence, not success');
+  assert.deepEqual(Buffer.concat(answered.chunks), body);
+  assert.deepEqual(Buffer.concat(declined.chunks), body);
+  assert.equal(JSON.stringify(requests).includes('SENTINEL'), false, 'No path, session, certificate identity or transcript leaks');
 });
 
 test('build delays, unused invitations and simulator restarts never freeze an old PIN', async t => {
