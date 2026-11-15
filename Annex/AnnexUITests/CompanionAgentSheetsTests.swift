@@ -41,6 +41,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         name.typeText(" two")
         XCTAssertEqual(name.value as? String, "brave-otter two")
         let problem = element(app, "new-agent-name-error")
+        scrollTo(problem, in: app, maxSwipes: 3)
         XCTAssertTrue(problem.waitForExistence(timeout: 5))
         XCTAssertEqual(problem.label, "Use only letters, digits, - and _ in the agent name.")
         let create = app.buttons["new-agent-create"]
