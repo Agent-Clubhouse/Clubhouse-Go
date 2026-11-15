@@ -122,6 +122,22 @@ and checks native UTF-8, store UTF-8 and actual service-request UTF-8. Its five 
 a flag, a skin-tone sequence and astral CJK. It also checks Unicode typing after send and preservation of a
 user-selected whole grapheme across dismissal/refocus. The test never sets the initial caret.
 
+For restored non-empty selections (#415), the same hosted corpus remounts the composer with a saved
+whole-grapheme bookmark, verifies the new native field's range before and after focus, types once,
+and requires replacement bytes in the native editor, store and sent request. Separate cases check
+that a later user caret survives refocus and that changed draft bytes discard the old bookmark,
+including canonically equivalent strings with different UTF-16 offsets. Invalid offsets within a
+grapheme use the bookmark helper's existing safe end-of-draft fallback.
+
+On the owned iPhone 17/iOS 26.0 runtime above, a bare hosted vertical `TextField` also ignored a
+programmatic non-empty `TextSelection`, even when already focused: `a🙂b` kept native range `{4,0}`
+instead of `{1,2}`. Directly setting that same native field's range selected the emoji and produced
+`aqb` on insertion. Correct offset conversion, reissuing the binding on focus, and deferring its first
+write until focus did not fix the production repro. The existing native composer hook therefore applies
+the restored range once, after finding a field with byte-identical saved text; subsequent layout,
+focus and user caret changes do not reapply it. Nil-selection programmatic focus still uses #414's
+end-of-draft insertion point. This is a local framework-behavior diagnosis, not a claim about other iOS versions.
+
 `CompanionUnicodeFocusUITests` keeps byte-exact coverage of the actual app paths:
 
 | Input/path | Coverage |

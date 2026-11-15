@@ -23,6 +23,7 @@ struct CompanionConversationComposer: View {
     let focusRequests: Int
     @FocusState private var composerFocused: Bool
     @State private var composerSelection: TextSelection?
+    @State private var selectionRestoration: CompanionComposerPasteHook.SelectionRestoration?
     @State private var slashHighlight = 0
     @State private var slashDismissedAt: Int?
     @Binding var confirmCancel: Bool
@@ -191,10 +192,14 @@ struct CompanionConversationComposer: View {
             slashHighlight = memory.slashHighlight
             slashDismissedAt = memory.slashDismissedAt
             // A restore/send/external clear can change text while this subtree is unmounted.
-            // Restore a selection only for the exact saved draft; otherwise let the input choose its caret.
-            if memory.selectionDraft == draft.wrappedValue, let selection = memory.selection {
+            // Drop changed drafts, including canonically equal strings with different UTF-16 offsets.
+            selectionRestoration = nil
+            if memory.selectionDraft?.utf8.elementsEqual(draft.wrappedValue.utf8) == true, let selection = memory.selection {
                 let range = selection.range(in: draft.wrappedValue)
                 composerSelection = range.isEmpty ? TextSelection(insertionPoint: range.lowerBound) : TextSelection(range: range)
+                if !range.isEmpty {
+                    selectionRestoration = .init(draft: draft.wrappedValue, selection: selection)
+                }
             } else { composerSelection = nil }
             memory.selectionDraft = nil
         }
@@ -237,6 +242,7 @@ struct CompanionConversationComposer: View {
         }
         .onChange(of: caretSlashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
         .onChange(of: slashMatches.map(\.name)) { slashHighlight = 0 }
+        .onChange(of: draft.wrappedValue) { selectionRestoration = nil }
         // Quick refreshes finish before the indicator would appear, so they don't flash.
         .task(id: conversation.isLoading) {
             guard conversation.isLoading else { showRefreshing = false; return }
@@ -329,7 +335,10 @@ struct CompanionConversationComposer: View {
         let dismissal: (@MainActor () -> Void)?
         if composerFocused { dismissal = { @MainActor in self.dismissKeyboard() } }
         else { dismissal = nil }
-        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal, returnActions: .init(
+        return CompanionComposerPasteHook(handle: pasteImages, dismissKeyboard: dismissal,
+            selectionRestoration: selectionRestoration.flatMap {
+                $0.draft.utf8.elementsEqual(draft.wrappedValue.utf8) ? $0 : nil
+            }, returnActions: .init(
             canSubmit: { returnSlashCommand != nil || sendEnabled },
             submit: {
                 if !completeReturnSlashCommand() { sendMessage() }

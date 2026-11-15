@@ -10,7 +10,13 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     let handle: @MainActor ([NSItemProvider]) async -> [Bool]
     /// Nil outside editing, so Escape retains UIKit's standard navigation behavior.
     var dismissKeyboard: (@MainActor () -> Void)? = nil
+    var selectionRestoration: SelectionRestoration? = nil
     var returnActions: ReturnActions? = nil
+
+    struct SelectionRestoration {
+        let draft: String
+        let selection: CompanionComposerSelection
+    }
 
     struct ReturnActions {
         var canSubmit: @MainActor () -> Bool
@@ -32,6 +38,7 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
         context.coordinator.handle = handle
         context.coordinator.dismissKeyboard = dismissKeyboard
         context.coordinator.returnActions = returnActions
+        view.selectionRestoration = selectionRestoration
         view.attach()
     }
 
@@ -79,6 +86,8 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
     final class HookView: UIView {
         weak var coordinator: Coordinator?
         private weak var textView: UITextView?
+        var selectionRestoration: SelectionRestoration?
+        private var restoredSelection = false
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -101,6 +110,13 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
             if let textView {
                 CompanionImagePaste.register(textView, coordinator)
                 if let window { Self.matchKeyboard(textView, to: window.traitCollection.userInterfaceStyle) }
+                // iOS 26's vertical TextField ignores non-empty TextSelection writes, even after focus.
+                // Restore once, only after the native field contains the byte-identical saved draft.
+                if !restoredSelection, let selectionRestoration,
+                   selectionRestoration.draft.utf8.elementsEqual(textView.text.utf8) {
+                    restoredSelection = true
+                    textView.selectedRange = NSRange(selectionRestoration.selection.range(in: textView.text), in: textView.text)
+                }
             }
         }
 
