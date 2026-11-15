@@ -181,7 +181,9 @@ Command receipts acknowledge only their submitted text field, never the older va
 The live service publishes a receipt if it includes every settings component change observed while the command
 was in flight, so an unrelated confirmation-token refresh does not hide a successful Behavior/model/color save.
 If any changed component conflicts (including byte-distinct text), it performs one authoritative settings read
-instead of publishing the older receipt. This does not retry the command; read failures remain visible errors.
+instead of publishing the older receipt. That authoritative result is also returned to the save caller, so the
+submitted-field acknowledgement cannot mark a superseded receipt value clean. This does not retry the command;
+read failures remain visible errors.
 Without a server revision this does not establish a total ordering of all concurrent reads and events.
 Draft baselines are keyed to the desktop's
 `settings.agentID`: a replacement Dispatcher resets all three drafts to its saved values rather than carrying
@@ -196,6 +198,9 @@ a newer clean emoji, then release the older receipt. State coverage checks agent
 receipt. Live-adapter contract coverage requires exact NFC/NFD acknowledgements for all three text fields and
 rejects publication of a held old receipt over an intervening settings read, and requires a legitimate Behavior
 receipt carrying refreshed confirmation tokens to reach the visible service snapshot without an extra read.
+Same-field conflict coverage requires the caller to receive the authoritative name after exactly one read.
+A hosted native regression routes the real submit callback through the live adapter with a held scripted
+transport receipt; both the store and editor must show the newer authoritative name after completion.
 These boundary regressions use
 explicit callback/predicate expectations rather than fixed settling delays; restoring each old boundary fails
 its focused regression.

@@ -1959,7 +1959,7 @@ import ClubhouseTransport
         if settings.includesChanges(from: previous, to: current) {
             rememberDispatcherSettings(settings, hostID: hostID)
         } else {
-            _ = try await dispatcherSettings(hostID: hostID)
+            return try await dispatcherSettings(hostID: hostID)
         }
         return settings
     }

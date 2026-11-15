@@ -234,7 +234,7 @@ import Testing
         let readsBeforeReceipt = await settingsReads(harness)
         await harness.transport.releaseCommand()
         let result = try await save.value
-        #expect(result.identity.name == "Saved name", "The caller still receives its submitted field's acknowledgement")
+        #expect(result.identity.name == "Saved name", "The caller receives the reconciled snapshot, which also includes the saved name")
         #expect(await settingsReads(harness) == readsBeforeReceipt + 1, "Conflicting receipt evidence is resolved by one authoritative read, never by publishing the older snapshot")
         // A distinct final read is a barrier after any incorrectly emitted receipt snapshot.
         await harness.transport.setRead("dispatcherSettings", try withDraftText(newer, field: "color", value: "teal"))
@@ -290,6 +290,37 @@ import Testing
         #expect(visible?.clearChat.expectedState == "new-clear")
         #expect(visible?.forgetEverything.expectedState == "new-forget")
         #expect(await settingsReads(harness) == readsBeforeReceipt, "A receipt including all observed changes needs no extra read")
+    }
+
+    @Test func sameFieldConflictUsesOneAuthoritativeRead() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID) != nil }
+        let saved = try withDraftText(original, field: "name", value: "Submitted name")
+        let newer = try withDraftText(original, field: "name", value: "Newer desktop name")
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string("held"),
+            "status": .string("completed"), "result": saved
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let save = Task {
+            try await harness.store.updateDispatcher(.init(name: "Submitted name"), hostID: hostID)
+        }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        await harness.transport.setRead("dispatcherSettings", newer)
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID)?.identity.name == "Newer desktop name" }
+        let before = await settingsReads(harness)
+        await harness.transport.releaseCommand()
+        let returned = try await save.value
+        #expect(Array(returned.identity.name.utf8) == Array("Newer desktop name".utf8),
+                "The submitted-field acknowledgement must use the authoritative read, not the superseded receipt")
+        #expect(await settingsReads(harness) == before + 1)
+        #expect(harness.store.dispatcherSettings(hostID: hostID)?.identity.name == "Newer desktop name")
+        #expect(await harness.transport.executed.count == 1)
     }
 
     private func withDraftText(_ body: AnnexJSON, field: String, value: String) throws -> AnnexJSON {

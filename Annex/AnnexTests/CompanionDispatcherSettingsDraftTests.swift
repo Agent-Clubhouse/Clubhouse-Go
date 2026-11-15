@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-import ClubhouseTransport
+@testable import ClubhouseTransport
 @testable import ClubhouseGo
 
 @MainActor final class CompanionDispatcherSettingsDraftTests: XCTestCase {
@@ -164,6 +164,47 @@ import ClubhouseTransport
         }
     }
 
+    func testLateReceiptDoesNotReplaceNewerAuthoritativeName() async throws {
+        let started = expectation(description: "The native submit reaches the live transport")
+        let transport = DispatcherDraftReceiptTransport(started: started)
+        defer { Task { await transport.releaseCommand() } }
+        let live = CompanionLiveService()
+        let liveStore = CompanionStore(service: live)
+        liveStore.start()
+        let hostID = String(repeating: "ab:", count: 15) + "ab"
+        defer { liveStore.shutdown(); live.remove(hostID: hostID) }
+        await live.register(.init(host: try TrustedAnnexHost(
+            endpoint: AnnexEndpoint(host: "127.0.0.1", port: 7432), verifiedHostID: hostID,
+            verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32))),
+            alias: "Receipt fixture", transport: transport))
+        await waitUntil { liveStore.canEditDispatcherSettings(hostID: hostID) }
+        _ = try await live.dispatcherSettings(hostID: hostID)
+
+        let service = DispatcherDraftTestService()
+        service.update = { update in
+            try await live.updateDispatcher(update, hostID: hostID, clientCommandID: "held")
+        }
+        try await withForm(service) { store, window, render in
+            let name = try XCTUnwrap(self.textField("Name", in: window))
+            self.edit(name, to: "Submitted name")
+            name.sendActions(for: .editingDidEndOnExit)
+            await self.fulfillment(of: [started], timeout: 5)
+            await self.waitUntil { self.textField("Name", in: window)?.isEnabled == false }
+            await transport.setName("Newer desktop name")
+            let newer = try await live.dispatcherSettings(hostID: hostID)
+            service.current.identity.name = newer.identity.name
+            service.publish(to: store)
+            await self.waitUntil { render.name == Array("Newer desktop name".utf8) }
+            XCTAssertEqual(self.textField("Name", in: window)?.text, "Submitted name")
+            await transport.releaseCommand()
+            await self.waitUntil { self.textField("Name", in: window)?.isEnabled == true }
+            XCTAssertEqual(store.dispatcherSettings(hostID: CompanionPreviewService.dispatcherTarget.hostID)?.identity.name, "Newer desktop name")
+            XCTAssertEqual(Array((self.textField("Name", in: window)?.text ?? "").utf8), Array("Newer desktop name".utf8),
+                           "The production native callback must acknowledge the live service's authoritative result")
+        }
+        await transport.releaseCommand()
+    }
+
     private func edit(_ field: UITextField, to text: String) {
         XCTAssertTrue(field.becomeFirstResponder())
         field.selectedTextRange = field.textRange(from: field.beginningOfDocument, to: field.endOfDocument)
@@ -298,6 +339,7 @@ import ClubhouseTransport
     var current = CompanionPreviewService.previewDispatcherSettings
     var pending: CheckedContinuation<CompanionDispatcherSettings, Error>?
     var submitted: AnnexDispatcherUpdate?
+    var update: ((AnnexDispatcherUpdate) async throws -> CompanionDispatcherSettings)?
     func events() -> AsyncStream<CompanionEvent> { preview.events() }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { try await preview.history(for: target) }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { try await preview.send(request) }
@@ -311,6 +353,7 @@ import ClubhouseTransport
     func dispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings { current }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
         submitted = update
+        if let change = self.update { return try await change(update) }
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
     func publish(to store: CompanionStore) {
@@ -318,6 +361,62 @@ import ClubhouseTransport
         hosts[0].canEditDispatcherSettings = true
         hosts[0].dispatcherSettings = current
         store.apply(.hosts(hosts))
+    }
+}
+
+private actor DispatcherDraftReceiptTransport: AnnexTransporting {
+    private let started: XCTestExpectation
+    private var name = "Dispatcher"
+    private var continuation: AsyncThrowingStream<AnnexTransportEvent, Error>.Continuation?
+    private var pending: CheckedContinuation<AnnexCommandReceipt, Never>?
+    private var receipt: AnnexCommandReceipt?
+    init(started: XCTestExpectation) { self.started = started }
+    func setName(_ value: String) { name = value }
+    func events() -> AsyncThrowingStream<AnnexTransportEvent, Error> {
+        let pair = AsyncThrowingStream<AnnexTransportEvent, Error>.makeStream()
+        continuation = pair.continuation
+        return pair.stream
+    }
+    func connect() { continuation?.yield(.connection(.connected)) }
+    func disconnect() { continuation?.yield(.connection(.disconnected)) }
+    private func settings(name: String) -> AnnexJSON {
+        .object([
+            "agentId": .string("durable_dispatcher"),
+            "behavior": .object(["value": .string("standard")]),
+            "identity": .object(["name": .object(["value": .string(name), "editable": .string("always")])])
+        ])
+    }
+    func read(_ route: AnnexReadRoute) throws -> AnnexJSON {
+        switch route {
+        case .capabilities:
+            return .object([
+                "version": .integer(1), "epoch": .string("epoch"), "controlAuth": .string("mtls-pinned-client"),
+                "controlAvailable": .bool(true),
+                "commands": .array(["dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"].map(AnnexJSON.string)),
+                "idempotency": .object(["scope": .string("client"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
+                "dispatcher": .object(["version": .integer(1), "enabled": .bool(true), "flagOn": .bool(true),
+                                       "settings": .object(["version": .integer(1)])])
+            ])
+        case .dispatcherSettings: return settings(name: name)
+        case .projects: return .array([])
+        case .agents: return .array([])
+        default: throw AnnexTransportError.unsupportedCapability("Dispatcher receipt fixture")
+        }
+    }
+    func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt {
+        receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string(command.commandID),
+            "status": .string("completed"), "result": settings(name: "Submitted name")
+        ]).decode(AnnexCommandReceipt.self)
+        return await withCheckedContinuation {
+            pending = $0
+            started.fulfill()
+        }
+    }
+    func releaseCommand() {
+        if let receipt { pending?.resume(returning: receipt) }
+        pending = nil
+        receipt = nil
     }
 }
 
