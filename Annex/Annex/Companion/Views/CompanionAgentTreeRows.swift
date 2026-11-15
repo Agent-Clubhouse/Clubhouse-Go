@@ -1,5 +1,47 @@
 import SwiftUI
 
+struct CompanionAgentRowContext {
+    var hostNames: [String: String] = [:]
+    var impliedHostID: String?
+    var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
+    var agentAccessDefaults: [CompanionTarget: CompanionPermissionLevel] = [:]
+
+    func defaultAccess(for target: CompanionTarget) -> CompanionPermissionLevel? {
+        agentAccessDefaults[target] ?? projectAccessDefaults[.init(hostID: target.hostID, projectID: target.projectID)]
+    }
+
+    func accessBadge(for agent: CompanionAgent) -> CompanionPermissionLevel? {
+        guard let access = agent.access, access != defaultAccess(for: agent.id) else { return nil }
+        return access
+    }
+
+    func hostTag(for target: CompanionTarget, fallback: String? = nil) -> String? {
+        guard target.hostID != impliedHostID else { return nil }
+        guard !hostNames.isEmpty else { return fallback }
+        return hostNames.count > 1 ? hostNames[target.hostID] : nil
+    }
+}
+
+private struct CompanionAgentRowContextKey: EnvironmentKey {
+    static let defaultValue = CompanionAgentRowContext()
+}
+
+extension EnvironmentValues {
+    var companionAgentRowContext: CompanionAgentRowContext {
+        get { self[CompanionAgentRowContextKey.self] }
+        set { self[CompanionAgentRowContextKey.self] = newValue }
+    }
+}
+
+extension View {
+    func companionAgentRows(store: CompanionStore, impliedHostID: String? = nil) -> some View {
+        environment(\.companionAgentRowContext, CompanionAgentRowContext(
+            hostNames: Dictionary(store.hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
+            impliedHostID: impliedHostID, projectAccessDefaults: store.projectAccessDefaults,
+            agentAccessDefaults: store.agentAccessDefaults))
+    }
+}
+
 /// Observe disclosure once at the collection boundary. Equatable value rows avoid redrawing unchanged
 /// agent labels when a different parent's disclosure changes; the domain layout never observes collapse.
 struct CompanionAgentTreeRows: View {
@@ -77,6 +119,31 @@ struct CompanionAgentTreeFold: View {
             withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
         } label: {
             CompanionFoldLabel(text: text, isOpen: isOpen)
+        }
+
+        /// One disclosure for the two quiet groups. Home adopts this alongside its desktop-filter wiring.
+        struct CompanionAgentTreeQuietFold: View {
+            let projectID: String
+            let tree: CompanionAgentTree
+            let preferences: CompanionPreferences
+            var parentLines: [CompanionTarget: String] = [:]
+
+            var text: String {
+                var parts: [String] = []
+                if !tree.sleeping.isEmpty { parts.append("\(tree.sleeping.count) sleeping") }
+                if !tree.finishedQuick.isEmpty {
+                    parts.append("\(tree.finishedQuick.count) finished quick agent\(tree.finishedQuick.count == 1 ? "" : "s")")
+                }
+                return parts.joined(separator: " · ")
+            }
+
+            var body: some View {
+                if !text.isEmpty {
+                    CompanionAgentTreeFold(kind: "quiet", projectID: projectID, text: text,
+                                           tree: tree, rows: tree.sleeping + tree.finishedQuick,
+                                           preferences: preferences, parentLines: parentLines)
+                }
+            }
         }
         .accessibilityIdentifier("fold-\(kind)-\(projectID)")
         .listRowBackground(CompanionCardBackground())

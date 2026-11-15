@@ -246,7 +246,29 @@ struct CompanionStatusText: View {
     var body: some View { Text(status.label).foregroundStyle(Color(status.dot.textColor(in: palette))) }
 }
 
-/// The 30pt-style list row used by Home, Needs you, Agents and Search.
+/// One state, followed by the desktop's request or task rather than a second state label.
+struct CompanionAgentStatusLine: Equatable {
+    let status: String
+    let task: String?
+
+    init(agent: CompanionAgent, detail: String? = nil) {
+        let message = agent.detail?.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let supplied = detail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch agent.status {
+        case .approval: status = "Needs permission"
+        case .waiting: status = "Has a question"
+        default: status = agent.status.label
+        }
+        let candidates = [supplied, message, agent.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)]
+        task = candidates.compactMap { $0 }.first { value in
+            !value.isEmpty && value != status && value != agent.status.label
+                && value != CompanionAttentionItem.permissionLine(toolName: agent.detail?.toolName)
+                && value != CompanionAttentionItem.questionLine
+        } ?? (agent.status == .approval ? agent.detail?.toolName.map(CompanionAttentionItem.shortToolName) : nil)
+    }
+}
+
+/// Shared list row. Metadata gets its own line so it never takes width from names or tasks.
 struct CompanionAgentListRow: View {
     let agent: CompanionAgent
     var hostTag: String?
@@ -255,36 +277,30 @@ struct CompanionAgentListRow: View {
     var helperRollup: CompanionHelperRollup?
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionHelperLabels) private var helperLabels
+    @Environment(\.companionAgentRowContext) private var context
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var accessBadge: CompanionPermissionLevel? { context.accessBadge(for: agent) }
+
     var body: some View {
+        let line = CompanionAgentStatusLine(agent: agent, detail: detail)
+        let shownHost = context.hostTag(for: agent.id, fallback: hostTag)
         HStack(spacing: 12) {
             CompanionAgentAvatar(agent: agent)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(agent.name).font(.body).lineLimit(1)
-                    if let access = agent.access {
-                        CompanionLevelBadge(level: access)
-                    } else if let label = CompanionFreeAgentMode.elevatedLabel(freeAgentMode: agent.freeAgentMode, level: agent.liveAccess) {
-                        CompanionElevatedAccessBadge(label: label)
-                    }
-                    if let hostTag { CompanionHostTag(name: hostTag) }
-                }
-                HStack(spacing: 4) {
-                    CompanionStatusText(status: agent.status)
-                    if let helperRollup {
-                        Spacer(minLength: 4)
-                        HStack(spacing: 4) {
-                            if let dot = helperRollup.dot {
-                                Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
-                            }
-                            Text(helperRollup.label).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(helperRollup.accessibilitySummary)
-                    } else if let detail = detail ?? (agent.subtitle.isEmpty ? nil : agent.subtitle) {
-                        Text("· \(detail)").foregroundStyle(Color(palette.secondaryLabel)).lineLimit(1)
-                    }
-                }
+                Text(agent.name).font(.body).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                (
+                    Text(line.status).foregroundColor(Color(agent.status.dot.textColor(in: palette)))
+                    + Text(line.task.map { " · \($0)" } ?? "").foregroundColor(Color(palette.secondaryLabel))
+                )
                 .font(.subheadline)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                if accessBadge != nil || (agent.access == nil && agent.freeAgentMode) || shownHost != nil || helperRollup != nil {
+                    ViewThatFits(in: .horizontal) {
+                        metadata(host: shownHost)
+                        metadata(host: shownHost, vertical: true)
+                    }
+                }
                 if let routing = agent.routing {
                     Text(routing.selection.summary + " · " + routing.reasonText(labels: helperLabels[agent.id.hostID] ?? [:]))
                         .font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
@@ -294,10 +310,33 @@ struct CompanionAgentListRow: View {
                     Text(parentLine).font(.caption).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .modifier(CompanionAgentMenu(target: agent.id))
+    }
+
+    private func metadata(host: String?, vertical: Bool = false) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4)) : AnyLayout(HStackLayout(spacing: 6))
+        return layout {
+            if let access = accessBadge {
+                CompanionLevelBadge(level: access)
+            } else if agent.access == nil, let label = CompanionFreeAgentMode.elevatedLabel(freeAgentMode: agent.freeAgentMode, level: agent.liveAccess) {
+                CompanionElevatedAccessBadge(label: label)
+            }
+            if let host { CompanionHostTag(name: host) }
+            if let helperRollup {
+                HStack(spacing: 4) {
+                    if let dot = helperRollup.dot {
+                        Circle().fill(Color(dot.color(in: palette))).frame(width: 6, height: 6)
+                    }
+                    Text(helperRollup.label).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(helperRollup.accessibilitySummary)
+            }
+        }
     }
 }
 
