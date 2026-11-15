@@ -173,7 +173,8 @@ private struct CompanionMarkdownFileImage: View {
     }
 }
 
-private final class CompanionMarkdownHTTPSOnly: NSObject, URLSessionTaskDelegate {
+nonisolated private final class CompanionMarkdownHTTPSOnly: NSObject, URLSessionTaskDelegate {
+    nonisolated deinit {}
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                                newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
         let allowed = request.url.map { if case .remote = CompanionMarkdownFilePolicy.image($0.absoluteString) { true } else { false } } ?? false

@@ -34,14 +34,16 @@ import XCTest
         screenshot(app, name: "Exact Markdown Source")
         app.buttons["companion-markdown-file-copy"].tap()
         app.buttons["companion-preview-done"].tap()
-        let composer = app.textViews["companion-composer"]
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         composer.tap()
-        composer.press(forDuration: 1.2)
-        let paste = app.menuItems["Paste"].exists ? app.menuItems["Paste"] : app.buttons["Paste"]
-        XCTAssertTrue(paste.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let paste = app.menuItems["Paste"]
+        _ = paste.waitForExistence(timeout: 1)
+        waitAndTap(composer, until: paste, timeout: 3, "The composer offers the system Paste action")
         paste.tap()
-        XCTAssertEqual(composer.value as? String, raw, "Copy must paste the raw source, not rendered Markdown")
+        XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "Copy must paste the raw source, not rendered Markdown")
     }
 
     func testLineTargetStartsInSource() {

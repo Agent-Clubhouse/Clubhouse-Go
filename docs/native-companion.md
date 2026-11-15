@@ -9,7 +9,8 @@ read-only **Source** toggle and raw-source Copy. Explicit `:line[:column]` or `#
 at that line using the existing content route. Both modes retain the desktop truncation note and all existing
 access/size refusals. The native subset supports headings, inline styles/links, lists/tasks, quotes, rules,
 GFM tables and fenced code (long tables/code retain their full-screen Open controls). Same-document heading
-fragments scroll within Preview; HTTP(S) and mailto open externally. Relative/local links never navigate.
+fragments for top-level headings scroll within Preview; HTTP(S) and mailto open externally. Relative/local links
+never navigate. Custom HTML anchors and nested-heading anchors are not resolved.
 
 Standalone Markdown raster images offer an explicit **Load image** tap only for HTTPS or base64 PNG/JPEG/GIF/WebP
 data URIs, bounded to 2 MB and 64 million pixels and downsampled to 2048 pixels. Redirects must remain HTTPS.
