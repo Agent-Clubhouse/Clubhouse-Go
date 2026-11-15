@@ -55,6 +55,11 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         XCTAssertGreaterThanOrEqual(parent.frame.width, 44)
         XCTAssertGreaterThanOrEqual(parent.frame.height, 44)
         XCTAssertTrue(child.exists && nested.exists, "An awake helper keeps sleeping Cedar out of the sleeping fold")
+        let permissionRow = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(permissionRow.label.contains("Needs permission"), permissionRow.label)
+        XCTAssertFalse(permissionRow.label.contains("Needs you, Needs permission"), permissionRow.label)
+        XCTAssertTrue(element(app, "agent-preview-studio-cedar").label.contains("Permissions: Auto"),
+                      "VoiceOver retains access when it is different or the default is unknown")
         XCTAssertTrue(scrollTo(nested, in: app))
         XCTAssertEqual(nested.value as? String, "Helper of River")
         XCTAssertGreaterThan(app.staticTexts["Juniper"].firstMatch.frame.minX, app.staticTexts["Cedar"].firstMatch.frame.minX)
