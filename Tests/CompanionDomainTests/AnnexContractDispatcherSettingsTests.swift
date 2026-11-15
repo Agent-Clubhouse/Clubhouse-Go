@@ -231,9 +231,11 @@ import Testing
             return emojiValues
         }
         defer { observed.cancel() }
+        let readsBeforeReceipt = await settingsReads(harness)
         await harness.transport.releaseCommand()
         let result = try await save.value
         #expect(result.identity.name == "Saved name", "The caller still receives its submitted field's acknowledgement")
+        #expect(await settingsReads(harness) == readsBeforeReceipt + 1, "Conflicting receipt evidence is resolved by one authoritative read, never by publishing the older snapshot")
         // A distinct final read is a barrier after any incorrectly emitted receipt snapshot.
         await harness.transport.setRead("dispatcherSettings", try withDraftText(newer, field: "color", value: "teal"))
         _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
@@ -241,6 +243,53 @@ import Testing
         let emojiValues = await observed.value
         #expect(!emojiValues.isEmpty)
         #expect(emojiValues.allSatisfy { $0 == "New remote emoji" })
+    }
+
+    @Test func legitimateBehaviorReceiptSurvivesAnInterveningConfirmationRefresh() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID) != nil }
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        let newer = withTokens(original, clear: "new-clear", forget: "new-forget")
+        guard case .object(var saved) = newer,
+              case .object(var behavior)? = saved["behavior"] else {
+            Issue.record("Missing fixture behavior")
+            return
+        }
+        behavior["value"] = .string("thorough")
+        saved["behavior"] = .object(behavior)
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string("held"),
+            "status": .string("completed"), "result": .object(saved)
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let save = Task {
+            try await harness.store.updateDispatcher(.init(behavior: "thorough"), hostID: hostID)
+        }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        await harness.transport.setRead("dispatcherSettings", newer)
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil {
+            harness.store.dispatcherSettings(hostID: hostID)?.clearChat.expectedState == "new-clear"
+        }
+        let readsBeforeReceipt = await settingsReads(harness)
+        await harness.transport.releaseCommand()
+        let acknowledged = try await save.value
+        #expect(acknowledged.behavior.value == "thorough")
+        #expect(acknowledged.clearChat.expectedState == "new-clear")
+        let events = harness.service.events()
+        var iterator = events.makeAsyncIterator()
+        guard case .hosts(let hosts)? = await iterator.next() else {
+            Issue.record("Missing current service snapshot")
+            return
+        }
+        let visible = hosts.first { $0.id == hostID }?.dispatcherSettings
+        #expect(visible?.behavior.value == "thorough", "A later receipt containing every intervening change must not leave the saved Behavior unshown")
+        #expect(visible?.clearChat.expectedState == "new-clear")
+        #expect(visible?.forgetEverything.expectedState == "new-forget")
+        #expect(await settingsReads(harness) == readsBeforeReceipt, "A receipt including all observed changes needs no extra read")
     }
 
     private func withDraftText(_ body: AnnexJSON, field: String, value: String) throws -> AnnexJSON {

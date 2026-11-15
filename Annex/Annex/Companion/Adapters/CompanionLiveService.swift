@@ -1938,7 +1938,7 @@ import ClubhouseTransport
         catch is CancellationError { throw CancellationError() }
         catch { throw CompanionServiceError.unavailable(Self.agentReadError(error, subject: "Dispatcher settings")) }
     }
-    /// `dispatcher.update` and `dispatcher.setModels` answer with the fresh settings; nothing is read again.
+    /// Settings receipts need no extra read unless they conflict with a snapshot observed during the command.
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
         try await dispatcherSettingsCommand(.updateDispatcher(update), hostID: hostID, clientCommandID: clientCommandID)
     }
@@ -1954,10 +1954,12 @@ import ClubhouseTransport
         guard let settings = try? CompanionDispatcherSettings(json: receipt.result ?? .null) else {
             throw CompanionServiceError.uncertain("The desktop saved this but its settings couldn't be read. Open the settings again to check.")
         }
-        // Do not replace an intervening settings snapshot with the command's full result.
+        // Accept receipts that include intervening changes; resolve conflicting evidence with a fresh read.
         let current = hosts[hostID]?.dispatcherSettings
-        if current == previous, current?.draftKey == previous?.draftKey {
+        if settings.includesChanges(from: previous, to: current) {
             rememberDispatcherSettings(settings, hostID: hostID)
+        } else {
+            _ = try await dispatcherSettings(hostID: hostID)
         }
         return settings
     }

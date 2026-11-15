@@ -178,9 +178,12 @@ the submitted field, without resetting other pending drafts. This follows ordina
 preserve-dirty-fields-on-refresh convention and adds a visible conflict notice.
 
 Command receipts acknowledge only their submitted text field, never the older values of unrelated clean fields.
-The live service also avoids publishing a full receipt over settings that changed while the command was in
-flight. Without a server revision this does not establish a total ordering of all concurrent reads and events;
-it prevents the demonstrated old-command-result overwrite. Draft baselines are keyed to the desktop's
+The live service publishes a receipt if it includes every settings component change observed while the command
+was in flight, so an unrelated confirmation-token refresh does not hide a successful Behavior/model/color save.
+If any changed component conflicts (including byte-distinct text), it performs one authoritative settings read
+instead of publishing the older receipt. This does not retry the command; read failures remain visible errors.
+Without a server revision this does not establish a total ordering of all concurrent reads and events.
+Draft baselines are keyed to the desktop's
 `settings.agentID`: a replacement Dispatcher resets all three drafts to its saved values rather than carrying
 edits intended for the deleted agent. Receipts for the previous agent cannot acknowledge the replacement.
 
@@ -191,7 +194,9 @@ unrelated saves, remote conflicts, acknowledgement and canonically equivalent bu
 Native regressions additionally submit the normalized emoji no-op and hold a real name save while delivering
 a newer clean emoji, then release the older receipt. State coverage checks agent replacement and an old-agent
 receipt. Live-adapter contract coverage requires exact NFC/NFD acknowledgements for all three text fields and
-rejects publication of a held old receipt over an intervening settings read. These boundary regressions use
+rejects publication of a held old receipt over an intervening settings read, and requires a legitimate Behavior
+receipt carrying refreshed confirmation tokens to reach the visible service snapshot without an extra read.
+These boundary regressions use
 explicit callback/predicate expectations rather than fixed settling delays; restoring each old boundary fails
 its focused regression.
 `CompanionDispatcherUITests` checks lazy-section scrolling, Behavior/model saves with a pending name, actual

@@ -115,6 +115,18 @@ nonisolated struct CompanionDispatcherSettings: Sendable, Equatable {
               emoji: identity.emoji.map { Array($0.utf8) }, personality: personality.map { Array($0.text.utf8) })
     }
 
+    /// A receipt may replace a snapshot only if it includes every intervening component change.
+    func includesChanges(from previous: Self?, to current: Self?) -> Bool {
+        guard let previous, let current else { return previous == current }
+        func includes<Value: Equatable>(_ key: KeyPath<Self, Value>) -> Bool {
+            previous[keyPath: key] == current[keyPath: key] || self[keyPath: key] == current[keyPath: key]
+        }
+        return includes(\.agentID) && includes(\.draftKey) && includes(\.behavior) &&
+            includes(\.models) && includes(\.identity) && includes(\.personality) &&
+            includes(\.usage) && includes(\.notHonored) && includes(\.clearChat) &&
+            includes(\.forgetEverything)
+    }
+
     /// The desktop's labels for the usage split.
     static let conversationsLabel = "Conversations today"
     static let backgroundLabel = "Background work today"
