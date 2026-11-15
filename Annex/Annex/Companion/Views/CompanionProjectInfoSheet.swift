@@ -46,6 +46,7 @@ private struct CompanionProjectInfoReadContext: Equatable {
     let project: CompanionProjectTarget
     let endpoint: String
     let epoch: String?
+    let generation: UUID?
     let canRead: Bool
     let attempt: Int
 }
@@ -54,39 +55,37 @@ private struct CompanionProjectInfoMemberSection: View {
     let store: CompanionStore
     let member: CompanionProjectMember
     let title: String
-    @State private var defaults: CompanionProjectInfoDefaults?
-    @State private var loading = false
-    @State private var error: String?
+    @State private var result: (context: CompanionProjectInfoReadContext, defaults: CompanionProjectInfoDefaults?, error: String?)?
     @State private var attempt = 0
 
     private var context: CompanionProjectInfoReadContext {
         .init(project: member.id, endpoint: member.host.endpoint, epoch: member.host.controlEpoch,
-              canRead: member.host.connection.canOperate && member.host.canCreateDurable, attempt: attempt)
+              generation: store.createOptionsReadGeneration(for: member.id), canRead: member.host.connection.canOperate && member.host.canCreateDurable, attempt: attempt)
     }
 
     var body: some View {
+        let current = context
+        let visible = result?.context == current ? result : nil
         Section {
-            CompanionProjectInfoRows(member: member, defaults: defaults, loading: loading, error: error) { attempt += 1 }
+            CompanionProjectInfoRows(member: member, defaults: visible?.defaults,
+                                     loading: current.canRead && visible == nil, error: visible?.error) { attempt += 1 }
         } header: { Text(title) }
         .task(id: context) { await load() }
     }
 
     private func load() async {
-        defaults = nil
-        error = nil
-        loading = false
-        guard context.canRead else { return }
-        loading = true
+        let request = context
+        guard request.canRead, let generation = request.generation else { return }
         do {
             let options = try await store.createOptions(for: member.id)
-            guard !Task.isCancelled else { return }
-            defaults = CompanionProjectInfoDefaults(options: options)
+            guard !Task.isCancelled, store.createOptionsReadGeneration(for: member.id) == generation else { return }
+            result = (request, CompanionProjectInfoDefaults(options: options), nil)
         } catch {
-            guard !Task.isCancelled else { return }
-            self.error = error.localizedDescription
+            guard !Task.isCancelled, store.createOptionsReadGeneration(for: member.id) == generation else { return }
+            result = (request, nil, error.localizedDescription)
         }
-        loading = false
     }
+
 }
 
 /// Shared by the live sheet and hosted visual checks. No row can mutate project settings.

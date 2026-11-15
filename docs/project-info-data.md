@@ -16,3 +16,5 @@ Opening the info sheet reads the existing create-options endpoint once per visib
 Older desktops may omit individual fields or offer no create-options capability. Omitted values stay hidden; an explicit empty MCP selection alone displays “None”. The available machine names and received paths remain readable when defaults cannot be read. The footer directs editing to the desktop.
 
 Validation is pending. Hosted checks render the real sheet in light, dark, two non-default desktop themes and accessibility AX3, and count its connected/offline reads. UI checks cover single and linked project entry points and the absence of editors. No physical-device or live-desktop validation is claimed.
+
+The info sheet also uses the Store's existing connection/catalog generation as a read-only admission token. A completed read is shown only in its matching context; disconnect, endpoint/pairing/epoch rotation and catalog removal/re-add invalidate old results even if SwiftUI coalesces intermediate renders. This adds no stored field, wire field or background read. Loading/error state is scoped to that same context.
