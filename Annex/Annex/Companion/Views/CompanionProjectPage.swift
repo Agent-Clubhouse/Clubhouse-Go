@@ -1,275 +1,326 @@
 import SwiftUI
-import ClubhouseTransport
 
-/// One project, opened from its header on Home: New agent and Wake with a message, the quick agents that
-/// finished and wait to be read, the project's agents, and its Changes. The desktop's project start page
-/// (Clubhouse `ProjectStartPage.tsx`) with the Changes view beside it (`ProjectChanges.tsx`).
+/// One project scope, with shared desktop chips, one action row, and one quiet disclosure.
 struct CompanionProjectPage: View {
     @Bindable var store: CompanionStore
     var preferences: CompanionPreferences
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
     @State private var hold: [CompanionTarget]?
+    @State private var desktop: CompanionDesktopSelection = .all
     @State private var showingInfo = false
+    @State private var choosingMachine: CompanionProjectMachineAction?
+    @State private var pendingChoice: (CompanionProjectMachineAction, CompanionProjectTarget)?
+    @State private var wakingProject: CompanionProjectTarget?
+    @State private var pendingWake: (target: CompanionTarget, message: String)?
+    @State private var finishedActionError: String?
+    @Environment(\.companionPalette) private var palette
+    @Environment(\.companionTerminal) private var terminal
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let entry = store.projectEntry(containing: project)
-        List {
-            if let entry {
-                ForEach(entry.members) { member in
-                    if entry.isLinked {
-                        Section {
-                            Label(entry.label(for: member), systemImage: "desktopcomputer")
-                                .font(.headline)
-                                .accessibilityElement(children: .combine)
-                                .accessibilityIdentifier("project-page-machine-\(member.host.id)")
-                                .listRowBackground(Color.clear)
-                        }
-                    }
-                    CompanionMachineProjectSections(store: store, preferences: preferences, project: member.id,
-                                                     spawnProject: entry.isLinked ? entry.id : member.id, hold: hold, onNewAgent: onNewAgent)
-                }
-            } else {
+        Group {
+            if let entry { content(entry) }
+            else {
                 ContentUnavailableView("Project unavailable", systemImage: "folder",
-                                       description: Text("This project is no longer on its desktop, or the desktop is offline."))
-                    .listRowBackground(Color.clear)
+                                       description: Text("This project is no longer in the desktop catalog."))
             }
         }
-        .companionListStyle()
         .companionTelemetryScreen(.project)
-        .onScrollPhaseChange { _, phase in
-            if phase == .idle { hold = nil }
-            else if hold == nil { hold = entry?.project.agents.map(\.id) }
-        }
         .navigationTitle(entry?.project.name ?? "Project")
         .toolbar {
-            if let entry, !entry.isLinked, store.hosts.count > 1 {
-                ToolbarItem(placement: .topBarTrailing) { CompanionHostTag(name: entry.host.name) }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Project info", systemImage: "info.circle") {
-                        AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectInfo)
-                        showingInfo = true
-                    }
-                } label: { Label("Project options", systemImage: "ellipsis") }
-                .accessibilityIdentifier("project-page-options")
+            if let entry {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        CompanionProjectMenuItems(store: store, preferences: preferences, entry: entry,
+                                                  canWake: scopedMembers(entry).contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
+                                                  onWake: { begin(.wake, entry: entry) }, onInfo: { showingInfo = true })
+                    } label: { Label("Project options", systemImage: "ellipsis") }
+                    .accessibilityIdentifier("project-page-options")
+                }
             }
         }
         .sheet(isPresented: $showingInfo) { CompanionProjectInfoSheet(store: store, project: project) }
-    }
-}
-
-private struct CompanionMachineProjectSections: View {
-    @Bindable var store: CompanionStore
-    var preferences: CompanionPreferences
-    let project: CompanionProjectTarget
-    let spawnProject: CompanionProjectTarget
-    var hold: [CompanionTarget]?
-    var onNewAgent: (CompanionProjectTarget) -> Void
-    @State private var waking = false
-    /// The agent and message from Wake with a message, held until the sheet has gone. Opening the chat while the
-    /// sheet is still dismissing left its timeline blank on iOS 26.5 until it was scrolled.
-    @State private var pendingWake: (target: CompanionTarget, message: String)?
-    @State private var changes: CompanionChanges?
-    @State private var changesError: String?
-    @Environment(\.companionPalette) private var palette
-    @Environment(\.companionTerminal) private var terminal
-
-    private var host: CompanionHost? { store.hosts.first { $0.id == project.hostID } }
-    private var details: CompanionProject? { host?.projects.first { $0.id == project.projectID } }
-    private var canOperate: Bool { host?.connection.canOperate == true }
-
-    var body: some View {
-        Group {
-            if let details {
-                actions
-                finished
-                agents(details)
-                changesSection
-            } else {
-                ContentUnavailableView("Project unavailable", systemImage: "folder",
-                                       description: Text("This project is no longer on its desktop, or the desktop is offline."))
-                    .listRowBackground(Color.clear)
+        .sheet(item: $choosingMachine, onDismiss: completeMachineChoice) { action in
+            CompanionProjectMachineChooser(store: store, project: project, selection: desktop, action: action) { target in
+                pendingChoice = (action, target)
+                choosingMachine = nil
             }
         }
-    }
-
-    // MARK: Sections
-
-    private var actions: some View {
-        let sleeping = store.sleepingAgents(in: project)
-        return Section {
-            HStack(spacing: 10) {
-                Button {
-                    AnnexTelemetry.shared.recordAction(screen: .project, control: .newAgent)
-                    onNewAgent(spawnProject)
-                } label: {
-                    Label("New agent", systemImage: "plus").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent).companionProminentLabel()
-                .disabled(!canOperate || host?.canSpawn != true)
-                .accessibilityIdentifier("project-new-agent")
-                Button {
-                    AnnexTelemetry.shared.recordAction(screen: .project, control: .wakeAgent)
-                    waking = true
-                } label: {
-                    Label("Wake with a message", systemImage: "sun.max").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(!canOperate || sleeping.isEmpty)
-                .accessibilityIdentifier("project-wake")
-                .accessibilityHint(sleeping.isEmpty ? "No agent here is asleep." : "Choose a sleeping agent and what it should do.")
-            }
-            .buttonBorderShape(.capsule).controlSize(.large)
-            .lineLimit(1).minimumScaleFactor(0.8)
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-            .sheet(isPresented: $waking, onDismiss: {
-                guard let wake = pendingWake else { return }
-                pendingWake = nil
-                Task { await store.wake(wake.target, message: wake.message) }
-            }) {
-                CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
-            }
-            terminalButton
+        .sheet(item: $wakingProject, onDismiss: completeWake) { project in
+            CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
         }
+        .onChange(of: desktop) { _, _ in hold = nil }
     }
 
-    /// A shell at the project root, as the desktop's Terminal tab opens with the project selected.
-    @ViewBuilder private var terminalButton: some View {
-        if let terminal, case let availability = terminal.availability(.project(project)), availability.isShown {
-            Button {
-                AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectTerminal)
-                terminal.open(.project(project))
-            } label: {
-                Label("Terminal", systemImage: "terminal").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.large)
-            .disabled(!availability.isAvailable)
-            .accessibilityIdentifier("project-terminal")
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-        }
+    private func scopedMembers(_ entry: CompanionProjectEntry) -> [CompanionProjectMember] {
+        entry.members.filter { desktop.hostID == nil || $0.host.id == desktop.hostID }
     }
 
-    /// The desktop's list: hidden when empty, newest first, each row dismissable, and Clear all.
-    @ViewBuilder private var finished: some View {
-        let runs = store.finished(in: project)
-        if !runs.isEmpty {
+    private func content(_ entry: CompanionProjectEntry) -> some View {
+        let members = scopedMembers(entry)
+        // Retained exited runs are historical, and are rendered once in the shared quiet fold.
+        let agents = members.filter { $0.host.connection.canOperate }.flatMap(\.project.agents)
+            .filter { !CompanionFinishedRuns.hasFinished($0) }
+        let tree = CompanionAgentTree.build(agents, sort: preferences.projectSort, held: hold, lastActivity: store.lastActivity(of:))
+        let sections = CompanionProjectAgentSections(tree: tree)
+        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
+        let runs = members.flatMap { store.finished(in: $0.id) }.enumerated().sorted {
+            $0.element.completedAt == $1.element.completedAt ? $0.offset < $1.offset : $0.element.completedAt > $1.element.completedAt
+        }.map(\.element)
+        return List {
             Section {
-                ForEach(runs) { run in finishedRow(run) }
-            } header: {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("Finished, waiting on you").font(.headline).foregroundStyle(Color(palette.label))
-                    Text("\(runs.count)").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                    Spacer()
-                    Button("Clear all") {
-                        AnnexTelemetry.shared.recordAction(screen: .project, control: .clearFinished)
-                        Task { await store.clearFinished(in: project) }
-                    }
-                        .font(.subheadline)
-                        .accessibilityIdentifier("finished-clear-all")
-                }
-                .textCase(nil)
-            } footer: {
-                VStack(alignment: .leading, spacing: 4) {
-                    if let error = store.finishedError {
-                        Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Color(palette.warning))
-                            .accessibilityIdentifier("finished-error")
-                    }
-                    Text(store.sharesFinished(project) ? "Swipe a run to dismiss it. This list is shared with your desktop."
-                                                       : "Swipe a run to dismiss it. This list is kept on your phone.")
+                actionRow(entry)
+                if Set(entry.members.map { $0.host.id }).count >= 2 {
+                    CompanionDesktopChips(members: entry.members, selection: $desktop)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 }
             }
-        }
-    }
-
-    @ViewBuilder private func finishedRow(_ run: CompanionFinishedRun) -> some View {
-        let label = TimelineView(.periodic(from: .now, by: 60)) { context in CompanionFinishedRow(run: run, now: context.date) }
-        Group {
-            // A run the desktop has forgotten has no chat left to open.
-            if store.agent(for: run.target) != nil {
-                NavigationLink(value: run.target) { label }
-            } else {
-                label
+            if !sections.needsYou.isEmpty {
+                Section {
+                    CompanionAgentTreeRows(tree: tree, rows: sections.needsYou, preferences: preferences, parentLines: parentLines)
+                } header: { Text("Needs you") }
             }
-        }
-        .listRowBackground(CompanionCardBackground())
-        .accessibilityIdentifier("finished-\(run.target.agentID)")
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button("Dismiss", systemImage: "xmark", role: .destructive) { dismiss(run) }
-        }
-        .contextMenu {
-            Button("Dismiss", systemImage: "xmark") { dismiss(run) }
-        }
-        .accessibilityAction(named: "Dismiss") { dismiss(run) }
-    }
-
-    private func dismiss(_ run: CompanionFinishedRun) {
-        AnnexTelemetry.shared.recordAction(screen: .project, control: .dismissFinished)
-        Task { await store.dismissFinished(run.target) }
-    }
-
-    private var agentTree: CompanionAgentTree? {
-        details.map { CompanionAgentTree.build($0.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: preferences.projectSort, held: hold, lastActivity: store.lastActivity(of:)) }
-    }
-
-    /// The same forest and sleeping fold as Home; finished quick runs have their own section above.
-    @ViewBuilder private func agents(_ details: CompanionProject) -> some View {
-        if let tree = agentTree {
-            let parentLines = CompanionAgentTree.parentLines(hosts: host.map { [$0] } ?? [])
             Section {
-                if tree.active.isEmpty && tree.sleeping.isEmpty {
+                CompanionAgentTreeRows(tree: tree, rows: sections.agents, preferences: preferences, parentLines: parentLines)
+                CompanionAgentTreeQuietFold(projectID: "\(entry.id.hostID)-\(entry.id.projectID)", tree: tree,
+                                           preferences: preferences, parentLines: parentLines, finishedRuns: runs,
+                                           onDismissFinished: dismissFinished,
+                                           onClearFinished: { clearFinished(members.filter { !store.finished(in: $0.id).isEmpty }.map(\.id)) },
+                                           canOpenFinished: { store.agent(for: $0) != nil })
+                if tree.all.isEmpty && runs.isEmpty && members.contains(where: { $0.host.connection.canOperate }) {
                     Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
                         .listRowBackground(CompanionCardBackground())
                 }
-                CompanionAgentTreeRows(tree: tree, rows: tree.active, preferences: preferences, parentLines: parentLines)
-                if !tree.sleeping.isEmpty {
-                    CompanionAgentTreeFold(kind: "sleeping", projectID: "\(project.hostID)-\(project.projectID)",
-                                           text: "\(tree.sleeping.count) sleeping", tree: tree, rows: tree.sleeping,
-                                           preferences: preferences, parentLines: parentLines)
-                }
-            } header: {
-                Text("Agents").font(.headline).foregroundStyle(Color(palette.label)).textCase(nil)
-            }
-        }
-    }
-
-    private var changesSection: some View {
-        Section {
-            NavigationLink {
-                CompanionChangesView(store: store, project: project, initial: changes)
-            } label: {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Changes")
-                        Text(changesSummary).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel)).lineLimit(2)
+                ForEach(members.filter { !$0.host.connection.canOperate }) { member in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("\(entry.label(for: member)) · \(projectMachineDetail(member.host.connection))")
+                        Button("Retry") { Task { await store.reconnect(hostID: member.host.id) } }
                     }
-                } icon: { Image(systemName: "plusminus") }
+                    .listRowBackground(CompanionCardBackground())
+                    .accessibilityIdentifier("project-offline-\(member.host.id)-\(member.project.id)")
+                }
+            } header: { Text("Agents") } footer: {
+                if let error = finishedActionError ?? store.finishedError {
+                    Text(error).foregroundStyle(Color(palette.warning)).accessibilityIdentifier("finished-error")
+                }
+                if let error = store.projectStateError { Text(error).foregroundStyle(Color(palette.warning)) }
             }
-            .disabled(!canOperate)
-            .accessibilityIdentifier("project-changes")
-            .listRowBackground(CompanionCardBackground())
-            .task(id: canOperate) { if canOperate { await loadChanges() } }
-        } footer: {
-            Text("The project folder's uncommitted files. Read-only: commit and push on your desktop.")
+        }
+        .companionListStyle()
+        .companionAgentRows(store: store, impliedHostID: desktop.hostID ?? entry.host.id)
+        .onScrollPhaseChange { _, phase in
+            if phase == .idle { hold = nil }
+            else if hold == nil { hold = agents.map(\.id) }
         }
     }
 
-    private var changesSummary: String {
-        guard canOperate else { return "Reconnect to see this project's changes." }
-        if let changesError { return changesError }
-        guard let changes else { return "Reading…" }
-        guard changes.isRepository else { return "Not a git repository" }
-        let files = changes.files.isEmpty ? "No uncommitted changes" : "\(changes.files.count) changed file\(changes.files.count == 1 ? "" : "s")"
-        return changes.branch.isEmpty ? files : "\(changes.branch) · \(files)"
+    private func actionRow(_ entry: CompanionProjectEntry) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) { actionButtons(entry) }
+            } else { HStack(spacing: 10) { actionButtons(entry) } }
+        }
+        .buttonBorderShape(.capsule).controlSize(.large)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
     }
 
-    private func loadChanges() async {
-        do { changes = try await store.changes(for: project); changesError = nil }
-        catch { changesError = error.localizedDescription }
+    @ViewBuilder private func actionButtons(_ entry: CompanionProjectEntry) -> some View {
+        let members = scopedMembers(entry)
+        Button { onNewAgent(entry.isLinked ? entry.id : members.first?.id ?? entry.id) } label: {
+            Label("New agent", systemImage: "plus").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent).companionProminentLabel()
+        .disabled(!members.contains { $0.host.connection.canOperate && $0.host.canSpawn })
+        .accessibilityIdentifier("project-new-agent")
+        if members.contains(where: { terminal?.availability(.project($0.id)).isShown == true }) {
+            Button { begin(.terminal, entry: entry) } label: {
+                Label("Terminal", systemImage: "terminal").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(!members.contains { CompanionProjectMachineAction.terminal.isAvailable($0, store: store, terminal: terminal) })
+            .accessibilityIdentifier("project-terminal")
+        }
     }
+
+    private func begin(_ action: CompanionProjectMachineAction, entry: CompanionProjectEntry) {
+        let members = scopedMembers(entry)
+        if entry.isLinked && (desktop == .all || members.count > 1) { choosingMachine = action }
+        else if let target = members.first?.id { perform(action, on: target) }
+    }
+
+    private func completeMachineChoice() {
+        guard let (action, target) = pendingChoice else { return }
+        pendingChoice = nil
+        perform(action, on: target)
+    }
+
+    private func perform(_ action: CompanionProjectMachineAction, on target: CompanionProjectTarget) {
+        guard let member = store.projectEntry(containing: target)?.members.first(where: { $0.id == target }),
+              action.isAvailable(member, store: store, terminal: terminal) else { return }
+        switch action {
+        case .terminal: terminal?.open(.project(target))
+        case .wake: wakingProject = target
+        }
+    }
+
+    private func completeWake() {
+        guard let wake = pendingWake else { return }
+        pendingWake = nil
+        // Open the conversation only after the Wake sheet is fully dismissed (the existing iOS focus fix).
+        Task { await store.wake(wake.target, message: wake.message) }
+    }
+
+    private func dismissFinished(_ run: CompanionFinishedRun) {
+        finishedActionError = nil
+        Task {
+            await store.dismissFinished(run.target)
+            finishedActionError = store.finishedError
+        }
+    }
+
+    private func clearFinished(_ projects: [CompanionProjectTarget]) {
+        finishedActionError = nil
+        Task {
+            var firstError: String?
+            for project in projects {
+                await store.clearFinished(in: project)
+                if firstError == nil { firstError = store.finishedError }
+            }
+            finishedActionError = firstError
+        }
+    }
+}
+
+/// Shared menu items for the Project toolbar and Root's later Home long-press adoption.
+/// Linked Pin/Inactive keep their existing Home behavior until the desktop-backed group contract lands.
+struct CompanionProjectMenuItems: View {
+    @Bindable var store: CompanionStore
+    let preferences: CompanionPreferences
+    let entry: CompanionProjectEntry
+    var canWake: Bool
+    var onWake: () -> Void
+    var onInfo: () -> Void
+
+    var body: some View {
+        Button("Wake with a message", systemImage: "sun.max", action: onWake)
+            .disabled(!canWake).accessibilityIdentifier("project-wake")
+        if !entry.isLinked { CompanionSingleProjectStateMenuItems(store: store, preferences: preferences, entry: entry) }
+        Button("Project info", systemImage: "info.circle", action: onInfo)
+    }
+}
+
+private struct CompanionSingleProjectStateMenuItems: View {
+    @Bindable var store: CompanionStore
+    let preferences: CompanionPreferences
+    let entry: CompanionProjectEntry
+
+    var body: some View {
+        let state = store.sharedProjectState(entry.id)
+        let key = entry.orderKey
+        let pinned = state?.pinned ?? preferences.pinnedProjects.contains(key)
+        let marked = state?.inactive ?? preferences.inactiveProjects.contains(key)
+        let running = entry.project.agents.contains(where: CompanionHomeLayout.isAwake)
+        let activity = [store.lastActivity(for: entry.id), state?.lastActivity ?? preferences.projectActivity[key]].compactMap { $0 }.max()
+        let idle = !pinned && (state.map { $0.idle && !running } ?? preferences.idleRule.isIdle(key, running: running, lastActivity: activity, now: Date()))
+        Group {
+            Button(pinned ? "Unpin from Home" : "Pin to top of Home", systemImage: pinned ? "pin.slash" : "pin") {
+                change(local: {
+                    if preferences.pinnedProjects.contains(key) != !pinned { preferences.togglePinned(key) }
+                }, remote: { await store.setProject(entry.id, pinned: !pinned) })
+            }
+            if idle || marked {
+                Button("Mark active", systemImage: "sun.max") {
+                    change(local: { preferences.markActive(key) }, remote: { await store.setProject(entry.id, inactive: false) })
+                }
+            } else if !pinned {
+                Button("Mark inactive", systemImage: "moon.zzz") {
+                    change(local: { preferences.markInactive(key) }, remote: { await store.setProject(entry.id, inactive: true) })
+                }
+            }
+        }
+        .disabled(state != nil && !entry.host.connection.canOperate)
+    }
+
+    private func change(local: () -> Void, remote: @escaping () async -> Void) {
+        guard let current = store.projectEntry(containing: entry.id), !current.isLinked else { return }
+        if store.sharedProjectState(entry.id) == nil { local() }
+        else { Task { await remote() } }
+    }
+}
+
+enum CompanionProjectMachineAction: String, Identifiable {
+    case terminal, wake
+    var id: Self { self }
+    var title: String { self == .terminal ? "Terminal" : "Wake with a message" }
+
+    func isAvailable(_ member: CompanionProjectMember, store: CompanionStore, terminal: CompanionTerminalAction?) -> Bool {
+        guard member.host.connection.canOperate else { return false }
+        switch self {
+        case .terminal: return terminal?.availability(.project(member.id)).isAvailable == true
+        case .wake: return !store.sleepingAgents(in: member.id).isEmpty
+        }
+    }
+}
+
+struct CompanionProjectMachineChooser: View {
+    @Bindable var store: CompanionStore
+    let project: CompanionProjectTarget
+    let selection: CompanionDesktopSelection
+    let action: CompanionProjectMachineAction
+    var onChoose: (CompanionProjectTarget) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.companionTerminal) private var terminal
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let entry = store.projectEntry(containing: project) {
+                    Section(action.title) {
+                        ForEach(entry.members.filter { selection.hostID == nil || $0.host.id == selection.hostID }) { member in
+                            Button { onChoose(member.id) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(entry.label(for: member))
+                                    Text(detail(member)).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                                }
+                            }
+                            .disabled(!action.isAvailable(member, store: store, terminal: terminal))
+                            .accessibilityIdentifier("project-machine-choice-\(member.host.id)-\(member.project.id)")
+                            .listRowBackground(CompanionCardBackground())
+                        }
+                    }
+                }
+            }
+            .companionListStyle()
+            .navigationTitle("Choose a desktop")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+        .accessibilityIdentifier("project-machine-chooser")
+    }
+
+    private func detail(_ member: CompanionProjectMember) -> String {
+        if !member.host.connection.canOperate { return projectMachineDetail(member.host.connection) }
+        if action == .wake, store.sleepingAgents(in: member.id).isEmpty { return "No sleeping agents" }
+        if action == .terminal {
+            switch terminal?.availability(.project(member.id)) {
+            case .unavailable(let reason): return reason
+            case .hidden, nil: return "Terminal unavailable"
+            default: break
+            }
+        }
+        return member.host.connection.label
+    }
+}
+
+private func projectMachineDetail(_ connection: CompanionConnection) -> String {
+    let blocked: Bool
+    if case .failed = connection { blocked = true } else { blocked = false }
+    return connection.presentation(linkBlocked: blocked).detail
 }
 
 /// A finished run: its mission, when it finished, and how it ended.

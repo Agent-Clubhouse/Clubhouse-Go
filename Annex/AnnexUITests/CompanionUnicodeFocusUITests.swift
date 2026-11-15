@@ -129,6 +129,8 @@ import XCTest
         let project = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         XCTAssertTrue(scrollUntilExists(project, in: app) && scrollTo(project, in: app))
         project.tap()
+        XCTAssertTrue(app.buttons["project-page-options"].waitForExistence(timeout: 5))
+        app.buttons["project-page-options"].tap()
         let wake = app.buttons["project-wake"]
         XCTAssertTrue(wake.waitForExistence(timeout: 5))
         wake.tap()
@@ -157,6 +159,8 @@ import XCTest
         let project = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         XCTAssertTrue(scrollTo(project, in: app))
         project.tap()
+        XCTAssertTrue(app.buttons["project-page-options"].waitForExistence(timeout: 5))
+        app.buttons["project-page-options"].tap()
         XCTAssertTrue(app.buttons["project-wake"].waitForExistence(timeout: 5))
         app.buttons["project-wake"].tap()
         let message = app.descendants(matching: .any).matching(identifier: "wake-message").firstMatch
