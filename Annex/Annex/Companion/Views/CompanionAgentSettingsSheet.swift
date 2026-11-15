@@ -200,6 +200,8 @@ struct CompanionAgentSettingsForm: View {
     @State private var saving = false
     @State private var nameDraft = ""
     @State private var emojiDraft = ""
+    @State private var dispatcherDrafts = CompanionDispatcherSettingsDrafts()
+    @State private var dispatcherLoadError: String?
     @State private var confirmAccess = false
     @State private var pendingAccess: CompanionPermissionLevel?
     @State private var pendingOrchestrator: String?
@@ -255,6 +257,12 @@ struct CompanionAgentSettingsForm: View {
             .navigationTitle(agent?.name ?? "Agent settings")
             .navigationBarTitleDisplayMode(.inline)
             .task(id: refreshKey) { await load() }
+            .task(id: showsDispatcherSettings) {
+                if showsDispatcherSettings { await loadDispatcherSettings() }
+            }
+            .onChange(of: store.dispatcherSettings(hostID: target.hostID), initial: true) { _, settings in
+                if let settings { dispatcherDrafts.receive(settings) }
+            }
             .task(id: settings != nil) {
                 if focusContext, settings != nil { proxy.scrollTo("agent-context-section", anchor: .top) }
             }
@@ -355,7 +363,9 @@ struct CompanionAgentSettingsForm: View {
             Section { CompanionDispatcherSwitch(store: store, hostID: target.hostID) }
         }
         if showsDispatcherSettings {
-            CompanionDispatcherSettingsSections(store: store, hostID: target.hostID, options: settings.options, efforts: agent?.chatControls?.efforts ?? [])
+            CompanionDispatcherSettingsSections(store: store, hostID: target.hostID, options: settings.options,
+                efforts: agent?.chatControls?.efforts ?? [], drafts: $dispatcherDrafts,
+                loadError: dispatcherLoadError, reload: loadDispatcherSettings)
         }
 
         if !isDispatcher {
@@ -672,6 +682,18 @@ struct CompanionAgentSettingsForm: View {
         let current = settings.orchestrator.value ?? settings.resolvedOrchestrator
         if !choices.contains(where: { $0.id == current }) { choices.append((id: current, label: "\(current) (availability unknown)", available: false)) }
         return choices
+    }
+
+    private func loadDispatcherSettings() async {
+        do {
+            let settings = try await store.loadDispatcherSettings(hostID: target.hostID)
+            guard !Task.isCancelled else { return }
+            dispatcherDrafts.receive(settings)
+            dispatcherLoadError = nil
+        } catch is CancellationError {
+        } catch {
+            if store.dispatcherSettings(hostID: target.hostID) == nil { dispatcherLoadError = error.localizedDescription }
+        }
     }
 
     private func load() async {

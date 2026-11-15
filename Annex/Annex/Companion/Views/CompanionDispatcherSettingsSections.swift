@@ -1,6 +1,46 @@
 import SwiftUI
 import ClubhouseTransport
 
+/// Owned by the whole settings form, not its lazy sections.
+struct CompanionDispatcherSettingsDrafts {
+    enum Field { case name, emoji, personality }
+
+    struct TextDraft {
+        var text = "" {
+            didSet {
+                if let baseline, text.utf8.elementsEqual(baseline.utf8) { serverChanged = false }
+            }
+        }
+        private var baseline: String?
+        private var serverChanged = false
+
+        var hasConflict: Bool {
+            serverChanged && baseline.map { !text.utf8.elementsEqual($0.utf8) } == true
+        }
+
+        mutating func receive(_ value: String, replacing: Bool = false) {
+            let pending = baseline.map { !text.utf8.elementsEqual($0.utf8) } ?? false
+            if replacing || !pending || text.utf8.elementsEqual(value.utf8) {
+                text = value
+                serverChanged = false
+            } else if baseline.map({ !$0.utf8.elementsEqual(value.utf8) }) == true {
+                serverChanged = true
+            }
+            baseline = value
+        }
+    }
+
+    var name = TextDraft()
+    var emoji = TextDraft()
+    var personality = TextDraft()
+
+    mutating func receive(_ settings: CompanionDispatcherSettings, saved field: Field? = nil) {
+        name.receive(settings.identity.name, replacing: field == .name)
+        emoji.receive(settings.identity.emoji ?? "", replacing: field == .emoji)
+        personality.receive(settings.personality?.text ?? "", replacing: field == .personality)
+    }
+}
+
 /// Settings > Dispatcher on the phone (#338): Behavior, Choose models yourself, its name and look, personality,
 /// today's usage, and its two resets. Shown in the Dispatcher's settings instead of the raw model and Access rows.
 /// Every change saves at once, and the desktop's result is what's shown. The resets each ask first, with the
@@ -12,14 +52,12 @@ struct CompanionDispatcherSettingsSections: View {
     let options: CompanionAgentOptions
     /// Efforts its live chat reports, offered for a pick alongside the CLI's default.
     var efforts: [String] = []
+    @Binding var drafts: CompanionDispatcherSettingsDrafts
+    let loadError: String?
+    let reload: () async -> Void
     @Environment(\.companionPalette) private var palette
     @State private var saving = false
     @State private var saveError: String?
-    @State private var loadError: String?
-    @State private var nameDraft = ""
-    @State private var emojiDraft = ""
-    @State private var personalityDraft = ""
-    @State private var loaded = false
 
     private var settings: CompanionDispatcherSettings? { store.dispatcherSettings(hostID: hostID) }
     private var resetting: Bool { store.dispatcherResetting.contains(hostID) }
@@ -33,35 +71,18 @@ struct CompanionDispatcherSettingsSections: View {
                     .accessibilityIdentifier("dispatcher-settings-error")
                 Button("Try again") { Task { await reload() } }
             }
-            .modifier(lifecycle)
         } else {
             Section { ProgressView("Loading Dispatcher settings…").frame(maxWidth: .infinity) }
-                .modifier(lifecycle)
         }
     }
 
-    /// Loading and drafts, on the first section only: a modifier on several Form sections applies to each of them.
-    private var lifecycle: Lifecycle {
-        Lifecycle(settings: settings, load: load, applyDrafts: applyDrafts, hostID: hostID)
-    }
-    private struct Lifecycle: ViewModifier {
-        let settings: CompanionDispatcherSettings?
-        let load: () async -> Void
-        let applyDrafts: (CompanionDispatcherSettings) -> Void
-        let hostID: String
-        func body(content: Content) -> some View {
-            content
-                .task(id: hostID) { await load() }
-                .onChange(of: settings, initial: true) { _, new in if let new { applyDrafts(new) } }
-        }
-    }
     /// The prompt for this desktop's Dispatcher.
     private var prompt: CompanionDispatcherResetPrompt? {
         store.dispatcherResetPrompt.flatMap { $0.hostID == hostID ? $0 : nil }
     }
 
     @ViewBuilder private func content(_ settings: CompanionDispatcherSettings) -> some View {
-        behaviorSection(settings).modifier(lifecycle)
+        behaviorSection(settings)
         modelsSection(settings)
         identitySection(settings)
         if let personality = settings.personality { personalitySection(personality) }
@@ -173,16 +194,17 @@ struct CompanionDispatcherSettingsSections: View {
         let identity = settings.identity
         return Section {
             LabeledContent("Name") {
-                TextField("Name", text: $nameDraft)
+                TextField("Name", text: $drafts.name.text)
                     .multilineTextAlignment(.trailing).autocorrectionDisabled().submitLabel(.done)
                     .onSubmit {
-                        let name = String(nameDraft.trimmingCharacters(in: .whitespacesAndNewlines).prefix(identity.maxNameLength))
-                        if name.isEmpty || name == identity.name { nameDraft = identity.name }
-                        else { save { try await store.updateDispatcher(.init(name: name), hostID: hostID) } }
+                        let name = String(drafts.name.text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(identity.maxNameLength))
+                        if name.isEmpty || name.utf8.elementsEqual(identity.name.utf8) { drafts.name.receive(identity.name, replacing: true) }
+                        else { save(.name) { try await store.updateDispatcher(.init(name: name), hostID: hostID) } }
                     }
                     .disabled(!identity.nameEditable || saving)
                     .accessibilityIdentifier("dispatcher-name")
             }
+            if drafts.name.hasConflict { conflictNotice("name", id: "name") }
             if !options.colors.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Color")
@@ -195,22 +217,23 @@ struct CompanionDispatcherSettingsSections: View {
             }
             LabeledContent("Emoji") {
                 HStack {
-                    TextField("None", text: $emojiDraft)
+                    TextField("None", text: $drafts.emoji.text)
                         .multilineTextAlignment(.trailing).submitLabel(.done)
                         .onSubmit {
-                            let emoji = emojiDraft.trimmingCharacters(in: .whitespaces)
-                            guard emoji != (identity.emoji ?? "") else { return }
-                            guard emoji.utf16.count <= 16 else { emojiDraft = identity.emoji ?? ""; saveError = "Use a shorter emoji."; return }
-                            save { try await store.updateDispatcher(.init(emoji: emoji.isEmpty ? .clear : .set(emoji)), hostID: hostID) }
+                            let emoji = drafts.emoji.text.trimmingCharacters(in: .whitespaces)
+                            guard !emoji.utf8.elementsEqual((identity.emoji ?? "").utf8) else { return }
+                            guard emoji.utf16.count <= 16 else { drafts.emoji.receive(identity.emoji ?? "", replacing: true); saveError = "Use a shorter emoji."; return }
+                            save(.emoji) { try await store.updateDispatcher(.init(emoji: emoji.isEmpty ? .clear : .set(emoji)), hostID: hostID) }
                         }
                         .accessibilityIdentifier("dispatcher-emoji")
                     if identity.emoji != nil {
-                        Button("Clear emoji", systemImage: "xmark.circle.fill") { save { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }
+                        Button("Clear emoji", systemImage: "xmark.circle.fill") { save(.emoji) { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }
                             .labelStyle(.iconOnly).buttonStyle(.borderless).foregroundStyle(Color(palette.secondaryLabel))
                     }
                 }
                 .disabled(!identity.emojiEditable || saving)
             }
+            if drafts.emoji.hasConflict { conflictNotice("emoji", id: "emoji") }
         } header: { Text("Name and look") } footer: {
             if identity.hasImageIcon { Text("It has an image icon. Setting an emoji replaces it.") }
         }
@@ -222,7 +245,7 @@ struct CompanionDispatcherSettingsSections: View {
         Section {
             Picker("Personality", selection: Binding(get: { personality.preset ?? "custom" }, set: { preset in
                 if preset != personality.preset {
-                    save { try await store.updateDispatcher(.init(personality: .init(preset: preset)), hostID: hostID) }
+                    save(.personality) { try await store.updateDispatcher(.init(personality: .init(preset: preset)), hostID: hostID) }
                 }
             })) {
                 ForEach(personality.presets) { Text($0.label).tag($0.id) }
@@ -232,16 +255,17 @@ struct CompanionDispatcherSettingsSections: View {
             if let description = personality.selected?.description {
                 Text(description).font(.caption).foregroundStyle(Color(palette.secondaryLabel))
             }
-            TextField("What it's told about how to sound", text: $personalityDraft, axis: .vertical)
+            TextField("What it's told about how to sound", text: $drafts.personality.text, axis: .vertical)
                 .lineLimit(3...8)
                 .disabled(!personality.editable || saving)
                 .accessibilityIdentifier("dispatcher-personality-text")
-            if personalityDraft != personality.text {
-                let text = String(personalityDraft.prefix(personality.maxLength))
+            if drafts.personality.hasConflict { conflictNotice("personality", id: "personality") }
+            if !drafts.personality.text.utf8.elementsEqual(personality.text.utf8) {
+                let text = String(drafts.personality.text.prefix(personality.maxLength))
                 HStack {
-                    Button("Revert") { personalityDraft = personality.text }.buttonStyle(.borderless)
+                    Button("Revert") { drafts.personality.receive(personality.text, replacing: true) }.buttonStyle(.borderless)
                     Spacer()
-                    Button("Save personality") { save { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }
+                    Button("Save personality") { save(.personality) { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }
                         .buttonStyle(.borderless)
                         .accessibilityIdentifier("dispatcher-personality-save")
                 }
@@ -312,41 +336,26 @@ struct CompanionDispatcherSettingsSections: View {
 
     // MARK: Saving
 
-    /// Once per appearance: the section carrying `lifecycle` changes when the settings arrive.
-    private func load() async {
-        guard !loaded else { return }
-        loaded = true
-        await reload()
-    }
-    private func reload() async {
-        do {
-            _ = try await store.loadDispatcherSettings(hostID: hostID)
-            loadError = nil
-        } catch is CancellationError {
-        } catch {
-            if settings == nil { loadError = error.localizedDescription }
-        }
+    private func conflictNotice(_ field: String, id: String) -> some View {
+        Label("The \(field) changed on the desktop. Your unsaved edit is kept.", systemImage: "info.circle")
+            .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+            .accessibilityIdentifier("dispatcher-\(id)-changed")
     }
 
-    private func save(_ change: @escaping () async throws -> CompanionDispatcherSettings) {
+    private func save(_ field: CompanionDispatcherSettingsDrafts.Field? = nil,
+                      _ change: @escaping () async throws -> CompanionDispatcherSettings) {
         guard !saving else { return }
         saving = true
         saveError = nil
         Task {
             defer { saving = false }
-            do { applyDrafts(try await change()) }
+            do { drafts.receive(try await change(), saved: field) }
             catch {
                 saveError = error.localizedDescription
-                // Put the controls back to what the desktop has.
-                if let settings { applyDrafts(settings) }
+                // Revert only the refused field, not other pending edits.
+                if let settings { drafts.receive(settings, saved: field) }
                 await reload()
             }
         }
-    }
-
-    private func applyDrafts(_ settings: CompanionDispatcherSettings) {
-        nameDraft = settings.identity.name
-        emojiDraft = settings.identity.emoji ?? ""
-        personalityDraft = settings.personality?.text ?? ""
     }
 }
