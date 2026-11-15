@@ -174,7 +174,7 @@ struct CompanionSpawnSheet: View {
                 if compact { chip(systemImage: "folder", text: selectedProjectName) }
                 else { pickerRow("Project", value: selectedProjectName) }
             }
-            .accessibilityLabel("Project, \(selectedProjectName)")
+            .accessibilityLabel(compact ? "Run on \(selectedProjectName)" : "Project, \(selectedProjectName)")
             .accessibilityIdentifier("spawn-project-picker")
     }
 
