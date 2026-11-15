@@ -145,6 +145,7 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canSpawn = false
     /// The desktop creates durable agents (`agent.create` and create options v1). Older ones offer quick agents only.
     var canCreateDurable = false
+    var canCreateManaged = false
     /// The desktop reads and changes durable agents' settings (`agent.update` and agent settings v1).
     var canEditSettings = false
     /// Whole-agent stop, distinct from interrupting a chat turn.

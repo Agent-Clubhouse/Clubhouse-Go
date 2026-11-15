@@ -246,7 +246,7 @@ private func settingsJSON(sleeping: Bool, state: String? = nil, idle: String = "
         #expect(CompanionAgentCommandError.message(code: "agent_running", message: "Sleep the agent to change these") == "Sleep the agent to change these")
         // Without a sentence the message is just the code; never show that.
         #expect(CompanionAgentCommandError.message(code: "invalid_color", message: "invalid_color") == "Choose one of the colours offered.")
-        #expect(CompanionAgentCommandError.message(code: "invalid_branch_name", message: "invalid_branch_name") == "The desktop couldn't accept these settings.")
+        #expect(CompanionAgentCommandError.message(code: "invalid_branch_name", message: "invalid_branch_name") == "Choose a different branch name.")
         #expect(CompanionAgentCommandError.message(code: "agent_running", message: "agent_running") == "Sleep the agent to change these")
         #expect(CompanionAgentCommandError.message(code: "free_agent_mode_not_allowed", message: "anything") == "Free Agent Mode can only be changed on the desktop.")
         #expect(CompanionAgentCommandError.message(code: "agent_creating", message: "agent_creating")?.contains("still being set up") == true)
@@ -274,10 +274,12 @@ private actor DurableTransport: AnnexTransporting {
     let durable: Bool
     let freeAgentMode: Bool
     let access: Bool
+    let managed: Bool
     private(set) var executed: [AnnexCommand] = []
     private(set) var reads: [String] = []
     var receipt: AnnexJSON = .null
-    init(durable: Bool, freeAgentMode: Bool = false, access: Bool = false) {
+    init(durable: Bool, freeAgentMode: Bool = false, access: Bool = false, managed: Bool = false) {
+        self.managed = managed
         self.durable = durable
         self.freeAgentMode = freeAgentMode
         self.access = access
@@ -298,6 +300,7 @@ private actor DurableTransport: AnnexTransporting {
                                              "idempotency": .object(["scope": .string("peer-and-epoch"), "maxEntries": .integer(256), "ttlMs": .integer(60000)]),
                                              "commands": .array(commands.map(AnnexJSON.string))]
             if freeAgentMode { caps["permissions"] = .object(["version": .integer(1), "freeAgentMode": .bool(true)]) }
+            if managed { caps["managedCreate"] = .object(["version": .integer(1)]) }
             if access { caps["access"] = .object(["version": .integer(1)]) }
             if durable {
                 caps["createOptions"] = .object(["version": .integer(1), "path": .string("/api/v1/mobile/projects/{projectId}/create-options")])
@@ -358,6 +361,36 @@ private actor DurableTransport: AnnexTransporting {
         let settings = try await store.settings(for: agent)
         #expect(settings.name.value == "brave-otter")
         #expect(await transport.reads == ["options:p1", "settings:durable_1"])
+    }
+
+    @Test func managedCreationIsGatedWithoutChangingPlainCreation() async throws {
+        let transport = DurableTransport(durable: true)
+        let (service, store) = try await setup(transport)
+        defer { store.stop() }
+        #expect(store.hosts.first?.canCreateManaged == false)
+        let request = CompanionCreateRequest(project: project, name: "brave-otter", color: "indigo", managedSelection: .blank, clientCommandID: "m1")
+        #expect(await store.create(request) == false)
+        await #expect(throws: CompanionServiceError.self) { try await service.create(request) }
+        #expect(await transport.executed.isEmpty)
+        #expect(store.hosts.first?.canCreateDurable == true)
+    }
+
+    @Test func managedCreateUsesSleepingReceiptAndOmitsPlainFields() async throws {
+        let transport = DurableTransport(durable: true, managed: true)
+        await transport.setReceipt(try json(#"{"version":1,"commandId":"m1","epoch":"epoch","status":"completed","result":{"agentId":"durable_1","projectId":"p1","name":"brave-otter","branch":null,"worktreePath":null,"state":"sleeping","legacyDefaults":"not_copied"}}"#))
+        let (_, store) = try await setup(transport)
+        defer { store.stop() }
+        #expect(store.hosts.first?.canCreateManaged == true)
+        let request = CompanionCreateRequest(project: project, name: "brave-otter", color: "indigo", access: .auto,
+                                             useWorktree: false, mcpIDs: [], orchestrate: false, managedSelection: .template("user-lead"), clientCommandID: "m1")
+        #expect(await store.create(request))
+        #expect(store.selection == agent && store.justCreated == agent)
+        let command = try #require(await transport.executed.first)
+        let encoded = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+        #expect(encoded["managed"] == .bool(true) && encoded["templateId"] == .string("user-lead"))
+        for key in ["useWorktree", "mcpIds", "branchName", "branchFrom", "folderName", "freeAgentMode", "access", "orchestration"] {
+            #expect(encoded[key] == nil)
+        }
     }
 
     @Test func createOpensTheNewAgent() async throws {
@@ -478,6 +511,42 @@ private actor DurableTransport: AnnexTransporting {
         } catch {
             guard case CompanionServiceError.rejected(let message) = error else { Issue.record("Expected a rejection, got \(error)"); return }
             #expect(message == "Sleep the agent to change these")
+        }
+    }
+}
+
+@Suite struct CompanionManagedCreateTests {
+    @Test func managedOptionsDecodeDesktopTemplatesAndKeepSectionOrder() throws {
+        let options = try CompanionCreateOptions(json: ContractFixtures.body("create-options.json"))
+        let managed = try #require(options.managed)
+        #expect(managed.defaultOn)
+        #expect(managed.builtinTemplates.map(\.id) == ["builtin-template-helper"])
+        #expect(managed.userTemplates.map(\.id) == ["user-lead"])
+        #expect(managed.userTemplates.first?.orchestrator == "claude-code")
+        #expect(managed.userTemplates.first?.model == "opus")
+        #expect(managed.userTemplates.first?.access == .plan)
+        #expect(!managed.templates.contains { $0.id.lowercased() == "blank" }, "Blank is supplied locally")
+        #expect(try CompanionCreateOptions(json: json(optionsJSON)).managed == nil, "Older plain options remain unchanged")
+        let interleaved = CompanionManagedCreateOptions(defaultOn: false, templates: [
+            .init(id: "u2", name: "Second", description: "", builtin: false),
+            .init(id: "b2", name: "Second builtin", description: "", builtin: true),
+            .init(id: "u1", name: "First", description: "", builtin: false),
+            .init(id: "b1", name: "First builtin", description: "", builtin: true)
+        ])
+        #expect(interleaved.builtinTemplates.map(\.id) == ["b2", "b1"])
+        #expect(interleaved.userTemplates.map(\.id) == ["u2", "u1"])
+        #expect(!interleaved.defaultOn)
+    }
+
+    @Test func allCreateErrorsHavePersonFacingMessages() throws {
+        let fixture = try ContractFixtures.json("commands/agent.create.json")
+        for item in fixture["cases"].arrayValue {
+            guard let error = item["response"]?["body"]?["error"], let code = error["code"]?.string else { continue }
+            let message = try #require(CompanionAgentCommandError.message(code: code, message: error["message"]?.string), "Missing mapping: \(code)")
+            #expect(!message.isEmpty && message != code)
+        }
+        for code in ["managed_required", "invalid_managed_selection", "managed_options_conflict", "template_not_found", "command_conflict", "authorization_revoked"] {
+            #expect(CompanionAgentCommandError.message(code: code, message: nil) != nil)
         }
     }
 }

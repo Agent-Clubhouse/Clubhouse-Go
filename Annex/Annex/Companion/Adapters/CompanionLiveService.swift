@@ -496,20 +496,26 @@ import ClubhouseTransport
         catch let error as CompanionServiceError { throw error }
         catch { throw CompanionServiceError.unavailable(Self.agentReadError(error, subject: "new agent options")) }
     }
-    /// The receipt comes as soon as the agent's record exists; its worktree is made in the background, and the
-    /// snapshot shows it leave `creating` for sleeping (or failed).
+    /// Plain creation can return while its worktree is still being made. Managed creation returns sleeping;
+    /// starting the agent is a separate command.
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
         guard capabilities[request.project.hostID]?.supportsAgentCreate == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create durable agents from your phone.") }
-        if request.access != nil, capabilities[request.project.hostID]?.supportsAccess != true {
+        if request.managedSelection != nil, capabilities[request.project.hostID]?.supportsManagedCreate != true {
+            throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to create managed agents from your phone.")
+        }
+        if request.managedSelection == nil, request.access != nil, capabilities[request.project.hostID]?.supportsAccess != true {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change saved Access from your phone.")
         }
         let freeAgentMode = capabilities[request.project.hostID]?.supportsAccess != true
             && capabilities[request.project.hostID]?.supportsFreeAgentMode == true ? request.freeAgentMode : nil
         let orchestration = capabilities[request.project.hostID]?.supportsOrchestration == true
             ? request.orchestrate.map { AnnexOrchestrationPatch(orchestrate: .set($0)) } : nil
+        let managedSelection: AnnexAgentCreate.ManagedSelection? = request.managedSelection.map {
+            switch $0 { case .blank: .blank; case .template(let id): .template(id) }
+        }
         let create = AnnexAgentCreate(projectID: request.project.projectID, name: request.name, color: request.color, orchestrator: request.orchestrator,
                                       model: request.model, freeAgentMode: freeAgentMode, useWorktree: request.useWorktree, mcpIDs: request.mcpIDs,
-                                      orchestration: orchestration, access: request.access?.rawValue)
+                                      orchestration: orchestration, access: request.access?.rawValue, managedSelection: managedSelection)
         let receipt = try await execute(.create(create), id: request.clientCommandID, hostID: request.project.hostID)
         guard let agentID = receipt.result?["agentId"]?.string else { throw CompanionServiceError.uncertain("The desktop created the agent but didn't say which one. Check its agent list.") }
         await refresh(hostID: request.project.hostID)
@@ -1332,6 +1338,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
                 hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true
+                hosts[hostID]?.canCreateManaged = newCapabilities?.supportsManagedCreate == true
                 hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
                 hosts[hostID]?.canStopAgents = newCapabilities?.commands.contains("agent.stop") == true
                 hosts[hostID]?.canControlProvider = newCapabilities?.supportsProviderControl == true

@@ -1061,11 +1061,13 @@ import Observation
         return options
     }
 
-    /// Creates a durable agent and opens it. Its worktree is still being made when this returns.
+    /// Creates a durable agent and opens it. Plain agents may still be setting up; managed agents are asleep.
     func create(_ request: CompanionCreateRequest) async -> Bool {
         guard !createInProgress, uncertainCreateRequest == nil, let host = hosts.first(where: { $0.id == request.project.hostID }),
               host.connection.canOperate, host.canCreateDurable,
-              !request.name.isEmpty, request.useWorktree != true || CompanionAgentName.problem(request.name) == nil else { return false }
+              request.managedSelection == nil || host.canCreateManaged,
+              !request.name.isEmpty,
+              (request.managedSelection == nil && request.useWorktree != true) || CompanionAgentName.problem(request.name) == nil else { return false }
         return await dispatchCreate(request)
     }
 

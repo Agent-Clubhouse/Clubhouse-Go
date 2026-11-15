@@ -192,9 +192,32 @@ nonisolated struct CompanionAgentOptions: Sendable, Equatable {
     }
 }
 
+/// Only listed templates arrive from the desktop; Blank is always supplied locally.
+nonisolated struct CompanionManagedTemplate: Identifiable, Sendable, Equatable {
+    var id: String
+    var name: String
+    var description: String
+    var builtin: Bool
+    var orchestrator: String?
+    var model: String?
+    var access: CompanionPermissionLevel?
+}
+
+nonisolated struct CompanionManagedCreateOptions: Sendable, Equatable {
+    var defaultOn: Bool
+    var templates: [CompanionManagedTemplate]
+    var builtinTemplates: [CompanionManagedTemplate] { templates.filter(\.builtin) }
+    var userTemplates: [CompanionManagedTemplate] { templates.filter { !$0.builtin } }
+}
+
+nonisolated enum CompanionManagedSelection: Sendable, Equatable, Hashable {
+    case blank, template(String)
+}
+
 /// The New agent form for one project.
 nonisolated struct CompanionCreateOptions: Sendable, Equatable {
     var options: CompanionAgentOptions
+    var managed: CompanionManagedCreateOptions? = nil
     var mcpCatalog: [CompanionMCPOption] = []
     var mcpDefaults: [String] = []
     /// Distinguishes a desktop's explicit empty selection from an omitted or malformed defaults field.
@@ -372,6 +395,7 @@ nonisolated struct CompanionCreateRequest: Sendable, Equatable {
     var mcpIDs: [String]?
     /// Nil leaves it to the default. Only sent to desktops that take it (`orchestration` v1).
     var orchestrate: Bool? = nil
+    var managedSelection: CompanionManagedSelection? = nil
     var clientCommandID: String
 }
 
@@ -439,8 +463,15 @@ enum CompanionAgentCommandError {
         case "stale_state": return "The agent or its settings changed. Refresh before trying again."
         case "session_capture_failed": return "The desktop could not save the previous session. Check the agent on the desktop before changing providers."
         case "resume_unverified", "resume_failed": return "Resume could not be verified. No fresh session was started."
+        case "managed_required": return "Turn on Clubhouse managed to create from a template or Blank."
+        case "invalid_managed_selection": return "Choose one template or Blank for this agent."
+        case "managed_options_conflict": return "The desktop sets workspace, tools and Access for managed agents. Choose a template or Blank again."
+        case "template_not_found": return "That template is no longer available. Choose Blank or reopen this sheet to load the latest templates."
+        case "managed_agent": return "This setup is managed on the desktop. Change it there."
         case "create_refused": return detail ?? "The desktop couldn't create this agent."
         case "invalid_name": return detail ?? "Choose a different agent name."
+        case "invalid_folder_name": return detail ?? "Choose a different folder name."
+        case "invalid_branch_name": return detail ?? "Choose a different branch name."
         case "invalid_color": return detail ?? "Choose one of the colours offered."
         case "invalid_context_window": return "That context setting is no longer available for this model. Choose one offered by the desktop or reset to Default."
         case "free_agent_mode_not_allowed": return "Free Agent Mode can only be changed on the desktop."
