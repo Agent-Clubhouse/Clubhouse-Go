@@ -175,6 +175,172 @@ import Testing
         #expect(sent == ["dispatcher.update", "dispatcher.setModels"])
     }
 
+    @Test func canonicalEquivalentDraftAcknowledgementsReachTheStoreWithTheirExactBytes() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        for field in ["name", "emoji", "personality"] {
+            for value in ["\u{e9}", "e\u{301}", "Next desktop value"] {
+                let raw = try withDraftText(original, field: field, value: value)
+                await harness.transport.setRead("dispatcherSettings", raw)
+                _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+                func bytes() -> [UInt8]? {
+                    guard let settings = harness.store.dispatcherSettings(hostID: hostID) else { return nil }
+                    switch field {
+                    case "name": return Array(settings.identity.name.utf8)
+                    case "emoji": return settings.identity.emoji.map { Array($0.utf8) }
+                    default: return settings.personality.map { Array($0.text.utf8) }
+                    }
+                }
+                try await harness.waitUntil { bytes() == Array(value.utf8) }
+                #expect(bytes() == Array(value.utf8))
+            }
+        }
+    }
+
+    @Test func anOlderCommandReceiptDoesNotPublishOverANewerSettingsRead() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID) != nil }
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        let saved = try withDraftText(original, field: "name", value: "Saved name")
+        let newer = try withDraftText(saved, field: "emoji", value: "New remote emoji")
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string("held"),
+            "status": .string("completed"), "result": saved
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let save = Task {
+            try await harness.service.updateDispatcher(.init(name: "Saved name"), hostID: hostID, clientCommandID: "held")
+        }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        await harness.transport.setRead("dispatcherSettings", newer)
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID)?.identity.emoji == "New remote emoji" }
+        let events = harness.service.events()
+        let observed = Task {
+            var emojiValues: [String?] = []
+            for await event in events {
+                guard case .hosts(let hosts) = event, let host = hosts.first(where: { $0.id == hostID }) else { continue }
+                emojiValues.append(host.dispatcherSettings?.identity.emoji)
+                if host.dispatcherSettings?.identity.color == "teal" { return emojiValues }
+            }
+            return emojiValues
+        }
+        defer { observed.cancel() }
+        let readsBeforeReceipt = await settingsReads(harness)
+        await harness.transport.releaseCommand()
+        let result = try await save.value
+        #expect(result.identity.name == "Saved name", "The caller receives the reconciled snapshot, which also includes the saved name")
+        #expect(await settingsReads(harness) == readsBeforeReceipt + 1, "Conflicting receipt evidence is resolved by one authoritative read, never by publishing the older snapshot")
+        // A distinct final read is a barrier after any incorrectly emitted receipt snapshot.
+        await harness.transport.setRead("dispatcherSettings", try withDraftText(newer, field: "color", value: "teal"))
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID)?.identity.color == "teal" }
+        let emojiValues = await observed.value
+        #expect(!emojiValues.isEmpty)
+        #expect(emojiValues.allSatisfy { $0 == "New remote emoji" })
+    }
+
+    @Test func legitimateBehaviorReceiptSurvivesAnInterveningConfirmationRefresh() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID) != nil }
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        let newer = withTokens(original, clear: "new-clear", forget: "new-forget")
+        guard case .object(var saved) = newer,
+              case .object(var behavior)? = saved["behavior"] else {
+            Issue.record("Missing fixture behavior")
+            return
+        }
+        behavior["value"] = .string("thorough")
+        saved["behavior"] = .object(behavior)
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string("held"),
+            "status": .string("completed"), "result": .object(saved)
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let save = Task {
+            try await harness.store.updateDispatcher(.init(behavior: "thorough"), hostID: hostID)
+        }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        await harness.transport.setRead("dispatcherSettings", newer)
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil {
+            harness.store.dispatcherSettings(hostID: hostID)?.clearChat.expectedState == "new-clear"
+        }
+        let readsBeforeReceipt = await settingsReads(harness)
+        await harness.transport.releaseCommand()
+        let acknowledged = try await save.value
+        #expect(acknowledged.behavior.value == "thorough")
+        #expect(acknowledged.clearChat.expectedState == "new-clear")
+        let events = harness.service.events()
+        var iterator = events.makeAsyncIterator()
+        guard case .hosts(let hosts)? = await iterator.next() else {
+            Issue.record("Missing current service snapshot")
+            return
+        }
+        let visible = hosts.first { $0.id == hostID }?.dispatcherSettings
+        #expect(visible?.behavior.value == "thorough", "A later receipt containing every intervening change must not leave the saved Behavior unshown")
+        #expect(visible?.clearChat.expectedState == "new-clear")
+        #expect(visible?.forgetEverything.expectedState == "new-forget")
+        #expect(await settingsReads(harness) == readsBeforeReceipt, "A receipt including all observed changes needs no extra read")
+    }
+
+    @Test func sameFieldConflictUsesOneAuthoritativeRead() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        let original = try ContractFixtures.body("dispatcher-settings.json", "on")
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID) != nil }
+        let saved = try withDraftText(original, field: "name", value: "Submitted name")
+        let newer = try withDraftText(original, field: "name", value: "Newer desktop name")
+        let receipt = try AnnexJSON.object([
+            "version": .integer(1), "epoch": .string("epoch"), "commandId": .string("held"),
+            "status": .string("completed"), "result": saved
+        ]).decode(AnnexCommandReceipt.self)
+        await harness.transport.enqueue(.heldReceipt(receipt))
+        let save = Task {
+            try await harness.store.updateDispatcher(.init(name: "Submitted name"), hostID: hostID)
+        }
+        try await harness.waitUntil { await harness.transport.executed.count == 1 }
+        await harness.transport.setRead("dispatcherSettings", newer)
+        _ = try await harness.store.loadDispatcherSettings(hostID: hostID)
+        try await harness.waitUntil { harness.store.dispatcherSettings(hostID: hostID)?.identity.name == "Newer desktop name" }
+        let before = await settingsReads(harness)
+        await harness.transport.releaseCommand()
+        let returned = try await save.value
+        #expect(Array(returned.identity.name.utf8) == Array("Newer desktop name".utf8),
+                "The submitted-field acknowledgement must use the authoritative read, not the superseded receipt")
+        #expect(await settingsReads(harness) == before + 1)
+        #expect(harness.store.dispatcherSettings(hostID: hostID)?.identity.name == "Newer desktop name")
+        #expect(await harness.transport.executed.count == 1)
+    }
+
+    private func withDraftText(_ body: AnnexJSON, field: String, value: String) throws -> AnnexJSON {
+        guard case .object(var document) = body else { throw AnnexTransportError.malformedResponse }
+        if field == "personality" {
+            guard case .object(var personality)? = document["personality"],
+                  case .object(var text)? = personality["value"] else { throw AnnexTransportError.malformedResponse }
+            text["text"] = .string(value)
+            personality["value"] = .object(text)
+            document["personality"] = .object(personality)
+        } else {
+            guard case .object(var identity)? = document["identity"],
+                  case .object(var text)? = identity[field] else { throw AnnexTransportError.malformedResponse }
+            text["value"] = .string(value)
+            identity[field] = .object(text)
+            document["identity"] = .object(identity)
+        }
+        return .object(document)
+    }
+
     @Test func refusalsReachThePersonAsSentences() async throws {
         let harness = try await start()
         defer { harness.stop() }

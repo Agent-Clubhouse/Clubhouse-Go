@@ -134,7 +134,7 @@ user-selected whole grapheme across dismissal/refocus. The test never sets the i
 | Quick agent | Older-desktop quick-only autofocus, Unicode entry, Home/reactivation, rotation, exact spawn request and dismissal |
 | Search | Search-tab/native-search-field tap, Unicode query, Home/reactivation, rotation and further typing |
 | Agent name | Existing/drafted name, explicit end tap, Home/reactivation, rotation, exact rename request and sheet dismissal |
-| Dispatcher name | Explicit end tap, Unicode typing, Home/reactivation, exact rename request and sheet dismissal; rotation is excluded because the separate draft-reset defect is tracked in #413 |
+| Dispatcher name | Explicit end tap, Unicode typing, Home/reactivation, rotation, exact rename request and sheet dismissal |
 | Review answer | Real free-text question, user tap, Home/reactivation, rotation, exact answer request and dismissal |
 | Terminal | Native mount autofocus, keyboard toggle, Home/reactivation, rotation and exact input bytes using the existing preview input audit |
 
@@ -150,9 +150,67 @@ Its visible refusal says whether the request bytes match; it never contacts a de
 succeeded. `--companion-preview-unicode-quick` supplies the older quick-only desktop capability.
 All test typing occurs once, and predicate waits require the exact expected value, never a shortened string
 or replacement-character tolerance.
-The original broad validation run passed all hosted cases and every other selected UI case, but failed the
-Dispatcher rotation assertion when its entire draft reset to the saved name. That run is not reported as
-passing; #413 tracks the separate defect, and this regression keeps exact checks for the remaining steps.
+The original #414 broad validation run passed all hosted cases and every other selected UI case, but failed the
+Dispatcher rotation assertion when its entire draft reset to the saved name. That historical run is not reported
+as passing. The #413 fix below restores the rotation step without changing its byte-exact assertions.
+
+### Dispatcher settings draft lifetime (#413)
+
+The Behavior section's initial settings observer ran again after rotation or scrolling the lazy Form section
+offscreen and back. It unconditionally reapplied all three desktop text values, even when the settings were
+unchanged. Restoring just that observer reproduces both failures; its bounded diagnostic trace observes equal
+old/new settings with a pending name immediately before the overwrite.
+
+The enclosing `CompanionAgentSettingsForm` now owns name, emoji and personality drafts, their saved baselines,
+and loading/observation outside the lazy sections. Initialization belongs to that form presentation; section
+remounts never initialize drafts. Closing without submitting still discards edits, and reopening starts from
+the current desktop values.
+
+**Concurrent desktop-change policy:** an untouched field follows the desktop. A pending local field keeps its
+exact UTF-8 bytes and shows “The [field] changed on the desktop. Your unsaved edit is kept.” Repeated settings,
+usage changes, and saves of unrelated controls never discard pending fields. An incoming value matching the
+draft's exact bytes acknowledges it, including an NFC-to-NFD acknowledgement: both form observation and live
+service deduplication include the text fields' UTF-8 bytes rather than relying solely on String equality.
+Explicit submit, emoji clear, personality preset selection or personality Revert accepts the desktop result
+for that field only, including its normalization/limits. Submitting an emoji that trims to its saved value
+accepts that value without a command. A refused save retains the existing visible error/revert convention for
+the submitted field, without resetting other pending drafts. This follows ordinary agent settings' existing
+preserve-dirty-fields-on-refresh convention and adds a visible conflict notice.
+
+Command receipts acknowledge only their submitted text field, never the older values of unrelated clean fields.
+The live service publishes a receipt if it includes every settings component change observed while the command
+was in flight, so an unrelated confirmation-token refresh does not hide a successful Behavior/model/color save.
+If any changed component conflicts (including byte-distinct text), it performs one authoritative settings read
+instead of publishing the older receipt. That authoritative result is also returned to the save caller, so the
+submitted-field acknowledgement cannot mark a superseded receipt value clean. This does not retry the command;
+read failures remain visible errors.
+Without a server revision this does not establish a total ordering of all concurrent reads and events.
+Draft baselines are keyed to the desktop's
+`settings.agentID`: a replacement Dispatcher resets all three drafts to its saved values rather than carrying
+edits intended for the deleted agent. Receipts for the previous agent cannot acknowledge the replacement.
+
+`CompanionDispatcherSettingsDraftTests` hosts the production settings sheet with the in-memory preview service:
+genuine desktop name changes update an untouched native editor even while Behavior is offscreen, while the same
+snapshot updates a clean emoji without overwriting an edited name. Focused state cases cover every text draft,
+unrelated saves, remote conflicts, acknowledgement and canonically equivalent but byte-distinct edits.
+Native regressions additionally submit the normalized emoji no-op and hold a real name save while delivering
+a newer clean emoji, then release the older receipt. State coverage checks agent replacement and an old-agent
+receipt. Live-adapter contract coverage requires exact NFC/NFD acknowledgements for all three text fields and
+rejects publication of a held old receipt over an intervening settings read, and requires a legitimate Behavior
+receipt carrying refreshed confirmation tokens to reach the visible service snapshot without an extra read.
+Same-field conflict coverage requires the caller to receive the authoritative name after exactly one read.
+A hosted native regression routes the real submit callback through the live adapter with a held scripted
+transport receipt; both the store and editor must show the newer authoritative name after completion.
+These boundary regressions use
+explicit callback/predicate expectations rather than fixed settling delays; restoring each old boundary fails
+its focused regression.
+`CompanionDispatcherUITests` checks lazy-section scrolling, Behavior/model saves with a pending name, actual
+name/emoji/personality saves, rotation of the other text fields, and fresh sheet presentation.
+`CompanionUnicodeFocusUITests` again checks rotation while editing the Dispatcher name, further typing and the
+exact rename request using #414's emoji, ZWJ, flag, skin-tone and astral-CJK corpus.
+Behavior, models, color and personality presets are server-backed immediate-save controls rather than local
+drafts; the ordinary agent form already owns its text drafts outside lazy sections. These checks use only the
+preview desktop on iPhone 17 / iOS 26.0; they do not establish physical-device or other-runtime behavior.
 
 ### Unresolved Wake-sheet autofocus (#246)
 

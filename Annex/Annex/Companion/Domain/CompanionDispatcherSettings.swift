@@ -103,6 +103,30 @@ nonisolated struct CompanionDispatcherSettings: Sendable, Equatable {
     var clearChat: Confirmation
     var forgetEverything: Confirmation
 
+    /// String equality folds canonical equivalents; draft acknowledgements must retain the actual bytes.
+    struct DraftKey: Sendable, Equatable {
+        var agentID: [UInt8]
+        var name: [UInt8]
+        var emoji: [UInt8]?
+        var personality: [UInt8]?
+    }
+    var draftKey: DraftKey {
+        .init(agentID: Array(agentID.utf8), name: Array(identity.name.utf8),
+              emoji: identity.emoji.map { Array($0.utf8) }, personality: personality.map { Array($0.text.utf8) })
+    }
+
+    /// A receipt may replace a snapshot only if it includes every intervening component change.
+    func includesChanges(from previous: Self?, to current: Self?) -> Bool {
+        guard let previous, let current else { return previous == current }
+        func includes<Value: Equatable>(_ key: KeyPath<Self, Value>) -> Bool {
+            previous[keyPath: key] == current[keyPath: key] || self[keyPath: key] == current[keyPath: key]
+        }
+        return includes(\.agentID) && includes(\.draftKey) && includes(\.behavior) &&
+            includes(\.models) && includes(\.identity) && includes(\.personality) &&
+            includes(\.usage) && includes(\.notHonored) && includes(\.clearChat) &&
+            includes(\.forgetEverything)
+    }
+
     /// The desktop's labels for the usage split.
     static let conversationsLabel = "Conversations today"
     static let backgroundLabel = "Background work today"

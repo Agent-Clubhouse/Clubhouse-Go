@@ -5,6 +5,133 @@ import Vision
 /// the projects, its chat with no project actions, its settings, and the task it relayed in River's chat.
 @MainActor
 final class CompanionDispatcherUITests: ReliableUITestCase {
+    private static let unicodeDraft = "\u{1F642}\u{1F469}\u{200D}\u{1F4BB}\u{1F1FA}\u{1F1F3}\u{1F44D}\u{1F3FD}\u{20000}"
+
+    private func openDispatcherSettings() -> XCUIApplication {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-settings"], attempts: 1)
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 10))
+        app.navigationBars.buttons["Conversation actions"].tap()
+        XCTAssertTrue(app.buttons["Agent settings"].waitForExistence(timeout: 5))
+        app.buttons["Agent settings"].tap()
+        XCTAssertTrue(element(app, "dispatcher-behavior-standard").waitForExistence(timeout: 10))
+        return app
+    }
+
+    private func requireBytes(_ field: XCUIElement, _ expected: String, file: StaticString = #filePath, line: UInt = #line) {
+        let matched = waitFor(field, NSPredicate(format: "value == %@", expected), timeout: 5)
+        XCTAssertEqual(Array((field.value as? String ?? "").utf8), Array(expected.utf8), file: file, line: line)
+        XCTAssertTrue(matched, file: file, line: line)
+    }
+
+    private func scrollSettings(to target: XCUIElement, in app: XCUIApplication, up: Bool = true) {
+        for _ in 0..<20 {
+            let top = (app.navigationBars.allElementsBoundByIndex.map(\.frame.maxY).max() ?? 0) + 10
+            let keyboard = app.keyboards.firstMatch
+            // The keyboard's AX frame omits its prediction/accessory strip.
+            let bottom = keyboard.exists ? keyboard.frame.minY - 100 : app.frame.maxY - 10
+            if target.exists && target.isHittable && target.frame.minY >= top && target.frame.maxY <= bottom { return }
+            XCTAssertGreaterThan(bottom - top, 80)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: app.frame.width * 0.5, dy: (top + bottom) / 2))
+            let movingUp = target.exists ? target.frame.midY > (top + bottom) / 2 : up
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: movingUp ? -120 : 120)),
+                withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        screenshot(app, "Settings scrolling failure")
+        let hierarchy = XCTAttachment(data: Data(app.debugDescription.utf8), uniformTypeIdentifier: "public.plain-text")
+        hierarchy.name = "Settings scrolling hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        XCTFail("The settings row must be visible above the keyboard")
+    }
+
+    func testNameDraftSurvivesLazySectionsAndUnrelatedSaves() {
+        let app = openDispatcherSettings()
+        let name = app.textFields["dispatcher-name"]
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        let draft = "Dispatcher" + Self.unicodeDraft
+        app.typeText(Self.unicodeDraft)
+        requireBytes(name, draft)
+
+        let clear = element(app, "dispatcher-clear-chat")
+        scrollSettings(to: clear, in: app)
+        let behavior = element(app, "dispatcher-behavior-thorough")
+        XCTAssertFalse(behavior.isHittable, "The lifecycle's Behavior section is offscreen")
+        scrollSettings(to: behavior, in: app, up: false)
+        scrollSettings(to: name, in: app)
+        requireBytes(name, draft)
+
+        scrollSettings(to: behavior, in: app, up: false)
+        behavior.tap()
+        XCTAssertTrue(behavior.wait(for: \.isSelected, toEqual: true, timeout: 5))
+        let models = app.switches["dispatcher-models-by-hand"]
+        scrollSettings(to: models, in: app)
+        models.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertTrue(waitFor(models, NSPredicate(format: "value == %@", "1"), timeout: 5))
+        scrollSettings(to: name, in: app)
+        requireBytes(name, draft)
+        name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        app.keyboards.buttons["Done"].tap()
+        requireBytes(name, draft)
+        app.navigationBars.buttons["Done"].tap()
+        XCTAssertTrue(app.navigationBars[draft].waitForExistence(timeout: 5), "The saved name reaches the conversation")
+    }
+
+    func testNewSettingsPresentationStartsWithSavedNameNotDiscardedDraft() {
+        let app = openDispatcherSettings()
+        let name = app.textFields["dispatcher-name"]
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        app.typeText(Self.unicodeDraft)
+        requireBytes(name, "Dispatcher" + Self.unicodeDraft)
+        app.navigationBars.buttons["Done"].tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+        app.navigationBars.buttons["Conversation actions"].tap()
+        app.buttons["Agent settings"].tap()
+        XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
+        requireBytes(name, "Dispatcher")
+    }
+
+    func testEmojiDraftSurvivesRotationAndSaves() {
+        let app = openDispatcherSettings()
+        let emoji = app.textFields["dispatcher-emoji"]
+        XCTAssertTrue(scrollUntilExists(emoji, in: app) && scrollTo(emoji, in: app))
+        emoji.tap()
+        let draft = "\u{1F469}\u{200D}\u{1F4BB}"
+        app.typeText(draft)
+        requireBytes(emoji, draft)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        requireBytes(emoji, draft)
+        XCUIDevice.shared.orientation = .portrait
+        requireBytes(emoji, draft)
+        emoji.tap()
+        app.keyboards.buttons["Done"].tap()
+        requireBytes(emoji, draft)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "Clear emoji")).firstMatch.waitForExistence(timeout: 5),
+            "The saved emoji is returned by the preview desktop")
+    }
+
+    func testPersonalityDraftSurvivesRotationAndSaves() {
+        let app = openDispatcherSettings()
+        let personality = element(app, "dispatcher-personality-text")
+        XCTAssertTrue(scrollUntilExists(personality, in: app, maxSwipes: 8) && scrollTo(personality, in: app))
+        let original = personality.value as? String ?? ""
+        personality.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.9)).tap()
+        app.typeText(Self.unicodeDraft)
+        let draft = original + Self.unicodeDraft
+        requireBytes(personality, draft)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        requireBytes(personality, draft)
+        XCUIDevice.shared.orientation = .portrait
+        requireBytes(personality, draft)
+        let save = app.buttons["dispatcher-personality-save"]
+        scrollSettings(to: save, in: app)
+        save.tap()
+        XCTAssertTrue(save.waitForNonExistence(timeout: 5), "A successful save retires the pending personality draft")
+        requireBytes(personality, draft)
+    }
+
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
     }

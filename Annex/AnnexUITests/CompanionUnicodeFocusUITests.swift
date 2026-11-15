@@ -251,7 +251,7 @@ import XCTest
         XCTAssertTrue(answer.waitForNonExistence(timeout: 5))
     }
 
-    func testDispatcherNameTapReactivationAndSubmitPreserveUnicodeBytes() {
+    func testDispatcherNameTapReactivationRotationAndSubmitPreserveUnicodeBytes() {
         let original = "Dispatcher"
         let draft = original + Self.draft
         let app = launchApp(["--companion-preview", "--companion-preview-unicode-focus",
@@ -270,7 +270,10 @@ import XCTest
         XCUIDevice.shared.press(.home)
         app.activate()
         requireBytes(name, draft)
-        // Rotation is not covered here: the separate draft-reset defect is tracked in #413.
+        XCUIDevice.shared.orientation = .landscapeLeft
+        requireBytes(name, draft)
+        XCUIDevice.shared.orientation = .portrait
+        requireBytes(name, draft)
         app.typeText("q")
         requireBytes(name, draft + "q")
         app.keyboards.buttons["Done"].tap()
