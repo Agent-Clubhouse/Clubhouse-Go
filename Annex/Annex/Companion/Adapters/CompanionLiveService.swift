@@ -1731,7 +1731,7 @@ import ClubhouseTransport
     nonisolated static func project(_ value: AnnexJSON, id: String, agents: [CompanionAgent], icon: CompanionIconReference?) -> CompanionProject {
         CompanionProject(id: id, name: value["displayName"]?.string ?? value["name"]?.string ?? id, agents: agents,
                          color: value["color"]?.string, emoji: value["emoji"]?.string,
-                         icon: icon)
+                         icon: icon, path: value["path"]?.string)
     }
     /// An agent's identity, Free Agent Mode and orchestration policy from its catalog entry.
     nonisolated static func applyIdentity(_ value: AnnexJSON, icon: CompanionIconReference?, to agent: inout CompanionAgent) {

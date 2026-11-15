@@ -41,6 +41,9 @@ extension CompanionCreateOptions {
             return .init(id: id, name: value["name"]?.string ?? id, description: value["description"]?.string)
         } ?? []
         mcpDefaults = json["mcp"]?["defaults"].arrayValue.compactMap(\.string) ?? []
+        if case .array(let values)? = json["mcp"]?["defaults"] {
+            mcpDefaultsReported = values.allSatisfy { $0.string != nil }
+        } else { mcpDefaultsReported = false }
         isGitRepo = json["isGitRepo"].boolValue
         suggestedName = json["suggestedName"]?.string ?? ""
         let defaults = json["defaults"]
