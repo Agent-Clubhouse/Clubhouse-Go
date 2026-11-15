@@ -21,7 +21,8 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
 
 `CompanionDispatcherUITests` replaces the Start screen setting check with every-tab process-relaunch
-restoration and unavailable-Dispatch fallback/foreground checks. Fresh preferences open Home; existing
+restoration and unavailable-Dispatch fallback/foreground checks. Search is checked through its expanded
+native field because its collapsed tab button leaves the accessibility tree. Fresh preferences open Home; existing
 Dispatcher-focused fixtures explicitly seed `--companion-preview-start-dispatch`. Tab selectors use
 **Dispatch**, while the conversation keeps its Dispatcher's name. Agents remains a separate working tab
 until #437 merges it into Search. Its tab appearance matrix captures Home and Dispatch in light, dark,

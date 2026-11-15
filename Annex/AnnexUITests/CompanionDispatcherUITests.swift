@@ -383,16 +383,30 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertFalse(app.buttons["companion-start-screen"].exists)
         XCTAssertFalse(app.staticTexts["Start screen"].exists)
         app.buttons["Done"].tap()
-        for title in ["Dispatch", "Needs you", "Agents", "Search", "Home"] {
+        func assertSelectedTab(_ title: String) {
+            if title == "Search" {
+                // The native Search role replaces its collapsed tab button with the search field.
+                XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 15))
+                let field = app.searchFields.firstMatch
+                XCTAssertTrue(field.waitForExistence(timeout: 5))
+                XCTAssertTrue(field.isHittable, "Search restores its native search control")
+            } else {
+                let selected = tab(app, title)
+                XCTAssertTrue(selected.waitForExistence(timeout: 15))
+                XCTAssertTrue(selected.wait(for: \.isSelected, toEqual: true, timeout: 5),
+                              "\(title) restores without a Start screen preference")
+            }
+        }
+        // Search expands the bar around the previous tab, so exercise it last.
+        for title in ["Dispatch", "Needs you", "Agents", "Home", "Search"] {
             let selected = tab(app, title)
             XCTAssertTrue(selected.waitForExistence(timeout: 10))
             selected.tap()
-            XCTAssertTrue(selected.wait(for: \.isSelected, toEqual: true, timeout: 5))
+            assertSelectedTab(title)
             app.terminate()
             app.launchArguments = arguments + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
             app.launch()
-            XCTAssertTrue(selected.waitForExistence(timeout: 15))
-            XCTAssertTrue(selected.wait(for: \.isSelected, toEqual: true, timeout: 5), "\(title) restores without a Start screen preference")
+            assertSelectedTab(title)
             screenshot(app, "Restored \(title) tab")
         }
     }
