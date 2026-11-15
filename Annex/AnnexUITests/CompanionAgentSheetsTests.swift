@@ -4,7 +4,7 @@ import XCTest
 /// durable create and settings. Preview commands never reach a desktop, so Create and every edit must fail visibly.
 @MainActor
 final class CompanionAgentSheetsTests: ReliableUITestCase {
-    private func launch() -> XCUIApplication { launchApp(["--companion-preview"]) }
+    private func launch() -> XCUIApplication { launchApp(["--companion-preview"], attempts: 1) }
 
     private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: identifier).firstMatch
@@ -51,7 +51,12 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         element(app, "agent-color-teal").tap()
         XCTAssertTrue(element(app, "agent-color-teal").isSelected)
 
-        // Form rows load as they scroll into view.
+        let workspace = app.buttons["new-agent-workspace-tools"]
+        scrollTo(workspace, in: app, maxSwipes: 4)
+        XCTAssertTrue(workspace.waitForExistence(timeout: 5))
+        workspace.tap()
+        XCTAssertTrue(app.navigationBars["Workspace and tools"].waitForExistence(timeout: 5))
+        // Workspace and tool options keep their defaults on their own page.
         let orchestrate = app.switches["new-agent-orchestrate"]
         scrollUntilExists(orchestrate, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(orchestrate.exists, "A desktop with orchestration offers it on create")
@@ -61,6 +66,10 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5)
         XCTAssertTrue(worktree.exists, "A git project offers its own worktree")
         XCTAssertEqual(worktree.value as? String, "1", "On by default")
+        XCTAssertTrue(app.switches["new-agent-orchestrate"].label.contains("Can start helpers"))
+        screenshot(app, "Workspace and tools")
+        app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["New agent"].waitForExistence(timeout: 5))
         let access = app.buttons["new-agent-access"]
         scrollTo(access, in: app, maxSwipes: 4)
         XCTAssertTrue(access.isEnabled)
@@ -112,6 +121,30 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         kind.buttons["Quick"].tap()
         XCTAssertTrue(app.textFields["Agent task"].waitForExistence(timeout: 5) || app.textViews["Agent task"].waitForExistence(timeout: 1))
         XCTAssertTrue(app.staticTexts["Runs one mission, reports back, and finishes."].exists)
+    }
+
+    func testWorkspaceAndToolsPreservesChangesWhenReturningToTheForm() {
+        let app = launch()
+        waitAndTap(app.navigationBars.buttons["New agent"], until: element(app, "new-agent-name"), attempts: 1)
+        let workspace = app.buttons["new-agent-workspace-tools"]
+        scrollTo(workspace, in: app, maxSwipes: 4)
+        workspace.tap()
+        let worktree = app.switches["new-agent-worktree"]
+        XCTAssertTrue(worktree.waitForExistence(timeout: 5))
+        worktree.tap()
+        let helpers = app.switches["new-agent-orchestrate"]
+        helpers.tap()
+        let ado = app.switches["new-agent-mcp-ado"]
+        scrollTo(ado, in: app, maxSwipes: 3)
+        ado.tap()
+        app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
+        XCTAssertTrue(workspace.waitForExistence(timeout: 5))
+        XCTAssertTrue(workspace.label.contains("Project folder"), workspace.label)
+        XCTAssertTrue(workspace.label.contains("2 MCPs"), workspace.label)
+        workspace.tap()
+        XCTAssertEqual(worktree.value as? String, "0")
+        XCTAssertEqual(helpers.value as? String, "1")
+        XCTAssertEqual(ado.value as? String, "1")
     }
 
     func testAwakeAgentSettingsAreLockedExceptAutoSleep() {

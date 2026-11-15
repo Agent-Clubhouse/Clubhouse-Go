@@ -120,6 +120,12 @@ import ClubhouseTransport
             if let theme {
                 for index in hosts.indices { hosts[index].theme = theme }
             }
+            // Synthetic desktop palette for screenshot validation; never reads or changes a live desktop.
+            if let raw = ProcessInfo.processInfo.environment["CLUBHOUSE_PREVIEW_THEME"],
+               let colors = try? JSONDecoder().decode([String: String].self, from: Data(raw.utf8)),
+               let theme = CompanionDesktopTheme.transported(colors) {
+                for index in hosts.indices { hosts[index].theme = theme }
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-unicode-quick") {
                 hosts[0].canCreateDurable = false
             }
