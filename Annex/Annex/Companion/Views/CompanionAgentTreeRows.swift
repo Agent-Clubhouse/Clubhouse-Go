@@ -8,17 +8,24 @@ struct CompanionAgentStatusLine: Equatable {
     init(agent: CompanionAgent, detail: String? = nil) {
         let message = agent.detail?.message?.trimmingCharacters(in: .whitespacesAndNewlines)
         let supplied = detail?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let state: String
         switch agent.status {
-        case .approval: status = "Needs permission"
-        case .waiting: status = "Has a question"
-        default: status = agent.status.label
+        case .approval: state = "Needs permission"
+        case .waiting: state = "Has a question"
+        default: state = agent.status.label
         }
+        let permissionLine = CompanionAttentionItem.permissionLine(toolName: agent.detail?.toolName)
+        let questionLine = CompanionAttentionItem.questionLine
+        let fallback: String?
+        if agent.status == .approval, let tool = agent.detail?.toolName {
+            fallback = CompanionAttentionItem.shortToolName(tool)
+        } else { fallback = nil }
         let candidates = [supplied, message, agent.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)]
+        status = state
         task = candidates.compactMap { $0 }.first { value in
-            !value.isEmpty && value != status && value != agent.status.label
-                && value != CompanionAttentionItem.permissionLine(toolName: agent.detail?.toolName)
-                && value != CompanionAttentionItem.questionLine
-        } ?? (agent.status == .approval ? agent.detail?.toolName.map(CompanionAttentionItem.shortToolName) : nil)
+            !value.isEmpty && value != state && value != agent.status.label
+                && value != permissionLine && value != questionLine
+        } ?? fallback
     }
 }
 

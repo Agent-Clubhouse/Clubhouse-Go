@@ -157,9 +157,9 @@ import SwiftUI
             .padding(20)
             .environment(\.companionAgentRowContext, context)
             .dynamicTypeSize(type)
+            .companionBackground()
             .companionTheme(theme)
             .environment(\.colorScheme, scheme)
-            .companionBackground()
             let hosting = UIHostingController(rootView: content)
             window.rootViewController = hosting
             window.makeKeyAndVisible()
