@@ -115,7 +115,7 @@ import Vision
 
     private func renderedText(_ window: UIWindow, stage: String) async throws -> [String] {
         func find(_ view: UIView) -> UIScrollView? {
-            if let scroll = view as? UIScrollView, scroll.contentSize.height > scroll.bounds.height + 100 { return scroll }
+            if let scroll = view as? UIScrollView, scroll.contentSize.height > 0 { return scroll }
             return view.subviews.lazy.compactMap(find).first
         }
         window.layoutIfNeeded()

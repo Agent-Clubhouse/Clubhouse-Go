@@ -252,7 +252,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     private func openDispatcherSettings(_ app: XCUIApplication) {
         let settings = app.buttons["Agent settings"]
         waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings, timeout: 10)
-        waitAndTap(settings, until: element(app, "agent-settings-model"), timeout: 15)
+        waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 15)
+        XCTAssertTrue(scrollUntilExists(element(app, "dispatcher-behavior-standard"), in: app, maxSwipes: 8),
+                      "Settings > Dispatcher loads its Behavior section")
     }
 
     /// Toggle once and wait for the authoritative setting, without retrying the gesture.
@@ -344,13 +346,21 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(rules.count, rulesBefore, "Allow once adds no rule")
 
         send(app, "tool")
+        // #392 moved persistent decisions out of transcript cards into Review request.
+        let review = app.buttons["companion-review-approval"]
         let always = app.buttons["companion-approval-option-allow_always"]
+        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30)
         XCTAssertTrue(always.waitForExistence(timeout: 30), "Allow and don't ask again is offered for the CLI's suggested rule")
         scrollTo(always, in: app, maxSwipes: 3)
         always.tap()
         // The phone may confirm a persistent rule first.
         let confirm = app.buttons.matching(NSPredicate(format: "(label == 'Always allow' OR label BEGINSWITH 'Allow and don') AND NOT (identifier BEGINSWITH 'companion-approval-option')")).firstMatch
         if confirm.waitForExistence(timeout: 5) { confirm.tap() }
+        let reviewTitle = app.scrollViews["companion-approval-review-scroll"].staticTexts["companion-approval-title"]
+        XCTAssertTrue(waitFor(reviewTitle, NSPredicate(format: "label == 'Allowed'"), timeout: 30),
+                      "The review must acknowledge the persistent decision before closing")
+        let closeReview = app.buttons["companion-approval-review-close"]
+        waitAndTap(closeReview, untilGone: closeReview)
         XCTAssertTrue(waitForMore(rules, than: rulesBefore), "Always allow must send the rule to the CLI")
         screenshot(app, "Always allow reached the CLI")
 
@@ -632,7 +642,6 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     /// Runs after the existing tests: the Dispatcher is disabled until this point so test0's idle rules still hold.
     func test9aDispatcherPhoneSwitchDesktopChangesAndReplay() throws {
         try dispatcherFixture("setEnabled", ["enabled": false])
-        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
         let app = try launchPaired()
         let row = dispatcherRow(app)
         XCTAssertFalse(row.exists)
@@ -661,6 +670,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
         XCUIDevice.shared.press(.home)
         try dispatcherFixture("phoneDisconnected")
+        // Stopping an agent cleans its interior replay entries. As in test9c, checkpoint after the final cleanup;
+        // all five live changes and their follow-up snapshots are still checked independently below.
+        let checkpoint = try XCTUnwrap(try dispatcherFixture("checkpoint") as? Int)
         try dispatcherFixture("setEnabled", ["enabled": true])
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
@@ -694,15 +706,25 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertTrue(app.staticTexts["Hello"].waitForExistence(timeout: 30), "Dispatcher must stream the scripted CLI reply")
         XCTAssertTrue(element(app, "companion-chat-header").label.contains("/ Dispatcher"))
         openDispatcherSettings(app)
-        for field in ["orchestrator", "model", "runtime", "auto-sleep", "free-agent-mode"] {
+        // Agent-Clubhouse/Clubhouse#3228's notHonored contract was deliberately adopted in Go #358:
+        // Behavior and Dispatcher-owned sections replace raw Model, Runtime and Access.
+        for identifier in ["dispatcher-behavior-standard", "dispatcher-models-by-hand", "dispatcher-name", "dispatcher-emoji",
+                           "dispatcher-personality", "dispatcher-usage-conversations", "dispatcher-usage-background",
+                           "dispatcher-clear-chat", "dispatcher-forget-everything"] {
+            XCTAssertTrue(scrollUntilExists(element(app, identifier), in: app, maxSwipes: 8), "Settings > Dispatcher exposes \(identifier)")
+        }
+        for field in ["model", "runtime", "free-agent-mode"] {
+            XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
+        }
+        for field in ["orchestrator", "auto-sleep"] {
             let control = element(app, "agent-settings-\(field)")
-            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 5), "Dispatcher exposes \(field)")
+            XCTAssertTrue(scrollUntilExists(control, in: app, maxSwipes: 8), "Dispatcher exposes \(field)")
             XCTAssertTrue(control.isEnabled, "Dispatcher \(field) is editable even while awake")
         }
         for field in ["name", "emoji", "orchestrate"] {
             XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "Dispatcher \(field) is locked")
         }
-        XCTAssertFalse(element(app, "agent-color-blue").exists, "The Dispatcher's color is locked")
+        // Identity is editable through dispatcher-name/emoji/color, not the locked raw agent.update fields.
         let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
         XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])
@@ -713,8 +735,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         for field in ["name", "color", "emoji"] {
             XCTAssertEqual((settings[field] as? [String: Any])?["editable"] as? String, "never", field)
         }
+        let dispatcherResponse = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
+        XCTAssertEqual(dispatcherResponse["status"] as? Int, 200)
+        let dispatcherSettings = try XCTUnwrap(dispatcherResponse["body"] as? [String: Any])
+        let hidden = try XCTUnwrap(dispatcherSettings["notHonored"] as? [[String: Any]])
+        for field in ["model", "runtime", "access", "freeAgentMode"] {
+            XCTAssertTrue(hidden.contains { $0["setting"] as? String == field }, "Desktop explicitly marks \(field) notHonored")
+        }
         screenshot(app, "Real Dispatcher settings while awake")
-        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
         // There is no phone Sleep action. Stop through the desktop's real mobile command, as a desktop stop would.
         let stop = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.stop", "agentId": id]]) as? [String: Any])
         XCTAssertEqual(stop["status"] as? Int, 200)
@@ -872,26 +901,26 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             choice.tap()
             XCTAssertTrue(choice.waitForNonExistence(timeout: 15))
         }
-        pick("model", "Haiku")
-        pick("runtime", "Chat")
+        // Agent-Clubhouse/Clubhouse#3228 and Go #358: save through the owning Dispatcher controls, not notHonored rows.
+        let thorough = element(app, "dispatcher-behavior-thorough")
+        XCTAssertTrue(scrollTo(thorough, in: app))
+        thorough.tap()
+        XCTAssertTrue(thorough.wait(for: \.isSelected, toEqual: true, timeout: 15), "Behavior saves authoritatively")
         pick("auto-sleep", "After 15 min idle")
-        let free = app.switches["agent-settings-free-agent-mode"]
-        scrollTo(free, in: app)
-        setSwitch(free, on: false, in: app)
+        for field in ["model", "runtime", "free-agent-mode"] {
+            XCTAssertFalse(element(app, "agent-settings-\(field)").exists, "notHonored deliberately hides raw \(field)")
+        }
         let saved = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         let config = try XCTUnwrap(saved["config"] as? [String: Any])
-        XCTAssertTrue((config["model"] as? String)?.contains("haiku") == true, "The phone model choice persists on desktop")
-        XCTAssertEqual(config["runtimeMode"] as? String, "chat")
         XCTAssertEqual(config["idleSleep"] as? Int, 15)
-        // Desktop canonicalizes false by removing the stored flag; its settings route returns explicit false.
-        XCTAssertFalse(config["freeAgentMode"] as? Bool ?? false)
-        let response = try XCTUnwrap(try dispatcherFixture("settings", ["agentId": id]) as? [String: Any])
+        let response = try XCTUnwrap(try dispatcherFixture("dispatcherSettings") as? [String: Any])
+        XCTAssertEqual(response["status"] as? Int, 200)
         let body = try XCTUnwrap(response["body"] as? [String: Any])
-        let persisted = try XCTUnwrap(body["settings"] as? [String: Any])
-        XCTAssertEqual((persisted["freeAgentMode"] as? [String: Any])?["value"] as? Bool, false)
+        XCTAssertEqual((body["behavior"] as? [String: Any])?["value"] as? String, "thorough")
         XCTAssertFalse(element(app, "agent-settings-error").exists)
+        XCTAssertFalse(element(app, "dispatcher-settings-save-error").exists)
         screenshot(app, "Dispatcher settings saved on real desktop")
-        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-model"))
+        waitAndTap(app.buttons["Done"], untilGone: element(app, "agent-settings-summary"))
         // Persona and Clubhouse Mode were retired (Clubhouse #2901); the phone never sends them, so they aren't checked here.
         for fields: [String: Any] in [["name": "renamed"], ["color": "blue"], ["emoji": "X"], ["orchestration": ["orchestrate": true]]] {
             var command = fields
@@ -900,9 +929,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             XCTAssertEqual(result["status"] as? Int, 409)
             XCTAssertTrue(String(describing: result["body"]).contains("dispatcher_locked"), "Locked write: \(fields)")
         }
-        // Keep the fixture deterministic for retries: these settings apply next start, no CLI is invoked here.
+        let resetBehavior = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "dispatcher.update", "behavior": "standard"]]) as? [String: Any])
+        XCTAssertEqual(resetBehavior["status"] as? Int, 200)
+        // Restore supported next-start settings without writing the deliberately unoffered raw rows.
         let reset = try XCTUnwrap(try dispatcherFixture("command", ["fields": ["type": "agent.update", "agentId": id,
-            "orchestrator": "claude-code", "model": "default", "runtime": "chat", "idleSleep": "never", "freeAgentMode": true]]) as? [String: Any])
+            "orchestrator": "claude-code", "idleSleep": "never"]]) as? [String: Any])
         XCTAssertEqual(reset["status"] as? Int, 200)
     }
 
@@ -944,7 +975,9 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         XCTAssertEqual(helper.value as? String, "Helper of Echo")
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(helper, shows: settings)
-        waitAndTap(settings, until: element(app, "agent-settings-name"), timeout: 15)
+        waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 15)
+        XCTAssertTrue(scrollUntilExists(element(app, "agent-settings-name"), in: app, maxSwipes: 8),
+                      "The helper's Name is below the lazy Context and Helpers sections")
         let connect = app.switches["agent-settings-orchestrate-dispatcher"]
         let crossProject = app.switches["agent-settings-orchestrate-cross-project"]
         XCTAssertTrue(scrollUntilExists(crossProject, in: app, maxSwipes: 6), "Other helper orchestration controls remain available")

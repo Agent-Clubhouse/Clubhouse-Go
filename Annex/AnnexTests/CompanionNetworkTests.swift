@@ -118,12 +118,27 @@ private actor NetworkRuntimeSocket: AnnexWebSocket {
 
 private actor NetworkRuntimeIO: AnnexIO {
     let desktop: AnnexClientIdentity
+    let hostID: String
     var view: AnnexNetworkSnapshot
     private(set) var identityReads = 0
     private(set) var pairRequests = 0
     private var socket: NetworkRuntimeSocket?
-    init(desktop: AnnexClientIdentity, view: AnnexNetworkSnapshot) { self.desktop = desktop; self.view = view }
-    func change(_ view: AnnexNetworkSnapshot) async throws { self.view = view; try await socket?.push(view) }
+    init(desktop: AnnexClientIdentity, view: AnnexNetworkSnapshot) throws {
+        self.desktop = desktop
+        self.hostID = try desktop.fingerprint
+        self.view = view
+    }
+    private func localized(_ view: AnnexNetworkSnapshot) -> AnnexNetworkSnapshot {
+        let members = view.members.map { member in
+            AnnexNetworkMember(fingerprint: member.fingerprint, publicKey: member.publicKey, name: member.name,
+                               icon: member.icon, color: member.color, kind: member.kind, hosts: member.hosts,
+                               port: member.port, certFingerprint: member.certFingerprint, certPem: member.certPem,
+                               online: member.online, isSelf: member.fingerprint == hostID,
+                               joinedAt: member.joinedAt, pairingId: member.pairingId)
+        }
+        return .init(version: view.version, joined: view.joined, members: members, removals: view.removals)
+    }
+    func change(_ view: AnnexNetworkSnapshot) async throws { self.view = view; try await socket?.push(localized(view)) }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         let path = request.url?.path ?? ""
         let value: AnnexJSON
@@ -139,8 +154,10 @@ private actor NetworkRuntimeIO: AnnexIO {
             value = .object(["publicKey": .string(desktop.pairingIdentity.publicKeyBase64), "fingerprint": .string(try desktop.fingerprint)])
         } else if path.hasSuffix("/capabilities") {
             value = try JSONDecoder().decode(AnnexJSON.self, from: Data(#"{"version":1,"epoch":"e","controlAuth":"mtls-pinned-client","controlAvailable":true,"commands":[],"idempotency":{"scope":"peer-and-epoch","maxEntries":1,"ttlMs":1},"network":{"version":1,"path":"/api/v1/mobile/network","membersPath":"/api/v1/mobile/network/members","event":"network:changed","pairField":"network"}}"#.utf8))
+        } else if path.hasSuffix("/network/members") {
+            value = .object(["added": .array([]), "skipped": .array([])])
         } else if path.hasSuffix("/network") {
-            value = try JSONDecoder().decode(AnnexJSON.self, from: JSONEncoder().encode(view))
+            value = try JSONDecoder().decode(AnnexJSON.self, from: JSONEncoder().encode(localized(view)))
         } else { value = .object(["projects": .array([])]) }
         return .init(status: 200, data: try JSONEncoder().encode(value))
     }
@@ -159,7 +176,7 @@ extension CompanionNetworkTests {
         }
         let memberA = try member(a, isSelf: true), memberB = try member(b, isSelf: false)
         let initial = AnnexNetworkSnapshot(version: 1, joined: true, members: [memberA, memberB], removals: [])
-        let ioA = NetworkRuntimeIO(desktop: a, view: initial), ioB = NetworkRuntimeIO(desktop: b, view: initial)
+        let ioA = try NetworkRuntimeIO(desktop: a, view: initial), ioB = try NetworkRuntimeIO(desktop: b, view: initial)
         let pairings = MemoryAnnexPairingStore()
         let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: pairings, pairingIO: { host, _ in host.hostID == memberA.fingerprint ? ioA : ioB })
         let runtime = CompanionRuntime(registry: registry, persistsDrafts: false)
@@ -194,6 +211,10 @@ extension CompanionNetworkTests {
         }
         try await ioA.change(.init(version: 1, joined: true, members: [memberA, repaired], removals: [removal]))
         #expect(await eventually { await ioA.identityReads > sourceReadsBefore })
+        #expect(await eventually {
+            let saved = await pairings.loadAll()
+            return saved.count == 2 && saved.allSatisfy { $0.network?.needsIntroduction == false }
+        }, "Replacement membership exchanges must complete; malformed acknowledgements leave reconciliation pending")
         await runtime.service.suspend()
         runtime.store.stop()
         await registry.disconnectAll()
@@ -209,8 +230,8 @@ extension CompanionNetworkTests {
         }
         let memberA = try member(a, self: true), memberB = try member(b, self: false)
         let initial = AnnexNetworkSnapshot(version: 1, joined: true, members: [memberA, memberB], removals: [])
-        let ioA = NetworkRuntimeIO(desktop: a, view: initial)
-        let ioB = NetworkRuntimeIO(desktop: b, view: initial)
+        let ioA = try NetworkRuntimeIO(desktop: a, view: initial)
+        let ioB = try NetworkRuntimeIO(desktop: b, view: initial)
         let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: MemoryAnnexPairingStore(), pairingIO: { host, _ in host.hostID == memberA.fingerprint ? ioA : ioB })
         let runtime = CompanionRuntime(registry: registry, persistsDrafts: false)
         await runtime.start()

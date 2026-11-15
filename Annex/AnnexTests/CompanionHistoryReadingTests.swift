@@ -342,7 +342,11 @@ import UIKit
         window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: loading, agent: agent) })
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil }
-        try await Task.sleep(for: .milliseconds(400))
+        try await waitUntil {
+            service.historyRequested && self.transcript(window).map {
+                $0.contentOffset.y + $0.adjustedContentInset.top > 500
+            } == true
+        }
         XCTAssertTrue(service.historyRequested)
         XCTAssertEqual(loading.conversation(for: target).items.count, 5)
         let scroll = try XCTUnwrap(transcript(window)), bookmark = loading.readingBookmark(for: target)
@@ -351,8 +355,13 @@ import UIKit
         // Force the history-load offset reset seen on 26.5. No gesture or status-bar tap occurs.
         scroll.setContentOffset(CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: false)
         service.releaseHistory = true
-        try await Task.sleep(for: .milliseconds(500))
-        window.layoutIfNeeded()
+        try await waitUntil {
+            window.layoutIfNeeded()
+            return loading.conversation(for: target).items.count == 182
+                && bookmark.viewport.historyRevision == loading.conversation(for: target).historyRevision
+                && bookmark.viewport.hasInitialized && !bookmark.viewport.isRestoring
+                && bookmark.viewport.metrics?.isAtTrueBottom == true
+        }
         XCTAssertEqual(loading.conversation(for: target).items.count, 182)
         let followedAfterHistory = bookmark.position.followsLatest
         let reachedBottom = bookmark.viewport.metrics?.isAtTrueBottom == true

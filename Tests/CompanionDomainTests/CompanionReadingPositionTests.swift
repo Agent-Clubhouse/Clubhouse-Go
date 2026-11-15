@@ -1,7 +1,57 @@
+import Foundation
 import Testing
 @testable import CompanionDomain
 
 struct CompanionReadingPositionTests {
+    @Test @MainActor func stalledRestorationExhaustsItsBudgetWithoutLosingTheReadingBookmark() {
+        let bookmark = CompanionReadingBookmark()
+        bookmark.position = .init(followsLatest: false, entryID: "message:reading", distanceFromEntry: 8, offset: 400)
+        let viewport = bookmark.viewport
+        let revision = UUID()
+        var restore = CompanionReadingRestoration(revision: revision, startedAt: 0)
+        let metrics = CompanionScrollMetrics(offset: 100, contentHeight: 1_000, containerHeight: 500)
+        #expect(restore.next(now: 0, revision: revision, followsLatest: false, metrics: nil,
+                             frameContentHeight: nil, proposedOffset: 400) == .wait)
+        #expect(restore.next(now: 0, revision: revision, followsLatest: false, metrics: metrics,
+                             frameContentHeight: 900, proposedOffset: 400) == .wait)
+        for attempt in 0..<CompanionReadingRestoration.maximumAttempts {
+            #expect(restore.next(now: Double(attempt) / 100, revision: revision, followsLatest: false,
+                                 metrics: metrics, frameContentHeight: 1_000, proposedOffset: 400 + Double(attempt)) == .scroll(400),
+                    "Streaming layout cannot move an already chosen restoration target")
+        }
+        #expect(restore.next(now: 0.5, revision: revision, followsLatest: false, metrics: metrics,
+                             frameContentHeight: 1_000, proposedOffset: 450) == .finish(.exhausted))
+        viewport.restoration = restore
+        viewport.isRestoring = true
+        viewport.restoreOffset = 400
+        viewport.finishRestoration(.exhausted, now: 0.5)
+        #expect(viewport.preserveBookmarkUntilUserAction && !viewport.isRestoring && viewport.restoreOffset == nil)
+        #expect(bookmark.position.entryID == "message:reading" && bookmark.position.offset == 400)
+        viewport.clearGeometry()
+        #expect(!viewport.preserveBookmarkUntilUserAction && viewport.restoration == nil)
+        #expect(!bookmark.position.followsLatest && bookmark.position.distanceFromEntry == 8)
+    }
+
+    @Test func restorationStopsOnArrivalGenerationChangeNavigationOrDeadline() {
+        let revision = UUID()
+        let atEnd = CompanionScrollMetrics(offset: 500, contentHeight: 1_000, containerHeight: 500)
+        var arrived = CompanionReadingRestoration(revision: revision, startedAt: 0)
+        #expect(arrived.next(now: 0, revision: revision, followsLatest: false, metrics: atEnd,
+                             frameContentHeight: 1_000, proposedOffset: 900) == .finish(.arrived),
+                "An entry beyond the new bottom is restored to the clamped destination")
+        var changed = CompanionReadingRestoration(revision: revision, startedAt: 0)
+        #expect(changed.next(now: 0, revision: UUID(), followsLatest: false, metrics: nil,
+                             frameContentHeight: nil, proposedOffset: nil) == .finish(.generation))
+        #expect(changed.next(now: 0, revision: revision, followsLatest: true, metrics: nil,
+                             frameContentHeight: nil, proposedOffset: nil) == .finish(.navigation))
+        #expect(changed.next(now: CompanionReadingRestoration.maximumDuration, revision: revision,
+                             followsLatest: false, metrics: nil, frameContentHeight: nil,
+                             proposedOffset: nil) == .finish(.exhausted))
+        changed.outcome = .touch
+        #expect(changed.next(now: 0, revision: revision, followsLatest: false, metrics: atEnd,
+                             frameContentHeight: 1_000, proposedOffset: 400) == .finish(.touch))
+    }
+
     @Test @MainActor func bookmarkOwnsOneViewportWhileGeometryResetsOnUnmount() {
         let store = CompanionStore(service: CompanionPreviewService())
         let target = CompanionPreviewService.target

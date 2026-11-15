@@ -88,6 +88,13 @@ animations enabled: it opens Wake with a message, types without tapping the fiel
 then requires the software keyboard, exact text and enabled Wake action. The existing
 project-page smoke test separately covers explicitly tapped entry.
 
+Composer remount tests wait for the actual SwiftUI appearance/disappearance callbacks before inspecting saved
+selection. History delivery tests wait for the initial native offset and the final history revision/bottom layout,
+not a fixed settling sleep. The session-model OCR helper accepts a populated form even when it fits on iPad.
+Landscape header tests require the composer actions to remain inside the keyboard's editing viewport; reserving
+speculative transcript space must not clip the footer. Package tests also cover bounded restoration exhaustion,
+generation/navigation cancellation, and the preview terminal's edits, interrupts and scoped size feedback.
+
 The two `CompanionAgentTreeUITests` methods use one unsuppressed initial launch
 attempt and assert their behavior-completion milestones during teardown (#327).
 A launch-only result cannot satisfy the completion check. Their existing navigation,
@@ -170,6 +177,13 @@ What the script does:
    Setup and teardown turn the fixture's Dispatcher off, its only remaining global gate, and check that the desktop reports `flagOn: true`. This also isolates a retry after a timed-out test; individual tests still explicitly enable Dispatcher when needed. Refused mobile commands attach only HTTP status and an allowlisted error code, never the response body or command content.
 
    The manual workflow's optional `only_test` input accepts space-separated method names, for example `test9cAgentDispatcherSwitchesAndRealMCPDelivery test9eDispatcherInspectsARealHelper`. Empty runs the full suite; `desktop_ref` can pin the desktop commit for a controlled comparison.
+
+   Persistent approval rules are selected in Review request, not the transcript card (#392). Dispatcher tests use
+   Settings > Dispatcher: desktop Agent-Clubhouse/Clubhouse#3228 and Go #358 deliberately hide raw Model, Runtime
+   and Access when `notHonored` lists them. Behavior saves through its owning control; raw locked identity and
+   orchestration writes must still refuse. Replay is checkpointed after the final agent cleanup, since cleanup can
+   remove interior entries; all five live changes and their follow-up snapshots remain independently required.
+   Lazy forms are opened by their summary, then scrolled to the requested row rather than waiting for an offscreen Name.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
