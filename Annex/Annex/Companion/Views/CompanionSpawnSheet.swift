@@ -58,15 +58,16 @@ struct CompanionSpawnSheet: View {
             } message: {
                 Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
             }
-            .onAppear {
-                selectEntry(initialProject)
-                if store.uncertainSpawnRequest == nil { store.spawnError = nil }
-                if store.uncertainCreateRequest == nil { store.createError = nil }
-                kind = supportsDurable ? .durable : .quick
-                promptFocused = kind == .quick
-            }
-            .task(id: durableProject) { await loadOptions() }
         }
+        // The form reappears after Workspace and tools; only a new sheet should initialize it.
+        .onAppear {
+            selectEntry(initialProject)
+            if store.uncertainSpawnRequest == nil { store.spawnError = nil }
+            if store.uncertainCreateRequest == nil { store.createError = nil }
+            kind = supportsDurable ? .durable : .quick
+            promptFocused = kind == .quick
+        }
+        .task(id: durableProject) { await loadOptions() }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }

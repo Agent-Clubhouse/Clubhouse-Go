@@ -50,6 +50,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         app.buttons["new-agent-randomize"].tap()
         XCTAssertTrue(problem.waitForNonExistence(timeout: 5), "Randomize gives a valid name")
         XCTAssertNotEqual(name.value as? String, "brave-otter two")
+        let randomizedName = name.value as? String
 
         element(app, "agent-color-teal").tap()
         XCTAssertTrue(element(app, "agent-color-teal").isSelected)
@@ -73,6 +74,8 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         screenshot(app, "Workspace and tools")
         app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["New agent"].waitForExistence(timeout: 5))
+        XCTAssertEqual(name.value as? String, randomizedName, "Returning keeps the chosen identity")
+        XCTAssertTrue(element(app, "agent-color-teal").isSelected)
         let access = app.buttons["new-agent-access"]
         scrollTo(access, in: app, maxSwipes: 4)
         XCTAssertTrue(access.isEnabled)
@@ -104,8 +107,11 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["New agent"].exists, "Cancelling Access keeps the new-agent sheet open")
         XCTAssertTrue(access.exists, "Cancelling Access keeps its picker")
         XCTAssertTrue(access.label.contains("Ask first") || (access.value as? String) == "Ask first", "Cancel keeps the desktop default")
+        screenshot(app, "Access after cancelling Auto")
         access.tap()
-        app.buttons["Full access"].tap()
+        let fullAccess = app.buttons["Full access"]
+        XCTAssertTrue(fullAccess.waitForExistence(timeout: 5), "The Access menu reopens after cancellation")
+        fullAccess.tap()
         let confirmFull = app.buttons["Use Full access"]
         XCTAssertTrue(confirmFull.waitForExistence(timeout: 5))
         confirmFull.tap()
@@ -130,6 +136,10 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
     func testWorkspaceAndToolsPreservesChangesWhenReturningToTheForm() {
         let app = launch()
         waitAndTap(app.navigationBars.buttons["New agent"], until: element(app, "new-agent-name"), attempts: 1)
+        let name = element(app, "new-agent-name")
+        name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        name.typeText("-kept")
+        XCTAssertEqual(name.value as? String, "brave-otter-kept")
         let workspace = app.buttons["new-agent-workspace-tools"]
         scrollTo(workspace, in: app, maxSwipes: 4)
         workspace.tap()
@@ -149,10 +159,42 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertTrue(workspace.waitForExistence(timeout: 5))
         XCTAssertTrue(workspace.label.contains("Project folder"), workspace.label)
         XCTAssertTrue(workspace.label.contains("2 MCPs"), workspace.label)
+        XCTAssertEqual(name.value as? String, "brave-otter-kept")
+
+        let model = app.buttons["new-agent-model"]
+        XCTAssertTrue(scrollTo(model, in: app, up: false, maxSwipes: 4))
+        model.tap()
+        XCTAssertTrue(app.buttons["Sonnet"].waitForExistence(timeout: 5))
+        app.buttons["Sonnet"].tap()
+        XCTAssertTrue(model.label.contains("Sonnet"))
+        let access = app.buttons["new-agent-access"]
+        XCTAssertTrue(scrollTo(access, in: app, maxSwipes: 4))
+        access.tap()
+        XCTAssertTrue(app.buttons["Plan"].waitForExistence(timeout: 5))
+        app.buttons["Plan"].tap()
+        XCTAssertTrue(access.label.contains("Plan"))
+        XCTAssertEqual(name.value as? String, "brave-otter-kept")
+        XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 4))
+        XCTAssertTrue(workspace.label.contains("Project folder"))
+        XCTAssertTrue(workspace.label.contains("2 MCPs"))
         workspace.tap()
         XCTAssertEqual(worktree.value as? String, "0")
         XCTAssertEqual(helpers.value as? String, "1")
         XCTAssertEqual(ado.value as? String, "1")
+        app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
+        app.navigationBars["New agent"].buttons["Cancel"].tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+        waitAndTap(app.navigationBars.buttons["New agent"], until: name, attempts: 1)
+        XCTAssertEqual(name.value as? String, "brave-otter")
+        XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 4))
+        XCTAssertTrue(workspace.label.contains("Worktree"))
+        XCTAssertTrue(workspace.label.contains("1 MCP"))
+        XCTAssertTrue(model.label.contains("Default"))
+        XCTAssertTrue(access.label.contains("Ask first"))
+        workspace.tap()
+        XCTAssertEqual(worktree.value as? String, "1")
+        XCTAssertEqual(helpers.value as? String, "0")
+        XCTAssertEqual(ado.value as? String, "0")
     }
 
     func testAwakeAgentSettingsAreLockedExceptAutoSleep() {
