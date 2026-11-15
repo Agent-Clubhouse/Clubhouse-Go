@@ -41,10 +41,17 @@ final class CompanionImageAttachmentUITests: ReliableUITestCase {
         XCTAssertTrue(sentImage.waitForExistence(timeout: 5), "The message shows its image")
         XCTAssertTrue(app.staticTexts["Preview only. Pair a desktop to send messages."].waitForExistence(timeout: 10),
                       "Preview must never claim a message reached a desktop")
-        // Existence includes rows above the viewport. With the keyboard and pending approvals open,
-        // the sent image can be entirely behind the header even though its delivery text is visible.
+        // The keyboard and pinned request leave a shorter transcript than a fixed screen-fraction drag assumes.
         XCTContext.runActivity(named: "Sent image before reveal: \(sentImage.frame), header \(app.navigationBars.firstMatch.frame), composer \(composer.frame)") { _ in }
-        XCTAssertTrue(bringTranscriptRowIntoView(sentImage, in: app), "The sent image must be visible before tapping")
+        let beforeReveal = XCTAttachment(screenshot: app.screenshot())
+        beforeReveal.name = "Sent image before reveal"
+        beforeReveal.lifetime = .keepAlways
+        add(beforeReveal)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Sent image before reveal hierarchy"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        XCTAssertTrue(revealSentImage(sentImage, in: app), "The sent image must be visible before tapping")
         let frame = sentImage.frame
         XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY + 12)
         XCTAssertLessThanOrEqual(frame.maxY, composer.frame.minY - 12)
@@ -63,5 +70,31 @@ final class CompanionImageAttachmentUITests: ReliableUITestCase {
         XCTAssertTrue(done.waitForExistence(timeout: 5), "Tapping the image opens the preview")
         XCTAssertTrue(app.images["Image you sent"].waitForExistence(timeout: 5), "The phone's own copy shows without a desktop")
         waitAndTap(done, untilGone: done)
+    }
+
+    private func revealSentImage(_ image: XCUIElement, in app: XCUIApplication) -> Bool {
+        // The ScrollView's AX frame extends under the footer; its Other container is the visible viewport.
+        let transcript = app.otherElements.matching(identifier: "companion-transcript").firstMatch
+        func isVisible(in viewport: CGRect) -> Bool {
+            image.exists && image.isHittable && image.frame.minY >= viewport.minY && image.frame.maxY <= viewport.maxY
+        }
+        for _ in 0..<12 {
+            checkTimeLeft("revealing the sent image inside the transcript")
+            let viewport = transcript.frame.intersection(app.frame).insetBy(dx: 8, dy: 8)
+            if isVisible(in: viewport) { return true }
+            guard viewport.height > image.frame.height else { return false }
+            let above = image.frame.minY < viewport.minY
+            // A larger step can oscillate past the narrow interval where the whole image fits.
+            let distance = min(viewport.height / 2, viewport.height - image.frame.height)
+            let start = CGPoint(x: viewport.minX, y: viewport.midY + (above ? -distance / 2 : distance / 2))
+            let end = CGPoint(x: start.x, y: viewport.midY + (above ? distance / 2 : -distance / 2))
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            XCTContext.runActivity(named: "Reveal sent image \(image.frame) in transcript \(viewport), drag \(start) to \(end)") { _ in
+                origin.withOffset(CGVector(dx: start.x, dy: start.y)).press(forDuration: 0.05,
+                    thenDragTo: origin.withOffset(CGVector(dx: end.x, dy: end.y)),
+                    withVelocity: .slow, thenHoldForDuration: 0.2)
+            }
+        }
+        return isVisible(in: transcript.frame.intersection(app.frame).insetBy(dx: 8, dy: 8))
     }
 }

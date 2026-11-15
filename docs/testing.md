@@ -83,6 +83,12 @@ same operation-error accessibility sentinel used by the hardware send and no-sen
 
 ### Writing UI tests for hosted runners
 
+`CompanionImageAttachmentUITests` reveals the sent image with held drags inside the transcript's
+`Other` accessibility container, which exports its visible viewport. The `ScrollView` frame extends
+under the pinned request, composer and keyboard, so screen-fraction drags can scroll the footer
+instead. The test requires the whole image above the composer and below the header before opening
+its local preview; it keeps before-reveal screenshot/hierarchy attachments for diagnosis.
+
 `CompanionPreviewSmokeTests/testWakeSheetAcceptsTextWithoutTapping` probes #246 with
 animations enabled: it opens Wake with a message, types without tapping the field,
 then requires the software keyboard, exact text and enabled Wake action. The existing
