@@ -255,7 +255,7 @@ import XCTest
         let original = "Dispatcher"
         let draft = original + Self.draft
         let app = launchApp(["--companion-preview", "--companion-preview-unicode-focus",
-            "--companion-preview-dispatcher", "--companion-preview-dispatcher-settings"],
+            "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-settings"],
             environment: ["COMPANION_UNICODE_EXPECTED": draft + "q"], attempts: 1)
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 10))
         app.navigationBars.buttons["Conversation actions"].tap()

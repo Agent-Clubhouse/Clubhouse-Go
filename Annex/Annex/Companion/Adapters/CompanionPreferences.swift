@@ -4,13 +4,13 @@ import Observation
 import UIKit
 #endif
 
-/// Per-device choices: project order, pins and idle projects, the last desktop opened, and this phone's name.
+/// Per-device choices: project order, pins and idle projects, the last tab and desktop, and this phone's name.
 /// Only the name leaves the phone, as the alias a desktop shows for it.
 @MainActor @Observable final class CompanionPreferences {
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     private enum Key {
-        static let startScreen = "companion.startScreen"
+        static let lastTab = "companion.lastTab"
         static let dispatcherDesktops = "companion.dispatcherDesktops"
         static let projectSort = "companion.projectSort"
         static let projectOrder = "companion.projectOrder"
@@ -28,7 +28,7 @@ import UIKit
     /// The system's name for this phone (overridable in tests). Without the user-assigned-device-name entitlement iOS reports only "iPhone".
     let systemDeviceName: String
 
-    var startScreen: CompanionStartScreen { didSet { defaults.set(startScreen.rawValue, forKey: Key.startScreen) } }
+    var lastTab: CompanionTab { didSet { defaults.set(lastTab.rawValue, forKey: Key.lastTab) } }
     var dispatcherDesktops: [CompanionDispatcherDesktop]? {
         didSet { defaults.set(try? JSONEncoder().encode(dispatcherDesktops), forKey: Key.dispatcherDesktops) }
     }
@@ -81,7 +81,7 @@ import UIKit
     init(defaults: UserDefaults = .standard, systemDeviceName: String? = nil) {
         self.defaults = defaults
         self.systemDeviceName = systemDeviceName ?? Self.currentDeviceName()
-        startScreen = defaults.string(forKey: Key.startScreen).flatMap(CompanionStartScreen.init(rawValue:)) ?? .dispatcher
+        lastTab = defaults.string(forKey: Key.lastTab).flatMap(CompanionTab.init(rawValue:)) ?? .home
         dispatcherDesktops = defaults.data(forKey: Key.dispatcherDesktops).flatMap { try? JSONDecoder().decode([CompanionDispatcherDesktop].self, from: $0) }
         deviceName = defaults.string(forKey: Key.deviceName) ?? self.systemDeviceName
         projectSort = defaults.string(forKey: Key.projectSort).flatMap(CompanionProjectSort.init(rawValue:)) ?? .recent
@@ -94,6 +94,7 @@ import UIKit
         idleExpanded = defaults.bool(forKey: Key.idleExpanded)
         collapsedAgentKeys = Set(defaults.stringArray(forKey: Key.collapsedAgents) ?? [])
         expandedFolds = Set(defaults.stringArray(forKey: Key.expandedFolds) ?? [])
+        defaults.removeObject(forKey: "companion.startScreen")
     }
 
     /// The name sent as `alias` when pairing: trimmed, never empty, and within the desktop's 128-character limit.

@@ -67,7 +67,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             return ["CLUBHOUSE_COMPANION_TEST_INVITATION": invitation, "CLUBHOUSE_E2E_CONNECTION_TRACE": "1"]
         }
         try checkPairingExpiry()
-        // Home coverage is explicit: an enabled Dispatcher is now the default launch screen.
+        // Home coverage is explicit, independent of the last tab restored on launch.
         let home = launched.tabBars.buttons["Home"]
         let homeAppeared = home.waitForExistence(timeout: min(30, max(0, pairingExpiresAt.timeIntervalSinceNow)))
         if !homeAppeared { try checkPairingExpiry() }

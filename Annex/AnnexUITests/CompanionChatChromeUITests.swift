@@ -6,7 +6,7 @@ import XCTest
     }
 
     func testDispatcherTranscriptSpaceWithKeyboardDownAndUp() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls", "--companion-preview-context-window", "--companion-preview-long-reply"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls", "--companion-preview-context-window", "--companion-preview-long-reply"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         record(app, state: "keyboard-down")
@@ -87,7 +87,7 @@ import XCTest
     }
 
     func testOfflineCaptionAppearsOnlyWhileReconnecting() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         let caption = app.staticTexts["Draft saved while you reconnect"]
@@ -115,7 +115,7 @@ import XCTest
     func testLargestTextWithoutPreviewBannerKeepsSafetyStatusAndControlsReachable() { largestText(hidePreviewBanner: true) }
 
     private func largestText(hidePreviewBanner: Bool) {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-context-window",
                              "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
                             + (hidePreviewBanner ? ["--companion-preview-hide-banner"] : []))
         let composer = element(app, "companion-composer")

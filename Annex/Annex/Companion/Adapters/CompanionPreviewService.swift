@@ -103,6 +103,23 @@ import ClubhouseTransport
                 #endif
             }
             #if DEBUG
+            let theme: CompanionDesktopTheme?
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-latte") {
+                theme = .init(id: "catppuccin-latte", name: "Catppuccin Latte", source: "Preview", mode: .light,
+                    colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69",
+                             "subtext0": "#6c6f85", "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5",
+                             "accent2": "#209fb5", "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"], gradient: [])
+            } else if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-mocha") {
+                theme = .init(id: "catppuccin-mocha", name: "Catppuccin Mocha", source: "Preview", mode: .dark,
+                    colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4",
+                             "subtext0": "#a6adc8", "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa",
+                             "accent2": "#74c7ec", "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
+            } else {
+                theme = nil
+            }
+            if let theme {
+                for index in hosts.indices { hosts[index].theme = theme }
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-unicode-quick") {
                 hosts[0].canCreateDurable = false
             }

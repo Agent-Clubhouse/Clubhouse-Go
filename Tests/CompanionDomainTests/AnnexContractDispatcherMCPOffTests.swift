@@ -163,7 +163,7 @@ import Testing
             try await applyFixture(state, via: source, to: harness)
             try await harness.waitUntil { harness.store.agent(for: target) == nil }
             #expect(!harness.store.conversation(for: target).isLoaded)
-            var navigation = CompanionNavigation(startScreen: .dispatcher)
+            var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: harness.store.hosts)
             #expect(!navigation.tabs.contains(.dispatcher))
         }
@@ -202,7 +202,7 @@ import Testing
         let harness = try await start(pending: true)
         defer { harness.stop() }
         let items = harness.store.conversation(for: target).items
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: harness.store.hosts)
         navigation.open(target, hosts: harness.store.hosts)
         try await applyFixture("mcpOffRunning", via: source, to: harness)
@@ -285,7 +285,7 @@ import Testing
         #expect(!harness.store.conversation(for: target).isLoaded)
         #expect(harness.host?.dispatcher?.liveAgent == nil)
         #expect(harness.host?.dispatcher?.turnOnBlocker == CompanionDispatcher.flagOffNote)
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: harness.store.hosts)
         #expect(!navigation.tabs.contains(.dispatcher))
     }

@@ -8,7 +8,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     private static let unicodeDraft = "\u{1F642}\u{1F469}\u{200D}\u{1F4BB}\u{1F1FA}\u{1F1F3}\u{1F44D}\u{1F3FD}\u{20000}"
 
     private func openDispatcherSettings() -> XCUIApplication {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-settings"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-settings"], attempts: 1)
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 10))
         app.navigationBars.buttons["Conversation actions"].tap()
         XCTAssertTrue(app.buttons["Agent settings"].waitForExistence(timeout: 5))
@@ -181,13 +181,13 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testPinnedRowOpensTheDispatchersChatAndSettings() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
-        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "Dispatcher is the default start screen")
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"])
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "The fixture restores Dispatch")
         XCTAssertTrue(tab(app, "Agents").exists, "All five tabs remain available")
         let sidebar = app.buttons["ToggleSideBar"]
         if sidebar.exists {
             sidebar.tap()
-            screenshot(app, "Dispatcher first in iPad sidebar")
+            screenshot(app, "Home first in iPad sidebar")
             app.buttons["Hide Sidebar"].tap()
         }
         tab(app, "Home").tap()
@@ -217,8 +217,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     /// Settings > Dispatcher (#338): Behavior replaces its raw model and Access rows, and Clear chat and Forget
     /// everything each ask on their own before anything happens.
     func testBehaviorClearChatAndForgetEverything() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-settings"])
-        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "Dispatcher is the default start screen")
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-settings"])
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15), "The fixture restores Dispatch")
         let actions = app.navigationBars.buttons["Conversation actions"]
         let settings = app.buttons["Agent settings"]
         waitAndTap(actions, until: settings, timeout: 5)
@@ -270,7 +270,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testARoutedBurstShowsEachSenderAndMessageSeparately() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], environment: ["CLUBHOUSE_PREVIEW_TYPING_PROBE": "1"])
         let home = tab(app, "Home")
         XCTAssertTrue(home.waitForExistence(timeout: 15))
         home.tap()
@@ -333,7 +333,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         composer.tap()
@@ -342,13 +342,13 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         dismissKeyboard(app)
         tab(app, "Home").tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
-        tab(app, "Dispatcher").tap()
+        tab(app, "Dispatch").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
         // Opening Settings also dismisses the keyboard before the desktop report.
         app.buttons["Settings"].tap()
         app.buttons["Disconnect desktop"].tap()
         app.buttons["Done"].tap()
-        XCTAssertTrue(tab(app, "Dispatcher").exists, "A dropped connection isn't off")
+        XCTAssertTrue(tab(app, "Dispatch").exists, "A dropped connection isn't off")
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
         XCTAssertFalse(app.buttons["companion-send"].isEnabled)
@@ -358,7 +358,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.buttons["Report Dispatcher off"].tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
-        XCTAssertFalse(tab(app, "Dispatcher").exists)
+        XCTAssertFalse(tab(app, "Dispatch").exists)
         tab(app, "Agents").tap()
         XCTAssertTrue(app.navigationBars["Agents"].waitForExistence(timeout: 5), "The off fallback runs only once")
         tab(app, "Home").tap()
@@ -366,32 +366,80 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.buttons["Report Dispatcher on"].tap()
         app.buttons["Done"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].exists, "Turning on never switches tabs during use")
-        tab(app, "Dispatcher").tap()
+        tab(app, "Dispatch").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
     }
 
-    func testStartScreenSettingAppliesOnlyOnNextLaunch() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
-        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
+    func testEveryLastTabRestoresAfterRelaunch() {
+        let arguments = ["--companion-preview", "--companion-preview-dispatcher"]
+        let app = launchApp(arguments, allowance: 360, attempts: 1)
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15), "A fresh launch starts on Home")
+        if app.tabBars.firstMatch.exists {
+            let labels = app.tabBars.buttons.allElementsBoundByIndex.map(\.label)
+            XCTAssertEqual(labels, ["Home", "Dispatch", "Needs you", "Agents", "Search"])
+        }
         app.buttons["Settings"].tap()
-        let picker = app.buttons["companion-start-screen"]
-        picker.tap()
-        XCTAssertTrue(app.navigationBars["Start screen"].waitForExistence(timeout: 5))
-        app.collectionViews.buttons["Home"].tap()
-        let done = app.buttons["Done"]
-        if !done.waitForExistence(timeout: 2) { app.navigationBars.buttons["BackButton"].tap() }
-        done.tap()
-        XCTAssertTrue(app.navigationBars["Dispatcher"].exists, "Changing the preference doesn't navigate")
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["companion-start-screen"].exists)
+        XCTAssertFalse(app.staticTexts["Start screen"].exists)
+        app.buttons["Done"].tap()
+        for title in ["Dispatch", "Needs you", "Agents", "Search", "Home"] {
+            let selected = tab(app, title)
+            XCTAssertTrue(selected.waitForExistence(timeout: 10))
+            selected.tap()
+            XCTAssertTrue(selected.wait(for: \.isSelected, toEqual: true, timeout: 5))
+            app.terminate()
+            app.launchArguments = arguments + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
+            app.launch()
+            XCTAssertTrue(selected.waitForExistence(timeout: 15))
+            XCTAssertTrue(selected.wait(for: \.isSelected, toEqual: true, timeout: 5), "\(title) restores without a Start screen preference")
+            screenshot(app, "Restored \(title) tab")
+        }
+    }
+
+    func testUnavailableRestoredDispatchFallsBackToHomeWithoutStealingSelection() {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+                             "--companion-preview-start-dispatch"], attempts: 1)
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         app.terminate()
-        app.launchArguments = ["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-keep-preferences", "--ui-testing-fast"]
+        app.launchArguments = ["--companion-preview", "--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
-        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15), "Home preference applies on the next launch")
-        XCTAssertTrue(tab(app, "Dispatcher").waitForExistence(timeout: 10))
-        screenshot(app, "Home start screen preference")
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
+        XCTAssertFalse(tab(app, "Dispatch").exists, "The current desktop report supersedes the cached tab")
+        tab(app, "Needs you").tap()
+        XCTAssertTrue(app.navigationBars["Needs you"].waitForExistence(timeout: 5))
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertTrue(tab(app, "Needs you").isSelected, "Foregrounding does not reapply restoration")
+        screenshot(app, "Unavailable Dispatch falls back to Home")
+    }
+
+    func testTabBarAppearanceMatrix() {
+        let variants: [(String, [String])] = [
+            ("light", ["--companion-preview-light"]),
+            ("dark", ["--companion-preview-dark"]),
+            ("Catppuccin Latte", ["--companion-preview-light", "--companion-preview-theme-latte"]),
+            ("Catppuccin Mocha", ["--companion-preview-dark", "--companion-preview-theme-mocha"]),
+            ("accessibility XXXL", ["--companion-preview-light", "-UIPreferredContentSizeCategoryName",
+                                     "UICTContentSizeCategoryAccessibilityXXXL"])
+        ]
+        for (name, flags) in variants {
+            let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"] + flags,
+                                allowance: 360, attempts: 1)
+            XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
+            for title in ["Home", "Dispatch", "Needs you", "Agents", "Search"] {
+                XCTAssertTrue(tab(app, title).isHittable, "\(title) is reachable in \(name)")
+            }
+            screenshot(app, "Tabs \(name) Home")
+            tab(app, "Dispatch").tap()
+            XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 5))
+            screenshot(app, "Tabs \(name) Dispatch")
+            app.terminate()
+        }
     }
 
     func testDesktopSwitcherUsesDispatcherNamesAndMachineSubtitles() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         XCTAssertTrue(switcher.waitForExistence(timeout: 15))
@@ -410,7 +458,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testSnapshotChatNameIsPreservedBeforeSettingsLoad() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         XCTAssertTrue(switcher.waitForExistence(timeout: 15))
@@ -426,7 +474,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testSettingsChatNameOverridesTheSnapshotChatName() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
                              "--companion-preview-named-dispatchers", "--companion-preview-dispatcher-settings"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -450,7 +498,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testAnExplicitControllerChatNameIsNotTreatedAsALegacyRoleLabel() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
                              "--companion-preview-dispatcher-settings", "--companion-preview-chosen-controller-name"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -473,7 +521,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-presence"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         XCTAssertTrue(switcher.waitForExistence(timeout: 15), "One paired Dispatcher plus remotes still has a chooser")
         let office = app.buttons["dispatcher-remote-preview-office"]
@@ -493,7 +541,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testLegacyControllerPresenceKeepsThePairedChatNameAndDefaultsUnknownRemoteNames() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
                              "--companion-preview-dispatcher-presence", "--companion-preview-controller-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -513,7 +561,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testPresenceMergesAPairedRemoteWithoutDuplicatingOrDisablingItsRow() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
                              "--companion-preview-dispatcher-presence"])
         let switcher = app.buttons["dispatcher-desktop-switcher"]
@@ -531,7 +579,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
         let switcher = app.buttons["dispatcher-desktop-switcher"]
         var composer: XCUIElement { app.textFields.matching(identifier: "companion-composer").firstMatch }
         XCTAssertTrue(switcher.waitForExistence(timeout: 15))
@@ -563,7 +611,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "For Studio"), timeout: 5))
         XCTAssertTrue(app.pausedChatNavigation.exists, "A keeps its scroll position away from the latest")
         tab(app, "Home").tap()
-        tab(app, "Dispatcher").tap()
+        tab(app, "Dispatch").tap()
         XCTAssertTrue(app.pausedChatNavigation.exists, "Switching tabs keeps A’s scroll position too")
         screenshot(app, "Dispatcher restored after tab and desktop switches")
         waitAndTap(switcher, until: travel)
@@ -598,7 +646,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], allowance: 360)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], allowance: 360)
         let home = tab(app, "Home")
         XCTAssertTrue(home.waitForExistence(timeout: 15))
         home.tap()
@@ -659,7 +707,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testARelayedTaskIsCaptionedWithItsSender() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"])
         let home = tab(app, "Home")
         XCTAssertTrue(home.waitForExistence(timeout: 15))
         home.tap()

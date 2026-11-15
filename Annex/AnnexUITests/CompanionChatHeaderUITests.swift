@@ -83,7 +83,7 @@ import XCTest
     }
 
     func testUnknownContextStillOffersDesktopPlanLimits() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"])
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         let usage = app.buttons["companion-context-settings"]
         XCTAssertTrue(usage.isHittable)

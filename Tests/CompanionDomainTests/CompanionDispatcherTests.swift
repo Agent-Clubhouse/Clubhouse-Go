@@ -114,7 +114,7 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         host.dispatcherSettings = settings
         let store = CompanionStore(service: CompanionPreviewService())
         store.hosts = [host]
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: [host])
         #expect(navigation.dispatcherTitle(hosts: [host]) == "Navi")
         #expect(navigation.dispatcherTarget == dispatcherTarget)
@@ -166,7 +166,7 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         let desktop = try #require(CompanionDispatcherDesktop(host: host))
         let restored = try JSONDecoder().decode(CompanionDispatcherDesktop.self, from: JSONEncoder().encode(desktop))
         #expect(restored.displayName == "Dispatcher controller" && restored.target == dispatcherTarget)
-        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: [restored])
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: [restored])
         navigation.update(hosts: [host])
         #expect(navigation.dispatcherTitle(hosts: [host]) == "Dispatcher controller")
         #expect(CompanionDispatcherSwitcherRow.rows(desktops: [desktop], hosts: []).first?.label == "Dispatcher controller on Studio")
@@ -278,7 +278,7 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         #expect(host.dispatcherSettings == nil)
         #expect(host.dispatcher?.agent?.displayName == expected)
         #expect(host.dispatcherDisplayName == expected)
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: [host])
         #expect(navigation.dispatcherTitle(hosts: [host]) == expected)
         #expect(navigation.dispatcherDesktops.first?.accessibilityLabel == "\(expected) on \(host.name)")
@@ -290,7 +290,7 @@ private let dispatcherTarget = CompanionTarget(hostID: fixtureHostID, projectID:
         defer { harness.stop() }
         try await sendSnapshot(harness, dispatcher: dispatcherSnapshot())
         try await harness.waitUntil { harness.host?.dispatcher?.agent != nil }
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: try [#require(harness.host)])
         let target = try #require(navigation.dispatcherTarget)
         #expect(target == dispatcherTarget)
