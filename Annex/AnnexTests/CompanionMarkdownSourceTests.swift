@@ -31,11 +31,14 @@ import SwiftUI
 
     func testOpeningSourceNeverInvokesPreviewParser() async throws {
         let calls = MarkdownParseCalls()
+        let unexpectedParse = expectation(description: "Source must not start the Preview parser")
+        unexpectedParse.isInverted = true
         let source = "# Source stays immediate\r\n\r\nkeep  \r\n"
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
         window.frame = scene.screen.bounds
         let host = UIHostingController(rootView: CompanionMarkdownFileView(text: source, line: 3, truncated: false, parse: { source in
+            unexpectedParse.fulfill()
             await calls.record()
             return try await CompanionMarkdownFilePreview.load(source)
         }))
@@ -48,12 +51,17 @@ import SwiftUI
         }
         for _ in 0..<100 {
             host.view.layoutIfNeeded()
-            if sourceView(host.view) != nil { break }
+            if sourceView(host.view)?.window === window { break }
             try await Task.sleep(for: .milliseconds(10))
         }
         let text = try XCTUnwrap(sourceView(host.view))
+        XCTAssertTrue(text.window === window)
         XCTAssertEqual(Array(text.text.utf8), Array(source.utf8))
-        await Task.yield()
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        // Observe late SwiftUI task startup for 100 ms; a single yield can finish before the task runs.
+        await fulfillment(of: [unexpectedParse], timeout: 0.1)
         let count = await calls.count
         XCTAssertEqual(count, 0, "Mounting Source must never request a Preview parse")
     }
