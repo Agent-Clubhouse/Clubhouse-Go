@@ -36,8 +36,10 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         screenshot(app, "New durable agent")
 
         // A space can't be in a folder or branch name.
-        name.tap()
+        // The value is right aligned; target its trailing text so the space is internal.
+        name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
         name.typeText(" two")
+        XCTAssertEqual(name.value as? String, "brave-otter two")
         let problem = element(app, "new-agent-name-error")
         XCTAssertTrue(problem.waitForExistence(timeout: 5))
         XCTAssertEqual(problem.label, "Use only letters, digits, - and _ in the agent name.")
@@ -132,12 +134,16 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         workspace.tap()
         let worktree = app.switches["new-agent-worktree"]
         XCTAssertTrue(worktree.waitForExistence(timeout: 5))
-        worktree.tap()
+        // Native Form switches expose the whole row; tap the control at its trailing edge.
+        worktree.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(worktree.value as? String, "0", "Worktree changed before leaving the page")
         let helpers = app.switches["new-agent-orchestrate"]
-        helpers.tap()
+        helpers.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(helpers.value as? String, "1", "Helpers changed before leaving the page")
         let ado = app.switches["new-agent-mcp-ado"]
         scrollTo(ado, in: app, maxSwipes: 3)
-        ado.tap()
+        ado.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(ado.value as? String, "1", "MCP changed before leaving the page")
         app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
         XCTAssertTrue(workspace.waitForExistence(timeout: 5))
         XCTAssertTrue(workspace.label.contains("Project folder"), workspace.label)

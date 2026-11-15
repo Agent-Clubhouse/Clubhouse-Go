@@ -57,15 +57,15 @@ struct CompanionSpawnSheet: View {
             } message: {
                 Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
             }
+            .onAppear {
+                selectEntry(initialProject)
+                if store.uncertainSpawnRequest == nil { store.spawnError = nil }
+                if store.uncertainCreateRequest == nil { store.createError = nil }
+                kind = supportsDurable ? .durable : .quick
+                promptFocused = kind == .quick
+            }
+            .task(id: durableProject) { await loadOptions() }
         }
-        .onAppear {
-            selectEntry(initialProject)
-            if store.uncertainSpawnRequest == nil { store.spawnError = nil }
-            if store.uncertainCreateRequest == nil { store.createError = nil }
-            kind = supportsDurable ? .durable : .quick
-            promptFocused = kind == .quick
-        }
-        .task(id: durableProject) { await loadOptions() }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }
@@ -385,10 +385,6 @@ struct CompanionSpawnSheet: View {
                     .labelStyle(.iconOnly).buttonStyle(.borderless)
                     .accessibilityIdentifier("new-agent-randomize")
             }
-            if let problem = durable.nameProblem {
-                Text(problem).font(.caption).foregroundStyle(Color(palette.error))
-                    .accessibilityIdentifier("new-agent-name-error")
-            }
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text("Color")
@@ -404,6 +400,10 @@ struct CompanionSpawnSheet: View {
                         }
                     }
                 }
+            }
+        } footer: {
+            if let problem = durable.nameProblem {
+                Text(problem).foregroundStyle(Color(palette.error)).accessibilityIdentifier("new-agent-name-error")
             }
         }
         Section {
