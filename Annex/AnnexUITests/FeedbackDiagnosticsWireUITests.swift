@@ -29,7 +29,19 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
     @MainActor private func testDraft(_ app: XCUIApplication) {
         leaveConfirmation(app)
         let group = app.buttons["Feedback diagnostics test"]
-        XCTAssertTrue(scrollTo(group, in: app, maxSwipes: 6))
+        let beforeReveal = app.screenshot()
+        let revealed = XCTContext.runActivity(named: "Reveal Feedback diagnostics test in Fixture settings") { _ in
+            scrollTo(group, in: app, maxSwipes: 6)
+        }
+        if !revealed {
+            for (name, screenshot) in [("before", beforeReveal), ("after", app.screenshot())] {
+                let attachment = XCTAttachment(screenshot: screenshot)
+                attachment.name = "Feedback diagnostics disclosure reveal \(name)"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+        XCTAssertTrue(revealed)
         let prepare = app.buttons["feedback-prepare-diagnostics-test"]
         if !prepare.exists { group.tap() }
         XCTAssertTrue(scrollTo(prepare, in: app, maxSwipes: 3))

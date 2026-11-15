@@ -105,6 +105,71 @@ The two `CompanionAgentTreeUITests` methods use one unsuppressed initial launch
 attempt and assert their behavior-completion milestones during teardown (#327).
 A launch-only result cannot satisfy the completion check. Their existing navigation,
 intentional preference relaunch, assertions and time limits are unchanged.
+They emit monotonic `AGENT_TREE_PHASE` markers before major operations and keep an
+`AgentTree phase timeline` attachment. Markers perform no AX queries and remain in
+stdout if a timed-out runner cannot finish an attachment.
+
+#### Unresolved hosted investigations: #308 and #386
+
+The artifact-led pass on main `847225b2` did **not** establish a fixing change for
+either issue. Three unchanged, serial iterations on a private iPhone 17 / iOS 26.0
+passed each test: agent tree 38.619/38.649/38.026 s; pinch
+19.477/19.216/19.227 s. Every pinch changed 100% to 183% zoom and 4,088,066
+of 8,596,368 channels. These results, like the unchanged 27/27 hosted feedback
+rerun, are not a root-cause or fixedness proof.
+
+| Retained failure | Mechanism observed | What remains unknown |
+| --- | --- | --- |
+| #308, [run 43458103774](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/43458103774), `test-results-4` / artifact 14061767779 | Initial `waitForExistence(timeout: 2)` takes 53.73 s: the runner cancels an AX query, then an internal query takes 30.15 s and its framework retry takes 20.13 s. Initial assertions finish at 135.96 s and persisted assertions at 173.27 s. River's checked center tap reaches the main window, but its main-loop idle acknowledgment arrives about 82 s late. XCTest spends 60.05 s waiting for it; the final return exceeds the 240 s allowance at 272.602 s. The next execution fails termination in 60.358 s. | The retained late spindump shows app disk-image page-in I/O waits and runner AX/quiescence waits, but does not cover the initial 53.73 s AX delay or establish the whole stall's cause. A SwiftUI scroll-geometry fault and a UIKit system-gesture gate blocked for 81.8358465 s occur near recovery; neither proves what caused the stall. |
+| #386, [run 43478779969 attempt 1](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/43478779969/attempts/1), artifact 14079946147 | The pinch contains two down/move/up paths inside the canvas, yet rendered pixels and AX stay at 100%. The app's unified log records UIEvents dispatched to its main window with `ignoreInteractionEvents: 0` and gesture actions. Six later Settings swipes, each about 0.55-0.62 s, similarly dispatch events and gesture actions in a fresh PID while the form stays at its initial position. | Window delivery is proven; delivery to the intended hit view, actual touch identities/count, individual recognizer states and native scroll offsets are not recorded. The pinch's temporal precedence does not prove it corrupts simulator touch state. |
+
+The #308 recording payload is `Unexpected Error: Finished test run with pending
+attachment.`, not playable video. Its hierarchy still has the reachable River row
+inside the content band. #386's retained canvas images, recordings and retry
+hierarchies rule out an AX-only stale zoom value and persistent editor process
+state; navigation taps work, and expected Settings controls are below the fold.
+The app's AX snapshot captures around the failed pinch take 0.08-0.10 s, unlike
+#308's stalled work. The #308 artifact does contain XCTest's 8.16 MB Spindump
+attachment, `DBE575F3-F0BB-40B1-8F9E-BCC376847F28.txt`, sampled at
+17:05:46.897-17:05:51.902 UTC. It reports 267 samples over 2.93 s, 3 active CPUs
+and 8.526 s total CPU, with 0.048 s in the runner and 0.012 s in the app.
+The app's main-thread stacks traverse SwiftUI navigation and preference evaluation,
+named vector glyph / CoreUI asset loading, then APFS page-in / AppleDiskImages I/O
+waits; the runner shows AX query and quiescence waits. This points to disk-image
+page-in I/O at that late sampled moment, not proof of the failure's root cause.
+It does not cover the initial 53.73 s AX delay or provide a CPU/load time series
+across the whole stall, so contention across that interval remains unresolved.
+
+The #308 SwiftUI scroll-geometry fault also occurs once on each successful local
+River navigation. A fourth run traced the only `onScrollGeometryChange` handler:
+the fault occurs during history/transition resizing while reading-position
+recording is gated off, follow/bottom state stays true, and the geometry handler's
+`scrollTo` branch never runs. A fifth controlled run temporarily returned before
+**all** geometry-handler writes and still emitted the same fault. This rules out
+those handler writes as a necessary cause of the locally reproduced warning,
+not every possible cause of the hosted stall. Both temporary probes were removed;
+no production scrolling logic changed.
+
+Keep both issues open. On the next hosted recurrence, retain app, test-runner and
+simulator-service stack samples during both the initial AX delay and delayed
+main-loop idle interval, plus timestamped CPU/load and disk-I/O measurements across
+the stall. Correlate those intervals with asset-loading and disk-image page-in
+waits rather than relying on the existing late sample alone. For #386,
+fixture-only native event instrumentation would need touch phase/count, hit-view
+identity, pan/pinch recognizer state, `isScrollEnabled`, zoom scale and content
+offset, without consuming or modifying events. Window-dispatch logs alone cannot
+settle recognizer routing. The Settings reveal now retains rendered before/after
+screenshots **only when it fails**, without another AX traversal. No retries,
+sleeps, allowance changes, rescue gestures or assertion exemptions were added.
+
+Use exact artifact IDs when a rerun creates duplicate artifact names:
+`gh run download` can select the newer `test-results-5` instead of the failed one.
+Export repeated-test attachments with an explicit test identifier, without
+`--only-failures` (that option exports nothing for this failing feedback bundle).
+`xcresulttool get test-results activities` and `xcresulttool export diagnostics`
+provide the activity trees and app/runner unified logs. Sparse recordings can
+return an earlier presentation timestamp even with zero image-generator tolerance;
+check the actual timestamp rather than calling an extracted frame exact.
 
 CI also reuses the simulator build in a separate **iPad hosted tests + UI smoke** lane (#284).
 It creates an iPad Pro 11-inch (M4) on the newest installed iOS runtime selected by the Xcode setup,
