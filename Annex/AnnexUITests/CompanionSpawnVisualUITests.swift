@@ -18,6 +18,13 @@ import XCTest
         screenshot.lifetime = .keepAlways
         add(screenshot)
         XCTAssertTrue(app.buttons["new-agent-create"].isEnabled)
+        if accessibility {
+            XCTAssertTrue(scrollTo(app.buttons["new-agent-model"], in: app, maxSwipes: 8))
+            let pickers = XCTAttachment(screenshot: app.screenshot())
+            pickers.name = "New agent pickers — \(name)"
+            pickers.lifetime = .keepAlways
+            add(pickers)
+        }
         let workspace = app.buttons["new-agent-workspace-tools"]
         XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 5))
         workspace.tap()

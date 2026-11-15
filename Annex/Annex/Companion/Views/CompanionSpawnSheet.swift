@@ -9,6 +9,7 @@ struct CompanionSpawnSheet: View {
     let initialProject: CompanionProjectTarget
     @Environment(\.dismiss) private var dismiss
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var project: CompanionProjectTarget?
     @State private var entryID: CompanionProjectTarget?
     @State private var prompt = ""
@@ -350,18 +351,34 @@ struct CompanionSpawnSheet: View {
 
     /// All menus use the same label/value row, including long model catalogs.
     private func pickerRow(_ label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).foregroundStyle(Color(palette.label))
-            Spacer(minLength: 12)
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(value).multilineTextAlignment(.trailing)
-                Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.semibold))
-                    .accessibilityHidden(true)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(label).foregroundStyle(Color(palette.label))
+                    HStack {
+                        Spacer(minLength: 0)
+                        pickerValue(value)
+                    }
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(label).foregroundStyle(Color(palette.label)).fixedSize()
+                    Spacer(minLength: 12)
+                    pickerValue(value)
+                }
             }
-            .foregroundStyle(Color(palette.tint))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+    }
+
+    private func pickerValue(_ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value).multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true)
+            Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.semibold))
+                .accessibilityHidden(true)
+        }
+        .foregroundStyle(Color(palette.tint))
     }
 
     private func choiceMenu<Value: Hashable, Choices: View>(_ label: String, value: String, selection: Binding<Value>,
@@ -375,15 +392,16 @@ struct CompanionSpawnSheet: View {
         Section {
             projectMenu
             if selectedEntry?.isLinked == true { machinePicker }
-            HStack(spacing: 10) {
-                Text("Name")
-                TextField("Name", text: $durable.name)
-                    .multilineTextAlignment(.trailing)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .accessibilityIdentifier("new-agent-name")
-                Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }
-                    .labelStyle(.iconOnly).buttonStyle(.borderless)
-                    .accessibilityIdentifier("new-agent-randomize")
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                    nameInput
+                }
+            } else {
+                HStack(spacing: 10) {
+                    Text("Name")
+                    nameInput
+                }
             }
             ViewThatFits(in: .horizontal) {
                 HStack {
@@ -445,6 +463,18 @@ struct CompanionSpawnSheet: View {
                 let selected = durable.access ?? options.defaultAccess
                 if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
             }
+        }
+    }
+
+    private var nameInput: some View {
+        HStack(spacing: 10) {
+            TextField("Name", text: $durable.name)
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("new-agent-name")
+            Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }
+                .labelStyle(.iconOnly).buttonStyle(.borderless)
+                .accessibilityIdentifier("new-agent-randomize")
         }
     }
 
