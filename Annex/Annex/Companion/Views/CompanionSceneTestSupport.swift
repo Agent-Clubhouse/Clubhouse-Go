@@ -15,6 +15,7 @@ nonisolated final class CompanionDiagnosticTrace: @unchecked Sendable {
         let durationMs: Double
         let failure: AnnexDiagnosticFailure
         let events: [AnnexDiagnosticEvent]
+        let webSocketCloseCode: Int?
     }
     private enum Record: Sendable {
         case connection(ConnectionRecord)
@@ -86,11 +87,14 @@ nonisolated final class CompanionDiagnosticTrace: @unchecked Sendable {
         let lifecycle = [.foreground, .background, .disconnect].contains(record.operation)
             || record.events.contains(AnnexDiagnosticEvent.socketCancelStarted.rawValue)
             || record.events.contains(AnnexDiagnosticEvent.socketCancelCompleted.rawValue)
+            || record.events.contains(AnnexDiagnosticEvent.socketTaskCompleted.rawValue)
         guard lifecycle || [.pairing, .connection, .reconnect, .backoff, .identity, .capabilities,
                             .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
         let value = ConnectionRecord(at: record.startedAt.timeIntervalSince1970, operation: record.operation,
                            durationMs: record.durationMs, failure: record.failure,
-                           events: record.events.prefix(32).compactMap(AnnexDiagnosticEvent.init(rawValue:)))
+                           events: record.events.prefix(32).compactMap(AnnexDiagnosticEvent.init(rawValue:)),
+                           webSocketCloseCode: record.events.contains(AnnexDiagnosticEvent.socketTaskCompleted.rawValue)
+                                ? record.measurements[AnnexDiagnosticNumber.webSocketCloseCode.rawValue].map(Int.init) : nil)
         buffer.withLock { buffer in
             let remaining = lifecycle ? buffer.lifecycle : buffer.connection
             guard remaining >= 0 else { return }

@@ -1,0 +1,205 @@
+import XCTest
+@testable import ClubhouseGo
+@testable import ClubhouseTransport
+
+private actor BackgroundDisconnectSocket: AnnexWebSocket {
+    private var initial = true
+    private var pending: CheckedContinuation<Data, Error>?
+    private(set) var closed = false
+    func receive() async throws -> Data {
+        guard !closed else { throw AnnexTransportError.disconnected }
+        if initial {
+            initial = false
+            return Data(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#.utf8)
+        }
+        return try await withCheckedThrowingContinuation { pending = $0 }
+    }
+    func send(_ data: Data) {}
+    func ping() {}
+    func close() {
+        closed = true
+        pending?.resume(throwing: AnnexTransportError.disconnected)
+        pending = nil
+    }
+}
+
+private actor BackgroundDisconnectIO: AnnexIO {
+    let identity = AnnexPairingIdentity()
+    private(set) var sockets: [BackgroundDisconnectSocket] = []
+    private var holdOpen: Bool
+    private var openWaiter: CheckedContinuation<Void, Never>?
+    private var commandWaiter: CheckedContinuation<Void, Never>?
+    var opening: Bool { openWaiter != nil }
+    var commanding: Bool { commandWaiter != nil }
+
+    init(holdOpen: Bool = false) { self.holdOpen = holdOpen }
+
+    func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
+        let value: AnnexJSON
+        switch request.url?.lastPathComponent {
+        case "identity":
+            value = try .object(["publicKey": .string(identity.publicKeyBase64),
+                                 "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
+        case "capabilities":
+            value = .object(["version": .integer(1), "epoch": .string("e"), "controlAuth": .string("mtls-pinned-client"),
+                             "controlAvailable": .bool(true), "commands": .array([.string("chat.interrupt")]),
+                             "idempotency": .object(["scope": .string("client"), "maxEntries": .integer(16), "ttlMs": .integer(60000)])])
+        case "commands":
+            await withCheckedContinuation { commandWaiter = $0 }
+            value = .object(["version": .integer(1), "epoch": .string("e"), "commandId": .string("held-command"),
+                             "status": .string("completed"), "result": .null, "error": .null])
+        default: value = .array([])
+        }
+        return try .init(status: 200, data: JSONEncoder().encode(value))
+    }
+    func openWebSocket(_ request: URLRequest) async -> any AnnexWebSocket {
+        let socket = BackgroundDisconnectSocket()
+        sockets.append(socket)
+        if holdOpen {
+            holdOpen = false
+            await withCheckedContinuation { openWaiter = $0 }
+        }
+        return socket
+    }
+    func releaseOpen() { openWaiter?.resume(); openWaiter = nil }
+    func releaseCommand() { commandWaiter?.resume(); commandWaiter = nil }
+    func releaseAll() { releaseOpen(); releaseCommand() }
+}
+
+@MainActor final class CompanionBackgroundDisconnectTests: XCTestCase {
+    private struct Harness {
+        let runtime: CompanionRuntime
+        let transport: AnnexTransport
+        let telemetry: AnnexTelemetry
+        let clock: ClubhouseTransport.AnnexManualClock
+    }
+
+    private func start(_ io: BackgroundDisconnectIO) async throws -> Harness {
+        let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 8443), verifiedHostID: hostID,
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "01", count: 32)))
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "fixture-only"), for: hostID)
+        let telemetry = AnnexTelemetry()
+        telemetry.setEnabled(true)
+        let clock = ClubhouseTransport.AnnexManualClock()
+        let transport = AnnexTransport(host: host, credentials: credentials, io: io, telemetry: telemetry, clock: clock.clock)
+        let runtime = CompanionRuntime(registry: AnnexTransportRegistry(), persistsDrafts: false)
+        let registration = AnnexTransportRegistry.Registration(host: host, alias: "Fixture", transport: transport)
+        runtime.store.start()
+        addTeardownBlock { @MainActor in
+            await io.releaseAll()
+            await runtime.lifecycle.settle()
+            await runtime.service.shutdown()
+            runtime.store.stop()
+        }
+        await runtime.service.register(registration)
+        return .init(runtime: runtime, transport: transport, telemetry: telemetry, clock: clock)
+    }
+
+    private func eventually(_ condition: () async -> Bool) async throws -> Bool {
+        let deadline = ContinuousClock.now + .seconds(2)
+        repeat {
+            if await condition() { return true }
+            try await Task.sleep(for: .milliseconds(5))
+        } while ContinuousClock.now < deadline
+        return false
+    }
+
+    private func connected(_ harness: Harness) async throws {
+        let ready = try await eventually { harness.runtime.store.hosts.first?.connection == .connected }
+        XCTAssertTrue(ready)
+    }
+
+    private func assertDisconnected(_ harness: Harness, socket: BackgroundDisconnectSocket) async throws {
+        let disconnected = try await eventually {
+            let closed = await socket.closed
+            return closed && harness.runtime.store.hosts.first?.connection == .offline
+        }
+        XCTAssertTrue(disconnected)
+        XCTAssertTrue(harness.telemetry.snapshot().records.contains { $0.events.contains("disconnectCompleted") })
+        XCTAssertEqual(harness.runtime.store.hosts.first?.connection, .offline)
+    }
+
+    func testBackgroundDuringConnectClosesTheLateSocket() async throws {
+        let io = BackgroundDisconnectIO(holdOpen: true)
+        let harness = try await start(io)
+        let opening = try await eventually { await io.opening }
+        XCTAssertTrue(opening)
+        harness.runtime.lifecycle.update(.background)
+        await harness.runtime.lifecycle.settle()
+        XCTAssertTrue(harness.telemetry.snapshot().records.contains { $0.events.contains("disconnectCompleted") })
+        await io.releaseOpen()
+        let sockets = await io.sockets
+        let socket = try XCTUnwrap(sockets.first)
+        try await assertDisconnected(harness, socket: socket)
+        harness.clock.advance(by: .seconds(60))
+        let count = await io.sockets.count
+        XCTAssertEqual(count, 1)
+    }
+
+    func testBackgroundDuringReconnectBackoffCancelsTheRetry() async throws {
+        let io = BackgroundDisconnectIO()
+        let harness = try await start(io)
+        try await connected(harness)
+        let sockets = await io.sockets
+        let socket = try XCTUnwrap(sockets.first)
+        await socket.close()
+        let backingOff = try await eventually {
+            harness.telemetry.snapshot().records.contains { $0.operation == .backoff } && harness.clock.sleeperCount == 1
+        }
+        XCTAssertTrue(backingOff)
+        harness.runtime.lifecycle.update(.background)
+        await harness.runtime.lifecycle.settle()
+        try await assertDisconnected(harness, socket: socket)
+        let cancelled = try await eventually { harness.clock.sleeperCount == 0 }
+        XCTAssertTrue(cancelled)
+        harness.clock.advance(by: .seconds(60))
+        let count = await io.sockets.count
+        XCTAssertEqual(count, 1)
+    }
+
+    func testBackgroundDoesNotWaitForAnInflightCommand() async throws {
+        let io = BackgroundDisconnectIO()
+        let harness = try await start(io)
+        try await connected(harness)
+        let command = Task {
+            try await harness.transport.execute(.init(commandID: "held-command", epoch: "e", kind: .interrupt(agentID: "a", sessionID: "s")))
+        }
+        let commanding = try await eventually { await io.commanding }
+        XCTAssertTrue(commanding)
+        harness.runtime.lifecycle.update(.background)
+        await harness.runtime.lifecycle.settle()
+        let sockets = await io.sockets
+        let socket = try XCTUnwrap(sockets.first)
+        try await assertDisconnected(harness, socket: socket)
+        let stillPending = await io.commanding
+        XCTAssertTrue(stillPending, "Suspension must not wait for an unrelated HTTP receipt")
+        await io.releaseCommand()
+        let receipt = try await command.value
+        XCTAssertEqual(receipt.status, .completed, "A valid dispatched receipt still wins the disconnect race")
+    }
+
+    func testRapidPhaseChangesFinishSuspendedAndCanResume() async throws {
+        let io = BackgroundDisconnectIO()
+        let harness = try await start(io)
+        try await connected(harness)
+        for phase in [CompanionLifecycle.Phase.background, .inactive, .active, .background, .inactive, .active, .background] {
+            harness.runtime.lifecycle.update(phase)
+        }
+        await harness.runtime.lifecycle.settle()
+        for socket in await io.sockets { try await assertDisconnected(harness, socket: socket) }
+        let cancelled = try await eventually { harness.clock.sleeperCount == 0 }
+        XCTAssertTrue(cancelled)
+        let before = await io.sockets.count
+        harness.clock.advance(by: .seconds(60))
+        harness.runtime.lifecycle.update(.active)
+        await harness.runtime.lifecycle.settle()
+        try await connected(harness)
+        let after = await io.sockets.count
+        XCTAssertEqual(after, before + 1)
+        harness.runtime.lifecycle.update(.background)
+        await harness.runtime.lifecycle.settle()
+        for socket in await io.sockets { try await assertDisconnected(harness, socket: socket) }
+    }
+}

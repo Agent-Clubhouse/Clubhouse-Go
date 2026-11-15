@@ -232,6 +232,31 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     await #expect(throws: AnnexTransportError.invalidEndpoint) { _ = try await io.openWebSocket(otherPort) }
 }
 
+@Test(.timeLimit(.minutes(1))) func explicitSocketCancelReachesNativeCompletionAndSendsGoingAway() async throws {
+    let fixture = try WSFixture.start()
+    defer { fixture.stop() }
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: telemetry)
+    let socket = try await io.openWebSocket(fixture.webSocketRequest())
+    _ = try await socket.receive()
+    let receive = Task { try await socket.receive() }
+    await socket.close()
+    await #expect(throws: (any Error).self) { try await receive.value }
+    #expect(telemetry.snapshot().records.contains { $0.events.contains("socketCancelCompleted") })
+    let url = try #require(URL(string: "http://127.0.0.1:\(fixture.info.httpPort)/closes"))
+    var closeCode: Int?
+    for _ in 0..<200 {
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let closes = try JSONDecoder().decode(AnnexJSON.self, from: data)
+        if case .array(let rows) = closes { closeCode = rows.first?["code"]?.int }
+        if closeCode != nil, telemetry.snapshot().records.contains(where: { $0.events.contains("socketTaskCompleted") }) { break }
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(closeCode == 1001, "The loopback peer must actually receive goingAway, not merely observe a local cancel call")
+    let completion = try #require(telemetry.snapshot().records.first { $0.events.contains("socketTaskCompleted") })
+    #expect(completion.measurements["webSocketCloseCode"] == 1001)
+}
+
 @Test(.timeLimit(.minutes(1))) func webSocketWithoutClientIdentityOrWithWrongPinNeverConnects() async throws {
     let fixture = try WSFixture.start()
     defer { fixture.stop() }

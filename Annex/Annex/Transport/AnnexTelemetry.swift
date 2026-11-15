@@ -26,7 +26,7 @@ nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
     #if DEBUG
     case scenePhaseObserved, transitionQueued, transitionWaiting, transitionStarted, transitionCompleted
-    case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted
+    case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted, socketTaskCompleted
     #endif
 }
 nonisolated public enum AnnexDiagnosticIdentifier: String, CaseIterable, Sendable {
@@ -39,6 +39,9 @@ nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case statusCode, requestBytes, responseBytes, firstTokenMs, interChunkMs, maxInterChunkMs
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
+    #if DEBUG
+    case webSocketCloseCode
+    #endif
 }
 nonisolated public enum AnnexDiagnosticFailure: String, Codable, CaseIterable, Sendable {
     case none, cancelled, timeout, offline, dns, connection, tls, trust, identity, authentication
@@ -207,9 +210,15 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
     func shutdown(explicitTimeout: TimeInterval?) async { _ = configure(enabled: false) }
 }
 nonisolated private extension AnnexDiagnosticNumber {
-    static let allKeys: [Self] = [.cacheBytes, .durationMs, .statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
-        .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
-        .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
+    static let allKeys: [Self] = {
+        var keys: [Self] = [.cacheBytes, .durationMs, .statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
+            .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
+            .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
+        #if DEBUG
+        keys.append(.webSocketCloseCode)
+        #endif
+        return keys
+    }()
 }
 /// Avoid SimpleSpanProcessor's unbounded asynchronous queue: this exporter only copies bounded data.
 nonisolated private struct AnnexLocalSpanProcessor: SpanProcessor {

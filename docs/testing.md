@@ -644,9 +644,64 @@ Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):
 - `desktop-fixture.log`, `desktop-stdout.log`, `desktop-stderr.log`, the desktop's npm and build logs;
 - `desktop-sha.txt`, the desktop commit that was tested;
 - `dispatcher-wire.json`, redacted Dispatcher events, snapshots, replay and MCP-delivered message evidence.
-- `desktop-annex.json`, a closed projection of this fixture profile's Annex pairing/REST outcomes and WebSocket admission/close timestamps; raw metadata is excluded. Phone `[live-connect]` records in the xcresult console contain only timestamps, operation names, durations, failure categories and diagnostic event names. These help locate an initial-connection stall without recording invitations, certificates, identities or tokens. Both paths use the artifact redaction step (`python3 scripts/e2e-live/test_redact_logs.py` checks it).
+- `desktop-annex.json`, a closed projection of this fixture profile's Annex pairing/REST outcomes and WebSocket admission/close timestamps; raw metadata is excluded. Phone `[live-connect]` records in the xcresult console contain only timestamps, operation names, durations, failure categories, diagnostic event names and an optional native WebSocket close code. These help locate an initial-connection stall without recording invitations, certificates, identities or tokens. Both paths use the artifact redaction step (`python3 scripts/e2e-live/test_redact_logs.py` checks it).
 
 Other environment variables: `DESKTOP_REF`, `DESKTOP_REPO`, `DESKTOP_DIR`, `E2E_SIMULATOR`, `E2E_DERIVED_DATA`, and `E2E_SKIP_DESKTOP_CHECKOUT=1`, which builds `DESKTOP_DIR` as it is checked out.
+
+### Background disconnect investigation (#416)
+
+The original strict failure, [43678416927](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/43678416927),
+predates the merged lifecycle diagnostics. At investigation time, `gh run list --workflow e2e-nightly.yml`
+found only one run after #407 merged: [43731027202](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/43731027202)
+at `2d6f50f9`, whose test9a passed. There is no post-merge failing trace from which to identify #416's last boundary.
+
+That passing run's Unix-second timestamps are PressHome `1794762151.322`, background observed by XCTest
+`2153.250`, scene observation/transition queued `2153.138`, transition waiting/started `2154.127`,
+disconnect started/native cancel started `2154.128`, and desktop socket closed `2154.147`.
+The 989ms queued-to-waiting interval is scheduling delay **before the lifecycle Task starts**.
+The `transitionWaiting`-to-`transitionStarted` interval bounds any predecessor wait to at most 0.26ms.
+Native cancel-completed and transition-completed records are missing despite the server-observed close;
+the same stdout contains drop markers. Do not classify a missing tail as a stuck cancel.
+
+`CompanionLifecycle.pending` waits only for the previous lifecycle transition, not arbitrary command/history tasks.
+Background neither cancels that task nor bypasses it. Foreground can await `prepareResume`: sequential per-host
+route probes, relocation/pairing-store work, registration, then transport disconnect/subscription/credential lookup.
+`firstAnswering` has a 4s deadline and cancels its probe group; its structured scope still waits for children,
+and real TLS probes use 10s URLSession timeouts. A relocated host can connect before the next host is probed.
+A hosted probe held that remaining foreground preparation after reopening a socket: background did not close it
+within 500ms, and releasing preparation allowed suspend to finish. This demonstrated multi-host head-of-line hazard
+is tracked separately in #426; it does **not** establish the original test9a failure's cause. The intentionally red
+probe and its failing xcresult are investigation evidence, not a committed test, expected failure or assertion of
+the buggy behavior.
+
+Transport disconnect always rotates its generation, cancels the loop and takes the socket before awaiting close;
+there is no "already disconnecting" early return. Connection creation checks the generation both before and after
+opening a socket, closing a late socket. Backoff is cancellable and checks that same fence before retrying.
+The real URLSession wrapper calls `cancel(with: .goingAway)` synchronously; return is not a peer-close acknowledgement.
+DEBUG `socketTaskCompleted` adds the later URLSession task callback and its numeric `webSocketCloseCode` to the
+bounded lifecycle projection, without URLs, identities, error strings or arbitrary measurements. This callback
+also is not proof of when the peer saw TCP close; retain the desktop fixture's independent socket audit.
+
+`CompanionBackgroundDisconnectTests` uses the real runtime, lifecycle, service and transport with fake IO for
+connect-in-flight, backoff, command-in-flight and rapid phases. Fake sockets can prove
+the transport's close boundary, **not** native URLSession cancellation. The package's
+`explicitSocketCancelReachesNativeCompletionAndSendsGoingAway` separately checks real pinned URLSession cancellation,
+the native completion checkpoint and a loopback peer's received 1001 close frame.
+That native check runs on macOS; it does not reproduce iOS process suspension or prove the original background close.
+
+**#416 remains unresolved.** A main-actor stall before SwiftUI observes background, scheduling delay before the
+lifecycle Task runs, a blocked predecessor, and native close delivery cannot be distinguished without a failing
+diagnostic-era trace. No cancellation/lifecycle behavior, assertion, timeout or retry policy is changed here.
+The next evidence-gathering run should be a full strict branch nightly, pinned to the desktop used by the passing
+diagnostic-era baseline, not a local run against a person's desktop:
+
+```sh
+gh workflow run e2e-nightly.yml --ref go-416/investigate \
+  -f desktop_ref=a680695e866cbb8b8f5b40354e6e08cbc5637e8c -f no_retries=true
+```
+
+This is a proposed dispatch, not a run result. Preserve the original real-background, 20s disconnect and replay
+checks; correlate the phone's last available boundary with the desktop socket audit and all trace drop/limit markers.
 
 ### What one run covers
 
