@@ -217,6 +217,11 @@ struct CompanionConversationComposer: View {
             #if DEBUG
             CompanionComposerFocusProbe.record?(.focusRequested, target, composerFocused)
             #endif
+            // iOS 26 can place an initially nil selection inside the first grapheme on focus.
+            // Supply a real String boundary before focusing; retain any existing editing selection.
+            if composerSelection == nil {
+                composerSelection = TextSelection(insertionPoint: draft.wrappedValue.endIndex)
+            }
             composerFocused = true
         }
         .onChange(of: dismissals) { _, _ in

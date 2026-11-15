@@ -103,6 +103,9 @@ import ClubhouseTransport
                 #endif
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-unicode-quick") {
+                hosts[0].canCreateDurable = false
+            }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-controller-name") {
                 for index in hosts.indices {
                     hosts[index].dispatcher?.agent?.name = "Dispatcher controller"
@@ -540,6 +543,13 @@ import ClubhouseTransport
             ] : []))
         }
         if showsQuestions {
+            #if DEBUG && canImport(UIKit)
+            if CompanionUnicodeFocusFixture.enabled {
+                let prompt = CompanionQuestion.Prompt(id: "unicode", text: "Unicode answer", options: [],
+                    allowsMultiple: false, allowsFreeText: true)
+                return .init(items: [.question(.init(id: "unicode", prompts: [prompt]))], capabilities: [.chat, .answer])
+            }
+            #endif
             let prompt = CompanionQuestion.Prompt(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")], allowsMultiple: false, allowsFreeText: false)
             return .init(items: [
                 .question(.init(id: "empty", prompts: [])),
@@ -653,6 +663,9 @@ import ClubhouseTransport
         return parts.joined(separator: "\n\n")
     }()
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt {
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled { throw CompanionUnicodeFocusFixture.requestError(request.text) }
+        #endif
         throw CompanionServiceError.unavailable("Preview only. Pair a desktop to send messages.")
     }
     /// The desktop's advertised limits, so the attach button shows. Uploads are kept on the phone; the send then fails as above.
@@ -748,12 +761,22 @@ import ClubhouseTransport
         throw previewError
     }
     func answer(_ questionID: String, answers: [String: CompanionAnswer], target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled, case .text(let text)? = answers["unicode"] {
+            throw CompanionUnicodeFocusFixture.requestError(text)
+        }
+        #endif
         #if DEBUG
         if Self.showsPinnedDecisions { return }
         #endif
         throw previewError
     }
-    func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw previewError }
+    func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt {
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled { throw CompanionUnicodeFocusFixture.requestError(request.prompt) }
+        #endif
+        throw previewError
+    }
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
         .init(options: Self.agentOptions,
@@ -955,6 +978,11 @@ import ClubhouseTransport
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
                      orchestration: policy, parentAgentID: (showsHelperIdentity || showsHelperPresets) && sleeping ? Self.target.agentID : nil,
                      routing: showsHelperPresets && sleeping ? .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli", summary: "gpt-6.1-sol, high effort. From the helper settings for this difficulty.", displayReason: "From the helper settings for this difficulty") : nil)
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled, let draft = ProcessInfo.processInfo.environment["COMPANION_UNICODE_DRAFT"] {
+            result.name.value = draft
+        }
+        #endif
         if showsAutoQuota {
             result.routing = sleeping ? Self.autoQuotaSavedDecision : nil
             result.orchestration?.autoHelpers = sleeping ? true : nil
@@ -1000,6 +1028,9 @@ import ClubhouseTransport
     /// Juniper works in the project folder, with nothing changed.
     static let juniperWorkspace = CompanionAgentWorkspace(branch: "main", changes: .init(base: "main", ahead: 0, uncommitted: 0))
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled, let name = change.name { throw CompanionUnicodeFocusFixture.requestError(name) }
+        #endif
         throw previewError
     }
     private static let agentOptions = CompanionAgentOptions(
@@ -1088,6 +1119,9 @@ extension CompanionPreviewService {
         return settings
     }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String, clientCommandID: String) async throws -> CompanionDispatcherSettings {
+        #if DEBUG && canImport(UIKit)
+        if CompanionUnicodeFocusFixture.enabled, let name = update.name { throw CompanionUnicodeFocusFixture.requestError(name) }
+        #endif
         guard var settings = previewDispatcher else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
         if let behavior = update.behavior { settings.behavior.value = behavior }
         if let name = update.name { settings.identity.name = name }
