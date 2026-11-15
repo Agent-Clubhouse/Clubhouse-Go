@@ -88,7 +88,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; UIDevice is read during init, not retained. |
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
 | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
-| `CompanionReadingBookmark` | arc_only | Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |
+| `CompanionReadingBookmark` | arc_only | Reading-position and coordinate-context values (UUID revisions, optional session String, window Int), Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |
 | `CompanionReadingViewport` | arc_only | Numeric SwiftUI/UIKit geometry snapshots and a bounded restoration value (UUIDs, numeric target/time/attempts, closed outcome); no SwiftUI scroll handles, tasks, UI objects or callbacks. UIKit publishes only value metrics here, never a view/delegate reference. |
 | `CompanionReadingTouchObserver.Anchor` | main_actor | UIKit window/recognizer attachment and a view callback require main-thread teardown. |
 | `CompanionNativeScrollTopObserver.Anchor` | main_actor | UIView delegate adapter owns view/status/geometry callbacks, a display link and UIKit superclass state; scroll view and original delegate references are weak. Dismantling invalidates the link, restores the original delegate and clears callbacks. No ARC-only exemption. |
@@ -140,6 +140,12 @@ Both devices were still on Go 2.0.0 (147): iPhone 17 Pro Max on iOS 26.7.1 (23H3
 After rebasing onto f0bc573 (#220, #229, #228 and #232), the ownership gate required reviewing only PreviewService's two added Bool flags and their ProcessInfo-derived constructor arguments; these add no UI ownership. The final local update passes 1,031 package tests in 130 suites, the coverage ratchet (Transport 96.66%, Domain 94.04%), 66 vendor tests plus 26 hashes, Debug and Release builds, both hosted deinit regressions on 26.0, six ownership-parser tests and 22 CI helper tests. The cold standalone outside mode completes and exits in 1.683 seconds locally; all eight modes produce logs, including incomplete affected controls, and the observer exits zero. This does not explain the old 26.5 timeout; final-head CI still needs to supply an observation.
 
 The edab44e rebase includes #217 and #225 without conflicts. ReadingBookmark owns only position values and the reviewed ReadingViewport; ReadingViewport stores only numeric/string geometry; TimelineProjection retains Sendable row values and indices. All three have empty nonisolated deinits. Store's two new dictionaries now own these protected classes. PreviewService's reading Bool and its ProcessInfo-derived constructor argument add no UI ownership. Only these changed storage/capture surfaces were refreshed after review. That validation's policy contained 22 ARC-only protections and 13 retained isolated paths; current counts are in Enforcement and validation above.
+
+The #287 coordinate-context guard adds one optional value to ReadingBookmark:
+two UUID revisions, an optional session String and an Int window limit. Its
+position observer only clears that value; it retains no callback or captured
+owner. No new UI handle, task or teardown work is added, so only this class's
+reviewed field surface changes and its empty nonisolated deinit remains valid.
 
 On the edab44e base, local validation passes 1,071 package tests (136 suites), coverage ratchet (Transport 96.68%, Domain 94.00%), Debug and Release builds, vendor 66 tests/26 hashes, six parser and 22 CI helper tests, and the 22/13 binary policy. Both hosted deinit regressions and the composer typing/layout regression pass on 26.0; the existing resync measurement skips under its iOS 26.0 version guard. Populated reading holders release successfully under private and Annex task-local scopes without XCTest, and five root/navigation/fake reconnect/teardown cycles complete. The disposable simulator is deleted. The prior 72fd0d1 CI unit shard and all eight runtime controls subsequently passed; preview/other shard outcomes remain separate.
 

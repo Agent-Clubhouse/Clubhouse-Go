@@ -59,7 +59,7 @@ struct CompanionConversationView: View {
         self.showsActions = showsActions
         self.isVisible = isVisible
         self.reviewPosition = reviewPosition
-        if let saved = Self.initialReadingPosition(store: store, target: agent.id) {
+        if let saved = Self.initialReadingPosition(store: store, target: agent.id, shownEntries: Self.initialEntryLimit) {
             _followLatest = State(initialValue: false)
             _readingScrollPosition = State(initialValue: ScrollPosition(y: saved.offset))
             _shownEntries = State(initialValue: max(Self.initialEntryLimit, saved.shownEntries))
@@ -74,29 +74,36 @@ struct CompanionConversationView: View {
     }
     #endif
 
-    private static func initialReadingPosition(store: CompanionStore, target: CompanionTarget) -> CompanionReadingPosition? {
+    private static func initialReadingPosition(store: CompanionStore, target: CompanionTarget, shownEntries: Int) -> CompanionReadingPosition? {
         #if DEBUG
         guard CompanionReadingRestoreProbe.allowsInitialPosition else { return nil }
         #endif
         let bookmark = store.readingBookmark(for: target)
         let saved = bookmark.position
-        guard store.conversation(for: target).isLoaded, !saved.followsLatest, let entryID = saved.entryID else { return nil }
+        let conversation = store.conversation(for: target)
+        guard conversation.isLoaded, !saved.followsLatest, let entryID = saved.entryID,
+              bookmark.coordinateContext == CompanionReadingCoordinateContext(
+                conversation: conversation, shownEntries: max(shownEntries, saved.shownEntries)) else { return nil }
         guard let row = store.timelineRows(for: target).last(where: { $0.contains(entryID: entryID) }) else { return nil }
         // The timeline retains this entry's whole row; validate its slice without preparing the rest of the window.
         return CompanionTimelineEntry.entries(for: [row]).contains { $0.id == entryID } ? saved : nil
     }
 
     private func prepareReadingScrollPosition() {
-        if let saved = Self.initialReadingPosition(store: store, target: target) {
+        if let saved = Self.initialReadingPosition(store: store, target: target, shownEntries: shownEntries) {
             followLatest = false
             shownEntries = max(shownEntries, saved.shownEntries)
             readingScrollPosition = ScrollPosition(y: saved.offset)
         } else {
+            followLatest = true
             readingScrollPosition = ScrollPosition(edge: .bottom)
         }
     }
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
+    private var readingCoordinateContext: CompanionReadingCoordinateContext {
+        .init(conversation: conversation, shownEntries: shownEntries)
+    }
     private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
     private var target: CompanionTarget { agent.id }
     private var conversation: CompanionConversation { store.conversation(for: target) }
@@ -124,7 +131,7 @@ struct CompanionConversationView: View {
                 readingViewport.clearGeometry()
             }
         }
-        .onChange(of: conversation.isLoaded ? conversation.historyRevision : nil) { _, _ in
+        .onChange(of: conversation.isLoaded ? readingCoordinateContext : nil) { _, _ in
             if isVisible == false { prepareReadingScrollPosition() }
         }
     }
@@ -456,7 +463,9 @@ struct CompanionConversationView: View {
         #endif
         let rows = store.timelineRows(for: target)
         let viewport = readingViewport
-        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+        // A bottom fallback must lay out the reader's retained row before the restore changes following state.
+        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries,
+            retaining: followLatest && readingBookmark.position.followsLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
@@ -756,6 +765,7 @@ struct CompanionConversationView: View {
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
+        readingBookmark.coordinateContext = readingCoordinateContext
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
         guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring

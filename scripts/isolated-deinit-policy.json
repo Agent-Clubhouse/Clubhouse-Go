@@ -626,11 +626,12 @@
     "CompanionReadingBookmark": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
-      "reason": "Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UIKit, SwiftUI handles or callbacks.",
+      "reason": "Reading-position and coordinate-context values (UUID revisions, optional session String and window Int), Bool plus the reviewed ARC-only ReadingViewport; no UIKit, SwiftUI handles or callbacks.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "coordinateContext": "CompanionReadingCoordinateContext ?",
           "hasMounted": "Bool",
           "position": "CompanionReadingPosition",
           "viewport": "CompanionReadingViewport"

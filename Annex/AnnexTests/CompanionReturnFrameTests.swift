@@ -59,6 +59,7 @@ import UIKit
         var lines: [String] = []
         var tick = 0
         var presentedOffsets: [Double] = []
+        var presentedMaximumOffsets: [Double] = []
 
         init(window: UIWindow, bookmark: CompanionReadingBookmark, label: UILabel, name: String) {
             self.window = window
@@ -89,10 +90,14 @@ import UIKit
             let rect = scroll.map { $0.convert($0.bounds, to: window).intersection(window.bounds) } ?? .zero
             visible = visible && !rect.isEmpty
             presented = presented && !rect.isEmpty && presentation >= 0
-            if presented { presentedOffsets.append(presentation) }
+            if presented, let scroll {
+                presentedOffsets.append(presentation)
+                presentedMaximumOffsets.append(max(0, scroll.contentSize.height + scroll.adjustedContentInset.top
+                    + scroll.adjustedContentInset.bottom - scroll.bounds.height))
+            }
             let ms = (ProcessInfo.processInfo.systemUptime - started) * 1_000
             let viewport = bookmark.viewport
-            let line = "RETURN_FRAME case=\(name) tick=\(tick) ms=\(ms) offset=\(offset) presentation=\(presentation) visible=\(visible) presented=\(presented) rect=\(rect) initialized=\(viewport.hasInitialized) restoring=\(viewport.isRestoring) outcome=\(viewport.restoration?.outcome?.rawValue ?? "pending")"
+            let line = "RETURN_FRAME case=\(name) tick=\(tick) ms=\(ms) offset=\(offset) presentation=\(presentation) maximum=\(presentedMaximumOffsets.last ?? -1) visible=\(visible) presented=\(presented) rect=\(rect) initialized=\(viewport.hasInitialized) restoring=\(viewport.isRestoring) outcome=\(viewport.restoration?.outcome?.rawValue ?? "pending")"
             lines.append(line)
             label.text = "\(name) #\(tick) \(Int(ms))ms y=\(Int(offset))"
         }
@@ -122,7 +127,25 @@ import UIKit
         try await measure(count: 12, fresh: false, remount: true)
     }
 
-    private func measure(count: Int, fresh: Bool, remount: Bool = false) async throws {
+    func testHiddenAppendDoesNotPresentAnOffsetFromTheOldWindow() async throws {
+        for remount in [false, true] {
+            try await measure(count: 200, fresh: false, remount: remount, hiddenMutation: .append)
+        }
+    }
+
+    func testHiddenHistoryRevisionDoesNotPresentAnOffsetFromTheOldLayout() async throws {
+        for remount in [false, true] {
+            try await measure(count: 12, fresh: false, remount: remount, hiddenMutation: .historyPrefix)
+        }
+    }
+
+    func testHiddenSessionReplacementDoesNotSeedAReusedEntryID() async throws {
+        try await measure(count: 12, fresh: false, hiddenMutation: .session)
+    }
+
+    private enum HiddenMutation: String { case append, historyPrefix, session }
+
+    private func measure(count: Int, fresh: Bool, remount: Bool = false, hiddenMutation: HiddenMutation? = nil) async throws {
         let service = ReturnFrameService(count: count)
         var store = CompanionStore(service: service)
         let target = CompanionPreviewService.target
@@ -148,10 +171,27 @@ import UIKit
         saved.capture(offset: 600, frames: bookmark.viewport.frames)
         XCTAssertNotNil(saved.entryID)
         bookmark.position = saved
+        bookmark.coordinateContext = .init(conversation: store.conversation(for: target), shownEntries: saved.shownEntries)
         navigation.visible = false
         try await waitUntil("unmount geometry") { bookmark.viewport.metrics == nil }
         XCTAssertEqual(bookmark.position, saved)
         try await Task.sleep(for: .milliseconds(300))
+
+        if hiddenMutation == .append {
+            for index in (count + 1)...(count + 10) {
+                store.apply(.upsert(target, .message(.init(id: "return-\(index)", role: .assistant,
+                    text: "RETURN MARKER \(index)\n\n" + String(repeating: "An additional hidden message changes the newest-entry window. ", count: 8))), sequence: nil))
+            }
+        } else if hiddenMutation != nil {
+            var items = store.conversation(for: target).items
+            if case .message(var message) = items[0] {
+                message.text += String(repeating: "\n\nA refreshed older paragraph changes geometry above the saved entry.", count: 20)
+                items[0] = .message(message)
+            }
+            store.apply(.timeline(target, items: items, sequence: 1_000, reset: true,
+                sessionID: hiddenMutation == .session ? "replacement-session" : nil))
+        }
+        if hiddenMutation != nil { try await Task.sleep(for: .milliseconds(50)) }
 
         var reload: Task<Void, Never>?
         if remount {
@@ -172,7 +212,8 @@ import UIKit
             try await waitUntil("fresh history request") { service.requested }
         }
         defer { service.held = false; reload?.cancel() }
-        let name = "\(UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone")-\(count)-\(fresh ? "fresh" : "cached")\(remount ? "-navigation" : "")"
+        let historyState = hiddenMutation == nil ? (fresh ? "fresh" : "cached") : "changed"
+        let name = "\(UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone")-\(count)-\(historyState)\(remount ? "-navigation" : "")\(hiddenMutation.map { "-\($0.rawValue)" } ?? "")"
         let label = UILabel(frame: CGRect(x: 4, y: window.safeAreaInsets.top + 2, width: window.bounds.width - 8, height: 22))
         label.font = .monospacedSystemFont(ofSize: 11, weight: .bold)
         label.backgroundColor = .yellow
@@ -198,13 +239,22 @@ import UIKit
         attachment.name = name + "-display-link"
         attachment.lifetime = .keepAlways
         add(attachment)
+        let expected = hiddenMutation == nil ? saved.offset : saved.restoredOffset(frames: bookmark.viewport.frames)
         if !fresh {
             XCTAssertFalse(sampler.presentedOffsets.isEmpty, "A real presented transcript must be sampled")
-            XCTAssertTrue(sampler.presentedOffsets.allSatisfy { abs($0 - saved.offset) <= 2 },
-                          "No presented cached-history frame may show the bottom before restoration: \(sampler.presentedOffsets)")
+            if hiddenMutation == nil {
+                XCTAssertTrue(sampler.presentedOffsets.allSatisfy { abs($0 - expected) <= 2 },
+                              "No unchanged cached-history frame may show the bottom before restoration: \(sampler.presentedOffsets)")
+            } else {
+                XCTAssertNotEqual(saved.offset, expected, accuracy: 2, "The mutation must move the saved entry")
+                XCTAssertTrue(zip(sampler.presentedOffsets, sampler.presentedMaximumOffsets).allSatisfy { offset, maximum in
+                    abs(offset - expected) <= 2 || abs(offset - maximum) <= 2
+                }, "Changed coordinates must use the current entry or bottom fallback, never stale saved-y: \(sampler.presentedOffsets); expected=\(expected)")
+                print("RETURN_CONTEXT case=\(name) entry=\(saved.entryID ?? "nil") oldOffset=\(saved.offset) expected=\(expected) presented=\(sampler.presentedOffsets) maximum=\(sampler.presentedMaximumOffsets)")
+            }
         }
-        XCTAssertEqual(bookmark.viewport.metrics?.normalizedOffset ?? -1, saved.offset, accuracy: 2)
-        XCTAssertEqual(bookmark.position.offset, saved.offset, accuracy: 2)
+        XCTAssertEqual(bookmark.viewport.metrics?.normalizedOffset ?? -1, expected, accuracy: 2)
+        XCTAssertEqual(bookmark.position.offset, expected, accuracy: 2)
         try await Task.sleep(for: .milliseconds(300))
     }
 }

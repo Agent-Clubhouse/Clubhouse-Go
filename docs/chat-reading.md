@@ -37,7 +37,8 @@ The #252 deterministic hosted control fails on unchanged main because following 
 
 ## Returning to a saved reader (#287)
 
-**Cached returns are fixed; cold-history restoration remains open.** On unchanged
+**Unchanged cached returns are fixed; changed or unavailable history still uses
+the bottom-then-restore fallback.** On unchanged
 `617e8ba1`, a real-window hosted fixture and independent simulator compositor
 recording both show the newest markers before the saved reader returns. This is
 not just a pre-layout geometry sample: the recording visibly shows markers
@@ -50,10 +51,19 @@ layout, then delivered the entry-relative restoration. The initial bound positio
 therefore won before that later delivery.
 
 A loaded transcript now seeds its initial position, following choice and shown
-window from the bookmark only if the saved entry actually exists. A timeline
-window retains that entry's whole row; slice identity is checked before seeding.
-Managed tabs prepare this state while unmounted, including a history revision
-that changes while hidden. New/following chats still initialize at bottom.
+window from the bookmark only if the saved entry actually exists and its recorded
+coordinate context still matches: item revision, history revision, session ID and
+shown-entry limit. These revisions deliberately reject even mutations that would
+not move the entry. A timeline window retains that entry's whole row; slice
+identity is also checked before seeding. The context is recorded with accepted
+bookmark geometry, not inferred merely from a matching entry string.
+Managed tabs prepare this state while unmounted and invalidate a prepared offset
+on any hidden item/revision/session/window change. New/following chats still
+initialize at bottom.
+The bottom fallback also starts with the saved row retained in the window, so
+restoring the following choice cannot insert older rows above an already
+presented bottom frame. Its temporary bottom-follow state does not replace the
+saved bookmark's reading choice.
 No transcript is hidden, no product delay is added, and all history-revision
 gates and the bounded restoration/retry path remain authoritative.
 
@@ -61,10 +71,20 @@ gates and the bounded restoration/retry path remain authoritative.
 `UIWindow` and `TabView`, short (12-message) and long (100-message) transcripts,
 and a new-view remount. A `CADisplayLink` samples the native scroll layer's
 presentation bounds and each ancestor's presentation opacity. Unmounted,
-non-presented and empty-layout samples are excluded. Every presented cached
+non-presented and empty-layout samples are excluded. Every presented unchanged cached
 sample must already be within two points of the saved 600-point offset, not
 merely arrive there eventually. The final regression fails both tests with the
 product diff reversed and passes with it applied.
+
+The coordinate-context regressions additionally append ten messages to a hidden
+200-message chat, enlarge the first message in a hidden 12-message chat through
+a full-history revision, and replace the session while reusing entry strings.
+Append and history replacement cover both retained tabs and new-view remounts.
+Every presented frame must be either the saved entry in the **current** layout
+or the native true bottom, within two points; merely avoiding the old offset is
+not enough. With the prior `55b293c7` view restored byte-for-byte, all three new
+methods fail on presented offset 600 before the correct 195.3 or 1,686.7 arrives.
+The additional bookmark context field is unused by that control's original view.
 
 The existing lost-command, touch-during-retry and exhaustion controls explicitly
 disable only initial seeding through the DEBUG restore probe. Otherwise a
@@ -80,7 +100,7 @@ pass. The unchanged-product recording fails this pixel check; the fixed recordin
 passes. Display-link times include Debug rendering and observation overhead and
 are not phone latency measurements.
 
-| iPhone 17 / iOS 26.0, final controlled run | First presented offset / time | First saved-position sample |
+| iPhone 17 / iOS 26.0, initial seed qualification | First presented offset / time | First saved-position sample |
 | --- | --- | --- |
 | Reverted, cached short | 4,388.3 / 251.6 ms | 600 / 400.6 ms |
 | Fixed, cached short | 600 / 247.4 ms | First presented sample |
@@ -91,7 +111,7 @@ are not phone latency measurements.
 | Fixed, unavailable short history | 4,388.3 / 505.0 ms | 600 / 658.1 ms |
 | Fixed, unavailable long history | 39,999 / 585.5 ms | 600 / 735.8 ms |
 
-| iPad Pro 11-inch (M4) / iOS 26.0, fixed | First presented offset / time | First saved-position sample |
+| iPad Pro 11-inch (M4) / iOS 26.0, initial seed qualification | First presented offset / time | First saved-position sample |
 | --- | --- | --- |
 | Cached short | 600 / 412.1 ms | First presented sample |
 | Cached long | 600 / 487.9 ms | First presented sample |
@@ -105,31 +125,75 @@ Neither contains a recognized cached bottom marker. This pixel check complements
 the presentation-layer assertions, rather than treating an offscreen layout
 sample as proof of a visible jump.
 
+| Coordinate-context correction, iPhone / iOS 26.0 | First presented bottom / time | First current saved-entry sample |
+| --- | --- | --- |
+| Hidden append, retained tab | 63,030.7 / 435.5 ms | 195.3 / 816.4 ms |
+| Hidden append, new-view remount | 63,030.7 / 886.7 ms | 195.3 / 1,223.5 ms |
+| Hidden history prefix growth, retained tab | 5,475 / 245.2 ms | 1,686.7 / 557.5 ms |
+| Hidden history prefix growth, new-view remount | 5,475 / 274.1 ms | 1,686.7 / 440.4 ms |
+| Reused entry in replacement session | 5,475 / 248.2 ms | 1,686.7 / 412.1 ms |
+
+| Coordinate-context correction, iPad / iOS 26.0 | First presented bottom / time | First current saved-entry sample |
+| --- | --- | --- |
+| Hidden append, retained tab | 34,936 / 579.1 ms | 142 / 1,207.3 ms |
+| Hidden append, new-view remount | 34,936 / 995.9 ms | 142 / 1,911.4 ms |
+| Hidden history prefix growth, retained tab | 2,555.5 / 386.7 ms | 1,250 / 976.1 ms |
+| Hidden history prefix growth, new-view remount | 2,555.5 / 417.8 ms | 1,250 / 713.2 ms |
+| Reused entry in replacement session | 2,555.5 / 407.7 ms | 1,250 / 708.0 ms |
+
+These are intentional changed-context fallback frames, not successful no-jump
+restorations. Every sampled frame is at that native bottom or the current saved
+entry; none is at the stale 600-point offset. Repeating the exact new tests with
+the prior view presents 600 first and fails. The longer remount setup includes
+building the retained history window; no timing threshold is used to pass. The
+iPad append/remount sequence restores after 1.91 seconds, of which about 0.92
+seconds presents the bottom. Its unchanged cached short/long/remount cases still
+present 600 from their first sample; cold short/long restore at 933/1,009 ms.
+
 For unavailable history, the fixture transfers a bookmark captured from real
 laid-out entries to a fresh store, holds its history response for 300 ms, then
 delivers the same transcript. This deliberately distinguishes the missing-entry
 path from a refresh that still has cached content. Empty/offscreen samples before
 delivery are not counted as presented transcript frames. Once content arrives,
 the original bottom-then-restore behavior remains measurable. No initial position
-is invented for content that is not available, and this work does not close #287:
-the cold-history path and physical-device confirmation remain outstanding.
+is invented for content that is not available. The same fallback is intentional
+when cached content changes while hidden (including an append that shifts the
+window, replacement history that reflows earlier rows, and a session replacement
+that reuses entry strings), when the shown window differs, or when a bookmark has
+no recorded/matching coordinate context. These paths can present non-saved frames
+before the existing entry-relative restore; they must not seed the old absolute
+offset into a changed layout. This work does not close #287: those fallback paths
+and physical-device confirmation remain outstanding. Session identity now gates
+only initial absolute seeding; the existing entry-relative fallback's use of a
+same-string bookmark across a session replacement is unchanged.
 
 Selected committed [iPhone frames](evidence/287-iphone-frames.jpg),
 [iPad frames](evidence/287-ipad-frames.jpg) and the
 [raw display-link samples](evidence/287-frame-samples.json) retain the
 before/after/revert provenance. The frame file records video timestamps and
 SHA-256 identifiers; the screenshots are comparison sheets derived from those
-recordings, not fresh model-tree snapshots.
+recordings, not fresh model-tree snapshots. Those recordings predate the
+coordinate-context correction; its separate
+[presented-frame samples](evidence/287-coordinate-context-samples.json) retain
+the current-source, prior-view revert and iPad results.
 
-Final-source qualification passed 1,547 package tests, 159 hosted tests
+The initial qualification passed 1,547 package tests, 159 hosted tests
 (three skips), all 22 selected reading/restore/keyboard/long-reply UI tests
-(one skip), and the two iPad matrix tests. All final result bundles passed
+(one skip), and the two iPad matrix tests. Those result bundles passed
 `verify-xcresult.py --no-retries-in`. The deinit policy's 20 tests and binary gate
 also passed, retaining 32 ARC-only, one deferred-main-actor and 19 reviewed
 isolated paths. An earlier fixed-build UI batch timed out querying the exact
 long Dispatcher draft after returning from Home. Its unchanged-functional-code
 single-test control and the final full fixed-source batch passed; the earlier
 failure's cause is unclassified and is not claimed fixed by this change.
+
+After the coordinate-context correction, rebased onto main `2d6f50f9`, all 1,547
+package tests, 165 hosted tests (three skips), 22 affected UI tests (one skip) and
+the single five-method/ten-case iPad frame run passed. All final xcresults passed
+strict no-retry verification. The 20 deinit tests and current Debug binary gate
+passed with 33 ARC-only, one deferred-main-actor and 19 reviewed isolated paths.
+Only ReadingBookmark's added value-only context field required an ownership
+surface review; no policy mode or teardown protection was relaxed.
 
 ## Test plan
 
