@@ -2,15 +2,21 @@ import SwiftUI
 import ImageIO
 
 struct CompanionMarkdownFileView: View {
-    let preview: CompanionMarkdownFilePreview
+    let source: String
     var line: Int?
     let truncated: Bool
+    private let parse: (@MainActor @Sendable (String) async throws -> CompanionMarkdownFilePreview)?
     @State private var mode: CompanionMarkdownFilePreview.Mode
+    @State private var preview: CompanionMarkdownFilePreview?
+    @State private var error: String?
+    @State private var attempt = 0
 
-    init(text: String, line: Int?, truncated: Bool) {
-        preview = .init(source: text)
+    init(text: String, line: Int?, truncated: Bool,
+         parse: (@MainActor @Sendable (String) async throws -> CompanionMarkdownFilePreview)? = nil) {
+        source = text
         self.line = line
         self.truncated = truncated
+        self.parse = parse
         _mode = State(initialValue: line == nil ? .preview : .source)
     }
 
@@ -23,34 +29,44 @@ struct CompanionMarkdownFileView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("companion-markdown-file-mode")
             if mode == .preview {
-                ScrollViewReader { reader in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(Array(preview.elements.enumerated()), id: \.offset) { index, element in
-                                Group {
-                                    switch element {
-                                    case .block(let block): CompanionMarkdownBlockView(block: block, depth: 0)
-                                    case .image(let alt, let resource): CompanionMarkdownFileImage(alt: alt, resource: resource)
-                                    }
-                                }.id(index)
+                if let preview {
+                    ScrollViewReader { reader in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 12) {
+                                ForEach(Array(preview.elements.enumerated()), id: \.offset) { index, element in
+                                    Group {
+                                        switch element {
+                                        case .block(let block): CompanionMarkdownBlockView(block: block, depth: 0)
+                                        case .image(let alt, let resource): CompanionMarkdownFileImage(alt: alt, resource: resource)
+                                        }
+                                    }.id(index)
+                                }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: 420)
+                        .environment(\.openURL, OpenURLAction { url in
+                            switch CompanionMarkdownFilePolicy.link(url.absoluteString) {
+                            case .external: return .systemAction
+                            case .fragment(let fragment):
+                                if let index = preview.anchors[fragment] { reader.scrollTo(index, anchor: .top) }
+                                return .handled
+                            case .blocked: return .discarded
+                            }
+                        })
+                        .accessibilityIdentifier("companion-markdown-file-preview")
                     }
-                    .frame(height: 420)
-                    .environment(\.openURL, OpenURLAction { url in
-                        switch CompanionMarkdownFilePolicy.link(url.absoluteString) {
-                        case .external: return .systemAction
-                        case .fragment(let fragment):
-                            if let index = preview.anchors[fragment] { reader.scrollTo(index, anchor: .top) }
-                            return .handled
-                        case .blocked: return .discarded
-                        }
-                    })
-                    .accessibilityIdentifier("companion-markdown-file-preview")
+                } else if let error {
+                    Text(error).font(.callout).foregroundStyle(.secondary)
+                    Button("Try again") { attempt += 1 }
+                } else {
+                    ProgressView("Rendering Markdown preview…")
+                        .frame(height: 420)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("companion-markdown-file-loading")
                 }
             } else {
-                CompanionMarkdownSourceView(source: preview.source, range: line.map { preview.sourceRange(line: $0) })
+                CompanionMarkdownSourceView(source: source, range: line.map { CompanionMarkdownFilePreview.sourceRange(in: source, line: $0) })
                     .frame(height: 420)
                 if let line {
                     Text("Source line \(line)").font(.caption).foregroundStyle(.secondary)
@@ -60,10 +76,28 @@ struct CompanionMarkdownFileView: View {
                 Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("companion-markdown-file-truncated")
             }
-            Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = preview.source }
+            Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = source }
                 .accessibilityIdentifier("companion-markdown-file-copy")
         }
         .companionMarkdownBlockPreviews()
+        .task(id: "\(mode.rawValue):\(attempt)") {
+            guard mode == .preview, preview == nil else { return }
+            error = nil
+            do {
+                let result: CompanionMarkdownFilePreview
+                if let parse {
+                    result = try await parse(source)
+                } else {
+                    result = try await CompanionMarkdownFilePreview.load(source)
+                }
+                try Task.checkCancellation()
+                preview = result
+            } catch is CancellationError {
+                // Switching to Source or dismissing cancels parsing without publishing its result.
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
     }
 }
 

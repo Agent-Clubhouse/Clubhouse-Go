@@ -28,4 +28,38 @@ import SwiftUI
         XCTAssertEqual(Array(text.text.utf8), Array(source.utf8))
         XCTAssertEqual(text.selectedRange, range, "A line target selects the raw source's UTF-16 position")
     }
+
+    func testOpeningSourceNeverInvokesPreviewParser() async throws {
+        let calls = MarkdownParseCalls()
+        let source = "# Source stays immediate\r\n\r\nkeep  \r\n"
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        let host = UIHostingController(rootView: CompanionMarkdownFileView(text: source, line: 3, truncated: false, parse: { source in
+            await calls.record()
+            return try await CompanionMarkdownFilePreview.load(source)
+        }))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        func sourceView(_ view: UIView) -> UITextView? {
+            if let text = view as? UITextView { return text }
+            return view.subviews.lazy.compactMap(sourceView).first
+        }
+        for _ in 0..<100 {
+            host.view.layoutIfNeeded()
+            if sourceView(host.view) != nil { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let text = try XCTUnwrap(sourceView(host.view))
+        XCTAssertEqual(Array(text.text.utf8), Array(source.utf8))
+        await Task.yield()
+        let count = await calls.count
+        XCTAssertEqual(count, 0, "Mounting Source must never request a Preview parse")
+    }
+}
+
+private actor MarkdownParseCalls {
+    var count = 0
+    func record() { count += 1 }
 }

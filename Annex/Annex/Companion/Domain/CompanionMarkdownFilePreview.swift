@@ -48,21 +48,31 @@ nonisolated enum CompanionMarkdownFilePolicy {
     }
 }
 
-struct CompanionMarkdownFilePreview {
-    enum Element: Equatable {
+nonisolated struct CompanionMarkdownFilePreview: Sendable {
+    enum Element: Equatable, Sendable {
         case block(CompanionMarkdownBlock)
         case image(alt: String, resource: CompanionMarkdownFilePolicy.Image)
     }
-    enum Mode: String, CaseIterable { case preview, source }
+    enum Mode: String, CaseIterable, Sendable { case preview, source }
     let source: String
     let elements: [Element]
     let anchors: [String: Int]
+    /// Candidate dictionary lookups, including collisions, for deterministic complexity regressions.
+    let anchorCandidateChecks: Int
 
     init(source: String) {
+        self.init(source: source, checkCancellation: {})
+    }
+
+    init(source: String, checkCancellation: () throws -> Void) rethrows {
         self.source = source
         var elements: [Element] = []
         var anchors: [String: Int] = [:]
+        var nextSuffix: [String: Int] = [:]
+        var anchorCandidateChecks = 0
+        try checkCancellation()
         for markup in Document(parsing: source).children {
+            try checkCancellation()
             if let paragraph = markup as? Paragraph, paragraph.childCount == 1,
                let image = paragraph.child(at: 0) as? Markdown.Image {
                 elements.append(.image(alt: image.plainText, resource: CompanionMarkdownFilePolicy.image(image.source)))
@@ -73,8 +83,16 @@ struct CompanionMarkdownFilePreview {
                         let slug = String(text.characters).lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0.isWhitespace }
                             .map { $0.isWhitespace ? "-" : String($0) }.joined()
                         var unique = slug
-                        var suffix = 0
-                        while anchors[unique] != nil { suffix += 1; unique = "\(slug)-\(suffix)" }
+                        anchorCandidateChecks += 1
+                        if anchors[unique] != nil {
+                            var suffix = nextSuffix[slug] ?? 1
+                            repeat {
+                                unique = "\(slug)-\(suffix)"
+                                suffix += 1
+                                anchorCandidateChecks += 1
+                            } while anchors[unique] != nil
+                            nextSuffix[slug] = suffix
+                        }
                         anchors[unique] = elements.count
                     }
                     elements.append(.block(block))
@@ -83,6 +101,21 @@ struct CompanionMarkdownFilePreview {
         }
         self.elements = elements
         self.anchors = anchors
+        self.anchorCandidateChecks = anchorCandidateChecks
+    }
+
+    /// cmark's initial parse is synchronous; cancellation is checked before it and between native blocks.
+    static func load(_ source: String) async throws -> Self {
+        let worker = Task.detached(priority: .userInitiated) {
+            try Self(source: source, checkCancellation: { try Task.checkCancellation() })
+        }
+        return try await withTaskCancellationHandler {
+            let result = try await worker.value
+            try Task.checkCancellation()
+            return result
+        } onCancel: {
+            worker.cancel()
+        }
     }
 
     static func isMarkdown(_ content: CompanionContent) -> Bool {
@@ -92,6 +125,9 @@ struct CompanionMarkdownFilePreview {
 
     /// UTF-16 selection used by the native read-only text view; never rewrites line endings or whitespace.
     func sourceRange(line: Int) -> NSRange {
+        Self.sourceRange(in: source, line: line)
+    }
+    static func sourceRange(in source: String, line: Int) -> NSRange {
         let text = source as NSString
         var range = NSRange(location: 0, length: 0)
         for _ in 1..<max(1, line) {

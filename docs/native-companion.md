@@ -12,8 +12,14 @@ GFM tables and fenced code (long tables/code retain their full-screen Open contr
 fragments for top-level headings scroll within Preview; HTTP(S) and mailto open externally. Relative/local links
 never navigate. Custom HTML anchors and nested-heading anchors are not resolved.
 
+Source opens without parsing Markdown. Preview is built lazily off the main actor, showing a progress state while
+Source and Copy remain available; switching to Source or dismissing cancels the work and discards late results.
+The parser checks cancellation before cmark's synchronous parse and between native blocks, not inside cmark.
+Duplicate heading anchors retain per-slug suffix cursors and check literal suffixed slugs, keeping collision
+search linear. Rendered blocks use a lazy stack so large files do not mount every native view at once.
+
 Standalone Markdown raster images offer an explicit **Load image** tap only for HTTPS or base64 PNG/JPEG/GIF/WebP
-data URIs, bounded to 2 MB and 64 million pixels and downsampled to 2048 pixels. Redirects must remain HTTPS.
+data URIs, bounded to 2 MB and 64 Mi pixels (67,108,864 pixels) and downsampled to 2048 pixels. Redirects must remain HTTPS.
 Local/relative images, SVG (including external SVG references), image inputs and other HTML resources stay
 placeholders or literal source. Inline/nested images show labeled placeholders. Raw HTML/MDX is never executed;
 JSX components, directives, math and diagrams have no executable renderer. Source remains available for unsupported

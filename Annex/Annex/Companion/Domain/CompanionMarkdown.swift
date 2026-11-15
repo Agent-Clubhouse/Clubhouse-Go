@@ -104,7 +104,7 @@ enum CompanionMarkdown {
 
     // MARK: Blocks
 
-    static func blocks(from markup: Markup, imagesAsPlaceholders: Bool) -> [CompanionMarkdownBlock] {
+    nonisolated static func blocks(from markup: Markup, imagesAsPlaceholders: Bool) -> [CompanionMarkdownBlock] {
         switch markup {
         case let heading as Heading:
             return [.heading(level: heading.level, text: inline(heading.children, imagesAsPlaceholders: imagesAsPlaceholders))]
@@ -132,7 +132,7 @@ enum CompanionMarkdown {
         }
     }
 
-    private static func item(_ item: ListItem, imagesAsPlaceholders: Bool) -> CompanionMarkdownList.Item {
+    nonisolated private static func item(_ item: ListItem, imagesAsPlaceholders: Bool) -> CompanionMarkdownList.Item {
         let checkbox: CompanionMarkdownList.Checkbox? = switch item.checkbox {
         case .checked: .checked
         case .unchecked: .unchecked
@@ -141,7 +141,7 @@ enum CompanionMarkdown {
         return .init(checkbox: checkbox, blocks: item.children.flatMap { blocks(from: $0, imagesAsPlaceholders: imagesAsPlaceholders) })
     }
 
-    private static func table(_ table: Table, imagesAsPlaceholders: Bool) -> CompanionMarkdownTable {
+    nonisolated private static func table(_ table: Table, imagesAsPlaceholders: Bool) -> CompanionMarkdownTable {
         let header = Array(table.head.cells).map { inline($0.children, imagesAsPlaceholders: imagesAsPlaceholders) }
         let rows = table.body.rows.map { row in Array(row.cells).map { inline($0.children, imagesAsPlaceholders: imagesAsPlaceholders) } }
         let count = max(table.columnAlignments.count, header.count, rows.map(\.count).max() ?? 0)
@@ -161,7 +161,7 @@ enum CompanionMarkdown {
 
     // MARK: Inline
 
-    static func inline(_ children: some Sequence<Markup>, intent: InlinePresentationIntent = [], link: URL? = nil, imagesAsPlaceholders: Bool = false) -> AttributedString {
+    nonisolated static func inline(_ children: some Sequence<Markup>, intent: InlinePresentationIntent = [], link: URL? = nil, imagesAsPlaceholders: Bool = false) -> AttributedString {
         var result = AttributedString()
         for child in children {
             switch child {
@@ -186,7 +186,7 @@ enum CompanionMarkdown {
         return result
     }
 
-    private static func run(_ string: String, _ intent: InlinePresentationIntent, _ link: URL?) -> AttributedString {
+    nonisolated private static func run(_ string: String, _ intent: InlinePresentationIntent, _ link: URL?) -> AttributedString {
         var run = AttributedString(string)
         if !intent.isEmpty { run.inlinePresentationIntent = intent }
         if let link { run.link = link }

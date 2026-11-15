@@ -123,4 +123,47 @@ import Testing
             #expect(reference.markdownLineTarget == nil)
         }
     }
+
+    @Test func duplicateHeadingAnchorsHaveLinearCandidateCost() {
+        var checks: [Int] = []
+        for count in [8_000, 16_000] {
+            let start = ContinuousClock.now
+            let preview = CompanionMarkdownFilePreview(source: String(repeating: "# Repeat\n\n", count: count))
+            #expect(preview.anchors.count == count)
+            #expect(preview.anchors["repeat-\(count - 1)"] == count - 1)
+            #expect(preview.anchorCandidateChecks <= 2 * count, "Every duplicate must resume its suffix cursor, not rescan earlier anchors")
+            checks.append(preview.anchorCandidateChecks)
+            print("MARKDOWN_SCALING headings=\(count) candidateChecks=\(preview.anchorCandidateChecks) elapsed=\(start.duration(to: .now))")
+        }
+        #expect(checks[1] <= checks[0] * 2 + 1)
+    }
+
+    @Test func generatedAnchorsStayUniqueAgainstLiteralSuffixedHeadings() {
+        let preview = CompanionMarkdownFilePreview(source: "# Repeat\n# Repeat-1\n# Repeat\n# Repeat-2\n# Repeat\n# Repeat-1")
+        #expect(preview.anchors == ["repeat": 0, "repeat-1": 1, "repeat-2": 2, "repeat-2-1": 3, "repeat-3": 4, "repeat-1-1": 5])
+        #expect(preview.anchorCandidateChecks <= 3 * preview.anchors.count)
+    }
+
+    @Test func parsingObservesCancellationBetweenBlocks() {
+        var blocks = 0
+        #expect(throws: CancellationError.self) {
+            try CompanionMarkdownFilePreview(source: String(repeating: "# Repeat\n", count: 100)) {
+                blocks += 1
+                if blocks == 3 { throw CancellationError() }
+            }
+        }
+        #expect(blocks == 3)
+    }
+
+    @Test func backgroundLoadKeepsSourceAndDoesNotPublishCancelledWork() async throws {
+        let source = "# Caf\u{00e9}\r\n\r\nkeep  \r\n"
+        let preview = try await CompanionMarkdownFilePreview.load(source)
+        #expect(preview.source.utf8.elementsEqual(source.utf8))
+        #expect(preview.anchors["caf\u{00e9}"] == 0)
+        let cancelled = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await CompanionMarkdownFilePreview.load(source)
+        }
+        await #expect(throws: CancellationError.self) { try await cancelled.value }
+    }
 }
