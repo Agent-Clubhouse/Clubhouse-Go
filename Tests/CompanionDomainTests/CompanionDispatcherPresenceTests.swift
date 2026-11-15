@@ -45,17 +45,17 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
         var remote = try #require(report.remotes.first)
         let now = try Date.ISO8601FormatStyle().parse("2026-11-14T08:05:00Z")
         #expect(remote.machineId == "remote" && remote.address == "dispatcher@office")
-        #expect(remote.stateText(now: now).hasPrefix("Offline, last seen "))
-        #expect(remote.detailText(now: now).hasPrefix("Offline · Link active\nlast seen "))
-        for (state, word) in [("online", "Online"), ("working", "Working"), ("asleep", "Asleep"),
-                              ("off", "Off"), ("unknown", "Unknown"), ("future", "Unknown")] {
+        #expect(remote.stateText(now: now).hasPrefix("Offline · last seen "))
+        #expect(remote.detailText(now: now) == remote.stateText(now: now))
+        for (state, word) in [("online", "Connected"), ("working", "Working"), ("asleep", "Asleep"),
+                              ("off", "Turned off"), ("unknown", "Unknown"), ("future", "Unknown")] {
             remote.state = state
             #expect(remote.stateText(now: now) == word, "lastSeen must be ignored outside offline")
         }
         remote.state = "offline"
         remote.lastSeen = "not-a-date"
         #expect(remote.stateText(now: now) == "Offline")
-        for (state, word) in [("active", "Link active"), ("paused", "Link paused"), ("unavailable", "Link unavailable")] {
+        for (state, word) in [("active", String?.none), ("paused", "Can't reach from this phone"), ("unavailable", "Can't reach from this phone")] {
             remote.link = .init(state: state, reason: "network_paused")
             #expect(remote.link.text == word)
         }
@@ -92,7 +92,7 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
             #expect(rows.first?.presence?.state == "offline")
             #expect(rows.first?.label == "Navi on Office Mac")
             #expect(rows.first?.accessibilityLabel.contains("last seen") == true)
-            #expect(rows.first?.accessibilityLabel.contains("Link active") == true)
+            #expect(rows.first?.accessibilityLabel.contains("Link active") == false)
             #expect(rows.first?.accessibilityLabel.contains("dispatcher@office") == false)
         }
         let rows = CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [old, fresh])
@@ -129,7 +129,7 @@ private func presenceJSON(_ state: String = "working", machine: String = "remote
         #expect(merged.presence?.state == remote.state && merged.desktop?.target == chat.id)
         let informational = try #require(CompanionDispatcherSwitcherRow.rows(desktops: [], hosts: [source]).first)
         #expect(informational.label == "Dispatcher on Office Mac", "No chosen remote chat name was supplied")
-        #expect(informational.accessibilityLabel == "Dispatcher on Office Mac, Working · Link active")
+        #expect(informational.accessibilityLabel == "Dispatcher on Office Mac, Working")
 
         source.dispatcherPresence?.remotes[0].dispatcherName = "Echo"
         source.dispatcherPresence?.remotes[0].label = "Echo on Office Mac"

@@ -7,13 +7,14 @@ struct CompanionDispatcherPresence: Decodable, Equatable, Sendable {
             var state: String
             var reason: String?
 
-            var text: String {
+            /// An active link needs no second state label. Unknown values are not evidence of a block.
+            var blocksReachability: Bool {
                 switch state {
-                case "active": "Link active"
-                case "paused": "Link paused"
-                default: "Link unavailable"
+                case "paused", "unavailable": true
+                default: false
                 }
             }
+            var text: String? { blocksReachability ? CompanionMachineStatePresentation.unreachableFromPhone : nil }
         }
 
         var machineId: String
@@ -35,44 +36,19 @@ struct CompanionDispatcherPresence: Decodable, Equatable, Sendable {
             return text
         }
 
-        func stateText(now: Date = Date()) -> String {
-            switch state {
-            case "online": return "Online"
-            case "working": return "Working"
-            case "asleep": return "Asleep"
-            case "off": return "Off"
-            case "offline":
-                return lastSeenText(now: now).map { "Offline, \($0)" } ?? "Offline"
-            default: return "Unknown"
+        var machineState: CompanionMachineState { .init(presenceState: state) }
+        func presentation(now: Date = Date()) -> CompanionMachineStatePresentation {
+            let seen = lastSeen.flatMap {
+                (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse($0))
+                    ?? (try? Date.ISO8601FormatStyle().parse($0))
             }
+            return machineState.presentation(lastSeen: seen, linkBlocked: link.blocksReachability, now: now)
         }
+        func stateText(now: Date = Date()) -> String { presentation(now: now).label }
+        func detailText(now: Date = Date()) -> String { presentation(now: now).detail }
 
-        func detailText(now: Date = Date()) -> String {
-            if let seen = lastSeenText(now: now) {
-                return "Offline · \(link.text)\n\(seen)"
-            }
-            return "\(stateText(now: now)) · \(link.text)"
-        }
-
-        private func lastSeenText(now: Date) -> String? {
-            guard state == "offline", let lastSeen,
-                  let date = (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(lastSeen))
-                    ?? (try? Date.ISO8601FormatStyle().parse(lastSeen)) else { return nil }
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .abbreviated
-            return "last seen \(formatter.localizedString(for: date, relativeTo: now))"
-        }
-
-        var symbol: String {
-            switch state {
-            case "online": "circle"
-            case "working": "gearshape.2"
-            case "asleep": "moon"
-            case "offline": "wifi.slash"
-            case "off": "power"
-            default: "questionmark.circle"
-            }
-        }
+        /// Compatibility for RootView's two existing nonoptional Label sites. They will adopt presentation.symbol.
+        var symbol: String { machineState.symbol ?? "circle" }
     }
 
     var remotes: [Remote]

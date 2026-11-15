@@ -451,10 +451,10 @@ struct CompanionWakeChoiceTests {
 }
 
 struct CompanionHostCopyTests {
-    @Test func connectionWordsMatchTheDesktop() {
-        #expect(CompanionConnection.connecting.label == "Connecting…")
-        #expect(CompanionConnection.synchronizing.label == "Connecting…")
-        #expect(CompanionConnection.reconnecting.label == "Looking for it…")
+    @Test func connectionWordsUseTheSharedMachineVocabulary() {
+        #expect(CompanionConnection.connecting.label == "Connecting")
+        #expect(CompanionConnection.synchronizing.label == "Reconnecting")
+        #expect(CompanionConnection.reconnecting.label == "Reconnecting")
         #expect(CompanionConnection.offline.label == "Offline")
         #expect(CompanionConnection.reconnecting.sentence(hostName: "Studio Mac") == "Looking for Studio Mac…")
         #expect(CompanionConnection.offline.sentence(hostName: "Studio Mac") == "Studio Mac is offline")
