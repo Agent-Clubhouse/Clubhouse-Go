@@ -323,10 +323,13 @@ private actor UpdateDesktop: AnnexTransporting {
             throw AnnexTransportError.malformedResponse
         }
         ready["reason"] = .string("The downloaded installer is missing. It was not downloaded again.")
+        let expected = try AnnexJSON.object(ready).decode(AnnexAppUpdate.self)
         await desktop.setCheckResult(.object(ready))
         await store.checkAppUpdate(hostID: Self.id)
         #expect(await desktop.sent.last?.commandID != sent[0].commandID)
-        #expect(store.hosts.first?.appUpdate == (try AnnexJSON.object(ready).decode(AnnexAppUpdate.self)))
+        // Receipt completion queues a host event; the store consumes it in a separate task.
+        try await wait { store.hosts.first?.appUpdate == expected }
+        #expect(store.hosts.first?.appUpdate == expected)
     }
 
     @Test func alreadyCheckingWaitsForFreshStatusAndOtherRefusalsShowTheDesktopMessage() async throws {
