@@ -228,7 +228,7 @@ import XCTest
     // MARK: Tests
 
     func testIdleControlsStayCollapsedBeforeAndAfterTyping() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-context-window"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-context-window"], attempts: 1)
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["companion-level-menu"].label.contains("Chat controls"))

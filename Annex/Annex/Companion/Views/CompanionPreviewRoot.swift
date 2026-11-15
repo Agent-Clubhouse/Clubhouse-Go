@@ -27,7 +27,8 @@ struct CompanionPreviewRoot: View {
             UserDefaults.standard.removePersistentDomain(forName: suite)
         }
         let preferences = CompanionPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
-        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-home") { preferences.startScreen = .home }
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-dispatch") { preferences.lastTab = .dispatcher }
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-start-home") { preferences.lastTab = .home }
         return preferences
     }()
     /// `--companion-preview-feedback`: an enrolled in-memory feedback client, for the Send feedback menu items.
@@ -83,7 +84,6 @@ struct CompanionPreviewRoot: View {
                         }
                         CompanionPlanLimitsLink(store: store)
                         CompanionHelperPresetLinks(store: store)
-                        CompanionStartScreenPicker(preferences: preferences)
                         if let feedback { CompanionFeedbackSettings(model: feedback.model, initialCapture: capture) }
                         if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-controls") {
                             Section("Preview desktop reports") {

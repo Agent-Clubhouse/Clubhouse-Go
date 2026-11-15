@@ -1,7 +1,7 @@
 import SwiftUI
 import ClubhouseTransport
 
-/// Tab bar on iPhone (Dispatcher, Home, Needs you, Agents and Search), a sidebar on iPad.
+/// Tab bar on iPhone (Home, Dispatch, Needs you, Agents and Search), a sidebar on iPad.
 /// Each tab keeps its own navigation stack; `store.selection` mirrors the agent on screen.
 struct CompanionRootView: View {
     @Bindable var store: CompanionStore
@@ -26,7 +26,7 @@ struct CompanionRootView: View {
         self.onSettings = onSettings
         self.isPreview = isPreview
         self.pairedHostIDs = pairedHostIDs
-        var navigation = CompanionNavigation(startScreen: preferences.startScreen, cached: preferences.dispatcherDesktops,
+        var navigation = CompanionNavigation(lastTab: preferences.lastTab, cached: preferences.dispatcherDesktops,
                                              lastHostID: preferences.lastHostID)
         navigation.update(hosts: store.hosts)
         if let target = store.selection { navigation.open(target, hosts: store.hosts) }
@@ -40,18 +40,18 @@ struct CompanionRootView: View {
 
     var body: some View {
         TabView(selection: Binding(get: { navigation.tab }, set: { navigation.select($0); mirrorSelection() })) {
-            if navigation.tabs.contains(.dispatcher) {
-                Tab("Dispatcher", systemImage: "point.3.connected.trianglepath.dotted", value: CompanionTab.dispatcher) {
-                    stack(.dispatcher) { dispatcherRoot }
-                }
-                .badge(store.dispatcherNeedsYouCount)
-            }
             Tab("Home", systemImage: "house", value: CompanionTab.home) {
                 stack(.home) {
                     CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); onSettings() },
                                       onNewAgent: { navigation.interact(); spawnProject = $0 }, isPreview: isPreview,
                                       onInteraction: { navigation.interact() })
                 }
+            }
+            if navigation.tabs.contains(.dispatcher) {
+                Tab("Dispatch", systemImage: "point.3.connected.trianglepath.dotted", value: CompanionTab.dispatcher) {
+                    stack(.dispatcher) { dispatcherRoot }
+                }
+                .badge(store.dispatcherNeedsYouCount)
             }
             Tab("Needs you", systemImage: "tray", value: CompanionTab.needsYou) {
                 stack(.needsYou) { CompanionNeedsYouView(store: store, decisions: decisions) }
@@ -100,6 +100,7 @@ struct CompanionRootView: View {
         }
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
+        .onChange(of: navigation.tab) { _, _ in mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
         .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
         .onChange(of: store.selection) { _, target in
@@ -149,6 +150,7 @@ struct CompanionRootView: View {
     }
 
     private func mirrorSelection() {
+        if preferences.lastTab != navigation.tab { preferences.lastTab = navigation.tab }
         let target = navigation.visibleAgent
         if store.selection != target { store.selection = target }
         if let hostID = target?.hostID, preferences.lastHostID != hostID { preferences.lastHostID = hostID }

@@ -76,7 +76,7 @@ import UIKit
                        "The assistive control is scoped to editing")
     }
     private func dispatcher(_ flags: [String]) {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"] + flags, allowance: 360)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"] + flags, allowance: 360)
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         let composer = element(app, "companion-composer")
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
@@ -93,7 +93,7 @@ import UIKit
         XCTAssertTrue(tab(app, "Home").isHittable)
         tab(app, "Home").tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
-        tab(app, "Dispatcher").tap()
+        tab(app, "Dispatch").tap()
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 5))
         assertDismissed(app, draft: "Keep my Dispatcher draft")
 

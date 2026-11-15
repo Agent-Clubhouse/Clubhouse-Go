@@ -325,7 +325,7 @@
     "CompanionPreferences": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreferences.swift",
-      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained. Start screen is an enum; cached Dispatcher desktops own only String and CompanionTarget values, with no UI objects or callbacks.",
+      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained. Last tab is a Sendable raw-value enum; cached Dispatcher desktops own only String and CompanionTarget values, with no UI objects or callbacks.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
@@ -339,11 +339,11 @@
           "idleExpanded": "Bool",
           "inactiveProjects": "[ String ]",
           "lastHostID": "String ?",
+          "lastTab": "CompanionTab",
           "pinnedProjects": "[ String ]",
           "projectActivity": "[ String : Date ]",
           "projectOrder": "[ String ]",
           "projectSort": "CompanionProjectSort",
-          "startScreen": "CompanionStartScreen",
           "systemDeviceName": "String"
         },
         "storageMacros": [

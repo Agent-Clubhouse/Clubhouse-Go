@@ -37,7 +37,7 @@ import UIKit
     }
 
     func testRotationKeepsNewestLineInsideViewportWhileFollowing() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-dispatcher-controls",
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls",
                              "--companion-preview-context-window", "--companion-preview-long-reply", "--companion-preview-follow-trace"], attempts: 1)
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         let composer = element(app, "companion-composer")

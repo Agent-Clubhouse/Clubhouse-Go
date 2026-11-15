@@ -14,7 +14,7 @@ import ClubhouseTransport
 
     @Test func titleFollowsTheVisibleDesktopAndCurrentAgentName() {
         var hosts = [host(), host("laptop", name: "Echo")]
-        var navigation = CompanionNavigation(startScreen: .dispatcher, lastHostID: "studio")
+        var navigation = CompanionNavigation(lastTab: .dispatcher, lastHostID: "studio")
         navigation.update(hosts: hosts)
         navigation.chooseDispatcher(hostID: "studio")
         #expect(navigation.dispatcherTitle(hosts: hosts) == "Navi")
@@ -29,7 +29,7 @@ import ClubhouseTransport
     @Test func missingUnavailableAndBlankNamesFallBackToDispatcher() {
         let named = host()
         let cached = [CompanionDispatcherDesktop(host: named)!]
-        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: cached)
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: cached)
         #expect(navigation.dispatcherTitle(hosts: []) == "Dispatcher")
         var loading = named
         loading.dispatcher?.agent = nil
@@ -52,7 +52,7 @@ import ClubhouseTransport
     @Test func exactControllerSnapshotNameNeedsNoSettingsToNameTheChat() throws {
         let named = host(name: "Dispatcher controller")
         #expect(named.dispatcherSettings == nil)
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: [named])
         #expect(navigation.dispatcherTitle(hosts: [named]) == "Dispatcher controller")
         #expect(named.dispatcher?.agent?.displayName == "Dispatcher controller")

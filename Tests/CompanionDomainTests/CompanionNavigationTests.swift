@@ -13,35 +13,36 @@ import Testing
 
     @Test func tabsDependOnReportedFlagsAndNotConnection() {
         for connection in [CompanionConnection.connected, .offline, .connecting, .reconnecting, .synchronizing, .failed("lost")] {
-            var navigation = CompanionNavigation(startScreen: .dispatcher)
+            var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: [host(connection: connection)])
-            #expect(navigation.tabs == [.dispatcher, .home, .needsYou, .agents, .search])
+            #expect(navigation.tabs == [.home, .dispatcher, .needsYou, .agents, .search])
         }
         for flags in [(false, true), (true, false), (false, false)] {
-            var navigation = CompanionNavigation(startScreen: .dispatcher)
+            var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: [host(enabled: flags.0, flagOn: flags.1)])
             #expect(navigation.tabs == [.home, .needsYou, .agents, .search])
             #expect(navigation.tab == .home)
         }
     }
 
-    @Test func launchResolvesOnceAndOnlyBeforeInteraction() {
-        for preference in CompanionStartScreen.allCases {
-            var navigation = CompanionNavigation(startScreen: preference)
+    @Test func launchRestoresEveryTabAndOnlyResolvesDispatchBeforeInteraction() {
+        #expect(CompanionNavigation().tab == .home)
+        for lastTab in CompanionTab.allCases {
+            var navigation = CompanionNavigation(lastTab: lastTab)
             navigation.update(hosts: [])
-            #expect(navigation.tab == .home)
+            #expect(navigation.tab == (lastTab == .dispatcher ? .home : lastTab))
             navigation.update(hosts: [host()])
-            #expect(navigation.tab == (preference == .dispatcher ? .dispatcher : .home))
+            #expect(navigation.tab == lastTab)
             navigation.select(.agents)
             navigation.update(hosts: [host(connection: .offline)])
             navigation.update(hosts: [host()])
             #expect(navigation.tab == .agents)
         }
-        var touched = CompanionNavigation(startScreen: .dispatcher)
+        var touched = CompanionNavigation(lastTab: .dispatcher)
         touched.interact()
         touched.update(hosts: [host()])
         #expect(touched.tab == .home)
-        var initiallyOff = CompanionNavigation(startScreen: .dispatcher)
+        var initiallyOff = CompanionNavigation(lastTab: .dispatcher)
         initiallyOff.update(hosts: [host(enabled: false)])
         initiallyOff.update(hosts: [host()])
         #expect(initiallyOff.tab == .home, "Turning on later never changes tabs")
@@ -49,7 +50,7 @@ import Testing
 
     @Test func cacheAvoidsHomeFlashAndIsNotASecondLaunchOpportunity() {
         let cached = [CompanionDispatcherDesktop(host: host())!]
-        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: cached, lastHostID: "mac")
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: cached, lastHostID: "mac")
         #expect(navigation.tab == .dispatcher && navigation.dispatcherHostID == "mac")
         navigation.update(hosts: [])
         #expect(navigation.tab == .dispatcher)
@@ -58,14 +59,14 @@ import Testing
         navigation.select(.search)
         navigation.update(hosts: [host()])
         #expect(navigation.tab == .search)
-        #expect(CompanionNavigation(startScreen: .home, cached: cached).tab == .home)
-        var knownOff = CompanionNavigation(startScreen: .dispatcher, cached: [])
+        #expect(CompanionNavigation(lastTab: .home, cached: cached).tab == .home)
+        var knownOff = CompanionNavigation(lastTab: .dispatcher, cached: [])
         knownOff.update(hosts: [host()])
         #expect(knownOff.tab == .home)
     }
 
     @Test func disconnectedUnknownStateKeepsCachedTabAndExplicitOffLeavesOnce() {
-        var navigation = CompanionNavigation(startScreen: .dispatcher)
+        var navigation = CompanionNavigation(lastTab: .dispatcher)
         navigation.update(hosts: [host()])
         var connecting = host(connection: .reconnecting)
         connecting.dispatcher = nil
@@ -79,7 +80,7 @@ import Testing
     }
 
     @Test func severalDesktopsHaveOneTabAndRememberTheLastUsed() throws {
-        var navigation = CompanionNavigation(startScreen: .dispatcher, lastHostID: "b")
+        var navigation = CompanionNavigation(lastTab: .dispatcher, lastHostID: "b")
         navigation.update(hosts: [host("a"), host("b")])
         #expect(navigation.tabs.filter { $0 == .dispatcher }.count == 1)
         #expect(navigation.dispatcherHostID == "b")
@@ -100,7 +101,7 @@ import Testing
         var travel = host("travel")
         travel.name = "Travel MacBook"
         travel.dispatcher?.agent?.name = "Echo"
-        var navigation = CompanionNavigation(startScreen: .dispatcher, lastHostID: studio.id)
+        var navigation = CompanionNavigation(lastTab: .dispatcher, lastHostID: studio.id)
         navigation.update(hosts: [studio, travel])
         #expect(navigation.dispatcherDesktops.map(\.displayName) == ["Echo", "Navi"])
         #expect(navigation.dispatcherDesktops.map(\.name) == ["Travel MacBook", "Studio Mac"])
@@ -128,7 +129,7 @@ import Testing
             a.dispatcher?.agent?.name = name
             var b = host("b")
             b.dispatcher?.agent = nil
-            var navigation = CompanionNavigation(startScreen: .dispatcher)
+            var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: [b, a])
             #expect(navigation.dispatcherDesktops.map(\.displayName) == ["Dispatcher", "Dispatcher"])
             #expect(navigation.dispatcherDesktops.map(\.accessibilityLabel) == ["Dispatcher on a", "Dispatcher on b"])
@@ -147,13 +148,13 @@ import Testing
         #expect(restored.first?.accessibilityLabel == "Dispatcher on Studio Mac")
         let controllerCache = Data(#"[{"id":"mac","name":"Studio Mac","displayName":"Dispatcher controller"}]"#.utf8)
         #expect(try JSONDecoder().decode([CompanionDispatcherDesktop].self, from: controllerCache).first?.accessibilityLabel == "Dispatcher controller on Studio Mac", "Older caches also stored the snapshot's chosen chat name, not presence")
-        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: restored)
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: restored)
         navigation.update(hosts: [named])
         #expect(navigation.dispatcherDesktops.first?.displayName == "Navi")
     }
 
     @Test func linksFromEveryTabRouteToOneDispatcherAndCleanOldCopies() throws {
-        var navigation = CompanionNavigation(startScreen: .home)
+        var navigation = CompanionNavigation(lastTab: .home)
         navigation.update(hosts: [host()])
         let dispatcher = try #require(host().dispatcher?.agent?.id)
         let worker = CompanionTarget(hostID: "mac", projectID: "p", agentID: "worker")
@@ -178,7 +179,7 @@ import Testing
 
     @Test func aCachedDesktopWithoutARestoredPairingCannotLeaveAPhantomTab() throws {
         let cache = [try #require(CompanionDispatcherDesktop(host: host("a"))), try #require(CompanionDispatcherDesktop(host: host("b")))]
-        var navigation = CompanionNavigation(startScreen: .dispatcher, cached: cache, lastHostID: "a")
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: cache, lastHostID: "a")
         navigation.retainPairedDesktops(["b"])
         #expect(navigation.tab == .home && navigation.dispatcherHostID == "b")
         #expect(navigation.dispatcherDesktops.map(\.id) == ["b"])
@@ -190,23 +191,23 @@ import Testing
     @Test func aLoadingDispatcherDoesNotRemoveProjectPagesFromOtherStacks() {
         var loading = host()
         loading.dispatcher?.agent = nil
-        var navigation = CompanionNavigation(startScreen: .home)
+        var navigation = CompanionNavigation(lastTab: .home)
         navigation.update(hosts: [loading])
         let project = CompanionRoute.project(.init(hostID: loading.id, projectID: "project"))
         navigation.setPath([project], for: .home, hosts: [loading])
         navigation.update(hosts: [loading])
         #expect(navigation.paths[.home] == [project] && navigation.visibleAgent == nil)
-        #expect(navigation.tabs.first == .dispatcher)
+        #expect(navigation.tabs.first == .home)
     }
 
     @Test func notificationBeforeFirstSnapshotRoutesOnceAndCanBeCancelled() throws {
         let target = try #require(host().dispatcher?.agent?.id)
-        var navigation = CompanionNavigation(startScreen: .home)
+        var navigation = CompanionNavigation(lastTab: .home)
         navigation.open(target, hosts: [])
         navigation.update(hosts: [host()])
         #expect(navigation.tab == .dispatcher && navigation.visibleAgent == target)
         #expect(navigation.paths[.home] == [])
-        var cancelled = CompanionNavigation(startScreen: .dispatcher)
+        var cancelled = CompanionNavigation(lastTab: .dispatcher)
         cancelled.open(target, hosts: [])
         cancelled.select(.search)
         cancelled.update(hosts: [host()])
@@ -250,16 +251,23 @@ import Testing
         #expect(store.dispatcherNeedsYouCount == 0)
     }
 
-    @MainActor @Test func preferencesPersistStartScreenAndLastKnownState() throws {
+    @MainActor @Test func preferencesRestoreEveryLastTabAndIgnoreTheRemovedStartScreen() throws {
         let name = "dispatcher-navigation-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("dispatcher", forKey: "companion.startScreen")
         let preferences = CompanionPreferences(defaults: defaults)
-        #expect(preferences.startScreen == .dispatcher && preferences.dispatcherDesktops == nil)
-        preferences.startScreen = .home
+        #expect(preferences.lastTab == .home && preferences.dispatcherDesktops == nil)
+        #expect(defaults.object(forKey: "companion.startScreen") == nil)
         preferences.dispatcherDesktops = [try #require(CompanionDispatcherDesktop(host: host()))]
-        let restored = CompanionPreferences(defaults: defaults)
-        #expect(restored.startScreen == .home && restored.dispatcherDesktops == preferences.dispatcherDesktops)
+        for tab in CompanionTab.allCases {
+            preferences.lastTab = tab
+            let restored = CompanionPreferences(defaults: defaults)
+            #expect(restored.lastTab == tab && restored.dispatcherDesktops == preferences.dispatcherDesktops)
+            #expect(CompanionNavigation(lastTab: restored.lastTab, cached: restored.dispatcherDesktops).tab == tab)
+        }
+        defaults.set("unknown-future-tab", forKey: "companion.lastTab")
+        #expect(CompanionPreferences(defaults: defaults).lastTab == .home)
         preferences.dispatcherDesktops = []
         #expect(CompanionPreferences(defaults: defaults).dispatcherDesktops == [])
     }

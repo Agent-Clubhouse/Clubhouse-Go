@@ -34,7 +34,8 @@ before copying these notes to TestFlight.
 
 - Chat is easier to read: routine activity folds away while keeping sender faces visible. Previous
   and next reply controls, Latest, and remembered reading positions help you move through long chats.
-- Dispatcher has its own first tab. Choose your preferred Start screen in Settings.
+- Home comes first, followed by Dispatch when a paired desktop has a Dispatcher. The app reopens on
+  the last tab; there is no Start screen setting.
 - Helper presets, Auto provider choices, plan limits and context-window controls appear when your
   desktop supports them. Agent and project icons load through a bounded cache.
 - Feedback adds screenshot zoom, four pen colors, opaque redaction, Undo, Clear edits and an
@@ -107,8 +108,8 @@ main pass. This checklist is not an instruction for an agent to operate a phone.
 4. **Folded activity and faces.** Expand/collapse a run with several senders; check their faces and
    order, and that expansion survives leaving/returning. Failures, approvals and questions must stay
    visible. Known icons should load or fall back cleanly, without disturbing chat.
-5. **Tabs and reading position.** Check Dispatcher is first, then change Settings → Start screen and
-   check the next normal launch. Restore your preference. Switch tabs and conversations while reading
+5. **Tabs and reading position.** Check Home is first and Dispatch is second when available. Choose
+   each tab and check the next normal launch reopens it. Switch tabs and conversations while reading
    mid-history; return to the same text and offset. A process restart need not preserve the bookmark.
 6. **Queued messages.** With an agent busy, queue a harmless message. Check queued/pending/delivered
    states across reconnect and foreground; there must be no silent loss, duplicate send or false success.

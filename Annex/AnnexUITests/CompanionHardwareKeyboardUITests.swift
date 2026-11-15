@@ -19,7 +19,7 @@ import XCTest
     }
 
     func testSendButtonExposesTheSendRefusalSentinel() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], attempts: 1)
         let input = composer(app)
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
@@ -31,7 +31,7 @@ import XCTest
     }
 
     func testHardwareReturnInvokesTheGuardedSendPath() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], attempts: 1)
         let input = composer(app)
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
@@ -48,7 +48,7 @@ import XCTest
     }
 
     func testHardwareShiftReturnInsertsANewlineWithoutSending() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], attempts: 1)
         let input = composer(app)
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
@@ -67,7 +67,7 @@ import XCTest
     }
 
     func testOnScreenReturnStillInsertsANewline() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher"], attempts: 1)
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], attempts: 1)
         let input = composer(app)
         XCTAssertTrue(input.waitForExistence(timeout: 15))
         input.tap()
