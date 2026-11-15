@@ -9,6 +9,11 @@ import XCTest
     }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags, attempts: 1)
+        if flags.contains("--companion-header-pushed") {
+            let open = app.buttons["header-fixture-open-chat"]
+            XCTAssertTrue(open.waitForExistence(timeout: 10))
+            open.tap()
+        }
         XCTAssertTrue(app.buttons["companion-chat-header"].waitForExistence(timeout: 10))
         return app
     }
@@ -81,14 +86,65 @@ import XCTest
         }
     }
 
+    func testLongIdentityCentersWithAndWithoutBackAtAccessibilitySizes() {
+        for pushed in [false, true] {
+            for largeText in [false, true] {
+                let flags = ["--companion-header-long-name", pushed ? "--companion-header-pushed" : "--companion-header-no-leading"]
+                    + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] : [])
+                let app = launch(flags)
+                let identity = app.buttons["companion-chat-header"]
+                let context = app.buttons["companion-context-usage"]
+                let actions = app.buttons["conversation-actions-menu"]
+                let capsule = element(app, "companion-chat-header-actions")
+                XCTAssertEqual(identity.frame.midX, app.frame.midX, accuracy: 1)
+                XCTAssertGreaterThan(identity.frame.width, 100)
+                XCTAssertLessThanOrEqual(identity.frame.maxX + 4, context.frame.minX)
+                XCTAssertEqual(context.frame.maxX + 1, actions.frame.minX, accuracy: 1)
+                XCTAssertTrue(pixelContains(capsule.frame, context.frame))
+                XCTAssertTrue(pixelContains(capsule.frame, actions.frame))
+                XCTAssertTrue(context.isHittable && actions.isHittable)
+                assertMinimumTarget(context, "context")
+                assertMinimumTarget(actions, "actions")
+                XCTAssertFalse(app.staticTexts["28%"].exists, "Context percentage is spoken, not printed in the toolbar")
+                XCTAssertEqual(context.value as? String, "Latest reported context: 28% full")
+                if pushed {
+                    let back = app.navigationBars.buttons.firstMatch
+                    XCTAssertLessThanOrEqual(back.frame.maxX + 4, identity.frame.minX)
+                }
+                capture(app, "\(pushed ? "back" : "no back") long name \(largeText ? "AX Large" : "standard")")
+                waitAndTap(identity, until: element(app, "companion-chat-details-name"), attempts: 1)
+                XCTAssertEqual(element(app, "companion-chat-details-name").label,
+                               "Alexandria — release coordination and simulator validation")
+                app.terminate()
+            }
+        }
+    }
+
+    func testDesktopThemesKeepHeaderAndLabeledComposerReadable() {
+        for (theme, flags) in [
+            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
+            ("Catppuccin Mocha", ["--companion-header-mocha"]),
+        ] {
+            let app = launch(flags + ["--companion-header-no-leading"])
+            let controls = app.buttons["companion-level-menu"]
+            XCTAssertTrue(controls.staticTexts["Auto-accept edits · Opus"].exists,
+                          "The collapsed composer names its access level and model")
+            XCTAssertEqual(app.buttons["companion-chat-header"].frame.midX, app.frame.midX, accuracy: 1)
+            assertNamePillContrast(app)
+            assertAvatarColour(app, theme)
+            capture(app, theme)
+            app.terminate()
+        }
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
-    /// glass must not restyle it. The 50pt photo is centred at the top of the identity control; sampled inside it,
+    /// glass must not restyle it. The 44pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.
     private func assertAvatarColour(_ app: XCUIApplication, _ state: String) {
         let identity = app.buttons["companion-chat-header"].frame
         guard let image = app.screenshot().image.cgImage else { return XCTFail("\(state): no screenshot") }
         let scale = CGFloat(image.width) / app.frame.width
-        let x = Int(((identity.midX - 16) * scale).rounded()), y = Int(((identity.minY + 25) * scale).rounded())
+        let x = Int(((identity.midX - 16) * scale).rounded()), y = Int(((identity.minY + 22) * scale).rounded())
         var pixel = [UInt8](repeating: 0, count: 4)
         pixel.withUnsafeMutableBytes { buffer in
             let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,

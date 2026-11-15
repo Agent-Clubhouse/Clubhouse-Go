@@ -33,9 +33,9 @@ struct CompanionConversationIdentityButton: View {
     var body: some View {
         let compact = verticalSizeClass == .compact
         Button { isExpanded.toggle() } label: {
-            let layout = compact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: -4))
+            let layout = compact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(alignment: .center, spacing: -2))
             layout {
-                CompanionAgentAvatar(agent: agent, size: compact ? 30 : 50)
+                CompanionAgentAvatar(agent: agent, size: compact ? 30 : 44)
                     // Lifted off whatever scrolls behind it.
                     .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
                 namePill

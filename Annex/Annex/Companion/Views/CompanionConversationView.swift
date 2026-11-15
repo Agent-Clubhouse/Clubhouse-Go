@@ -169,7 +169,7 @@ struct CompanionConversationView: View {
                         .hidden().allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .sharedBackgroundVisibility(.hidden)
-                // Both capsules draw their own glass over an opaque card, so the bar's shared glass stays off them.
+                // Identity and actions draw their own glass over the theme card.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
@@ -182,41 +182,51 @@ struct CompanionConversationView: View {
                             }
                                 .allowsHitTesting(false).accessibilityHidden(true)
                         }
-                        .frame(width: max(44, available.size.width - 2 * (44 + 44 + 16 + 20 + 8)))
+                        .frame(width: max(44, available.size.width - 2 * (44 + 44 + 20 + 8)))
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
-                    contextButton
-                }
-                    .sharedBackgroundVisibility(.hidden)
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
-                        Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                        Button("Context and plan limits", systemImage: "chart.pie") { showContextSettings = true }
-                            .accessibilityIdentifier("companion-context-settings-menu")
-                        if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
-                        CompanionSleepAction(store: store, target: target) { confirmSleep = true }
-                        CompanionTerminalMenuItem(scope: .agentShell(target))
-                        Section("Conversation details") {
-                            Text(contextName)
-                            if let model = agent.model { Text(model) }
-                        }
-                        if agent.capabilities.contains(.wake) {
-                            ForEach(store.wakeChoices(for: target)) { choice in
-                                Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
-                                    .disabled(!store.canWake(target))
+                    HStack(spacing: 0) {
+                        contextButton
+                        Rectangle().fill(Color(palette.separator)).frame(width: 1, height: 20).accessibilityHidden(true)
+                        Menu {
+                            Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
+                            Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                            Button("Context and plan limits", systemImage: "chart.pie") { showContextSettings = true }
+                                .accessibilityIdentifier("companion-context-settings-menu")
+                            if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
+                            CompanionSleepAction(store: store, target: target) { confirmSleep = true }
+                            CompanionTerminalMenuItem(scope: .agentShell(target))
+                            Section("Conversation details") {
+                                Text(contextName)
+                                if let model = agent.model { Text(model) }
                             }
+                            if agent.capabilities.contains(.wake) {
+                                ForEach(store.wakeChoices(for: target)) { choice in
+                                    Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
+                                        .disabled(!store.canWake(target))
+                                }
+                            }
+                            if agent.status == .working {
+                                Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
+                                    .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
+                            }
+                            if let sendFeedback { Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback) }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
-                        if agent.status == .working {
-                            Button("Interrupt turn", systemImage: "stop.circle", role: .destructive) { confirmCancel = true }
-                                .disabled(!store.canOperate(target) || !agent.capabilities.contains(.cancel))
-                        }
-                        if let sendFeedback { Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback) }
-                    } label: { Label("Conversation actions", systemImage: "ellipsis") }
-                    .accessibilityIdentifier("conversation-actions-menu")
+                        .accessibilityLabel("Conversation actions")
+                        .accessibilityIdentifier("conversation-actions-menu")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(palette.label))
+                    .companionCardGlass(Capsule(), interactive: true)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("companion-chat-header-actions")
                 }
+                .sharedBackgroundVisibility(.hidden)
             }
         }
         .safeAreaBar(edge: .bottom, spacing: 0) {
@@ -308,7 +318,6 @@ struct CompanionConversationView: View {
             .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
-            .companionCardGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .frame(minWidth: 44, minHeight: 44)
@@ -952,19 +961,16 @@ struct CompanionConversationView: View {
 struct CompanionContextRing: View {
     let percent: Int
     @Environment(\.companionPalette) private var palette
-    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 11
+    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 18
     var body: some View {
         let hot = percent >= 90
-        HStack(spacing: 4) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.15), lineWidth: 2)
-                Circle().trim(from: 0, to: CGFloat(percent) / 100)
-                    .stroke(hot ? Color(palette.error) : Color(palette.secondaryLabel), style: .init(lineWidth: 2, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: size, height: size)
-            Text("\(percent)%").font(.caption.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6).foregroundStyle(hot ? Color(palette.error) : Color(palette.secondaryLabel))
+        ZStack {
+            Circle().stroke(Color(palette.separator), lineWidth: 2)
+            Circle().trim(from: 0, to: CGFloat(percent) / 100)
+                .stroke(hot ? Color(palette.error) : Color(palette.secondaryLabel), style: .init(lineWidth: 2, lineCap: .round))
+                .rotationEffect(.degrees(-90))
         }
+        .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Context \(percent)% full")
         .accessibilityIdentifier("companion-context-usage")

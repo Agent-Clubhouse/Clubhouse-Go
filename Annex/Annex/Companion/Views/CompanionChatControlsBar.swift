@@ -29,11 +29,20 @@ struct CompanionChatControlsBar: View, Equatable {
                     if let label = controls.modelLabel { modelMenu(label) }
                     if controls.showsEffortChip { effortMenu }
                 } label: {
-                    Image(systemName: "slider.horizontal.3").font(.system(size: 20))
+                    ViewThatFits(in: .horizontal) {
+                        compactLabel(includingModel: true).fixedSize(horizontal: true, vertical: false)
+                        compactLabel(includingModel: false)
+                    }
+                    .font(.caption)
+                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 44)
+                    .contentShape(Capsule())
                 }
-                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(palette.secondaryLabel))
+                .companionCardGlass(Capsule(), interactive: true)
                 .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.circle)
                 .accessibilityLabel("Chat controls")
                 .accessibilityValue([controls.currentLevel.label, controls.modelLabel, controls.effortLabel].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityHint("Permissions, model and reasoning effort")
@@ -46,6 +55,15 @@ struct CompanionChatControlsBar: View, Equatable {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+        }
+    }
+
+    private func compactLabel(includingModel: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "slider.horizontal.3")
+            Text([controls.currentLevel.label, includingModel ? controls.modelLabel : nil]
+                .compactMap { $0 }.joined(separator: " · "))
+                .lineLimit(1)
         }
     }
 
@@ -69,13 +87,11 @@ struct CompanionChatControlsBar: View, Equatable {
                 }
             }
         } label: {
-            // The permission name stays visible in the header; don't repeat it in this row.
             if compact { Label(current.label, systemImage: "shield") }
             else {
-                Image(systemName: "shield")
+                chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)
             }
         }
-        .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
         .disabled(!enabled || !controls.canChangeLevel)
         .accessibilityLabel("Permissions: \(current.label)")
         .accessibilityHint(controls.canChangeLevel ? "Changes the permission level" : "This agent can't change permission level mid-session")
