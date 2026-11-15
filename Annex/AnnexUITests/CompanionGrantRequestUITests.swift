@@ -162,9 +162,9 @@ import XCTest
             XCTAssertTrue(scrollUntilExists(openChat, in: app) && scrollIntoClearArea(openChat, in: app))
             tapVisibleRow(openChat, in: app, until: card)
         } else {
-            waitAndTap(app.tabBars.buttons["Dispatcher"], until: card)
+            waitAndTap(app.tabBars.buttons["Dispatch"], until: card)
         }
-        XCTAssertTrue(app.tabBars.buttons["Dispatcher"].isSelected)
+        XCTAssertTrue(app.tabBars.buttons["Dispatch"].isSelected)
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
 
         let allow = app.buttons["app-update-restart-when-idle"]

@@ -20,6 +20,15 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   - `--diagnostics-ui-testing`: `DiagnosticSettingsTests`
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
 
+`CompanionDispatcherUITests` replaces the Start screen setting check with every-tab process-relaunch
+restoration and unavailable-Dispatch fallback/foreground checks. Fresh preferences open Home; existing
+Dispatcher-focused fixtures explicitly seed `--companion-preview-start-dispatch`. Tab selectors use
+**Dispatch**, while the conversation keeps its Dispatcher's name. Agents remains a separate working tab
+until #437 merges it into Search. Its tab appearance matrix captures Home and Dispatch in light, dark,
+Catppuccin Latte, Catppuccin Mocha and accessibility XXXL. The two DEBUG theme flags
+`--companion-preview-theme-latte` / `--companion-preview-theme-mocha` put fixed desktop color payloads
+through the existing host theme mapping; they do not add a production theme registry.
+
 Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
 `CompanionAgentSheetsTests` covers create/settings pickers and elevated confirmation; package contract tests encode
 every recorded Access request without exemptions. Saved changes apply at next start, while chat's known live level

@@ -1,11 +1,6 @@
 import Foundation
 
-enum CompanionTab: Hashable { case dispatcher, home, needsYou, agents, search }
-
-enum CompanionStartScreen: String, CaseIterable, Sendable {
-    case dispatcher, home
-    var label: String { self == .dispatcher ? "Dispatcher" : "Home" }
-}
+enum CompanionTab: String, CaseIterable, Sendable { case home, dispatcher, needsYou, agents, search }
 
 /// Only desktop-reported on state is cached. No transcript or command permissions live in preferences.
 struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
@@ -36,27 +31,25 @@ struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-/// Navigation belongs to the session. The preference is consumed at initialization, never on foregrounding.
-/// An unknown first launch can resolve once on its first desktop report, until any user interaction.
+/// Each launch restores the last tab, not its navigation stack. Foregrounding keeps the current session.
+/// A saved Dispatch tab with no cached desktop report can resolve once, until any user interaction.
 struct CompanionNavigation {
     private(set) var tab: CompanionTab = .home
     var paths: [CompanionTab: [CompanionRoute]] = [:]
     private(set) var dispatcherDesktops: [CompanionDispatcherDesktop]
     private(set) var dispatcherHostID: String?
-    private let startScreen: CompanionStartScreen
     private var awaitingFirstReport: Bool
     private var observedHostIDs: Set<String> = []
     private var pendingDispatcherLink: CompanionTarget?
 
-    init(startScreen: CompanionStartScreen, cached: [CompanionDispatcherDesktop]? = nil, lastHostID: String? = nil) {
-        self.startScreen = startScreen
+    init(lastTab: CompanionTab = .home, cached: [CompanionDispatcherDesktop]? = nil, lastHostID: String? = nil) {
         dispatcherDesktops = cached ?? []
         dispatcherHostID = cached?.first { $0.id == lastHostID }?.id ?? cached?.first?.id ?? lastHostID
-        awaitingFirstReport = cached == nil
-        if startScreen == .dispatcher, !dispatcherDesktops.isEmpty { tab = .dispatcher }
+        awaitingFirstReport = lastTab == .dispatcher && cached == nil
+        if tabs.contains(lastTab) { tab = lastTab }
     }
 
-    var tabs: [CompanionTab] { (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.home, .needsYou, .agents, .search] }
+    var tabs: [CompanionTab] { [.home] + (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.needsYou, .agents, .search] }
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     /// Resolve from the visible desktop's current catalog, rather than a cached desktop label or another chat.
     func dispatcherTitle(hosts: [CompanionHost]) -> String {
@@ -113,13 +106,13 @@ struct CompanionNavigation {
         if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }) { dispatcherHostID = dispatcherDesktops.first?.id }
         if awaitingFirstReport, hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
             awaitingFirstReport = false
-            if startScreen == .dispatcher, !dispatcherDesktops.isEmpty { tab = .dispatcher }
+            if !dispatcherDesktops.isEmpty { tab = .dispatcher }
         }
         // Selection changes in the same value update as visibility, before SwiftUI removes the Tab.
         if tab == .dispatcher, previousDispatcherHostID != nil, !dispatcherDesktops.contains(where: { $0.id == previousDispatcherHostID }) { tab = .home }
         if let target = pendingDispatcherLink, hosts.contains(where: { $0.id == target.hostID && $0.dispatcher != nil }) {
             pendingDispatcherLink = nil
-            // A notification arriving before the catalog is an explicit navigation request, not a start preference.
+            // A notification arriving before the catalog overrides last-tab restoration.
             if dispatcherDesktops.contains(where: { $0.id == target.hostID }) { open(target, hosts: hosts) }
         }
         for key in paths.keys {

@@ -166,7 +166,7 @@ import XCTest
     }
     func testDispatcherAutoScopesAreReadOnly() {
         let app = launchApp(["--companion-preview", "--companion-preview-auto-quota", "--companion-preview-dispatcher"])
-        // Dispatcher is the default start screen; its pinned row belongs to Home.
+        // The Dispatcher's pinned row belongs to Home, independent of the restored tab.
         // Use the visible tab button on both iPhone and iPad.
         let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
         XCTAssertTrue(home.waitForExistence(timeout: 15))
