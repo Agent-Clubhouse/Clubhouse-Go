@@ -381,8 +381,21 @@ struct CompanionSpawnSheet: View {
                     .labelStyle(.iconOnly).buttonStyle(.borderless)
                     .accessibilityIdentifier("new-agent-randomize")
             }
-            LabeledContent("Color") {
-                CompanionColorSwatches(colors: options.options.colors, selection: $durable.color)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text("Color")
+                    Spacer(minLength: 12)
+                    CompanionColorSwatches(colors: options.options.colors, selection: $durable.color)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Color")
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), alignment: .leading, spacing: 10) {
+                        ForEach(options.options.colors) { color in
+                            CompanionColorSwatches(colors: [color], selection: $durable.color)
+                        }
+                    }
+                }
             }
         } footer: {
             if let problem = durable.nameProblem {
