@@ -135,12 +135,23 @@ instead of `{1,2}`. Directly setting that same native field's range selected the
 `aqb` on insertion. Correct offset conversion, reissuing the binding on focus, and deferring its first
 write until focus did not fix the production repro. The existing native composer hook therefore applies
 the restored range once, after finding a field with byte-identical saved text; subsequent layout,
-focus and user caret changes do not reapply it. Nil-selection programmatic focus still uses #414's
+focus and user caret changes do not reapply it. Before a delayed write, the hook re-resolves the native
+field and checks its mounted identity and initial selection. A different field, newer native selection,
+or active marked text permanently retires the bookmark, rather than replaying it after editing ends.
+Component regressions cover delayed payload delivery after a caret move, CJK `setMarkedText` with an
+unchanged insertion range, and moving the hook between containers while the old field remains in a window.
+These are native-hook safety probes, not demonstrated full-app paths or a real CJK keyboard engine.
+Nil-selection programmatic focus still uses #414's
 end-of-draft insertion point. This is a local framework-behavior diagnosis, not a claim about other iOS versions.
+The separate pre-existing draft-change-between-restoration-and-native-mount defect remains tracked in #425.
 
 Revert proof: removing only the hook's native `selectedRange` assignment fails all five restored-range
 cases (25 assertions: pre/post-focus ranges and native/store/request bytes). Restoring the exact assignment
 passes all five `CompanionUnicodeFocusTests` methods without retries.
+The three delayed-restoration safety regressions each fail independently when only their corresponding
+guard is removed: a newer caret changes from `{0,0}` to `{1,2}`, active marked selection changes from
+`{3,0}` to `{0,1}`, and a replacement field receives `{1,2}` from the original field's bookmark.
+Each control leaves the other guards enabled; exact guarded source is restored before qualification.
 
 `CompanionUnicodeFocusUITests` keeps byte-exact coverage of the actual app paths:
 

@@ -85,9 +85,10 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
 
     final class HookView: UIView {
         weak var coordinator: Coordinator?
-        private weak var textView: UITextView?
+        private var mountedTextViewID: ObjectIdentifier?
         var selectionRestoration: SelectionRestoration?
         private var restoredSelection = false
+        private var initialSelection: NSRange?
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -106,8 +107,16 @@ struct CompanionComposerPasteHook: UIViewRepresentable {
 
         func attach() {
             guard let coordinator, window != nil else { return }
-            if textView?.window == nil { textView = findTextView() }
-            if let textView {
+            let current = findTextView()
+            if let mountedTextViewID, mountedTextViewID != current.map(ObjectIdentifier.init) {
+                restoredSelection = true
+            }
+            if let textView = current, textView.window === window {
+                if mountedTextViewID == nil { mountedTextViewID = ObjectIdentifier(textView) }
+                if initialSelection == nil { initialSelection = textView.selectedRange }
+                // Newer native editing intent permanently retires a delayed bookmark.
+                if textView.selectedRange != initialSelection { restoredSelection = true }
+                if textView.markedTextRange != nil { restoredSelection = true }
                 CompanionImagePaste.register(textView, coordinator)
                 if let window { Self.matchKeyboard(textView, to: window.traitCollection.userInterfaceStyle) }
                 // iOS 26's vertical TextField ignores non-empty TextSelection writes, even after focus.
