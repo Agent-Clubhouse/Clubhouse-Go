@@ -428,12 +428,14 @@ struct CompanionSpawnSheet: View {
         }
         Section {
             accessPicker(options)
-            NavigationLink {
-                workspaceAndTools(options)
-            } label: {
-                LabeledContent("Workspace and tools", value: workspaceSummary(options))
+            if options.isGitRepo || offersOrchestration || !options.mcpCatalog.isEmpty {
+                NavigationLink {
+                    workspaceAndTools(options)
+                } label: {
+                    LabeledContent("Workspace and tools", value: workspaceSummary(options))
+                }
+                .accessibilityIdentifier("new-agent-workspace-tools")
             }
-            .accessibilityIdentifier("new-agent-workspace-tools")
         } footer: {
             if selectedHost?.canSetAccess == true, options.options.orchestrator(durable.orchestrator)?.permissions == true {
                 let selected = durable.access ?? options.defaultAccess
