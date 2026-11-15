@@ -154,6 +154,80 @@ The original broad validation run passed all hosted cases and every other select
 Dispatcher rotation assertion when its entire draft reset to the saved name. That run is not reported as
 passing; #413 tracks the separate defect, and this regression keeps exact checks for the remaining steps.
 
+### Unresolved Wake-sheet autofocus (#246)
+
+The original hosted failure remains **unresolved**, not fixed by #414 or the passing #372 probe.
+Run `41469238552`, preview job `125374151856`, used iPhone 17 / iOS 26.5 (23F77),
+Xcode 26.5 (17F42). Its surviving job log shows Wake tapped at 69.10 s, an empty visible
+`wake-message`, and XCTest reporting no focused descendant through 118.23 s; the second whole-test
+attempt passed. The artifact API now lists zero artifacts and `gh run download` cannot retrieve
+`test-results-0`. Neither the retained log nor the original issue's recording/hierarchy establishes
+whether UIKit ever became first responder, whether a keyboard frame appeared earlier, or whether
+presentation timing caused the loss. A presentation/focus race remains a hypothesis.
+
+#414 checks exact Unicode input, Home/reactivation, rotation and wake/send, but its Wake-sheet case
+uses `launchApp` and thus `--ui-testing-fast` (animations disabled). Its animated created-notice
+case focuses the conversation composer, not this sheet. #372's separate no-tap sheet probe does
+enable animations. The failed, unmerged #313 `.defaultFocus` candidate is not applied.
+
+`CompanionWakeFocusUITests` adds bounded, animation-enabled diagnostic scenarios: three consecutive
+presentations, presentation after Home/reactivation, rotation while editing, landscape presentation,
+and return to portrait. Each presentation uses one checked Wake-button center tap and one application-level
+typing operation, never a field tap, retry, sleep or focus rescue. Exact text, software keyboard,
+enabled Wake and cancellation are required. Monotonic `WAKE_FOCUS_UI` markers perform no AX queries;
+failure-only attachments retain the hierarchy/screenshot. A prototype foreground attempt opened
+Terminal instead: its synthesized point (317.23, 239.60) was outside Wake's final frame
+(206, 174, 180, 46.3). That failed bundle is retained, not counted as a missing-keyboard repro.
+The checked center avoids that off-target automation point; it does not change application focus.
+
+`CompanionWakeFocusTests` separately hosts the production sheet with normal and 0.1 window-layer
+speeds. The slow case must take over two seconds; it checks native first-responder/window
+ownership through completed presentation without forcing focus. This is component timing coverage,
+not the full application's sheet hierarchy or a regression/revert proof of the hosted defect.
+
+For a bounded native trace, launch the Debug app with **both** `--companion-preview` and
+`--companion-preview-wake-focus-diagnostics`. Up to 64 samples per presentation record focus-binding
+observations, native editing notifications, attached native inputs' responder/window state, key-window
+and scene lifecycle, presentation completion, and keyboard frames/durations. No message content is read,
+no view is inserted and no focus is changed. The selector observer owns only value metadata; its
+teardown review is recorded in the deinit policy. The UI diagnostic case exercises this opt-in path;
+other scenario tests leave native diagnostics off. Export the app's stdout with
+`xcrun xcresulttool export diagnostics --path <result.xcresult> --output-path <directory>`:
+the `WAKE_FOCUS` lines are in `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt`,
+not necessarily the `xcodebuild` console.
+
+The final-source passing iPhone 17 / iOS 26.0 trace observed the assignment during presentation before
+an attached input was found, completion at 0.661 s, native begin-editing at 0.738 s and a software
+keyboard did-show frame at 1.215 s. The iPad trace observed those latter events at 0.669/0.757/1.224 s.
+Their 20/18 samples stayed within the cap and contained no message text. These demonstrate successful
+deferred focus in those attempts, not the failed runtime's mechanism. Local Xcode 26.0.1 (17A400) has no iOS 26.5 runtime.
+Hardware-keyboard connect/disconnect was not driven: supported `simctl` IO exposes no such control,
+and shared Simulator preferences were not changed. `GCKeyboard.coalesced` is logged only as
+`hardwareKeyboardReported`; XCTest injection and a software keyboard appearing do not establish
+an actual connected/disconnected hardware-keyboard matrix.
+
+Bounded results from main `d20a5a8d`, Debug, two jobs and serial testing, without automatic retries:
+
+| Owned iOS 26.0 (23A343) coverage | Result |
+| --- | --- |
+| iPhone 17, unchanged baseline: animated probe, tapped project path, Unicode Wake lifecycle/send and cancel/draft preservation | Four methods, three iterations each: 12 passing executions |
+| iPhone 17, selected existing Wake methods plus new animated scenarios | 7 passed; strict xcresult verification passed |
+| iPhone 17, entire Smoke/Unicode/Wake diagnostic UI classes | **40 passed, 1 failed**: untouched Details-to-settings scrolling assertion; strict verifier rejected this bundle, no retry |
+| Final-source iPhone hosted bundle plus opt-in native-diagnostic UI case | 155 passed, 3 existing skips; strict verification passed |
+| Final-source iPad (A16), same seven UI methods plus normal/slow native probe | 8 passed; strict verification passed |
+
+The broad class run preceded only the final value-only observer teardown and slow-probe threshold
+tightening; final-source hosted/diagnostic and iPad runs requalified those changes. The final normal/slow
+native presentation probes took 1.08/6.08 s on iPhone and 1.17/6.17 s on iPad. Neither device reproduced
+the reported missing keyboard. The full UI-class gate is not claimed green. The owned phone was
+deleted before the iPad was created; both exact simulator UUIDs were deleted and their absence verified.
+
+Next capture: run the animated no-tap case on the original 26.5 (23F77) configuration without automatic
+test retries, retain its xcresult/recording and app stdout before artifact expiry, and correlate
+`focus-requested`, presentation completion, native begin/end editing, scene/key-window ownership and
+keyboard did-show/frame events. Also record the actual hardware-keyboard connection and software-keyboard
+toggle state. Without a failure-side trace or a controlled reproduction, no focus fix is justified.
+
 The two `CompanionAgentTreeUITests` methods use one unsuppressed initial launch
 attempt and assert their behavior-completion milestones during teardown (#327).
 A launch-only result cannot satisfy the completion check. Their existing navigation,

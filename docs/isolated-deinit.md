@@ -55,6 +55,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 
 | Class | Policy | Owned fields / decision |
 |---|---|---|
+| `CompanionWakeFocusDiagnostics.Observer` | arc_only | Opt-in preview-only NSObject selector target holds only Int counters and a ContinuousClock.Instant. No UIKit fields, retained callbacks, tasks or deinit work. MainActor begin/end register/remove observers; a transient transition completion captures only this value-only observer. |
 | `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked continuations; no callback, UI or transport owner. beginTeardown closes future holds before resuming pending requests; deinit does no work. |
 | `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only synthetic service, a Store constructed with it, and Bool/Bool?/Int/target values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
