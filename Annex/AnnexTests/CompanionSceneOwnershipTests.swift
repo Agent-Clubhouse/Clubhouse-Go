@@ -7,6 +7,38 @@ import FramebriarUI
 
 /// All reports, enrollment, defaults and desktop traffic are synthetic and local to this test.
 @MainActor final class CompanionSceneOwnershipTests: XCTestCase {
+    func testLiveConnectionTraceReservesBoundedLifecycleEvidenceWithoutIdentifiers() throws {
+        let source = AnnexTelemetry()
+        source.setEnabled(true)
+        let peer = UUID()
+        let span = source.begin(.http)
+        span.identifier(.peerInstanceID, peer)
+        span.number(.responseBytes, 900)
+        span.end()
+        let connection = try XCTUnwrap(source.snapshot().records.last)
+        source.record(.background, event: .transitionWaiting)
+        let background = try XCTUnwrap(source.snapshot().records.last)
+        source.record(.command, event: .rejected)
+        let excluded = try XCTUnwrap(source.snapshot().records.last)
+        let trace = CompanionLiveConnectionTrace()
+        XCTAssertNil(trace.line(for: excluded), "Command metadata is outside this diagnostic capture")
+        let line = try XCTUnwrap(trace.line(for: connection))
+        let data = Data(line.dropFirst("[live-connect] ".count).utf8)
+        let fields = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(Set(fields.keys), ["at", "operation", "durationMs", "failure", "events"])
+        XCTAssertFalse(line.lowercased().contains(peer.uuidString.lowercased()))
+        XCTAssertFalse(line.contains("responseBytes"), "Arbitrary record metadata does not enter the stdout projection")
+        for _ in 1..<256 { XCTAssertNotNil(trace.line(for: connection)) }
+        XCTAssertEqual(trace.line(for: connection), "[live-connect] capture-limit group=connection")
+        XCTAssertNil(trace.line(for: connection), "Exhaustion is explicit once, not an unbounded stream of markers")
+        let reserved = try XCTUnwrap(trace.line(for: background))
+        XCTAssertTrue(reserved.contains("transitionWaiting"), "Routine spans cannot exhaust suspension evidence")
+        for _ in 1..<64 { XCTAssertNotNil(trace.line(for: background)) }
+        XCTAssertEqual(trace.line(for: background), "[live-connect] capture-limit group=lifecycle")
+        XCTAssertNil(trace.line(for: background))
+        XCTAssertNotNil(CompanionLiveConnectionTrace().line(for: background), "A fresh launch owns a fresh budget")
+    }
+
     func testBuiltManifestRequiresOneScene() throws {
         let manifest = try XCTUnwrap(Bundle.main.object(forInfoDictionaryKey: "UIApplicationSceneManifest") as? [String: Any])
         XCTAssertEqual(manifest["UIApplicationSupportsMultipleScenes"] as? Bool, false)

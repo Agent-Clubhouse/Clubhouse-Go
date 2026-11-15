@@ -331,6 +331,15 @@ What the script does:
    Null response timings identify unfinished desktop responses; a missing request distinguishes a phone-side read
    that never reached the desktop. A completed server response with a still-loading phone needs consumption/transport
    diagnosis, not a retry, refresh or longer timeout.
+   The intermittent background socket-close failure is tracked in #416; its internal cause is unresolved.
+   DEBUG live runs opt into closed-vocabulary `[live-connect]` events for the scene phase, lifecycle queued/wait/start/
+   completion, transport disconnect entry/return and native socket cancel invocation/return. The per-launch capture
+   reserves 64 lifecycle records separately from 256 connection records, emits one explicit limit marker per group,
+   and never exports identities or arbitrary metadata. Boundary writes bypass stdio buffering so suspension or later
+   termination cannot strand them in its buffer. Export the xcresult diagnostics and inspect the app's
+   `StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt` to find the last observed boundary. A completed native
+   cancel call is not proof of a server-observed close. A passing run of this intermittent case does **not** fix #416;
+   keep the real background, unchanged 20s disconnect check and every replay assertion.
 5. **Tears everything down**, even on failure or Ctrl-C: the desktop and its Playwright runner (only the processes the script started), the profile, the invitation, and the simulator (`--keep-simulator` keeps it).
 
 Results land in `build/e2e-live/` (set `E2E_OUT_DIR` to change it):

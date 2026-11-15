@@ -346,8 +346,16 @@ struct CompanionAppRoot: View {
             // including an initial active phase after the old root suspended it.
             .onChange(of: scenePhase, initial: true) { _, phase in
                 switch phase {
-                case .active: runtime.lifecycle.update(.active)
-                case .background: runtime.lifecycle.update(.background)
+                case .active:
+                    #if DEBUG
+                    AnnexTelemetry.shared.record(.foreground, event: .scenePhaseObserved)
+                    #endif
+                    runtime.lifecycle.update(.active)
+                case .background:
+                    #if DEBUG
+                    AnnexTelemetry.shared.record(.background, event: .scenePhaseObserved)
+                    #endif
+                    runtime.lifecycle.update(.background)
                 default: runtime.lifecycle.update(.inactive)
                 }
             }
@@ -357,17 +365,18 @@ struct CompanionAppRoot: View {
     private func bootstrapIntegrationIfRequested() async {
         guard let json = ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"],
               let data = json.data(using: .utf8) else { return }
-        if ProcessInfo.processInfo.environment["CLUBHOUSE_E2E_CONNECTION_TRACE"] == "1" {
+        if ProcessInfo.processInfo.environment["CLUBHOUSE_E2E_CONNECTION_TRACE"] == "1",
+           !CompanionSceneTestSupport.liveConnectionTraceInstalled {
             // Closed diagnostic vocabulary only. XCTest captures stdout in its result bundle: no host, path,
             // invitation, certificate, identity or arbitrary error string is ever written here.
             AnnexTelemetry.shared.setEnabled(true)
+            CompanionSceneTestSupport.liveConnectionTraceInstalled = true
+            let trace = CompanionLiveConnectionTrace()
             AnnexTelemetry.shared.observeRecords { record in
-                guard [.pairing, .connection, .reconnect, .backoff, .identity, .capabilities, .tls, .websocket, .http, .handshake].contains(record.operation) else { return }
-                let value: [String: Any] = ["at": record.startedAt.timeIntervalSince1970,
-                    "operation": record.operation.rawValue, "durationMs": record.durationMs,
-                    "failure": record.failure.rawValue, "events": record.events]
-                if let bytes = try? JSONSerialization.data(withJSONObject: value, options: .sortedKeys),
-                   let line = String(data: bytes, encoding: .utf8) { print("[live-connect] \(line)") }
+                guard let line = trace.line(for: record) else { return }
+                // Do not leave the last boundary in stdio's buffer when iOS suspends or XCTest terminates the app.
+                do { try FileHandle.standardOutput.write(contentsOf: Data((line + "\n").utf8)) }
+                catch { FileHandle.standardError.write(Data("[live-connect] output-failed\n".utf8)) }
             }
             print("[live-connect] bootstrap at=\(Date().timeIntervalSince1970)")
         }

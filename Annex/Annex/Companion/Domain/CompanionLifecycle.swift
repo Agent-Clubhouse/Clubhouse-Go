@@ -1,4 +1,7 @@
 import Foundation
+#if DEBUG && canImport(ClubhouseTransport)
+import ClubhouseTransport
+#endif
 
 /// Inactive is transient (Control Center, permission sheets, foregrounding).
 /// Only background suspends; the next active phase resumes, in arrival order.
@@ -19,11 +22,24 @@ import Foundation
         let active = phase == .active
         guard active != wantsActive else { return }
         wantsActive = active
+        #if DEBUG
+        let operation: AnnexDiagnosticOperation = active ? .foreground : .background
+        AnnexTelemetry.shared.record(operation, event: .transitionQueued)
+        #endif
         let previous = pending
         let transition = transition
         pending = Task {
+            #if DEBUG
+            AnnexTelemetry.shared.record(operation, event: .transitionWaiting)
+            #endif
             await previous?.value
+            #if DEBUG
+            AnnexTelemetry.shared.record(operation, event: .transitionStarted)
+            #endif
             await transition(active)
+            #if DEBUG
+            AnnexTelemetry.shared.record(operation, event: .transitionCompleted)
+            #endif
         }
     }
 
