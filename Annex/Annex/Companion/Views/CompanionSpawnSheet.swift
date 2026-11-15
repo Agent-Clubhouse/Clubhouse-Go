@@ -57,15 +57,15 @@ struct CompanionSpawnSheet: View {
             } message: {
                 Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
             }
-            .onAppear {
-                selectEntry(initialProject)
-                if store.uncertainSpawnRequest == nil { store.spawnError = nil }
-                if store.uncertainCreateRequest == nil { store.createError = nil }
-                kind = supportsDurable ? .durable : .quick
-                promptFocused = kind == .quick
-            }
-            .task(id: durableProject) { await loadOptions() }
         }
+        .onAppear {
+            selectEntry(initialProject)
+            if store.uncertainSpawnRequest == nil { store.spawnError = nil }
+            if store.uncertainCreateRequest == nil { store.createError = nil }
+            kind = supportsDurable ? .durable : .quick
+            promptFocused = kind == .quick
+        }
+        .task(id: durableProject) { await loadOptions() }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }
@@ -294,6 +294,7 @@ struct CompanionSpawnSheet: View {
     private func loadOptions() async {
         guard let project = durableProject else { durable = DurableForm(); return }
         durable.loading = true
+        durable.options = nil
         durable.error = nil
         defer { durable.loading = false }
         do {
@@ -310,6 +311,12 @@ struct CompanionSpawnSheet: View {
     private var durableForm: some View {
         Form {
             Section { kindPicker }
+            if durable.options == nil {
+                Section {
+                    projectMenu
+                    if selectedEntry?.isLinked == true { machinePicker }
+                }
+            }
             // Problems show at the top, next to Create in the toolbar, rather than below a long form.
             if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
                 Section {
@@ -381,6 +388,10 @@ struct CompanionSpawnSheet: View {
                     .labelStyle(.iconOnly).buttonStyle(.borderless)
                     .accessibilityIdentifier("new-agent-randomize")
             }
+            if let problem = durable.nameProblem {
+                Text(problem).font(.caption).foregroundStyle(Color(palette.error))
+                    .accessibilityIdentifier("new-agent-name-error")
+            }
             ViewThatFits(in: .horizontal) {
                 HStack {
                     Text("Color")
@@ -396,10 +407,6 @@ struct CompanionSpawnSheet: View {
                         }
                     }
                 }
-            }
-        } footer: {
-            if let problem = durable.nameProblem {
-                Text(problem).foregroundStyle(Color(palette.error)).accessibilityIdentifier("new-agent-name-error")
             }
         }
         Section {
