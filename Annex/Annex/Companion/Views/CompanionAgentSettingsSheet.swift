@@ -260,8 +260,8 @@ struct CompanionAgentSettingsForm: View {
             .task(id: showsDispatcherSettings) {
                 if showsDispatcherSettings { await loadDispatcherSettings() }
             }
-            .onChange(of: store.dispatcherSettings(hostID: target.hostID), initial: true) { _, settings in
-                if let settings { dispatcherDrafts.receive(settings) }
+            .onChange(of: store.dispatcherSettings(hostID: target.hostID)?.draftKey, initial: true) { _, _ in
+                if let settings = store.dispatcherSettings(hostID: target.hostID) { dispatcherDrafts.receive(settings) }
             }
             .task(id: settings != nil) {
                 if focusContext, settings != nil { proxy.scrollTo("agent-context-section", anchor: .top) }
@@ -688,7 +688,7 @@ struct CompanionAgentSettingsForm: View {
         do {
             let settings = try await store.loadDispatcherSettings(hostID: target.hostID)
             guard !Task.isCancelled else { return }
-            dispatcherDrafts.receive(settings)
+            dispatcherDrafts.receive(store.dispatcherSettings(hostID: target.hostID) ?? settings)
             dispatcherLoadError = nil
         } catch is CancellationError {
         } catch {

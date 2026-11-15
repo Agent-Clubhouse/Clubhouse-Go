@@ -33,11 +33,27 @@ struct CompanionDispatcherSettingsDrafts {
     var name = TextDraft()
     var emoji = TextDraft()
     var personality = TextDraft()
+    private var agentID: String?
 
-    mutating func receive(_ settings: CompanionDispatcherSettings, saved field: Field? = nil) {
-        name.receive(settings.identity.name, replacing: field == .name)
-        emoji.receive(settings.identity.emoji ?? "", replacing: field == .emoji)
-        personality.receive(settings.personality?.text ?? "", replacing: field == .personality)
+    mutating func receive(_ settings: CompanionDispatcherSettings) {
+        if agentID.map({ !$0.utf8.elementsEqual(settings.agentID.utf8) }) ?? true {
+            self = Self()
+            agentID = settings.agentID
+        }
+        name.receive(settings.identity.name)
+        emoji.receive(settings.identity.emoji ?? "")
+        personality.receive(settings.personality?.text ?? "")
+    }
+
+    /// A receipt acknowledges only its submitted field, never an older snapshot of unrelated fields.
+    mutating func receive(_ settings: CompanionDispatcherSettings, saved field: Field?) {
+        guard agentID?.utf8.elementsEqual(settings.agentID.utf8) == true else { return }
+        switch field {
+        case .name: name.receive(settings.identity.name, replacing: true)
+        case .emoji: emoji.receive(settings.identity.emoji ?? "", replacing: true)
+        case .personality: personality.receive(settings.personality?.text ?? "", replacing: true)
+        case nil: break
+        }
     }
 }
 
@@ -221,7 +237,10 @@ struct CompanionDispatcherSettingsSections: View {
                         .multilineTextAlignment(.trailing).submitLabel(.done)
                         .onSubmit {
                             let emoji = drafts.emoji.text.trimmingCharacters(in: .whitespaces)
-                            guard !emoji.utf8.elementsEqual((identity.emoji ?? "").utf8) else { return }
+                            guard !emoji.utf8.elementsEqual((identity.emoji ?? "").utf8) else {
+                                drafts.emoji.receive(identity.emoji ?? "", replacing: true)
+                                return
+                            }
                             guard emoji.utf16.count <= 16 else { drafts.emoji.receive(identity.emoji ?? "", replacing: true); saveError = "Use a shorter emoji."; return }
                             save(.emoji) { try await store.updateDispatcher(.init(emoji: emoji.isEmpty ? .clear : .set(emoji)), hostID: hostID) }
                         }

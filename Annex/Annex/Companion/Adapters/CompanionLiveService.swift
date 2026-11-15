@@ -1949,11 +1949,16 @@ import ClubhouseTransport
         guard capabilities[hostID]?.supportsDispatcherSettings == true else {
             throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop)
         }
+        let previous = hosts[hostID]?.dispatcherSettings
         let receipt = try await execute(kind, id: clientCommandID, hostID: hostID)
         guard let settings = try? CompanionDispatcherSettings(json: receipt.result ?? .null) else {
             throw CompanionServiceError.uncertain("The desktop saved this but its settings couldn't be read. Open the settings again to check.")
         }
-        rememberDispatcherSettings(settings, hostID: hostID)
+        // Do not replace an intervening settings snapshot with the command's full result.
+        let current = hosts[hostID]?.dispatcherSettings
+        if current == previous, current?.draftKey == previous?.draftKey {
+            rememberDispatcherSettings(settings, hostID: hostID)
+        }
         return settings
     }
     /// One confirmed reset, sent once with the confirmation the person was shown. A stale confirmation does nothing on
@@ -1978,7 +1983,9 @@ import ClubhouseTransport
         return outcome
     }
     private func rememberDispatcherSettings(_ settings: CompanionDispatcherSettings?, hostID: String) {
-        guard hosts[hostID] != nil, hosts[hostID]?.dispatcherSettings != settings else { return }
+        guard hosts[hostID] != nil else { return }
+        let previous = hosts[hostID]?.dispatcherSettings
+        guard previous != settings || previous?.draftKey != settings?.draftKey else { return }
         hosts[hostID]?.dispatcherSettings = settings
         emitHosts()
     }

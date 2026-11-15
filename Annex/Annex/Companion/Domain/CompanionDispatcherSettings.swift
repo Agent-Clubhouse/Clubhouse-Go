@@ -103,6 +103,18 @@ nonisolated struct CompanionDispatcherSettings: Sendable, Equatable {
     var clearChat: Confirmation
     var forgetEverything: Confirmation
 
+    /// String equality folds canonical equivalents; draft acknowledgements must retain the actual bytes.
+    struct DraftKey: Sendable, Equatable {
+        var agentID: [UInt8]
+        var name: [UInt8]
+        var emoji: [UInt8]?
+        var personality: [UInt8]?
+    }
+    var draftKey: DraftKey {
+        .init(agentID: Array(agentID.utf8), name: Array(identity.name.utf8),
+              emoji: identity.emoji.map { Array($0.utf8) }, personality: personality.map { Array($0.text.utf8) })
+    }
+
     /// The desktop's labels for the usage split.
     static let conversationsLabel = "Conversations today"
     static let backgroundLabel = "Background work today"
