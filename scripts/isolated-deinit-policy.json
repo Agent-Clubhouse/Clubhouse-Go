@@ -25,6 +25,7 @@
           }
         },
         "properties": {
+          "accessDefaultGenerations": "[ String : UUID ]",
           "agentAccessDefaults": "[ CompanionTarget : CompanionPermissionLevel ]",
           "appUpdateAttempts": "[ AppUpdateAttemptKey : AppUpdateAttempt ]",
           "appUpdateCheckAttempts": "[ String : ( epoch : String ? , commandID : String ) ]",

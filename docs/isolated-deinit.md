@@ -20,7 +20,9 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 Agent-row access defaults (#434) add only two Store dictionaries keyed by Sendable project/agent targets
 with permission-level enum values. They retain no UI objects, callbacks or tasks and introduce no deinit
-work. The Store's existing ARC-only policy and constructor captures are unchanged.
+work. The response fence also holds `accessDefaultGenerations: [String: UUID]`, a per-host map of
+Sendable values cleared by explicit shutdown. The Store's empty ARC-only deinit and constructor captures
+are unchanged.
 
 Pinned-decision preview streaming (#387) adds only `pinnedDecisionStep: Int?` to PreviewService.
 This numeric history-start gate owns no callback, UI object, task, or teardown work. Its existing ARC-only
