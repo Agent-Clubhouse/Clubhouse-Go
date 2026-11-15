@@ -101,6 +101,59 @@ Landscape header tests require the composer actions to remain inside the keyboar
 speculative transcript space must not clip the footer. Package tests also cover bounded restoration exhaustion,
 generation/navigation cancellation, and the preview terminal's edits, interrupts and scoped size feedback.
 
+### Unicode focus integrity (#272)
+
+On an owned iPhone 17 simulator running iOS 26.0 (23A343), Xcode 26.0.1 (17A400), Swift 6.2,
+an immediate-after-mount focus request to the real `CompanionConversationComposer` placed its native caret
+at UTF-16 offset 1 in five separate one-grapheme drafts. Inserting ASCII split the first surrogate pair:
+the native editor, `store.drafts` and the submitted service request all contained replacement characters.
+Removing only the initial-selection fix reproduces those byte mismatches again. This is a component defect;
+**no full-app user path reproduced surrogate splitting in the bounded investigation on that simulator**.
+No physical iPhone, iPad, other iOS version, live desktop or real tap on a phone was tested.
+
+The composer now supplies `TextSelection(insertionPoint: draft.endIndex)` before a programmatic focus request
+only when its selection is nil. Existing user selections and slash-command selections are untouched.
+This avoids an invalid initial caret; it does not repair text, delay focus, retry typing, change send behavior,
+or apply a workaround to other SwiftUI inputs. It does not claim to fix #234's earlier unclassified input
+delivery or #306's already-corrected preview reveal.
+
+`CompanionUnicodeFocusTests` hosts the production composer, requests focus immediately after its appearance,
+and checks native UTF-8, store UTF-8 and actual service-request UTF-8. Its five drafts cover emoji, a ZWJ sequence,
+a flag, a skin-tone sequence and astral CJK. It also checks Unicode typing after send and preservation of a
+user-selected whole grapheme across dismissal/refocus. The test never sets the initial caret.
+
+`CompanionUnicodeFocusUITests` keeps byte-exact coverage of the actual app paths:
+
+| Input/path | Coverage |
+| --- | --- |
+| Created-agent composer | Real **Wake with a message** button with five separate preloaded drafts, animations enabled, and application-level typing without a field tap; exact sent request |
+| Composer user tap and send | Explicit end tap; exact draft and sent request |
+| Composer slash picking | Unicode prefix, real menu pick/refocus, further typing and exact sent request |
+| Composer lifecycle | Review sheet presentation/dismissal, Home/reactivation, rotation, further typing and send |
+| Wake sheet | Empty-draft autofocus, Unicode entry, Home/reactivation, rotation, exact wake/send request; Cancel and composer remount preserve an existing draft |
+| Quick agent | Older-desktop quick-only autofocus, Unicode entry, Home/reactivation, rotation, exact spawn request and dismissal |
+| Search | Search-tab/native-search-field tap, Unicode query, Home/reactivation, rotation and further typing |
+| Agent name | Existing/drafted name, explicit end tap, Home/reactivation, rotation, exact rename request and sheet dismissal |
+| Dispatcher name | Explicit end tap, Unicode typing, Home/reactivation, exact rename request and sheet dismissal; rotation is excluded because the separate draft-reset defect is tracked in #413 |
+| Review answer | Real free-text question, user tap, Home/reactivation, rotation, exact answer request and dismissal |
+| Terminal | Native mount autofocus, keyboard toggle, Home/reactivation, rotation and exact input bytes using the existing preview input audit |
+
+The source inventory found no composer autofocus after send or scene reactivation: send retains focus, while
+the created notice requests it and slash picking supplies an explicit selection. Wake and quick-agent sheets
+request focus on appearance, starting with empty text. Search uses `.searchable`; settings names, the phone's
+name, pairing fields and Review answer fields have no explicit programmatic focus-to-edit path. Pairing only
+clears focus after inspection. Terminal input is a separate native `UIKeyInput`, not a SwiftUI draft editor.
+
+The DEBUG-only `--companion-preview-unicode-focus` fixture seeds a synthetic draft with
+`COMPANION_UNICODE_DRAFT` and compares outgoing request UTF-8 against `COMPANION_UNICODE_EXPECTED`.
+Its visible refusal says whether the request bytes match; it never contacts a desktop or pretends delivery
+succeeded. `--companion-preview-unicode-quick` supplies the older quick-only desktop capability.
+All test typing occurs once, and predicate waits require the exact expected value, never a shortened string
+or replacement-character tolerance.
+The original broad validation run passed all hosted cases and every other selected UI case, but failed the
+Dispatcher rotation assertion when its entire draft reset to the saved name. That run is not reported as
+passing; #413 tracks the separate defect, and this regression keeps exact checks for the remaining steps.
+
 The two `CompanionAgentTreeUITests` methods use one unsuppressed initial launch
 attempt and assert their behavior-completion milestones during teardown (#327).
 A launch-only result cannot satisfy the completion check. Their existing navigation,
