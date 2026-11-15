@@ -227,6 +227,11 @@
       "source": "Annex/Annex/Companion/Views/CompanionContentView.swift",
       "reason": "Stateless PDFViewDelegate whose nonisolated callbacks do nothing. PDFView holds it weakly; SwiftUI owns it from makeCoordinator until dismantleUIView, which removes the document before the delegate. No stored fields, captures or teardown work, but it is a new UIKit-delegate owner with no ARC-only review; retain synthesized MainActor teardown."
     },
+    "CompanionMarkdownHTTPSOnly": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift",
+      "reason": "Stateless URLSessionTaskDelegate guards Markdown image redirects. It owns no stored fields or callbacks; the ephemeral session is invalidated and cancelled when the structured image-loading task finishes or is cancelled. Preserve synthesized MainActor teardown for this new delegate owner; no ARC-only exemption."
+    },
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",

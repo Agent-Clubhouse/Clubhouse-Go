@@ -186,9 +186,13 @@ private struct CompanionContentPage: View {
                         CompanionSVGImage(bytes: bytes).frame(height: 360)
                         Text("SVG preview • scripts and external resources are blocked").font(.caption).foregroundStyle(.secondary)
                     } else if content.kind != "pdf", let text = content.text {
-                        Text(text).font(.callout.monospaced()).textSelection(.enabled)
-                        if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
-                        Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                        if CompanionMarkdownFilePreview.isMarkdown(content) {
+                            CompanionMarkdownFileView(text: text, line: reference.markdownLineTarget?.line, truncated: content.truncated)
+                        } else {
+                            Text(text).font(.callout.monospaced()).textSelection(.enabled)
+                            if content.truncated { Text("Preview truncated by desktop.").font(.caption).foregroundStyle(.secondary) }
+                            Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                        }
                     } else if let player {
                         VideoPlayer(player: player).frame(height: content.kind == "audio" ? 130 : 300)
                         Text("Playback starts only when you press Play.").font(.caption).foregroundStyle(.secondary)

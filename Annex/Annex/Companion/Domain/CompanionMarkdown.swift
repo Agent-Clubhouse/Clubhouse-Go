@@ -61,7 +61,7 @@ enum CompanionMarkdown {
     /// become a setext underline or a rule) stays plain text until a blank line or the end of the turn settles it.
     static func parse(_ text: String, streaming: Bool = false) -> CompanionMarkdownDocument {
         let (settled, tail) = streaming ? splitUnsettledTail(text) : (text, nil)
-        var blocks = Document(parsing: settled).children.flatMap(blocks(from:))
+        var blocks = Document(parsing: settled).children.flatMap { Self.blocks(from: $0, imagesAsPlaceholders: false) }
         if let tail { blocks.append(.plain(tail)) }
         return .init(blocks: blocks)
     }
@@ -104,46 +104,46 @@ enum CompanionMarkdown {
 
     // MARK: Blocks
 
-    private static func blocks(from markup: Markup) -> [CompanionMarkdownBlock] {
+    static func blocks(from markup: Markup, imagesAsPlaceholders: Bool) -> [CompanionMarkdownBlock] {
         switch markup {
         case let heading as Heading:
-            return [.heading(level: heading.level, text: inline(heading.children))]
+            return [.heading(level: heading.level, text: inline(heading.children, imagesAsPlaceholders: imagesAsPlaceholders))]
         case let paragraph as Paragraph:
-            return [.paragraph(inline(paragraph.children))]
+            return [.paragraph(inline(paragraph.children, imagesAsPlaceholders: imagesAsPlaceholders))]
         case let list as UnorderedList:
-            return [.list(.init(start: nil, items: list.listItems.map(item)))]
+            return [.list(.init(start: nil, items: list.listItems.map { item($0, imagesAsPlaceholders: imagesAsPlaceholders) }))]
         case let list as OrderedList:
-            return [.list(.init(start: Int(list.startIndex), items: list.listItems.map(item)))]
+            return [.list(.init(start: Int(list.startIndex), items: list.listItems.map { item($0, imagesAsPlaceholders: imagesAsPlaceholders) }))]
         case let quote as BlockQuote:
-            return [.quote(quote.children.flatMap(blocks(from:)))]
+            return [.quote(quote.children.flatMap { blocks(from: $0, imagesAsPlaceholders: imagesAsPlaceholders) })]
         case is ThematicBreak:
             return [.rule]
         case let code as CodeBlock:
             let language = code.language?.trimmingCharacters(in: .whitespaces)
             return [.code(language: language?.isEmpty == false ? language : nil, code: code.code.hasSuffix("\n") ? String(code.code.dropLast()) : code.code)]
         case let table as Table:
-            return [.table(self.table(table))]
+            return [.table(self.table(table, imagesAsPlaceholders: imagesAsPlaceholders))]
         case let html as HTMLBlock:
             return [.plain(html.rawHTML.trimmingCharacters(in: .newlines))]
         default:
             // Directives and anything cmark adds later: keep their content rather than drop it.
-            let children = markup.children.flatMap(blocks(from:))
+            let children = markup.children.flatMap { blocks(from: $0, imagesAsPlaceholders: imagesAsPlaceholders) }
             return children.isEmpty ? [.plain(markup.format())] : children
         }
     }
 
-    private static func item(_ item: ListItem) -> CompanionMarkdownList.Item {
+    private static func item(_ item: ListItem, imagesAsPlaceholders: Bool) -> CompanionMarkdownList.Item {
         let checkbox: CompanionMarkdownList.Checkbox? = switch item.checkbox {
         case .checked: .checked
         case .unchecked: .unchecked
         case nil: nil
         }
-        return .init(checkbox: checkbox, blocks: item.children.flatMap(blocks(from:)))
+        return .init(checkbox: checkbox, blocks: item.children.flatMap { blocks(from: $0, imagesAsPlaceholders: imagesAsPlaceholders) })
     }
 
-    private static func table(_ table: Table) -> CompanionMarkdownTable {
-        let header = Array(table.head.cells).map { inline($0.children) }
-        let rows = table.body.rows.map { row in Array(row.cells).map { inline($0.children) } }
+    private static func table(_ table: Table, imagesAsPlaceholders: Bool) -> CompanionMarkdownTable {
+        let header = Array(table.head.cells).map { inline($0.children, imagesAsPlaceholders: imagesAsPlaceholders) }
+        let rows = table.body.rows.map { row in Array(row.cells).map { inline($0.children, imagesAsPlaceholders: imagesAsPlaceholders) } }
         let count = max(table.columnAlignments.count, header.count, rows.map(\.count).max() ?? 0)
         let alignments = (0..<count).map { index -> CompanionMarkdownTable.Alignment in
             guard index < table.columnAlignments.count else { return .leading }
@@ -161,26 +161,26 @@ enum CompanionMarkdown {
 
     // MARK: Inline
 
-    static func inline(_ children: some Sequence<Markup>, intent: InlinePresentationIntent = [], link: URL? = nil) -> AttributedString {
+    static func inline(_ children: some Sequence<Markup>, intent: InlinePresentationIntent = [], link: URL? = nil, imagesAsPlaceholders: Bool = false) -> AttributedString {
         var result = AttributedString()
         for child in children {
             switch child {
             case let text as Markdown.Text: result += run(text.string, intent, link)
             case is SoftBreak, is LineBreak: result += run("\n", intent, link)
             case let code as InlineCode: result += run(code.code, intent.union(.code), link)
-            case let strong as Strong: result += inline(strong.children, intent: intent.union(.stronglyEmphasized), link: link)
-            case let emphasis as Emphasis: result += inline(emphasis.children, intent: intent.union(.emphasized), link: link)
-            case let strike as Strikethrough: result += inline(strike.children, intent: intent.union(.strikethrough), link: link)
+            case let strong as Strong: result += inline(strong.children, intent: intent.union(.stronglyEmphasized), link: link, imagesAsPlaceholders: imagesAsPlaceholders)
+            case let emphasis as Emphasis: result += inline(emphasis.children, intent: intent.union(.emphasized), link: link, imagesAsPlaceholders: imagesAsPlaceholders)
+            case let strike as Strikethrough: result += inline(strike.children, intent: intent.union(.strikethrough), link: link, imagesAsPlaceholders: imagesAsPlaceholders)
             case let anchor as Markdown.Link:
                 let url = anchor.destination.flatMap(URL.init(string:))
-                result += inline(anchor.children, intent: intent, link: url ?? link)
+                result += inline(anchor.children, intent: intent, link: url ?? link, imagesAsPlaceholders: imagesAsPlaceholders)
             case let image as Markdown.Image:
                 // Images are not loaded inline; the alt text (or the source) keeps the meaning.
                 let alt = image.plainText
-                result += run(alt.isEmpty ? image.source ?? "" : alt, intent, link)
+                result += run(imagesAsPlaceholders ? "[Image not shown: \(alt.isEmpty ? "inline image" : alt)]" : (alt.isEmpty ? image.source ?? "" : alt), intent, imagesAsPlaceholders ? nil : link)
             case let html as InlineHTML: result += run(html.rawHTML, intent, link)
             case let symbol as SymbolLink: result += run(symbol.destination ?? "", intent.union(.code), link)
-            default: result += inline(child.children, intent: intent, link: link)
+            default: result += inline(child.children, intent: intent, link: link, imagesAsPlaceholders: imagesAsPlaceholders)
             }
         }
         return result

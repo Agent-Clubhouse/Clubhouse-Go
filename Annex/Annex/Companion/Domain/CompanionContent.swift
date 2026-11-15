@@ -29,8 +29,9 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
                 guard !linkPaths(value).isEmpty else { continue }
                 reference = .link(value)
             } else {
-                guard isValidFilePath(value), isInsideAgentFolders(value) || isAbsolute(value) || isHomeRelative(value),
-                      (value.contains("/") || isHomeRelative(value) || !URL(fileURLWithPath: value).pathExtension.isEmpty) else { continue }
+                let path = Self.file(value).markdownLineTarget.map { if case .file(let path) = $0.reference { path } else { value } } ?? value
+                guard isValidFilePath(path), isInsideAgentFolders(path) || isAbsolute(path) || isHomeRelative(path),
+                      (path.contains("/") || isHomeRelative(path) || !URL(fileURLWithPath: path).pathExtension.isEmpty) else { continue }
                 reference = .file(value)
             }
             guard seen.insert(reference.id).inserted else { continue }
@@ -98,6 +99,7 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
         richContentAvailable ? references.filter { $0.isOffered(roots: roots) } : []
     }
     func isOffered(roots: CompanionContentRoots) -> Bool {
+        if let target = markdownLineTarget { return target.reference.isOffered(roots: roots) }
         switch self {
         case .link(let href): return Self.linkPaths(href, windows: roots.windows).contains { Self.file($0).isOffered(roots: roots) }
         case .file(let path):
@@ -111,6 +113,9 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
     /// to decide whether it is local and offered; the chat-link route resolves it on the desktop. File URLs are converted without ever consulting the phone's filesystem or home.
     static func linkPaths(_ href: String, windows: Bool = false) -> [String] {
         guard href.utf16.count <= 1024 else { return [] }
+        if let target = Self.link(href).markdownLineTarget, case .link(let path) = target.reference {
+            return linkPaths(path, windows: windows)
+        }
         let href = href.trimmingCharacters(in: .whitespaces)
         guard !href.isEmpty, href.utf16.count <= 1024, !href.contains(where: { "\0\r\n".contains($0) }),
               href.first != "#", href.first != "?" else { return [] }

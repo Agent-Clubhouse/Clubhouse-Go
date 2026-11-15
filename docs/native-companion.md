@@ -4,6 +4,20 @@ The companion centers the mobile experience on conversations and agent steering.
 
 ## Boundaries
 
+Markdown file previews (`.md`, `.markdown`, `.mdx`, case-insensitive) open in **Preview**, with an exact,
+read-only **Source** toggle and raw-source Copy. Explicit `:line[:column]` or `#Lline` references open Source
+at that line using the existing content route. Both modes retain the desktop truncation note and all existing
+access/size refusals. The native subset supports headings, inline styles/links, lists/tasks, quotes, rules,
+GFM tables and fenced code (long tables/code retain their full-screen Open controls). Same-document heading
+fragments scroll within Preview; HTTP(S) and mailto open externally. Relative/local links never navigate.
+
+Standalone Markdown raster images offer an explicit **Load image** tap only for HTTPS or base64 PNG/JPEG/GIF/WebP
+data URIs, bounded to 2 MB and 64 million pixels and downsampled to 2048 pixels. Redirects must remain HTTPS.
+Local/relative images, SVG (including external SVG references), image inputs and other HTML resources stay
+placeholders or literal source. Inline/nested images show labeled placeholders. Raw HTML/MDX is never executed;
+JSX components, directives, math and diagrams have no executable renderer. Source remains available for unsupported
+syntax. This policy is file-only; chat rendering and the pinned desktop contract/fixtures are unchanged.
+
 - `Companion/Domain`: platform-independent presentation values and an Observation store. `CompanionTarget` includes host, project, and agent IDs. `CompanionService` injects history, command dispatch, and events. Domain models do not read credentials or open sockets.
 - `Companion/Views`: SwiftUI shell, timeline, composer, spawn sheet, tool details, approval and structured question cards.
 - `Companion/Adapters`: protocol mapping and explicit debug preview service. `--companion-preview` never restores real paired sessions and displays a preview banner. Preview commands fail explicitly.
