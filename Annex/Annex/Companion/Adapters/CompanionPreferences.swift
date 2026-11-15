@@ -38,6 +38,17 @@ import UIKit
         guard recentAgents.first != target else { return }
         recentAgents = Array(([target] + recentAgents.filter { $0 != target }).prefix(3))
     }
+    func retainRecentAgents(on pairedHostIDs: Set<String>) {
+        let retained = recentAgents.filter { pairedHostIDs.contains($0.hostID) }
+        if retained != recentAgents { recentAgents = retained }
+    }
+    /// Only a connected catalog confirms disposal. A reconnect's missing rows do not.
+    func pruneRecentAgents(hosts: [CompanionHost]) {
+        let catalogs = Dictionary(hosts.filter { $0.connection == .connected }.map { ($0.id, Set($0.allAgents.map(\.id))) },
+                                  uniquingKeysWith: { first, _ in first })
+        let retained = recentAgents.filter { target in catalogs[target.hostID].map { $0.contains(target) } ?? true }
+        if retained != recentAgents { recentAgents = retained }
+    }
     var dispatcherDesktops: [CompanionDispatcherDesktop]? {
         didSet { defaults.set(try? JSONEncoder().encode(dispatcherDesktops), forKey: Key.dispatcherDesktops) }
     }

@@ -297,4 +297,62 @@ import Testing
         #expect(preferences.recentAgents == [targets[2], targets[3], targets[1]])
         #expect(CompanionPreferences(defaults: defaults).recentAgents == preferences.recentAgents)
     }
+
+    @MainActor @Test func recentAgentsAreScopedToTheDesktopEvenWhenAgentIDsMatch() throws {
+        let name = "search-recent-host-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.hosts = CompanionPreviewService.hosts(now: Date())
+        let studio = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
+        let laptop = CompanionTarget(hostID: "preview-laptop", projectID: "notes", agentID: "river")
+        preferences.recordOpenedAgent(studio)
+        preferences.recordOpenedAgent(laptop)
+        #expect(preferences.recentAgents == [laptop, studio])
+        #expect(preferences.recentAgents.compactMap { store.agent(for: $0)?.id } == [laptop, studio])
+        store.hosts.removeAll { $0.id == studio.hostID }
+        #expect(preferences.recentAgents.compactMap { store.agent(for: $0)?.id } == [laptop], "A missing Studio River never resolves to laptop River")
+    }
+
+    @MainActor @Test func removingAPairingPrunesItsRecentChoicesFromDisk() throws {
+        let name = "search-recent-pairing-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let a = CompanionTarget(hostID: "a", projectID: "project", agentID: "river")
+        let b = CompanionTarget(hostID: "b", projectID: "project", agentID: "river")
+        preferences.recordOpenedAgent(a)
+        preferences.recordOpenedAgent(b)
+        preferences.retainRecentAgents(on: ["a"])
+        #expect(preferences.recentAgents == [a])
+        #expect(CompanionPreferences(defaults: defaults).recentAgents == [a])
+    }
+
+    @MainActor @Test func connectedCatalogRemovalPrunesRecentButReconnectingDoesNot() throws {
+        let name = "search-recent-disposal-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let a = CompanionTarget(hostID: "a", projectID: "project", agentID: "river")
+        let b = CompanionTarget(hostID: "b", projectID: "project", agentID: "river")
+        preferences.recordOpenedAgent(a)
+        preferences.recordOpenedAgent(b)
+        preferences.pruneRecentAgents(hosts: [host("a", connection: .reconnecting)])
+        #expect(preferences.recentAgents == [b, a])
+        preferences.pruneRecentAgents(hosts: [host("a")])
+        #expect(preferences.recentAgents == [b], "Only a's authoritative catalog removed its agent")
+        #expect(CompanionPreferences(defaults: defaults).recentAgents == [b])
+    }
+
+    @MainActor @Test func corruptOrOldRecentChoicesFallBackToEmpty() throws {
+        let name = "search-recent-invalid-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let storedValues: [Any] = ["old-agent-id", Data("not json".utf8), Data(#"["bare-agent-id"]"#.utf8), Data(#"[{"agentID":"river"}]"#.utf8)]
+        for stored in storedValues {
+            defaults.set(stored, forKey: "companion.recentAgents")
+            #expect(CompanionPreferences(defaults: defaults).recentAgents.isEmpty)
+        }
+    }
 }

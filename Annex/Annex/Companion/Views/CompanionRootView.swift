@@ -99,7 +99,10 @@ struct CompanionRootView: View {
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.tab) { _, _ in mirrorSelection() }
         .onChange(of: navigation.visibleAgent) { _, _ in mirrorSelection() }
-        .onChange(of: store.hosts, initial: true) { _, hosts in preferences.pruneAgentCollapse(hosts: hosts) }
+        .onChange(of: store.hosts, initial: true) { _, hosts in
+            preferences.pruneAgentCollapse(hosts: hosts)
+            preferences.pruneRecentAgents(hosts: hosts)
+        }
         .onChange(of: store.selection) { _, target in
             AnnexTelemetry.shared.record(.navigation)
             // A selection made elsewhere (a newly started agent) opens in the current tab.
@@ -109,6 +112,7 @@ struct CompanionRootView: View {
         .onChange(of: pairedHostIDs, initial: true) { _, ids in
             guard let ids else { return }
             navigation.retainPairedDesktops(ids)
+            preferences.retainRecentAgents(on: ids)
             if preferences.dispatcherDesktops != nil { preferences.dispatcherDesktops = navigation.dispatcherDesktops }
             mirrorSelection()
         }
@@ -149,7 +153,7 @@ struct CompanionRootView: View {
     private func mirrorSelection() {
         if preferences.lastTab != navigation.tab { preferences.lastTab = navigation.tab }
         let target = navigation.visibleAgent
-        if let target { preferences.recordOpenedAgent(target) }
+        if let target, store.agent(for: target) != nil { preferences.recordOpenedAgent(target) }
         if store.selection != target { store.selection = target }
         if let hostID = target?.hostID, preferences.lastHostID != hostID { preferences.lastHostID = hostID }
     }
