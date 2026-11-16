@@ -594,6 +594,10 @@ struct CompanionHomeView: View {
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
+            projectHeader(group)
+                .buttonStyle(.borderless)
+                .listRowSeparator(.hidden)
+                .listRowBackground(CompanionCardBackground())
             if entry.isLinked {
                 ForEach(entry.members) { member in
                     if member.host.connection.canOperate {
@@ -619,58 +623,63 @@ struct CompanionHomeView: View {
                     .listRowBackground(CompanionCardBackground())
                     .accessibilityIdentifier("home-project-unavailable-\(projectID)")
             }
-        } header: {
-            let headerLayout = dynamicTypeSize.isAccessibilitySize
+        }
+    }
+
+    private func projectHeader(_ group: CompanionProjectGroup) -> some View {
+        let entry = group.entry
+        let projectID = "\(entry.host.id)-\(entry.project.id)"
+        let headerLayout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
                 : AnyLayout(HStackLayout(spacing: 6))
-            headerLayout {
-                HStack(spacing: 6) {
-                    CompanionProjectBadge(project: entry.project)
-                        .overlay(alignment: .bottomTrailing) {
-                            if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
-                                Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
-                                    .accessibilityHidden(true)
-                            }
+        return headerLayout {
+            HStack(spacing: 6) {
+                CompanionProjectBadge(project: entry.project)
+                    .overlay(alignment: .bottomTrailing) {
+                        if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                            Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
+                                .accessibilityHidden(true)
                         }
-                    projectLink(entry)
-                        .contextMenu { projectContextMenuItems(group) }
-                        .accessibilityActions { projectContextMenuItems(group) }
-                        .accessibilityLabel("Open \(entry.project.name)")
-                        .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
-                    if group.isPinned {
-                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
-                            .accessibilityLabel("Pinned")
                     }
-                }
-                HStack(spacing: 6) {
-                    if entry.isLinked {
-                        let count = Set(entry.members.map(\.host.id)).count
-                        Label("\(count)", systemImage: "desktopcomputer")
-                            .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
-                            .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
-                    }
-                    if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
-                    Spacer(minLength: 0)
-                    Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
-                        .buttonStyle(.borderless)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .disabled(!entry.canSpawn)
-                        .contextMenu { projectContextMenuItems(group) }
-                        .accessibilityActions { projectContextMenuItems(group) }
-                        .accessibilityIdentifier("project-new-agent-\(projectID)")
-                        .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
+                projectLink(entry)
+                    .contextMenu { projectContextMenuItems(group) }
+                    .accessibilityActions { projectContextMenuItems(group) }
+                    .accessibilityLabel("Open \(entry.project.name)")
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
+                if group.isPinned {
+                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
+                        .accessibilityLabel("Pinned")
                 }
             }
-            .font(.subheadline.weight(.semibold))
-            .textCase(nil)
-            .opacity(group.isIdle ? 0.7 : 1)
-            .contentShape(Rectangle())
-            .contextMenu { projectContextMenuItems(group) }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("project-\(projectID)")
+            HStack(spacing: 6) {
+                if entry.isLinked {
+                    let count = Set(entry.members.map(\.host.id)).count
+                    Label("\(count)", systemImage: "desktopcomputer")
+                        .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
+                        .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
+                }
+                if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
+                Spacer(minLength: 0)
+                Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
+                    .buttonStyle(.borderless)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .disabled(!entry.canSpawn)
+                    .contextMenu { projectContextMenuItems(group) }
+                    .accessibilityActions { projectContextMenuItems(group) }
+                    .accessibilityIdentifier("project-new-agent-\(projectID)")
+                    .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
+            }
         }
+        .font(.subheadline.weight(.semibold))
+        .textCase(nil)
+        .opacity(group.isIdle ? 0.7 : 1)
+        .contentShape(Rectangle())
+        .contextMenu { projectContextMenuItems(group) }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("project-\(projectID)")
     }
 
     private func observeConnectedHosts(_ hosts: [CompanionHost]) {

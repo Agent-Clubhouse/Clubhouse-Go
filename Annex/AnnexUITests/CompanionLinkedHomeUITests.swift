@@ -122,6 +122,30 @@ import XCTest
         capture(relaunched, "Linked Home offline machine starts collapsed after relaunch")
     }
 
+    func testCachedRowsScrollClearOfFloatingTabBarAtStandardAndXXXL() {
+        for accessibility in [false, true] {
+            for desktops in [2, 5] {
+                let extra = desktops == 5 ? ["--companion-preview-home-five-desktops"] : []
+                let size = accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []
+                let app = launchApp(base + ["--companion-preview-light"] + extra + size, allowance: 180, attempts: 1)
+                let offline = app.buttons["project-machine-preview-laptop-notes"]
+                reveal(offline, in: app)
+                offline.tap()
+                let cached = app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch
+                XCTAssertTrue(cached.waitForExistence(timeout: 5))
+                XCTAssertFalse(cached.isEnabled)
+                for _ in 0..<8 {
+                    if cached.frame.maxY <= app.tabBars.firstMatch.frame.minY { break }
+                    app.swipeUp(velocity: .slow)
+                }
+                XCTAssertLessThanOrEqual(cached.frame.maxY, app.tabBars.firstMatch.frame.minY,
+                                         "The last cached row must scroll fully above the native floating tab bar")
+                capture(app, "Cached River clears floating tab bar \(desktops) desktops \(accessibility ? "XXXL" : "standard")")
+                app.terminate()
+            }
+        }
+    }
+
     func testLinkedCardFiveAppearancesWithTwoAndFiveDesktops() {
         let variants: [(String, [String])] = [
             ("light", ["--companion-preview-light"]),
