@@ -77,7 +77,7 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
         app.buttons["settings-close"].tap()
         let studio = element(app, "project-machine-preview-studio-clubhouse")
         XCTAssertTrue(scrollUntilExists(studio, in: app) && scrollTo(studio, in: app))
-        XCTAssertTrue(waitFor(studio, NSPredicate(format: "label CONTAINS %@", "Offline"), timeout: 5))
+        XCTAssertTrue(waitFor(studio, NSPredicate(format: "label CONTAINS %@", "offline"), timeout: 5))
         XCTAssertFalse(cedar.exists, "The offline machine's cached agent tree is not live Home content")
         let laptop = element(app, "project-machine-preview-laptop-notes")
         XCTAssertTrue(scrollUntilExists(laptop, in: app))
@@ -88,9 +88,9 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
 
     func testProjectOptionsDisambiguateTwoProjectsOnTheSameMachine() {
         let app = launchApp(arguments + ["--companion-preview-linked-projects-same-machine"], attempts: 1)
-        let menu = element(app, "project-menu-preview-studio-clubhouse")
-        XCTAssertTrue(scrollUntilExists(menu, in: app) && scrollTo(menu, in: app))
-        waitAndTap(menu, until: app.buttons["Studio Mac · Clubhouse"])
+        let header = element(app, "open-project-preview-studio-clubhouse")
+        XCTAssertTrue(scrollUntilExists(header, in: app) && scrollTo(header, in: app))
+        longPressUntilMenu(header, shows: app.buttons["Studio Mac · Clubhouse"], attempts: 1)
         XCTAssertTrue(app.buttons["Studio Mac · Docs"].exists)
         XCTAssertTrue(app.buttons["Travel MacBook"].exists)
         app.buttons["Studio Mac · Docs"].tap()
