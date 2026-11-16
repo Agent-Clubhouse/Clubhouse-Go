@@ -18,6 +18,12 @@ The synthetic `CompanionChatHeaderVisualUITests` matrix checks screen-centered i
 button, long names and accessibility text, plus light/dark and Catppuccin Latte/Mocha desktop palettes. Header
 actions share one capsule; the context percentage remains in its accessibility value rather than its visible label.
 Composer controls display the access level and model, retaining the access label when the full summary cannot fit.
+The header matrix waits at most five seconds for the existing 1pt centering tolerance, logs the actual settle time,
+and samples each avatar screenshot once, retaining that exact image and its sample geometry.
+`CompanionPermissionMenuUITests` checks every native permission row fits above the keyboard without scrolling at
+standard portrait size in all four palettes. Landscape and XXXL use bounded native-menu scrolling to reach each
+level and the unchanged Full access confirmation. Concise visible descriptions retain their full meaning and driver
+names in VoiceOver labels; the tests assert those labels. Landscape and accessibility sizes can require scrolling.
 
 - `ClubhouseGoTests` holds `FramebriarIntegrationTests` and `DiagnosticPrivacyTests`.
 - `ClubhouseGoUITests` launches the app in DEBUG fixture modes that never restore or contact a real paired desktop:

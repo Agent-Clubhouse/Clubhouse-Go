@@ -82,7 +82,7 @@ struct CompanionChatControlsBar: View, Equatable {
                         else { setLevel(level) }
                     } label: {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
-                        Text(subtitle(level))
+                        Text(permissionSummary(level))
                     }
                     // Menus don't read subtitles aloud; the label carries them.
                     .accessibilityLabel("\(level.label), \(subtitle(level))")
@@ -109,6 +109,17 @@ struct CompanionChatControlsBar: View, Equatable {
     /// What the level does, then the driver's own name for it.
     private func subtitle(_ level: CompanionPermissionLevel) -> String {
         controls.levelNames[level].map { "\(level.detail) · \($0)" } ?? level.detail
+    }
+
+    /// Keep native menu rows to one subtitle line; VoiceOver retains the complete description and driver name.
+    private func permissionSummary(_ level: CompanionPermissionLevel) -> String {
+        switch level {
+        case .plan: "Read only"
+        case .ask: "Edits and commands"
+        case .autoEdit: "Ask for commands"
+        case .auto: "Chooses when to ask"
+        case .fullAccess: "No prompts"
+        }
     }
 
     private func modelMenu(_ label: String) -> some View {
