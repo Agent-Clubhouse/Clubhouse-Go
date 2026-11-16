@@ -678,11 +678,18 @@ import ClubhouseTransport
             ], capabilities: [.chat, .answer])
         }
         if showsReadingScenario {
-            return .init(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
+            var history = CompanionHistory(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
                 text: "Reading marker \($0).\n\nA stable preview paragraph for testing history, keyboard and streaming position.")) } + [
                     .tool(.init(id: "reading-failure", name: "Preview command", summary: "swift test", output: (1...12).map { "Failure output line \($0)" }.joined(separator: "\n") + "\nPreview error: build failed", state: .failed, exitCode: 2)),
                     .message(.init(id: "reading-helper", role: .assistant, text: "Preview helper streamed update.", isStreaming: true, subagentID: "preview-helper"))
                 ])
+            #if DEBUG
+            if Self.showsPinnedDecisions, target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-pinned-incomplete") {
+                // Live incomplete requests belong to a session; nil/nil review admission is tracked in #512.
+                history.sessionID = "preview-pinned-incomplete"
+            }
+            #endif
+            return history
         }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),

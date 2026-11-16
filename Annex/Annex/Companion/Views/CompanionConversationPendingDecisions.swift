@@ -77,14 +77,16 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
                 .accessibilityIdentifier("companion-review-approval")
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { showInChat(decision.id) }
-        .accessibilityLabel(decision.summary)
-        .accessibilityValue(subtitle)
-        .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")
-        .accessibilityIdentifier("companion-decision-show-in-chat")
-        .accessibilityAction(named: "Review request") { openReview(decision, presentation: presentation) }
+        .accessibilityRepresentation {
+            Button { showInChat(decision.id) } label: { Text(decision.summary) }
+                .accessibilityElement(children: .ignore)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityLabel(decision.summary)
+                .accessibilityValue(subtitle)
+                .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")
+                .accessibilityIdentifier("companion-decision-show-in-chat")
+                .accessibilityAction(named: "Review request") { openReview(decision, presentation: presentation) }
+        }
     }
 
     @ViewBuilder private func actions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) -> some View {

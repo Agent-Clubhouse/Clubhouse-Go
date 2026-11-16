@@ -237,8 +237,9 @@ import Vision
         let close = app.buttons["companion-approval-review-close"]
         waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
         let review = app.scrollViews["companion-approval-review-scroll"]
-        let always = review.buttons["Always allow"]
+        let always = review.buttons["companion-approval-option-always"]
         XCTAssertTrue(scrollTo(always, in: app) && always.isHittable)
+        XCTAssertEqual(always.label, "Always allow, preview:*", "Full review retains the permission label and scope")
         always.tap()
         XCTAssertTrue(app.staticTexts["Always allow?"].waitForExistence(timeout: 5), "A broader permission keeps its existing confirmation")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
