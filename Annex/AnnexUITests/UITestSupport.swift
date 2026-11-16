@@ -241,7 +241,8 @@ class ReliableUITestCase: XCTestCase {
     }
 
     /// The part of a conversation's transcript nothing floats over: below the navigation bar, the identity (its name
-    /// pill hangs just below the bar) and the preview banner; above the activity footer, composer and keyboard.
+    /// pill hangs just below the bar) and the preview banner; above Latest, the pinned decision tray,
+    /// activity footer, composer and keyboard. Drag origins must also avoid these overlays.
     func clearTranscriptArea(in app: XCUIApplication) -> CGRect {
         let any = app.descendants(matching: .any)
         var top = app.navigationBars.firstMatch.frame.maxY
@@ -253,6 +254,13 @@ class ReliableUITestCase: XCTestCase {
         for chrome in [any.matching(identifier: "companion-composer-region").firstMatch,
                        app.staticTexts["companion-chat-activity"], app.keyboards.firstMatch, app.tabBars.firstMatch] where chrome.exists {
             bottom = min(bottom, chrome.frame.minY)
+        }
+        for identifier in ["companion-pinned-decision", "companion-latest"] {
+            let overlay = any.matching(identifier: identifier).firstMatch
+            if overlay.exists {
+                let visible = overlay.frame.intersection(app.frame)
+                if !visible.isNull && !visible.isEmpty { bottom = min(bottom, visible.minY) }
+            }
         }
         return CGRect(x: app.frame.minX, y: top + 8, width: app.frame.width, height: max(0, bottom - top - 16))
     }
