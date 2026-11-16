@@ -31,6 +31,90 @@ import UIKit
 
     private var paste: Selector { #selector(UIResponder.paste(_:)) }
 
+    private func selectionFixture(text: String = "a\u{1F642}b", selection: NSRange? = nil) throws
+        -> (UIWindow, UIWindow?, UIView, UITextView, CompanionComposerPasteHook.HookView, CompanionComposerPasteHook.Coordinator) {
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIViewController()
+        let container = try #require(window.rootViewController?.view)
+        let input = UITextView(frame: CGRect(x: 0, y: 0, width: 300, height: 100))
+        input.text = text
+        input.selectedRange = selection ?? NSRange(location: text.utf16.count, length: 0)
+        let hook = CompanionComposerPasteHook.HookView(frame: input.frame)
+        let coordinator = CompanionComposerPasteHook.Coordinator(handle: { _ in [] }, dismissKeyboard: nil)
+        hook.coordinator = coordinator
+        container.addSubview(input)
+        container.addSubview(hook)
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        hook.attach()
+        return (window, previous, container, input, hook, coordinator)
+    }
+
+    @Test func delayedRestorationNeverOverridesNewerNativeCaret() throws {
+        let (window, previous, _, input, hook, coordinator) = try selectionFixture()
+        defer {
+            withExtendedLifetime(coordinator) {}
+            window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
+        }
+        input.selectedRange = NSRange(location: 0, length: 0)
+        hook.selectionRestoration = .init(draft: input.text, selection: .init(lowerUTF16: 1, upperUTF16: 3))
+        hook.attach()
+        #expect(input.selectedRange == NSRange(location: 0, length: 0))
+        input.selectedRange = NSRange(location: input.text.utf16.count, length: 0)
+        hook.attach()
+        #expect(input.selectedRange == NSRange(location: 4, length: 0), "Retire, rather than defer, the superseded bookmark")
+    }
+
+    @Test func delayedRestorationNeverMovesMarkedTextOrReplaysAfterComposition() throws {
+        let (window, previous, _, input, hook, coordinator) = try selectionFixture(
+            text: "a\u{4E2D}\u{6587}b", selection: NSRange(location: 3, length: 0))
+        defer {
+            withExtendedLifetime(coordinator) {}
+            window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
+        }
+        #expect(input.becomeFirstResponder())
+        input.selectedRange = NSRange(location: 1, length: 2)
+        input.setMarkedText("\u{4E2D}\u{6587}", selectedRange: NSRange(location: 2, length: 0))
+        #expect(input.markedTextRange != nil)
+        #expect(input.selectedRange == NSRange(location: 3, length: 0))
+        hook.selectionRestoration = .init(draft: input.text, selection: .init(lowerUTF16: 0, upperUTF16: 1))
+        hook.attach()
+        #expect(input.markedTextRange != nil)
+        #expect(input.selectedRange == NSRange(location: 3, length: 0))
+        input.unmarkText()
+        input.selectedRange = NSRange(location: 3, length: 0)
+        hook.attach()
+        #expect(input.selectedRange == NSRange(location: 3, length: 0), "Composition permanently supersedes restoration")
+    }
+
+    @Test func movedHookNeverRestoresEitherPreviousOrReplacementField() throws {
+        let (window, previous, container, original, hook, coordinator) = try selectionFixture()
+        defer {
+            withExtendedLifetime(coordinator) {}
+            window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
+        }
+        let originalSelection = original.selectedRange
+        let nextContainer = UIView(frame: container.bounds)
+        container.addSubview(nextContainer)
+        let replacement = UITextView(frame: original.frame)
+        replacement.text = original.text
+        replacement.selectedRange = originalSelection
+        nextContainer.addSubview(replacement)
+        nextContainer.addSubview(hook)
+        hook.selectionRestoration = .init(draft: original.text, selection: .init(lowerUTF16: 1, upperUTF16: 3))
+        hook.attach()
+        #expect(original.window === window)
+        #expect(original.selectedRange == originalSelection)
+        #expect(replacement.selectedRange == originalSelection, "A bookmark belongs to the mounted field, not its replacement")
+        #expect(replacement.pasteDelegate === coordinator, "Other native hooks follow the current field")
+        container.addSubview(hook)
+        hook.attach()
+        #expect(original.selectedRange == originalSelection, "Moving back must not replay the stale bookmark")
+    }
+
     @Test func offersPasteForImagesOnlyInTheHookedComposer() throws {
         let (composer, composerWindow) = try textView(hooked: true)
         let (other, otherWindow) = try textView(hooked: false)

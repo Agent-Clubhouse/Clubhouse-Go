@@ -17,3 +17,13 @@ import Testing
     #expect(CompanionComposerSelection(lowerUTF16: -2, upperUTF16: 99).range(in: shorter) == shorter.startIndex..<shorter.endIndex)
     #expect(CompanionComposerSelection.capture(nil, in: original) == nil)
 }
+
+@Test func composerSelectionNeverRestoresInsideAGrapheme() {
+    for text in ["\u{1F642}", "\u{1F469}\u{200D}\u{1F4BB}", "\u{1F1FA}\u{1F1F3}", "\u{1F44D}\u{1F3FD}", "\u{20000}", "e\u{301}"] {
+        for offset in 1..<text.utf16.count {
+            let bookmark = CompanionComposerSelection(lowerUTF16: 0, upperUTF16: offset)
+            #expect(bookmark.range(in: text) == text.endIndex..<text.endIndex,
+                "A bookmark inside a surrogate pair or grapheme collapses safely to the end")
+        }
+    }
+}

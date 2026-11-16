@@ -535,7 +535,7 @@
     "CompanionComposerPasteHook.HookView": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionComposerPaste.swift",
-      "reason": "UIView superclass owns main-only UIKit state, even though explicit references are weak."
+      "reason": "UIView superclass owns main-only UIKit state; the coordinator reference is weak. One-shot selection restoration adds only a String/UTF-16-bookmark value snapshot, a Bool, an optional ObjectIdentifier and an optional NSRange snapshot. Field re-resolution retains no UITextView, callback or additional teardown work; retain isolated teardown."
     },
     "CompanionToolbarIdentityCenter.Anchor": {
       "policy": "main_actor",
