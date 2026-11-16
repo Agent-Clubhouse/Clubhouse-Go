@@ -61,14 +61,24 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let provider = app.buttons["agent-settings-orchestrator"]
         XCTAssertTrue(scrollUntilExists(provider, in: app))
         XCTAssertFalse(provider.isEnabled)
-        XCTAssertTrue(scrollTo(app.buttons["agent-sleep"], in: app, up: false))
-        waitAndTap(app.buttons["agent-sleep"], until: confirmation)
+        // #452 moved Sleep to the last Form section. Swipe toward later rows;
+        // the old downward swipe at the top dismissed the entire settings sheet.
+        let sleep = app.buttons["agent-sleep"]
+        XCTAssertTrue(scrollTo(sleep, in: app, up: true))
+        let settingsDone = app.buttons["agent-settings-done"]
+        XCTAssertTrue(settingsDone.exists && settingsDone.isHittable, "Agent settings must remain presented after scrolling")
+        XCTAssertTrue(sleep.isHittable, "Sleep must be reachable by a normal settings scroll")
+        let form = app.collectionViews.containing(.button, identifier: "agent-sleep").firstMatch
+        XCTAssertTrue(form.exists, "Sleep must belong to the presented settings Form")
+        XCTAssertTrue(pixelContains(form.frame.intersection(app.frame), sleep.frame), "Sleep must be entirely inside the settings viewport")
+        waitAndTap(sleep, until: confirmation)
         confirmation.tap()
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["agent-sleep-pending"].exists)
         let refusal = XCTAttachment(screenshot: app.screenshot())
         refusal.name = "Sleep refused, provider remains locked"; refusal.lifetime = .keepAlways; add(refusal)
-        XCTAssertTrue(scrollUntilExists(provider, in: app))
+        // Return from the last Sleep section to the earlier Runtime provider row.
+        XCTAssertTrue(scrollUntilExists(provider, in: app, up: false))
         XCTAssertFalse(provider.isEnabled, "A refused stop cannot unlock the provider")
     }
 

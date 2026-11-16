@@ -97,9 +97,30 @@ import UIKit
         let caption = app.staticTexts["Draft saved while you reconnect"]
         XCTAssertFalse(caption.exists)
         XCTAssertFalse(app.staticTexts["Runs on your desktop • ⌘ Return to send"].exists)
-        waitAndTap(app.buttons["Settings"], until: app.buttons["Disconnect desktop"])
-        app.buttons["Disconnect desktop"].tap()
-        app.buttons["Done"].tap()
+        XCTAssertFalse(app.buttons["Settings"].exists, "#444 keeps Settings on Home, not Dispatch")
+        func changeConnectionThroughHomeSettings(_ action: String) {
+            let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
+            XCTAssertTrue(home.waitForExistence(timeout: 5))
+            home.tap()
+            XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
+            let settings = app.buttons["Settings"]
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            settings.tap()
+            let change = app.buttons[action]
+            XCTAssertTrue(change.waitForExistence(timeout: 5))
+            change.tap()
+            let close = app.buttons["settings-close"]
+            XCTAssertTrue(close.waitForExistence(timeout: 5))
+            close.tap()
+            XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
+            let dispatch = app.buttons.matching(NSPredicate(format: "label == %@", "Dispatch")).firstMatch
+            XCTAssertTrue(dispatch.waitForExistence(timeout: 5))
+            dispatch.tap()
+            XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 5))
+            XCTAssertTrue(composer.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["Settings"].exists)
+        }
+        changeConnectionThroughHomeSettings("Disconnect desktop")
         XCTAssertTrue(caption.waitForExistence(timeout: 5))
         focus(composer, in: app)
         composer.typeText("A local offline draft")
@@ -107,9 +128,17 @@ import UIKit
         XCTAssertFalse(app.buttons["companion-send"].isEnabled)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Chat chrome offline caption and draft"; shot.lifetime = .keepAlways; add(shot)
-        waitAndTap(app.buttons["Settings"], until: app.buttons["Reconnect desktop"])
-        app.buttons["Reconnect desktop"].tap()
-        app.buttons["Done"].tap()
+        // Dismiss editing through the real transcript before using the native Home tab.
+        // Its visible bounds avoid the header and preview banner, which are not scrollable.
+        let transcript = app.scrollViews["companion-transcript"].frame
+        let top = max(app.navigationBars.firstMatch.frame.maxY, transcript.minY)
+        let bottom = min(element(app, "companion-composer-region").frame.minY, transcript.maxY)
+        XCTAssertGreaterThan(bottom - top, 48)
+        let start = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: app.frame.width * 0.5, dy: (top + bottom) / 2 - app.frame.minY))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
+        changeConnectionThroughHomeSettings("Reconnect desktop")
         XCTAssertTrue(caption.waitForNonExistence(timeout: 5))
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A local offline draft"), timeout: 5))
     }
