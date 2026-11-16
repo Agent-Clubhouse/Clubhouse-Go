@@ -517,21 +517,17 @@ struct CompanionHomeView: View {
         let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
         Section {
         } header: {
-            HStack {
-                Text("Projects").font(.title3.bold()).foregroundStyle(Color(palette.label))
-                Spacer()
-                Menu {
-                    Picker("Sort projects", selection: $preferences.projectSort) {
-                        ForEach(CompanionProjectSort.allCases) { Text($0.label).tag($0) }
+            VStack(alignment: .leading, spacing: 8) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    Text("Projects").font(.title3.bold()).foregroundStyle(Color(palette.label))
+                    projectSortMenu
+                } else {
+                    HStack {
+                        Text("Projects").font(.title3.bold()).foregroundStyle(Color(palette.label))
+                        Spacer()
+                        projectSortMenu
                     }
-                    if preferences.projectSort == .custom {
-                        Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }
-                    }
-                } label: {
-                    CompanionAccessoryLabel(title: preferences.projectSort.label, isMenu: true)
                 }
-                .accessibilityLabel("Sort projects, \(preferences.projectSort.label)")
-                .accessibilityIdentifier("project-sort-menu")
             }
             .textCase(nil)
         }
@@ -552,6 +548,21 @@ struct CompanionHomeView: View {
             }
             if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group, parentLines: parentLines) } }
         }
+    }
+
+    private var projectSortMenu: some View {
+        Menu {
+            Picker("Sort projects", selection: $preferences.projectSort) {
+                ForEach(CompanionProjectSort.allCases) { Text($0.label).tag($0) }
+            }
+            if preferences.projectSort == .custom {
+                Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }
+            }
+        } label: {
+            CompanionAccessoryLabel(title: preferences.projectSort.label, isMenu: true)
+        }
+        .accessibilityLabel("Sort projects, \(preferences.projectSort.label)")
+        .accessibilityIdentifier("project-sort-menu")
     }
 
     private func projectSection(_ group: CompanionProjectGroup, parentLines: [CompanionTarget: String]) -> some View {
@@ -584,30 +595,42 @@ struct CompanionHomeView: View {
                     .accessibilityIdentifier("home-project-unavailable-\(projectID)")
             }
         } header: {
-            HStack(spacing: 6) {
-                CompanionProjectBadge(project: entry.project)
-                    .overlay(alignment: .bottomTrailing) {
-                        if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
-                            Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
-                                .accessibilityHidden(true)
+            let headerLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                : AnyLayout(HStackLayout(spacing: 6))
+            headerLayout {
+                HStack(spacing: 6) {
+                    CompanionProjectBadge(project: entry.project)
+                        .overlay(alignment: .bottomTrailing) {
+                            if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                                Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
+                                    .accessibilityHidden(true)
+                            }
                         }
+                    projectLink(entry)
+                    if group.isPinned {
+                        Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
+                            .accessibilityLabel("Pinned")
                     }
-                projectLink(entry)
-                if entry.isLinked {
-                    CompanionHostTag(name: "\(Set(entry.members.map(\.host.id)).count) desktops")
                 }
-                if group.isPinned {
-                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
-                        .accessibilityLabel("Pinned")
+                HStack(spacing: 6) {
+                    if entry.isLinked {
+                        let count = Set(entry.members.map(\.host.id)).count
+                        Label("\(count)", systemImage: "desktopcomputer")
+                            .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
+                            .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
+                    }
+                    if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
+                    Spacer(minLength: 0)
+                    projectMenu(group)
+                    Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
+                        .buttonStyle(.borderless)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .disabled(!entry.canSpawn)
+                        .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
                 }
-                if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
-                Spacer()
-                projectMenu(group)
-                Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
-                    .buttonStyle(.borderless)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .disabled(!entry.canSpawn)
-                    .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
             }
             .font(.subheadline.weight(.semibold))
             .textCase(nil)
@@ -816,7 +839,8 @@ extension CompanionHomeView {
     func projectLink(_ entry: CompanionProjectEntry) -> some View {
         NavigationLink(value: CompanionRoute.project(entry.id)) {
             HStack(spacing: 4) {
-                Text(entry.project.name).lineLimit(1)
+                Text(entry.project.name).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                 Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(Color(palette.secondaryLabel))
             }
             .contentShape(Rectangle())
