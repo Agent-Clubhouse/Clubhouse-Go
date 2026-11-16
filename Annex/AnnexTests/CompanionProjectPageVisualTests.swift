@@ -72,12 +72,15 @@ import ClubhouseTransport
             hosts[index].canLinkProjects = true
             hosts[index].connection = .connected
         }
-        hosts[0].projects[0].agents = [hosts[0].projects[0].agents[0]]
-        hosts[0].projects[0].agents[0].name = "Studio agent"
-        hosts[1].projects[0].agents = [hosts[1].projects[0].agents[0]]
-        hosts[1].projects[0].agents[0].name = "Laptop agent"
+        let studioProject = try XCTUnwrap(hosts[0].projects.firstIndex { $0.id == "clubhouse" })
+        let laptopProject = try XCTUnwrap(hosts[1].projects.firstIndex { $0.id == "notes" })
+        hosts[0].projects[studioProject].agents = [hosts[0].projects[studioProject].agents[0]]
+        hosts[0].projects[studioProject].agents[0].name = "Studio agent"
+        hosts[1].projects[laptopProject].agents = [hosts[1].projects[laptopProject].agents[0]]
+        hosts[1].projects[laptopProject].agents[0].name = "Laptop agent"
         let remainingHost = hosts[0]
         let selectedHost = hosts[1]
+        XCTAssertEqual(remainingHost.projects[studioProject].agents.map(\.name), ["Studio agent"])
         store.apply(.hosts(hosts))
         let project = CompanionProjectTarget(hostID: remainingHost.id, projectID: "clubhouse")
         XCTAssertEqual(store.projectEntry(containing: project)?.members.count, 2)
@@ -108,6 +111,7 @@ import ClubhouseTransport
         // from two hosts to one; the now-hidden chips must still reset the selected scope.
         store.apply(.hosts([remainingHost]))
         XCTAssertEqual(store.projectEntry(containing: project)?.members.map(\.host.id), [remainingHost.id])
+        XCTAssertEqual(store.projectEntry(containing: project)?.members.first?.project.agents.map(\.name), ["Studio agent"])
         let after = try await renderedText(window, stage: "All scope after selected desktop removal")
         XCTAssertTrue(after.contains("Studio agent"), "Reconciliation to All must restore the remaining desktop's actual agent rows")
         XCTAssertFalse(after.contains("Laptop agent"))
