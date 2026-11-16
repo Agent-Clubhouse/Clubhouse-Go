@@ -58,4 +58,14 @@ struct CompanionHomeScopeTests {
         #expect(CompanionHomeSummary(hosts: [first, offline], needsYou: 0).connectionLabel == "1 of 2 desktops connected")
         #expect(CompanionHomeSummary(hosts: [offline], needsYou: 0).connectionLabel == nil)
     }
+    @Test func retainedExitedQuickAgentIsNotRenderedAgainAsLive() {
+        var machine = host("one")
+        machine.projects[0].agents[0].isQuick = true
+        machine.projects[0].agents[0].hasExited = true
+        let entry = CompanionProjectEntry(host: machine, project: machine.projects[0])
+        let layout = CompanionHomeLayout.build([entry], sort: .recent, customOrder: [], rule: .init(),
+                                               projectActivity: { _ in nil }, agentActivity: { _ in nil })
+        #expect((layout.projects + layout.idle).allSatisfy { $0.tree.all.isEmpty })
+    }
+
 }

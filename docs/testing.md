@@ -911,3 +911,11 @@ a vanished host resolves to All. Home's shared row context suppresses implied ho
 and its quiet fold receives the authoritative retained run list with Dismiss/Clear.
 Connected-desktop availability remains global while activity/request counts follow the
 selected scope. Scope changes reset held list ordering and emit only the shared chip event.
+
+`CompanionHomeDesktopScopeUITests` checks actual Home chips, cross-desktop isolation for
+linked copies with the same agent name, tab retention, selected-host removal down to one,
+no machine labels for the sole desktop, and a fresh All scope after relaunch. Its five-
+appearance matrix also selects an offline host and requires a non-actionable placeholder
+instead of cached live rows. Scope regression tests retain exited quick runs only in the
+authoritative shared quiet fold. Home header/card styling and linked activity ranking
+remain with #440; no new desktop sync or Store cache mutation is introduced.
