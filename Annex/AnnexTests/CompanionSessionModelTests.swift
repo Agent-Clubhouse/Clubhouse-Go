@@ -79,8 +79,11 @@ import Vision
         let target = CompanionPreviewService.target
         try await withSettingsForm(service: service, target: target) { store, window, initial in
             let before = try await self.renderedText(window, stage: "Before refresh")
-            XCTAssertTrue(before.contains("Saved") && before.contains(where: { $0.contains("Sonnet") }),
-                          "The rendered form must initially show the proven Session/Saved difference")
+            XCTAssertTrue(self.containsRowLabel("Session", in: before)
+                          && self.containsRowValue("Opus", label: "Session", in: before)
+                          && self.containsRowLabel("Saved", in: before)
+                          && self.containsRowValue("Sonnet", label: "Saved", in: before),
+                          "The rendered form must show Session Opus and Saved Sonnet (next start)")
             service.savedModel = "opus"
             service.holdNextRead = true
             service.refusesRead = true
@@ -95,7 +98,8 @@ import Vision
             }
             let pending = try XCTUnwrap(service.pendingRead)
             let during = try await self.renderedText(window, stage: "While refresh is pending")
-            XCTAssertFalse(during.contains("Saved"), "The old comparison must disappear before the read completes")
+            XCTAssertFalse(self.containsRowLabel("Saved", in: during), "The old comparison must disappear before the read completes")
+            XCTAssertFalse(self.containsRowLabel("Session", in: during), "Do not leave the stale Session comparison row")
             service.pendingRead = nil
             pending.resume()
             let failureDeadline = ContinuousClock.now.advanced(by: .seconds(5))
@@ -104,13 +108,30 @@ import Vision
             }
             XCTAssertEqual(service.failedReads, 1)
             let after = try await self.renderedText(window, stage: "After failed refresh")
-            XCTAssertFalse(after.contains("Saved"), "A failed refresh must not restore the stale comparison")
+            XCTAssertFalse(self.containsRowLabel("Saved", in: after), "A failed refresh must not restore the stale comparison")
+            XCTAssertFalse(self.containsRowLabel("Session", in: after), "A failed refresh must not restore the Session comparison row")
             XCTAssertTrue(after.contains(where: { $0.contains("Settings refresh failed") }), "Show the refresh error")
             XCTAssertTrue(after.contains("Retry"), "Offer an explicit retry without removing the form")
-            XCTAssertTrue(after.contains("Model") && after.contains(where: { $0.contains("Sonnet") }),
+            XCTAssertTrue(self.containsRowLabel("Model", in: after) && self.containsRowValue("Sonnet", label: "Model", in: after),
                           "Keep the existing settings visible, without claiming a difference")
             XCTAssertEqual(service.reads.count, 1, "The failed refresh must not start a read loop")
         }
+    }
+
+    /// OCR can combine a row title with its decorative lock glyph. Match the complete title word,
+    /// not an exact OCR line; reuse the same rule for presence and stale-comparison absence.
+    private func containsRowLabel(_ label: String, in text: [String]) -> Bool {
+        let pattern = "^" + NSRegularExpression.escapedPattern(for: label) + "\\b"
+        return text.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).range(of: pattern, options: .regularExpression) != nil }
+    }
+
+    private func containsRowValue(_ value: String, label: String, in text: [String]) -> Bool {
+        // A standalone right-hand value or one OCR line combining the label and value qualifies.
+        // The new identity header ("Claude Code · Sonnet …") must not satisfy a model-row assertion.
+        let word = NSRegularExpression.escapedPattern(for: value)
+        let title = NSRegularExpression.escapedPattern(for: label)
+        let pattern = "^(?:" + word + "\\b|" + title + "\\b.*\\b" + word + "\\b)"
+        return text.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).range(of: pattern, options: .regularExpression) != nil }
     }
 
     private func renderedText(_ window: UIWindow, stage: String) async throws -> [String] {
@@ -139,6 +160,10 @@ import Vision
             try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
             result += request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []
         }
+        let recognized = XCTAttachment(string: result.joined(separator: "\n"))
+        recognized.name = "\(stage) - recognized text"
+        recognized.lifetime = .keepAlways
+        add(recognized)
         return result
     }
 
