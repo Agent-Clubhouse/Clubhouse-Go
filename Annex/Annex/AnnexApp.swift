@@ -17,6 +17,8 @@ struct ClubhouseGoApp: App {
                 CompanionDeinitProbe()
             } else if ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing") {
                 CompanionReadingRestoreFixture()
+            } else if ProcessInfo.processInfo.arguments.contains("--native-action-hook-spike") {
+                CompanionNativeActionSpike()
             } else if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
                 NavigationStack { CompanionDiagnosticsView() }
             } else if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
