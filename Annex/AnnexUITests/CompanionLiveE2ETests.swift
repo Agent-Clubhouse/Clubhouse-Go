@@ -512,11 +512,15 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let nameField = element(app, "new-agent-name")
         waitAndTap(newAgent, until: nameField, timeout: 15, "The desktop's create options must load")
         replaceText(app, in: nameField, with: name)
+        let workspace = app.buttons["new-agent-workspace-tools"]
+        XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 4))
+        workspace.tap()
         let worktree = app.switches["new-agent-worktree"]
         if scrollUntilExists(worktree, in: app, maxSwipes: 4, wait: 0.5), worktree.value as? String == "1" {
             scrollTo(worktree, in: app)
             worktree.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         }
+        app.navigationBars["Workspace and tools"].buttons.firstMatch.tap()
         let create = app.buttons["new-agent-create"]
         XCTAssertTrue(create.wait(for: \.isEnabled, toEqual: true, timeout: 10))
         create.tap()

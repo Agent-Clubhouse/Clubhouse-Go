@@ -48,7 +48,7 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
         waitAndTap(newAgent, until: element(app, "spawn-machine-picker"))
         XCTAssertFalse(app.buttons["Start agent"].exists, "No concrete machine has been chosen")
         XCTAssertFalse(app.buttons["Create"].isEnabled)
-        XCTAssertEqual(element(app, "spawn-project-picker").label, "Run on Clubhouse")
+        XCTAssertEqual(element(app, "spawn-project-picker").label, "Project, Clubhouse")
         let machine = element(app, "spawn-machine-picker")
         waitAndTap(machine, until: app.buttons["Travel MacBook"])
         app.buttons["Travel MacBook"].tap()

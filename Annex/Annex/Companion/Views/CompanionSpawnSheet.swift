@@ -9,6 +9,7 @@ struct CompanionSpawnSheet: View {
     let initialProject: CompanionProjectTarget
     @Environment(\.dismiss) private var dismiss
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var project: CompanionProjectTarget?
     @State private var entryID: CompanionProjectTarget?
     @State private var prompt = ""
@@ -27,6 +28,7 @@ struct CompanionSpawnSheet: View {
         NavigationStack {
             formContent
             .companionBackground()
+            .tint(Color(palette.tint))
             .navigationTitle(supportsDurable ? "New agent" : "New quick agent")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -56,15 +58,16 @@ struct CompanionSpawnSheet: View {
             } message: {
                 Text(durable.options?.options.accessLevels.first { $0.id == pendingAccess }?.description ?? "")
             }
-            .onAppear {
-                selectEntry(initialProject)
-                if store.uncertainSpawnRequest == nil { store.spawnError = nil }
-                if store.uncertainCreateRequest == nil { store.createError = nil }
-                kind = supportsDurable ? .durable : .quick
-                promptFocused = kind == .quick
-            }
-            .task(id: durableProject) { await loadOptions() }
         }
+        // The form reappears after Workspace and tools; only a new sheet should initialize it.
+        .onAppear {
+            selectEntry(initialProject)
+            if store.uncertainSpawnRequest == nil { store.spawnError = nil }
+            if store.uncertainCreateRequest == nil { store.createError = nil }
+            kind = supportsDurable ? .durable : .quick
+            promptFocused = kind == .quick
+        }
+        .task(id: durableProject) { await loadOptions() }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }
@@ -112,7 +115,7 @@ struct CompanionSpawnSheet: View {
                     if showOptions {
                         VStack(spacing: 0) {
                             if let providers = selectedHost?.providers, !providers.isEmpty {
-                                Picker("Runs on", selection: $provider) {
+                                choiceMenu("Runs on", value: providers.first { $0.id == provider }?.name ?? "Project default", selection: $provider) {
                                     Text("Project default").tag("")
                                     ForEach(providers) { Text($0.name).tag($0.id) }
                                 }
@@ -148,14 +151,14 @@ struct CompanionSpawnSheet: View {
 
     private var chips: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                projectMenu
-                Button { showOptions.toggle() } label: {
-                    chip(systemImage: "slider.horizontal.3", text: optionsLabel)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Runs on and model, \(optionsLabel)")
+            projectMenu
+                .padding(14)
+                .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            Button { showOptions.toggle() } label: {
+                chip(systemImage: "slider.horizontal.3", text: optionsLabel)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Runs on and model, \(optionsLabel)")
             if selectedEntry?.isLinked == true { machinePicker }
         }
     }
@@ -168,9 +171,9 @@ struct CompanionSpawnSheet: View {
                     }
                 }
             } label: {
-                chip(systemImage: "folder", text: selectedProjectName)
+                pickerRow("Project", value: selectedProjectName)
             }
-            .accessibilityLabel("Run on \(selectedProjectName)")
+            .accessibilityLabel("Project, \(selectedProjectName)")
             .accessibilityIdentifier("spawn-project-picker")
     }
 
@@ -290,6 +293,7 @@ struct CompanionSpawnSheet: View {
     private func loadOptions() async {
         guard let project = durableProject else { durable = DurableForm(); return }
         durable.loading = true
+        durable.options = nil
         durable.error = nil
         defer { durable.loading = false }
         do {
@@ -306,9 +310,11 @@ struct CompanionSpawnSheet: View {
     private var durableForm: some View {
         Form {
             Section { kindPicker }
-            Section {
-                LabeledContent("Project") { projectMenu }
-                if selectedEntry?.isLinked == true { machinePicker }
+            if durable.options == nil {
+                Section {
+                    projectMenu
+                    if selectedEntry?.isLinked == true { machinePicker }
+                }
             }
             // Problems show at the top, next to Create in the toolbar, rather than below a long form.
             if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
@@ -344,30 +350,84 @@ struct CompanionSpawnSheet: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
+    /// All menus use the same label/value row, including long model catalogs.
+    private func pickerRow(_ label: String, value: String) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(label).foregroundStyle(Color(palette.label))
+                    HStack {
+                        Spacer(minLength: 0)
+                        pickerValue(value)
+                    }
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(label).foregroundStyle(Color(palette.label)).fixedSize()
+                    Spacer(minLength: 12)
+                    pickerValue(value)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private func pickerValue(_ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(value).multilineTextAlignment(.trailing).fixedSize(horizontal: false, vertical: true)
+            Image(systemName: "chevron.up.chevron.down").font(.caption.weight(.semibold))
+                .accessibilityHidden(true)
+        }
+        .foregroundStyle(Color(palette.tint))
+    }
+
+    private func choiceMenu<Value: Hashable, Choices: View>(_ label: String, value: String, selection: Binding<Value>,
+                                                           @ViewBuilder choices: () -> Choices) -> some View {
+        Menu { Picker(label, selection: selection) { choices() } } label: { pickerRow(label, value: value) }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(label), \(value)")
+    }
+
     @ViewBuilder private func durableFields(_ options: CompanionCreateOptions) -> some View {
         Section {
-            HStack(spacing: 10) {
-                Circle().fill(options.options.colors.first { $0.id == durable.color }?.rgb.map { Color($0) } ?? Color(palette.tint))
-                    .frame(width: 22, height: 22).accessibilityHidden(true)
-                TextField("Name", text: $durable.name)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .accessibilityIdentifier("new-agent-name")
-                Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }
-                    .labelStyle(.iconOnly).buttonStyle(.borderless)
-                    .accessibilityIdentifier("new-agent-randomize")
+            projectMenu
+            if selectedEntry?.isLinked == true { machinePicker }
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name")
+                    nameInput
+                }
+            } else {
+                HStack(spacing: 10) {
+                    Text("Name")
+                    nameInput
+                }
             }
-        } header: { Text("Name") } footer: {
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text("Color")
+                    Spacer(minLength: 12)
+                    CompanionColorSwatches(colors: options.options.colors, selection: $durable.color)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Color")
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), alignment: .leading, spacing: 10) {
+                        ForEach(options.options.colors) { color in
+                            CompanionColorSwatches(colors: [color], selection: $durable.color)
+                        }
+                    }
+                }
+            }
+        } footer: {
             if let problem = durable.nameProblem {
                 Text(problem).foregroundStyle(Color(palette.error)).accessibilityIdentifier("new-agent-name-error")
-            } else {
-                Text("Generated. Change it now or rename it later.")
             }
         }
-        Section("Color") {
-            CompanionColorSwatches(colors: options.options.colors, selection: $durable.color)
-        }
         Section {
-            Picker("Runs on", selection: $durable.orchestrator) {
+            choiceMenu("Runs on", value: options.options.orchestrator(durable.orchestrator)?.displayName ?? durable.orchestrator,
+                       selection: $durable.orchestrator) {
                 ForEach(options.options.orchestrators) { option in
                     Text(option.badge.map { "\(option.displayName) · \($0)" } ?? option.displayName).tag(option.id)
                 }
@@ -379,101 +439,122 @@ struct CompanionSpawnSheet: View {
                     durable.access = nil
                 }
             }
-            // The desktop's default can be a model the live list doesn't name; it still shows, as itself.
             let models = options.options.models(for: durable.orchestrator, keeping: durable.model)
-            Picker("Model", selection: $durable.model) {
+            choiceMenu("Model", value: models.first { $0.id == durable.model }?.label ?? durable.model, selection: $durable.model) {
                 ForEach(models) { Text($0.label).tag($0.id) }
             }
-            .companionModelPickerStyle(count: models.count)
             .accessibilityIdentifier("new-agent-model")
         } footer: {
             if let warning = options.options.orchestrator(durable.orchestrator)?.warning {
                 Text(warning).foregroundStyle(Color(palette.warning))
-            } else {
-                Text("The model list follows the CLI.")
             }
         }
-        if offersOrchestration {
-            Section {
-                Toggle("Orchestrate", isOn: $durable.orchestrate)
-                    .accessibilityIdentifier("new-agent-orchestrate")
-            } footer: {
-                Text(durable.orchestrate
-                     ? "Gives the agent the tools to start, message and dispose of helper agents. Change how in its settings."
-                     : "Turn it on to give the agent the tools to start, message and dispose of helper agents.")
+        Section {
+            accessPicker(options)
+            if options.isGitRepo || offersOrchestration || !options.mcpCatalog.isEmpty {
+                NavigationLink {
+                    workspaceAndTools(options)
+                } label: {
+                    LabeledContent("Workspace and tools", value: workspaceSummary(options))
+                }
+                .accessibilityIdentifier("new-agent-workspace-tools")
+            }
+        } footer: {
+            if selectedHost?.canSetAccess == true, options.options.orchestrator(durable.orchestrator)?.permissions == true {
+                let selected = durable.access ?? options.defaultAccess
+                if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
             }
         }
-        if options.isGitRepo {
-            Section {
-                Toggle("Own worktree and branch", isOn: $durable.useWorktree)
-                    .accessibilityIdentifier("new-agent-worktree")
-            } footer: {
-                Text(durable.useWorktree
-                     ? "Branch \(durable.trimmedName)/standby from the current branch, checked out in .clubhouse/agents/\(durable.trimmedName)."
-                     : "Works in the project folder, on whatever branch is checked out there.")
-            }
+    }
+
+    private var nameInput: some View {
+        HStack(spacing: 10) {
+            TextField("Name", text: $durable.name)
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("new-agent-name")
+            Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }
+                .labelStyle(.iconOnly).buttonStyle(.borderless)
+                .accessibilityIdentifier("new-agent-randomize")
         }
+    }
+
+    @ViewBuilder private func accessPicker(_ options: CompanionCreateOptions) -> some View {
         if selectedHost?.canSetAccess == true {
-            let supported = options.options.orchestrator(durable.orchestrator)?.permissions == true
-            Section {
-                if supported {
-                    Picker("Access", selection: Binding(get: { durable.access ?? options.defaultAccess }, set: { level in
-                        let current = durable.access ?? options.defaultAccess ?? .ask
-                        if let level, level.needsConfirmation(from: current) {
-                            pendingAccess = level
-                            confirmAccess = true
-                        } else { durable.access = level }
-                    })) {
-                        let current = durable.access ?? options.defaultAccess
-                        if !options.accessChoices(for: durable.orchestrator).contains(where: { $0.id == current }) {
-                            Text(current.map { "\($0.label) (not available for this CLI)" } ?? "Desktop default")
-                                .tag(current).disabled(true)
-                        }
-                        ForEach(options.accessChoices(for: durable.orchestrator)) { choice in
-                            Text(choice.label).tag(Optional(choice.id))
-                        }
+            if options.options.orchestrator(durable.orchestrator)?.permissions == true {
+                let current = durable.access ?? options.defaultAccess
+                choiceMenu("Access", value: current.map { level in
+                    options.options.accessLevels.first { $0.id == level }?.label ?? level.label
+                } ?? "Desktop default", selection: Binding(get: { durable.access ?? options.defaultAccess }, set: { level in
+                    let current = durable.access ?? options.defaultAccess ?? .ask
+                    if let level, level.needsConfirmation(from: current) {
+                        pendingAccess = level
+                        confirmAccess = true
+                    } else { durable.access = level }
+                })) {
+                    if !options.accessChoices(for: durable.orchestrator).contains(where: { $0.id == current }) {
+                        Text(current.map { "\($0.label) (not available for this CLI)" } ?? "Desktop default")
+                            .tag(current).disabled(true)
                     }
-                    .accessibilityIdentifier("new-agent-access")
-                } else {
-                    LabeledContent("Access", value: "Set by the CLI")
-                        .accessibilityIdentifier("new-agent-access")
+                    ForEach(options.accessChoices(for: durable.orchestrator)) { choice in
+                        Text(choice.label).tag(Optional(choice.id))
+                    }
                 }
-            } header: { Text("Access") } footer: {
-                VStack(alignment: .leading, spacing: 4) {
-                    if supported {
-                        let selected = durable.access ?? options.defaultAccess
-                        if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
-                        if durable.access == nil, let level = options.defaultAccess,
-                           let choice = options.options.accessLevels.first(where: { $0.id == level }) {
-                            Text("Desktop default: \(choice.label).")
-                        }
-                        Text("Applies at next start.")
-                    } else { Text(CompanionFreeAgentMode.unsupported) }
-                }
+                .accessibilityIdentifier("new-agent-access")
+            } else {
+                LabeledContent("Access", value: "Set by the CLI").accessibilityIdentifier("new-agent-access")
             }
         } else {
-            Section {
-                LabeledContent("Access", value: "Desktop default")
-                    .accessibilityIdentifier("new-agent-access")
-            } header: { Text("Access") } footer: {
-                Text("Access follows the desktop default. Change it on the desktop.")
-            }
+            LabeledContent("Access", value: "Desktop default").accessibilityIdentifier("new-agent-access")
         }
-        if !options.mcpCatalog.isEmpty {
-            Section {
-                ForEach(options.mcpCatalog) { server in
-                    Toggle(isOn: Binding(get: { durable.mcpIDs.contains(server.id) },
-                                         set: { if $0 { durable.mcpIDs.insert(server.id) } else { durable.mcpIDs.remove(server.id) } })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(server.name)
-                            if let description = server.description { Text(description).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+    }
+
+    private func workspaceSummary(_ options: CompanionCreateOptions) -> String {
+        let workspace = options.isGitRepo && durable.useWorktree ? "Worktree" : "Project folder"
+        let count = durable.mcpIDs.count
+        return options.mcpCatalog.isEmpty ? workspace : "\(workspace) · \(count) MCP\(count == 1 ? "" : "s")"
+    }
+
+    private func workspaceAndTools(_ options: CompanionCreateOptions) -> some View {
+        Form {
+            if options.isGitRepo {
+                Section {
+                    Toggle("Own worktree and branch", isOn: $durable.useWorktree)
+                        .accessibilityIdentifier("new-agent-worktree")
+                } footer: {
+                    Text(durable.useWorktree
+                         ? "Branch \(durable.trimmedName)/standby from the current branch, checked out in .clubhouse/agents/\(durable.trimmedName)."
+                         : "Works in the project folder, on whatever branch is checked out there.")
+                }
+            }
+            if offersOrchestration {
+                Section {
+                    Toggle("Can start helpers", isOn: $durable.orchestrate)
+                        .accessibilityIdentifier("new-agent-orchestrate")
+                } footer: {
+                    Text("Gives the agent tools to start, message and dispose of helper agents. Change how in its settings.")
+                }
+            }
+            if !options.mcpCatalog.isEmpty {
+                Section("MCP servers") {
+                    ForEach(options.mcpCatalog) { server in
+                        Toggle(isOn: Binding(get: { durable.mcpIDs.contains(server.id) },
+                                             set: { if $0 { durable.mcpIDs.insert(server.id) } else { durable.mcpIDs.remove(server.id) } })) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(server.name)
+                                if let description = server.description { Text(description).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                            }
                         }
+                        .accessibilityIdentifier("new-agent-mcp-\(server.id)")
                     }
                 }
-            } header: { Text("MCP servers") } footer: {
-                Text("Project defaults from the MCP catalog, \(durable.mcpIDs.count) of \(options.mcpCatalog.count).")
             }
         }
+        .scrollContentBackground(.hidden)
+        .companionBackground()
+        .tint(Color(palette.tint))
+        .navigationTitle("Workspace and tools")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var createButton: some View {
