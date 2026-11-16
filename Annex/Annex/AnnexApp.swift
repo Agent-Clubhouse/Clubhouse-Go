@@ -62,6 +62,9 @@ struct ClubhouseGoApp: App {
         if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
             UIView.setAnimationsEnabled(false)
         }
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-external-dispatch-shortcut") {
+            CompanionDispatcherLaunchInbox.shared.handleQuickAction(CompanionDispatcherLaunchInbox.quickActionType)
+        }
         CompanionShakeDiagnostics.install()
         #endif
         _ = AnnexDiagnosticSettings.shared

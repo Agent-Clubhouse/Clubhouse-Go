@@ -268,7 +268,9 @@ struct CompanionAppRoot: View {
                               onPair: { [showPairing = $showPairing] in showPairing.wrappedValue = true },
                               onSettings: { [settingsCapture = $settingsCapture.releasingFeedbackScreenshot] in
                                   settingsCapture.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
-                              }, pairedHostIDs: runtime.restoredHostIDs)
+                              }, pairedHostIDs: runtime.restoredHostIDs,
+                              externalLaunchReady: runtime.restoredHostIDs != nil && !runtime.isRestoring
+                                && settingsCapture == nil && !showPairing && !showDemo)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -282,6 +284,12 @@ struct CompanionAppRoot: View {
             }
             .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
                 CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
+            .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, pending in
+                guard pending != nil else { return }
+                $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
+                showPairing = false
+                showDemo = false
             }
             .onOpenURL { url in
                 guard let link = CompanionPairingLink(url: url) else { return }

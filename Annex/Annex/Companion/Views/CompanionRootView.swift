@@ -10,6 +10,14 @@ struct CompanionRootView: View {
     var onSettings: () -> Void
     var isPreview = false
     var pairedHostIDs: Set<String>?
+    var externalLaunchReady: Bool
+    private struct DispatcherLaunchPrompt: Identifiable {
+        let id: UUID
+        let desktops: [CompanionDispatcherDesktop]
+    }
+    @State private var dispatcherLaunchPrompt: DispatcherLaunchPrompt?
+    @State private var dispatcherLaunchChoice: String?
+    @State private var dispatcherComposerFocus: CompanionDispatcherComposerFocus?
     @State private var navigation: CompanionNavigation
     private struct SpawnLaunch: Identifiable {
         let project: CompanionProjectTarget
@@ -24,13 +32,14 @@ struct CompanionRootView: View {
     @State private var decisionsLifetime: CompanionStateLifetime<CompanionDecisionQueue>
     private var decisions: CompanionDecisionQueue { decisionsLifetime.value }
 
-    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false, pairedHostIDs: Set<String>? = nil) {
+    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false, pairedHostIDs: Set<String>? = nil, externalLaunchReady: Bool = false) {
         _store = Bindable(store)
         self.preferences = preferences
         self.onPair = onPair
         self.onSettings = onSettings
         self.isPreview = isPreview
         self.pairedHostIDs = pairedHostIDs
+        self.externalLaunchReady = externalLaunchReady
         var navigation = CompanionNavigation(lastTab: preferences.lastTab, cached: preferences.dispatcherDesktops,
                                              lastHostID: preferences.lastHostID, lastDispatcherHostID: preferences.lastDispatcherHostID)
         navigation.update(hosts: store.hosts)
@@ -105,6 +114,23 @@ struct CompanionRootView: View {
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
+        .sheet(item: $dispatcherLaunchPrompt, onDismiss: {
+            if let hostID = dispatcherLaunchChoice {
+                dispatcherLaunchChoice = nil
+                openExternalDispatcher(hostID)
+            }
+            handleDispatcherLaunch()
+        }) { prompt in
+            CompanionDispatcherLaunchSheet(desktops: prompt.desktops) { hostID in
+                dispatcherLaunchChoice = hostID
+                dispatcherLaunchPrompt = nil
+                CompanionUIActions.record(.dispatcher, .selectDesktop)
+            }
+            .companionTheme(preferences.sharedTheme(hosts: store.hosts))
+        }
+        .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, _ in handleDispatcherLaunch() }
+        .onChange(of: externalLaunchReady) { _, _ in handleDispatcherLaunch() }
+        .onChange(of: navigation.dispatcherDesktops) { _, _ in handleDispatcherLaunch() }
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.tab) { _, _ in mirrorSelection() }
@@ -123,6 +149,7 @@ struct CompanionRootView: View {
             guard let ids else { return }
             navigation.retainPairedDesktops(ids)
             preferences.retainRecentAgents(on: ids)
+            handleDispatcherLaunch()
             if preferences.dispatcherDesktops != nil { preferences.dispatcherDesktops = navigation.dispatcherDesktops }
             mirrorSelection()
         }
@@ -134,6 +161,7 @@ struct CompanionRootView: View {
                 if !hosts.isEmpty, preferences.lastDispatcherHostID != navigation.dispatcherHostID { preferences.lastDispatcherHostID = navigation.dispatcherHostID }
             }
             mirrorSelection()
+            handleDispatcherLaunch()
         }
     }
 
@@ -153,6 +181,39 @@ struct CompanionRootView: View {
                 }
             }
         }
+    }
+
+    private var launchPairedIDs: Set<String>? {
+        pairedHostIDs ?? (isPreview ? Set(store.hosts.map(\.id)) : nil)
+    }
+
+    private func handleDispatcherLaunch() {
+        guard let request = CompanionDispatcherLaunchInbox.shared.pending,
+              dispatcherLaunchPrompt == nil else { return }
+        let result = CompanionDispatcherLaunchResolution.resolve(desktops: navigation.dispatcherDesktops,
+            pairedHostIDs: launchPairedIDs, restorationComplete: externalLaunchReady, hosts: store.hosts)
+        switch result {
+        case .waiting: return
+        case .open(let desktop): openExternalDispatcher(desktop.id)
+        case .choose(let desktops): dispatcherLaunchPrompt = .init(id: request.id, desktops: desktops)
+        case .unavailable: dispatcherLaunchPrompt = .init(id: request.id, desktops: [])
+        }
+        CompanionUIActions.record(.dispatcher, .messageDispatcher)
+        CompanionDispatcherLaunchInbox.shared.consume(request.id)
+    }
+
+    private func openExternalDispatcher(_ hostID: String) {
+        // Revalidate after chooser dismissal: forgotten or withdrawn targets cannot be opened.
+        guard launchPairedIDs?.contains(hostID) == true,
+              let desktop = navigation.dispatcherDesktops.first(where: { $0.id == hostID }),
+              let target = desktop.target else { return }
+        spawnLaunch = nil; settingsTarget = nil; detailsTarget = nil; review = nil; terminal = nil
+        navigation.chooseDispatcher(hostID: hostID)
+        navigation.select(.dispatcher)
+        preferences.lastDispatcherHostID = hostID
+        preferences.lastHostID = hostID
+        mirrorSelection()
+        dispatcherComposerFocus = .init(id: UUID(), target: target)
     }
 
     private func open(_ target: CompanionTarget) {
@@ -192,7 +253,11 @@ struct CompanionRootView: View {
                     && (navigation.paths[.dispatcher] ?? []).isEmpty
                 VStack(spacing: 0) {
                     if let target = desktop.target, let agent = store.agent(for: target) {
-                        conversation(agent, visible: visible).id(target)
+                        conversation(agent, visible: visible)
+                            .environment(\.companionDispatcherFocus, .init(request: visible ? dispatcherComposerFocus : nil, handled: { id in
+                                if dispatcherComposerFocus?.id == id { dispatcherComposerFocus = nil }
+                            }))
+                            .id(target)
                     } else if store.hosts.contains(where: { $0.id == desktop.id && $0.dispatcher?.mcpOff != nil }) {
                         CompanionDispatcherUnavailableView(store: store, hostID: desktop.id)
                     } else {

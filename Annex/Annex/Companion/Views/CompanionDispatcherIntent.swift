@@ -4,6 +4,7 @@ import UIKit
 
 /// SwiftUI retains scene ownership; these delegates only hand off the external action.
 @MainActor final class CompanionLaunchAppDelegate: NSObject, UIApplicationDelegate {
+    nonisolated deinit {}
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         Self.sceneConfiguration(role: session.role)
@@ -16,6 +17,7 @@ import UIKit
 }
 
 @MainActor final class CompanionLaunchSceneDelegate: NSObject, UIWindowSceneDelegate {
+    nonisolated deinit {}
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         Self.captureColdShortcut(options.shortcutItem)
     }

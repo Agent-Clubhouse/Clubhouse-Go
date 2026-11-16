@@ -8,7 +8,7 @@ import Observation
     static let quickActionType = "com.Agent-Clubhouse.Go.message-dispatcher"
     enum Source: Equatable, Sendable { case quickAction, appIntent }
     struct Request: Equatable, Sendable {
-        let id = UUID()
+        let id: UUID = UUID()
         let source: Source
     }
     private(set) var pending: Request?
@@ -33,8 +33,6 @@ enum CompanionDispatcherLaunchResolution: Equatable {
                         restorationComplete: Bool, hosts: [CompanionHost]) -> Self {
         guard restorationComplete, let pairedHostIDs else { return .waiting }
         let choices = desktops.filter { pairedHostIDs.contains($0.id) && $0.target != nil }
-        if choices.count == 1 { return .open(choices[0]) }
-        if choices.count > 1 { return .choose(choices) }
         let unresolved = pairedHostIDs.contains { id in
             guard let host = hosts.first(where: { $0.id == id }) else { return true }
             switch host.connection {
@@ -42,6 +40,9 @@ enum CompanionDispatcherLaunchResolution: Equatable {
             default: return false
             }
         }
-        return unresolved ? .waiting : .unavailable
+        if unresolved { return .waiting }
+        if choices.count == 1 { return .open(choices[0]) }
+        if choices.count > 1 { return .choose(choices) }
+        return .unavailable
     }
 }
