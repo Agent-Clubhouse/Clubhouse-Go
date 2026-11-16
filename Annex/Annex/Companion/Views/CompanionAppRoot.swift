@@ -400,7 +400,7 @@ struct CompanionSettingsSheet: View {
             List {
                 CompanionSettingsSections(store: runtime.store, preferences: runtime.preferences,
                     feedback: runtime.feedback, initialCapture: initialCapture, exporter: runtime.telemetryExporter,
-                    sessionHosts: runtime.sessionHosts, removingHostID: removingHostID, pair: pair,
+                    sessionHosts: runtime.sessionHosts, removingHostID: removingHostID, operationError: error, pair: pair,
                     forget: { hostToForget = $0 }, endSession: { hostToEnd = $0 })
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 CompanionBuildInfoSection()

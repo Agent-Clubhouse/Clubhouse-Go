@@ -11,6 +11,7 @@ struct CompanionSettingsSections: View {
     var exporter: AnnexOTLPExporter?
     var sessionHosts: Set<String> = []
     var removingHostID: String?
+    var operationError: String? = nil
     var pair: () -> Void
     var forget: (CompanionHost) -> Void
     var endSession: (CompanionHost) -> Void = { _ in }
@@ -21,6 +22,7 @@ struct CompanionSettingsSections: View {
                 NavigationLink {
                     CompanionSettingsDesktopPage(store: store, hostID: host.id,
                         isSessionOnly: sessionHosts.contains(host.id), removing: removingHostID == host.id,
+                        operationError: operationError,
                         forget: { forget(host) }, endSession: { endSession(host) })
                 } label: {
                     CompanionSettingsRowLabel(host.name, symbol: "desktopcomputer",
@@ -115,11 +117,15 @@ private struct CompanionSettingsDesktopPage: View {
     let hostID: String
     var isSessionOnly: Bool
     var removing: Bool
+    var operationError: String?
     var forget: () -> Void
     var endSession: () -> Void
     private var host: CompanionHost? { store.hosts.first { $0.id == hostID } }
     var body: some View {
         List {
+            if let operationError {
+                Section { Text(operationError).foregroundStyle(.red) }
+            }
             if let host {
                 Section {
                     CompanionSettingsRowLabel(host.name, symbol: "desktopcomputer", tone: .accent,
