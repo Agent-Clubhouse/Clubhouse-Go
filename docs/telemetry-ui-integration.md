@@ -53,8 +53,8 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | Pending | File and line | Follow-up ownership | Source interaction |
 |---|---|---|---|
 | [ ] | [CompanionRootView.swift:107](../Annex/Annex/Companion/Views/CompanionRootView.swift#L107) | Root lane | Replace generic navigation observation with explicit user intent at the actual originating action. |
-| [ ] | [CompanionRootView.swift:721](../Annex/Annex/Companion/Views/CompanionRootView.swift#L721) | Root lane | Project reorder interaction. |
-| [ ] | [CompanionRootView.swift:1356](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1356) | Root lane | Search presentation/submit; never export the query. |
+| [ ] | [CompanionRootView.swift:723](../Annex/Annex/Companion/Views/CompanionRootView.swift#L723) | Root lane | Project reorder interaction. |
+| [ ] | [CompanionRootView.swift:1358](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1358) | Root lane | Search presentation/submit; never export the query. |
 | [ ] | [CompanionDispatcherSettingsSections.swift:215](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L215) | Dispatcher/settings owner | Identity draft submit; never export the draft. |
 | [ ] | [CompanionDispatcherSettingsSections.swift:238](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L238) | Dispatcher/settings owner | Emoji draft submit; never export the value. |
 | [ ] | [CompanionMarkdownBlockViews.swift:85](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L85) | Chat lane | Inline preview tap. |
@@ -264,56 +264,56 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionRootView.swift:193](../Annex/Annex/Companion/Views/CompanionRootView.swift#L193) | Root lane | `Button {` |
 | [ ] | [CompanionRootView.swift:213](../Annex/Annex/Companion/Views/CompanionRootView.swift#L213) | Root lane | `Button {} label: {` |
 | [ ] | [CompanionRootView.swift:231](../Annex/Annex/Companion/Views/CompanionRootView.swift#L231) | Root lane | `Button("Settings", systemImage: "gearshape") { navigation.interact(); onSettings() }` |
-| [ ] | [CompanionRootView.swift:333](../Annex/Annex/Companion/Views/CompanionRootView.swift#L333) | Root lane | `Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)` |
-| [ ] | [CompanionRootView.swift:360](../Annex/Annex/Companion/Views/CompanionRootView.swift#L360) | Root lane | `Button("OK", role: .cancel) {}` |
-| [ ] | [CompanionRootView.swift:365](../Annex/Annex/Companion/Views/CompanionRootView.swift#L365) | Root lane | `Button("Settings", systemImage: "gearshape", action: onSettings)` |
-| [ ] | [CompanionRootView.swift:369](../Annex/Annex/Companion/Views/CompanionRootView.swift#L369) | Root lane | `Menu {` |
-| [ ] | [CompanionRootView.swift:370](../Annex/Annex/Companion/Views/CompanionRootView.swift#L370) | Root lane | `Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback)` |
-| [ ] | [CompanionRootView.swift:376](../Annex/Annex/Companion/Views/CompanionRootView.swift#L376) | Root lane | `Button("New agent", systemImage: "plus") {` |
-| [ ] | [CompanionRootView.swift:415](../Annex/Annex/Companion/Views/CompanionRootView.swift#L415) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: host.id) } }` |
-| [ ] | [CompanionRootView.swift:439](../Annex/Annex/Companion/Views/CompanionRootView.swift#L439) | Root lane | `NavigationLink(value: item.agent.id) {` |
-| [ ] | [CompanionRootView.swift:497](../Annex/Annex/Companion/Views/CompanionRootView.swift#L497) | Root lane | `Menu {` |
-| [ ] | [CompanionRootView.swift:498](../Annex/Annex/Companion/Views/CompanionRootView.swift#L498) | Root lane | `Picker("Sort projects", selection: $preferences.projectSort) {` |
-| [ ] | [CompanionRootView.swift:502](../Annex/Annex/Companion/Views/CompanionRootView.swift#L502) | Root lane | `Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }` |
-| [ ] | [CompanionRootView.swift:515](../Annex/Annex/Companion/Views/CompanionRootView.swift#L515) | Root lane | `Button {` |
-| [ ] | [CompanionRootView.swift:562](../Annex/Annex/Companion/Views/CompanionRootView.swift#L562) | Root lane | `Button { onNewAgent(entry.id) } label: { Image(systemName: "plus") }` |
-| [ ] | [CompanionRootView.swift:604](../Annex/Annex/Companion/Views/CompanionRootView.swift#L604) | Root lane | `Menu {` |
-| [ ] | [CompanionRootView.swift:609](../Annex/Annex/Companion/Views/CompanionRootView.swift#L609) | Root lane | `Menu(group.entry.label(for: member)) {` |
-| [ ] | [CompanionRootView.swift:636](../Annex/Annex/Companion/Views/CompanionRootView.swift#L636) | Root lane | `Button(group.isPinned ? "Unpin project" : "Pin project", systemImage: group.isPinned ? "pin.slash" : "pin") {` |
-| [ ] | [CompanionRootView.swift:640](../Annex/Annex/Companion/Views/CompanionRootView.swift#L640) | Root lane | `Button("Mark active", systemImage: "sun.max") {` |
-| [ ] | [CompanionRootView.swift:644](../Annex/Annex/Companion/Views/CompanionRootView.swift#L644) | Root lane | `Button("Mark inactive", systemImage: "moon.zzz") {` |
-| [ ] | [CompanionRootView.swift:678](../Annex/Annex/Companion/Views/CompanionRootView.swift#L678) | Root lane | `NavigationLink(value: CompanionRoute.project(entry.id)) {` |
-| [ ] | [CompanionRootView.swift:727](../Annex/Annex/Companion/Views/CompanionRootView.swift#L727) | Root lane | `ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }` |
-| [ ] | [CompanionRootView.swift:729](../Annex/Annex/Companion/Views/CompanionRootView.swift#L729) | Root lane | `Button("Done") { preferences.setProjectOrder(order.map(\.orderKey)); dismiss() }` |
-| [ ] | [CompanionRootView.swift:748](../Annex/Annex/Companion/Views/CompanionRootView.swift#L748) | Root lane | `Button { openAgent(agent.id) } label: {` |
-| [ ] | [CompanionRootView.swift:793](../Annex/Annex/Companion/Views/CompanionRootView.swift#L793) | Root lane | `Button("Turn on Dispatcher") { Task { await store.setDispatcher(enabled: true, hostID: hostID) } }` |
-| [ ] | [CompanionRootView.swift:805](../Annex/Annex/Companion/Views/CompanionRootView.swift#L805) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: hostID) } }` |
-| [ ] | [CompanionRootView.swift:825](../Annex/Annex/Companion/Views/CompanionRootView.swift#L825) | Root lane | `Button("Dismiss", systemImage: "xmark") { store.dismissDecisionNotice(notice) }` |
-| [ ] | [CompanionRootView.swift:886](../Annex/Annex/Companion/Views/CompanionRootView.swift#L886) | Root lane | `Button("Undo") { decisions.undo(pending.id) }.buttonStyle(.glass)` |
-| [ ] | [CompanionRootView.swift:896](../Annex/Annex/Companion/Views/CompanionRootView.swift#L896) | Root lane | `Button("OK", role: .cancel) { }` |
-| [ ] | [CompanionRootView.swift:905](../Annex/Annex/Companion/Views/CompanionRootView.swift#L905) | Root lane | `Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))` |
-| [ ] | [CompanionRootView.swift:910](../Annex/Annex/Companion/Views/CompanionRootView.swift#L910) | Root lane | `Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))` |
-| [ ] | [CompanionRootView.swift:952](../Annex/Annex/Companion/Views/CompanionRootView.swift#L952) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: hostID) } }` |
-| [ ] | [CompanionRootView.swift:1035](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1035) | Root lane | `Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {` |
-| [ ] | [CompanionRootView.swift:1041](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1041) | Root lane | `Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {` |
-| [ ] | [CompanionRootView.swift:1052](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1052) | Root lane | `NavigationLink(value: item.agent.id) { Text("Review full request in chat") }` |
-| [ ] | [CompanionRootView.swift:1059](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1059) | Root lane | `NavigationLink(value: item.agent.id) { Text(item.kind == .failure ? "Open chat" : "Answer in chat") }` |
-| [ ] | [CompanionRootView.swift:1091](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1091) | Root lane | `Button { Task { await store.answer(request, approve: false) } } label: {` |
-| [ ] | [CompanionRootView.swift:1097](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1097) | Root lane | `Button {` |
-| [ ] | [CompanionRootView.swift:1119](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1119) | Root lane | `Button(request.approveLabel, role: .destructive) { Task { await store.answer(request, approve: true) } }` |
-| [ ] | [CompanionRootView.swift:1120](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1120) | Root lane | `Button("Cancel", role: .cancel) {}` |
-| [ ] | [CompanionRootView.swift:1203](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1203) | Root lane | `Button("Open chat") { openAgent(request.agentTarget) }` |
-| [ ] | [CompanionRootView.swift:1205](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1205) | Root lane | `NavigationLink(value: request.agentTarget) { Text("Open chat") }` |
-| [ ] | [CompanionRootView.swift:1217](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1217) | Root lane | `Button("Restart now") { Task { await store.answer(request, with: .allowOnce, updateMode: .now) } }` |
-| [ ] | [CompanionRootView.swift:1220](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1220) | Root lane | `Button("Restart when idle") { Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) } }` |
-| [ ] | [CompanionRootView.swift:1225](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1225) | Root lane | `Button("Cancel", role: .cancel) { Task { await store.answer(request, with: .decline) } }` |
-| [ ] | [CompanionRootView.swift:1231](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1231) | Root lane | `Button { Task { await store.answer(request, with: .decline) } } label: {` |
-| [ ] | [CompanionRootView.swift:1238](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1238) | Root lane | `Button { Task { await store.answer(request, with: allow) } } label: {` |
-| [ ] | [CompanionRootView.swift:1271](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1271) | Root lane | `NavigationLink(value: agent.id) {` |
-| [ ] | [CompanionRootView.swift:1290](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1290) | Root lane | `Button("New agent", systemImage: "plus") {` |
-| [ ] | [CompanionRootView.swift:1326](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1326) | Root lane | `NavigationLink(value: agent.id) {` |
-| [ ] | [CompanionRootView.swift:1338](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1338) | Root lane | `NavigationLink {` |
-| [ ] | [CompanionRootView.swift:1366](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1366) | Root lane | `NavigationLink(value: agent.id) {` |
+| [ ] | [CompanionRootView.swift:343](../Annex/Annex/Companion/Views/CompanionRootView.swift#L343) | Root lane | `Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)` |
+| [ ] | [CompanionRootView.swift:369](../Annex/Annex/Companion/Views/CompanionRootView.swift#L369) | Root lane | `Button("OK", role: .cancel) {}` |
+| [ ] | [CompanionRootView.swift:374](../Annex/Annex/Companion/Views/CompanionRootView.swift#L374) | Root lane | `Button("Settings", systemImage: "gearshape", action: onSettings)` |
+| [ ] | [CompanionRootView.swift:378](../Annex/Annex/Companion/Views/CompanionRootView.swift#L378) | Root lane | `Menu {` |
+| [ ] | [CompanionRootView.swift:379](../Annex/Annex/Companion/Views/CompanionRootView.swift#L379) | Root lane | `Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback)` |
+| [ ] | [CompanionRootView.swift:385](../Annex/Annex/Companion/Views/CompanionRootView.swift#L385) | Root lane | `Button("New agent", systemImage: "plus") {` |
+| [ ] | [CompanionRootView.swift:426](../Annex/Annex/Companion/Views/CompanionRootView.swift#L426) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: host.id) } }` |
+| [ ] | [CompanionRootView.swift:450](../Annex/Annex/Companion/Views/CompanionRootView.swift#L450) | Root lane | `NavigationLink(value: item.agent.id) {` |
+| [ ] | [CompanionRootView.swift:508](../Annex/Annex/Companion/Views/CompanionRootView.swift#L508) | Root lane | `Menu {` |
+| [ ] | [CompanionRootView.swift:509](../Annex/Annex/Companion/Views/CompanionRootView.swift#L509) | Root lane | `Picker("Sort projects", selection: $preferences.projectSort) {` |
+| [ ] | [CompanionRootView.swift:513](../Annex/Annex/Companion/Views/CompanionRootView.swift#L513) | Root lane | `Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }` |
+| [ ] | [CompanionRootView.swift:526](../Annex/Annex/Companion/Views/CompanionRootView.swift#L526) | Root lane | `Button {` |
+| [ ] | [CompanionRootView.swift:573](../Annex/Annex/Companion/Views/CompanionRootView.swift#L573) | Root lane | `Button { onNewAgent(entry.id) } label: { Image(systemName: "plus") }` |
+| [ ] | [CompanionRootView.swift:615](../Annex/Annex/Companion/Views/CompanionRootView.swift#L615) | Root lane | `Menu {` |
+| [ ] | [CompanionRootView.swift:620](../Annex/Annex/Companion/Views/CompanionRootView.swift#L620) | Root lane | `Menu(group.entry.label(for: member)) {` |
+| [ ] | [CompanionRootView.swift:647](../Annex/Annex/Companion/Views/CompanionRootView.swift#L647) | Root lane | `Button(group.isPinned ? "Unpin project" : "Pin project", systemImage: group.isPinned ? "pin.slash" : "pin") {` |
+| [ ] | [CompanionRootView.swift:651](../Annex/Annex/Companion/Views/CompanionRootView.swift#L651) | Root lane | `Button("Mark active", systemImage: "sun.max") {` |
+| [ ] | [CompanionRootView.swift:655](../Annex/Annex/Companion/Views/CompanionRootView.swift#L655) | Root lane | `Button("Mark inactive", systemImage: "moon.zzz") {` |
+| [ ] | [CompanionRootView.swift:689](../Annex/Annex/Companion/Views/CompanionRootView.swift#L689) | Root lane | `NavigationLink(value: CompanionRoute.project(entry.id)) {` |
+| [ ] | [CompanionRootView.swift:729](../Annex/Annex/Companion/Views/CompanionRootView.swift#L729) | Root lane | `ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }` |
+| [ ] | [CompanionRootView.swift:731](../Annex/Annex/Companion/Views/CompanionRootView.swift#L731) | Root lane | `Button("Done") { preferences.setProjectOrder(order.map(\.orderKey)); dismiss() }` |
+| [ ] | [CompanionRootView.swift:750](../Annex/Annex/Companion/Views/CompanionRootView.swift#L750) | Root lane | `Button { openAgent(agent.id) } label: {` |
+| [ ] | [CompanionRootView.swift:795](../Annex/Annex/Companion/Views/CompanionRootView.swift#L795) | Root lane | `Button("Turn on Dispatcher") { Task { await store.setDispatcher(enabled: true, hostID: hostID) } }` |
+| [ ] | [CompanionRootView.swift:807](../Annex/Annex/Companion/Views/CompanionRootView.swift#L807) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: hostID) } }` |
+| [ ] | [CompanionRootView.swift:827](../Annex/Annex/Companion/Views/CompanionRootView.swift#L827) | Root lane | `Button("Dismiss", systemImage: "xmark") { store.dismissDecisionNotice(notice) }` |
+| [ ] | [CompanionRootView.swift:888](../Annex/Annex/Companion/Views/CompanionRootView.swift#L888) | Root lane | `Button("Undo") { decisions.undo(pending.id) }.buttonStyle(.glass)` |
+| [ ] | [CompanionRootView.swift:898](../Annex/Annex/Companion/Views/CompanionRootView.swift#L898) | Root lane | `Button("OK", role: .cancel) { }` |
+| [ ] | [CompanionRootView.swift:907](../Annex/Annex/Companion/Views/CompanionRootView.swift#L907) | Root lane | `Button("Allow", systemImage: "checkmark") { schedule(item, option) }.tint(Color(palette.success))` |
+| [ ] | [CompanionRootView.swift:912](../Annex/Annex/Companion/Views/CompanionRootView.swift#L912) | Root lane | `Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))` |
+| [ ] | [CompanionRootView.swift:954](../Annex/Annex/Companion/Views/CompanionRootView.swift#L954) | Root lane | `Button("Retry") { Task { await store.reconnect(hostID: hostID) } }` |
+| [ ] | [CompanionRootView.swift:1037](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1037) | Root lane | `Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {` |
+| [ ] | [CompanionRootView.swift:1043](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1043) | Root lane | `Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {` |
+| [ ] | [CompanionRootView.swift:1054](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1054) | Root lane | `NavigationLink(value: item.agent.id) { Text("Review full request in chat") }` |
+| [ ] | [CompanionRootView.swift:1061](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1061) | Root lane | `NavigationLink(value: item.agent.id) { Text(item.kind == .failure ? "Open chat" : "Answer in chat") }` |
+| [ ] | [CompanionRootView.swift:1093](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1093) | Root lane | `Button { Task { await store.answer(request, approve: false) } } label: {` |
+| [ ] | [CompanionRootView.swift:1099](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1099) | Root lane | `Button {` |
+| [ ] | [CompanionRootView.swift:1121](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1121) | Root lane | `Button(request.approveLabel, role: .destructive) { Task { await store.answer(request, approve: true) } }` |
+| [ ] | [CompanionRootView.swift:1122](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1122) | Root lane | `Button("Cancel", role: .cancel) {}` |
+| [ ] | [CompanionRootView.swift:1205](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1205) | Root lane | `Button("Open chat") { openAgent(request.agentTarget) }` |
+| [ ] | [CompanionRootView.swift:1207](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1207) | Root lane | `NavigationLink(value: request.agentTarget) { Text("Open chat") }` |
+| [ ] | [CompanionRootView.swift:1219](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1219) | Root lane | `Button("Restart now") { Task { await store.answer(request, with: .allowOnce, updateMode: .now) } }` |
+| [ ] | [CompanionRootView.swift:1222](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1222) | Root lane | `Button("Restart when idle") { Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) } }` |
+| [ ] | [CompanionRootView.swift:1227](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1227) | Root lane | `Button("Cancel", role: .cancel) { Task { await store.answer(request, with: .decline) } }` |
+| [ ] | [CompanionRootView.swift:1233](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1233) | Root lane | `Button { Task { await store.answer(request, with: .decline) } } label: {` |
+| [ ] | [CompanionRootView.swift:1240](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1240) | Root lane | `Button { Task { await store.answer(request, with: allow) } } label: {` |
+| [ ] | [CompanionRootView.swift:1273](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1273) | Root lane | `NavigationLink(value: agent.id) {` |
+| [ ] | [CompanionRootView.swift:1292](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1292) | Root lane | `Button("New agent", systemImage: "plus") {` |
+| [ ] | [CompanionRootView.swift:1328](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1328) | Root lane | `NavigationLink(value: agent.id) {` |
+| [ ] | [CompanionRootView.swift:1340](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1340) | Root lane | `NavigationLink {` |
+| [ ] | [CompanionRootView.swift:1368](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1368) | Root lane | `NavigationLink(value: agent.id) {` |
 | [ ] | [CompanionSlashMenuView.swift:34](../Annex/Annex/Companion/Views/CompanionSlashMenuView.swift#L34) | Chat lane / follow-up owner | `Button { pick(command) } label: {` |
 | [ ] | [CompanionSpawnSheet.swift:36](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L36) | Managed-create lane | `Button("Cancel", systemImage: "xmark") { dismiss() }.disabled(store.spawnInProgress \|\| store.createInProgress)` |
 | [ ] | [CompanionSpawnSheet.swift:44](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L44) | Managed-create lane | `Button("Continue with a new task") {` |
@@ -382,7 +382,7 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 - [ ] A dashboard query groups app.action logs by screen and control.
 - [ ] The last integration PR closes #433.
 
-The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the merged #443 and #455 surfaces. Project info now records its explicit opening, Done and retry actions here. The managed-create checklist above includes the real Workspace navigation, the shared native `choiceMenu` wrapper and each semantic call site. Its future wrapper should receive an explicit closed control argument; do not derive a control from its displayed string or selected value. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
+The vocabulary includes the adopted `projectInfo` screen and reserves `workspaceTools`, `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` for the merged #455 surface. Project info now records its explicit opening, Done and retry actions here. The managed-create checklist above includes the real Workspace navigation, the shared native `choiceMenu` wrapper and each semantic call site. Its future wrapper should receive an explicit closed control argument; do not derive a control from its displayed string or selected value. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
 
