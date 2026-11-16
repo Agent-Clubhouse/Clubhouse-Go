@@ -927,3 +927,8 @@ the open sheet to another host. The real-sheet UI regression opens both Home + e
 points from Laptop and verifies only Laptop's project is offered, then checks All
 still offers both machines. Existing Home tests migrate separate sleeping/finished
 selectors to the shared quiet fold without removing their content/routing assertions.
+
+Home's New agent presentation stores its concrete target and optional launch-host scope in
+one Identifiable value. SwiftUI receives both through the sheet item, avoiding a stale
+secondary State capture that could reopen All's linked-machine chooser from a selected host.
+The real-sheet regression covers both Home + buttons and All's preserved chooser.
