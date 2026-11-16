@@ -35,6 +35,8 @@ Home's first scrolling content row keeps its live Working and Needs you counts u
 
 `CompanionNeedsYouActionCardUITests` checks action-first permission cards, tool/timeout alignment, visible text Review and multiple requests on two connected desktops with two other desktops unavailable. It captures light, dark, Latte, Mocha and accessibility XXXL, including the offline section. Missing action data gets a neutral "Review permission request" fallback; question text leads its own card. The existing Deny/Allow once routing is unchanged. `CompanionReviewButton.showsTitle` is additive for the Needs you toolbar; the default Label presentation used by Home is retained.
 
+`CompanionConnectionRetryLatchTests` mounts the actual banner with a held reconnect service. Back-to-back activations issue one reconnect per host until completion or a reported connection-state change. The tests also cover a newly unavailable host joining a combined Retry and an old completion that must not clear a newer attempt. Fixture teardown closes admission and drains every held continuation; no desktop is contacted.
+
 Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
 Agent rows suppress saved Access only when it matches a known default; unknown defaults keep their badges.
 `CompanionAgentRowTests` covers this rule, host disambiguation, the single-state status line, existing-read
