@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import ClubhouseTransport
 @testable import ClubhouseGo
 
 @MainActor final class CompanionProjectPageVisualTests: XCTestCase {
