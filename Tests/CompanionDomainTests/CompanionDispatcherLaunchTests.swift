@@ -38,6 +38,21 @@ import Testing
         #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [da, db], pairedHostIDs: ["a", "b"],
             restorationComplete: true, hosts: [a, b]) == .choose([da, db]))
     }
+    @Test func loadingThatFailsOrGoesOfflineResolvesTheHeldRequest() {
+        var a = host("a"); a.dispatcher?.agent = nil
+        let b = host("b"), c = host("c")
+        let db = CompanionDispatcherDesktop(host: b)!, dc = CompanionDispatcherDesktop(host: c)!
+        for connection in [CompanionConnection.offline, .failed("Catalog unavailable")] {
+            a.connection = connection
+            let loading = CompanionDispatcherDesktop(host: a)!
+            #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [loading], pairedHostIDs: ["a"],
+                restorationComplete: true, hosts: [a]) == .unavailable)
+            #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [loading, db], pairedHostIDs: ["a", "b"],
+                restorationComplete: true, hosts: [a, b]) == .open(db))
+            #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [loading, db, dc], pairedHostIDs: ["a", "b", "c"],
+                restorationComplete: true, hosts: [a, b, c]) == .choose([db, dc]))
+        }
+    }
     @Test func zeroOneAndManyUseOnlyPairedReportedDispatchers() {
         let a = host("a"), b = host("b")
         let da = CompanionDispatcherDesktop(host: a)!, db = CompanionDispatcherDesktop(host: b)!
