@@ -123,7 +123,7 @@ public actor AnnexTransportRegistry {
     private func restoreRegistration(host: TrustedAnnexHost, alias: String, clientIdentity: AnnexClientIdentity) async throws -> Registration {
         guard try await credentials.credential(for: host.hostID) != nil else { throw AnnexTransportError.credentialMissing }
         if let old = registrations[host.hostID] { await old.transport.disconnect() }
-        let transport = AnnexTransport(host: host, credentials: credentials, clientIdentity: clientIdentity)
+        let transport = AnnexTransport(host: host, credentials: credentials, clientIdentity: clientIdentity, io: pairingIO(host, clientIdentity))
         let registration = Registration(host: host, alias: alias, transport: transport)
         identities[host.hostID] = clientIdentity; registrations[host.hostID] = registration
         return registration
@@ -146,7 +146,7 @@ public actor AnnexTransportRegistry {
         }
         let store: any AnnexCredentialStore = try await credentials.credential(for: hostID) != nil ? credentials : sessionCredentials
         await current.transport.disconnect()
-        let transport = AnnexTransport(host: host, credentials: store, clientIdentity: identity)
+        let transport = AnnexTransport(host: host, credentials: store, clientIdentity: identity, io: pairingIO(host, identity))
         let registration = Registration(host: host, alias: current.alias, transport: transport)
         registrations[hostID] = registration
         alternates[hostID] = others

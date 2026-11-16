@@ -138,13 +138,17 @@ import ClubhouseTransport
         return (try? await registry.relocate(hostID: registration.host.hostID, to: best)) ?? registration
     }
     /// Back in the foreground, maybe on another network: move each desktop to a route that answers.
-    private func switchToAnsweringRoutes() async -> Set<String> {
+    // The optional resolver is call-scoped for deterministic route-race tests; production
+    // uses the existing pinned route probe and never stores an injected callback.
+    func switchToAnsweringRoutes(resolveRoute: ((AnnexTransportRegistry.Registration) async -> AnnexTransportRegistry.Registration)? = nil) async -> Set<String> {
         var moved: Set<String> = []
         for registration in await registry.all() {
             guard !Task.isCancelled else { return moved }
-            let best = await answeringRoute(for: registration)
+            let best = if let resolveRoute { await resolveRoute(registration) } else { await answeringRoute(for: registration) }
             guard !Task.isCancelled else { return moved }
-            guard !best.host.endpoint.sameAddress(as: registration.host.endpoint) else { continue }
+            // A cancelled earlier relocation may have committed its new route only in the registry.
+            // The exact transport identity changes with that route; presence alone is insufficient.
+            guard !service.hasRegistration(best) else { continue }
             await service.register(best)
             moved.insert(best.host.hostID)
         }
