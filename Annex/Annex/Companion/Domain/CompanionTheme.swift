@@ -39,22 +39,38 @@ struct CompanionRGB: Hashable, Sendable {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
-    /// Nudges the color toward black or white until it reaches `ratio` against `background`.
+    /// HSL saturation distinguishes a colored pastel from a fitted grey or olive tone.
+    var saturation: Double {
+        let maximum = max(red, max(green, blue)), minimum = min(red, min(green, blue))
+        guard maximum != minimum else { return 0 }
+        return (maximum - minimum) / (1 - abs(maximum + minimum - 1))
+    }
+
+    /// Fits toward the better-contrast endpoint, using the smallest mix in that direction.
+    /// Midtone backgrounds cannot support every ratio; in that case return the best attainable color.
     func adjusted(toContrast ratio: Double, against background: CompanionRGB) -> CompanionRGB {
-        let target: CompanionRGB = background.luminance > 0.4 ? .black : .white
-        var color = self
-        for _ in 0..<24 where color.contrast(with: background) < ratio { color = color.mixed(with: target, amount: 0.08) }
-        return color
+        guard contrast(with: background) < ratio else { return self }
+        let target: CompanionRGB = Self.white.contrast(with: background) >= Self.black.contrast(with: background) ? .white : .black
+        guard target.contrast(with: background) >= ratio else { return target }
+        var lower = 0.0, upper = 1.0
+        for _ in 0..<24 {
+            let amount = (lower + upper) / 2
+            if mixed(with: target, amount: amount).contrast(with: background) >= ratio { upper = amount }
+            else { lower = amount }
+        }
+        return mixed(with: target, amount: upper)
     }
 }
 
 /// A desktop theme as Clubhouse defines it. Only the colors the phone uses are kept.
 struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
-    enum Mode: String, Sendable { case light, dark }
+    enum Mode: String, Sendable, Hashable { case light, dark }
     var id: String
     var name: String
     var source: String
     var mode: Mode
+    /// Optional token palettes for another appearance. Transported themes need no overrides or theme IDs.
+    var appearanceColors: [Mode: [String: String]]
     var base: CompanionRGB
     var mantle: CompanionRGB
     var crust: CompanionRGB
@@ -76,10 +92,11 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
     /// Terminal colors: the desktop's, completed from this theme.
     var terminal: CompanionTerminalColors { CompanionTerminalColors(colors: terminalSource ?? [:], theme: self) }
 
-    init(id: String, name: String, source: String, mode: Mode, colors: [String: String], gradient: [String]) {
+    init(id: String, name: String, source: String, mode: Mode, colors: [String: String], gradient: [String], appearanceColors: [Mode: [String: String]] = [:]) {
         func color(_ key: String, _ fallback: CompanionRGB) -> CompanionRGB { colors[key].flatMap { CompanionRGB(hex: $0) } ?? fallback }
         let dark = mode == .dark
         self.id = id; self.name = name; self.source = source; self.mode = mode
+        self.appearanceColors = appearanceColors
         base = color("base", dark ? CompanionRGB(red: 0.11, green: 0.11, blue: 0.12) : .white)
         mantle = color("mantle", base); crust = color("crust", mantle)
         text = color("text", dark ? .white : .black)
@@ -94,6 +111,14 @@ struct CompanionDesktopTheme: Identifiable, Sendable, Equatable {
         // Older desktops don't send `info`; a system blue stands in, fitted for contrast like the others.
         info = color("info", CompanionRGB(red: 0.04, green: 0.52, blue: 1))
         self.gradient = gradient.compactMap { CompanionRGB(hex: $0) }
+    }
+
+    fileprivate func paletteTheme(for mode: Mode) -> Self {
+        guard let colors = appearanceColors[mode] else { return self }
+        var result = Self(id: id, name: name, source: source, mode: mode,
+                          colors: colors, gradient: gradient.map(\.hex))
+        result.terminalSource = terminalSource
+        return result
     }
 }
 
@@ -123,15 +148,16 @@ struct CompanionPalette: Sendable, Equatable {
 
     /// The app follows the iPhone's appearance. A theme whose mode matches supplies its grounds and text;
     /// otherwise system grounds take a hint of the accent. Accent and status colors are fitted for contrast.
-    init(theme: CompanionDesktopTheme, dark: Bool) {
+    init(theme sourceTheme: CompanionDesktopTheme, dark: Bool) {
+        let theme = sourceTheme.paletteTheme(for: dark ? .dark : .light)
         isDark = dark
         usesThemeGrounds = (theme.mode == .dark) == dark
-        let secondary: CompanionRGB
+        let primary: CompanionRGB, secondary: CompanionRGB
         if usesThemeGrounds {
             background = dark ? theme.crust : theme.mantle
             card = theme.base
             raisedCard = dark ? theme.surface0 : theme.crust
-            label = theme.text
+            primary = theme.text
             secondary = theme.subtext
             separator = theme.surface1.mixed(with: theme.base, amount: 0.3)
             fill = theme.surface0.mixed(with: theme.base, amount: 0.15)
@@ -140,26 +166,41 @@ struct CompanionPalette: Sendable, Equatable {
             background = (dark ? CompanionRGB.black : CompanionRGB(red: 0.949, green: 0.949, blue: 0.969)).mixed(with: hint, amount: dark ? 0.07 : 0.06)
             card = dark ? CompanionRGB(red: 0.11, green: 0.11, blue: 0.118).mixed(with: hint, amount: 0.07) : .white
             raisedCard = (dark ? CompanionRGB(red: 0.173, green: 0.173, blue: 0.18) : CompanionRGB(red: 0.949, green: 0.949, blue: 0.969)).mixed(with: hint, amount: 0.06)
-            label = dark ? .white : .black
+            primary = dark ? .white : .black
             secondary = dark ? CompanionRGB(red: 0.62, green: 0.62, blue: 0.65) : CompanionRGB(red: 0.42, green: 0.42, blue: 0.45)
             separator = dark ? CompanionRGB(red: 0.23, green: 0.23, blue: 0.25) : CompanionRGB(red: 0.855, green: 0.855, blue: 0.875)
             fill = dark ? CompanionRGB(red: 0.19, green: 0.19, blue: 0.21) : CompanionRGB(red: 0.914, green: 0.914, blue: 0.933)
         }
+        label = primary.adjusted(toContrast: 7, against: card)
         secondaryLabel = secondary.adjusted(toContrast: 4.5, against: card)
         tint = theme.accent.adjusted(toContrast: 4.5, against: card)
         accentWasAdjusted = tint != theme.accent
         tintSoft = tint.mixed(with: card, amount: 0.84)
         onTint = CompanionPalette.glyph(on: tint)
-        warning = theme.warning.adjusted(toContrast: 3, against: card)
-        error = theme.error.adjusted(toContrast: 3, against: card)
-        success = theme.success.adjusted(toContrast: 3, against: card)
-        info = theme.info.adjusted(toContrast: 3, against: card)
+        // Semantic system hues are the fallback when a fitted desktop color becomes too muted.
+        warning = Self.status(theme.warning, against: card,
+                              fallback: CompanionRGB(red: 1, green: dark ? 0.624 : 0.584, blue: dark ? 0.039 : 0))
+        error = Self.status(theme.error, against: card,
+                            fallback: CompanionRGB(red: 1, green: dark ? 0.271 : 0.231, blue: dark ? 0.227 : 0.188))
+        success = Self.status(theme.success, against: card,
+                              fallback: CompanionRGB(red: dark ? 0.188 : 0.204, green: dark ? 0.820 : 0.780, blue: dark ? 0.345 : 0.349))
+        info = Self.status(theme.info, against: card,
+                           fallback: CompanionRGB(red: dark ? 0.039 : 0, green: dark ? 0.518 : 0.478, blue: 1))
         washStart = theme.gradient.first ?? theme.accent
         washEnd = theme.gradient.dropFirst().first ?? theme.accent2 ?? theme.accent.mixed(with: dark ? .white : .black, amount: 0.35)
     }
 }
 
 extension CompanionPalette {
+    /// Below 35% HSL saturation, fitted status colors can read as grey or olive on the opposite appearance.
+    static let minimumStatusSaturation = 0.35
+
+    private static func status(_ color: CompanionRGB, against background: CompanionRGB, fallback: CompanionRGB) -> CompanionRGB {
+        let fitted = color.adjusted(toContrast: 3, against: background)
+        return fitted.saturation < minimumStatusSaturation
+            ? fallback.adjusted(toContrast: 3, against: background) : fitted
+    }
+
     /// White or near-black, whichever reads better on `fill`. The better of white and black always reaches 4.58:1,
     /// but near-black can fall short on mid-luminance fills, so pure black is used there.
     static func glyph(on fill: CompanionRGB) -> CompanionRGB {
@@ -186,5 +227,10 @@ extension CompanionDesktopTheme {
         id: "clubhouse", name: "Clubhouse", source: "Clubhouse Go", mode: .dark,
         colors: ["base": "#1c1c1e", "mantle": "#111113", "crust": "#000000", "text": "#ffffff", "subtext0": "#9d9da6",
                  "surface0": "#2c2c2e", "surface1": "#3a3a3c", "accent": "#8b7fff", "warning": "#ff9f0a", "error": "#ff453a", "success": "#30d158", "info": "#0a84ff"],
-        gradient: ["#7a6cff", "#00a3c4"])
+        gradient: ["#7a6cff", "#00a3c4"],
+        appearanceColors: [.light: [
+            "base": "#ffffff", "mantle": "#f1eff9", "crust": "#e4e1ee", "text": "#17171b", "subtext0": "#63636d",
+            "surface0": "#eceaf4", "surface1": "#d8d4e5", "accent": "#6654cc", "warning": "#ad6500",
+            "error": "#c42b25", "success": "#287d42", "info": "#176ac6"
+        ]])
 }
