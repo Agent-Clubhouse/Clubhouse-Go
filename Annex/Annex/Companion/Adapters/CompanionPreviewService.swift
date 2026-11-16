@@ -284,10 +284,14 @@ import ClubhouseTransport
                     }
                 }
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-local-idle") {
+                    let idleActivity = Date().addingTimeInterval(-30 * 86_400)
                     for project in hosts[0].projects.indices {
                         for agent in hosts[0].projects[project].agents.indices {
                             hosts[0].projects[project].agents[agent].status = .sleeping
-                            hosts[0].projects[project].agents[agent].lastActivity = Date().addingTimeInterval(-30 * 86_400)
+                            hosts[0].projects[project].agents[agent].lastActivity = idleActivity
+                            if hosts[0].projects[project].agents[agent].turnStartedAt != nil {
+                                hosts[0].projects[project].agents[agent].turnStartedAt = idleActivity
+                            }
                         }
                     }
                 }
