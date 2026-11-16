@@ -17,6 +17,73 @@ struct CompanionProjectTarget: Hashable, Sendable, Identifiable {
     var id: Self { self }
 }
 
+/// One vocabulary for paired desktops and read-only Dispatcher presence. Presentation never grants authority.
+enum CompanionMachineState: Equatable, Sendable {
+    case connected, working, asleep, offline, turnedOff, connecting, reconnecting, unknown
+
+    init(presenceState: String) {
+        switch presenceState {
+        case "online": self = .connected
+        case "working": self = .working
+        case "asleep": self = .asleep
+        case "offline": self = .offline
+        case "off": self = .turnedOff
+        case "connecting": self = .connecting
+        case "reconnecting": self = .reconnecting
+        default: self = .unknown
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .connected: "Connected"
+        case .working: "Working"
+        case .asleep: "Asleep"
+        case .offline: "Offline"
+        case .turnedOff: "Turned off"
+        // A first connection cannot truthfully be called a reconnection.
+        case .connecting: "Connecting"
+        case .reconnecting: "Reconnecting"
+        case .unknown: "Unknown"
+        }
+    }
+
+    var symbol: String? {
+        switch self {
+        case .connected, .connecting, .reconnecting: nil
+        case .working: "gearshape.2"
+        case .asleep: "moon"
+        case .offline: "wifi.slash"
+        case .turnedOff: "power"
+        case .unknown: "questionmark.circle"
+        }
+    }
+
+    func presentation(lastSeen: Date? = nil, linkBlocked: Bool = false, now: Date = Date()) -> CompanionMachineStatePresentation {
+        var text = label
+        if self == .offline, let lastSeen {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .abbreviated
+            text += " · last seen \(formatter.localizedString(for: min(lastSeen, now), relativeTo: now))"
+        }
+        return .init(label: text, symbol: symbol,
+                     detail: linkBlocked ? "\(text)\n\(CompanionMachineStatePresentation.unreachableFromPhone)" : text)
+    }
+}
+
+struct CompanionMachineStatePresentation: Equatable, Sendable {
+    static let unreachableFromPhone = "Can't reach from this phone"
+    let label: String
+    let symbol: String?
+    let detail: String
+
+    /// Native menu subtitles truncate long or extra lines. Use a short, complete warning there.
+    /// Keep the full wording in `detail` for accessibility and other presentation surfaces.
+    var menuDetail: String {
+        detail.replacingOccurrences(of: Self.unreachableFromPhone, with: "Can't reach")
+    }
+}
+
 enum CompanionConnection: Equatable, Sendable {
     case offline
     case connecting
@@ -26,15 +93,17 @@ enum CompanionConnection: Equatable, Sendable {
     case failed(String)
 
     var canOperate: Bool { self == .connected }
-    var label: String {
+    var machineState: CompanionMachineState {
         switch self {
-        case .offline: "Offline"
-        // The desktop's host words (`HostSwitcher.tsx` STATE_LABEL): still finding it, then connecting to it.
-        case .connecting, .synchronizing: "Connecting…"
-        case .reconnecting: "Looking for it…"
-        case .connected: "Connected"
-        case .failed: "Connection issue"
+        case .offline, .failed: .offline
+        case .connecting: .connecting
+        case .reconnecting, .synchronizing: .reconnecting
+        case .connected: .connected
         }
+    }
+    var label: String { machineState.label }
+    func presentation(lastSeen: Date? = nil, linkBlocked: Bool = false, now: Date = Date()) -> CompanionMachineStatePresentation {
+        machineState.presentation(lastSeen: lastSeen, linkBlocked: linkBlocked, now: now)
     }
     /// The state as a sentence about one desktop, such as "Looking for Mac…".
     func sentence(hostName name: String) -> String {
