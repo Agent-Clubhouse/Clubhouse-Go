@@ -91,7 +91,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionMessageSlices.Box` | arc_only | Immutable array of message-slice values; NSObject cache wrapper has no UI fields. |
 | `CompanionPartExpansion` | arc_only | Optional Bool and Observation registrar only. |
 | `CompanionProviderFlow` | main_actor | Injected service and permission callback are not constrained to UI-free owners. Preserve synthesized actor teardown. Production callback captures Store weakly and a value target; remaining fields hold receipt/identifier/Boolean values. |
-| `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; the last-tab choice is a Sendable raw-value enum replacing the Start screen enum. UIDevice is read during init, not retained. No callback, UI owner or teardown change. |
+| `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; the last-tab choice is a Sendable raw-value enum, and recent choices contain only Sendable CompanionTarget values. UIDevice is read during init, not retained. No callback, UI owner or teardown change. |
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
 | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
 | `CompanionReadingBookmark` | arc_only | Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |

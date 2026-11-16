@@ -124,9 +124,9 @@ import XCTest
         XCTAssertTrue(scrollTo(allow, in: app))
         waitAndTap(allow, untilGone: ask)
 
-        let agents = app.tabBars.buttons["Agents"]
-        if !agents.exists { waitAndTap(app.tabBars.buttons["Needs you"], until: agents) }
-        waitAndTap(agents, until: app.navigationBars["Agents"])
+        let search = app.tabBars.buttons["Search"]
+        if !search.exists { waitAndTap(app.tabBars.buttons["Needs you"], until: search) }
+        waitAndTap(search, until: app.navigationBars["Search"])
         let cedar = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-cedar").firstMatch
         XCTAssertTrue(scrollUntilExists(cedar, in: app) && scrollTo(cedar, in: app))
         waitAndTap(cedar, until: app.navigationBars["Cedar"])

@@ -51,7 +51,7 @@ enum CompanionStatusDot: String, Sendable, CaseIterable {
     var isHollow: Bool { self == .sleeping || self == .starting }
 }
 
-/// The Agents tab's filters, named with the desktop's status words. Needs you holds errors too, as the
+/// Search's resting filters, named with the desktop's status words. Needs you holds errors too, as the
 /// desktop's Needs you list does; Done is an agent between turns, not a finished one.
 enum CompanionAgentFilter: Hashable, CaseIterable, Sendable {
     case all, working, needsYou, done, sleeping

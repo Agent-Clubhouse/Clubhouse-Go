@@ -1,6 +1,10 @@
 import Foundation
 
-enum CompanionTab: String, CaseIterable, Sendable { case home, dispatcher, needsYou, agents, search }
+enum CompanionTab: String, CaseIterable, Sendable {
+    case home, dispatcher, needsYou, agents, search
+    /// Keep the old Agents destination readable by saved state and navigation callers.
+    var destination: Self { self == .agents ? .search : self }
+}
 
 /// Only desktop-reported on state is cached. No transcript or command permissions live in preferences.
 struct CompanionDispatcherDesktop: Identifiable, Codable, Equatable, Sendable {
@@ -46,10 +50,10 @@ struct CompanionNavigation {
         dispatcherDesktops = cached ?? []
         dispatcherHostID = cached?.first { $0.id == lastHostID }?.id ?? cached?.first?.id ?? lastHostID
         awaitingFirstReport = lastTab == .dispatcher && cached == nil
-        if tabs.contains(lastTab) { tab = lastTab }
+        if tabs.contains(lastTab.destination) { tab = lastTab.destination }
     }
 
-    var tabs: [CompanionTab] { [.home] + (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.needsYou, .agents, .search] }
+    var tabs: [CompanionTab] { [.home] + (dispatcherDesktops.isEmpty ? [] : [.dispatcher]) + [.needsYou, .search] }
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     /// Resolve from the visible desktop's current catalog, rather than a cached desktop label or another chat.
     func dispatcherTitle(hosts: [CompanionHost]) -> String {
@@ -61,7 +65,7 @@ struct CompanionNavigation {
     mutating func select(_ tab: CompanionTab) {
         interact()
         pendingDispatcherLink = nil
-        self.tab = tabs.contains(tab) ? tab : .home
+        self.tab = tabs.contains(tab.destination) ? tab.destination : .home
     }
 
     mutating func chooseDispatcher(hostID: String) {
@@ -141,7 +145,7 @@ struct CompanionNavigation {
 
     mutating func setPath(_ path: [CompanionRoute], for which: CompanionTab, hosts: [CompanionHost]) {
         interact()
-        paths[which] = path
+        paths[which.destination] = path
         if let target = path.last?.agent, isDispatcher(target, hosts: hosts),
            dispatcherDesktops.contains(where: { $0.id == target.hostID }) { open(target, hosts: hosts) }
     }

@@ -24,8 +24,7 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
 restoration and unavailable-Dispatch fallback/foreground checks. Search is checked through its expanded
 native field because its collapsed tab button leaves the accessibility tree. Fresh preferences open Home; existing
 Dispatcher-focused fixtures explicitly seed `--companion-preview-start-dispatch`. Tab selectors use
-**Dispatch**, while the conversation keeps its Dispatcher's name. Agents remains a separate working tab
-until #437 merges it into Search. Its tab appearance matrix captures Home and Dispatch in light, dark,
+**Dispatch**, while the conversation keeps its Dispatcher's name. Agents has moved into Search, which opens with status filters, the last three agents opened on this device and the full agent list. Legacy Agents navigation and saved tab values resolve to Search. Its tab appearance matrix captures Home and Dispatch in light, dark,
 Catppuccin Latte, Catppuccin Mocha and accessibility XXXL. The two DEBUG theme flags
 `--companion-preview-theme-latte` / `--companion-preview-theme-mocha` put fixed desktop color payloads
 through the existing host theme mapping; they do not add a production theme registry.

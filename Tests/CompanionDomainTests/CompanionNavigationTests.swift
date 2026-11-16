@@ -15,12 +15,12 @@ import Testing
         for connection in [CompanionConnection.connected, .offline, .connecting, .reconnecting, .synchronizing, .failed("lost")] {
             var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: [host(connection: connection)])
-            #expect(navigation.tabs == [.home, .dispatcher, .needsYou, .agents, .search])
+            #expect(navigation.tabs == [.home, .dispatcher, .needsYou, .search])
         }
         for flags in [(false, true), (true, false), (false, false)] {
             var navigation = CompanionNavigation(lastTab: .dispatcher)
             navigation.update(hosts: [host(enabled: flags.0, flagOn: flags.1)])
-            #expect(navigation.tabs == [.home, .needsYou, .agents, .search])
+            #expect(navigation.tabs == [.home, .needsYou, .search])
             #expect(navigation.tab == .home)
         }
     }
@@ -30,13 +30,13 @@ import Testing
         for lastTab in CompanionTab.allCases {
             var navigation = CompanionNavigation(lastTab: lastTab)
             navigation.update(hosts: [])
-            #expect(navigation.tab == (lastTab == .dispatcher ? .home : lastTab))
+            #expect(navigation.tab == (lastTab == .dispatcher ? .home : lastTab.destination))
             navigation.update(hosts: [host()])
-            #expect(navigation.tab == lastTab)
+            #expect(navigation.tab == lastTab.destination)
             navigation.select(.agents)
             navigation.update(hosts: [host(connection: .offline)])
             navigation.update(hosts: [host()])
-            #expect(navigation.tab == .agents)
+            #expect(navigation.tab == .search)
         }
         var touched = CompanionNavigation(lastTab: .dispatcher)
         touched.interact()
@@ -76,7 +76,7 @@ import Testing
         #expect(navigation.tab == .home && !navigation.tabs.contains(.dispatcher))
         navigation.select(.agents)
         navigation.update(hosts: [host(enabled: false)])
-        #expect(navigation.tab == .agents)
+        #expect(navigation.tab == .search)
     }
 
     @Test func severalDesktopsHaveOneTabAndRememberTheLastUsed() throws {
@@ -263,12 +263,96 @@ import Testing
         for tab in CompanionTab.allCases {
             preferences.lastTab = tab
             let restored = CompanionPreferences(defaults: defaults)
-            #expect(restored.lastTab == tab && restored.dispatcherDesktops == preferences.dispatcherDesktops)
-            #expect(CompanionNavigation(lastTab: restored.lastTab, cached: restored.dispatcherDesktops).tab == tab)
+            #expect(restored.lastTab == tab.destination && restored.dispatcherDesktops == preferences.dispatcherDesktops)
+            #expect(CompanionNavigation(lastTab: restored.lastTab, cached: restored.dispatcherDesktops).tab == tab.destination)
+            #expect(defaults.string(forKey: "companion.lastTab") == tab.destination.rawValue)
         }
         defaults.set("unknown-future-tab", forKey: "companion.lastTab")
         #expect(CompanionPreferences(defaults: defaults).lastTab == .home)
         preferences.dispatcherDesktops = []
         #expect(CompanionPreferences(defaults: defaults).dispatcherDesktops == [])
+    }
+
+    @Test func legacyAgentsNavigationUsesSearchAndItsStack() {
+        let target = CompanionTarget(hostID: "mac", projectID: "project", agentID: "worker")
+        var navigation = CompanionNavigation(lastTab: .agents)
+        #expect(navigation.tab == .search && !navigation.tabs.contains(.agents))
+        navigation.select(.home)
+        navigation.select(.agents)
+        navigation.setPath([.agent(target)], for: .agents, hosts: [])
+        #expect(navigation.tab == .search && navigation.visibleAgent == target)
+        #expect(navigation.paths[.search] == [.agent(target)] && navigation.paths[.agents] == nil)
+    }
+
+    @MainActor @Test func recentAgentsKeepTheLastThreeDistinctOpenedAcrossLaunches() throws {
+        let name = "search-recent-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let targets = (0..<4).map { CompanionTarget(hostID: "mac", projectID: "project", agentID: String($0)) }
+        for target in targets { preferences.recordOpenedAgent(target) }
+        #expect(preferences.recentAgents == [targets[3], targets[2], targets[1]])
+        preferences.recordOpenedAgent(targets[2])
+        preferences.recordOpenedAgent(targets[2])
+        #expect(preferences.recentAgents == [targets[2], targets[3], targets[1]])
+        #expect(CompanionPreferences(defaults: defaults).recentAgents == preferences.recentAgents)
+    }
+
+    @MainActor @Test func recentAgentsAreScopedToTheDesktopEvenWhenAgentIDsMatch() throws {
+        let name = "search-recent-host-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.hosts = CompanionPreviewService.hosts(now: Date())
+        let studio = CompanionTarget(hostID: "preview-studio", projectID: "clubhouse", agentID: "river")
+        let laptop = CompanionTarget(hostID: "preview-laptop", projectID: "notes", agentID: "river")
+        preferences.recordOpenedAgent(studio)
+        preferences.recordOpenedAgent(laptop)
+        #expect(preferences.recentAgents == [laptop, studio])
+        #expect(preferences.recentAgents.compactMap { store.agent(for: $0)?.id } == [laptop, studio])
+        store.hosts.removeAll { $0.id == studio.hostID }
+        #expect(preferences.recentAgents.compactMap { store.agent(for: $0)?.id } == [laptop], "A missing Studio River never resolves to laptop River")
+    }
+
+    @MainActor @Test func removingAPairingPrunesItsRecentChoicesFromDisk() throws {
+        let name = "search-recent-pairing-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let a = CompanionTarget(hostID: "a", projectID: "project", agentID: "river")
+        let b = CompanionTarget(hostID: "b", projectID: "project", agentID: "river")
+        preferences.recordOpenedAgent(a)
+        preferences.recordOpenedAgent(b)
+        preferences.retainRecentAgents(on: ["a"])
+        #expect(preferences.recentAgents == [a])
+        #expect(CompanionPreferences(defaults: defaults).recentAgents == [a])
+    }
+
+    @MainActor @Test func connectedCatalogRemovalPrunesRecentButReconnectingDoesNot() throws {
+        let name = "search-recent-disposal-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        let a = CompanionTarget(hostID: "a", projectID: "project", agentID: "river")
+        let b = CompanionTarget(hostID: "b", projectID: "project", agentID: "river")
+        preferences.recordOpenedAgent(a)
+        preferences.recordOpenedAgent(b)
+        preferences.pruneRecentAgents(hosts: [host("a", connection: .reconnecting)])
+        #expect(preferences.recentAgents == [b, a])
+        preferences.pruneRecentAgents(hosts: [host("a")])
+        #expect(preferences.recentAgents == [b], "Only a's authoritative catalog removed its agent")
+        #expect(CompanionPreferences(defaults: defaults).recentAgents == [b])
+    }
+
+    @MainActor @Test func corruptOrOldRecentChoicesFallBackToEmpty() throws {
+        let name = "search-recent-invalid-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let storedValues: [Any] = ["old-agent-id", Data("not json".utf8), Data(#"["bare-agent-id"]"#.utf8), Data(#"[{"agentID":"river"}]"#.utf8)]
+        for stored in storedValues {
+            defaults.set(stored, forKey: "companion.recentAgents")
+            #expect(CompanionPreferences(defaults: defaults).recentAgents.isEmpty)
+        }
     }
 }

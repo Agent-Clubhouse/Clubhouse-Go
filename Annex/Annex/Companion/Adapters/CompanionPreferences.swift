@@ -11,6 +11,7 @@ import UIKit
     nonisolated deinit {}
     private enum Key {
         static let lastTab = "companion.lastTab"
+        static let recentAgents = "companion.recentAgents"
         static let dispatcherDesktops = "companion.dispatcherDesktops"
         static let projectSort = "companion.projectSort"
         static let projectOrder = "companion.projectOrder"
@@ -29,6 +30,25 @@ import UIKit
     let systemDeviceName: String
 
     var lastTab: CompanionTab { didSet { defaults.set(lastTab.rawValue, forKey: Key.lastTab) } }
+    /// Last three distinct agents opened on this device, newest first. No transcript is retained here.
+    private(set) var recentAgents: [CompanionTarget] {
+        didSet { defaults.set(try? JSONEncoder().encode(recentAgents), forKey: Key.recentAgents) }
+    }
+    func recordOpenedAgent(_ target: CompanionTarget) {
+        guard recentAgents.first != target else { return }
+        recentAgents = Array(([target] + recentAgents.filter { $0 != target }).prefix(3))
+    }
+    func retainRecentAgents(on pairedHostIDs: Set<String>) {
+        let retained = recentAgents.filter { pairedHostIDs.contains($0.hostID) }
+        if retained != recentAgents { recentAgents = retained }
+    }
+    /// Only a connected catalog confirms disposal. A reconnect's missing rows do not.
+    func pruneRecentAgents(hosts: [CompanionHost]) {
+        let catalogs = Dictionary(hosts.filter { $0.connection == .connected }.map { ($0.id, Set($0.allAgents.map(\.id))) },
+                                  uniquingKeysWith: { first, _ in first })
+        let retained = recentAgents.filter { target in catalogs[target.hostID].map { $0.contains(target) } ?? true }
+        if retained != recentAgents { recentAgents = retained }
+    }
     var dispatcherDesktops: [CompanionDispatcherDesktop]? {
         didSet { defaults.set(try? JSONEncoder().encode(dispatcherDesktops), forKey: Key.dispatcherDesktops) }
     }
@@ -81,7 +101,8 @@ import UIKit
     init(defaults: UserDefaults = .standard, systemDeviceName: String? = nil) {
         self.defaults = defaults
         self.systemDeviceName = systemDeviceName ?? Self.currentDeviceName()
-        lastTab = defaults.string(forKey: Key.lastTab).flatMap(CompanionTab.init(rawValue:)) ?? .home
+        lastTab = (defaults.string(forKey: Key.lastTab).flatMap(CompanionTab.init(rawValue:)) ?? .home).destination
+        recentAgents = Array((defaults.data(forKey: Key.recentAgents).flatMap { try? JSONDecoder().decode([CompanionTarget].self, from: $0) } ?? []).prefix(3))
         dispatcherDesktops = defaults.data(forKey: Key.dispatcherDesktops).flatMap { try? JSONDecoder().decode([CompanionDispatcherDesktop].self, from: $0) }
         deviceName = defaults.string(forKey: Key.deviceName) ?? self.systemDeviceName
         projectSort = defaults.string(forKey: Key.projectSort).flatMap(CompanionProjectSort.init(rawValue:)) ?? .recent
@@ -95,6 +116,7 @@ import UIKit
         collapsedAgentKeys = Set(defaults.stringArray(forKey: Key.collapsedAgents) ?? [])
         expandedFolds = Set(defaults.stringArray(forKey: Key.expandedFolds) ?? [])
         defaults.removeObject(forKey: "companion.startScreen")
+        if defaults.string(forKey: Key.lastTab) == "agents" { defaults.set(lastTab.rawValue, forKey: Key.lastTab) }
     }
 
     /// The name sent as `alias` when pairing: trimmed, never empty, and within the desktop's 128-character limit.
