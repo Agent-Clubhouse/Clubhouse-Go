@@ -46,6 +46,19 @@ struct CompanionProjectPage: View {
                         CompanionProjectMenuItems(store: store, preferences: preferences, entry: entry,
                                                   canWake: scopedMembers(entry).contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
                                                   onWake: { begin(.wake, entry: entry) }, onInfo: { showingInfo = true })
+                        if entry.isLinked {
+                            if store.linkedProjectState(entry) != nil {
+                                CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: linkedIsIdle(entry))
+                            } else {
+                                // Unmigrated hosts keep the existing per-copy state/fallback policy.
+                                ForEach(entry.members) { member in
+                                    Menu(entry.label(for: member)) {
+                                        CompanionSingleProjectStateMenuItems(store: store, preferences: preferences,
+                                            entry: .init(host: member.host, project: member.project), legacyLinkID: entry.linkID)
+                                    }
+                                }
+                            }
+                        }
                     } label: { Label("Project options", systemImage: "ellipsis") }
                     .companionToolbarSecondary()
                     .accessibilityIdentifier("project-page-options")
@@ -64,6 +77,13 @@ struct CompanionProjectPage: View {
         }
         .onChange(of: desktop) { _, _ in hold = nil }
         .companionTelemetryScreen(.project)
+    }
+
+    private func linkedIsIdle(_ entry: CompanionProjectEntry) -> Bool {
+        // Use Home's full-group idle policy even when this page filters to one desktop.
+        !CompanionHomeLayout.build([entry], sort: preferences.projectSort, customOrder: preferences.projectOrder,
+            rule: preferences.idleRule, shared: { store.sharedProjectState($0.id) },
+            projectActivity: { store.lastActivity(for: $0) }, agentActivity: store.lastActivity(of:)).idle.isEmpty
     }
 
     private func scopedMembers(_ entry: CompanionProjectEntry) -> [CompanionProjectMember] {
@@ -216,8 +236,8 @@ struct CompanionProjectPage: View {
     }
 }
 
-/// Shared menu items for the Project toolbar and Root's later Home long-press adoption.
-/// Linked Pin/Inactive keep their existing Home behavior until the desktop-backed group contract lands.
+/// Shared Wake/Info and single-project actions for the Project toolbar and Home long-press menu.
+/// Both owners use CompanionLinkedProjectStateMenuItems for authoritative linked group changes.
 struct CompanionProjectMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
@@ -242,10 +262,40 @@ struct CompanionProjectMenuItems: View {
     }
 }
 
+/// The same authoritative linked-state actions in Home and the Project toolbar.
+/// Entry must be the full catalog group, including when the visible page is desktop-scoped.
+struct CompanionLinkedProjectStateMenuItems: View {
+    @Bindable var store: CompanionStore
+    let entry: CompanionProjectEntry
+    let isIdle: Bool
+
+    var body: some View {
+        if let shared = store.linkedProjectState(entry) {
+            Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
+                Task { await store.setLinkedProject(entry, pinned: !shared.pinned) }
+            }
+            .disabled(!store.canChangeLinkedProjectState(entry))
+            if isIdle || shared.inactive {
+                Button("Mark active", systemImage: "sun.max") {
+                    Task { await store.setLinkedProject(entry, inactive: false) }
+                }
+                .disabled(!store.canChangeLinkedProjectState(entry))
+            } else if !shared.pinned {
+                Button("Mark inactive", systemImage: "moon.zzz") {
+                    Task { await store.setLinkedProject(entry, inactive: true) }
+                }
+                .disabled(!store.canChangeLinkedProjectState(entry))
+            }
+            if let hint = store.linkedProjectStateConnectionHint(entry) { Text(hint) }
+        }
+    }
+}
+
 private struct CompanionSingleProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
+    var legacyLinkID: String? = nil
 
     @Environment(\.companionTelemetryScreen) private var screen
 
@@ -280,7 +330,13 @@ private struct CompanionSingleProjectStateMenuItems: View {
     }
 
     private func change(local: () -> Void, remote: @escaping () async -> Void) {
-        guard let current = store.projectEntry(containing: entry.id), !current.isLinked else { return }
+        guard let current = store.projectEntry(containing: entry.id) else { return }
+        if current.isLinked {
+            // Only the explicitly rendered old-host group may use per-copy state. Recheck
+            // authority and identity at the action, so a stale menu cannot bypass migration.
+            guard let legacyLinkID, current.linkID == legacyLinkID,
+                  store.linkedProjectState(current) == nil else { return }
+        }
         if store.sharedProjectState(entry.id) == nil { local() }
         else { Task { await remote() } }
     }
