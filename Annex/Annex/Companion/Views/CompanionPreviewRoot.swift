@@ -101,6 +101,7 @@ struct CompanionPreviewRoot: View {
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
+                    .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Close", systemImage: "xmark") {
