@@ -1021,3 +1021,11 @@ report, never agent activity. Missing last-seen says “not connected”; unknow
 are omitted. Cached rows are dimmed with no navigation, settings, Wake or Terminal action.
 `CompanionLinkedHomeUITests` covers two/five desktops across five appearances, collapsed
 and expanded, session reset, same-name identity and unavailable cached work.
+
+Home's project header supplies a native long-press menu instead of an overflow button.
+Wake and Info use the shared Project-page items; linked All actions choose a concrete
+member before Wake/Terminal, rechecking current availability after the chooser dismisses.
+The shared chooser has a defaulted telemetry screen parameter: Project remains Project,
+Home records Home, without duplicate callbacks. Pin/Inactive adoption must preserve the
+merged #460 group-state/mixed-version contract. This preparation is held locally until
+#497 merges, then rebased before its PR or runtime spot.

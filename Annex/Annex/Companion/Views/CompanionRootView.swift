@@ -312,12 +312,24 @@ struct CompanionHomeView: View {
     @State private var desktopSelection: CompanionDesktopSelection = .all
     @State private var expandedOfflineHosts: Set<String> = []
     @State private var observedConnectedAt: [String: Date] = [:]
+    private struct ProjectAction: Identifiable {
+        let project: CompanionProjectTarget
+        let selection: CompanionDesktopSelection
+        let action: CompanionProjectMachineAction
+        var id: CompanionProjectTarget { project }
+    }
+    @State private var infoProject: CompanionProjectTarget?
+    @State private var choosingProjectAction: ProjectAction?
+    @State private var pendingProjectChoice: (CompanionProjectMachineAction, CompanionProjectTarget)?
+    @State private var wakingProject: CompanionProjectTarget?
+    @State private var pendingProjectWake: (target: CompanionTarget, message: String)?
     @State private var finishedActionError: String?
     /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
     @State private var hold: CompanionListHold?
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.companionTerminal) private var terminal
 
     private var scope: CompanionHomeScope { .init(hosts: store.hosts, selectedHostID: desktopSelection.hostID) }
     private var scopedHosts: [CompanionHost] { scope.hosts }
@@ -416,6 +428,19 @@ struct CompanionHomeView: View {
         }
         .sheet(isPresented: $arranging) {
             CompanionArrangeProjectsView(preferences: preferences, entries: orderedProjects)
+        }
+        .sheet(item: $infoProject) { target in
+            CompanionProjectInfoSheet(store: store, project: target)
+        }
+        .sheet(item: $choosingProjectAction, onDismiss: completeProjectChoice) { launch in
+            CompanionProjectMachineChooser(store: store, project: launch.project, selection: launch.selection,
+                                           action: launch.action, screen: .home) { target in
+                pendingProjectChoice = (launch.action, target)
+                choosingProjectAction = nil
+            }
+        }
+        .sheet(item: $wakingProject, onDismiss: completeProjectWake) { target in
+            CompanionWakeSheet(store: store, project: target) { pendingProjectWake = ($0, $1) }
         }
     }
 
@@ -624,7 +649,6 @@ struct CompanionHomeView: View {
                     }
                     if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
                     Spacer(minLength: 0)
-                    projectMenu(group)
                     Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
                         .buttonStyle(.borderless)
                         .frame(minWidth: 44, minHeight: 44)
@@ -637,6 +661,7 @@ struct CompanionHomeView: View {
             .opacity(group.isIdle ? 0.7 : 1)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("project-\(projectID)")
+            .contextMenu { projectContextMenuItems(group) }
         }
     }
 
@@ -732,58 +757,79 @@ struct CompanionHomeView: View {
         return days > 0 ? "No activity for \(days) days, or marked inactive." : "Marked inactive."
     }
 
-    /// Pin and the idle marks. A desktop that shares project state keeps them; otherwise they stay on this phone.
-    private func projectMenu(_ group: CompanionProjectGroup) -> some View {
-        Menu {
-            if group.entry.isLinked, let shared = store.linkedProjectState(group.entry) {
-                Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
-                    Task { await store.setLinkedProject(group.entry, pinned: !shared.pinned) }
-                }
-                .disabled(!store.canChangeLinkedProjectState(group.entry))
-                if group.isIdle || shared.inactive {
-                    Button("Mark active", systemImage: "sun.max") {
-                        Task { await store.setLinkedProject(group.entry, inactive: false) }
-                    }
-                    .disabled(!store.canChangeLinkedProjectState(group.entry))
-                } else if !shared.pinned {
-                    Button("Mark inactive", systemImage: "moon.zzz") {
-                        Task { await store.setLinkedProject(group.entry, inactive: true) }
-                    }
-                    .disabled(!store.canChangeLinkedProjectState(group.entry))
-                }
-                if let hint = store.linkedProjectStateConnectionHint(group.entry) { Text(hint) }
-                let terminals = group.entry.members.filter { store.terminalAvailability(.project($0.id)).isShown }
-                if !terminals.isEmpty {
-                    Menu("Terminal", systemImage: "terminal") {
-                        ForEach(terminals) { member in
-                            Section(group.entry.label(for: member)) {
-                                CompanionTerminalMenuItem(scope: .project(member.id))
-                            }
-                        }
-                    }
-                }
-            } else if group.entry.isLinked {
-                ForEach(group.entry.members) { member in
-                    let entry = CompanionProjectEntry(host: member.host, project: member.project)
-                    let state = store.sharedProjectState(member.id)
-                    Menu(machineLabel(group.entry, member)) {
-                        projectMenuItems(.init(entry: entry,
-                                               isPinned: state?.pinned ?? preferences.pinnedProjects.contains(entry.orderKey),
-                                               isIdle: state?.idle ?? preferences.idleRule.isIdle(entry.orderKey,
-                                                   running: member.project.agents.contains(where: CompanionHomeLayout.isAwake),
-                                                   lastActivity: projectActivity(member.id), now: Date()), tree: group.tree))
-                    }
-                    .disabled(state != nil && !member.host.connection.canOperate)
-                }
-            } else {
-                projectMenuItems(group)
+    /// Home shares Wake/Info with Project; linked state always follows the catalog's group contract.
+    @ViewBuilder private func projectContextMenuItems(_ group: CompanionProjectGroup) -> some View {
+        let entry = group.entry
+        let catalogEntry = store.projectEntry(containing: entry.id) ?? entry
+        CompanionProjectMenuItems(store: store, preferences: preferences, entry: catalogEntry,
+            canWake: entry.members.contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
+            onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
+        if let shared = store.linkedProjectState(catalogEntry) {
+            Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
+                Task { await store.setLinkedProject(catalogEntry, pinned: !shared.pinned) }
             }
-        } label: {
-            Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44)
+            .disabled(!store.canChangeLinkedProjectState(catalogEntry))
+            if group.isIdle || shared.inactive {
+                Button("Mark active", systemImage: "sun.max") {
+                    Task { await store.setLinkedProject(catalogEntry, inactive: false) }
+                }
+                .disabled(!store.canChangeLinkedProjectState(catalogEntry))
+            } else if !shared.pinned {
+                Button("Mark inactive", systemImage: "moon.zzz") {
+                    Task { await store.setLinkedProject(catalogEntry, inactive: true) }
+                }
+                .disabled(!store.canChangeLinkedProjectState(catalogEntry))
+            }
+            if let hint = store.linkedProjectStateConnectionHint(catalogEntry) { Text(hint) }
+        } else if entry.isLinked {
+            // Old hosts retain their per-copy state and days-idle rule.
+            ForEach(entry.members) { member in
+                let single = CompanionProjectEntry(host: member.host, project: member.project)
+                let state = store.sharedProjectState(member.id)
+                Menu(machineLabel(entry, member)) {
+                    projectMenuItems(.init(entry: single,
+                        isPinned: state?.pinned ?? preferences.pinnedProjects.contains(single.orderKey),
+                        isIdle: state?.idle ?? preferences.idleRule.isIdle(single.orderKey,
+                            running: member.host.connection.canOperate && member.project.agents.contains(where: CompanionHomeLayout.isAwake),
+                            lastActivity: projectActivity(member.id), now: Date()), tree: group.tree))
+                }
+                .disabled(state != nil && !member.host.connection.canOperate)
+            }
+        } else if catalogEntry.isLinked { projectMenuItems(group) }
+        if entry.members.contains(where: { terminal?.availability(.project($0.id)).isShown == true }) {
+            Button("Terminal", systemImage: "terminal") {
+                CompanionUIActions.record(.openProjectTerminal, on: .home)
+                beginProjectAction(.terminal, entry: entry)
+            }
+            .disabled(!entry.members.contains { CompanionProjectMachineAction.terminal.isAvailable($0, store: store, terminal: terminal) })
         }
-        .disabled(!group.entry.isLinked && store.sharedProjectState(group.id) != nil && !group.entry.host.connection.canOperate)
-        .accessibilityLabel("\(group.entry.project.name) options")
-        .accessibilityIdentifier("project-menu-\(group.entry.host.id)-\(group.entry.project.id)")
+    }
+
+    private func beginProjectAction(_ action: CompanionProjectMachineAction, entry: CompanionProjectEntry) {
+        if entry.isLinked {
+            choosingProjectAction = .init(project: entry.id, selection: desktopSelection, action: action)
+        } else if let target = entry.members.first?.id { performProjectAction(action, on: target) }
+    }
+
+    private func completeProjectChoice() {
+        guard let (action, target) = pendingProjectChoice else { return }
+        pendingProjectChoice = nil
+        performProjectAction(action, on: target)
+    }
+
+    private func performProjectAction(_ action: CompanionProjectMachineAction, on target: CompanionProjectTarget) {
+        guard let member = store.projectEntry(containing: target)?.members.first(where: { $0.id == target }),
+              action.isAvailable(member, store: store, terminal: terminal) else { return }
+        switch action {
+        case .terminal: terminal?.open(.project(target))
+        case .wake: wakingProject = target
+        }
+    }
+
+    private func completeProjectWake() {
+        guard let wake = pendingProjectWake else { return }
+        pendingProjectWake = nil
+        Task { await store.wake(wake.target, message: wake.message) }
     }
 
     private func projectMenuItems(_ group: CompanionProjectGroup) -> some View {
@@ -807,7 +853,6 @@ struct CompanionHomeView: View {
                     change(local: { preferences.markInactive(key) }, remote: { await store.setProject(project, inactive: true) })
                 }
             }
-            Section { CompanionTerminalMenuItem(scope: .project(project)) }
         }
     }
 }
