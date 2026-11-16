@@ -16,6 +16,18 @@ import XCTest
         XCTAssertEqual(candidate.isEnabled, baseline.isEnabled)
         XCTAssertTrue(candidate.isHittable && baseline.isHittable)
         XCTAssertEqual(candidate.frame.height, baseline.frame.height, accuracy: 1)
+        let comparison = XCTAttachment(string: """
+        Native: type=\(baseline.elementType), label=\(baseline.label), enabled=\(baseline.isEnabled), frame=\(baseline.frame)
+        Wrapped: type=\(candidate.elementType), label=\(candidate.label), enabled=\(candidate.isEnabled), frame=\(candidate.frame)
+        This compares the runtime accessibility tree and native default actions; no physical VoiceOver session.
+        """)
+        comparison.name = "Native versus wrapped accessibility"
+        comparison.lifetime = .keepAlways
+        add(comparison)
+        let image = XCTAttachment(screenshot: XCUIApplication().screenshot())
+        image.name = "Native and wrapped controls"
+        image.lifetime = .keepAlways
+        add(image)
     }
     private func assertCounts(_ app: XCUIApplication, _ value: String) {
         XCTAssertEqual(element(app, "native-hook-counts").label, value)
