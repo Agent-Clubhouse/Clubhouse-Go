@@ -15,6 +15,64 @@ import XCTest
         XCTAssertTrue(element.isHittable)
     }
 
+    private func openHeaderMenu(_ app: XCUIApplication) {
+        let header = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
+        reveal(header, in: app)
+        longPressUntilMenu(header, shows: app.buttons["project-wake"], attempts: 1)
+        XCTAssertFalse(app.buttons["project-menu-preview-studio-clubhouse"].exists, "The header has no overflow button")
+    }
+
+    func testHeaderActionsChooseOneMachineForAllAndSelectedWakeIsDirect() {
+        let app = launchApp(["--companion-preview", "--companion-preview-linked-projects"], attempts: 1)
+        XCTAssertTrue(app.buttons["desktop-chip-all"].waitForExistence(timeout: 15))
+        openHeaderMenu(app)
+        XCTAssertTrue(app.buttons["Project info"].exists)
+        app.buttons["project-wake"].tap()
+        XCTAssertTrue(app.navigationBars["Choose a desktop"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "wake-message").firstMatch.exists)
+        let studio = app.buttons["project-machine-choice-preview-studio-clubhouse"]
+        let laptop = app.buttons["project-machine-choice-preview-laptop-notes"]
+        XCTAssertTrue(studio.isEnabled)
+        XCTAssertFalse(laptop.isEnabled, "A desktop with no sleeping agent cannot receive Wake")
+        capture(app, "Home All Wake chooses an explicit available machine")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Choose a desktop"].waitForNonExistence(timeout: 5))
+        let chip = app.buttons["desktop-chip-host-preview-studio"]
+        reveal(chip, in: app)
+        chip.tap()
+        openHeaderMenu(app)
+        app.buttons["project-wake"].tap()
+        let message = app.descendants(matching: .any).matching(identifier: "wake-message").firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Choose a desktop"].exists)
+        XCTAssertTrue(app.buttons["wake-agent-picker"].label.contains("Juniper"))
+        capture(app, "Home selected Studio Wake opens only Studio's sleeping agents")
+        app.buttons["Cancel"].tap()
+    }
+
+    func testHeaderTerminalUsesOneConcreteShellAndInfoRemainsReadOnly() {
+        let app = launchApp(["--companion-preview", "--companion-preview-linked-projects"], attempts: 1)
+        XCTAssertTrue(app.buttons["desktop-chip-all"].waitForExistence(timeout: 15))
+        openHeaderMenu(app)
+        app.buttons["Terminal"].tap()
+        XCTAssertTrue(app.navigationBars["Choose a desktop"].waitForExistence(timeout: 5))
+        let output = app.descendants(matching: .any).matching(identifier: "terminal-output").firstMatch
+        XCTAssertFalse(output.exists, "All never opens an arbitrary member's terminal")
+        let studio = app.buttons["project-machine-choice-preview-studio-clubhouse"]
+        XCTAssertTrue(studio.isEnabled)
+        studio.tap()
+        XCTAssertTrue(output.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "clubhouse %"), timeout: 10))
+        app.buttons["terminal-done"].tap()
+        XCTAssertTrue(output.waitForNonExistence(timeout: 5))
+        openHeaderMenu(app)
+        app.buttons["Project info"].tap()
+        XCTAssertTrue(app.navigationBars["Project info"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields.count, 0)
+        XCTAssertEqual(app.switches.count, 0)
+        capture(app, "Home project info remains read-only")
+    }
+
     func testOfflineDisclosureIsSessionOnlyAndCachedRowsCannotNavigate() {
         let app = launchApp(base, attempts: 1)
         XCTAssertTrue(app.staticTexts["home-summary"].waitForExistence(timeout: 15))
