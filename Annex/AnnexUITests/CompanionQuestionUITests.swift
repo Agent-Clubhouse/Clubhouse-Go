@@ -5,6 +5,17 @@ import XCTest
 
     func testLastQuestionCanScrollClearOfComposerAndNavigationWhileEditing() { checkQuestion(keyboardUp: true) }
 
+    /// #448 replaces the request pager with selection-only horizontal swipes.
+    private func swipeToNextQuestion(in app: XCUIApplication) {
+        let frame = app.buttons["companion-decision-show-in-chat"].frame
+        let from = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.minX + frame.width * 0.85, dy: frame.midY))
+        let distance = frame.width * 0.7
+        XCTAssertGreaterThan(distance, 44, "A real swipe crosses the selection threshold")
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: -distance, dy: 0)),
+                   withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+
     private func checkQuestion(keyboardUp: Bool) {
         let app = launchApp(["--companion-preview", "--companion-preview-questions"])
         let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
@@ -19,16 +30,16 @@ import XCTest
         let close = app.buttons["companion-approval-review-close"]
         for id in ["empty", "partial"] {
             XCTAssertFalse(app.buttons["send-answers-\(id)"].exists, "Inline history has no second answer surface")
-            waitAndTap(app.buttons["companion-review-approval"], until: close)
+            waitAndTap(app.buttons["companion-decision-answer"], until: close)
             let notice = app.scrollViews["companion-approval-review-scroll"].staticTexts["desktop-answer-\(id)"]
             XCTAssertTrue(notice.exists)
             XCTAssertEqual(notice.label, "Answer this question on the desktop. This phone can't show all of its prompts.")
             XCTAssertFalse(app.buttons["send-answers-\(id)"].isEnabled)
             close.tap()
             XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-            app.buttons["companion-pinned-decision-next"].tap()
+            swipeToNextQuestion(in: app)
         }
-        waitAndTap(app.buttons["companion-review-approval"], until: close)
+        waitAndTap(app.buttons["companion-decision-answer"], until: close)
         let red = app.buttons["Red"]
         XCTAssertTrue(scrollTo(red, in: app))
         red.tap()
