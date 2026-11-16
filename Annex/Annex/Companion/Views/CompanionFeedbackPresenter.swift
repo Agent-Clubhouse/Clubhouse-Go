@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 import UIKit
 #if DEBUG
 import CryptoKit

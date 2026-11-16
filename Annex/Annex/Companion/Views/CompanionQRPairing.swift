@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 import AVFoundation
 import Vision
 import VisionKit
