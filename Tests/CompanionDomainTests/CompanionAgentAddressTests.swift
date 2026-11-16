@@ -12,7 +12,7 @@ import Testing
 
     /// A second desktop, "Studio Mac", with an agent of the same id in its own project.
     private func addStudio(to harness: Harness) async throws -> ScriptedAnnexTransport {
-        let studio = ScriptedAnnexTransport()
+        let studio = await ScriptedAnnexTransport()
         await studio.setProjects(.array([.object(["id": .string("studio-project"), "name": .string("Studio")])]))
         await studio.setAgents(.array([.object(["id": .string("agent"), "name": .string("Builder"), "status": .string("idle")])]))
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.2", port: 8443), verifiedHostID: Self.otherID,

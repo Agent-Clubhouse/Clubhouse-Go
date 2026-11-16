@@ -132,17 +132,27 @@ import ClubhouseTransport
     /// the app away from home goes straight to Tailscale instead of waiting out the home address.
     private func answeringRoute(for registration: AnnexTransportRegistry.Registration) async -> AnnexTransportRegistry.Registration {
         let routes = await registry.routes(for: registration.host.hostID)
-        guard routes.count > 1,
+        guard !Task.isCancelled, routes.count > 1,
               let best = await AnnexRediscovery.firstAnswering(registration.host, routes: routes, probe: { try await AnnexTrustProbe.inspect(endpoint: $0) }),
-              !best.sameAddress(as: registration.host.endpoint) else { return registration }
+              !Task.isCancelled, !best.sameAddress(as: registration.host.endpoint) else { return registration }
         return (try? await registry.relocate(hostID: registration.host.hostID, to: best)) ?? registration
     }
     /// Back in the foreground, maybe on another network: move each desktop to a route that answers.
-    private func switchToAnsweringRoutes() async -> Set<String> {
+    // The optional resolver is call-scoped for deterministic route-race tests; production
+    // uses the existing pinned route probe and never stores an injected callback.
+    func switchToAnsweringRoutes(resolveRoute: ((AnnexTransportRegistry.Registration) async -> AnnexTransportRegistry.Registration)? = nil) async -> Set<String> {
         var moved: Set<String> = []
         for registration in await registry.all() {
-            let best = await answeringRoute(for: registration)
-            guard !best.host.endpoint.sameAddress(as: registration.host.endpoint) else { continue }
+            guard !Task.isCancelled else { return moved }
+            let best = if let resolveRoute { await resolveRoute(registration) } else { await answeringRoute(for: registration) }
+            guard !Task.isCancelled else { return moved }
+            let current = await registry.all().first { $0.host.hostID == best.host.hostID }
+            guard !Task.isCancelled else { return moved }
+            // Route resolution suspends: a newer pairing/relocation may now own this host.
+            guard current?.transportID == best.transportID else { continue }
+            // A cancelled earlier relocation may have committed its new route only in the registry.
+            // The exact transport identity changes with that route; presence alone is insufficient.
+            guard !service.hasRegistration(best) else { continue }
             await service.register(best)
             moved.insert(best.host.hostID)
         }

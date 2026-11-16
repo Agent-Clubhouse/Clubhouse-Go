@@ -8,6 +8,8 @@ import ClubhouseTransport
     nonisolated deinit {}
     private var transports: [String: any AnnexTransporting] = [:]
     private var registeredTransportIDs: [String: UUID] = [:]
+    /// Latest per-host admission, independent of foreground/background generations.
+    private var registrationIntents: [String: UUID] = [:]
     private var hosts: [String: CompanionHost] = [:]
     private var capabilities: [String: AnnexCapabilities] = [:]
     /// A successful read can confirm an older desktop has no mobile capabilities; a failed read cannot.
@@ -58,6 +60,7 @@ import ClubhouseTransport
     private var eventDrainTasks: [String: Task<Void, Never>] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
+    private var lifecycleGeneration = UUID()
     /// Called when a host stops answering at its saved address while the app is active.
     var onUnreachable: ((String) -> Void)?
     /// Membership arrives only over the host's authenticated transport.
@@ -83,15 +86,26 @@ import ClubhouseTransport
         }
     }
 
-    func register(_ registration: AnnexTransportRegistry.Registration) async {
+    /// The optional barrier is scoped to this call (never retained) so tests can hold initial
+    /// registration before icon work without blocking an actor thread or changing platform coverage.
+    func register(_ registration: AnnexTransportRegistry.Registration,
+                  beforeIconWork: (@Sendable () async -> Void)? = nil) async {
+        guard !Task.isCancelled else { return }
+        // Pairing/restore registration remains authoritative across phase changes. Only cancelled
+        // work is abandoned; current suspension decides whether the retained host may connect.
         let id = registration.host.hostID
+        let intent = UUID()
+        registrationIntents[id] = intent
+        await beforeIconWork?()
         await iconStore.activate(host: id)
+        guard !Task.isCancelled, registrationIntents[id] == intent else { return }
         let transport = registration.transport
         await iconStore.setFetcher(for: id) { key, _ in
             let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
             return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
                          version: CompanionIconMetadata.version(etag: response.etag))
         }
+        guard !Task.isCancelled, registrationIntents[id] == intent else { return }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         registeredTransportIDs[id] = registration.transportID
@@ -103,7 +117,10 @@ import ClubhouseTransport
         hosts[id] = host
         emitHosts()
         guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
-        guard !isSuspended else { hosts[id]?.connection = .offline; emitHosts(); return }
+        guard !Task.isCancelled, registrationIntents[id] == intent, !isSuspended else {
+            if isSuspended { hosts[id]?.connection = .offline; emitHosts() }
+            return
+        }
         do { try await registration.transport.connect() }
         catch {
             guard !isSuspended, eventGenerations[id] == generation else { return }
@@ -841,14 +858,14 @@ import ClubhouseTransport
         }
     }
     func reconnect(hostID: String) async {
-        guard !isSuspended, let transport = transports[hostID] else { return }
+        guard !Task.isCancelled, !isSuspended, let transport = transports[hostID] else { return }
         invalidateEvents(hostID: hostID)
         let generation = UUID()
         eventGenerations[hostID] = generation
         await transport.disconnect()
-        guard !isSuspended, eventGenerations[hostID] == generation else { return }
+        guard !Task.isCancelled, !isSuspended, eventGenerations[hostID] == generation else { return }
         guard let subscription = await subscribe(to: transport, hostID: hostID),
-              !isSuspended, eventGenerations[hostID] == subscription else { return }
+              !Task.isCancelled, !isSuspended, eventGenerations[hostID] == subscription else { return }
         do { try await transport.connect() }
         catch {
             guard !isSuspended, eventGenerations[hostID] == subscription else { return }
@@ -856,6 +873,7 @@ import ClubhouseTransport
         }
     }
     func remove(hostID: String) {
+        registrationIntents.removeValue(forKey: hostID)
         streamDiagnostics.remove(hostID: hostID)
         invalidateEvents(hostID: hostID)
         transports.removeValue(forKey: hostID)
@@ -883,6 +901,7 @@ import ClubhouseTransport
         emitHosts()
     }
     func suspend() async {
+        lifecycleGeneration = UUID()
         isSuspended = true
         for (id, transport) in Array(transports) {
             invalidateEvents(hostID: id)
@@ -893,7 +912,10 @@ import ClubhouseTransport
         emitHosts()
     }
     func shutdown() async {
+        // Retire held admissions before suspension can yield, and any started during it.
+        registrationIntents.removeAll()
         await suspend()
+        registrationIntents.removeAll()
         transports.removeAll()
         registeredTransportIDs.removeAll()
         capabilities.removeAll()
@@ -917,9 +939,15 @@ import ClubhouseTransport
         emitHosts()
     }
     func resume() async {
+        guard !Task.isCancelled else { return }
+        let generation = UUID()
+        lifecycleGeneration = generation
         isSuspended = false
         let reconnected = await prepareResume?() ?? []
-        for id in Array(transports.keys) where !reconnected.contains(id) { await reconnect(hostID: id) }
+        for id in Array(transports.keys) where !reconnected.contains(id) {
+            guard !Task.isCancelled, !isSuspended, lifecycleGeneration == generation else { return }
+            await reconnect(hostID: id)
+        }
     }
 
     private func clearFullReviews(hostID: String) {

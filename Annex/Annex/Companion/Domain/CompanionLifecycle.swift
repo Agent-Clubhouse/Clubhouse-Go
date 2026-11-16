@@ -4,13 +4,15 @@ import ClubhouseTransport
 #endif
 
 /// Inactive is transient (Control Center, permission sheets, foregrounding).
-/// Only background suspends; the next active phase resumes, in arrival order.
+/// Background pre-empts a pending resume. A new foreground still waits for suspension to finish.
 @MainActor final class CompanionLifecycle {
     // ARC-only teardown; transition captures are reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     enum Phase { case active, inactive, background }
     private var wantsActive = true
     private var pending: Task<Void, Never>?
+    private var resume: Task<Void, Never>?
+    private var suspension: Task<Void, Never>?
     private let transition: @MainActor (Bool) async -> Void
 
     init(transition: @escaping @MainActor (Bool) async -> Void) {
@@ -26,13 +28,17 @@ import ClubhouseTransport
         let operation: AnnexDiagnosticOperation = active ? .foreground : .background
         AnnexTelemetry.shared.record(operation, event: .transitionQueued)
         #endif
-        let previous = pending
+        // Preparation may be awaiting slow network/Keychain work. Never put disconnect behind
+        // it; cancellation plus the service's generation fences retire its late results.
+        if !active { resume?.cancel(); resume = nil }
+        let previous = suspension
         let transition = transition
         pending = Task {
             #if DEBUG
             AnnexTelemetry.shared.record(operation, event: .transitionWaiting)
             #endif
             await previous?.value
+            guard !active || !Task.isCancelled else { return }
             #if DEBUG
             AnnexTelemetry.shared.record(operation, event: .transitionStarted)
             #endif
@@ -41,7 +47,10 @@ import ClubhouseTransport
             AnnexTelemetry.shared.record(operation, event: .transitionCompleted)
             #endif
         }
+        if active { resume = pending }
+        else { suspension = pending }
     }
 
+    /// Wait for the latest requested phase, not a cancelled resume's uncooperative preparation.
     func settle() async { await pending?.value }
 }

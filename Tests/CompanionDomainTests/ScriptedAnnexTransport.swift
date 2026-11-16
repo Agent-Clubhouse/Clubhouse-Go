@@ -22,6 +22,10 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     private(set) var disconnectCount = 0
     private var connectErrors: [AnnexTransportError] = []
 
+    // An async actor initializer avoids the coverage compiler rejecting a synchronous
+    // initializer as implicitly nonisolated when used by the resume-preemption fixtures.
+    init() async {}
+
     // Capabilities.
     private var epoch = "epoch"
     private var controlAvailable = true
@@ -208,7 +212,7 @@ struct AnnexReadRouteRecord: Sendable, Equatable {
     static func start(alias: String = "Fixture", waitForConnection: Bool = true, iconStore: CompanionIconStore? = nil,
                       configure: (ScriptedAnnexTransport) async -> Void = { _ in },
                       prepare: (CompanionLiveService) -> Void = { _ in }) async throws -> LiveServiceHarness {
-        let transport = ScriptedAnnexTransport()
+        let transport = await ScriptedAnnexTransport()
         await configure(transport)
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("build/harness-icons/\(UUID().uuidString)")
