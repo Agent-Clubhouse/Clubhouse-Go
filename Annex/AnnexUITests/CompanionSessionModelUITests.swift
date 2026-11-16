@@ -100,7 +100,9 @@ import XCTest
             XCTAssertTrue(sonnet.waitForNonExistence(timeout: 5))
             let picker = app.buttons["agent-settings-model"]
             waitAndTap(ring, until: element(app, "companion-context-reading-note"))
-            XCTAssertTrue(scrollTo(picker, in: app))
+            waitAndTap(app.buttons["companion-context-settings-row"], until: app.buttons["agent-settings-context-window"], attempts: 1)
+            // Context settings opens at the context section; Model is earlier in the same form.
+            XCTAssertTrue(scrollTo(picker, in: app, up: false))
             if differs {
                 XCTAssertTrue(picker.label.contains("Saved") && picker.label.contains(savedLabel) && picker.label.contains("(next start)"), picker.label)
                 XCTAssertTrue(element(app, "agent-settings-model-session").exists)
