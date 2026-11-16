@@ -105,24 +105,25 @@ struct CompanionConversationPendingDecisions: View {
     }
 
     @ViewBuilder private func approvalActions(_ approval: CompanionApproval, presentation: CompanionDecisionPresentation) -> some View {
-                    // Exact one-off kinds only. Broader/custom choices remain in full review,
-                    // where the existing capability checks and confirmations still own them.
-                    if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
-                        Button("Deny", role: .destructive) { Task { await store.respond(presentation, option: deny) } }
-                            .buttonStyle(DecisionActionStyle(primary: false))
-                            .disabled(!canRespond(.approve))
-                    }
-                    if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
-                        Button("Allow once") { Task { await store.respond(presentation, option: allow) } }
-                            .buttonStyle(DecisionActionStyle(primary: true))
-                            .disabled(!canRespond(.approve) || !store.canApprove(approval, target: target))
-                    } else {
-                        Button("Review") { openReview(decision, presentation: presentation) }
-                            .buttonStyle(DecisionActionStyle(primary: false))
-                            .accessibilityLabel("Review approval: \(decision.summary)")
-                            .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
-                            .accessibilityIdentifier("companion-review-approval")
-                    }
+        let decision = CompanionPendingDecision.approval(approval)
+        // Exact one-off kinds only. Broader/custom choices remain in full review,
+        // where the existing capability checks and confirmations still own them.
+        if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
+            Button("Deny", role: .destructive) { Task { await store.respond(presentation, option: deny) } }
+                .buttonStyle(DecisionActionStyle(primary: false))
+                .disabled(!canRespond(.approve))
+        }
+        if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
+            Button("Allow once") { Task { await store.respond(presentation, option: allow) } }
+                .buttonStyle(DecisionActionStyle(primary: true))
+                .disabled(!canRespond(.approve) || !store.canApprove(approval, target: target))
+        } else {
+            Button("Review") { openReview(decision, presentation: presentation) }
+                .buttonStyle(DecisionActionStyle(primary: false))
+                .accessibilityLabel("Review approval: \(decision.summary)")
+                .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
+                .accessibilityIdentifier("companion-review-approval")
+        }
     }
 
     private func openReview(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) {
