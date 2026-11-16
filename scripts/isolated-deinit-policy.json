@@ -134,13 +134,14 @@
     "CompanionRuntime": {
       "policy": "main_actor_task",
       "source": "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
-      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree. Its first statement quiesces Presenter observers, offers and pending status work; before any await, Store.shutdown stops listening and clears isolated-deinit providerFlows, and telemetry stops. This protects both a Store retained beyond Runtime teardown and a Presenter retained while transport disconnect waits. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task then waits for pending lifecycle transitions and shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All retained owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. Fields and exact deinit body are gated.",
+      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree. Its first statement quiesces Presenter observers, offers and pending status work; before any await, Store.shutdown stops listening and clears isolated-deinit providerFlows, and telemetry stops. This protects both a Store retained beyond Runtime teardown and a Presenter retained while transport disconnect waits. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task then waits for pending lifecycle transitions and shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All retained owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. The external restore-failure acknowledgment is a value-only Bool with no ownership or teardown. Fields and exact deinit body are gated.",
       "deinit": "nonisolated deinit { Task { @ MainActor [ feedback , appTelemetry , feedbackPresenter , store , service , lifecycle ] in feedbackPresenter . stop ( ) store . shutdown ( ) appTelemetry ? . stop ( ) await lifecycle . settle ( ) await service . shutdown ( ) withExtendedLifetime ( ( feedback , appTelemetry , feedbackPresenter , store , lifecycle ) ) { } } }",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
           "appTelemetry": "CompanionTelemetry ?",
+          "externalRestoreFailureAcknowledged": "Bool",
           "feedback": "FeedbackModel ?",
           "feedbackPresenter": "CompanionFeedbackPresenter",
           "isRestoring": "Bool",
