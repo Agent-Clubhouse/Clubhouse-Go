@@ -405,6 +405,12 @@ struct CompanionEnrollmentSheet: View {
 }
 
 extension View {
+    /// Attach to a composed menu label. SwiftUI can expose its accessibility identifier only as a
+    /// virtual element, so the capture adapter associates the actual enclosing UIKit control explicitly.
+    func companionFeedbackMenuSource() -> some View {
+        background { CompanionFeedbackMenuSource().allowsHitTesting(false).accessibilityHidden(true) }
+    }
+
     /// Installs the menu action for this subtree. Screenshots are observed by the presenter itself.
     func companionFeedbackEntryPoints(_ presenter: CompanionFeedbackPresenter?) -> some View {
         var action: (@MainActor () -> Void)?
@@ -457,19 +463,23 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
         }
         func connectControls() {
             guard let window else { return }
-            func visit(_ view: UIView) {
-                if let control = view as? UIControl, Self.isSource(control), !controls.contains(control) {
-                    control.addTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered)
-                    controls.add(control)
-                    let observation = control.observe(\.isHighlighted, options: [.old, .new]) { [weak self] control, change in
-                        guard change.oldValue == true, change.newValue == false else { return }
-                        Task { @MainActor [weak self, weak control] in
-                            guard let control, !control.isHighlighted else { return }
-                            self?.presenter?.discardMenuFeedback(from: control)
-                        }
+            func register(_ control: UIControl) {
+                guard !controls.contains(control) else { return }
+                control.addTarget(self, action: #selector(menuWillOpen(_:)), for: .menuActionTriggered)
+                controls.add(control)
+                let observation = control.observe(\.isHighlighted, options: [.old, .new]) { [weak self] control, change in
+                    guard change.oldValue == true, change.newValue == false else { return }
+                    Task { @MainActor [weak self, weak control] in
+                        guard let control, !control.isHighlighted else { return }
+                        self?.presenter?.discardMenuFeedback(from: control)
                     }
-                    highlightObservations.setObject(observation, forKey: control)
                 }
+                highlightObservations.setObject(observation, forKey: control)
+            }
+            func visit(_ view: UIView) {
+                if let source = view as? CompanionFeedbackMenuSource.Anchor, let control = source.enclosingControl {
+                    register(control)
+                } else if let control = view as? UIControl, Self.isSource(control) { register(control) }
                 for child in view.subviews { visit(child) }
             }
             visit(window)
@@ -482,9 +492,11 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
             controls.removeAllObjects(); observedWindow = nil
         }
         func openingPress(_ touch: UITouch) {
+            // A new toolbar label can be installed after the root adapter last laid out.
+            connectControls()
             var candidate = touch.view
             while let view = candidate {
-                if Self.isSource(view), let control = view as? UIControl, let window = control.window {
+                if let control = view as? UIControl, controls.contains(control), let window = control.window {
                     lastPress = ProcessInfo.processInfo.systemUptime
                     presenter?.prepareMenuFeedback(in: window, source: control)
                     return
@@ -504,5 +516,34 @@ private final class CompanionFeedbackOpeningPress: UIGestureRecognizer {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
         if let touch = touches.first { anchor?.openingPress(touch) }
         state = .failed
+    }
+}
+
+/// A label-local marker survives composed SwiftUI toolbars without using accessibility metadata.
+private struct CompanionFeedbackMenuSource: UIViewRepresentable {
+    func makeUIView(context: Context) -> Anchor { Anchor() }
+    func updateUIView(_ view: Anchor, context: Context) {
+        DispatchQueue.main.async { [weak view] in view?.connectCapture() }
+    }
+
+    final class Anchor: UIView {
+        var enclosingControl: UIControl? {
+            var ancestor = superview
+            while let view = ancestor {
+                if let control = view as? UIControl { return control }
+                ancestor = view.superview
+            }
+            return nil
+        }
+        override func didMoveToWindow() { super.didMoveToWindow(); connectCapture() }
+        override func layoutSubviews() { super.layoutSubviews(); connectCapture() }
+        func connectCapture() {
+            guard let window else { return }
+            func visit(_ view: UIView) {
+                if let adapter = view as? CompanionFeedbackMenuCapture.Anchor { adapter.connectControls() }
+                for child in view.subviews { visit(child) }
+            }
+            visit(window)
+        }
     }
 }

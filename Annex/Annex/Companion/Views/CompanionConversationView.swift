@@ -233,6 +233,7 @@ struct CompanionConversationView: View {
                             Image(systemName: "ellipsis")
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
+                                .companionFeedbackMenuSource()
                         }
                         .menuStyle(.button)
                         .frame(width: 44, height: 44)

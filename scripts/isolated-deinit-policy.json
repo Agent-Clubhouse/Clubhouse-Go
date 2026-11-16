@@ -885,6 +885,11 @@
           "@ Observable"
         ]
       }
+    },
+    "CompanionFeedbackMenuSource.Anchor": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift",
+      "reason": "Label-local UIView marker adds no stored fields or owner. Its superclass retains UIKit hierarchy state; enclosing controls and root adapters are computed from that hierarchy only. Queued refresh captures the marker weakly, so preserve normal MainActor UIKit teardown."
     }
   },
   "captureSites": {
