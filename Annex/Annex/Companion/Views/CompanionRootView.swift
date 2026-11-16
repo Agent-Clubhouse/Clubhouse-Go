@@ -32,7 +32,7 @@ struct CompanionRootView: View {
         self.isPreview = isPreview
         self.pairedHostIDs = pairedHostIDs
         var navigation = CompanionNavigation(lastTab: preferences.lastTab, cached: preferences.dispatcherDesktops,
-                                             lastHostID: preferences.lastHostID)
+                                             lastHostID: preferences.lastHostID, lastDispatcherHostID: preferences.lastDispatcherHostID)
         navigation.update(hosts: store.hosts)
         if let target = store.selection { navigation.open(target, hosts: store.hosts) }
         _navigation = State(initialValue: navigation)
@@ -56,7 +56,7 @@ struct CompanionRootView: View {
                 Tab("Dispatch", systemImage: "point.3.connected.trianglepath.dotted", value: CompanionTab.dispatcher) {
                     stack(.dispatcher) { dispatcherRoot }
                 }
-                .badge(store.dispatcherNeedsYouCount)
+                .badge(store.dispatcherNeedsYouCount + navigation.dispatcherReplies.unreadHostIDs.count)
             }
             Tab("Needs you", systemImage: "tray", value: CompanionTab.needsYou) {
                 stack(.needsYou) { CompanionNeedsYouView(store: store, decisions: decisions) }
@@ -126,6 +126,7 @@ struct CompanionRootView: View {
             let removedHost = !Set(previous.map(\.id)).isSubset(of: Set(hosts.map(\.id)))
             if removedHost || hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
                 preferences.dispatcherDesktops = navigation.dispatcherDesktops
+                if !hosts.isEmpty, preferences.lastDispatcherHostID != navigation.dispatcherHostID { preferences.lastDispatcherHostID = navigation.dispatcherHostID }
             }
             mirrorSelection()
         }
@@ -166,10 +167,21 @@ struct CompanionRootView: View {
     /// Retain each desktop’s editor state; hidden conversations unmount their transcript content.
     /// The store’s per-target reading bookmark restores the visible transcript after tab or desktop switches.
     private var dispatcherRoot: some View {
-        let rows = CompanionDispatcherSwitcherRow.rows(desktops: navigation.dispatcherDesktops, hosts: store.hosts)
-        let errors = store.hosts.compactMap(\.dispatcherPresenceError)
-        return
-        ZStack {
+        let cached = Dictionary(uniqueKeysWithValues: navigation.dispatcherDesktops.compactMap { desktop -> (String, CompanionDispatcherReplyCheckpoint)? in
+            guard let target = desktop.target else { return nil }
+            let conversation = store.conversation(for: target)
+            guard conversation.isLoaded else { return nil }
+            return (desktop.id, .init(target: target, conversation: conversation))
+        })
+        let followsLatest = navigation.dispatcherTarget.map { store.readingBookmark(for: $0).followsLatest } ?? true
+        let isStreaming = navigation.dispatcherTarget.map { target in
+            store.conversation(for: target).items.contains { item in
+                if case .message(let message) = item { return message.role == .assistant && message.isStreaming }
+                return false
+            }
+        } ?? false
+        let visibleHostID = navigation.tab == .dispatcher && (navigation.paths[.dispatcher] ?? []).isEmpty ? navigation.dispatcherHostID : nil
+        let conversations = ZStack {
             ForEach(navigation.dispatcherDesktops) { desktop in
                 let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
                     && (navigation.paths[.dispatcher] ?? []).isEmpty
@@ -189,62 +201,36 @@ struct CompanionRootView: View {
                 .accessibilityHidden(!visible)
             }
         }
+        let switcher = CompanionDispatcherSwitcher(desktops: navigation.dispatcherDesktops, hosts: store.hosts,
+            selectedHostID: navigation.dispatcherHostID, replies: navigation.dispatcherReplies.unreadHostIDs,
+            isWorking: isStreaming || !followsLatest, select: { hostID in
+                navigation.chooseDispatcher(hostID: hostID)
+                preferences.lastHostID = hostID
+                preferences.lastDispatcherHostID = hostID
+                mirrorSelection()
+            }) {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatch-reports") {
+                CompanionDispatcherPreviewReports(store: store, desktops: navigation.dispatcherDesktops, selectedHostID: navigation.dispatcherHostID)
+            }
+            #endif
+            conversations
+        }
+        return switcher
         .navigationTitle(navigation.dispatcherTitle(hosts: store.hosts))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                if rows.count > 1 || !errors.isEmpty {
-                    Menu {
-                        ForEach(rows) { row in
-                            if let desktop = row.desktop {
-                                Button {
-                                    navigation.chooseDispatcher(hostID: desktop.id)
-                                    preferences.lastHostID = desktop.id
-                                    mirrorSelection()
-                                } label: {
-                                    if let presence = row.presence {
-                                        Label {
-                                            Text(row.label)
-                                        } icon: {
-                                            if desktop.id == navigation.dispatcherHostID { Image(systemName: "checkmark") }
-                                            else if let symbol = presence.presentation().symbol { Image(systemName: symbol) }
-                                        }
-                                        if let detail = row.detail { Text(detail) }
-                                    } else {
-                                        if desktop.id == navigation.dispatcherHostID {
-                                            Label(desktop.displayName, systemImage: "checkmark")
-                                        } else {
-                                            Text(desktop.displayName)
-                                        }
-                                        Text(desktop.name)
-                                    }
-                                }
-                                .accessibilityLabel(row.accessibilityLabel)
-                                .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
-                            } else if let presence = row.presence {
-                                Button {} label: {
-                                    Label { Text(row.label) } icon: {
-                                        if let symbol = presence.presentation().symbol { Image(systemName: symbol) }
-                                    }
-                                    if let detail = row.detail { Text(detail) }
-                                }
-                                .disabled(true)
-                                .accessibilityLabel(row.accessibilityLabel)
-                                .accessibilityIdentifier("dispatcher-remote-\(row.id)")
-                            }
-                        }
-                        ForEach(Array(errors.enumerated()), id: \.offset) { _, error in Text(error) }
-                    } label: {
-                        Label(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.displayName ?? CompanionDispatcher.name,
-                              systemImage: "chevron.up.chevron.down")
-                            .font(.subheadline).lineLimit(1)
-                    }
-                    .accessibilityLabel(navigation.dispatcherDesktops.first { $0.id == navigation.dispatcherHostID }?.accessibilityLabel ?? CompanionDispatcher.name)
-                    .accessibilityIdentifier("dispatcher-desktop-switcher")
-                } else {
-                    Button("Settings", systemImage: "gearshape") { navigation.interact(); onSettings() }
-                }
-            }
+        .companionTelemetryScreen(.dispatcher)
+        .onChange(of: cached, initial: true) { _, next in
+            navigation.dispatcherReplies.update(next, visibleHostID: visibleHostID, followsLatest: followsLatest)
+        }
+        .onChange(of: visibleHostID) { _, next in
+            navigation.dispatcherReplies.update(cached, visibleHostID: next, followsLatest: followsLatest)
+        }
+        .onChange(of: followsLatest) { _, next in
+            navigation.dispatcherReplies.update(cached, visibleHostID: visibleHostID, followsLatest: next)
+        }
+        .onChange(of: navigation.dispatcherHostID, initial: true) { _, next in
+            if let next { preferences.lastDispatcherHostID = next }
         }
     }
 

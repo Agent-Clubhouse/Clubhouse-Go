@@ -84,3 +84,38 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
         }
     }
 }
+
+/// Only already-cached assistant arrivals participate. No reads, replay, persisted transcript or remote presence.
+struct CompanionDispatcherReplyCheckpoint: Equatable {
+    var target: CompanionTarget
+    var sessionID: String?
+    var latestAssistantID: String?
+    init(target: CompanionTarget, conversation: CompanionConversation) {
+        self.target = target
+        sessionID = conversation.sessionID
+        latestAssistantID = conversation.items.reversed().compactMap { item -> String? in
+            guard case .message(let message) = item, message.role == .assistant else { return nil }
+            return message.id
+        }.first
+    }
+}
+
+struct CompanionDispatcherReplies {
+    private var checkpoints: [String: CompanionDispatcherReplyCheckpoint] = [:]
+    private(set) var unreadHostIDs: Set<String> = []
+
+    mutating func update(_ cached: [String: CompanionDispatcherReplyCheckpoint], visibleHostID: String?, followsLatest: Bool) {
+        checkpoints = checkpoints.filter { cached[$0.key] != nil }
+        unreadHostIDs.formIntersection(cached.keys)
+        for (host, next) in cached {
+            if let previous = checkpoints[host], previous.target == next.target, previous.sessionID == next.sessionID,
+               previous.latestAssistantID != next.latestAssistantID, next.latestAssistantID != nil {
+                unreadHostIDs.insert(host)
+            } else if checkpoints[host]?.target != next.target || checkpoints[host]?.sessionID != next.sessionID {
+                unreadHostIDs.remove(host)
+            }
+            checkpoints[host] = next
+        }
+        if followsLatest, let visibleHostID { unreadHostIDs.remove(visibleHostID) }
+    }
+}

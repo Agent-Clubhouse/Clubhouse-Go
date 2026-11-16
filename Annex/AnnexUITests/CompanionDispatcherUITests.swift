@@ -143,9 +143,10 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
     private func dismissKeyboard(_ app: XCUIApplication) {
         guard app.keyboards.firstMatch.exists else { return }
-        // The header lives in the navigation bar now: start halfway between it and the composer, in the transcript.
-        let top = app.navigationBars.firstMatch.frame.maxY
-        let bottom = element(app, "companion-composer-region").frame.minY
+        // Use the transcript's actual visible bounds: chips and preview report controls can sit above it.
+        let transcript = element(app, "companion-transcript").frame
+        let top = max(app.navigationBars.firstMatch.frame.maxY, transcript.minY)
+        let bottom = min(element(app, "companion-composer-region").frame.minY, transcript.maxY)
         XCTAssertGreaterThan(bottom - top, 48, "Some transcript stays visible above the composer")
         let start = app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: app.frame.width * 0.5, dy: (top + bottom) / 2 - app.frame.minY))
@@ -171,13 +172,6 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         request.usesLanguageCorrection = false
         try VNImageRequestHandler(cgImage: XCTUnwrap(app.screenshot().image.cgImage)).perform([request])
         return try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
-    }
-
-    private func assertMachineSubtitles(_ app: XCUIApplication) throws {
-        // Menu buttons combine their accessibility children; OCR checks the visible subtitles.
-        let text = try visibleText(app)
-        XCTAssertTrue(text.contains("Studio Mac"), "The menu renders the Studio machine subtitle")
-        XCTAssertTrue(text.contains("Travel MacBook"), "The selected entry also renders its machine subtitle")
     }
 
     func testPinnedRowOpensTheDispatchersChatAndSettings() {
@@ -333,7 +327,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls", "--companion-preview-dispatch-reports"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         composer.tap()
@@ -344,19 +338,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         tab(app, "Dispatch").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
-        // Opening Settings also dismisses the keyboard before the desktop report.
-        app.buttons["Settings"].tap()
-        app.buttons["Disconnect desktop"].tap()
-        app.buttons["settings-close"].tap()
+        // The synthetic report preserves the selected Dispatch tab; Settings lives on Home.
+        app.buttons["dispatcher-preview-disconnect"].tap()
         XCTAssertTrue(tab(app, "Dispatch").exists, "A dropped connection isn't off")
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
         XCTAssertFalse(app.buttons["companion-send"].isEnabled)
         screenshot(app, "Dispatcher disconnected with cached conversation")
-        app.buttons["Settings"].tap()
-        app.buttons["Reconnect desktop"].tap()
-        app.buttons["Report Dispatcher off"].tap()
-        app.buttons["settings-close"].tap()
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        app.buttons["dispatcher-preview-off"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         XCTAssertFalse(tab(app, "Dispatch").exists)
         tab(app, "Search").tap()
@@ -453,55 +443,52 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         }
     }
 
-    func testDesktopSwitcherUsesDispatcherNamesAndMachineSubtitles() throws {
+    private func dispatcherChoice(_ app: XCUIApplication, host: String) -> XCUIElement {
+        let choice = app.buttons["dispatcher-desktop-\(host)"]
+        if !choice.exists { waitAndTap(app.buttons["dispatcher-desktop-switcher"], until: choice, attempts: 1) }
+        if !choice.isHittable, app.scrollViews["dispatcher-chips"].exists {
+            app.scrollViews["dispatcher-chips"].swipeLeft()
+            if !choice.isHittable { app.scrollViews["dispatcher-chips"].swipeRight() }
+        }
+        XCTAssertTrue(choice.isEnabled && choice.isHittable)
+        return choice
+    }
+
+    func testDesktopSwitcherUsesDispatcherNamesWithoutMachineChrome() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
-                             "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        XCTAssertEqual(switcher.label, "Echo on Travel MacBook", "Dispatcher names, not machines, determine the initial order")
-        XCTAssertTrue(app.navigationBars["Echo"].exists)
-        let studio = app.buttons["dispatcher-desktop-preview-studio"]
-        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
-        waitAndTap(switcher, until: studio)
-        screenshot(app, "Dispatcher names with machine subtitles")
-        XCTAssertEqual(studio.label, "Navi on Studio Mac")
-        XCTAssertEqual(travel.label, "Echo on Travel MacBook")
-        try assertMachineSubtitles(app)
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"], attempts: 1)
+        let studio = dispatcherChoice(app, host: "preview-studio")
+        XCTAssertEqual(studio.label, "Navi")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Echo")
+        XCTAssertTrue(app.navigationBars["Echo"].exists, "Names retain the existing initial sort order")
+        XCTAssertFalse(app.buttons["Settings"].exists)
+        screenshot(app, "Dispatch chips use chat names only")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
+        XCTAssertTrue(app.buttons["dispatcher-desktop-preview-studio"].isSelected)
     }
 
     func testSnapshotChatNameIsPreservedBeforeSettingsLoad() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
-                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        let studio = app.buttons["dispatcher-desktop-preview-studio"]
-        waitAndTap(switcher, until: studio)
-        screenshot(app, "The snapshot chosen chat name needs no settings read")
-        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
+                             "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name"], attempts: 1)
+        let studio = dispatcherChoice(app, host: "preview-studio")
+        XCTAssertEqual(studio.label, "Dispatcher controller, 1 of 2")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller, 2 of 2")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
         XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
+        screenshot(app, "Cached chosen names before settings load")
     }
 
     func testSettingsChatNameOverridesTheSnapshotChatName() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
-                             "--companion-preview-named-dispatchers", "--companion-preview-dispatcher-settings"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        let studio = app.buttons["dispatcher-desktop-preview-studio"]
-        waitAndTap(switcher, until: studio)
-        XCTAssertEqual(studio.label, "Navi on Studio Mac")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook")
-        screenshot(app, "Chosen Dispatcher chat name from settings")
+                             "--companion-preview-named-dispatchers", "--companion-preview-dispatcher-settings"], attempts: 1)
+        let studio = dispatcherChoice(app, host: "preview-studio")
+        XCTAssertEqual(studio.label, "Navi")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
         XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Navi,"))
         let settings = app.buttons["Agent settings"]
         waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
@@ -515,16 +502,12 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     func testAnExplicitControllerChatNameIsNotTreatedAsALegacyRoleLabel() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-controller-name",
-                             "--companion-preview-dispatcher-settings", "--companion-preview-chosen-controller-name"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        let studio = app.buttons["dispatcher-desktop-preview-studio"]
-        waitAndTap(switcher, until: studio)
-        XCTAssertEqual(studio.label, "Dispatcher controller on Studio Mac", "The authoritative chosen name is preserved")
-        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller on Travel MacBook", "The snapshot name is authoritative without settings too")
+                             "--companion-preview-dispatcher-settings", "--companion-preview-chosen-controller-name"], attempts: 1)
+        let studio = dispatcherChoice(app, host: "preview-studio")
+        XCTAssertEqual(studio.label, "Dispatcher controller, 1 of 2", "The authoritative chosen name is preserved")
+        XCTAssertEqual(app.buttons["dispatcher-desktop-preview-laptop"].label, "Dispatcher controller, 2 of 2")
         studio.tap()
         XCTAssertTrue(app.navigationBars["Dispatcher controller"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Dispatcher controller on Studio Mac")
         XCTAssertTrue(element(app, "companion-chat-header").label.hasPrefix("Dispatcher controller,"))
         let settings = app.buttons["Agent settings"]
         waitAndTap(app.navigationBars.buttons["Conversation actions"], until: settings)
@@ -532,89 +515,62 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         waitAndTap(settings, until: element(app, "dispatcher-behavior-standard"), timeout: 10)
         XCTAssertTrue(scrollUntilExists(name, in: app) && scrollTo(name, in: app))
         XCTAssertEqual(name.value as? String, "Dispatcher controller")
-        screenshot(app, "An explicit controller chat name is preserved")
     }
 
-    func testPresenceShowsInformationalRemotesWithOnePairedDispatcher() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-presence"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15), "One paired Dispatcher plus remotes still has a chooser")
-        let office = app.buttons["dispatcher-remote-preview-office"]
-        waitAndTap(switcher, until: office)
-        XCTAssertTrue(office.label.hasPrefix("Atlas on Office Mac, Offline · last seen "))
-        XCTAssertTrue(office.label.contains("last seen "))
-        XCTAssertTrue(office.label.contains("Can't reach from this phone"))
-        XCTAssertFalse(office.isEnabled, "An unpaired Dispatcher cannot be selected")
-        let mini = app.buttons["dispatcher-remote-preview-mini"]
-        XCTAssertEqual(mini.label.replacingOccurrences(of: "\n", with: " "), "Navi on Mac mini, Asleep Can't reach from this phone")
-        XCTAssertFalse(mini.isEnabled)
-        XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Turned off")
-        let visibleLines = try visibleText(app)
-        let visible = visibleLines.joined(separator: " ")
-        XCTAssertTrue(visibleLines.contains("Can't reach"), "The native menu must show the complete short link warning, without truncation")
-        XCTAssertTrue(visible.contains("last seen"), "Last seen remains visible alongside the link state")
-        screenshot(app, "Other computers' Dispatchers")
+    func testPresenceOmitsUnpairedRemotesWithOnePairedDispatcher() throws {
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-presence"], attempts: 1)
+        XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["dispatcher-desktop-switcher"].exists, "A single paired Dispatcher needs no stack")
+        XCTAssertFalse(app.scrollViews["dispatcher-chips"].exists)
+        XCTAssertFalse(app.buttons["Settings"].exists)
+        for remote in ["office", "mini", "off"] { XCTAssertFalse(app.buttons["dispatcher-remote-preview-\(remote)"].exists) }
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Office Mac")).firstMatch.exists)
+        screenshot(app, "Single paired Dispatcher excludes unknown remotes")
     }
 
-    func testLegacyControllerPresenceKeepsThePairedChatNameAndDefaultsUnknownRemoteNames() {
+    func testLegacyControllerPresenceCannotReplacePairedChatNames() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
-                             "--companion-preview-dispatcher-presence", "--companion-preview-controller-presence"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        XCTAssertEqual(switcher.label, "Echo on Travel MacBook")
-        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
-        waitAndTap(switcher, until: travel)
-        XCTAssertEqual(travel.label, "Echo on Travel MacBook, Working")
-        XCTAssertTrue(app.buttons["dispatcher-remote-preview-office"].label.hasPrefix("Dispatcher on Office Mac, Offline · last seen "))
-        XCTAssertEqual(app.buttons["dispatcher-remote-preview-mini"].label.replacingOccurrences(of: "\n", with: " "), "Dispatcher on Mac mini, Asleep Can't reach from this phone")
-        XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Turned off")
+                             "--companion-preview-dispatcher-presence", "--companion-preview-controller-presence"], attempts: 1)
+        let travel = dispatcherChoice(app, host: "preview-laptop")
+        XCTAssertEqual(travel.label, "Echo")
+        for remote in ["office", "mini", "off"] { XCTAssertFalse(app.buttons["dispatcher-remote-preview-\(remote)"].exists) }
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Dispatcher controller")).firstMatch.exists)
-        screenshot(app, "Legacy presence uses chat names not controller roles")
-        app.buttons["dispatcher-desktop-preview-studio"].tap()
+        dispatcherChoice(app, host: "preview-studio").tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
-        XCTAssertEqual(switcher.label, "Navi on Studio Mac")
+        screenshot(app, "Legacy presence cannot replace paired chip names")
     }
 
-    func testPresenceMergesAPairedRemoteWithoutDuplicatingOrDisablingItsRow() {
+    func testPairedPresenceDoesNotDuplicateOrDisableAChip() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch",
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
-                             "--companion-preview-dispatcher-presence"])
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
-        waitAndTap(switcher, until: travel)
-        XCTAssertEqual(travel.label, "Echo on Travel MacBook, Working")
+                             "--companion-preview-dispatcher-presence"], attempts: 1)
+        let travel = dispatcherChoice(app, host: "preview-laptop")
+        XCTAssertEqual(travel.label, "Echo")
         XCTAssertTrue(travel.isEnabled)
+        XCTAssertEqual(app.buttons.matching(identifier: "dispatcher-desktop-preview-laptop").count, 1)
         XCTAssertFalse(app.buttons["dispatcher-remote-preview-laptop"].exists)
-        app.buttons["dispatcher-desktop-preview-studio"].tap()
+        dispatcherChoice(app, host: "preview-studio").tap()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
-        waitAndTap(switcher, until: travel)
-        travel.tap()
-        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 5), "Merged paired rows retain their navigation")
+        dispatcherChoice(app, host: "preview-laptop").tap()
+        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 5), "Paired chips retain navigation")
     }
 
     func testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions() throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300)
-        let switcher = app.buttons["dispatcher-desktop-switcher"]
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-multiple-dispatchers", "--companion-preview-long-reply"], allowance: 300, attempts: 1)
         var composer: XCUIElement { app.textFields.matching(identifier: "companion-composer").firstMatch }
-        XCTAssertTrue(switcher.waitForExistence(timeout: 15))
-        XCTAssertEqual(switcher.label, "Dispatcher on Studio Mac")
+        XCTAssertTrue(app.buttons["dispatcher-desktop-preview-studio"].waitForExistence(timeout: 15))
         XCTAssertTrue(element(app, "companion-chat-header").label.contains("Studio Mac / Dispatcher"))
         composer.tap()
         composer.typeText("For Studio")
-        // Dismiss the keyboard, then scroll away from the latest on A.
         dismissKeyboard(app)
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
         XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 10))
-        screenshot(app, "Dispatcher long reply away from latest")
-        let travel = app.buttons["dispatcher-desktop-preview-laptop"]
-        let studio = app.buttons["dispatcher-desktop-preview-studio"]
-        waitAndTap(switcher, until: travel)
-        XCTAssertEqual(travel.label, "Dispatcher on Travel MacBook", "Unnamed Dispatchers remain distinguishable")
-        XCTAssertEqual(studio.label, "Dispatcher on Studio Mac")
-        screenshot(app, "Unnamed Dispatchers with machine subtitles")
-        try assertMachineSubtitles(app)
+        XCTAssertTrue(app.buttons["dispatcher-desktop-switcher"].waitForExistence(timeout: 5), "Reading earlier collapses chips into the stack")
+        XCTAssertFalse(app.scrollViews["dispatcher-chips"].exists)
+        screenshot(app, "Dispatch collapsed while reading earlier")
+        let travel = dispatcherChoice(app, host: "preview-laptop")
+        XCTAssertEqual(travel.label, "Dispatcher, 2 of 2", "Duplicate chosen names are distinguished without machine chrome")
         travel.tap()
         let travelHeader = app.descendants(matching: .any).matching(identifier: "companion-chat-header")
             .matching(NSPredicate(format: "label CONTAINS %@", "Travel MacBook / Dispatcher")).firstMatch
@@ -622,16 +578,14 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertNotEqual(composer.value as? String, "For Studio", "B starts with its own empty draft")
         composer.tap()
         composer.typeText("For Travel")
-        waitAndTap(switcher, until: studio)
-        studio.tap()
+        dispatcherChoice(app, host: "preview-studio").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "For Studio"), timeout: 5))
         XCTAssertTrue(app.pausedChatNavigation.exists, "A keeps its scroll position away from the latest")
         tab(app, "Home").tap()
         tab(app, "Dispatch").tap()
         XCTAssertTrue(app.pausedChatNavigation.exists, "Switching tabs keeps A’s scroll position too")
         screenshot(app, "Dispatcher restored after tab and desktop switches")
-        waitAndTap(switcher, until: travel)
-        travel.tap()
+        dispatcherChoice(app, host: "preview-laptop").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "For Travel"), timeout: 5))
     }
 

@@ -15,6 +15,7 @@ import UIKit
         static let dispatcherDesktops = "companion.dispatcherDesktops"
         static let projectSort = "companion.projectSort"
         static let projectOrder = "companion.projectOrder"
+        static let lastDispatcherHost = "companion.lastDispatcherHostID"
         static let lastHost = "companion.lastHostID"
         static let deviceName = "companion.deviceName"
         static let pinnedProjects = "companion.pinnedProjects"
@@ -56,6 +57,8 @@ import UIKit
     var projectOrder: [String] { didSet { defaults.set(projectOrder, forKey: Key.projectOrder) } }
     /// The desktop you last opened an agent on. Screens that span desktops take its theme.
     var lastHostID: String? { didSet { defaults.set(lastHostID, forKey: Key.lastHost) } }
+    /// Dispatch restores independently of the most recent Home/search agent.
+    var lastDispatcherHostID: String? { didSet { defaults.set(lastDispatcherHostID, forKey: Key.lastDispatcherHost) } }
     /// What desktops call this phone, as typed. Starts as the system name and is saved once edited.
     var deviceName: String { didSet { defaults.set(deviceName, forKey: Key.deviceName) } }
     /// Projects pinned to the top of Home, by `CompanionProjectEntry.orderKey`.
@@ -108,6 +111,7 @@ import UIKit
         projectSort = defaults.string(forKey: Key.projectSort).flatMap(CompanionProjectSort.init(rawValue:)) ?? .recent
         projectOrder = defaults.stringArray(forKey: Key.projectOrder) ?? []
         lastHostID = defaults.string(forKey: Key.lastHost)
+        lastDispatcherHostID = (defaults.object(forKey: Key.lastDispatcherHost) as? String).flatMap { $0.isEmpty ? nil : $0 }
         pinnedProjects = defaults.stringArray(forKey: Key.pinnedProjects) ?? []
         inactiveProjects = defaults.stringArray(forKey: Key.inactiveProjects) ?? []
         projectActivity = ((defaults.dictionary(forKey: Key.projectActivity) as? [String: Double]) ?? [:]).mapValues(Date.init(timeIntervalSince1970:))

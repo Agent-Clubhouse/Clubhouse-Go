@@ -42,13 +42,15 @@ struct CompanionNavigation {
     var paths: [CompanionTab: [CompanionRoute]] = [:]
     private(set) var dispatcherDesktops: [CompanionDispatcherDesktop]
     private(set) var dispatcherHostID: String?
+    var dispatcherReplies = CompanionDispatcherReplies()
     private var awaitingFirstReport: Bool
     private var observedHostIDs: Set<String> = []
     private var pendingDispatcherLink: CompanionTarget?
 
-    init(lastTab: CompanionTab = .home, cached: [CompanionDispatcherDesktop]? = nil, lastHostID: String? = nil) {
+    init(lastTab: CompanionTab = .home, cached: [CompanionDispatcherDesktop]? = nil, lastHostID: String? = nil, lastDispatcherHostID: String? = nil) {
         dispatcherDesktops = cached ?? []
-        dispatcherHostID = cached?.first { $0.id == lastHostID }?.id ?? cached?.first?.id ?? lastHostID
+        let preferred = lastDispatcherHostID ?? lastHostID
+        dispatcherHostID = cached?.first { $0.id == preferred }?.id ?? cached?.first?.id ?? preferred
         awaitingFirstReport = lastTab == .dispatcher && cached == nil
         if tabs.contains(lastTab.destination) { tab = lastTab.destination }
     }
@@ -57,7 +59,8 @@ struct CompanionNavigation {
     var dispatcherTarget: CompanionTarget? { dispatcherDesktops.first { $0.id == dispatcherHostID }?.target }
     /// Resolve from the visible desktop's current catalog, rather than a cached desktop label or another chat.
     func dispatcherTitle(hosts: [CompanionHost]) -> String {
-        hosts.first { $0.id == dispatcherHostID }?.dispatcherDisplayName ?? CompanionDispatcher.name
+        hosts.first { $0.id == dispatcherHostID }?.dispatcherDisplayName
+            ?? dispatcherDesktops.first { $0.id == dispatcherHostID }?.displayName ?? CompanionDispatcher.name
     }
     var visibleAgent: CompanionTarget? { paths[tab]?.last?.agent ?? (tab == .dispatcher && (paths[tab] ?? []).isEmpty ? dispatcherTarget : nil) }
     mutating func interact() { awaitingFirstReport = false; pendingDispatcherLink = nil }
@@ -107,7 +110,13 @@ struct CompanionNavigation {
             let order = $0.displayName.localizedStandardCompare($1.displayName)
             return (order == .orderedSame ? $0.name.localizedStandardCompare($1.name) : order) == .orderedAscending
         }
-        if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }) { dispatcherHostID = dispatcherDesktops.first?.id }
+        // An unknown catalog before the first report cannot invalidate a saved choice.
+        // A real report (including removal of all previously observed hosts) still can.
+        let canResolve = !removed.isEmpty || hosts.contains { $0.dispatcher != nil || $0.connection.canOperate }
+        if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }),
+           canResolve || !dispatcherDesktops.isEmpty {
+            dispatcherHostID = dispatcherDesktops.first?.id
+        }
         if awaitingFirstReport, hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
             awaitingFirstReport = false
             if !dispatcherDesktops.isEmpty { tab = .dispatcher }

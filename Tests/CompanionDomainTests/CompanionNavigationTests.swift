@@ -355,4 +355,46 @@ import Testing
             #expect(CompanionPreferences(defaults: defaults).recentAgents.isEmpty)
         }
     }
+    @MainActor @Test func dispatchSelectionPersistsIndependentlyOfHomeAndRejectsCorruptChoices() throws {
+        let suite = "dispatch-selection-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let choices = try [host("a"), host("b")].map { try #require(CompanionDispatcherDesktop(host: $0)) }
+        let preferences = CompanionPreferences(defaults: defaults)
+        preferences.lastDispatcherHostID = "b"
+        preferences.lastHostID = "a"
+        let restored = CompanionPreferences(defaults: defaults)
+        #expect(restored.lastDispatcherHostID == "b" && restored.lastHostID == "a")
+        var navigation = CompanionNavigation(lastTab: .dispatcher, cached: choices,
+            lastHostID: restored.lastHostID, lastDispatcherHostID: restored.lastDispatcherHostID)
+        #expect(navigation.dispatcherHostID == "b")
+        for cache: [CompanionDispatcherDesktop]? in [nil, []] {
+            var cold = CompanionNavigation(lastTab: .dispatcher, cached: cache,
+                lastHostID: "a", lastDispatcherHostID: "b")
+            cold.update(hosts: [])
+            #expect(cold.dispatcherHostID == "b", "The initial unknown catalog cannot discard the saved Dispatcher")
+            cold.update(hosts: ["a", "b"].map { CompanionHost(id: $0, name: $0, endpoint: "", connection: .connecting, projects: []) })
+            #expect(cold.dispatcherHostID == "b", "Pairing placeholders are not an authoritative Dispatcher catalog")
+            cold.update(hosts: [host("a"), host("b")])
+            #expect(cold.dispatcherHostID == "b", "The first real report restores the saved choice, not its first row")
+            cold.update(hosts: [host("a")])
+            #expect(cold.dispatcherHostID == "a", "A real removal still falls back safely")
+            cold.update(hosts: [])
+            #expect(cold.dispatcherHostID == nil, "Removing every observed host clears the selection")
+        }
+        navigation.retainPairedDesktops(["a"])
+        #expect(navigation.dispatcherHostID == "a")
+        for invalid: Any in [17, Data("invalid".utf8), ["a"], ""] {
+            defaults.set(invalid, forKey: "companion.lastDispatcherHostID")
+            let invalidPreferences = CompanionPreferences(defaults: defaults)
+            #expect(invalidPreferences.lastDispatcherHostID == nil)
+            let fallback = CompanionNavigation(lastTab: .dispatcher, cached: choices,
+                lastHostID: invalidPreferences.lastHostID, lastDispatcherHostID: invalidPreferences.lastDispatcherHostID)
+            #expect(fallback.dispatcherHostID == "a", "Missing/corrupt selection preserves the existing fallback")
+        }
+        let removed = CompanionNavigation(lastTab: .dispatcher, cached: choices,
+            lastHostID: "a", lastDispatcherHostID: "forgotten")
+        #expect(removed.dispatcherHostID == "a")
+    }
+
 }
