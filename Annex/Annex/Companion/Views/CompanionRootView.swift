@@ -10,6 +10,7 @@ struct CompanionRootView: View {
     var onSettings: () -> Void
     var isPreview = false
     var pairedHostIDs: Set<String>?
+    var externalLaunchRestoreFailed: Bool
     var externalLaunchReady: Bool
     private struct DispatcherLaunchPrompt: Identifiable {
         let id: UUID
@@ -33,7 +34,7 @@ struct CompanionRootView: View {
     @State private var decisionsLifetime: CompanionStateLifetime<CompanionDecisionQueue>
     private var decisions: CompanionDecisionQueue { decisionsLifetime.value }
 
-    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false, pairedHostIDs: Set<String>? = nil, externalLaunchReady: Bool = false) {
+    init(store: CompanionStore, preferences: CompanionPreferences, onPair: @escaping () -> Void, onSettings: @escaping () -> Void, isPreview: Bool = false, pairedHostIDs: Set<String>? = nil, externalLaunchReady: Bool = false, externalLaunchRestoreFailed: Bool = false) {
         _store = Bindable(store)
         self.preferences = preferences
         self.onPair = onPair
@@ -41,6 +42,7 @@ struct CompanionRootView: View {
         self.isPreview = isPreview
         self.pairedHostIDs = pairedHostIDs
         self.externalLaunchReady = externalLaunchReady
+        self.externalLaunchRestoreFailed = externalLaunchRestoreFailed
         var navigation = CompanionNavigation(lastTab: preferences.lastTab, cached: preferences.dispatcherDesktops,
                                              lastHostID: preferences.lastHostID, lastDispatcherHostID: preferences.lastDispatcherHostID)
         navigation.update(hosts: store.hosts)
@@ -192,7 +194,7 @@ struct CompanionRootView: View {
         guard let request = CompanionDispatcherLaunchInbox.shared.pending,
               dispatcherLaunchPrompt == nil, !externalLaunchDismissal else { return }
         let result = navigation.resolveDispatcherLaunch(pairedHostIDs: launchPairedIDs,
-            restorationComplete: externalLaunchReady, hosts: store.hosts)
+            restorationComplete: externalLaunchReady, restorationFailed: externalLaunchRestoreFailed, hosts: store.hosts)
         // Retain the handoff until the active presentation's onDismiss. Setting another
         // sheet immediately would consume a request behind an already-presented controller.
         guard result != .waiting else { return }

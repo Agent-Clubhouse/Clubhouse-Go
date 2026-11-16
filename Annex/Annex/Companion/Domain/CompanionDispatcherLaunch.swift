@@ -57,8 +57,12 @@ extension CompanionNavigation {
     /// the owner's hosts onChange. Reconcile synchronously so opening and resolution
     /// use the same current targets, rather than consuming the request against a stale cache.
     mutating func resolveDispatcherLaunch(pairedHostIDs: Set<String>?, restorationComplete: Bool,
-                                         hosts: [CompanionHost]) -> CompanionDispatcherLaunchResolution {
-        guard restorationComplete, let pairedHostIDs else { return .waiting }
+                                         restorationFailed: Bool = false, hosts: [CompanionHost]) -> CompanionDispatcherLaunchResolution {
+        guard restorationComplete else { return .waiting }
+        // Acknowledged failure is a terminal outcome, not pairing authority. Never open
+        // an old cached target when the current install could not restore its identities.
+        if restorationFailed { return .unavailable }
+        guard let pairedHostIDs else { return .waiting }
         update(hosts: hosts)
         retainPairedDesktops(pairedHostIDs)
         return CompanionDispatcherLaunchResolution.resolve(desktops: dispatcherDesktops,

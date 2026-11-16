@@ -249,8 +249,14 @@ struct CompanionAppRoot: View {
     @AppStorage("companion.welcomeDone") private var welcomeDone = false
     @State private var showDemo = false
     @State private var externalLaunchDismissal = false
+    @State private var externalRestoreFailureAcknowledged = false
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
+
+    private func acknowledgeRestoreError() {
+        if runtime.restoredHostIDs == nil && !runtime.isRestoring { externalRestoreFailureAcknowledged = true }
+        runtime.restoreError = nil
+    }
 
     private func openSettings() {
         $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
@@ -270,8 +276,9 @@ struct CompanionAppRoot: View {
                               onSettings: { [settingsCapture = $settingsCapture.releasingFeedbackScreenshot] in
                                   settingsCapture.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
                               }, pairedHostIDs: runtime.restoredHostIDs,
-                              externalLaunchReady: runtime.restoredHostIDs != nil && !runtime.isRestoring
-                                && settingsCapture == nil && !showPairing && !showDemo && !externalLaunchDismissal)
+                              externalLaunchReady: (runtime.restoredHostIDs != nil || externalRestoreFailureAcknowledged) && !runtime.isRestoring
+                                && runtime.restoreError == nil && settingsCapture == nil && !showPairing && !showDemo && !externalLaunchDismissal,
+                              externalLaunchRestoreFailed: externalRestoreFailureAcknowledged && runtime.restoredHostIDs == nil)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -309,8 +316,8 @@ struct CompanionAppRoot: View {
             .overlay(alignment: .top) {
                 if runtime.isRestoring { ProgressView("Restoring desktops…").padding(.horizontal, 18).padding(.vertical, 12).glassEffect(.regular, in: .capsule).padding() }
             }
-            .alert("Could not restore desktops", isPresented: Binding(get: { runtime.restoreError != nil }, set: { if !$0 { runtime.restoreError = nil } })) {
-                Button("OK") { runtime.restoreError = nil }
+            .alert("Could not restore desktops", isPresented: Binding(get: { runtime.restoreError != nil }, set: { if !$0 { acknowledgeRestoreError() } })) {
+                Button("OK", action: acknowledgeRestoreError)
             } message: { Text(runtime.restoreError ?? "") }
             .task {
                 await runtime.start()

@@ -70,6 +70,17 @@ import Testing
             hosts: [a]) == .open(da))
         #expect(single.dispatcherTarget == da.target, "Root's subsequent open can use the reconciled target immediately")
     }
+    @Test func acknowledgedRestoreFailureResolvesUnavailableWithoutTrustingCachedTargets() {
+        let a = host("a"), cached = CompanionDispatcherDesktop(host: a)!
+        var navigation = CompanionNavigation(cached: [cached])
+        #expect(navigation.resolveDispatcherLaunch(pairedHostIDs: nil, restorationComplete: false,
+            restorationFailed: true, hosts: []) == .waiting, "The visible restore error is acknowledged first")
+        #expect(navigation.resolveDispatcherLaunch(pairedHostIDs: nil, restorationComplete: true,
+            restorationFailed: true, hosts: []) == .unavailable)
+        #expect(navigation.dispatcherDesktops == [cached], "Unavailable does not manufacture pairing authority or rewrite saved identity")
+        #expect(navigation.resolveDispatcherLaunch(pairedHostIDs: nil, restorationComplete: true,
+            hosts: []) == .waiting, "Unknown restoration without a terminal failure still waits")
+    }
     @Test func zeroOneAndManyUseOnlyPairedReportedDispatchers() {
         let a = host("a"), b = host("b")
         let da = CompanionDispatcherDesktop(host: a)!, db = CompanionDispatcherDesktop(host: b)!

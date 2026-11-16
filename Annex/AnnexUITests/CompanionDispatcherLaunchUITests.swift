@@ -48,10 +48,18 @@ import XCTest
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
         nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+        let restoreError = app.alerts["Could not restore desktops"]
+        let unexpectedRestoreFailure = restoreError.waitForExistence(timeout: 3)
+        if unexpectedRestoreFailure {
+            screenshot(app, "native-cold-unexpected-restore-error")
+            restoreError.buttons["OK"].tap()
+            XCTAssertTrue(restoreError.waitForNonExistence(timeout: 5))
+        }
         XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 20))
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch.exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         screenshot(app, "native-cold-quick-action-no-pairings")
+        XCTAssertFalse(unexpectedRestoreFailure, "Clean-install production restoration failed; the error is a separate finding even if the external handoff recovers")
     }
 
     func testColdSingleDispatcherFocusesWithoutSendingAndWarmNativeActionKeepsDraft() {
